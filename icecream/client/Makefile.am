@@ -9,7 +9,7 @@ CLEANFILES = icecc++
 
 all-local: icecc++
 
-icecc++: icecc
+icecc++:
 	-rm -f icecc++
 	$(LN_S) icecc icecc++
 
