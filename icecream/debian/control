@@ -1,7 +1,7 @@
 Source: icecc
 Section: kde
 Priority: optional
-Maintainer: Andre Wöbbeking <Woebbeking@web.de>
+Maintainer: Andre Woebbeking <Woebbeking@web.de>
 Uploaders:
 Build-Depends: automake1.7, debhelper (>> 4.0.0), kdelibs4-dev (>= 4:3.3.0) kdebase-dev (>= 4:3.3.0)
 Standards-Version: 3.6.1.0
