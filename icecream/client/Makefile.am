@@ -15,9 +15,12 @@ icecc++: icecc
 
 install-exec-local:
 	$(mkinstalldirs) $(DESTDIR)$(bindir)
-	rm -f $(DESTDIR)$(bindir)/icecc++
-	$(LN_S) icecc $(DESTDIR)$(bindir)/icecc++
+	for link in icecc++ g++ gcc c++ cc; do \
+	  rm -f $(DESTDIR)$(bindir)/$$link ;\
+	  $(LN_S) icecc $(DESTDIR)$(bindir)/$$link ;\
+	done
 
 uninstall-local:
-	rm $(DESTDIR)$(bindir)/icecc++
-
+	for link in icecc++ g++ gcc c++ cc; do \
+	  rm $(DESTDIR)$(bindir)/$$link ;\
+	done
