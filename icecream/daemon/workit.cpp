@@ -174,6 +174,7 @@ int work_it( CompileJob &j,
         int argc = list.size();
         argc++; // the program
         argc += 4; // file.i -o file.o
+        argc += 4; // gpc parameters
         char **argv = new char*[argc + 1];
         if (j.language() == CompileJob::Lang_C)
             argv[0] = strdup( "usr/bin/gcc" );
@@ -198,6 +199,7 @@ int work_it( CompileJob &j,
         argv[i++] = strdup( "--param" );
         sprintf( buffer, "ggc-min-heapsize=%d", ggc_min_heapsize_heuristic( mem_limit ) );
         argv[i++] = strdup( buffer );
+        // before you add new args, check above for argc
         argv[i] = 0;
 #if 0
         printf( "forking " );
