@@ -273,7 +273,15 @@ bool analyse_argv( const char * const *argv,
                       || ext == "mii" || ext == "mm"
                       || ext == "M" ) {
                 job.setLanguage( CompileJob::Lang_OBJC );
-            } else if ( ext == "s" || ext == "S" ) {
+            } else if ( ext == "s" || ext == "S" || // assembler
+                        ext == "ads" || ext == "adb" || // ada
+                        ext == "f" || ext == "for" || // fortran
+                        ext == "FOR" || ext == "F" ||
+                        ext == "fpp" || ext == "FPP" ||
+                        ext == "r" )  {
+                always_local = true;
+            } else {
+                log_warning() << "unknown extension " << ext << endl;
                 always_local = true;
             }
 
