@@ -245,7 +245,7 @@ bool maybe_stats() {
         StatsMsg msg;
         if ( !fill_stats( msg ) ) {
             log_error() << "can't find out stats" << endl;
-        } else { // Matz got in the urin that not all CPUs are always feed
+        } else { // Matz got in the urine that not all CPUs are always feed
             mem_limit = std::max( msg.freeMem / std::max( max_kids, 4 ), 100U );
         }
 
