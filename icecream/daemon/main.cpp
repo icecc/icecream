@@ -440,8 +440,6 @@ int main( int argc, char ** argv )
     int tosleep = 0;
 
     while ( 1 ) {
-        trace() << "starting " << listen_fd << endl;
-
         if ( listen_fd ) {
             // as long as we have no scheduler, don't listen for clients
             close( listen_fd );
@@ -466,7 +464,6 @@ int main( int argc, char ** argv )
 
         int port;
         listen_fd = setup_listen_fd(port);
-        trace() << "setup_listen_fd " << listen_fd << endl;
         if ( listen_fd == -1 ) // error
             return 1;
 
@@ -504,7 +501,7 @@ int main( int argc, char ** argv )
                     pid = fork();
                     if ( pid == 0 ) {
                         Msg *msg = req.second->get_msg();
-                        ::exit( msg && msg->type == M_END ); // signal parent
+                        ::exit( !msg || msg->type != M_END ); // signal parent
                     }
                 } else
                     pid = handle_connection( envbasedir, req.first, req.second, sock, mem_limit );

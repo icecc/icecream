@@ -149,8 +149,11 @@ int build_local(CompileJob &job, MsgChannel *scheduler)
 
     pid_t child = 0;
 
-    if ( scheduler )
+    if ( scheduler > 0 ) {
         child = fork();
+        if ( int( scheduler ) == 1  )
+            scheduler = 0;
+    }
 
     if ( child ) {
         // setup interrupt signals, so that the JobLocalBeginMsg will
@@ -159,16 +162,18 @@ int build_local(CompileJob &job, MsgChannel *scheduler)
         void (*old_sigterm)(int) = signal( SIGTERM, handle_user_break );
         void (*old_sigquit)(int) = signal( SIGQUIT, handle_user_break );
         void (*old_sighup)(int) = signal( SIGHUP, handle_user_break );
-        scheduler->send_msg( JobLocalBeginMsg( get_absfilename( job.outputFile() )) );
-        Msg * umsg = scheduler->get_msg();
         uint job_id = 0;
-        if (!umsg || umsg->type != M_JOB_LOCAL_ID)
-        {
-            log_error() << "replied not with local job id " << ( umsg ? ( char )umsg->type : '0' )  << endl;
-            delete umsg;
-            scheduler = 0;
-        } else
-            job_id = dynamic_cast<JobLocalId*>( umsg )->job_id;
+        if ( scheduler ) {
+            scheduler->send_msg( JobLocalBeginMsg( get_absfilename( job.outputFile() )) );
+            Msg * umsg = scheduler->get_msg();
+            if (!umsg || umsg->type != M_JOB_LOCAL_ID)
+            {
+                log_error() << "replied not with local job id " << ( umsg ? ( char )umsg->type : '0' )  << endl;
+                delete umsg;
+                scheduler = 0;
+            } else
+                job_id = dynamic_cast<JobLocalId*>( umsg )->job_id;
+        }
 
         int status;
         if( wait( &status ) > 0 )

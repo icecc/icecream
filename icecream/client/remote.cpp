@@ -440,8 +440,15 @@ int build_remote(CompileJob &job, MsgChannel *scheduler, const Environments &_en
                 MsgChannel *cserver = serv->channel();
                 if ( !cserver->protocol ) // very unlikely as we talked before with him
                     throw ( 2 );
-
-                ret = build_local( job, scheduler );
+                CompileFileMsg compile_file( &job );
+                if ( !cserver->send_msg( compile_file ) ) {
+                    log_info() << "write of job failed" << endl;
+                    delete serv;
+                    throw( 9 );
+                }
+                ret = build_local( job, ( MsgChannel* )1 ); // I'm too lazy to introduce a third parameter
+                cserver->send_msg( EndMsg() );
+                delete cserver;
                 return ret;
             }
         }
