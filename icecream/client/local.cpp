@@ -109,7 +109,7 @@ void handle_user_break( int sig )
  *
  * This is called with a lock on localhost already held.
  **/
-int build_local(CompileJob &job, MsgChannel *scheduler, struct rusage *used)
+int build_local(CompileJob &job, struct rusage *used)
 {
     list<string> arguments;
 
@@ -152,9 +152,8 @@ int build_local(CompileJob &job, MsgChannel *scheduler, struct rusage *used)
 
     pid_t child = 0;
 
-    if ( scheduler > 0 || used) {
+    if ( used )
         child = fork();
-    }
 
     if ( child ) {
         // setup interrupt signals, so that the JobLocalBeginMsg will
@@ -163,24 +162,11 @@ int build_local(CompileJob &job, MsgChannel *scheduler, struct rusage *used)
         void (*old_sigterm)(int) = signal( SIGTERM, handle_user_break );
         void (*old_sigquit)(int) = signal( SIGQUIT, handle_user_break );
         void (*old_sighup)(int) = signal( SIGHUP, handle_user_break );
-        uint job_id = 0;
-        if ( scheduler ) {
-            scheduler->send_msg( JobLocalBeginMsg( get_absfilename( job.outputFile() )) );
-            Msg * umsg = scheduler->get_msg();
-            if (!umsg || umsg->type != M_JOB_LOCAL_ID)
-            {
-                log_warning() << "replied not with local job id " << ( umsg ? ( char )umsg->type : '0' )  << endl;
-                delete umsg;
-                scheduler = 0;
-            } else
-                job_id = dynamic_cast<JobLocalId*>( umsg )->job_id;
-        }
 
         int status = -1;
-        if( wait3( &status, 0, used ) > 0 )
+        if( wait4( child, &status, 0, used ) > 0 )
             status = WEXITSTATUS(status);
-        if ( scheduler )
-            scheduler->send_msg( JobLocalDoneMsg( job_id, status ) );
+
         signal( SIGINT, old_sigint );
         signal( SIGTERM, old_sigterm );
         signal( SIGQUIT, old_sigquit );

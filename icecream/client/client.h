@@ -45,7 +45,7 @@ bool analyse_argv (const char * const *argv,
 pid_t call_cpp (CompileJob &job, int fdwrite, int fdread = -1);
 
 /* In local.cpp.  */
-int build_local (CompileJob& job, MsgChannel *scheduler, struct rusage *used = 0);
+int build_local (CompileJob& job, struct rusage *used = 0);
 std::string find_compiler( const std::string &compiler );
 
 /* In remote.cpp - permill is the probability it will be compiled three times */

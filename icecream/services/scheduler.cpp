@@ -118,6 +118,7 @@ public:
   string nodename;
   time_t busy_installing;
   string host_platform;
+  unsigned int local_job_id; // only useful for type == CLIENT
 
     // unsigned int jobs_done;
     //  unsigned long long rcvd_kb, sent_kb;
@@ -133,6 +134,7 @@ public:
       type(UNKNOWN), chroot_possible(false) {
     hostid = 0;
     busy_installing = 0;
+    local_job_id = 0;
   }
   void pick_new_id() {
     assert( !hostid );
@@ -489,15 +491,21 @@ handle_local_job (MsgChannel *c, Msg *_m)
     return false;
 
   ++new_job_id;
-  if ( !c->send_msg( JobLocalId( new_job_id ) ) )
-    return false;
+  if ( !IS_PROTOCOL_20( c ) )
+    if ( !c->send_msg( JobLocalId( new_job_id ) ) )
+      return false;
 
   list<CS*>::iterator it;
   for (it = css.begin(); it != css.end(); ++it)
     if (c->eq_ip (**it))
       break;
-  if ( it != css.end() )
+  if ( it != css.end() ) {
+    // the older clients get a different way to the end
+    if ( IS_PROTOCOL_20( c ) )
+      dynamic_cast<CS*>( c )->local_job_id = new_job_id;
+    trace() << "handle_local_job " << ( *it )->local_job_id << endl;
     notify_monitors (MonLocalJobBeginMsg( new_job_id, m->outfile, m->stime, ( *it )->hostid ) );
+  }
   return true;
 }
 
@@ -508,7 +516,7 @@ handle_local_job_end (MsgChannel *, Msg *_m)
   if (!m)
     return false;
 
-  notify_monitors ( MonLocalJobDoneMsg( *m ) );
+  notify_monitors ( MonLocalJobDoneMsg( m->job_id ) );
   return true;
 }
 
@@ -1344,7 +1352,7 @@ handle_end (MsgChannel *c, Msg *m)
   else if (toremove->type == CS::CLIENT)
     {
 #if DEBUG_SCHEDULER > 1
-      trace() << "remove client\n";
+      trace() << "remove client " << m << " " << toremove->local_job_id << endl;
 #endif
 
       map<unsigned int, Job*>::iterator it;
@@ -1352,44 +1360,52 @@ handle_end (MsgChannel *c, Msg *m)
       /* A client disconnected.  */
       if (!m )
         {
-	  /* If it's disconnected without END message something went wrong,
-	     and we must remove all its job requests and jobs.  All job
-	     requests are also in the jobs list, so it's enough to traverse
-	     that one, and when finding a job to possibly remove it also
-	     from any request queues.
-	     XXX This is made particularly ugly due to using real queues.  */
-          for (it = jobs.begin(); it != jobs.end();)
-	    {
-	      if (it->second->client_channel == c)
-		{
-		  trace() << "STOP FOR " << it->first << endl;
-		  Job *job = it->second;
-                  notify_monitors (MonJobDoneMsg (JobDoneMsg( job->id,  255 )));
+          if ( toremove->local_job_id )
+            {
+                notify_monitors ( MonLocalJobDoneMsg( toremove->local_job_id ) );
+            }
+          else
+            {
 
-		  /* Remove this job from the request queue.  */
-		  list<UnansweredList*>::iterator ait;
-		  for (ait = toanswer.begin(); ait != toanswer.end();)
-		    {
-		      UnansweredList *l = *ait;
-		      if (l->server == job->submitter
-			  && (l->l.remove (job), true)
-			  && l->l.empty())
-			{
-			  ait = toanswer.erase (ait);
-			  delete l;
-			}
-		      else
-			++ait;
-		    }
+              /* If it's disconnected without END message something went wrong,
+                 and we must remove all its job requests and jobs.  All job
+                 requests are also in the jobs list, so it's enough to traverse
+                 that one, and when finding a job to possibly remove it also
+                 from any request queues.
+                 XXX This is made particularly ugly due to using real queues.  */
+              for (it = jobs.begin(); it != jobs.end();)
+                {
+                  if (it->second->client_channel == c)
+                    {
+                      trace() << "STOP FOR " << it->first << endl;
+                      Job *job = it->second;
+                      notify_monitors (MonJobDoneMsg (JobDoneMsg( job->id,  255 )));
 
-		  if ( job->server )
-		      job->server->joblist.remove (job);
-		  jobs.erase (it++);
-		  delete job;
-		}
-              else
-                ++it;
-	    }
+                      /* Remove this job from the request queue.  */
+                      list<UnansweredList*>::iterator ait;
+                      for (ait = toanswer.begin(); ait != toanswer.end();)
+                        {
+                          UnansweredList *l = *ait;
+                          if (l->server == job->submitter
+                              && (l->l.remove (job), true)
+                              && l->l.empty())
+                            {
+                              ait = toanswer.erase (ait);
+                              delete l;
+                            }
+                          else
+                            ++ait;
+                        }
+
+                      if ( job->server )
+                        job->server->joblist.remove (job);
+                      jobs.erase (it++);
+                      delete job;
+                    }
+                  else
+                    ++it;
+                }
+            }
 	}
       else
         {

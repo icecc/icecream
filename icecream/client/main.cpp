@@ -51,6 +51,8 @@
 #include <cassert>
 #include <sys/time.h>
 #include <comm.h>
+#include <sys/types.h>
+#include <sys/wait.h>
 
 #include "client.h"
 
@@ -78,19 +80,22 @@ static void dcc_show_usage(void)
 }
 
 
+volatile bool local = false;
+
 static void dcc_client_signalled (int whichsig)
 {
+    if ( !local ) {
 #ifdef HAVE_STRSIGNAL
-    log_info() << rs_program_name << ": " << strsignal(whichsig) << endl;
+        log_info() << rs_program_name << ": " << strsignal(whichsig) << endl;
 #else
-    log_info() << "terminated by signal " << whichsig << endl;
+        log_info() << "terminated by signal " << whichsig << endl;
 #endif
 
-    //    dcc_cleanup_tempfiles();
+        //    dcc_cleanup_tempfiles();
+    }
 
     signal(whichsig, SIG_DFL);
     raise(whichsig);
-
 }
 
 static void dcc_client_catch_signals(void)
@@ -124,8 +129,8 @@ int main(int argc, char **argv)
         }
     }
     setup_debug(debug_level);
-    dcc_client_catch_signals();
     string compiler_name = argv[0];
+    dcc_client_catch_signals();
 
     if ( find_basename( compiler_name ) == rs_program_name) {
         trace() << argc << endl;
@@ -154,43 +159,61 @@ int main(int argc, char **argv)
     dcc_ignore_sigpipe(1);
 
     CompileJob job;
-    bool local = analyse_argv( argv, job );
+    local = analyse_argv( argv, job );
 
-    MsgChannel *local_daemon = 0;
-    //    if (!local) // just for testing
-    local_daemon = Service::createChannel( "127.0.0.1", 10245, 0); // 0 == no timeout
+    pid_t pid = 0;
+
+    /* for local jobs, we fork off a child that tells the scheduler that we got something
+       to do and kill that child when we're done. This way we can start right away with the
+       action without any round trip delays and the scheduler can tell the monitors anyway
+    */
+    if ( local ) {
+        pid = fork();
+        if ( pid ) { // do your job and kill the rest
+            struct rusage ru;
+            int ret = build_local( job, &ru );
+            int status;
+            if ( waitpid( pid, &status, WNOHANG ) != pid && errno != ECHILD)
+                kill( pid, SIGTERM );
+            return ret; // exit the program
+        }
+    }
+
+    MsgChannel *local_daemon = Service::createChannel( "127.0.0.1", 10245, 0); // 0 == no timeout
     if ( ! local_daemon ) {
         log_warning() << "no local daemon found\n";
         delete local_daemon;
-        return build_local( job, 0 );
+        return local || build_local( job );
     }
-    if ( !local_daemon->send_msg( GetSchedulerMsg( getenv( "ICECC_VERSION" ) == 0 ) ) ) {
+    if ( !local_daemon->send_msg( GetSchedulerMsg( getenv( "ICECC_VERSION" ) == 0 && !local) ) ) {
         log_warning() << "failed to write get scheduler\n";
         delete local_daemon;
-        return build_local( job, 0 );
+        return local || build_local( job );
     }
 
     // the timeout is high because it creates the native version
     Msg *umsg = local_daemon->get_msg(4 * 60);
     if ( !umsg || umsg->type != M_USE_SCHEDULER ) {
         delete local_daemon;
-        return build_local( job, 0 );
+        return local || build_local( job );
     }
     UseSchedulerMsg *ucs = dynamic_cast<UseSchedulerMsg*>( umsg );
     Environments envs;
 
-    if ( getenv( "ICECC_VERSION" ) ) // if set, use it, otherwise take default
-        envs = parse_icecc_version( job.targetPlatform() );
-    else {
-        string native = ucs->nativeVersion;
-        if ( native.empty() ) {
-            log_warning() << "$ICECC_VERSION has to point to an existing file to be installed - as the local daemon didn't know any we try local." << endl
-                          << "Hint: you need /usr/bin/gcc _and_ /usr/bin/g++." << endl;
-            delete ucs;
-            delete local_daemon;
-            return build_local( job, 0 );
+    if ( !local ) {
+        if ( getenv( "ICECC_VERSION" ) ) // if set, use it, otherwise take default
+            envs = parse_icecc_version( job.targetPlatform() );
+        else {
+            string native = ucs->nativeVersion;
+            if ( native.empty() ) {
+                log_warning() << "$ICECC_VERSION has to point to an existing file to be installed - as the local daemon didn't know any we try local." << endl
+                              << "Hint: you need /usr/bin/gcc _and_ /usr/bin/g++." << endl;
+                delete ucs;
+                delete local_daemon;
+                return build_local( job );
+            }
+            envs.push_back(make_pair( job.targetPlatform(), native ) );
         }
-        envs.push_back(make_pair( job.targetPlatform(), native ) );
     }
 
     for ( Environments::const_iterator it = envs.begin(); it != envs.end(); ++it ) {
@@ -199,7 +222,7 @@ int main(int argc, char **argv)
             log_error() << "can't read environment " << it->second << endl;
             delete local_daemon;
             delete ucs;
-            return build_local( job, 0 );
+            return local || build_local( job );
         }
     }
 
@@ -212,24 +235,27 @@ int main(int argc, char **argv)
         log_warning() << "no scheduler found at " << ucs->hostname << ":" << ucs->port << endl;
         delete scheduler;
 	delete ucs;
-        return build_local( job, 0 );
+        return local || build_local( job );
     }
 
     delete ucs;
 
-    int ret;
     if ( local ) {
-        ret = build_local( job, scheduler );
-    }  else {
-        try {
-            // by default every 100th is compiled three times
-            const char *s = getenv( "ICECC_REPEAT_RATE" );
-            int rate = s ? atoi( s ) : 0;
-            ret = build_remote( job, scheduler, envs, rate);
-        } catch ( int error ) {
-            delete scheduler;
-            return build_local( job, 0 );
-        }
+        scheduler->send_msg( JobLocalBeginMsg( get_absfilename( job.outputFile() )) );
+        sleep( 30 * 60 ); // wait for the kill by parent - without killing the scheduler connection ;/
+        delete scheduler;
+        return 0;
+    }
+
+    int ret;
+    try {
+        // by default every 100th is compiled three times
+        const char *s = getenv( "ICECC_REPEAT_RATE" );
+        int rate = s ? atoi( s ) : 0;
+        ret = build_remote( job, scheduler, envs, rate);
+    } catch ( int error ) {
+        delete scheduler;
+        return build_local( job );
     }
     scheduler->send_msg (EndMsg());
     delete scheduler;

@@ -83,8 +83,10 @@ enum MsgType {
 
   // C --> S
   M_JOB_LOCAL_BEGIN, // = 'N'
+#if MIN_PROTOCOL_VERSION < 20 // this will change the protocol completely
   M_JOB_LOCAL_ID,
   M_JOB_LOCAL_DONE,
+#endif
 
   // CS --> S, first message sent
   M_LOGIN, // = 'Q'
@@ -359,6 +361,7 @@ public:
   virtual void send_to_channel (MsgChannel * c) const;
 };
 
+#if MIN_PROTOCOL_VERSION < 20
 class JobLocalId : public Msg {
 public:
   unsigned int job_id;
@@ -376,6 +379,7 @@ public:
   virtual void fill_from_channel (MsgChannel * c);
   virtual void send_to_channel (MsgChannel * c) const;
 };
+#endif
 
 class LoginMsg : public Msg {
 public:
@@ -487,16 +491,12 @@ public:
   virtual void send_to_channel (MsgChannel * c) const;
 };
 
-class MonLocalJobDoneMsg : public JobLocalDoneMsg {
+class MonLocalJobDoneMsg : public Msg {
 public:
-  MonLocalJobDoneMsg() : JobLocalDoneMsg() {
-    type = M_MON_LOCAL_JOB_DONE;
-  }
-  MonLocalJobDoneMsg( const JobLocalDoneMsg &m )
-    : JobLocalDoneMsg(m)
-  {
-    type = M_MON_LOCAL_JOB_DONE;
-  }
+  unsigned int job_id;
+  MonLocalJobDoneMsg(unsigned int id = 0) : Msg( M_MON_LOCAL_JOB_DONE ), job_id( id ) {}
+  virtual void fill_from_channel (MsgChannel * c);
+  virtual void send_to_channel (MsgChannel * c) const;
 };
 
 class MonStatsMsg : public Msg {

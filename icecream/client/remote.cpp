@@ -463,7 +463,7 @@ maybe_build_local (MsgChannel *scheduler, UseCSMsg *usecs, CompileJob &job,
             struct rusage ru;
 
             gettimeofday(&begintv, 0 );
-	    ret = build_local( job, 0, &ru );
+	    ret = build_local( job, &ru );
             gettimeofday(&endtv, 0 );
 
             // filling the stats, so the daemon can play proxy for us

@@ -760,7 +760,6 @@ MsgChannel::get_msg(int timeout)
   if (!has_msg ()) {
     trace() << "saw eof without msg! " << eof << " " << instate << endl;
     return 0;
-    abort (); // XXX but what else?
   }
   if (text_based)
     type = M_TEXT;
@@ -1236,6 +1235,24 @@ void JobLocalDoneMsg::send_to_channel( MsgChannel *c ) const
   c->writeuint32(job_id);
 }
 
+void MonLocalJobDoneMsg::fill_from_channel( MsgChannel *c )
+{
+  Msg::fill_from_channel(c);
+  if ( !IS_PROTOCOL_20(c ) )
+    {
+      unsigned int error = 255;
+      c->readuint32(error);
+    }
+  c->readuint32(job_id);
+}
+
+void MonLocalJobDoneMsg::send_to_channel( MsgChannel *c ) const
+{
+  Msg::send_to_channel( c );
+  if ( !IS_PROTOCOL_20( c ) )
+    c->writeuint32(0);
+  c->writeuint32(job_id);
+}
 void JobLocalId::fill_from_channel( MsgChannel *c )
 {
   Msg::fill_from_channel(c);
