@@ -27,6 +27,9 @@ Then you just compile with make -j <num>, where <num> is the amount
 of jobs you want to compile in parallel. Don't exaggerate. Numbers
 >15 normally cause trouble.
 
+WARNING: Never use icecream in untrusted environments. Run the deamons
+and the scheduler as unpriviliged user!
+
 If you want funny stats, you might want to run "icemon".
 
 Enjoy!
