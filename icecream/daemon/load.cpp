@@ -68,7 +68,8 @@ static void updateCPULoad( const char* line, CPULoadInfo* load )
     load->userLoad = ( 1000 * ( currUserTicks - load->userTicks ) ) / totalTicks;
     load->sysLoad = ( 1000 * ( currSysTicks - load->sysTicks ) ) / totalTicks;
     load->niceLoad = ( 1000 * ( currNiceTicks - load->niceTicks ) ) / totalTicks;
-    load->idleLoad = ( 1000 - ( load->userLoad + load->sysLoad + load->niceLoad ) );
+    // We want to ignore our own load (or better all nice load)
+    load->idleLoad = ( 1000 - ( load->userLoad + load->sysLoad ) );
     if ( load->idleLoad < 0 )
         load->idleLoad = 0;
   } else
@@ -147,7 +148,7 @@ bool fill_stats( StatsMsg &msg )
     n = read( fd, StatBuf, sizeof( StatBuf ) -1 );
     close( fd );
     if ( n < 40 ) {
-        log_error() << "no enough date in /proc/stat?" << endl;
+        log_error() << "no enough date in /proc/meminfo?" << endl;
         return false;
     }
     StatBuf[n] = 0;
