@@ -1,13 +1,16 @@
+#ifndef _COMPILE_JOB_H
+#define _COMPILE_JOB_H
+
 #include <list>
 #include <string>
 
 class CompileJob {
 
 public:
-    typedef enum {C, CXX, OBJC, ASM} Language;
+    typedef enum {Lang_C, Lang_CXX, Lang_OBJC, Lang_ASM} Language;
     typedef std::list<std::string> ArgumentsList;
 
-    CompileJob() : m_id( -1 ) {}
+    CompileJob() : m_id( 0 ) {}
 
     void setLanguage( Language lg ) {
         m_language = lg;
@@ -19,12 +22,13 @@ public:
     void setEnvironmentVersion( const std::string& ver ) {
         m_environment_version = ver;
     }
+
     std::string environmentVersion() const {
         return m_environment_version;
     }
 
     void setCompileFlags( const ArgumentsList & l ) {
-        m_compile_flags.assign( l );
+        m_compile_flags = l;
     }
     ArgumentsList compileFlags() const {
         return m_compile_flags;
@@ -41,7 +45,7 @@ public:
     void setJobID( unsigned int id ) {
         m_id = id;
     }
-    void jobID() const {
+    unsigned int jobID() const {
         return m_id;
     }
 
@@ -52,3 +56,5 @@ private:
     ArgumentsList m_compile_flags;
     std::string m_filename;
 };
+
+#endif

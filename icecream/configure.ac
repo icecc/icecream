@@ -19,7 +19,7 @@ then
 -Wnested-externs $CFLAGS"
     CXXFLAGS="-W -Wall -Wimplicit \
 -Wshadow -Wpointer-arith -Wcast-align -Wwrite-strings \
--Waggregate-return -Wstrict-prototypes -Wmissing-prototypes $CXXFLAGS"
+-Wstrict-prototypes -Wmissing-prototypes $CXXFLAGS"
     AC_MSG_NOTICE([Adding gcc options: $CFLAGS])
 fi
 
