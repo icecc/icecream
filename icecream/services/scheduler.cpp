@@ -473,6 +473,9 @@ platforms_compatible( const string &target, const string &platform )
       platform_map.insert( make_pair( "i586", "x86_64" ) );
 
       platform_map.insert( make_pair( "i686", "x86_64" ) );
+
+      platform_map.insert( make_pair( "ppc", "ppc64" ) );
+      platform_map.insert( make_pair( "s390", "s390x" ) );
     }
 
   multimap<string, string>::const_iterator end = platform_map.upper_bound( target );
@@ -493,7 +496,7 @@ can_install( CS* cs, const Job *job )
   // trace() << "can_install host: '" << cs->host_platform << "' target: '" << job->target_platform << "'" << endl;
   if ( cs->busy_installing )
     return false;
-  
+
   for ( Environments::const_iterator it = job->environments.begin(); it != job->environments.end(); ++it )
     {
       if ( platforms_compatible( it->first, cs->host_platform ) )
