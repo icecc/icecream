@@ -8,7 +8,7 @@
 * monitor: easier monitor views
 * client: let the client have run the job on two different servers for every 10th or 100th job
 * all: protocol version
-* scheduler, daemon: handle multiple environments
+* scheduler, daemon: handle multiple environments (also daemons with only C compiler installed)
 * scheduler: Arvin rebooted purcell and noone noticed (my compile jobs stayed in Compiling)
     The daemon tries to tell the scheduler if it goes down, but I guess purcell crashed
 
