@@ -1082,9 +1082,9 @@ handle_line (MsgChannel *c, Msg *_m)
               line += buffer;
             }
 	  c->send_msg (TextMsg (line));
-          for ( list<Job*>::const_iterator it = cs->joblist.begin(); it != cs->joblist.end(); ++it )
+          for ( list<Job*>::const_iterator it2 = cs->joblist.begin(); it2 != cs->joblist.end(); ++it2 )
             {
-              Job *job = *it;
+              Job *job = *it2;
               snprintf (buffer, sizeof (buffer), "   %d %s sub:%s on:%s ",
                         job->id,
                         job->state == Job::PENDING ? "PEND"
