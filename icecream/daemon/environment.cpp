@@ -31,6 +31,7 @@
 
 using namespace std;
 
+#if 0
 static string read_fromFILE( FILE *f )
 {
     string output;
@@ -64,16 +65,37 @@ static bool extract_version( string &version )
     version = version.substr( pos + 1);
     return true;
 }
+#endif
 
-list<string> available_environmnents(const string &basedir, string &native_environments)
+static string list_native_environment( const string &nativedir )
 {
+    assert( nativedir.at( nativedir.length() - 1 ) == '/' );
+
+    string native_environment;
+
+    DIR *tdir = opendir( nativedir.c_str() );
+    if ( tdir ) {
+        string suff = ".tar.bz2";
+        do {
+            struct dirent *myenv = readdir(tdir);
+            if ( !myenv )
+                break;
+            string versfile = myenv->d_name;
+            if ( versfile.size() > suff.size() && versfile.substr( versfile.size() - suff.size() ) == suff ) {
+                native_environment = nativedir + versfile;
+                break;
+            }
+        } while ( true );
+        closedir( tdir );
+    }
+    return native_environment;
+}
+
+list<string> available_environmnents(const string &basedir)
+{
+    assert( !::access( basedir.c_str(), W_OK ) );
+
     list<string> envs;
-    string gcc_version = read_fromFILE( popen( "/usr/bin/gcc -v 2>&1", "r" ) );
-    if ( extract_version( gcc_version ) )
-        envs.push_back( "gcc " + gcc_version );
-    string gpp_version = read_fromFILE( popen( "/usr/bin/g++ -v 2>&1", "r" ) );
-    if ( extract_version( gpp_version ) )
-        envs.push_back( "g++ " + gpp_version );
 
     DIR *envdir = opendir( basedir.c_str() );
     if ( !envdir ) {
@@ -95,6 +117,58 @@ list<string> available_environmnents(const string &basedir, string &native_envir
     return envs;
 }
 
+bool setup_env_cache(const string &basedir, string &native_environment)
+{
+    if ( !::access( basedir.c_str(), W_OK ) ) { // it exists - removing
+        if ( ( basedir.substr( 0, 5 ) != "/tmp/" && basedir.substr( 0, 9 ) != "/var/tmp/" ) ||
+             basedir.find_first_of( "'\"" ) != string::npos )
+        {
+            log_error() << "the cache directory for icecream isn't below /tmp or /var/tmp and already exists - I won't remove it!\n";
+            return false;
+        }
+        char buffer[PATH_MAX];
+        snprintf( buffer, PATH_MAX, "rm -rf '%s'", basedir.c_str() );
+        if ( system( buffer ) ) {
+            perror( "rm -rf failed" );
+            return false;
+        }
+    }
+
+    if ( mkdir( basedir.c_str(), 0755 ) ) {
+        perror( "mkdir" );
+        return false;
+    }
+
+    native_environment.clear();
+
+    if ( !::access( "/usr/bin/gcc", X_OK ) && !::access( "/usr/bin/g++", X_OK ) ) {
+        string nativedir = basedir + "/native/";
+        if ( !mkdir ( nativedir.c_str(), 0755 ) )
+        {
+            char pwd[PATH_MAX];
+            getcwd(pwd, PATH_MAX);
+            if ( chdir( nativedir.c_str() ) ) {
+                perror( "chdir" );
+                return false;
+            }
+
+            if ( system( "create-env" ) ) {
+                log_error() << "create-env failed\n";
+            } else {
+                native_environment = list_native_environment( nativedir );
+            }
+
+            if ( native_environment.empty() )
+                if ( !rmdir( nativedir.c_str() ) ) {
+                    perror( "rmdir nativedir" );
+                }
+
+            chdir( pwd );
+        }
+    }
+
+    return true;
+}
 
 bool install_environment( const std::string &basename, const std::string &name, MsgChannel *c )
 {
@@ -110,10 +184,7 @@ bool install_environment( const std::string &basename, const std::string &name, 
         return false;
     }
 
-    if ( mkdir( basename.c_str(), 0755 ) && errno != EEXIST ) {
-        perror( "mkdir" );
-        return false;
-    }
+    assert( !::access( basename.c_str(), W_OK ) );
 
     string dirname = basename + "/" + name;
     if ( mkdir( dirname.c_str(), 0755 ) ) {

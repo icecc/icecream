@@ -195,8 +195,7 @@ void usage(const char* reason = 0)
 void reannounce_environments(const string &envbasedir, const string &nodename)
 {
     LoginMsg lmsg( 0, nodename, "");
-    string dummy;
-    lmsg.envs = available_environmnents(envbasedir, dummy);
+    lmsg.envs = available_environmnents(envbasedir);
     scheduler->send_msg( lmsg );
 }
 
@@ -432,14 +431,16 @@ int main( int argc, char ** argv )
     typedef map<int, pid_t> Pidmap;
     Pidmap pidmap;
 
+    string native_environment;
+    if ( !setup_env_cache( envbasedir, native_environment ) )
+        return 1;
+
     list<string> nl = get_netnames (200);
     trace() << "Netnames:" << endl;
     for (list<string>::const_iterator it = nl.begin(); it != nl.end(); ++it)
       trace() << *it << endl;
 
     int listen_fd = 0;
-    string native_environment;
-
     while ( 1 ) {
         if ( listen_fd ) {
             // as long as we have no scheduler, don't listen for clients
@@ -464,7 +465,7 @@ int main( int argc, char ** argv )
 
         trace() << "login as " << uname_buf.machine << endl;
         LoginMsg lmsg( port, nodename, uname_buf.machine );
-        lmsg.envs = available_environmnents(envbasedir, native_environment);
+        lmsg.envs = available_environmnents(envbasedir);
         lmsg.max_kids = max_kids;
         scheduler->send_msg( lmsg );
 
