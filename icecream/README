@@ -54,3 +54,9 @@ in the shell environment where you start the compile jobs and the file will be
 transfered to the daemons where your compile jobs run and installed to a chroot
 environment for executing the compile jobs in the environment fitting to the
 environment of the client. This requires that the icecream deamon runs as root.
+
+Debug output
+============
+
+You can use the environment variable ICECC_DEBUG to control if icecream gives
+debug output or not. Set it to "debug" to get debug output.
