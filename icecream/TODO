@@ -7,6 +7,8 @@
   even though the daemon never heared of them - timeout!
 * monitor: easier monitor views
 * client: let the client have run the job on two different servers for every 10th or 100th job
+* all: protocol version
+* scheduler, daemon: handle multiple environments
 
 IDEAS:
 * provide a way to pass jobs through the scheduler for multihomed servers
