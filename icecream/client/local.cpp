@@ -48,8 +48,7 @@ string find_compiler( const string &compiler )
                 }
             }
             return part;
-        } else
-            log_info() << "stat on " << part << " failed" << endl;
+        }
     }
     log_error() << "couldn't find any " << compiler << endl;
     return string();
@@ -97,9 +96,11 @@ int build_local(CompileJob &job)
           it != arguments.end(); ++it )
         argv[argc++] = strdup( it->c_str() );
     argv[argc] = 0;
+#if 0
     trace() << "execing ";
     for ( int i = 0; argv[i]; i++ )
         trace() << argv[i] << " ";
     trace() << endl;
+#endif
     return execv( argv[0], argv ); // if it returns at all
 }
