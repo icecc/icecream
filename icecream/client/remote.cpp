@@ -113,7 +113,7 @@ int build_remote(CompileJob &job )
     unsigned int port = usecs->port;
     job.setJobID( usecs->job_id );
     job.setEnvironmentVersion( usecs->environment ); // hoping on the scheduler's wisdom
-    printf ("Have to use host %s:%d - Job ID: %d\n", hostname.c_str(), port, job.jobID() );
+    // printf ("Have to use host %s:%d - Job ID: %d\n", hostname.c_str(), port, job.jobID() );
     delete usecs;
     EndMsg em;
     // if the scheduler ignores us, ignore it in return :/
