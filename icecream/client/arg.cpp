@@ -37,12 +37,12 @@ using namespace std;
 #define CLIENT_DEBUG 0
 
 #if CLIENT_DEBUG
-static string concat_args( const list<string> &list )
+static string concat_args( const list<string> &args )
 {
-    int len = list.size() - 1;
+    int len = args.size() - 1;
     string result = "\"";
-    for ( std::list<string>::const_iterator it = list.begin();
-          it != list.end(); ++it, len-- ) {
+    for ( list<string>::const_iterator it = args.begin();
+          it != args.end(); ++it, len-- ) {
         result += *it;
         if ( len )
             result += ", ";
