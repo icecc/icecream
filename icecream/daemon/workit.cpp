@@ -114,17 +114,26 @@ int work_it( CompileJob &j,
     int sock_out[2];
     int main_sock[2];
 
-    pipe( sock_err );
-    pipe( sock_out );
-    pipe( main_sock );
+    if ( pipe( sock_err ) )
+	return EXIT_DISTCC_FAILED;
+    if ( pipe( sock_out ) )
+	return EXIT_DISTCC_FAILED;
+    if ( pipe( main_sock ) )
+	return EXIT_DISTCC_FAILED;
 
-    fcntl( sock_out[0], F_SETFL, O_NONBLOCK );
-    fcntl( sock_err[0], F_SETFL, O_NONBLOCK );
+    if ( fcntl( sock_out[0], F_SETFL, O_NONBLOCK ) )
+	return EXIT_DISTCC_FAILED;
+    if ( fcntl( sock_err[0], F_SETFL, O_NONBLOCK ) )
+	return EXIT_DISTCC_FAILED;
 
-    fcntl( sock_out[0], F_SETFD, FD_CLOEXEC );
-    fcntl( sock_err[0], F_SETFD, FD_CLOEXEC );
-    fcntl( sock_out[1], F_SETFD, FD_CLOEXEC );
-    fcntl( sock_err[1], F_SETFD, FD_CLOEXEC );
+    if ( fcntl( sock_out[0], F_SETFD, FD_CLOEXEC ) )
+	return EXIT_DISTCC_FAILED;
+    if ( fcntl( sock_err[0], F_SETFD, FD_CLOEXEC ) )
+	return EXIT_DISTCC_FAILED;
+    if ( fcntl( sock_out[1], F_SETFD, FD_CLOEXEC ) )
+	return EXIT_DISTCC_FAILED;
+    if ( fcntl( sock_err[1], F_SETFD, FD_CLOEXEC ) )
+	return EXIT_DISTCC_FAILED;
 
     must_reap = false;
 
@@ -270,6 +279,8 @@ int work_it( CompileJob &j,
             switch( ret )
             {
             case -1:
+		if ( errno != EINTR ) // this usually means the logic broke
+                    return EXIT_DISTCC_FAILED;
                 // fall through; should happen if tvp->tv_sec < 0
             case 0:
                 struct rusage ru;
