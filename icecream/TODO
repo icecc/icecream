@@ -8,4 +8,7 @@
 * scheduler: If ICECC_VERSION isn't set at all the client is confused,
   because the scheduler returns with 'false' in got_env (because it doesn't
   yet handle the catch-all environment), but, well, ICECC_VERSION isn't set ;)
-* client: factor out file sending (possibly to libcommon)
+* daemon/client: register the system compiler with <uname>-<gcc version> and if a client compiles
+  without ICECC_VERSION, let the daemon package the environment. This way, the user doesn't
+  need to setup anything
+
