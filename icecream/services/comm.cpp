@@ -843,7 +843,15 @@ StatsMsg::fill_from_fd (int fd)
   if (!Msg::fill_from_fd (fd))
     return false;
 
-  return readuint( fd, load );
+  return readuint (fd, load)
+  	 && readuint (fd, niceLoad)
+  	 && readuint (fd, sysLoad)
+  	 && readuint (fd, userLoad)
+  	 && readuint (fd, idleLoad)
+  	 && readuint (fd, loadAvg1)
+  	 && readuint (fd, loadAvg5)
+  	 && readuint (fd, loadAvg10)
+  	 && readuint (fd, freeMem);
 }
 
 bool
@@ -851,7 +859,15 @@ StatsMsg::send_to_fd (int fd) const
 {
   if (!Msg::send_to_fd (fd))
     return false;
-  return writeuint( fd, load );
+  return writeuint( fd, load )
+  	 && writeuint (fd, niceLoad)
+  	 && writeuint (fd, sysLoad)
+  	 && writeuint (fd, userLoad)
+  	 && writeuint (fd, idleLoad)
+  	 && writeuint (fd, loadAvg1)
+  	 && writeuint (fd, loadAvg5)
+  	 && writeuint (fd, loadAvg10)
+  	 && writeuint (fd, freeMem);
 }
 
 bool
