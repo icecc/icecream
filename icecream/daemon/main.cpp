@@ -646,7 +646,10 @@ int main( int argc, char ** argv )
                                 client = 0; // forget you saw him
                             } else if ( msg->type == M_TRANFER_ENV ) {
                                 EnvTransferMsg *emsg = dynamic_cast<EnvTransferMsg*>( msg );
-                                if (!install_environment( envbasedir, emsg->name, c )) {
+                                string target = emsg->target;
+                                if ( target.empty() )
+                                    target =  uname_buf.machine;
+                                if (!install_environment( envbasedir, emsg->target, emsg->name, c )) {
                                     c->send_msg(EndMsg()); // shut up, we had an error
                                     reannounce_environments(envbasedir, nodename);
 				} else {

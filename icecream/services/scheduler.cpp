@@ -128,7 +128,7 @@ public:
   unsigned int load;
   int max_jobs;
   list<Job*> joblist;
-  list<string> compiler_versions;  // Available compilers
+  Environments compiler_versions;  // Available compilers
   CS (struct sockaddr *_addr, socklen_t _len)
     : Service(_addr, _len), load(1000), max_jobs(0), state(CONNECTED),
       type(UNKNOWN) {
@@ -435,7 +435,12 @@ server_speed (CS *cs)
 static bool
 envs_match( CS* cs, const Job *job )
 {
-  return find( cs->compiler_versions.begin(), cs->compiler_versions.end(), job->environment ) != cs->compiler_versions.end();
+  for ( Environments::const_iterator it = cs->compiler_versions.begin(); it != cs->compiler_versions.end(); ++it )
+    {
+      if ( it->first == job->target_platform && it->second == job->environment )
+        return true;
+    }
+  return false;
 }
 
 static bool
@@ -645,11 +650,13 @@ handle_login (MsgChannel *c, Msg *_m)
   handle_monitor_stats( cs );
   css.push_back (cs);
 
+#if 0
   trace() << cs->name << ": [";
   for (list<string>::const_iterator it = m->envs.begin();
        it != m->envs.end(); ++it)
     trace() << *it << ", ";
   trace() << "]\n";
+#endif
 
   return true;
 }
@@ -665,10 +672,10 @@ handle_relogin (MsgChannel *c, Msg *_m)
   cs->compiler_versions = m->envs;
   cs->busy_installing = false;
 
-  trace() << cs->name << ": [";
-  for (list<string>::const_iterator it = m->envs.begin();
+  trace() << cs->name << "(" << cs->host_platform << "): [";
+  for (Environments::const_iterator it = m->envs.begin();
        it != m->envs.end(); ++it)
-    trace() << *it << ", ";
+    trace() << it->second << "(" << it->first << "), ";
   trace() << "]\n";
 
   return true;

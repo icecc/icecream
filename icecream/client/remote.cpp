@@ -231,7 +231,7 @@ static int build_remote_int(CompileJob &job, UseCSMsg *usecs, const string &vers
         if ( !file )
             throw( 5 );
 
-        EnvTransferMsg msg( job.environmentVersion() );
+        EnvTransferMsg msg( job.targetPlatform(), job.environmentVersion() );
         if ( !cserver->send_msg( msg ) )
             throw( 6 );
 

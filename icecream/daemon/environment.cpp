@@ -91,25 +91,41 @@ static string list_native_environment( const string &nativedir )
     return native_environment;
 }
 
-list<string> available_environmnents(const string &basedir)
+static void list_target_dirs( const string &current_target, const string &targetdir, Environments &envs )
+{
+    DIR *envdir = opendir( targetdir.c_str() );
+    if ( !envdir )
+        return;
+
+    for ( struct dirent *ent = readdir(envdir); ent; ent = readdir( envdir ) )
+    {
+        string dirname = ent->d_name;
+        if ( !access( string( targetdir + "/" + dirname + "/usr/bin/gcc" ).c_str(), X_OK ) )
+            envs.push_back( make_pair( current_target, dirname ) );
+    }
+    closedir( envdir );
+}
+
+Environments available_environmnents(const string &basedir)
 {
     assert( !::access( basedir.c_str(), W_OK ) );
 
-    list<string> envs;
+    Environments envs;
 
     DIR *envdir = opendir( basedir.c_str() );
     if ( !envdir ) {
         log_info() << "can't open envs dir " << strerror( errno ) << endl;
     } else {
-        struct dirent *ent = readdir(envdir);
-        while ( ent ) {
-            string dirname = ent->d_name;
-            if ( dirname.at( 0 ) != '.' )
+        for ( struct dirent *target_ent = readdir(envdir); target_ent; target_ent = readdir( envdir ) )
+        {
+            string dirname = target_ent->d_name;
+            if ( dirname.at( 0 ) == '.' )
+                continue;
+            if ( dirname.substr( 0, 7 ) == "target=" )
             {
-                if ( !access( string( basedir + "/" + dirname + "/usr/bin/gcc" ).c_str(), X_OK ) )
-                     envs.push_back( dirname );
+                string current_target = dirname.substr( 7, dirname.length() - 7 );
+                list_target_dirs( current_target, basedir + "/" + dirname, envs );
             }
-            ent = readdir( envdir );
         }
         closedir( envdir );
     }
@@ -135,7 +151,7 @@ bool setup_env_cache(const string &basedir, string &native_environment)
     }
 
     if ( mkdir( basedir.c_str(), 0755 ) ) {
-        perror( "mkdir" );
+        perror( "mkdir basedir" );
         return false;
     }
 
@@ -170,7 +186,7 @@ bool setup_env_cache(const string &basedir, string &native_environment)
     return true;
 }
 
-bool install_environment( const std::string &basename, const std::string &name, MsgChannel *c )
+bool install_environment( const std::string &basename, const std::string &target, const std::string &name, MsgChannel *c )
 {
     if ( !name.size() || name[0] == '.' ) {
         log_error() << "illegal name for environment " << name << endl;
@@ -186,9 +202,15 @@ bool install_environment( const std::string &basename, const std::string &name, 
 
     assert( !::access( basename.c_str(), W_OK ) );
 
-    string dirname = basename + "/" + name;
+    string dirname = basename + "/target=" + target;
+    if ( mkdir( dirname.c_str(), 0755 ) && errno != EEXIST ) {
+        perror( "mkdir target" );
+        return false;
+    }
+
+    dirname = dirname + "/" + name;
     if ( mkdir( dirname.c_str(), 0755 ) ) {
-        perror( "mkdir" );
+        perror( "mkdir name" );
         return false;
     }
 

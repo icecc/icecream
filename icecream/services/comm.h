@@ -33,13 +33,14 @@
 #include "job.h"
 
 // if you increase the PROTOCOL_VERSION, add a macro below and use that
-#define PROTOCOL_VERSION 8
+#define PROTOCOL_VERSION 9
 // if you increase the MIN_PROTOCOL_VERSION, remove macros below and clean up the code
 #define MIN_PROTOCOL_VERSION 5
 
 #define IS_PROTOCOL_6( c ) ( c->protocol >= 6 )
 #define IS_PROTOCOL_7( c ) ( c->protocol >= 7 )
 #define IS_PROTOCOL_8( c ) ( c->protocol >= 8 )
+#define IS_PROTOCOL_9( c ) ( c->protocol >= 9 )
 
 enum MsgType {
   // so far unknown
@@ -102,6 +103,9 @@ enum MsgType {
 
 class MsgChannel;
 
+// a list of pairs of host platform, filename
+typedef std::list<std::pair<std::string, std::string> > Environments;
+
 class Msg {
 public:
   enum MsgType type;
@@ -162,6 +166,8 @@ public:
   void readcompressed (unsigned char **buf, size_t &_uclen, size_t &_clen);
   void writecompressed (const unsigned char *in_buf,
 			size_t _in_len, size_t &_out_len);
+  void write_environments( const Environments &envs );
+  void read_environments( Environments &envs );
 
   bool check_protocol( );
 
@@ -200,9 +206,6 @@ MsgChannel *connect_scheduler (const std::string &netname = std::string(),
 /* Return a list of all reachable netnames.  We wait max. WAITTIME
    milliseconds for answers.  */
 std::list<std::string> get_netnames (int waittime = 2000);
-
-// a list of pairs of host platform, filename
-typedef std::list<std::pair<std::string, std::string> > Environments;
 
 class PingMsg : public Msg {
 public:
@@ -372,7 +375,7 @@ public:
 class LoginMsg : public Msg {
 public:
   unsigned int port;
-  std::list<std::string> envs;
+  Environments envs;
   unsigned int max_kids;
   std::string nodename;
   std::string host_platform;
@@ -413,10 +416,11 @@ public:
 class EnvTransferMsg : public Msg {
 public:
   std::string name;
+  std::string target;
   EnvTransferMsg() : Msg( M_TRANFER_ENV ) {
   }
-  EnvTransferMsg( const std::string &_name )
-    : Msg( M_TRANFER_ENV ), name( _name ) {}
+  EnvTransferMsg( const std::string &_target, const std::string &_name )
+    : Msg( M_TRANFER_ENV ), name( _name ), target( _target ) {}
   virtual void fill_from_channel (MsgChannel * c);
   virtual void send_to_channel (MsgChannel * c) const;
 };

@@ -279,6 +279,34 @@ MsgChannel::write_strlist (const list<string> &l)
 }
 
 void
+MsgChannel::write_environments( const Environments &envs )
+{
+  writeuint32( envs.size() );
+  for ( Environments::const_iterator it = envs.begin(); it != envs.end(); ++it )
+    {
+      write_string( it->first );
+      write_string( it->second );
+    }
+}
+
+void
+MsgChannel::read_environments( Environments &envs )
+{
+  envs.clear();
+  unsigned int count;
+  readuint32( count );
+  for ( unsigned int i = 0; i < count; i++ )
+    {
+      string plat;
+      string vers;
+      read_string( plat );
+      read_string( vers );
+      envs.push_back( make_pair( plat, vers ) );
+    }
+}
+
+
+void
 MsgChannel::readcompressed (unsigned char **uncompressed_buf,
 			    size_t &_uclen, size_t &_clen)
 {
@@ -890,16 +918,7 @@ GetCSMsg::fill_from_channel (MsgChannel *c)
   Msg::fill_from_channel (c);
   string version;
   if ( IS_PROTOCOL_8( c ) ) {
-    versions.clear();
-    unsigned int count;
-    c->readuint32( count );
-    for ( unsigned int i = 0; i < count; i++ ) {
-      string plat;
-      string vers;
-      c->read_string( plat );
-      c->read_string( vers );
-      versions.push_back( make_pair( plat, vers ) );
-    }
+    c->read_environments( versions );
   } else {
     c->read_string (version);
   }
@@ -928,12 +947,7 @@ GetCSMsg::send_to_channel (MsgChannel *c) const
   Msg::send_to_channel (c);
   if ( IS_PROTOCOL_8( c ) )
     {
-      c->writeuint32( versions.size() );
-      for ( Environments::const_iterator it = versions.begin(); it != versions.end(); ++it )
-        {
-          c->write_string( it->first );
-          c->write_string( it->second );
-        }
+      c->write_environments( versions );
     }
   else
     {
@@ -1193,7 +1207,12 @@ LoginMsg::fill_from_channel (MsgChannel *c)
   Msg::fill_from_channel (c);
   c->readuint32 (port);
   c->readuint32 (max_kids);
-  c->read_strlist (envs);
+  list<string> oldenvs;
+  if ( IS_PROTOCOL_9( c ) ) {
+    c->read_environments( envs );
+  } else {
+    c->read_strlist (oldenvs);
+  }
   c->read_string( nodename );
   if ( IS_PROTOCOL_7( c ) )
     c->read_string( host_platform );
@@ -1201,6 +1220,11 @@ LoginMsg::fill_from_channel (MsgChannel *c)
     struct utsname buf;
     uname( &buf );
     host_platform = buf.machine;
+  }
+  if ( !IS_PROTOCOL_9( c ) ) {
+    envs.clear();
+    for ( list<string>::const_iterator it = oldenvs.begin(); it != oldenvs.end(); ++it )
+      envs.push_back( make_pair( host_platform, *it ) );
   }
 }
 
@@ -1210,7 +1234,18 @@ LoginMsg::send_to_channel (MsgChannel *c) const
   Msg::send_to_channel (c);
   c->writeuint32 (port);
   c->writeuint32 (max_kids);
-  c->write_strlist (envs);
+  if ( IS_PROTOCOL_9( c ) ) {
+    c->write_environments( envs );
+  } else {
+    list<string> oldenvs;
+    for ( Environments::const_iterator it = envs.begin(); it != envs.end(); ++it )
+      {
+        if ( it->first == host_platform )
+          oldenvs.push_back( it->second );
+      }
+    c->write_strlist (oldenvs);
+  }
+
   c->write_string( nodename );
   if ( IS_PROTOCOL_7( c ) )
     c->write_string( host_platform );
@@ -1285,6 +1320,8 @@ EnvTransferMsg::fill_from_channel (MsgChannel *c)
 {
   Msg::fill_from_channel (c);
   c->read_string(name);
+  if ( IS_PROTOCOL_9( c ) )
+    c->read_string( target );
 }
 
 void
@@ -1292,6 +1329,8 @@ EnvTransferMsg::send_to_channel (MsgChannel *c) const
 {
   Msg::send_to_channel (c);
   c->write_string(name);
+  if ( IS_PROTOCOL_9( c ) )
+    c->write_string( target );
 }
 
 void
