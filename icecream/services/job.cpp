@@ -86,12 +86,19 @@ unsigned int CompileJob::argumentFlags() const
             if ( arg.at( 1 ) == 'g' )
             {
                 if ( arg.length() > 2 && arg.at( 2 ) == '3' )
+                {
+                    result &= ~Flag_g;
                     result |= Flag_g3;
+                }
                 else
+                {
+                    result &= ~Flag_g3;
                     result |= Flag_g;
+                }
             }
             else if ( arg.at( 1 ) == 'O' )
             {
+                result &= ~( Flag_O | Flag_O2 | Flag_Ol2 );
                 if ( arg.length() == 2)
 			result |= Flag_O;
 		else {

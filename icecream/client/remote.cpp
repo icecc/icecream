@@ -500,7 +500,16 @@ int build_remote(CompileJob &job, MsgChannel *scheduler, const Environments &_en
     Environments envs = rip_out_paths( _envs, version_map, versionfile_map );
 
     if ( torepeat == 1 ) {
-        GetCSMsg getcs (envs, get_absfilename( job.inputFile() ), job.language(), torepeat, job.targetPlatform(), job.argumentFlags() );
+        string fake_filename;
+        list<string> args = job.remoteFlags();
+        for ( list<string>::const_iterator it = args.begin(); it != args.end(); ++it )
+            fake_filename += "/" + *it;
+        args = job.restFlags();
+        for ( list<string>::const_iterator it = args.begin(); it != args.end(); ++it )
+            fake_filename += "/" + *it;
+
+        fake_filename += get_absfilename( job.inputFile() );
+        GetCSMsg getcs (envs, fake_filename, job.language(), torepeat, job.targetPlatform(), job.argumentFlags() );
         if (!scheduler->send_msg (getcs)) {
             log_warning() << "asked for CS\n";
             throw( 0 );

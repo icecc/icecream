@@ -228,6 +228,13 @@ add_job_stats (Job *job, JobDoneMsg *msg)
   else if ( job->arg_flags & CompileJob::Flag_g3 )
     st.osize = st.osize * 10 / 45; // average over way less jobs: factor 1.25 over -g
 
+  // the difference between the -O flags isn't as big as the one between -O0 and -O>=1
+  // the numbers are actually for gcc 3.3 - but they are _very_ rough heurstics anyway)
+  if ( job->arg_flags & CompileJob::Flag_O || 
+       job->arg_flags & CompileJob::Flag_O2 ||
+       job->arg_flags & CompileJob::Flag_Ol2)
+	st.osize = st.osize * 58 / 35; 
+
   if ( job->arg_flags < 7000 )
     trace() << "add_job_stats " << job->language << " "
             << st.compile_time_user << " "
