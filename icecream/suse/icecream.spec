@@ -86,10 +86,10 @@ rm -rf ${RPM_BUILD_ROOT}
 %defattr(-,root,root)
 /etc/init.d/icecream
 %_bindir/icecc
-%_bindir/scheduler
 %_bindir/create-env
 %_sbindir/iceccd
 %_sbindir/rcicecream
+%_sbindir/scheduler
 /opt/icecream
 /var/adm/fillup-templates/sysconfig.icecream
 
