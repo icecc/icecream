@@ -45,7 +45,6 @@
 
 #include "clinet.h"
 #include "implicit.h"
-#include "strip.h"
 #include "cpp.h"
 #include "client_comm.h"
 #include "exec.h"

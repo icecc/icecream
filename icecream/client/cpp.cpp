@@ -39,7 +39,6 @@
 #include "logging.h"
 #include "exitcode.h"
 #include "util.h"
-#include "strip.h"
 #include "implicit.h"
 #include "exec.h"
 #include "tempfile.h"
