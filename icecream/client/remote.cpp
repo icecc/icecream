@@ -476,6 +476,7 @@ maybe_build_local (MsgChannel *scheduler, UseCSMsg *usecs, CompileJob &job,
             msg.user_msec = ru.ru_utime.tv_sec * 1000 + ru.ru_utime.tv_usec / 1000;
             msg.sys_msec = ru.ru_stime.tv_sec * 1000 + ru.ru_stime.tv_usec / 1000;
             msg.pfaults = ru.ru_majflt + ru.ru_minflt + ru.ru_nswap ;
+            msg.exitcode = ret;
 
             if ( IS_PROTOCOL_16( cserver ) )
                 cserver->send_msg( msg );

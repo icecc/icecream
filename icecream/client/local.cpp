@@ -163,7 +163,7 @@ int build_local(CompileJob &job, struct rusage *used)
         void (*old_sigquit)(int) = signal( SIGQUIT, handle_user_break );
         void (*old_sighup)(int) = signal( SIGHUP, handle_user_break );
 
-        int status = -1;
+        int status = 1;
         if( wait4( child, &status, 0, used ) > 0 )
             status = WEXITSTATUS(status);
 

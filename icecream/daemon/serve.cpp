@@ -275,7 +275,7 @@ int handle_connection( const string &basedir, CompileJob *job,
         }
     }
 
-    throw myexception( 0 );
+    throw myexception( rmsg.status );
 
     } catch ( myexception e )
     {

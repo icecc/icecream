@@ -646,7 +646,6 @@ int main( int argc, char ** argv )
                 } else
                     pid = handle_connection( envbasedir, req.first, req.second, sock, mem_limit, nobody_uid );
 
-
                 if ( pid > 0) { // forks away
                     current_kids++;
                     if ( !scheduler || !scheduler->send_msg( JobBeginMsg( job->jobID() ) ) ) {
@@ -682,7 +681,7 @@ int main( int argc, char ** argv )
                     pidmap.erase( pid_it );
                 }
                 if ( msg && scheduler ) {
-                    msg->exitcode = status;
+                    msg->exitcode = WEXITSTATUS( status );
                     if ( !msg->user_msec ) { // if not already set
                         msg->user_msec = ru.ru_utime.tv_sec * 1000 + ru.ru_utime.tv_usec / 1000;
                         msg->sys_msec = ru.ru_stime.tv_sec * 1000 + ru.ru_stime.tv_usec / 1000;
