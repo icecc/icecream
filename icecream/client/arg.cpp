@@ -105,6 +105,17 @@ bool analyse_argv( const char * const *argv,
                     to distribute it even if we could. */
                 always_local = true;
                 args.append(a, Arg_Local);
+            } else if ( a[1] == 'B' ) {
+                /* -B overwrites the path where the compiler finds the assembler.
+                   As we don't use that, better force local job.
+                */
+                always_local = true;
+                args.append( a, Arg_Local );
+                if ( str_equal( a, "-B" ) ) {
+                    /* skip next word, being option argument */
+                    if (argv[i+1])
+                        args.append(  argv[++i], Arg_Local );
+                }
             } else if (str_startswith("-Wa,", a)) {
                 /* Options passed through to the assembler.  The only one we
                  * need to handle so far is -al=output, which directs the
@@ -198,7 +209,7 @@ bool analyse_argv( const char * const *argv,
         always_local = true;
     else if ( seen_s ) {
         if ( seen_c )
-            log_error() << "can't have both -c and -S, ignoring -c" << endl;
+            log_info() << "can't have both -c and -S, ignoring -c" << endl;
         args.append( "-S", Arg_Remote );
     } else {
         args.append( "-c", Arg_Remote );
