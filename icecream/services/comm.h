@@ -33,6 +33,8 @@ enum MsgType {
   M_STATS
 };
 
+class CompileJob;
+
 class Msg {
 public:
   enum MsgType type;
@@ -109,7 +111,8 @@ public:
 
 class CompileFileMsg : public Msg {
 public:
-  CompileFileMsg () : Msg(M_COMPILE_FILE) {}
+  CompileJob *job;
+  CompileFileMsg (CompileJob *j) : Msg(M_COMPILE_FILE), job(j) {}
   virtual bool fill_from_fd (int fd);
   virtual bool send_to_fd (int fd) const;
 };

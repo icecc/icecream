@@ -4,7 +4,9 @@
 #include <unistd.h>
 #include <errno.h>
 #include <string>
+#include "job.h"
 #include "comm.h"
+
 
 /* TODO
  * buffered in/output per MsgChannel
@@ -127,7 +129,7 @@ MsgChannel::get_msg(void)
   case M_TIMEOUT: m = new TimeoutMsg; break;
   case M_GET_CS: m = new GetCSMsg; break;
   case M_USE_CS: m = new UseCSMsg; break;
-  case M_COMPILE_FILE: m = new CompileFileMsg; break;
+  case M_COMPILE_FILE: m = new CompileFileMsg (new CompileJob); break;
   case M_FILE_CHUNK: m = new FileChunkMsg; break;
   case M_COMPILE_RESULT: m = new CompileResultMsg; break;
   case M_JOB_BEGIN: m = new JobBeginMsg; break;
@@ -176,6 +178,37 @@ write_string (int fd, const std::string &s)
   if (!writeuint (fd, len))
     return false;
   return writefull (fd, s.data(), len);
+}
+
+bool
+read_strlist (int fd, std::list<std::string> &l)
+{
+  unsigned int len;
+  l.clear();
+  if (!readuint (fd, &len))
+    return false;
+  while (len--)
+    {
+      std::string s;
+      if (!read_string (fd, s))
+        return false;
+      l.push_back (s);
+    }
+  return true;
+}
+
+bool
+write_strlist (int fd, const std::list<std::string> &l)
+{
+  if (!writeuint (fd, (unsigned int) l.size()))
+    return false;
+  for (std::list<std::string>::const_iterator it = l.begin();
+       it != l.end(); ++it )
+    {
+      if (!write_string (fd, *it))
+        return false;
+    }
+  return true;
 }
 
 bool
@@ -237,6 +270,17 @@ CompileFileMsg::fill_from_fd (int fd)
 {
   if (!Msg::fill_from_fd (fd))
     return false;
+  unsigned int id, lang;
+  std::list<std::string> l1, l2;
+  if (!readuint (fd, &lang)
+      || !readuint (fd, &id)
+      || !read_strlist (fd, l1)
+      || !read_strlist (fd, l2))
+    return false;
+  job->setLanguage ((CompileJob::Language) lang);
+  job->setJobID (id);
+  job->setRemoteFlags (l1);
+  job->setRestFlags (l2);
   return true;
 }
 
@@ -245,7 +289,10 @@ CompileFileMsg::send_to_fd (int fd) const
 {
   if (!Msg::send_to_fd (fd))
     return false;
-  return true;
+  return (writeuint (fd, (unsigned int) job->language())
+  	  && writeuint (fd, job->jobID())
+  	  && write_strlist (fd, job->remoteFlags())
+          && write_strlist (fd, job->restFlags()));
 }
 
 bool

@@ -5,6 +5,7 @@
 #include <time.h>
 #include <netdb.h>
 #include <string>
+#include "job.h"
 #include "comm.h"
 
 using namespace std;
@@ -22,6 +23,8 @@ submit_job (MsgChannel *c, char *filename, unsigned int fsize)
      return;
    }
   UseCSMsg *m2 = dynamic_cast<UseCSMsg *>(_m2);
+  string hostname = m2->hostname;
+  unsigned int jobid = m2->job_id;
   printf ("Have to use host %s\n", m2->hostname.c_str());
   printf ("Job ID: %d\n", m2->job_id);
   delete m2;
@@ -34,6 +37,49 @@ submit_job (MsgChannel *c, char *filename, unsigned int fsize)
   EndMsg em;
   if (!c->send_msg (em))
     return;
+  int remote_fd;
+  struct sockaddr_in remote_addr;
+  if ((remote_fd = socket (PF_INET, SOCK_STREAM, 0)) < 0)
+    {
+      perror ("socket()");
+      return;
+    }
+  struct hostent *host = gethostbyname (hostname.c_str());
+  if (!host)
+    {
+      fprintf (stderr, "Unknown host\n");
+      return;
+    }
+  if (host->h_length != 4)
+    {
+      fprintf (stderr, "Invalid address length\n");
+      return;
+    }
+  remote_addr.sin_family = AF_INET;
+  remote_addr.sin_port = htons (10245);
+  memcpy (&remote_addr.sin_addr.s_addr, host->h_addr_list[0], host->h_length);
+  if (connect (remote_fd, (struct sockaddr *) &remote_addr, sizeof (remote_addr)) < 0)
+    {
+      perror ("connect()");
+      return;
+    }
+  Service *serv = new Service ((struct sockaddr*) &remote_addr, sizeof (remote_addr));
+  MsgChannel *receiver_c = new MsgChannel (remote_fd, serv);
+  CompileJob *job = new CompileJob;
+  list<string> l1, l2;
+  l1.push_back ("remote");
+  l2.push_back ("rest");
+  job->setJobID (jobid);
+  job->setRemoteFlags (l1);
+  job->setRestFlags (l2);
+  CompileFileMsg cfm(job);
+  if (!receiver_c->send_msg (cfm))
+    {
+      return;
+    }
+  delete job;
+  delete c;
+  delete serv;
 }
 
 int main (int argc, char *argv[])
@@ -66,6 +112,7 @@ int main (int argc, char *argv[])
   if (host->h_length != 4)
     {
       fprintf (stderr, "Invalid address length\n");
+      exit (1);
     }
   remote_addr.sin_family = AF_INET;
   remote_addr.sin_port = htons (8765);
