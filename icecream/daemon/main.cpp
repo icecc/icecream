@@ -724,7 +724,7 @@ int main( int argc, char ** argv )
             tv.tv_usec = 400000;
 
             ret = select (max_fd + 1, &listen_set, NULL, NULL, &tv);
-            if ( ret == -1 )
+            if ( ret == -1 && errno != EINTR )
                 log_perror( "select" );
 
             if ( ret > 0 ) {
