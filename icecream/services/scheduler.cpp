@@ -1048,10 +1048,11 @@ handle_line (MsgChannel *c, Msg *_m)
       for (list<CS*>::iterator it = css.begin(); it != css.end(); ++it)
 	{
 	  CS* cs= *it;
-	  line = " " + cs->nodename + "(" + cs->name + ")";
+	  sprintf (buffer, " (%s:%d) ", cs->name.c_str(), cs->remote_port);
+	  line = " " + cs->nodename + buffer;
 	  line += "[" + cs->host_platform + "] speed= ";
-	  sprintf (buffer, "%.2f jobs=%d/%d", server_speed (cs),
-	  	   cs->joblist.size(), cs->max_jobs);
+	  sprintf (buffer, "%.2f jobs=%d/%d load=%d", server_speed (cs),
+	  	   cs->joblist.size(), cs->max_jobs, cs->load);
 	  line = line + buffer;
 	  c->send_msg (TextMsg (line));
 	}
