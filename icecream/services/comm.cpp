@@ -151,14 +151,32 @@ MsgChannel::flush_writebuf (bool blocking)
   while (msgtogo)
     {
       ssize_t ret = write (fd, buf, msgtogo);
-      if (ret <= 0)
+      if (ret < 0)
         {
 	  if (errno == EINTR)
 	    continue;
+	  /* If we want to write blocking, but couldn't write anything,
+	     select on the fd.  */
+	  if (blocking && errno == EAGAIN)
+	    {
+	      fd_set write_set;
+	      FD_ZERO (&write_set);
+	      FD_SET (fd, &write_set);
+	      struct timeval tv;
+	      tv.tv_sec = 5 * 60;
+	      tv.tv_usec = 0;
+	      if (select (fd + 1, NULL, &write_set, NULL, &tv) > 0)
+	        continue;
+	      /* Timeout or real error --> error.  */
+	    }
 	  // XXX handle EPIPE ?
-	  // EOF or some error
-	  if (ret == 0 || blocking || errno != EAGAIN)
-	    error = true;
+	  error = true;
+	  break;
+	}
+      else if (ret == 0)
+        {
+	  // EOF while writing --> error
+	  error = true;
 	  break;
 	}
       msgtogo -= ret;
