@@ -153,8 +153,8 @@ int main(int argc, char **argv)
 
     Service *serv = new Service ("localhost", 10245);
     MsgChannel *local_daemon = serv->channel();
-    if ( ! local_daemon ) {
-        log_error() << "no local daemon found\n";
+    if ( ! local_daemon || !local_daemon->protocol ) {
+        log_warning() << "no local daemon found\n";
         return build_local( job, 0 );
     }
     if ( !local_daemon->send_msg( GetSchedulerMsg() ) ) {
