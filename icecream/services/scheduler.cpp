@@ -638,7 +638,7 @@ prune_clients ()
         continue;
       }
     }
-    if ((random() % 400) == 0)
+    if ((random() % 400) < 0)
       { // R.I.P.
         trace() << "FORCED removing " << ( *it )->name << endl;
 	CS *old = *it;
