@@ -97,7 +97,7 @@ int work_it( CompileJob &j,
              string &str_out, string &str_err,
              int &status, string &outfilename, unsigned int mem_limit )
 {
-    trace() << "gpc " << << endl;
+    trace() << "gpc " << endl;
 
     str_out.erase(str_out.begin(), str_out.end());
     str_out.erase(str_out.begin(), str_out.end());
