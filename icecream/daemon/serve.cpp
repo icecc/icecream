@@ -257,7 +257,7 @@ int handle_connection( const string &basedir, CompileJob *job, MsgChannel *serv,
 
         struct timeval endtv;
         gettimeofday(&endtv, 0 );
-        unsigned int duration = ( endtv.tv_sec - begintv.tv_sec ) * 1000 + ( endtv.tv_usec - begintv.tv_usec ) % 1000;
+        unsigned int duration = ( endtv.tv_sec - begintv.tv_sec ) * 1000 + ( endtv.tv_usec - begintv.tv_usec ) / 1000;
         write( out_fd, &in_compressed, sizeof( unsigned int ) );
         write( out_fd, &in_uncompressed, sizeof( unsigned int ) );
         write( out_fd, &out_compressed, sizeof( unsigned int ) );

@@ -298,7 +298,6 @@ int work_it( CompileJob &j,
                     if ( status ) {
                         unsigned long int mem_used = ( ru.ru_minflt + ru.ru_majflt ) * getpagesize() / 1024;
                         if ( mem_used * 100 > 85 * mem_limit * 1024 ) {
-                            trace() << "mem_limit " << mem_limit << " mem_used " << mem_used << endl;
                             // the relation between ulimit and memory used is pretty thin ;(
                             return EXIT_OUT_OF_MEMORY;
                         }
