@@ -142,7 +142,7 @@ static unsigned int calculateMemLoad( const char* MemInfoBuf, unsigned long int 
         return 1000 - ( NetMemFree * 1000 / ( 128 * 1024 ) );
 }
 
-bool fill_stats( StatsMsg &msg )
+bool fill_stats( unsigned long &myniceload, unsigned long &myidleload, unsigned int &memory_fillgrade, StatsMsg *msg )
 {
     static CPULoadInfo load;
 
@@ -170,46 +170,40 @@ bool fill_stats( StatsMsg &msg )
     updateCPULoad( StatBuf, &load );
 #endif
 
-    unsigned long int MemFree = 0;
-    unsigned int memory_fillgrade = 0;
-#ifdef __FreeBSD__
-    memory_fillgrade = calucateMemLoad( 0, MemFree );
-#else
-    if ( ( fd = open( "/proc/meminfo", O_RDONLY ) ) < 0 ) {
-        log_error() << "Cannot open file \'/proc/meminfo\'!\n"
-            "The kernel needs to be compiled with support\n"
-            "forks /proc filesystem enabled!" << endl;
-        return false;
-    }
+    myidleload = load.idleLoad;
+    myniceload = load.niceLoad;
 
-    n = read( fd, StatBuf, sizeof( StatBuf ) -1 );
-    close( fd );
-    if ( n < 40 ) {
-        log_error() << "no enough data in /proc/meminfo?" << endl;
-        return false;
-    }
-    StatBuf[n] = 0;
-    memory_fillgrade = calculateMemLoad( StatBuf, MemFree );
+    if ( msg ) {
+        unsigned long int MemFree = 0;
+
+#ifdef __FreeBSD__
+        memory_fillgrade = calucateMemLoad( 0, MemFree );
+#else
+        if ( ( fd = open( "/proc/meminfo", O_RDONLY ) ) < 0 ) {
+            log_error() << "Cannot open file \'/proc/meminfo\'!\n"
+                "The kernel needs to be compiled with support\n"
+                "forks /proc filesystem enabled!" << endl;
+            return false;
+        }
+
+        n = read( fd, StatBuf, sizeof( StatBuf ) -1 );
+        close( fd );
+        if ( n < 40 ) {
+            log_error() << "no enough data in /proc/meminfo?" << endl;
+            return false;
+        }
+        StatBuf[n] = 0;
+        memory_fillgrade = calculateMemLoad( StatBuf, MemFree );
 #endif
 
-    unsigned int realLoad = 1000 - load.idleLoad - load.niceLoad;
-    msg.load = ( 700 * realLoad + 300 * memory_fillgrade ) / 1000;
-    if ( memory_fillgrade > 600 )
-        msg.load = 1000;
-    if ( realLoad > 800 )
-        msg.load = 1000;
-    msg.niceLoad = load.niceLoad;
-    msg.sysLoad = load.sysLoad;
-    msg.userLoad = load.userLoad;
-    msg.idleLoad = load.idleLoad;
+        double avg[3];
+        getloadavg( avg, 3 );
+        msg->loadAvg1 = ( unsigned int )( avg[0] * 1000 );
+        msg->loadAvg5 = ( unsigned int )( avg[1] * 1000 );
+        msg->loadAvg10 = ( unsigned int )( avg[2] * 1000 );
 
-    double avg[3];
-    getloadavg( avg, 3 );
-    msg.loadAvg1 = ( unsigned int )( avg[0] * 1000 );
-    msg.loadAvg5 = ( unsigned int )( avg[1] * 1000 );
-    msg.loadAvg10 = ( unsigned int )( avg[2] * 1000 );
+        msg->freeMem = ( unsigned int )( MemFree / 1024.0 + 0.5 );
 
-    msg.freeMem = ( unsigned int )( MemFree / 1024.0 + 0.5 );
-    trace() << "load cpu=" << realLoad << " mem=" << memory_fillgrade << " total=" << msg.load << " idle=" << msg.idleLoad << " user=" << msg.userLoad << " sys=" << msg.sysLoad << endl;
+    }
     return true;
 }

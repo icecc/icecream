@@ -358,14 +358,6 @@ handle_monitor_stats( CS *cs, StatsMsg *m = 0)
   if ( m ) {
     sprintf( buffer, "Load:%d\n", m->load );
     msg += buffer;
-    sprintf( buffer, "NiceLoad:%d\n", m->niceLoad );
-    msg += buffer;
-    sprintf( buffer, "SysLoad:%d\n", m->sysLoad );
-    msg += buffer;
-    sprintf( buffer, "UserLoad:%d\n", m->userLoad );
-    msg += buffer;
-    sprintf( buffer, "IdleLoad:%d\n", m->idleLoad );
-    msg += buffer;
     sprintf( buffer, "LoadAvg1:%d\n", m->loadAvg1 );
     msg += buffer;
     sprintf( buffer, "LoadAvg5:%d\n", m->loadAvg5 );

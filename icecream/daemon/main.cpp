@@ -40,6 +40,7 @@
 #include <sys/un.h>
 #include <sys/param.h>
 #include <sys/socket.h>
+#include <sys/time.h>
 #include <pwd.h>
 
 #include <netinet/in.h>
@@ -241,27 +242,65 @@ int setup_listen_fd()
     return listen_fd;
 }
 
-time_t last_stat = 0;
+
+struct timeval last_stat;
+struct timeval last_sent;
 int mem_limit = 100;
 int max_kids = 0;
+int current_kids = 0;
+unsigned long myniceload = 0;
+unsigned long myidleload = 0;
 
-bool maybe_stats() {
-    if ( time( 0 ) - last_stat >= 6 ) {
+bool maybe_stats(bool force = false) {
+    struct timeval now;
+    gettimeofday( &now, 0 );
 
+    time_t diff_stat = ( now.tv_sec - last_stat.tv_sec ) * 1000 + ( now.tv_usec - last_stat.tv_usec ) / 1000;
+    time_t diff_sent = ( now.tv_sec - last_sent.tv_sec ) * 1000 + ( now.tv_usec - last_sent.tv_usec ) / 1000;
+
+    unsigned int memory_fillgrade;
+    unsigned long niceLoad = 0;
+    unsigned long idleLoad = 0;
+
+    if ( diff_sent > 6000 || force ) {
         StatsMsg msg;
-        if ( !fill_stats( msg ) ) {
-            log_error() << "can't find out stats" << endl;
-        } else { // Matz got in the urine that not all CPUs are always feed
-            mem_limit = std::max( msg.freeMem / std::max( max_kids, 4 ), 100U );
-        }
 
-        if ( scheduler->send_msg( msg ) )
-            last_stat = time( 0 );
-        else {
+        if ( !fill_stats( niceLoad, idleLoad, memory_fillgrade, &msg ) )
             return false;
-        }
 
+        gettimeofday( &last_stat, 0 );
+
+        myniceload += niceLoad * diff_stat;
+        myidleload += idleLoad * diff_stat;
+
+        unsigned int realLoad = 1000 - myidleload / diff_sent;
+        msg.load = ( 700 * realLoad + 300 * memory_fillgrade ) / 1000;
+        if ( memory_fillgrade > 600 )
+            msg.load = 1000;
+        if ( realLoad > 800 )
+            msg.load = 1000;
+
+        trace() << "load load=" << realLoad << " mem=" << memory_fillgrade << endl;
+
+        // Matz got in the urine that not all CPUs are always feed
+        mem_limit = std::max( msg.freeMem / std::max( max_kids, 4 ), 100U );
+
+        if ( !scheduler->send_msg( msg ) )
+            return false;
+        last_sent = now;
+        myidleload = 0;
+        myniceload = 0;
+    } else {
+
+        fill_stats( niceLoad, idleLoad, memory_fillgrade, 0);
+        myniceload += niceLoad * diff_stat;
+        if ( max_kids )
+            myidleload += max( 0LU, niceLoad * diff_stat * current_kids / max_kids );
+        myidleload += idleLoad * diff_stat;
+
+        gettimeofday( &last_stat, 0 );
     }
+
     return true;
 }
 
@@ -279,6 +318,10 @@ int main( int argc, char ** argv )
     string schedname;
     bool runasuser = false;
     uid_t nobody_uid = 65534;
+
+    gettimeofday( &last_stat, 0 );
+    last_sent = last_stat;
+    last_sent.tv_sec -= 6;
 
     while ( true ) {
         int option_index = 0;
@@ -508,7 +551,6 @@ int main( int argc, char ** argv )
         // TODO: clean up the mess from before
         // for now I just hope schedulers don't go up
         // and down that often
-        int current_kids = 0;
 
         while ( !requests.empty() )
             requests.pop();
@@ -519,8 +561,8 @@ int main( int argc, char ** argv )
             socklen_t cli_len;
 
             if ( requests.size() + current_kids )
-                log_info() << "requests " << requests.size() << " "
-                           << current_kids << " (" << max_kids << ")\n";
+/*                log_info() << "requests " << requests.size() << " "
+                  << current_kids << " (" << max_kids << ")\n";*/
             if ( !requests.empty() && current_kids < max_kids ) {
                 Compile_Request req = requests.front();
                 requests.pop();
@@ -641,8 +683,8 @@ int main( int argc, char ** argv )
             if ( max_fd < scheduler->fd )
                 max_fd = scheduler->fd;
 
-            tv.tv_sec = 2;
-            tv.tv_usec = 0;
+            tv.tv_sec = 0;
+            tv.tv_usec = 400000;
 
             ret = select (max_fd + 1, &listen_set, NULL, NULL, &tv);
 
@@ -657,12 +699,12 @@ int main( int argc, char ** argv )
                         break;
                      } else {
                         if ( msg->type == M_PING ) {
-                            StatsMsg smsg;
-                            if ( !fill_stats( smsg ) )
-                                continue;
-
-                            if ( scheduler->send_msg( smsg ) )
-                                last_stat = time( 0 );
+                            if ( !maybe_stats(true) ) {
+                                delete scheduler;
+                                scheduler = 0;
+                                tosleep = 1;
+                                break;
+                            }
                         } else
                             log_error() << "unknown scheduler type " << ( char )msg->type << endl;
                     }

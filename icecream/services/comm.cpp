@@ -1390,10 +1390,14 @@ StatsMsg::fill_from_channel (MsgChannel *c)
 {
   Msg::fill_from_channel (c);
   c->readuint32 (load);
-  c->readuint32 (niceLoad);
-  c->readuint32 (sysLoad);
-  c->readuint32 (userLoad);
-  c->readuint32 (idleLoad);
+  if ( !IS_PROTOCOL_19( c ) )
+    {
+      unsigned int dummy;
+      c->readuint32 (dummy);
+      c->readuint32 (dummy);
+      c->readuint32 (dummy);
+      c->readuint32 (dummy);
+    }
   c->readuint32 (loadAvg1);
   c->readuint32 (loadAvg5);
   c->readuint32 (loadAvg10);
@@ -1405,10 +1409,13 @@ StatsMsg::send_to_channel (MsgChannel *c) const
 {
   Msg::send_to_channel (c);
   c->writeuint32 (load);
-  c->writeuint32 (niceLoad);
-  c->writeuint32 (sysLoad);
-  c->writeuint32 (userLoad);
-  c->writeuint32 (idleLoad);
+  if ( !IS_PROTOCOL_19( c ) )
+    {
+      c->writeuint32 (0);
+      c->writeuint32 (0);
+      c->writeuint32 (0);
+      c->writeuint32 (0);
+    }
   c->writeuint32 (loadAvg1);
   c->writeuint32 (loadAvg5);
   c->writeuint32 (loadAvg10);

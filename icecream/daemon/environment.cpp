@@ -32,7 +32,7 @@
 
 using namespace std;
 
-extern bool maybe_stats();
+extern bool maybe_stats(bool forced = false);
 
 #if 0
 static string read_fromFILE( FILE *f )

@@ -33,7 +33,7 @@
 #include "job.h"
 
 // if you increase the PROTOCOL_VERSION, add a macro below and use that
-#define PROTOCOL_VERSION 18
+#define PROTOCOL_VERSION 19
 // if you increase the MIN_PROTOCOL_VERSION, comment out macros below and clean up the code
 #define MIN_PROTOCOL_VERSION 14
 
@@ -42,6 +42,7 @@
 #define IS_PROTOCOL_16( c ) ( c->protocol >= 16 )
 #define IS_PROTOCOL_17( c ) ( c->protocol >= 17 )
 #define IS_PROTOCOL_18( c ) ( c->protocol >= 18 )
+#define IS_PROTOCOL_19( c ) ( c->protocol >= 19 )
 
 enum MsgType {
   // so far unknown
@@ -411,10 +412,6 @@ public:
    */
   unsigned int load;
 
-  unsigned int niceLoad;
-  unsigned int sysLoad;
-  unsigned int userLoad;
-  unsigned int idleLoad;
   unsigned int loadAvg1;
   unsigned int loadAvg5;
   unsigned int loadAvg10;
