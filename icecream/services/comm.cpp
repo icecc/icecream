@@ -645,18 +645,24 @@ CompileFileMsg::fill_from_fd (int fd)
   if (!Msg::fill_from_fd (fd))
     return false;
   unsigned int id, lang;
-  list<string> l1, l2;
+  list<string> _l1, _l2;
   string version;
   if (!readuint (fd, lang)
       || !readuint (fd, id)
-      || !read_strlist (fd, l1)
-      || !read_strlist (fd, l2)
+      || !read_strlist (fd, _l1)
+      || !read_strlist (fd, _l2)
       || !read_string( fd, version ) )
     return false;
   job->setLanguage ((CompileJob::Language) lang);
   job->setJobID (id);
-  job->setRemoteFlags (l1);
-  job->setRestFlags (l2);
+  ArgumentsList l;
+  for ( list<string>::const_iterator it = _l1.begin();
+        it != _l1.end(); ++it )
+    l.append( *it, Arg_Remote );
+  for ( list<string>::const_iterator it = _l2.begin();
+        it != _l2.end(); ++it )
+    l.append( *it, Arg_Rest );
+  job->setFlags(l);
   job->setEnvironmentVersion( version );
   return true;
 }
@@ -669,7 +675,7 @@ CompileFileMsg::send_to_fd (int fd) const
   return (writeuint (fd, (unsigned int) job->language())
   	  && writeuint (fd, job->jobID())
   	  && write_strlist (fd, job->remoteFlags())
-          && write_strlist (fd, job->restFlags())
+          && write_strlist (fd, job->restFlags() )
           && write_string( fd, job->environmentVersion() ) );
 }
 

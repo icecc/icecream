@@ -40,12 +40,14 @@
 
 using namespace std;
 
-#if 0
-static string concat_args( const CompileJob::ArgumentsList &list )
+#define CLIENT_DEBUG 0
+
+#if CLIENT_DEBUG
+static string concat_args( const list<string> &list )
 {
     int len = list.size() - 1;
     string result = "\"";
-    for ( CompileJob::ArgumentsList::const_iterator it = list.begin();
+    for ( std::list<std::string>::const_iterator it = list.begin();
           it != list.end(); ++it, len-- ) {
         result += *it;
         if ( len )
@@ -59,12 +61,10 @@ static string concat_args( const CompileJob::ArgumentsList &list )
 bool analyse_argv( const char * const *argv,
                    CompileJob &job )
 {
-    CompileJob::ArgumentsList local_args;
-    CompileJob::ArgumentsList remote_args;
-    CompileJob::ArgumentsList rest_args;
+    ArgumentsList args;
     string ofile;
 
-#if 0
+#if CLIENT_DEBUG
     trace() << "scanning arguments ";
     for ( int index = 0; argv[index]; index++ )
         trace() << argv[index] << " ";
@@ -81,19 +81,19 @@ bool analyse_argv( const char * const *argv,
         if (a[0] == '-') {
             if (!strcmp(a, "-E")) {
                 always_local = true;
-                local_args.push_back( a );
+                args.append(a, Arg_Local);
             } else if (!strcmp(a, "-MD") || !strcmp(a, "-MMD")) {
-                local_args.push_back( a );
+                args.append(a, Arg_Local);
                 /* These two generate dependencies as a side effect.  They
                  * should work with the way we call cpp. */
             } else if (!strcmp(a, "-MG") || !strcmp(a, "-MP")) {
-                local_args.push_back( a );
+                args.append(a, Arg_Local);
                 /* These just modify the behaviour of other -M* options and do
                  * nothing by themselves. */
             } else if (!strcmp(a, "-MF") || !strcmp(a, "-MT") ||
                        !strcmp(a, "-MQ")) {
-                local_args.push_back( a );
-                local_args.push_back( argv[++i] );
+                args.append(a, Arg_Local);
+                args.append( argv[++i], Arg_Local );
                 /* as above but with extra argument */
             } else if (a[1] == 'M') {
                 /* -M(anything else) causes the preprocessor to
@@ -103,7 +103,7 @@ bool analyse_argv( const char * const *argv,
                     not the compiler.  There would be no point trying
                     to distribute it even if we could. */
                 always_local = true;
-                local_args.push_back( a );
+                args.append(a, Arg_Local);
             } else if (str_startswith("-Wa,", a)) {
                 /* Options passed through to the assembler.  The only one we
                  * need to handle so far is -al=output, which directs the
@@ -113,20 +113,24 @@ bool analyse_argv( const char * const *argv,
                  * for '=' should be safe. */
                 if (strchr(a, '=')) {
                     always_local = true;
-                    local_args.push_back( a );
+                    args.append(a, Arg_Local);
                 } else
-                    remote_args.push_back( a );
+                    args.append(a, Arg_Remote);
             } else if (!strcmp(a, "-S")) {
                 seen_s = true;
             } else if (!strcmp(a, "-fprofile-arcs")
                        || !strcmp(a, "-ftest-coverage")) {
+#if CLIENT_DEBUG
                 log_info() << "compiler will emit profile info; must be local" << endl;
+#endif
                 always_local = true;
-                local_args.push_back( a );
+                args.append(a, Arg_Local);
             } else if (!strcmp(a, "-x")) {
+#if CLIENT_DEBUG
                 log_info() << "gcc's -x handling is complex; running locally" << endl;
+#endif
                 always_local = true;
-                local_args.push_back( a );
+                args.append(a, Arg_Local);
             } else if (!strcmp(a, "-c")) {
                 seen_c = true;
             } else if (str_startswith("-o", a)) {
@@ -153,17 +157,17 @@ bool analyse_argv( const char * const *argv,
                        || str_equal("-isystem", a)
                        || str_equal("-iwithprefixbefore", a)
                        || str_equal("-idirafter", a) ) {
-                local_args.push_back( a );
+                args.append(a, Arg_Local);
                 /* skip next word, being option argument */
                 if (argv[i+1])
-                    local_args.push_back( argv[++i] );
+                    args.append(  argv[++i], Arg_Local );
             } else if (str_startswith("-Wp,", a)
                  || str_startswith("-D", a)
                  || str_startswith("-U", a)
                  || str_startswith("-I", a)
                  || str_startswith("-l", a)
                  || str_startswith("-L", a)) {
-                local_args.push_back( a );
+                args.append(a, Arg_Local);
             } else if (str_equal("-undef", a)
                  || str_equal("-nostdinc", a)
                  || str_equal("-nostdinc++", a)
@@ -171,11 +175,11 @@ bool analyse_argv( const char * const *argv,
                  || str_equal("-MMD", a)
                  || str_equal("-MG", a)
                  || str_equal("-MP", a)) {
-                local_args.push_back( a );
+                args.append(a, Arg_Local);
             } else
-                rest_args.push_back( a );
+                args.append( a, Arg_Rest );
         } else {
-            rest_args.push_back( a );
+            args.append( a, Arg_Rest );
         }
     }
 
@@ -184,45 +188,44 @@ bool analyse_argv( const char * const *argv,
     else if ( seen_s ) {
         if ( seen_c )
             log_error() << "can't have both -c and -S, ignoring -c" << endl;
-        remote_args.push_back( "-S" );
+        args.append( "-S", Arg_Remote );
     } else
-        remote_args.push_back( "-c" );
+        args.append( "-c", Arg_Remote );
 
     if (ofile == "-" ) {
         /* Different compilers may treat "-o -" as either "write to
          * stdout", or "write to a file called '-'".  We can't know,
          * so we just always run it locally.  Hopefully this is a
          * pretty rare case. */
+#ifdef CLIENT_DEBUG
         log_info() << "output to stdout?  running locally" << endl;
+#endif
         always_local = true;
     }
 
-    string compiler_name = find_basename(rest_args.front());
-    rest_args.pop_front(); // away!
+    string compiler_name = find_basename( args.front().first );
+    args.pop_front(); // away!
 
     job.setLanguage( CompileJob::Lang_C );
     if ( ( compiler_name.size() > 2 &&
          compiler_name.substr( compiler_name.size() - 2 ) == "++" ) || compiler_name == "CC" )
         job.setLanguage( CompileJob::Lang_CXX );
 
-    job.setRemoteFlags( remote_args );
-    job.setLocalFlags( local_args );
-
     if ( seen_c || seen_s ) {
         /* TODO: ccache has the heuristic of ignoring arguments that are not
          * extant files when looking for the input file; that's possibly
          * worthwile.  Of course we can't do that on the server. */
         string ifile;
-        for ( CompileJob::ArgumentsList::iterator it = rest_args.begin();
-              it != rest_args.end(); ) {
-            if ( it->at( 0 ) == '-' )
+        for ( ArgumentsList::iterator it = args.begin();
+              it != args.end(); ) {
+            if ( it->first.at( 0 ) == '-' )
                 ++it;
             else if ( ifile.empty() ) {
-                job.setInputFile( *it );
-                ifile = *it;
-                it = rest_args.erase( it );
+                job.setInputFile( it->first );
+                ifile = it->first;
+                it = args.erase( it );
             } else {
-                log_info() << "found another non option on command line. Two input files? " << *it << endl;
+                log_info() << "found another non option on command line. Two input files? " << it->first << endl;
                 abort();
                 ++it;
             }
@@ -233,15 +236,19 @@ bool analyse_argv( const char * const *argv,
             string ext = ifile.substr( dot_index + 1 );
 
             if (ext == "i" || ext == "c") {
+#if CLIENT_DEBUG
                 if ( job.language() != CompileJob::Lang_C )
                     log_info() << "switching to C for " << ifile << endl;
+#endif
                 job.setLanguage( CompileJob::Lang_C );
             } else if (ext == "c" || ext == "cc"
                        || ext == "cpp" || ext == "cxx"
                        || ext == "cp" || ext == "c++"
                        || ext == "C" || ext == "ii") {
+#if CLIENT_DEBUG
                 if ( job.language() != CompileJob::Lang_CXX )
                     log_info() << "switching to C++ for " << ifile << endl;
+#endif
                 job.setLanguage( CompileJob::Lang_CXX );
             } else if(ext == "mi" || ext == "m"
                       || ext == "mii" || ext == "mm"
@@ -257,13 +264,14 @@ bool analyse_argv( const char * const *argv,
         }
     } else
         assert( always_local );
-    job.setRestFlags( rest_args );
+
+    job.setFlags( args );
     job.setOutputFile( ofile );
 
-#if 0
-    trace() << "scanned result: local args=" << concat_args( local_args )
-            << ", remote args=" << concat_args( remote_args )
-            << ", rest=" << concat_args( rest_args )
+#if CLIENT_DEBUG
+    trace() << "scanned result: local args=" << concat_args( job.localFlags() )
+            << ", remote args=" << concat_args( job.remoteFlags() )
+            << ", rest=" << concat_args( job.restFlags() )
             << ", local=" << always_local
             << ", lang=" << ( job.language() == CompileJob::Lang_CXX ? "C++" : "C" )
             << endl;

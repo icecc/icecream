@@ -32,7 +32,7 @@ int work_it( CompileJob &j,
     str_out.clear();
     str_out.clear();
 
-    CompileJob::ArgumentsList list = j.remoteFlags();
+    std::list<string> list = j.remoteFlags();
     appendList( list, j.restFlags() );
     int ret;
 
@@ -107,7 +107,7 @@ int work_it( CompileJob &j,
         //TODOlist.push_back( "-Busr/lib/gcc-lib/i586-suse-linux/3.3.1/" );
 
         int i = 1;
-        for ( CompileJob::ArgumentsList::const_iterator it = list.begin();
+        for ( std::list<string>::const_iterator it = list.begin();
               it != list.end(); ++it) {
             argv[i++] = strdup( it->c_str() );
         }

@@ -4,11 +4,19 @@
 #include <list>
 #include <string>
 
+typedef enum { Arg_Unspecified, Arg_Local, Arg_Remote, Arg_Rest } Argument_Type;
+class ArgumentsList : public std::list< std::pair<std::string, Argument_Type> >
+{
+public:
+    void append( std::string s, Argument_Type t ) {
+        push_back( make_pair( s, t ) );
+    }
+};
+
 class CompileJob {
 
 public:
     typedef enum {Lang_C, Lang_CXX, Lang_OBJC} Language;
-    typedef std::list<std::string> ArgumentsList;
 
     CompileJob() : m_id( 0 ) {}
 
@@ -27,24 +35,13 @@ public:
         return m_environment_version;
     }
 
-    void setLocalFlags( const ArgumentsList & l ) {
-        m_local_flags = l;
+    void setFlags( const ArgumentsList &flags ) {
+        m_flags = flags;
     }
-    ArgumentsList localFlags() const {
-        return m_local_flags;
-    }
-    void setRemoteFlags( const ArgumentsList & l ) {
-        m_remote_flags = l;
-    }
-    ArgumentsList remoteFlags() const {
-        return m_remote_flags;
-    }
-    void setRestFlags( const ArgumentsList & l ) {
-        m_rest_flags = l;
-    }
-    ArgumentsList restFlags() const {
-        return m_rest_flags;
-    }
+    std::list<std::string> localFlags() const;
+    std::list<std::string> remoteFlags() const;
+    std::list<std::string> restFlags() const;
+    std::list<std::string> allFlags() const;
 
     void setInputFile( const std::string &file ) {
         m_input_file = file;
@@ -73,14 +70,12 @@ private:
     unsigned int m_id;
     Language m_language;
     std::string m_environment_version;
-    ArgumentsList m_remote_flags;
-    ArgumentsList m_local_flags;
-    ArgumentsList m_rest_flags;
+    ArgumentsList m_flags;
     std::string m_input_file, m_output_file;
 };
 
-void appendList( CompileJob::ArgumentsList &list,
-                 const CompileJob::ArgumentsList &toadd );
+void appendList( std::list<std::string> &list,
+                 const std::list<std::string> &toadd );
 bool write_job( int fd, const CompileJob &job );
 bool read_job( int in_fd, CompileJob &job );
 

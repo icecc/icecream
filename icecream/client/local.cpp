@@ -12,6 +12,8 @@ using namespace std;
 
 extern const char * rs_program_name;
 
+#define CLIENT_DEBUG 0
+
 string find_compiler( const string &compiler )
 {
     if ( compiler.at( 0 ) == '/' )
@@ -79,11 +81,9 @@ int build_local(CompileJob &job)
 
     if ( compiler_name.empty() )
         return EXIT_NO_SUCH_FILE;
-    CompileJob::ArgumentsList arguments;
+    std::list<string> arguments;
     arguments.push_back( compiler_name );
-    appendList( arguments, job.remoteFlags() );
-    appendList( arguments, job.restFlags() );
-    appendList( arguments, job.localFlags() );
+    appendList( arguments, job.allFlags() );
 
     if ( !job.inputFile().empty() )
         arguments.push_back( job.inputFile() );
@@ -93,11 +93,11 @@ int build_local(CompileJob &job)
     }
     char **argv = new char*[arguments.size() + 1];
     int argc = 0;
-    for ( CompileJob::ArgumentsList::const_iterator it = arguments.begin();
+    for ( std::list<string>::const_iterator it = arguments.begin();
           it != arguments.end(); ++it )
         argv[argc++] = strdup( it->c_str() );
     argv[argc] = 0;
-#if 0
+#if CLIENT_DEBUG
     trace() << "execing ";
     for ( int i = 0; argv[i]; i++ )
         trace() << argv[i] << " ";

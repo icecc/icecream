@@ -75,7 +75,7 @@ pid_t call_cpp(CompileJob &job, int fd)
         if (ret)    /* set handler back to default */
             exit(ret);
 
-        CompileJob::ArgumentsList list = job.localFlags();
+        list<string> list = job.localFlags();
         appendList( list, job.restFlags() );
         int argc = list.size();
         argc++; // the program
@@ -88,7 +88,7 @@ pid_t call_cpp(CompileJob &job, int fd)
         else
             assert(0);
         int i = 1;
-        for ( CompileJob::ArgumentsList::const_iterator it = list.begin();
+        for ( std::list<std::string>::const_iterator it = list.begin();
               it != list.end(); ++it) {
             argv[i++] = strdup( it->c_str() );
         }
