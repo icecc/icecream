@@ -21,7 +21,6 @@ public:
 /* One compile server (receiver, compile daemon)  */
 class CS : public Service {
   unsigned int id;
-  char *name;
   double load;
   unsigned int jobs_done;
   unsigned long long rcvd_kb, sent_kb;
@@ -89,7 +88,7 @@ handle_job_begin (MsgChannel *c, Msg *_m)
 static int
 handle_job_done (MsgChannel *c, Msg *_m)
 {
-  JobBeginMsg *m = dynamic_cast<JobBeginMsg *>(_m);
+  JobDoneMsg *m = dynamic_cast<JobDoneMsg *>(_m);
   if (jobs.find(m->job_id) == jobs.end())
     return 1;
   if (jobs[m->job_id].server != c->other_end)

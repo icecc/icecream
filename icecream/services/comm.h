@@ -4,6 +4,7 @@ enum MsgType {
   M_END, // End of all kinds of message chunks
   // Fake message used in message chunk looks
   M_TIMEOUT, 
+  // ??? maybe use M_END
   M_DISCONNECT,
 
   // C <--> CD
@@ -33,6 +34,7 @@ class Msg {
   enum MsgType type;
 public:
   Msg (enum MsgType t) : type(t) {}
+  virtual ~Msg () {}
   virtual bool fill_from_fd (int fd);
   virtual bool send_to_fd (int fd);
 };
@@ -40,7 +42,7 @@ public:
 // an endpoint of a MsgChannel, i.e. most often a host
 class Service {
   struct sockaddr *addr;
-  const char *name; // ???
+  const std::string name; // ???
 };
 
 class MsgChannel {
@@ -55,31 +57,103 @@ class MsgChannel {
   int error(void);
 };
 
-#define DECL_MSG_SIMPLE(NAME,ENUM)	\
-class NAME : public Msg {	\
-public:				\
-  NAME () : Msg(ENUM) {}	\
+class PingMsg : public Msg {
+public:
+  PingMsg () : Msg(M_PING) {}
 };
 
-#define DECL_MSG(NAME,ENUM)	\
-class NAME : public Msg {	\
-public:				\
-  NAME () : Msg(ENUM) {}	\
-  virtual bool fill_from_fd (int fd);	\
-  virtual bool send_to_fd (int fd);	\
+class EndMsg : public Msg {
+public:
+  EndMsg () : Msg(M_END) {}
 };
 
-DECL_MSG_SIMPLE (PingMsg, M_PING)
-DECL_MSG_SIMPLE (EndMsg, M_END)
-DECL_MSG (CompileReqMsg, M_COMPILE_REQ)
-DECL_MSG_SIMPLE (TimeoutMsg, M_TIMEOUT)
-DECL_MSG_SIMPLE (DisconnectMsg, M_DISCONNECT)
-DECL_MSG (CompileDoneMsg, M_COMPILE_DONE)
-DECL_MSG (GetCSMsg, M_GET_CS)
-DECL_MSG (UseCSMsg, M_USE_CS)
-DECL_MSG (CompileFileMsg, M_COMPILE_FILE)
-DECL_MSG (FileChunkMsg, M_FILE_CHUNK)
-DECL_MSG (CompileResultMsg, M_COMPILE_RESULT)
-DECL_MSG (JobBeginMsg, M_JOB_BEGIN)
-DECL_MSG (JobDoneMsg, M_JOB_DONE)
-DECL_MSG (StatsMsg, M_STATS)
+class CompileReqMsg : public Msg {
+public:
+  CompileReqMsg () : Msg(M_COMPILE_REQ) {}
+  virtual bool fill_from_fd (int fd);
+  virtual bool send_to_fd (int fd);
+};
+
+class TimeoutMsg : public Msg {
+public:
+  TimeoutMsg () : Msg(M_TIMEOUT) {}
+};
+
+class DisconnectMsg : public Msg {
+public:
+  DisconnectMsg () : Msg(M_DISCONNECT) {}
+};
+
+class CompileDoneMsg : public Msg {
+public:
+  CompileDoneMsg () : Msg(M_COMPILE_DONE) {}
+  virtual bool fill_from_fd (int fd);
+  virtual bool send_to_fd (int fd);
+};
+
+class GetCSMsg : public Msg {
+  const std::string version;
+  const std::string filename;
+  unsigned long filesize;
+public:
+  GetCSMsg () : Msg(M_GET_CS) {}
+  virtual bool fill_from_fd (int fd);
+  virtual bool send_to_fd (int fd);
+};
+
+class UseCSMsg : public Msg {
+  unsigned int job_id;
+  const std::string hostname;
+public:
+  UseCSMsg () : Msg(M_USE_CS) {}
+  UseCSMsg (Service &s, unsigned int id) : Msg(M_USE_CS), job_id(id),
+    hostname (s.name) {}
+  virtual bool fill_from_fd (int fd);
+  virtual bool send_to_fd (int fd);
+};
+
+class CompileFileMsg : public Msg {
+public:
+  CompileFileMsg () : Msg(M_COMPILE_FILE) {}
+  virtual bool fill_from_fd (int fd);
+  virtual bool send_to_fd (int fd);
+};
+
+class FileChunkMsg : public Msg {
+public:
+  FileChunkMsg () : Msg(M_FILE_CHUNK) {}
+  virtual bool fill_from_fd (int fd);
+  virtual bool send_to_fd (int fd);
+};
+
+class CompileResultMsg : public Msg {
+public:
+  CompileResultMsg () : Msg(M_COMPILE_RESULT) {}
+  virtual bool fill_from_fd (int fd);
+  virtual bool send_to_fd (int fd);
+};
+
+class JobBeginMsg : public Msg {
+public:
+  unsigned int job_id;
+  JobBeginMsg () : Msg(M_JOB_BEGIN) {}
+  JobBeginMsg (unsigned int i) : Msg(M_JOB_BEGIN), job_id(i) {}
+  virtual bool fill_from_fd (int fd);
+  virtual bool send_to_fd (int fd);
+};
+
+class JobDoneMsg : public Msg {
+public:
+  unsigned int job_id;
+  JobDoneMsg () : Msg(M_JOB_DONE) {}
+  JobDoneMsg (unsigned int i) : Msg(M_JOB_DONE), job_id(i) {}
+  virtual bool fill_from_fd (int fd);
+  virtual bool send_to_fd (int fd);
+};
+
+class StatsMsg : public Msg {
+public:
+  StatsMsg () : Msg(M_STATS) {}
+  virtual bool fill_from_fd (int fd);
+  virtual bool send_to_fd (int fd);
+};
