@@ -453,7 +453,7 @@ envs_match( CS* cs, const Job *job )
 static bool
 can_install( CS* cs, const Job *job )
 {
-  trace() << "can_install host: '" << cs->host_platform << "' target: '" << job->target_platform << "'" << endl;
+  // trace() << "can_install host: '" << cs->host_platform << "' target: '" << job->target_platform << "'" << endl;
   if ( cs->busy_installing )
     return false;
   // XXX: instead of doing string compares all the time we should keep an array of platforms and compare indices
@@ -554,13 +554,20 @@ pick_server(Job *job)
 	     idea about their speed.  */
 	  if (envs_match (cs, job))
 	    best = cs;
-	  else // if there is one server that already got the environment and one that
+	  else {
+            // if there is one server that already got the environment and one that
             // hasn't compiled at all, pick the one with environment first
 	    bestui = cs;
+
+            // to make sure we find the fast computers at least after some time, we overwrite
+            // the above rule for every 7th job
+            if ( job->id % 7 == 0 )
+              best = 0;
+          }
 	  break;
 	}
 
-      // trace() << "server_speed " << cs->name << " " << server_speed (cs) << endl;
+      // trace() << "server_speed " << cs->nodename << " " << server_speed (cs) << endl;
       if ( envs_match( cs, job ) )
         {
           if ( !best )
