@@ -711,7 +711,7 @@ try_login (MsgChannel *c, Msg *m)
       ret = handle_local_job (c, m);
       break;
     default:
-      log_info() << "Invalid first message" << endl;
+      log_info() << "Invalid first message " << (char)m->type << endl;
       ret = false;
       break;
     }

@@ -50,7 +50,7 @@ enum MsgType {
   M_JOB_DONE,
 
   // C --> S
-  M_JOB_LOCAL_BEGIN,
+  M_JOB_LOCAL_BEGIN, // = 'N'
   M_JOB_LOCAL_ID,
   M_JOB_LOCAL_DONE,
 

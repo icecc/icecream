@@ -4,4 +4,4 @@ all:
 	aclocal
 	autoconf
 	autoheader
-	automake -a
+	automake -a -f || :
