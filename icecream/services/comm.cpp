@@ -644,7 +644,7 @@ open_send_broadcast (void)
   if ( ret < 0 )
     return ret;
 
-  char buf = 42;
+  char buf = PROTOCOL_VERSION;
   for (struct kde_ifaddrs *addr = addrs; addr != NULL; addr = addr->ifa_next)
     {
       /*
@@ -696,7 +696,7 @@ get_broad_answer (int ask_fd, int timeout, char *buf2,
 		  struct sockaddr_in *remote_addr,
 		  socklen_t *remote_len)
 {
-  char buf = 42;
+  char buf = PROTOCOL_VERSION;
   fd_set read_set;
   FD_ZERO (&read_set);
   FD_SET (ask_fd, &read_set);
@@ -720,7 +720,7 @@ get_broad_answer (int ask_fd, int timeout, char *buf2,
     }
   if (buf + 1 != buf2[0])
     {
-      fprintf (stderr, "wrong answer\n");
+      log_error() << "wrong answer" << endl;
       return false;
     }
   buf2[BROAD_BUFLEN - 1] = 0;

@@ -109,14 +109,19 @@ public:
   list<string> compiler_versions;  // Available compilers
   CS (struct sockaddr *_addr, socklen_t _len)
     : Service(_addr, _len), load(1000), max_jobs(0), state(CONNECTED),
-      type(UNKNOWN) {}
+      type(UNKNOWN) {
+    hostid = ++hostid_counter;
+  }
   list<JobStat> last_compiled_jobs;
   list<JobStat> last_requested_jobs;
   JobStat cum_compiled;  // cumulated
   JobStat cum_requested;
   enum {CONNECTED, LOGGEDIN} state;
   enum {UNKNOWN, CLIENT, DAEMON, MONITOR} type;
+  static unsigned int hostid_counter;
 };
+
+unsigned int CS::hostid_counter = 0;
 
 static map<int, MsgChannel *> fd2chan;
 
