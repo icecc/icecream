@@ -474,19 +474,16 @@ MsgChannel::check_protocol()
 {
   protocol = PROTOCOL_VERSION;
   unsigned char vers[4] = { PROTOCOL_VERSION, 0, 0, 0 };
-  trace() << "writing protocol " << PROTOCOL_VERSION << endl;
   if ( write( fd, vers, 4 ) != 4 )
     return false;
   if ( read( fd, vers, 4 ) != 4 ) // just the other side's
     return false;
-  trace() << "read protocol " << ( int )vers[0] << endl;
   if ( vers[0] < MIN_PROTOCOL_VERSION )
     vers[0] = 0;
   else if ( vers[0] > PROTOCOL_VERSION )
     vers[0] = PROTOCOL_VERSION; // our is smaller
   protocol = vers[0];
 
-  trace() << "write protocol version " << ( int )vers[0] << endl;
   if ( write( fd, vers, 4 ) != 4 ) {
     close( fd );
     fd = -1;
@@ -499,7 +496,6 @@ MsgChannel::check_protocol()
     return false;
   }
 
-  trace() << "read protocol " << ( int )vers[0] << endl;
   if ( read( fd, vers, 4 ) != 4 ) // just the other side's again
     return false;
 
@@ -510,7 +506,6 @@ MsgChannel::check_protocol()
     return false;
   }
 
-  trace() << "protocol is fine for me: " << protocol << endl;
   return true;
 }
 
