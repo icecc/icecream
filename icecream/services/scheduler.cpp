@@ -281,6 +281,7 @@ add_job_stats (Job *job, JobDoneMsg *msg)
       all_job_stats.pop_front ();
     }
 
+#if DEBUG_SCHEDULER > 1
   if ( job->arg_flags < 7000 )
     trace() << "add_job_stats " << job->language << " "
             << ( time( 0 ) - starttime ) << " "
@@ -294,6 +295,7 @@ add_job_stats (Job *job, JobDoneMsg *msg)
             << job->server->nodename << " "
             << float(msg->out_uncompressed) / st.compile_time_user << " "
             << server_speed( job->server ) << endl ;
+#endif
 
 }
 
@@ -741,12 +743,12 @@ pick_server(Job *job)
     }
 
   if ( best ) {
-#if DEBUG_SCHEDULER > 0
+#if DEBUG_SCHEDULER > 1
     trace() << "taking best installed " << best->nodename << " " <<  server_speed (best) << endl;
 #endif
     return best;
   }
-#if DEBUG_SCHEDULER > 0
+#if DEBUG_SCHEDULER > 1
   if ( bestui )
     trace() << "taking best uninstalled " << bestui->nodename << " " <<  server_speed (bestui) << endl;
 #endif
@@ -978,6 +980,9 @@ handle_job_begin (MsgChannel *c, Msg *_m)
   return true;
 }
 
+
+static string dump_job (Job *job);
+
 static bool
 handle_job_done (MsgChannel *c, Msg *_m)
 {
@@ -1034,9 +1039,9 @@ handle_job_done (MsgChannel *c, Msg *_m)
        it != jobs.end(); ++it)
     {
       int id = it->first;
-      Job *c = it->second;
+      Job *j = it->second;
       if (new_job_id - id > 2000)
-        trace() << "  undone: " << id << " state " << c->state << endl;
+        trace() << "  undone: " << dump_job( j ) << endl;
       first = false;
     }
 #endif
@@ -1084,12 +1089,12 @@ handle_timeout (MsgChannel * c, Msg * /*_m*/)
   return false;
 }
 
-static void
-dump_job (MsgChannel *c, Job *job)
+static string
+dump_job (Job *job)
 {
   char buffer[1000];
   string line;
-  snprintf (buffer, sizeof (buffer), "  %d %s sub:%s on:%s ",
+  snprintf (buffer, sizeof (buffer), "%d %s sub:%s on:%s ",
 	   job->id,
 	   job->state == Job::PENDING ? "PEND"
 	     : job->state == Job::WAITINGFORCS ? "WAIT"
@@ -1100,7 +1105,7 @@ dump_job (MsgChannel *c, Job *job)
   buffer[sizeof (buffer) - 1] = 0;
   line = buffer;
   line = line + job->filename;
-  c->send_msg (TextMsg (line));
+  return line;
 }
 
 /* Splits the string S between characters in SET and add them to list L.  */
@@ -1160,14 +1165,14 @@ handle_line (MsgChannel *c, Msg *_m)
             }
 	  c->send_msg (TextMsg (line));
           for ( list<Job*>::const_iterator it2 = cs->joblist.begin(); it2 != cs->joblist.end(); ++it2 )
-	    dump_job (c, *it2);
+            c->send_msg (TextMsg ("   " + dump_job (*it2) ) );
 	}
     }
   else if (cmd == "listjobs")
     {
       for (map<unsigned int, Job*>::const_iterator it = jobs.begin();
 	   it != jobs.end(); ++it)
-	dump_job (c, it->second);
+	c->send_msg( TextMsg( " " + dump_job (it->second) ) );
     }
   else if (cmd == "quit")
     {
@@ -1255,18 +1260,24 @@ try_login (MsgChannel *c, Msg *m)
 static bool
 handle_end (MsgChannel *c, Msg *m)
 {
+#if DEBUG_SCHEDULER > 1
   trace() << "Handle_end " << c << " " << m << endl;
+#endif
 
   CS *toremove = static_cast<CS *>(c->other_end);
   if (toremove->type == CS::MONITOR)
     {
       assert (find (monitors.begin(), monitors.end(), c->other_end) != monitors.end());
       monitors.remove (c->other_end);
+#if DEBUG_SCHEDULER > 1
       trace() << "handle_end(moni) " << monitors.size() << endl;
+#endif
     }
   else if (toremove->type == CS::DAEMON)
     {
+#if DEBUG_SCHEDULER > 0
       trace() << "remove daemon\n";
+#endif
 
       notify_monitors( MonStatsMsg( toremove->hostid, "State:Offline\n" ) );
 
@@ -1325,7 +1336,9 @@ handle_end (MsgChannel *c, Msg *m)
     }
   else if (toremove->type == CS::CLIENT)
     {
+#if DEBUG_SCHEDULER > 1
       trace() << "remove client\n";
+#endif
 
       map<unsigned int, Job*>::iterator it;
 
