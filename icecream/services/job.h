@@ -67,6 +67,8 @@ public:
     }
 
 private:
+    std::list<std::string> flags( Argument_Type argumentType ) const;
+
     unsigned int m_id;
     Language m_language;
     std::string m_environment_version;

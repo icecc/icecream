@@ -7,40 +7,34 @@ using namespace std;
 void appendList( std::list<string> &list,
                  const std::list<string> &toadd )
 {
-    for ( std::list<string>::const_iterator it = toadd.begin();
-          it != toadd.end(); ++it )
-        list.push_back( *it );
+    // Cannot splice since toadd is a reference-to-const
+    list.resize( list.size() + toadd.size() );
+    list.insert( list.end(), toadd.begin(), toadd.end() );
 }
 
-// TODO: write one template function. copy & paste sucks
-list<string> CompileJob::localFlags() const
+list<string> CompileJob::flags( Argument_Type argumentType ) const
 {
     list<string> args;
     for ( ArgumentsList::const_iterator it = m_flags.begin();
           it != m_flags.end(); ++it )
-        if ( it->second == Arg_Local )
+        if ( it->second == argumentType )
             args.push_back( it->first );
     return args;
+}
+
+list<string> CompileJob::localFlags() const
+{
+    return flags( Arg_Local );
 }
 
 list<string> CompileJob::remoteFlags() const
 {
-    list<string> args;
-    for ( ArgumentsList::const_iterator it = m_flags.begin();
-          it != m_flags.end(); ++it )
-        if ( it->second == Arg_Remote )
-            args.push_back( it->first );
-    return args;
+    return flags( Arg_Remote );
 }
 
 list<string> CompileJob::restFlags() const
 {
-    list<string> args;
-    for ( ArgumentsList::const_iterator it = m_flags.begin();
-          it != m_flags.end(); ++it )
-        if ( it->second == Arg_Rest )
-            args.push_back( it->first );
-    return args;
+    return flags( Arg_Rest );
 }
 
 list<string> CompileJob::allFlags() const
