@@ -1066,6 +1066,12 @@ main (int argc, char * argv[])
 	    }
 	  if (remote_fd >= 0)
 	    {
+              if ( !Service::check_protocol( remote_fd ) ) {
+                  log_warning() << inet_ntoa (((struct sockaddr_in *) &remote_addr)->sin_addr) << " uses different protocol (ours is " << PROTOCOL_VERSION << ")!\n";
+                  close( remote_fd );
+                  continue;
+              }
+
 	      CS *cs = new CS ((struct sockaddr*) &remote_addr, remote_len);
 	      // printf ("accepting from %s:%d\n", cs->name.c_str(), cs->port);
 	      MsgChannel *c = cs->createChannel (remote_fd);

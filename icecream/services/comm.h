@@ -11,7 +11,7 @@
 
 #include "job.h"
 
-#define PROTOCOL_VERSION 1
+#define PROTOCOL_VERSION 2
 
 enum MsgType {
   // so far unknown
@@ -99,6 +99,9 @@ public:
   MsgChannel *createChannel( int remote_fd );
   bool eq_ip (const Service &s);
   virtual ~Service ();
+
+  static bool announce_protocol( int fd );
+  static bool check_protocol( int fd );
 };
 
 class MsgChannel {

@@ -504,6 +504,11 @@ int main( int argc, char ** argv )
                         log_error() << "accept failed: " << strerror(errno) << endl;
                         return EXIT_CONNECT_FAILED;
                     } else {
+                        if ( !Service::check_protocol( acc_fd ) ) {
+                            log_warning() << inet_ntoa (((struct sockaddr_in *) &cli_addr)->sin_addr) << " uses different protocol (ours is " << PROTOCOL_VERSION << ")!\n";
+                            close( acc_fd );
+                            continue;
+                        }
                         Service *client = new Service ((struct sockaddr*) &cli_addr, cli_len);
                         MsgChannel *c = client->createChannel( acc_fd );
 

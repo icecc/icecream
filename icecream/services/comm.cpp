@@ -389,6 +389,11 @@ Service::Service (const string &hostname, unsigned short p)
       close (remote_fd);
       return;
     }
+  if ( !announce_protocol( remote_fd ) )
+    {
+      close( remote_fd );
+      return;
+    }
   len = sizeof (remote_addr);
   addr = (struct sockaddr *)malloc (len);
   memcpy (addr, &remote_addr, len);
@@ -417,6 +422,25 @@ Service::eq_ip (const Service &s)
   s2 = (struct sockaddr_in *) s.addr;
   return (len == s.len
           && memcmp (&s1->sin_addr, &s2->sin_addr, sizeof (s1->sin_addr)) == 0);
+}
+
+bool
+Service::announce_protocol( int fd )
+{
+  char vers[4] = { PROTOCOL_VERSION, 0, 0, 0 };
+  return ( write( fd, vers, 4 ) == 4 );
+}
+
+bool
+Service::check_protocol( int fd )
+{
+  unsigned char vers[4];
+  if ( read( fd, vers, 4 ) != 4 ) {
+    perror( "read(acc_fd, 4)" );
+    return false;
+  } else {
+    return ( vers[0] == PROTOCOL_VERSION );
+  }
 }
 
 MsgChannel::MsgChannel (int _fd)
@@ -744,8 +768,7 @@ connect_scheduler (const string &_netname, int timeout)
       netname = buf2 + 1;
     }
 
-  printf ("scheduler is on %s:%d (net %s)\n", hostname.c_str(), sport,
-	  netname.c_str());
+  log_info() << "scheduler is on " << hostname << ":" << sport << " (net " << netname << ")\n";
   Service *sched = new Service (hostname, sport);
   return sched->channel();
 }

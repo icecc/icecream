@@ -4,7 +4,6 @@
       PATH=$PWD/usr/bin LD_LIBRARY_PATH=$PWD/lib:$PWD/usr/lib:/lib usr/bin/gcc -B/tmp/test/usr/lib/gcc-lib/i586-suse-linux/3.3.1/ -c ~/test.ii
 * monitor: easier monitor views
 * client: let the client have run the job on two different servers for every 10th or 100th job
-* all: protocol version
 * scheduler: If ICECC_VERSION isn't set at all the client is confused,
   because the scheduler returns with 'false' in got_env (because it doesn't
   yet handle the catch-all environment), but, well, ICECC_VERSION isn't set ;)
