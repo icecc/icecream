@@ -428,7 +428,7 @@ int main( int argc, char ** argv )
     Pidmap pidmap;
 
     string native_environment;
-    if ( false && !setup_env_cache( envbasedir, native_environment ) )
+    if ( !setup_env_cache( envbasedir, native_environment ) )
         return 1;
 
     list<string> nl = get_netnames (200);
