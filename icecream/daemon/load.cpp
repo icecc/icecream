@@ -26,23 +26,30 @@
 
 using namespace std;
 
-typedef struct
+struct CPULoadInfo
 {
-  /* A CPU can be loaded with user processes, reniced processes and
-   * system processes. Unused processing time is called idle load.
-   * These variable store the percentage of each load type. */
-  int userLoad;
-  int niceLoad;
-  int sysLoad;
-  int idleLoad;
+    /* A CPU can be loaded with user processes, reniced processes and
+     * system processes. Unused processing time is called idle load.
+     * These variable store the percentage of each load type. */
+    int userLoad;
+    int niceLoad;
+    int sysLoad;
+    int idleLoad;
 
-  /* To calculate the loads we need to remember the tick values for each
-   * load type. */
-  unsigned long userTicks;
-  unsigned long niceTicks;
-  unsigned long sysTicks;
-  unsigned long idleTicks;
-} CPULoadInfo;
+    /* To calculate the loads we need to remember the tick values for each
+     * load type. */
+    unsigned long userTicks;
+    unsigned long niceTicks;
+    unsigned long sysTicks;
+    unsigned long idleTicks;
+
+    CPULoadInfo() {
+        userTicks = 0;
+        niceTicks = 0;
+        sysTicks = 0;
+        idleTicks = 0;
+    }
+};
 
 static void updateCPULoad( const char* line, CPULoadInfo* load )
 {
@@ -71,6 +78,40 @@ static void updateCPULoad( const char* line, CPULoadInfo* load )
   load->idleTicks = currIdleTicks;
 }
 
+static unsigned long int scan_one( const char* buff, const char *key )
+{
+  char *b = strstr( buff, key );
+  if ( !b )
+      return 0;
+  unsigned long int val = 0;
+  if ( sscanf( b + strlen( key ), ": %lu", &val ) != 1 )
+      return 0;
+  return val;
+}
+
+static unsigned int calculateMemLoad( const char* MemInfoBuf )
+{
+    unsigned long int MemFree = scan_one( MemInfoBuf, "MemFree" );
+    unsigned long int Buffers = scan_one( MemInfoBuf, "Buffers" );
+    unsigned long int Cached = scan_one( MemInfoBuf, "Cached" );
+
+    if ( Buffers > 50 * 1024 )
+        Buffers -= 50 * 1024;
+    else
+        Buffers /= 2;
+
+    if ( Cached > 50 * 1024 )
+        Cached -= 50 * 1024;
+    else
+        Cached /= 2;
+
+    MemFree += Cached + Buffers;
+    if ( MemFree > 128 * 1014 )
+        return 0;
+    else
+        return 1000 - ( MemFree * 1000 / ( 128 * 1024 ) );
+}
+
 bool fill_stats( StatsMsg &msg )
 {
     static CPULoadInfo load;
@@ -94,6 +135,23 @@ bool fill_stats( StatsMsg &msg )
     StatBuf[n] = 0;
     updateCPULoad( StatBuf, &load );
 
-    msg.load = load.niceLoad;
+    if ( ( fd = open( "/proc/meminfo", O_RDONLY ) ) < 0 ) {
+        log_error() << "Cannot open file \'/proc/meminfo\'!\n"
+            "The kernel needs to be compiled with support\n"
+            "forks /proc filesystem enabled!" << endl;
+        return false;
+    }
+
+    n = read( fd, StatBuf, sizeof( StatBuf ) -1 );
+    close( fd );
+    if ( n < 40 ) {
+        log_error() << "no enough date in /proc/stat?" << endl;
+        return false;
+    }
+    StatBuf[n] = 0;
+    unsigned int memory_fillgrade = calculateMemLoad( StatBuf );
+
+    msg.load = ( 700 * ( 1000 - load.idleLoad ) + 300 * memory_fillgrade ) / 1000;
+    trace() << "load cpu=" << 1000 - load.idleLoad << " mem=" << memory_fillgrade << " " << msg.load << endl;
     return true;
 }
