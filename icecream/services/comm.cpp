@@ -1,4 +1,4 @@
-/*  -*- mode: C++; c-file-style: "gnu" -*- */
+/*  -*- mode: C++; c-file-style: "gnu"; fill-column: 78 -*- */
 
 #include <sys/types.h>
 #include <netinet/in.h>
@@ -301,13 +301,13 @@ MsgChannel::send_msg (const Msg &m)
 
 MsgChannel *Service::createChannel( int remote_fd )
 {
-  if ( c ) {
+  if ( channel() ) {
     assert( remote_fd == c->fd );
-    return c;
+    return channel();
   }
   new MsgChannel( remote_fd, this ); // sets c
-  assert( c );
-  return c;
+  assert( channel() );
+  return channel();
 }
 
 #include <sys/types.h>

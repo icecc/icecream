@@ -214,7 +214,6 @@ int main( int /*argc*/, char ** /*argv*/ )
      * not.  */
     dcc_master_pid = getpid();
 
-    int current_kids = 0;
     const int max_count = 0; // DEBUG
     int count = 0; // DEBUG
     typedef pair<CompileJob*, MsgChannel*> Compile_Request;
@@ -234,8 +233,8 @@ int main( int /*argc*/, char ** /*argv*/ )
         // and down that often
         int current_kids = 0;
         time_t last_stat = 0;
-        Compile_Request.clear();
-        requests.clear();
+        while ( !requests.empty() )
+            requests.pop();
 
         while (1) {
             int acc_fd;

@@ -9,7 +9,7 @@ bin_PROGRAMS = scheduler
 scheduler_SOURCES = scheduler.cpp
 scheduler_LDADD = libcommon.la
 
-noinst_PROGRAMS = receiver submitter
+EXTRA_PROGRAMS = receiver submitter
 receiver_SOURCES = receiver.cpp
 receiver_LDADD = libcommon.la
 submitter_SOURCES = submitter.cpp

@@ -180,6 +180,7 @@ int handle_connection( CompileJob *job, MsgChannel *serv )
 
         serv->send_msg( EndMsg() );
 
+        printf( "exception %d %p\n", job_id, scheduler );
         if ( job_id && scheduler)
             scheduler->send_msg( JobDoneMsg( job_id ) );
 

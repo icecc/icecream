@@ -1,8 +1,11 @@
+/*  -*- mode: C++; c-file-style: "gnu"; fill-column: 78 -*- */
+
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <sys/select.h>
+#include <sys/signal.h>
 #include <unistd.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -49,7 +52,9 @@ public:
   list<Job*> joblist;
     // list<string> compiler_versions;  // Available compilers
     // enum {AVAILABLE, DISCONNECTED} state;
-  CS (struct sockaddr *_addr, socklen_t _len) : Service (_addr, _len), load( 1200 ), max_jobs( 3 ), max_load( 1500 ) {}
+  CS (struct sockaddr *_addr, socklen_t _len) : Service (_addr, _len),
+                                                load( 1200 ), max_jobs( 3 ),
+                                                max_load( 6500 ) {}
 };
 
 // A subset of connected_hosts representing the compiler servers
@@ -97,54 +102,66 @@ handle_cs_request (MsgChannel *c, Msg *_m)
 
 CS *pick_server()
 {
-    int i = random() % css.size();
-    list<CS*>::iterator it;
-    for (it = css.begin(); it != css.end(); ++it)
-        if ( !i-- )
-            break;
+  int i = random() % css.size();
+  list<CS*>::iterator it;
+  for (it = css.begin(); it != css.end(); ++it)
+    if ( !i-- )
+      break;
 
-    CS *cs = *it;
-    if ( cs->joblist.size() >= cs->max_jobs || cs->load > cs->max_load )
-        cs = 0;
-    return cs;
+  CS *cs = *it;
+  if ( cs->joblist.size() >= cs->max_jobs || cs->load > cs->max_load )
+    cs = 0;
+  return cs;
 }
 
 static bool
 empty_queue()
 {
-    trace() << "empty_queue " << toanswer.size() << " " << css.size() << endl;
+  trace() << "empty_queue " << toanswer.size() << " " << css.size() << endl;
 
-    if ( toanswer.empty() ) {
-        trace() << "no channels\n";
-        return false;
+  if ( toanswer.empty() )
+    {
+      trace() << "no channels\n";
+      return false;
     }
 
-    MsgChannel *c = toanswer.front();
+  MsgChannel *c = toanswer.front();
 
-    if ( css.empty() ) {
-        trace() << "no servers to handle\n";
-        toanswer.pop();
-        c->send_msg( EndMsg() );
-        return false;
+  if ( css.empty() )
+    {
+      trace() << "no servers to handle\n";
+      toanswer.pop();
+      c->send_msg( EndMsg() );
+      return false;
     }
 
-    CS *cs = pick_server();
-    trace() << "got CS " << cs << endl;
+  CS *cs = pick_server();
+  trace() << "got CS " << cs << endl;
 
-    if ( !cs ) {
-        tochoose = false;
-        return false;
+  if ( !cs )
+    {
+      tochoose = false;
+      return false;
     }
 
-    toanswer.pop();
+  toanswer.pop();
 
-    if ( ! create_new_job ( cs ) )
-        return true;
-    UseCSMsg m2(cs->name, cs->remote_port, new_job_id);
-
-    if (!c->send_msg (m2))
-        c->send_msg (EndMsg());
+  if ( ! create_new_job ( cs ) )
     return true;
+  UseCSMsg m2(cs->name, cs->remote_port, new_job_id);
+
+  if (!c->send_msg (m2)) {
+    trace() << "failed to deliver job " << new_job_id << endl;
+
+    c->send_msg (EndMsg()); // most likely won't work
+    tochoose = true;
+    Job *j = jobs[new_job_id];
+    j->server->joblist.remove (j);
+    jobs.erase (new_job_id);
+    delete j;
+    return true;
+  }
+  return true;
 }
 
 static int
@@ -212,10 +229,11 @@ handle_stats (MsgChannel * c, Msg * _m)
           << m->load[2] << endl;
 
   for (list<CS*>::iterator it = css.begin(); it != css.end(); ++it)
-      if ( ( *it )->channel() == c ) {
-          ( *it )->load = ( unsigned int )( m->load[0] * 1000 );
-          tochoose = true;
-          return 0;
+    if ( ( *it )->channel() == c )
+      {
+        ( *it )->load = ( unsigned int )( m->load[0] * 1000 );
+        tochoose = true;
+        return 0;
       }
 
   return 1;
@@ -243,7 +261,7 @@ handle_new_connection (MsgChannel *c)
       break;
     case M_LOGIN: ret = handle_login (c, m); break;
     default:
-        abort();
+      abort();
       ret = 1;
       delete c;
       break;
@@ -283,8 +301,8 @@ handle_activity (MsgChannel *c)
     case M_END: ret = handle_end (c, m); break;
     case M_TIMEOUT: ret = handle_timeout (c, m); break;
     default: ret = 1;
-        abort();
-        break;
+      abort();
+      break;
     }
   delete m;
   return ret;
@@ -360,6 +378,13 @@ main (int /*argc*/, char * /*argv*/ [])
     {
       return 1;
     }
+
+  if (signal(SIGPIPE, SIG_IGN) == SIG_ERR)
+    {
+      log_warning() << "signal(SIGPIPE, ignore) failed: " << strerror(errno) << endl;
+      return 1;
+    }
+
   while (1)
     {
       while (empty_queue())
@@ -395,7 +420,8 @@ main (int /*argc*/, char * /*argv*/ [])
         {
 	  max_fd--;
 	  remote_len = sizeof (remote_addr);
-	  if ((remote_fd = accept (listen_fd, (struct sockaddr *) &remote_addr, &remote_len)) < 0
+	  if ((remote_fd = accept (listen_fd, (struct sockaddr *) &remote_addr,
+                                   &remote_len)) < 0
 	      && errno != EAGAIN && errno != EINTR)
 	    {
 	      perror ("accept()");
