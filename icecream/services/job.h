@@ -37,6 +37,7 @@ class CompileJob {
 
 public:
     typedef enum {Lang_C, Lang_CXX, Lang_OBJC} Language;
+    typedef enum { Flag_None = 0, Flag_g = 0x1, Flag_g3 = 0x2, Flag_O = 0x4, Flag_O2 = 0x8, Flag_Ol2 = 0x10 } Flag;
 
     CompileJob() : m_id( 0 ) { __setTargetPlatform(); }
 
@@ -54,6 +55,8 @@ public:
     std::string environmentVersion() const {
         return m_environment_version;
     }
+
+    unsigned int argumentFlags() const;
 
     void setFlags( const ArgumentsList &flags ) {
         m_flags = flags;

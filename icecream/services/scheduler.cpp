@@ -45,6 +45,7 @@
 #include <stdio.h>
 #include "comm.h"
 #include "logging.h"
+#include "job.h"
 
 #define DEBUG_SCHEDULER 1
 
@@ -162,10 +163,12 @@ public:
   time_t start_on_scheduler;  // starttime local to scheduler
   string target_platform;
   list<Job*> master_job_for;
+  unsigned int arg_flags;
+  string language; // for debugging
   Job (MsgChannel *c, unsigned int _id, CS *subm)
      : id(_id), state(PENDING), server(0),
        submitter(subm),
-       channel(c), starttime(0), start_on_scheduler(0) {}
+       channel(c), starttime(0), start_on_scheduler(0), arg_flags( 0 ) {}
   ~Job()
   {
    // XXX is this really deleted on all other paths?
@@ -215,9 +218,20 @@ add_job_stats (Job *job, JobDoneMsg *msg)
   if (msg->out_uncompressed < 512
       || msg->exitcode != 0)
     return;
+
   st.osize = msg->out_uncompressed;
   st.compile_time_real = msg->real_msec;
   st.compile_time_user = msg->user_msec;
+
+  trace() << "add_job_stats " << job->language << " "
+          << ( job->arg_flags & CompileJob::Flag_g ? '1' : '0')
+          << ( job->arg_flags & CompileJob::Flag_g3 ? '1' : '0')
+          << ( job->arg_flags & CompileJob::Flag_O ? '1' : '0')
+          << ( job->arg_flags & CompileJob::Flag_O2 ? '1' : '0')
+          << ( job->arg_flags & CompileJob::Flag_Ol2 ? '1' : '0')
+          << " " << st.osize << " " << msg->in_uncompressed << " "
+          << st.compile_time_user << " " << job->server->nodename <<  endl ;
+
   st.compile_time_sys = msg->sys_msec;
   job->server->last_compiled_jobs.push_back (st);
   job->server->cum_compiled += st;
@@ -388,7 +402,7 @@ handle_cs_request (MsgChannel *c, Msg *_m)
       break;
   if (it == css.end())
     {
-      fprintf (stderr, "Asking host not connected\n");
+      log_warning() << "Asking host not connected" << endl;
       c->send_msg( EndMsg() ); // forget it!
       return false;
     }
@@ -405,11 +419,13 @@ handle_cs_request (MsgChannel *c, Msg *_m)
       Job *job = create_new_job (c, submitter);
       job->environments = m->versions;
       job->target_platform = m->target;
+      job->arg_flags = m->arg_flags;
+      job->language = ( m->lang == CompileJob::Lang_C ? "C" : "C++" );
       enqueue_job_request (job);
       log_info() << "NEW: " << job->id << " versions=[";
       for ( Environments::const_iterator it = job->environments.begin(); it != job->environments.end(); ++it )
         log_info() << it->second << "(" << it->first << "), ";
-      log_info() << "] " << m->filename << " " << ( m->lang == CompileJob::Lang_C ? "C" : "C++" ) << endl;
+      log_info() << "] " << m->filename << " " << job->language << endl;
       notify_monitors (MonGetCSMsg (job->id, submitter->hostid, m));
       if ( !master_job )
         master_job = job;
@@ -645,12 +661,12 @@ pick_server(Job *job)
     }
 
   if ( best ) {
-#if DEBUG_SCHEDULER > 1
+#if DEBUG_SCHEDULER > 0
     trace() << "taking best installed " << best->nodename << " " <<  server_speed (best) << endl;
 #endif
     return best;
   }
-#if DEBUG_SCHEDULER > 1
+#if DEBUG_SCHEDULER > 0
   if ( bestui )
     trace() << "taking best uninstalled " << bestui->nodename << " " <<  server_speed (bestui) << endl;
 #endif

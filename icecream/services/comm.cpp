@@ -924,6 +924,10 @@ GetCSMsg::fill_from_channel (MsgChannel *c)
   c->readuint32( count );
   c->read_string( target );
   lang = static_cast<CompileJob::Language>( _lang );
+  if ( IS_PROTOCOL_15( c ) )
+    c->readuint32( arg_flags );
+  else
+    arg_flags = 0;
 }
 
 void
@@ -935,6 +939,8 @@ GetCSMsg::send_to_channel (MsgChannel *c) const
   c->writeuint32 ((uint32_t) lang);
   c->writeuint32( count );
   c->write_string( target );
+  if ( IS_PROTOCOL_15( c ) )
+    c->writeuint32( arg_flags );
 }
 
 void

@@ -69,3 +69,42 @@ void CompileJob::__setTargetPlatform()
     } else
         m_target_platform = buf.machine;
 }
+
+unsigned int CompileJob::argumentFlags() const
+{
+    unsigned int result = Flag_None;
+
+    for ( ArgumentsList::const_iterator it = m_flags.begin();
+          it != m_flags.end(); ++it )
+    {
+        const string arg = it->first;
+        if ( arg.at( 0 ) == '-' )
+        {
+	    if (arg.length() == 1)
+		continue;
+
+            if ( arg.at( 1 ) == 'g' )
+            {
+                if ( arg.length() > 2 && arg.at( 2 ) == '3' )
+                    result |= Flag_g3;
+                else
+                    result |= Flag_g;
+            }
+            else if ( arg.at( 1 ) == 'O' )
+            {
+                if ( arg.length() == 2)
+			result |= Flag_O;
+		else {
+	            assert(arg.length() > 2);
+		    if (arg.at( 2 ) == '2' )
+                       result |= Flag_O2;
+                    else if ( arg.at( 2 ) == '1')
+                    	result |= Flag_O;
+		    else if ( arg.at( 2 ) != '0')
+                        result |= Flag_Ol2;
+		}
+            }
+        }
+    }
+    return result;
+}

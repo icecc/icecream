@@ -441,7 +441,7 @@ int build_remote(CompileJob &job, MsgChannel *scheduler, const Environments &_en
     Environments envs = rip_out_paths( _envs, version_map, versionfile_map );
 
     if ( torepeat == 1 ) {
-        GetCSMsg getcs (envs, get_absfilename( job.inputFile() ), job.language(), torepeat, job.targetPlatform() );
+        GetCSMsg getcs (envs, get_absfilename( job.inputFile() ), job.language(), torepeat, job.targetPlatform(), job.argumentFlags() );
         if (!scheduler->send_msg (getcs)) {
             log_warning() << "asked for CS\n";
             throw( 0 );
@@ -501,7 +501,7 @@ int build_remote(CompileJob &job, MsgChannel *scheduler, const Environments &_en
         sprintf( rand_seed, "-frandom-seed=%d", rand() );
         job.appendFlag( rand_seed, Arg_Remote );
 
-        GetCSMsg getcs (envs, get_absfilename( job.inputFile() ), job.language(), torepeat, job.targetPlatform() );
+        GetCSMsg getcs (envs, get_absfilename( job.inputFile() ), job.language(), torepeat, job.targetPlatform(), job.argumentFlags() );
         if (!scheduler->send_msg (getcs)) {
             log_warning() << "asked for CS\n";
             throw( 0 );
