@@ -138,66 +138,6 @@ int dcc_ignore_sigpipe(int val)
     return 0;
 }
 
-/**
- * If we find a distcc masquerade dir on the PATH, remove all the dirs up
- * to that point.
- **/
-int dcc_trim_path(const char *compiler_name)
-{
-    const char *envpath, *newpath, *p, *n;
-    char linkbuf[MAXPATHLEN], *buf;
-    struct stat sb;
-    int len;
-
-    if (!(envpath = getenv("PATH"))) {
-        trace() << "PATH seems not to be defined" << endl;
-        return 0;
-    }
-
-    trace() << "original PATH " << envpath << endl;
-
-    /* Allocate a buffer that will let us append "/cc" onto any PATH
-     * element, even if there is only one item in the PATH. */
-    if (!(buf = ( char* )malloc(strlen(envpath)+1+strlen(compiler_name)+1))) {
-        log_error() << "failed to allocate buffer for PATH munging" << endl;
-        return EXIT_OUT_OF_MEMORY;
-    }
-
-    for (n = p = envpath, newpath = NULL; *n; p = n) {
-        n = strchr(p, ':');
-        if (n)
-            len = n++ - p;
-        else {
-            len = strlen(p);
-            n = p + len;
-        }
-        strncpy(buf, p, len);
-
-        sprintf(buf + len, "/%s", compiler_name);
-        if (lstat(buf, &sb) == -1)
-            continue;           /* ENOENT, EACCESS, etc */
-        if (!S_ISLNK(sb.st_mode))
-            break;
-        if ((len = readlink(buf, linkbuf, sizeof linkbuf)) <= 0)
-            continue;
-        linkbuf[len] = '\0';
-        if (strstr(linkbuf, "distcc")) {
-            /* Set newpath to the part of the PATH past our match. */
-            newpath = n;
-        }
-    }
-
-    if (newpath) {
-        int ret = setenv("PATH", newpath, 1);
-        if (ret)
-            return ret;
-    } else
-        trace() << "not modifying PATH" << endl;
-
-    free(buf);
-    return 0;
-}
-
 /* Return the supplied path with the current-working directory prefixed (if
  * needed) and all "dir/.." references removed.  Supply path_len if you want
  * to use only a substring of the path string, otherwise make it 0. */

@@ -42,7 +42,7 @@ string find_compiler( const string &compiler )
                 }
                 buffer[ret] = 0;
                 string target = find_basename( buffer );
-                if ( target == rs_program_name ) {
+                if ( target == rs_program_name || target == "tbcompiler" ) {
                     // this is a link pointing to us, ignore it
                     continue;
                 }

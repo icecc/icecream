@@ -29,7 +29,6 @@ char *dcc_gethostname(void);
 int set_cloexec_flag (int desc, int value);
 int dcc_ignore_sigpipe(int val);
 int dcc_remove_if_exists(const char *fname);
-int dcc_trim_path(const char *compiler_name);
 int dcc_set_path(const char *newpath);
 char *dcc_abspath(const char *path, int path_len);
 
