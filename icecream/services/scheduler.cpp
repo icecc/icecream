@@ -123,7 +123,10 @@ public:
 list<CS*> css;
 unsigned int new_job_id;
 map<unsigned int, Job*> jobs;
-queue<Job*> toanswer;
+struct UnansweredList : queue<Job*> {
+  CS *server;
+};
+queue<UnansweredList*> toanswer;
 
 list<JobStat> all_job_stats;
 JobStat cum_job_stats;
@@ -217,7 +220,14 @@ handle_cs_request (MsgChannel *c, Msg *_m)
   log_info() << "NEW: " << job->id << " version=\""
              << job->environment << "\" " << m->filename
              << " " << ( m->lang == CompileJob::Lang_C ? "C" : "C++" ) << endl;
-  toanswer.push( job );
+  if ( !toanswer.empty() && toanswer.front()->server == submitter )
+    toanswer.front()->push( job );
+  else {
+    UnansweredList *newone = new UnansweredList();
+    newone->server = submitter;
+    newone->push( job );
+    toanswer.push( newone );
+  }
   notify_monitors (MonGetCSMsg (job->id, c->other_end->name, m));
   return true;
 }
@@ -327,7 +337,8 @@ empty_queue()
   if ( toanswer.empty() )
     return false;
 
-  Job *job = toanswer.front();
+  UnansweredList *first = toanswer.front();
+  Job *job = first->front();
 
   if (css.empty())
     {
@@ -345,7 +356,13 @@ empty_queue()
     return false;
   }
 
+  first->pop();
   toanswer.pop();
+  if ( !first->empty() )
+    toanswer.push( first );
+  else
+    delete first;
+
   job->server = cs;
 
   UseCSMsg m2(job->environment, cs->name, cs->remote_port, job->id );
