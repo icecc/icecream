@@ -677,4 +677,6 @@ int build_remote(CompileJob &job, MsgChannel *scheduler, const Environments &_en
 
         return ret;
     }
+
+    return 0;
 }
