@@ -246,7 +246,7 @@ add_job_stats (Job *job, JobDoneMsg *msg)
   /* The current speed of the server, but without adjusting to the current
      job, hence no second argument.  */
   float cur_speed = server_speed (job->server);
-  if ((this_speed / 1.2) > cur_speed)
+  if ((this_speed / 1.2) > cur_speed && cur_speed)
     st.osize = (long unsigned) (cur_speed * 1.2 * st.compile_time_user);
   else if ((this_speed * 1.2) < cur_speed)
     st.osize = (long unsigned) (cur_speed / 1.2 * st.compile_time_user);
