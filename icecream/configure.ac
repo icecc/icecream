@@ -27,6 +27,7 @@ fi
 AC_PROG_MAKE_SET
 AC_PROG_INSTALL
 AC_C_INLINE
+AC_ENABLE_STATIC([yes])
 AC_PROG_LIBTOOL
 
 ########################################################################
