@@ -550,8 +550,8 @@ platforms_compatible( const string &target, const string &platform )
 
       //  platform_map.insert( make_pair( string( "i686" ), string( "x86_64" ) ) );
 
-      platform_map.insert( make_pair( string( "ppc" ), string( "ppc64" ) ) );
-      platform_map.insert( make_pair( string( "s390" ), string( "s390x" ) ) );
+//      platform_map.insert( make_pair( string( "ppc" ), string( "ppc64" ) ) );
+ //     platform_map.insert( make_pair( string( "s390" ), string( "s390x" ) ) );
     }
 
   multimap<string, string>::const_iterator end = platform_map.upper_bound( target );
@@ -983,11 +983,12 @@ handle_job_done (MsgChannel *c, Msg *_m)
     {
       int id = it->first;
       Job *c = it->second;
-      if ( new_job_id - id > 100 )
+      if ( new_job_id - id > 100 ) {
         trace() << "  undone: " << id << " state " << c->state << endl;
-      if ( first && c->state == Job::PENDING ) {
-        trace() << "first job is pending! Something is fishy\n";
-        abort();
+        if ( first && c->state == Job::PENDING ) {
+          trace() << "first job is pending! Something is fishy\n";
+          abort();
+	}
       }
       first = false;
     }
