@@ -450,8 +450,31 @@ maybe_build_local (MsgChannel *scheduler, UseCSMsg *usecs, CompileJob &job,
 		serv = 0;
 		throw( 9 );
 	    }
-	    ret = build_local( job, ( MsgChannel* )1 ); // XXX I'm too lazy to introduce a third parameter
-	    cserver->send_msg( EndMsg() );
+            struct timeval begintv,  endtv;
+            struct rusage ru;
+
+            gettimeofday(&begintv, 0 );
+	    ret = build_local( job, 0, &ru );
+            gettimeofday(&endtv, 0 );
+
+            // filling the stats, so the daemon can play proxy for us
+            JobDoneMsg msg( job_id, ret );
+
+            msg.real_msec = ( endtv.tv_sec - begintv.tv_sec ) * 1000 + ( endtv.tv_usec - begintv.tv_usec ) / 1000;
+            struct stat st;
+            if ( !stat( job.outputFile().c_str(), &st ) )
+                msg.out_uncompressed = st.st_size;
+            msg.user_msec = ru.ru_utime.tv_sec * 1000 + ru.ru_utime.tv_usec / 1000;
+            msg.sys_msec = ru.ru_stime.tv_sec * 1000 + ru.ru_stime.tv_usec / 1000;
+            msg.maxrss = (ru.ru_maxrss + 1023) / 1024;
+            msg.idrss = (ru.ru_idrss + 1023) / 1024;
+            msg.majflt = ru.ru_majflt;
+            msg.nswap = ru.ru_nswap;
+
+            if ( IS_PROTOCOL_16( cserver ) )
+                cserver->send_msg( msg );
+            else
+                cserver->send_msg( EndMsg() );
 	    delete cserver;
 	    return 1;
 	}

@@ -497,11 +497,38 @@ int main( int argc, char ** argv )
                 pid_t pid = -1;
 
                 if ( job->environmentVersion() == "__client" ) {
+                    int sockets[2];
+                    if (pipe(sockets)) {
+                        log_error() << "pipe can't be created " << strerror( errno ) << endl;
+                        exit( 1 );
+                    }
+                    sock = sockets[0];
                     // if the client compiles, we fork off right away
                     pid = fork();
                     if ( pid == 0 ) {
+
                         Msg *msg = req.second->get_msg(12 * 60); // wait forever
-                        ::exit( !msg || msg->type != M_END ); // signal parent
+                        if ( !msg )
+                            ::exit( 1 );
+                        if ( msg->type != M_JOB_DONE )
+                            ::exit( 0 ); // without further notice
+                        JobDoneMsg *jdmsg = static_cast<JobDoneMsg*>( msg );
+                        unsigned int dummy = 0;
+                        write( sockets[1], &dummy, sizeof( unsigned int ) ); // in_compressed
+                        write( sockets[1], &dummy, sizeof( unsigned int ) ); // in_uncompressed
+                        write( sockets[1], &dummy, sizeof( unsigned int ) ); // out_compressed
+                        write( sockets[1], &jdmsg->out_uncompressed, sizeof( unsigned int ) );
+                        write( sockets[1], &jdmsg->real_msec, sizeof( unsigned int ) );
+                        // the rest are additional information for client jobs
+                        write( sockets[1], &jdmsg->job_id, sizeof( unsigned int ) );
+                        write( sockets[1], &jdmsg->user_msec, sizeof( unsigned int ) );
+                        write( sockets[1], &jdmsg->sys_msec, sizeof( unsigned int ) );
+                        write( sockets[1], &jdmsg->maxrss, sizeof( unsigned int ) );
+                        write( sockets[1], &jdmsg->idrss, sizeof( unsigned int ) );
+                        write( sockets[1], &jdmsg->majflt, sizeof( unsigned int ) );
+                        write( sockets[1], &jdmsg->nswap, sizeof( unsigned int ) );
+
+                        ::exit( jdmsg->exitcode );
                     }
                 } else
                     pid = handle_connection( envbasedir, req.first, req.second, sock, mem_limit );
@@ -535,12 +562,14 @@ int main( int argc, char ** argv )
                 pidmap.erase( child );
                 if ( msg && scheduler ) {
                     msg->exitcode = status;
-                    msg->user_msec = ru.ru_utime.tv_sec * 1000 + ru.ru_utime.tv_usec / 1000;
-                    msg->sys_msec = ru.ru_stime.tv_sec * 1000 + ru.ru_stime.tv_usec / 1000;
-                    msg->maxrss = (ru.ru_maxrss + 1023) / 1024;
-                    msg->idrss = (ru.ru_idrss + 1023) / 1024;
-                    msg->majflt = ru.ru_majflt;
-                    msg->nswap = ru.ru_nswap;
+                    if ( !msg->user_msec ) { // if not already set
+                        msg->user_msec = ru.ru_utime.tv_sec * 1000 + ru.ru_utime.tv_usec / 1000;
+                        msg->sys_msec = ru.ru_stime.tv_sec * 1000 + ru.ru_stime.tv_usec / 1000;
+                        msg->maxrss = (ru.ru_maxrss + 1023) / 1024;
+                        msg->idrss = (ru.ru_idrss + 1023) / 1024;
+                        msg->majflt = ru.ru_majflt;
+                        msg->nswap = ru.ru_nswap;
+                    }
                     scheduler->send_msg( *msg );
                 }
                 delete msg;
@@ -703,6 +732,19 @@ int main( int argc, char ** argv )
                                 read( it->second, &msg->out_compressed, sizeof( unsigned int ) );
                                 read( it->second, &msg->out_uncompressed, sizeof( unsigned int ) );
                                 read( it->second, &msg->real_msec, sizeof( unsigned int ) );
+                                if ( msg->out_uncompressed && !msg->in_uncompressed ) { // this is typical for client jobs
+                                    unsigned int job_id;
+                                    read( it->second, &job_id, sizeof( unsigned int ) );
+                                    if ( job_id != msg->job_id )
+                                        log_error() << "the job ids for the client job do not match: " << job_id << " " << msg->job_id << endl;
+                                    read( it->second, &msg->user_msec, sizeof( unsigned int ) );
+                                    read( it->second, &msg->sys_msec, sizeof( unsigned int ) );
+                                    read( it->second, &msg->maxrss, sizeof( unsigned int ) );
+                                    read( it->second, &msg->idrss, sizeof( unsigned int ) );
+                                    read( it->second, &msg->majflt, sizeof( unsigned int ) );
+                                    read( it->second, &msg->nswap, sizeof( unsigned int ) );
+                                }
+                                trace() << "read " << msg->out_uncompressed << " user " << msg->user_msec << endl;
                                 close( it->second );
                                 pidmap.erase( it );
                                 break;

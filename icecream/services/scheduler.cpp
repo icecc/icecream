@@ -47,7 +47,7 @@
 #include "logging.h"
 #include "job.h"
 
-#define DEBUG_SCHEDULER 1
+#define DEBUG_SCHEDULER 2
 
 /* TODO:
    * leak check
@@ -905,12 +905,17 @@ handle_job_done (MsgChannel *c, Msg *_m)
     return false;
   }
 
-  if ( m->exitcode == 0 && m->in_uncompressed && m->out_uncompressed )
+  if ( m->exitcode == 0 && m->out_uncompressed ) {
     trace() << "END " << m->job_id
-            << " status=" << m->exitcode
-            << " in=" << m->in_uncompressed
-            << "(" << int( m->in_compressed * 100 / m->in_uncompressed ) << "%)"
-            << " out=" << m->out_uncompressed
+            << " status=" << m->exitcode;
+
+    if ( m->in_uncompressed )
+      trace() << " in=" << m->in_uncompressed
+              << "(" << int( m->in_compressed * 100 / m->in_uncompressed ) << "%)";
+    else
+      trace() << " in=0(0%)";
+
+    trace() << " out=" << m->out_uncompressed
             << "(" << int( m->out_compressed * 100 / m->out_uncompressed ) << "%)"
             << " real=" << m->real_msec
             << " user=" << m->user_msec
@@ -919,7 +924,7 @@ handle_job_done (MsgChannel *c, Msg *_m)
             << " nswaps=" << m->nswap
             << " server=" << c->other_end->name
             << endl;
-  else
+  } else
     trace() << "END " << m->job_id
             << " status=" << m->exitcode << endl;
 

@@ -24,6 +24,9 @@
 
 #include <job.h>
 #include <comm.h>
+#include <sys/types.h>
+#include <sys/time.h>
+#include <sys/resource.h>
 
 #include "exitcode.h"
 #include "logging.h"
@@ -42,7 +45,7 @@ bool analyse_argv (const char * const *argv,
 pid_t call_cpp (CompileJob &job, int fdwrite, int fdread = -1);
 
 /* In local.cpp.  */
-int build_local (CompileJob& job, MsgChannel *scheduler);
+int build_local (CompileJob& job, MsgChannel *scheduler, struct rusage *used = 0);
 
 /* In remote.cpp - permill is the probability it will be compiled three times */
 int build_remote (CompileJob &job, MsgChannel *scheduler, const Environments &envs, int permill);

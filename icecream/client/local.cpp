@@ -106,7 +106,7 @@ void handle_user_break( int sig )
  *
  * This is called with a lock on localhost already held.
  **/
-int build_local(CompileJob &job, MsgChannel *scheduler)
+int build_local(CompileJob &job, MsgChannel *scheduler, struct rusage *used)
 {
     list<string> arguments;
 
@@ -149,10 +149,8 @@ int build_local(CompileJob &job, MsgChannel *scheduler)
 
     pid_t child = 0;
 
-    if ( scheduler > 0 ) {
+    if ( scheduler > 0 || used) {
         child = fork();
-        if ( int( scheduler ) == 1  )
-            scheduler = 0;
     }
 
     if ( child ) {
@@ -175,8 +173,8 @@ int build_local(CompileJob &job, MsgChannel *scheduler)
                 job_id = dynamic_cast<JobLocalId*>( umsg )->job_id;
         }
 
-        int status;
-        if( wait( &status ) > 0 )
+        int status = -1;
+        if( wait3( &status, 0, used ) > 0 )
             status = WEXITSTATUS(status);
         if ( scheduler )
             scheduler->send_msg( JobLocalDoneMsg( job_id, status ) );
