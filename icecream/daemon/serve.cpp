@@ -153,8 +153,6 @@ int handle_connection( MsgChannel *serv )
         return 0;
     }
 
-    cout << "type " << ( char )msg->type << endl;
-
     if ( msg->type != M_COMPILE_FILE ) {
         log_error() << "not compile\n";
         return EXIT_PROTOCOL_ERROR;
@@ -224,7 +222,7 @@ int handle_connection( MsgChannel *serv )
         return EXIT_DISTCC_FAILED;
     }
 
-    cout << "wrote all stream data\n";
+    trace() << "wrote all stream data\n";
 
     int obj_fd = open( filename.c_str(), O_RDONLY|O_LARGEFILE );
     if ( obj_fd == -1 ) {
