@@ -156,7 +156,7 @@ int main(int argc, char **argv)
     CompileJob job;
     bool local = analyse_argv( argv, job );
 
-    Service *serv = new Service ("127.0.0.1", 10245);
+    Service *serv = new Service ("127.0.0.1", 10245, 0); // 0 == no timeout
     MsgChannel *local_daemon = serv->channel();
     if ( ! local_daemon || !local_daemon->protocol ) {
         log_warning() << "no local daemon found\n";
@@ -206,7 +206,7 @@ int main(int argc, char **argv)
 
     delete local_daemon;
 
-    serv = new Service( ucs->hostname, ucs->port );
+    serv = new Service( ucs->hostname, ucs->port, 0 ); // 0 == no time out
     MsgChannel *scheduler = serv->channel();
     if ( ! scheduler ) {
         log_warning() << "no scheduler found at " << ucs->hostname << ":" << ucs->port << endl;

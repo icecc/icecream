@@ -131,7 +131,7 @@ public:
   unsigned short port;
   time_t last_talk;
   Service (struct sockaddr *, socklen_t);
-  Service (const std::string &host, unsigned short p);
+  Service (const std::string &host, unsigned short p, int timeout);
   MsgChannel *channel() const { return c; }
   MsgChannel *createChannel( int remote_fd, bool text_based = false );
   bool eq_ip (const Service &s);

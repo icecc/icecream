@@ -458,7 +458,67 @@ Service::Service (struct sockaddr *_a, socklen_t _l)
     }
 }
 
-Service::Service (const string &hostname, unsigned short p)
+static bool connect_async( int remote_fd, struct sockaddr *remote_addr, size_t remote_size, int timeout  )
+{
+  fcntl(remote_fd, F_SETFL, O_NONBLOCK);
+
+  // code majorly derived from lynx's http connect (GPL)
+  int status = connect (remote_fd, remote_addr, remote_size );
+  if ( ( status < 0 ) && ( errno == EINPROGRESS || errno == EAGAIN ) )
+    {
+      struct timeval select_timeout;
+      fd_set writefds;
+
+      /* we select for a specific time and if that succeeds, we connect one
+         final time. Everything else we ignore */
+
+      select_timeout.tv_sec = timeout;
+      select_timeout.tv_usec = 0;
+      FD_ZERO(&writefds);
+      FD_SET(remote_fd, &writefds);
+      int ret = select(remote_fd + 1, NULL, &writefds, NULL, &select_timeout);
+
+      /*
+      **  If we suspend, then it is possible that select will be
+      **  interrupted.  Allow for this possibility. - JED
+      */
+      if ((ret == -1) && (errno == EINTR))
+          return connect_async( remote_fd, remote_addr, remote_size, timeout );
+
+      if (ret > 0)
+        {
+          /*
+          **  Extra check here for connection success, if we try to
+          **  connect again, and get EISCONN, it means we have a
+          **  successful connection.  But don't check with SOCKS.
+          */
+          status = connect(remote_fd, remote_addr, remote_size );
+          if ((status < 0) && (errno == EISCONN))
+            {
+              status = 0;
+            }
+        }
+    }
+
+  if (status < 0)
+    {
+      /*
+      **  The connect attempt failed or was interrupted,
+      **  so close up the socket.
+      */
+      close(remote_fd);
+      return false;
+    }
+  else {
+    /*
+    **  Make the socket blocking again on good connect.
+    */
+    fcntl(remote_fd, F_SETFL, 0);
+  }
+  return true;
+}
+
+Service::Service (const string &hostname, unsigned short p, int timeout)
 {
   int remote_fd;
   struct sockaddr_in remote_addr;
@@ -484,95 +544,24 @@ Service::Service (const string &hostname, unsigned short p)
       close (remote_fd);
       return;
     }
-  fcntl(remote_fd, F_SETFL, O_NONBLOCK);
 
   remote_addr.sin_family = AF_INET;
   remote_addr.sin_port = htons (p);
   memcpy (&remote_addr.sin_addr.s_addr, host->h_addr_list[0], host->h_length);
 
-  // code majorly derived from lynx's http connect (GPL)
-  int status = connect (remote_fd, (struct sockaddr *) &remote_addr, sizeof (remote_addr) );
-  if ( ( status < 0 ) && ( errno == EINPROGRESS || errno == EAGAIN ) )
+  if ( timeout )
     {
-      struct timeval select_timeout;
-      int ret;
-      int tries=0;
-
-      ret = 0;
-      while (ret <= 0) {
-        fd_set writefds;
-
-        /*
-        **  Protect against an infinite loop.
-        */
-        if (tries++ >= 5) { // 10s
-	  close(remote_fd);
+      if ( !connect_async( remote_fd, (struct sockaddr *) &remote_addr, sizeof( remote_addr ), timeout ) )
+        return;
+    }
+  else
+    {
+      if (connect (remote_fd, (struct sockaddr *) &remote_addr, sizeof (remote_addr)) < 0)
+        {
+          close( remote_fd );
           return;
         }
-
-        select_timeout.tv_sec = 2;
-        select_timeout.tv_usec = 0;
-        FD_ZERO(&writefds);
-        FD_SET(remote_fd, &writefds);
-        ret = select(remote_fd + 1, NULL, &writefds, NULL, &select_timeout);
-
-        /*
-        **  If we suspend, then it is possible that select will be
-        **  interrupted.  Allow for this possibility. - JED
-        */
-        if ((ret == -1) && (errno == EINTR))
-          continue;
-
-        if ((ret < 0) && (errno != EALREADY)) {
-          status = ret;
-          break;
-        } else if (ret > 0) {
-          /*
-          **  Extra check here for connection success, if we try to
-          **  connect again, and get EISCONN, it means we have a
-          **  successful connection.  But don't check with SOCKS.
-          */
-          status = connect(remote_fd, (struct sockaddr*)&remote_addr,
-                           sizeof(remote_addr));
-          if ((status < 0) && (errno == EISCONN))
-            {
-              status = 0;
-            }
-
-          if (status && (errno == EALREADY)) /* new stuff LJM */
-            ret = 0; /* keep going */
-          else {
-            break;
-          }
-        }
-        else
-          {
-            status = connect(remote_fd, (struct sockaddr*)&remote_addr,
-                             sizeof(remote_addr));
-            if ((status < 0) &&
-                (errno != EALREADY
-                 && errno != EAGAIN )
-                && (errno != EISCONN)) {
-              break;
-            }
-          }
-      }
     }
-  if (status < 0)
-    {
-      /*
-      **  The connect attempt failed or was interrupted,
-      **  so close up the socket.
-      */
-      close(remote_fd);
-      return;
-    }
-  else {
-    /*
-    **  Make the socket blocking again on good connect.
-    */
-    fcntl(remote_fd, F_SETFL, 0);
-  }
   len = sizeof (remote_addr);
   addr = (struct sockaddr *)malloc (len);
   memcpy (addr, &remote_addr, len);
@@ -1039,7 +1028,7 @@ connect_scheduler (const string &_netname, int timeout, const string &schedname)
     }
 
   log_info() << "scheduler is on " << hostname << ":" << sport << " (net " << netname << ")\n";
-  Service *sched = new Service (hostname, sport);
+  Service *sched = new Service (hostname, sport, 0); // 0 == no timeout
   return sched->channel();
 }
 
