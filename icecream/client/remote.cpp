@@ -449,7 +449,7 @@ maybe_build_local (MsgChannel *scheduler, UseCSMsg *usecs, CompileJob &job,
 	    int job_id = usecs->job_id;
 	    job.setJobID( job_id );
 	    job.setEnvironmentVersion( "__client" );
-	    Service *serv = new Service("localhost", port);
+	    Service *serv = new Service("127.0.0.1", port);
 	    MsgChannel *cserver = serv->channel();
 	    if ( !cserver->protocol ) // very unlikely as we talked before with him
 		throw ( 2 );

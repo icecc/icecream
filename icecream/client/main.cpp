@@ -156,7 +156,7 @@ int main(int argc, char **argv)
     CompileJob job;
     bool local = analyse_argv( argv, job );
 
-    Service *serv = new Service ("localhost", 10245);
+    Service *serv = new Service ("127.0.0.1", 10245);
     MsgChannel *local_daemon = serv->channel();
     if ( ! local_daemon || !local_daemon->protocol ) {
         log_warning() << "no local daemon found\n";
