@@ -82,8 +82,9 @@ int build_local(CompileJob &job)
     CompileJob::ArgumentsList arguments;
     arguments.push_back( compiler_name );
     appendList( arguments, job.remoteFlags() );
-    appendList( arguments, job.localFlags() );
     appendList( arguments, job.restFlags() );
+    appendList( arguments, job.localFlags() );
+
     if ( !job.inputFile().empty() )
         arguments.push_back( job.inputFile() );
     if ( !job.outputFile().empty() ) {

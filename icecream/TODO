@@ -9,6 +9,7 @@
 * client: let the client have run the job on two different servers for every 10th or 100th job
 * all: protocol version
 * scheduler, daemon: handle multiple environments
+* client: for local jobs try to get remote and local args back in original form
 
 IDEAS:
 * provide a way to pass jobs through the scheduler for multihomed servers
