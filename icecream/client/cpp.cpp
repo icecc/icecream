@@ -63,56 +63,16 @@ bool dcc_is_preprocessed(const string& sfile)
  **/
 pid_t call_cpp(CompileJob &job, int fdwrite, int fdread)
 {
-    if ( dcc_is_preprocessed( job.inputFile() ) ) {
-        /* TODO: Perhaps also consider the option that says not to use cpp.
-         * Would anyone do that? */
-#if 0
-        trace() << "input is already preprocessed" << endl;
-#endif
-        /* already preprocessed, great. */
-        /* write the file to the fdwrite (fork cat) */
-        pid_t pid = fork();
-        if (pid == -1) {
-            log_error() << "failed to fork: " << strerror(errno) << endl;
-            return -1; /* probably */
-        } else if (pid == 0) {
-	    /* Child.  Close the read fd, in case we have one.  */
-	    if (fdread > -1)
-	        close (fdread);
-            int ret = dcc_ignore_sigpipe(0);
-            if (ret)    /* set handler back to default */
-                exit(ret);
-
-            char **argv = new char*[2+1];
-            argv[0] = strdup( "/bin/cat" );
-            argv[1] = strdup( job.inputFile().c_str() );
-            argv[2] = 0;
-
-	    if (fdwrite != STDOUT_FILENO) {
-		/* Ignore failure */
-		close(STDOUT_FILENO);
-		dup2(fdwrite, STDOUT_FILENO);
-		close(fdwrite);
-	    }
-
-            dcc_increment_safeguard();
-
-            execvp(argv[0], argv);
-            /* !! NEVER RETURN FROM HERE !! */
-            return 0;
-        } else {
-	    /* Parent.  Close the write fd.  */
-	    if (fdwrite > -1)
-	        close (fdwrite);
-            return pid;
-	}
-    }
-
     pid_t pid = fork();
     if (pid == -1) {
         log_error() << "failed to fork: " << strerror(errno) << endl;
         return -1; /* probably */
-    } else if (pid == 0) {
+    } else if (pid != 0) {
+	/* Parent.  Close the write fd.  */
+	if (fdwrite > -1)
+	    close (fdwrite);
+        return pid;
+    } else {
 	/* Child.  Close the read fd, in case we have one.  */
 	if (fdread > -1)
 	    close (fdread);
@@ -120,26 +80,36 @@ pid_t call_cpp(CompileJob &job, int fdwrite, int fdread)
         if (ret)    /* set handler back to default */
             exit(ret);
 
-        list<string> flags = job.localFlags();
-        appendList( flags, job.restFlags() );
-        int argc = flags.size();
-        argc++; // the program
-        argc += 2; // -E file.i
-        char **argv = new char*[argc + 1];
-        if (job.language() == CompileJob::Lang_C)
-            argv[0] = strdup( "/usr/bin/gcc" );
-        else if (job.language() == CompileJob::Lang_CXX)
-            argv[0] = strdup( "/usr/bin/g++" );
-        else
-            assert(0);
-        int i = 1;
-        for ( list<string>::const_iterator it = flags.begin();
-              it != flags.end(); ++it) {
-            argv[i++] = strdup( it->c_str() );
-        }
-        argv[i++] = strdup( "-E" );
-        argv[i++] = strdup( job.inputFile().c_str() );
-        argv[i++] = 0;
+	char **argv;
+	if ( dcc_is_preprocessed( job.inputFile() ) ) {
+            /* already preprocessed, great.
+               write the file to the fdwrite (using cat) */
+            argv = new char*[2+1];
+            argv[0] = strdup( "/bin/cat" );
+            argv[1] = strdup( job.inputFile().c_str() );
+            argv[2] = 0;
+	} else {
+	    list<string> flags = job.localFlags();
+	    appendList( flags, job.restFlags() );
+	    int argc = flags.size();
+	    argc++; // the program
+	    argc += 2; // -E file.i
+	    argv = new char*[argc + 1];
+	    if (job.language() == CompileJob::Lang_C)
+		argv[0] = strdup( "/usr/bin/gcc" );
+	    else if (job.language() == CompileJob::Lang_CXX)
+		argv[0] = strdup( "/usr/bin/g++" );
+	    else
+		assert(0);
+	    int i = 1;
+	    for ( list<string>::const_iterator it = flags.begin();
+		  it != flags.end(); ++it) {
+		argv[i++] = strdup( it->c_str() );
+	    }
+	    argv[i++] = strdup( "-E" );
+	    argv[i++] = strdup( job.inputFile().c_str() );
+	    argv[i++] = 0;
+	}
 
 #if 0
         printf( "forking " );
@@ -160,10 +130,5 @@ pid_t call_cpp(CompileJob &job, int fdwrite, int fdread)
         execvp(argv[0], argv);
         /* !! NEVER RETURN FROM HERE !! */
         return 0;
-    } else {
-	/* Parent.  Close the write fd.  */
-	if (fdwrite > -1)
-	    close (fdwrite);
-        return pid;
     }
 }
