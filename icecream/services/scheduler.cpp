@@ -259,14 +259,23 @@ notify_monitors (const Msg &m)
 }
 
 static float
-server_speed (CS *cs)
+server_speed (CS *cs, Job *job = 0)
 {
   if (cs->last_compiled_jobs.size() == 0
       || cs->cum_compiled.compile_time_user == 0)
     return 0;
   else
-    return (float)cs->cum_compiled.osize
-             / (float) cs->cum_compiled.compile_time_user;
+    {
+      float f = (float)cs->cum_compiled.osize
+	       / (float) cs->cum_compiled.compile_time_user;
+      /* The submitter of a job gets more speed.  So if he is equally
+         fast to the rest of the farm it will be prefered to chose him
+	 to compile the job.  Then this can be done locally without
+	 needing the preprocessor.  */
+      if (job && job->submitter == cs)
+        f *= 1.3;
+      return f;
+    }
 }
 
 static void
@@ -600,7 +609,7 @@ pick_server(Job *job)
              the job.  (XXX currently this is equivalent to the fastest one)  */
           else
             if (best->last_compiled_jobs.size() != 0
-                && server_speed (best) < server_speed (cs))
+                && server_speed (best, job) < server_speed (cs, job))
               best = cs;
         }
       else
@@ -611,7 +620,7 @@ pick_server(Job *job)
              the job.  (XXX currently this is equivalent to the fastest one)  */
           else
             if (bestui->last_compiled_jobs.size() != 0
-                && server_speed (bestui) < server_speed (cs))
+                && server_speed (bestui, job) < server_speed (cs, job))
               bestui = cs;
         }
     }
