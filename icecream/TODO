@@ -21,7 +21,10 @@ Dream Mode:
       E.g.
       lib/ld-linux.so $basepath/cc1plus -fpreprocessed test.ii -quiet -dumpbase test -auxbase test -version -o test.s
       ... you figured here it's just too ugly to be worth it
-  - another way might be to require libelf and patch the binaries 
+  - I tried on Matz's suggestion to put wrapper scripts in place, but g++ does an execve on cc1plus and so the system
+    shell (/bin/sh) is interpreted by the environment's ld-linux.so - causing the kind of problems we wanted to avoid.
+    There are two solutions to _that_ problem I guess: packaging /bin/sh too (ugly) or making the wrapper not scripts
+    but small binaries compiled on the client machine (ugly too)
 
 Random:
 * Option -iiface to specify the interface[s] to listen on for the scheduler, or
