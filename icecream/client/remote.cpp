@@ -54,7 +54,9 @@ string get_absfilename( const string &_file )
 {
     string file;
 
-    assert( !_file.empty() );
+    if ( _file.empty() )
+        return _file;
+
     if ( _file.at( 0 ) != '/' ) {
         static char buffer[PATH_MAX];
 
