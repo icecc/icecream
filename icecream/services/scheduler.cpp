@@ -10,7 +10,9 @@
 #include <string>
 #include <list>
 #include <map>
+#include <queue>
 #include <algorithm>
+#include <cassert>
 #include "comm.h"
 #include "logging.h"
 
@@ -25,7 +27,7 @@ public:
   CS *server;
   time_t starttime;  // _local_ to the compiler server
   time_t start_on_scheduler;  // starttime local to scheduler
-  Job (CS *cs, unsigned int _id) : id(_id), state(PENDING), server(cs),
+  Job (unsigned int _id) : id(_id), state( PENDING ), server( 0 ),
     starttime(0), start_on_scheduler(0) {}
 };
 
@@ -34,17 +36,20 @@ class CS : public Service {
 public:
   unsigned int remote_port;
   unsigned int id;
-  double load;
-  unsigned int jobs_done;
-  unsigned long long rcvd_kb, sent_kb;
-  unsigned int ms_per_job;
-  unsigned int bytes_per_ms;
+
+    // unsigned int jobs_done;
+    //  unsigned long long rcvd_kb, sent_kb;
+    // unsigned int ms_per_job;
+    // unsigned int bytes_per_ms;
+  // LOAD is load * 1000
+  unsigned int load;
   unsigned int max_jobs;
-  time_t uptime;  // time connected with scheduler
+  unsigned int max_load;
+  //  time_t uptime;  // time connected with scheduler
   list<Job*> joblist;
-  list<string> compiler_versions;  // Available compilers
-  enum {AVAILABLE, DISCONNECTED} state;
-  CS (struct sockaddr *_addr, socklen_t _len) : Service (_addr, _len) {}
+    // list<string> compiler_versions;  // Available compilers
+    // enum {AVAILABLE, DISCONNECTED} state;
+  CS (struct sockaddr *_addr, socklen_t _len) : Service (_addr, _len), load( 1200 ), max_jobs( 1 ), max_load( 1100 ) {}
 };
 
 // A subset of connected_hosts representing the compiler servers
@@ -52,14 +57,16 @@ list<CS*> css;
 unsigned int new_job_id;
 map<unsigned int, Job*> jobs;
 map<int, MsgChannel *> fd2chan;
+queue<MsgChannel*> toanswer;
+bool tochoose = true;
 
 static bool
 create_new_job (CS *cs)
 {
   ++new_job_id;
-  if (jobs.find(new_job_id) != jobs.end())
-    return false;
-  Job *job = new Job (cs, new_job_id);
+  assert (jobs.find(new_job_id) == jobs.end());
+
+  Job *job = new Job (new_job_id);
   jobs[new_job_id] = job;
   cs->joblist.push_back (job);
   return true;
@@ -72,34 +79,69 @@ handle_cs_request (MsgChannel *c, Msg *_m)
   if (!m)
     return 1;
 
-  if ( css.empty() ) {
-      c->send_msg( EndMsg() );
-      return 0;
-  }
-  // XXX select a nice CS
-  // For now: compile it yourself
-  int i = random () % css.size();
-  trace() << "Picking " << i << " out of " << css.size() << endl;
   list<CS*>::iterator it;
   for (it = css.begin(); it != css.end(); ++it)
-    //if (c->other_end->eq_ip (**it))
-    if (i-- == 0)
-      break;
+      if (c->other_end->eq_ip (**it))
+          break;
   if (it == css.end())
     {
       fprintf (stderr, "Asking host not connected\n");
-      return 1;
+      c->send_msg( EndMsg() ); // forget it!
+      return 0;
     }
-  CS *cs = *it;
-  trace() << "got CS " << cs << endl;
-  if (!create_new_job (cs))
-    return 1;
-  UseCSMsg m2(cs->name, cs->remote_port, new_job_id);
 
-  if (!c->send_msg (m2)
-      || !c->send_msg (EndMsg()))
-    return 1;
+  toanswer.push( c );
   return 0;
+}
+
+CS *pick_server()
+{
+    int i = random() % css.size();
+    list<CS*>::iterator it;
+    for (it = css.begin(); it != css.end(); ++it)
+        if ( !i-- )
+            break;
+
+    CS *cs = *it;
+    if ( cs->joblist.size() >= cs->max_jobs || cs->load > cs->max_load )
+        cs = 0;
+    return cs;
+}
+
+static int
+empty_queue()
+{
+    trace() << "empty_queue\n";
+
+    if ( toanswer.empty() ) {
+        trace() << "no channels\n";
+        return 0;
+    }
+
+    MsgChannel *c = toanswer.front();
+
+    if ( css.empty() ) {
+        trace() << "no servers to handle\n";
+        toanswer.pop();
+        c->send_msg( EndMsg() );
+        return 0;
+    }
+
+    CS *cs = pick_server();
+    if ( !cs ) {
+        tochoose = false;
+        return 0;
+    }
+
+    trace() << "got CS " << cs << endl;
+    if ( ! create_new_job ( cs ) )
+        return 1;
+    UseCSMsg m2(cs->name, cs->remote_port, new_job_id);
+
+    if (!c->send_msg (m2)
+        || !c->send_msg (EndMsg()))
+        return 1;
+    return 0;
 }
 
 static int
@@ -112,6 +154,7 @@ handle_login (MsgChannel *c, Msg *_m)
   cs->remote_port = m->port;
   css.push_back (cs);
   fd2chan[c->fd] = c;
+  tochoose = true;
   return 0;
 }
 
@@ -139,6 +182,7 @@ handle_job_done (MsgChannel *c, Msg *_m)
   trace() << "job ended " << m->job_id << endl;
   if (jobs[m->job_id]->server != c->other_end)
     return 1;
+  tochoose = true;
   Job *j = jobs[m->job_id];
   j->server->joblist.remove (j);
   jobs.erase (m->job_id);
@@ -154,7 +198,7 @@ handle_ping (MsgChannel * /*c*/, Msg * /*_m*/)
 }
 
 static int
-handle_stats (MsgChannel * /*c*/, Msg * _m)
+handle_stats (MsgChannel * c, Msg * _m)
 {
   StatsMsg *m = dynamic_cast<StatsMsg *>(_m);
   if ( !m )
@@ -163,7 +207,15 @@ handle_stats (MsgChannel * /*c*/, Msg * _m)
           << m->load[0] << " "
           << m->load[1] << " "
           << m->load[2] << endl;
-  return 0;
+
+  for (list<CS*>::iterator it = css.begin(); it != css.end(); ++it)
+      if ( ( *it )->channel() == c ) {
+          ( *it )->load = ( unsigned int )( m->load[0] * 1000 );
+          tochoose = true;
+          return 0;
+      }
+
+  return 1;
 }
 
 static int
@@ -305,6 +357,8 @@ main (int /*argc*/, char * /*argv*/ [])
     }
   while (1)
     {
+        empty_queue();
+
       fd_set read_set;
       int max_fd;
       FD_ZERO (&read_set);
