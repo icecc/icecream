@@ -73,94 +73,26 @@
 #include "exitcode.h"
 
 /**
- * We copy all serious distccd messages to this file, as well as sending the
- * compiler errors there, so they're visible to the client.
- **/
-static int dcc_compile_log_fd = -1;
-
-static int dcc_run_job(int in_fd, int out_fd);
-
-
-/**
- * Copy all server messages to the error file, so that they can be
- * echoed back to the client if necessary.
- **/
-static int dcc_add_log_to_file(const char *err_fname)
-{
-    if (dcc_compile_log_fd != -1) {
-        rs_fatal("compile log already open?");
-    }
-
-    dcc_compile_log_fd = open(err_fname, O_WRONLY|O_CREAT|O_TRUNC, 0600);
-    if (dcc_compile_log_fd == -1) {
-        rs_log_error("failed to open %s: %s", err_fname, strerror(errno));
-        return EXIT_IO_ERROR;
-    }
-
-    /* Only send fairly serious errors back */
-    rs_add_logger(rs_logger_file, RS_LOG_WARNING, NULL, dcc_compile_log_fd);
-
-    return 0;
-}
-
-
-
-static int dcc_remove_log_to_file(void)
-{
-    if (dcc_compile_log_fd == -1) {
-        rs_fatal("compile log not open?");
-    }
-
-    /* must exactly match call in dcc_add_log_to_file */
-    rs_remove_logger(rs_logger_file, RS_LOG_WARNING, NULL,
-                     dcc_compile_log_fd);
-
-    dcc_close(dcc_compile_log_fd);
-
-    dcc_compile_log_fd = -1;
-
-    return 0;
-}
-
-
-
-/**
- * Read and execute a job to/from socket @p ifd
+ * Ignore or unignore SIGPIPE.
  *
- * @return standard exit code
+ * The server and child ignore it, because distcc code wants to see
+ * EPIPE errors if something goes wrong.  However, for invoked
+ * children it is set back to the default value, because they may not
+ * handle the error properly.
  **/
-int service_job(int in_fd,
-                int out_fd,
-                struct sockaddr *cli_addr,
-                int cli_len)
+int dcc_ignore_sigpipe(int val)
 {
-    int ret;
-
-    /* Log client name and check access if appropriate.  For ssh connections
-     * the client comes from a localhost socket. */
-    if ((ret = dcc_check_client(cli_addr, cli_len)) != 0)
-        return ret;
-
-    return dcc_run_job(in_fd, out_fd);
+    if (signal(SIGPIPE, val ? SIG_IGN : SIG_DFL) == SIG_ERR) {
+        rs_log_warning("signal(SIGPIPE, %s) failed: %s",
+                       val ? "ignore" : "default",
+                       strerror(errno));
+        return EXIT_DISTCC_FAILED;
+    }
+    return 0;
 }
 
 
-static int dcc_input_tmpnam(char * orig_input,
-                            char **tmpnam_ret)
-{
-    const char *input_exten;
-
-    rs_trace("input file %s", orig_input);
-    input_exten = dcc_find_extension(orig_input);
-    if (input_exten)
-        input_exten = dcc_preproc_exten(input_exten);
-    if (!input_exten)           /* previous line might return NULL */
-        input_exten = ".tmp";
-    return dcc_make_tmpnam("distccd", input_exten, tmpnam_ret);
-}
-
-
-
+#if 0
 /**
  * Find the absolute path for the first occurrence of @p compiler_name on the
  * PATH.  Print a warning if it looks like a symlink to distcc.
@@ -226,13 +158,13 @@ static int dcc_check_compiler_masq(char *compiler_name)
     return 0;
 }
 
-
+#endif
 
 /**
  * Read a request, run the compiler, and send a response.
  **/
-static int dcc_run_job(int in_fd,
-                       int out_fd)
+int run_job(int in_fd,
+            int out_fd)
 {
     char **argv;
     int status;
@@ -240,29 +172,12 @@ static int dcc_run_job(int in_fd,
     int ret, compile_ret;
     char *orig_input, *orig_output;
     pid_t cc_pid;
-    enum dcc_protover protover;
-    enum dcc_compress compr;
-
-    if ((ret = dcc_make_tmpnam("distcc", ".stderr", &err_fname)))
-        return ret;
-    if ((ret = dcc_make_tmpnam("distcc", ".stdout", &out_fname)))
-        return ret;
-
-    dcc_remove_if_exists(err_fname);
-    dcc_remove_if_exists(out_fname);
-
-    /* Capture any messages relating to this compilation to the same file as
-     * compiler errors so that they can all be sent back to the client. */
-    dcc_add_log_to_file(err_fname);
 
     /* Ignore SIGPIPE; we consistently check error codes and will see the
      * EPIPE.  Note that it is set back to the default behaviour when spawning
      * a child, to handle cases like the assembler dying while its being fed
      * from the compiler */
     dcc_ignore_sigpipe(1);
-
-    /* Allow output to accumulate into big packets. */
-    tcp_cork_sock(out_fd, 1);
 
     if ((ret = dcc_r_request_header(in_fd, &protover))
         || (ret = dcc_r_argv(in_fd, &argv))
@@ -276,7 +191,7 @@ static int dcc_run_job(int in_fd,
     if ((ret = dcc_make_tmpnam("distccd", ".o", &temp_o)))
         goto out_cleanup;
 
-    compr = (protover == 2) ? DCC_COMPRESS_LZO1X : DCC_COMPRESS_NONE;
+    //    compr = (protover == 2) ? DCC_COMPRESS_LZO1X : DCC_COMPRESS_NONE;
 
     if ((ret = dcc_r_token_file(in_fd, "DOTI", temp_i, compr))
         || (ret = dcc_set_input(argv, temp_i))
@@ -305,14 +220,14 @@ static int dcc_run_job(int in_fd,
         ret = dcc_x_file(out_fd, temp_o, "DOTO", compr);
     }
 
-    dcc_critique_status(status, argv[0], dcc_hostdef_local, 0);
-    tcp_cork_sock(out_fd, 0);
+    // dcc_critique_status(status, argv[0], dcc_hostdef_local, 0);
+    // tcp_cork_sock(out_fd, 0);
 
-    rs_log(RS_LOG_INFO|RS_LOG_NONAME, "job complete");
+    // rs_log(RS_LOG_INFO|RS_LOG_NONAME, "job complete");
 
     out_cleanup:
-    dcc_remove_log_to_file();
-    dcc_cleanup_tempfiles();
+    // dcc_remove_log_to_file();
+    // dcc_cleanup_tempfiles();
 
     return ret;
 }

@@ -262,7 +262,15 @@ int main( int argc, char **argv )
             rs_log_error("accept failed: %s", strerror(errno));
             return EXIT_CONNECT_FAILED;
         } else {
-            service_job(acc_fd, acc_fd, &cli_addr, cli_len);
+
+            /* Log client name and check access if appropriate.  For ssh connections
+             * the client comes from a localhost socket. */
+            // if ((ret = dcc_check_client(cli_addr, cli_len)) != 0)
+            // return ret;
+
+            if ( ( ret = run_job(acc_fd, acc_fd) ) != 0 )
+                return ret; // return is most likely not the best :/
+
             // dcc_cleanup_tempfiles();
             if (close(acc_fd) != 0) {
                 rs_log_error("failed to close fd%d: %s", acc_fd, strerror(errno));
