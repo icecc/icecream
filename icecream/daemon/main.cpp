@@ -239,7 +239,7 @@ int mem_limit = 100;
 int max_kids = 0;
 
 bool maybe_stats() {
-    if ( time( 0 ) - last_stat >= 1 ) {
+    if ( time( 0 ) - last_stat >= 6 ) {
         trace() << "sending stats\n";
 
         StatsMsg msg;
