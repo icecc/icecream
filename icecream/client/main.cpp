@@ -171,7 +171,7 @@ int main(int argc, char **argv)
     UseSchedulerMsg *ucs = dynamic_cast<UseSchedulerMsg*>( umsg );
     delete serv;
 
-    // log_info() << "contacting scheduler " << ucs->hostname << ":" << ucs->port << endl;
+    trace() << "contacting scheduler " << ucs->hostname << ":" << ucs->port << endl;
 
     serv = new Service( ucs->hostname, ucs->port );
     MsgChannel *scheduler = serv->channel();

@@ -159,10 +159,6 @@ static int build_remote_int(CompileJob &job, UseCSMsg *usecs, const string &vers
     off_t offset = 0;
 
     if ( !got_env ) {
-        if ( ::access( version_file.c_str(), R_OK ) ) {
-            log_error() << "$ICECC_VERSION has to point to an existing file to be installed\n";
-            throw ( 3 );
-        }
         // transfer env
         struct stat buf;
         if ( stat( version_file.c_str(), &buf ) ) {
@@ -341,12 +337,17 @@ int build_remote(CompileJob &job, MsgChannel *scheduler, int permill )
     if ( get )
         version_file = get;
 
+    if ( ::access( version_file.c_str(), R_OK ) ) {
+        log_error() << "$ICECC_VERSION has to point to an existing file to be installed\n";
+        throw ( 3 );
+    }
+
     srand( time( 0 ) + getpid() );
 
     int torepeat = 1;
     if ( rand() % 1000 < permill && version_file != "*")
         torepeat = 3;
-    trace() << job.inputFile() << " compiled " << torepeat << " times\n";
+    trace() << job.inputFile() << " compiled " << torepeat << " times on " << job.targetPlatform() << "\n";
 
     string version = version_file;
     string suff = ".tar.bz2";
@@ -356,11 +357,8 @@ int build_remote(CompileJob &job, MsgChannel *scheduler, int permill )
         version = find_basename( version.substr( 0, version.size() - suff.size() ) );
     }
 
-    if ( scheduler->protocol < 5 )
-        torepeat = 1;
-
     if ( torepeat == 1 ) {
-        GetCSMsg getcs (version, get_absfilename( job.inputFile() ), job.language(), torepeat );
+        GetCSMsg getcs (version, get_absfilename( job.inputFile() ), job.language(), torepeat, job.targetPlatform() );
         if (!scheduler->send_msg (getcs)) {
             log_error() << "asked for CS\n";
             throw( 0 );
@@ -393,7 +391,7 @@ int build_remote(CompileJob &job, MsgChannel *scheduler, int permill )
         job.appendFlag( rand_seed, Arg_Remote );
 #endif
 
-        GetCSMsg getcs (version, get_absfilename( job.inputFile() ), job.language(), torepeat );
+        GetCSMsg getcs (version, get_absfilename( job.inputFile() ), job.language(), torepeat, job.targetPlatform() );
         if (!scheduler->send_msg (getcs)) {
             log_error() << "asked for CS\n";
             throw( 0 );

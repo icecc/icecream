@@ -194,7 +194,7 @@ void usage(const char* reason = 0)
 
 void reannounce_environments(const string &envbasedir, const string &nodename)
 {
-    LoginMsg lmsg( 0, nodename );
+    LoginMsg lmsg( 0, nodename, "");
     lmsg.envs = available_environmnents(envbasedir);
     scheduler->send_msg( lmsg );
 }
@@ -349,13 +349,14 @@ int main( int argc, char ** argv )
 
     log_info() << "will use nice level " << nice_level << endl;
 
-    if ( !nodename.length() ) {
-        struct utsname ubuf;
-        if ( !uname( &ubuf ) ) {
-            nodename = ubuf.nodename;
-        } else
-            nodename = "localhost"; // making something up :/
+    struct utsname uname_buf;
+    if ( uname( &uname_buf ) ) {
+        perror( "uname call failed" );
+        return 1;
     }
+
+    if ( !nodename.length() )
+        nodename = uname_buf.nodename;
 
 
     std::string binary_path = argv[0];
@@ -459,7 +460,8 @@ int main( int argc, char ** argv )
         if ( listen_fd == -1 ) // error
             return 1;
 
-        LoginMsg lmsg( port, nodename );
+        trace() << "login as " << uname_buf.machine << endl;
+        LoginMsg lmsg( port, nodename, uname_buf.machine );
         lmsg.envs = available_environmnents(envbasedir);
         lmsg.max_kids = max_kids;
         scheduler->send_msg( lmsg );

@@ -1,4 +1,4 @@
-* cross compiling and multiple architectures in general
+* cross compiling
 * daemon/client: register the system compiler with <uname>-<gcc version> and if a client compiles
   without ICECC_VERSION, let the daemon package the environment. This way, the user doesn't
   need to setup anything

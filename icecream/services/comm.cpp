@@ -36,6 +36,7 @@
 #include <assert.h>
 #include <minilzo.h>
 #include <stdio.h>
+#include <sys/utsname.h>
 
 #include "logging.h"
 #include "job.h"
@@ -891,10 +892,15 @@ GetCSMsg::fill_from_channel (MsgChannel *c)
   c->read_string (version);
   c->read_string (filename);
   c->readuint32 (_lang);
-  if ( c->protocol > 4 )
-    c->readuint32( count );
-  else
-    count = 1;
+  c->readuint32( count );
+  if ( IS_PROTOCOL_7( c ) )
+    c->read_string( target );
+  else { // the older clients are supposed to run on the same arch as the scheduler
+    struct utsname buf;
+    uname( &buf );
+    target = buf.machine;
+  }
+
   lang = static_cast<CompileJob::Language>( _lang );
 }
 
@@ -905,8 +911,9 @@ GetCSMsg::send_to_channel (MsgChannel *c) const
   c->write_string (version);
   c->write_string (filename);
   c->writeuint32 ((uint32_t) lang);
-  if ( c->protocol > 4 )
-    c->writeuint32( count );
+  c->writeuint32( count );
+  if ( IS_PROTOCOL_7( c ) )
+    c->write_string( target );
 }
 
 void
@@ -1038,7 +1045,7 @@ void JobLocalBeginMsg::fill_from_channel( MsgChannel *c )
 {
   Msg::fill_from_channel(c);
   c->readuint32(stime);
-  if ( c->protocol > 5 )
+  if ( IS_PROTOCOL_6( c ) )
     c->read_string( outfile );
 }
 
@@ -1046,7 +1053,7 @@ void JobLocalBeginMsg::send_to_channel( MsgChannel *c ) const
 {
   Msg::send_to_channel( c );
   c->writeuint32(stime);
-  if ( c->protocol > 5 )
+  if ( IS_PROTOCOL_6( c ) )
     c->write_string( outfile );
 }
 
@@ -1147,6 +1154,13 @@ LoginMsg::fill_from_channel (MsgChannel *c)
   c->readuint32 (max_kids);
   c->read_strlist (envs);
   c->read_string( nodename );
+  if ( IS_PROTOCOL_7( c ) )
+    c->read_string( host_platform );
+  else { // the older daemons are supposed to run on the same arch as the scheduler
+    struct utsname buf;
+    uname( &buf );
+    target = buf.machine;
+  }
 }
 
 void
@@ -1157,6 +1171,8 @@ LoginMsg::send_to_channel (MsgChannel *c) const
   c->writeuint32 (max_kids);
   c->write_strlist (envs);
   c->write_string( nodename );
+  if ( IS_PROTOCOL_7( c ) )
+    c->write_string( host_platform );
 }
 
 void
@@ -1271,7 +1287,7 @@ void MonLocalJobBeginMsg::fill_from_channel (MsgChannel * c)
   c->readuint32 (hostid );
   c->readuint32( job_id );
   c->readuint32( stime );
-  if ( c->protocol > 5 )
+  if ( IS_PROTOCOL_6( c ) )
     c->read_string( file );
   else
     file = "";
@@ -1283,7 +1299,7 @@ void MonLocalJobBeginMsg::send_to_channel (MsgChannel * c) const
   c->writeuint32( hostid );
   c->writeuint32( job_id );
   c->writeuint32( stime );
-  if ( c->protocol > 5 )
+  if ( IS_PROTOCOL_6( c ) )
     c->write_string( file );
 }
 

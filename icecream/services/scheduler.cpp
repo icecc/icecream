@@ -118,6 +118,7 @@ public:
   unsigned int hostid;
   string nodename;
   bool busy_installing;
+  string host_platform;
 
     // unsigned int jobs_done;
     //  unsigned long long rcvd_kb, sent_kb;
@@ -161,6 +162,7 @@ public:
   string environment;
   time_t starttime;  // _local_ to the compiler server
   time_t start_on_scheduler;  // starttime local to scheduler
+  string target_platform;
   Job (MsgChannel *c, unsigned int _id, CS *subm)
      : id(_id), state(PENDING), server(0),
        submitter(subm),
@@ -369,9 +371,10 @@ handle_cs_request (MsgChannel *c, Msg *_m)
     {
       Job *job = create_new_job (c, submitter);
       job->environment = m->version;
+      job->target_platform = m->target;
       enqueue_job_request (job);
       log_info() << "NEW: " << job->id << " version=\""
-                 << job->environment << "\" " << m->filename
+                 << job->environment << "\"(" << m->target << ") " << m->filename
                  << " " << ( m->lang == CompileJob::Lang_C ? "C" : "C++" ) << endl;
       notify_monitors (MonGetCSMsg (job->id, submitter->hostid, m));
     }
@@ -422,38 +425,28 @@ server_speed (CS *cs)
 }
 
 static bool
-envs_match( CS* cs, const string &env )
+envs_match( CS* cs, const Job *job )
 {
-  return find( cs->compiler_versions.begin(), cs->compiler_versions.end(), env ) != cs->compiler_versions.end();
+  return find( cs->compiler_versions.begin(), cs->compiler_versions.end(), job->environment ) != cs->compiler_versions.end();
 }
 
 static bool
-can_install( CS* cs, const string & )
+can_install( CS* cs, const Job *job )
 {
+  trace() << "can_install host: '" << cs->host_platform << "' target: '" << job->target_platform << "'" << endl;
   if ( cs->busy_installing )
     return false;
-  return true; // TODO/XXX: uname call
-}
-
-static bool
-pick_environment( CS* cs, string &env )
-{
-  if ( env == "*" ) {
-    env = "";
-    return true;
-  }
-
-  return envs_match( cs, env );
+  // XXX: instead of doing string compares all the time we should keep an array of platforms and compare indices
+  // there we could also put i386/i486/i586/i686 in one index (at least upwards?)
+  return cs->host_platform == job->target_platform;
 }
 
 static CS *
 pick_server(Job *job)
 {
-  /// XXX: if the environment contains *, pick the most often installed
-  string environment = job->environment;
-  assert( !environment.empty() );
-
   list<CS*>::iterator it;
+
+  trace() << "pick_server " << job->id << " " << job->target_platform << endl;
 
   time_t now = time( 0 );
   // first we check if all are up
@@ -476,12 +469,15 @@ pick_server(Job *job)
   if (!all_job_stats.size ())
     {
       for (it = css.begin(); it != css.end(); ++it)
-        if (int( (*it)->joblist.size() ) < (*it)->max_jobs
-	    && (*it)->load < 1000 && can_install( *it, environment ) )
-          {
-             trace() << "returning first " << ( *it )->name << endl;
-             return *it;
-          }
+        {
+          trace() << "no job stats - looking at " << ( *it )->name << " load: " << (*it )->load << " can install: " << can_install( *it, job ) << endl;
+          if (int( (*it)->joblist.size() ) < (*it)->max_jobs
+              && (*it)->load < 1000 && can_install( *it, job ) )
+            {
+              trace() << "returning first " << ( *it )->name << endl;
+              return *it;
+            }
+        }
       return 0;
     }
 
@@ -512,8 +508,8 @@ pick_server(Job *job)
       }
 
       // incompatible architecture
-      if ( !can_install( cs, environment ) ) {
-	trace() << cs->name << "can't install " << environment << endl;
+      if ( !can_install( cs, job ) ) {
+	trace() << cs->name << " can't install " << job->environment << endl;
         continue;
       }
 
@@ -528,7 +524,7 @@ pick_server(Job *job)
 	{
 	  /* Make all servers compile a job at least once, so we'll get an
 	     idea about their speed.  */
-	  if (envs_match (cs, environment))
+	  if (envs_match (cs, job))
 	    best = cs;
 	  else // if there is one server that already got the environment and one that
             // hasn't compiled at all, pick the one with environment first
@@ -537,7 +533,7 @@ pick_server(Job *job)
 	}
 
       // trace() << "server_speed " << cs->name << " " << server_speed (cs) << endl;
-      if ( envs_match( cs, environment ) )
+      if ( envs_match( cs, job ) )
         {
           if ( !best )
             best = cs;
@@ -598,9 +594,8 @@ empty_queue()
   job->state = Job::WAITINGFORCS;
   job->server = cs;
 
-  string env = job->environment;
-  bool gotit = pick_environment( cs, env );
-  UseCSMsg m2(env, cs->name, cs->remote_port, job->id, gotit );
+  bool gotit = envs_match( cs, job );
+  UseCSMsg m2(job->environment, cs->name, cs->remote_port, job->id, gotit );
 
   if (!job->channel->send_msg (m2))
     {
@@ -635,6 +630,9 @@ handle_login (MsgChannel *c, Msg *_m)
   cs->max_jobs = m->max_kids;
   if ( m->nodename.length() )
     cs->nodename = m->nodename;
+  else
+    cs->nodename = cs->name;
+  cs->host_platform = m->host_platform;
   cs->pick_new_id();
   handle_monitor_stats( cs );
   css.push_back (cs);
@@ -818,6 +816,7 @@ try_login (MsgChannel *c, Msg *m)
 {
   bool ret = true;
   CS *cs = static_cast<CS *>(c->other_end);
+  trace() << "login " << cs->name << " protocol version: " << c->protocol << endl;
   switch (m->type)
     {
     case M_GET_CS:

@@ -38,7 +38,7 @@ class CompileJob {
 public:
     typedef enum {Lang_C, Lang_CXX, Lang_OBJC} Language;
 
-    CompileJob() : m_id( 0 ) {}
+    CompileJob() : m_id( 0 ) { setTargetPlatform(); }
 
     void setLanguage( Language lg ) {
         m_language = lg;
@@ -87,12 +87,7 @@ public:
     }
 
     CompileJob( const CompileJob &rhs ) {
-        m_id = rhs.m_id;
-        m_language = rhs.m_language;
-        m_environment_version = rhs.m_environment_version;
-        m_flags = rhs.m_flags;
-        m_input_file = rhs.m_input_file;
-        m_output_file = rhs.m_output_file;
+        *this = rhs;
     }
 
     CompileJob &operator=( const CompileJob &rhs ) {
@@ -102,6 +97,7 @@ public:
         m_flags = rhs.m_flags;
         m_input_file = rhs.m_input_file;
         m_output_file = rhs.m_output_file;
+        m_target_platform = rhs.m_target_platform;
 
         return *this;
     }
@@ -110,14 +106,18 @@ public:
         m_flags.append( arg, argumentType );
     }
 
+    std::string targetPlatform() const { return m_target_platform; }
+
 private:
     std::list<std::string> flags( Argument_Type argumentType ) const;
+    void setTargetPlatform();
 
     unsigned int m_id;
     Language m_language;
     std::string m_environment_version;
     ArgumentsList m_flags;
     std::string m_input_file, m_output_file;
+    std::string m_target_platform;
 };
 
 inline void appendList( std::list<std::string> &list,
@@ -126,8 +126,5 @@ inline void appendList( std::list<std::string> &list,
     // Cannot splice since toadd is a reference-to-const
     list.insert( list.end(), toadd.begin(), toadd.end() );
 }
-
-bool write_job( int fd, const CompileJob &job );
-bool read_job( int in_fd, CompileJob &job );
 
 #endif

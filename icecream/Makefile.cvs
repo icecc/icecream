@@ -1,7 +1,7 @@
 
 all:
-	libtoolize --force
+	libtoolize --force --copy
 	aclocal
 	autoconf
 	autoheader
-	automake -a -f || :
+	automake -a -f -c || :

@@ -32,8 +32,13 @@
 
 #include "job.h"
 
-#define PROTOCOL_VERSION 6
+// if you increase the PROTOCOL_VERSION, add a macro below and use that
+#define PROTOCOL_VERSION 7
+// if you increase the MIN_PROTOCOL_VERSION, remove macros below and clean up the code
 #define MIN_PROTOCOL_VERSION 5
+
+#define IS_PROTOCOL_6( c ) ( c->protocol >= 6 )
+#define IS_PROTOCOL_7( c ) ( c->protocol >= 7 )
 
 enum MsgType {
   // so far unknown
@@ -216,9 +221,10 @@ public:
   std::string filename;
   CompileJob::Language lang;
   unsigned int count; // the number of UseCS messages to answer with - usually 1
+  std::string target;
   GetCSMsg () : Msg(M_GET_CS), count( 1 ) {}
-  GetCSMsg (const std::string &v, const std::string &f, CompileJob::Language _lang, unsigned int _count)
-    : Msg(M_GET_CS), version(v), filename(f), lang(_lang), count( _count ) {}
+  GetCSMsg (const std::string &v, const std::string &f, CompileJob::Language _lang, unsigned int _count, std::string _target)
+    : Msg(M_GET_CS), version(v), filename(f), lang(_lang), count( _count ), target( _target ) {}
   virtual void fill_from_channel (MsgChannel * c);
   virtual void send_to_channel (MsgChannel * c) const;
 };
@@ -363,8 +369,9 @@ public:
   std::list<std::string> envs;
   unsigned int max_kids;
   std::string nodename;
-  LoginMsg (unsigned int myport, const std::string &_nodename)
-      : Msg(M_LOGIN), port( myport ), nodename( _nodename ) {}
+  std::string host_platform;
+  LoginMsg (unsigned int myport, const std::string &_nodename, const std::string _host_platform)
+      : Msg(M_LOGIN), port( myport ), nodename( _nodename ), host_platform( _host_platform ) {}
   LoginMsg () : Msg(M_LOGIN), port( 0 ) {}
   virtual void fill_from_channel (MsgChannel * c);
   virtual void send_to_channel (MsgChannel * c) const;
@@ -423,7 +430,7 @@ public:
     clientid = job_id = 0;
   }
   MonGetCSMsg( int jobid, int hostid, GetCSMsg *m )
-    : GetCSMsg( m->version, m->filename, m->lang, 1 ), job_id( jobid ), clientid( hostid )
+    : GetCSMsg( m->version, m->filename, m->lang, 1, m->target ), job_id( jobid ), clientid( hostid )
   {
     type = M_MON_GET_CS;
   }
