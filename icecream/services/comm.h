@@ -1,32 +1,35 @@
 enum MsgType {
+  // so far unknown
   M_UNKNOWN = 'A',
+ 
+  /* When the scheduler didn't get M_STATS from a CS
+     for a specified time (e.g. 10m), then he sends a
+     ping */
   M_PING,
-  M_END, // End of all kinds of message chunks
-  // Fake message used in message chunk looks
+
+  /* Either the end of file chunks or connection (A<->A) */
+  M_END,
+
+  // Fake message used in message reading loops (A<->A)
   M_TIMEOUT, 
-  // ??? maybe use M_END
-  M_DISCONNECT,
 
-  // C <--> CD
-  // Not sure, if we need those, or use a different protocol for
-  // C <--> CD communication
-  M_COMPILE_REQ,
-  M_COMPILE_DONE,
-
-  // CD --> S
+  // C --> S
   M_GET_CS,
-  // S --> CD
+  // S --> C
   M_USE_CS,
-  // CD --> CS
+
+  // C --> CS
   M_COMPILE_FILE,
   // generic file transfer
   M_FILE_CHUNK,
-  // CS --> CD
+  // CS --> C
   M_COMPILE_RESULT,
 
-  // CS --> S
+  // CS --> S (after the C got the CS from the S, the CS tells the S when the C asks him)
   M_JOB_BEGIN,
   M_JOB_DONE,
+
+  // CS --> S (peridioc)
   M_STATS
 };
 
@@ -76,28 +79,9 @@ public:
   EndMsg () : Msg(M_END) {}
 };
 
-class CompileReqMsg : public Msg {
-public:
-  CompileReqMsg () : Msg(M_COMPILE_REQ) {}
-  virtual bool fill_from_fd (int fd);
-  virtual bool send_to_fd (int fd) const;
-};
-
 class TimeoutMsg : public Msg {
 public:
   TimeoutMsg () : Msg(M_TIMEOUT) {}
-};
-
-class DisconnectMsg : public Msg {
-public:
-  DisconnectMsg () : Msg(M_DISCONNECT) {}
-};
-
-class CompileDoneMsg : public Msg {
-public:
-  CompileDoneMsg () : Msg(M_COMPILE_DONE) {}
-  virtual bool fill_from_fd (int fd);
-  virtual bool send_to_fd (int fd) const;
 };
 
 class GetCSMsg : public Msg {

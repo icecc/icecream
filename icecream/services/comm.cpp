@@ -125,9 +125,6 @@ MsgChannel::get_msg(void)
   case M_PING: m = new PingMsg; break;
   case M_END:  m = new EndMsg; break;
   case M_TIMEOUT: m = new TimeoutMsg; break;
-  case M_DISCONNECT: m = new DisconnectMsg; break;
-  case M_COMPILE_REQ: m = new CompileReqMsg; break;
-  case M_COMPILE_DONE: m = new CompileDoneMsg; break;
   case M_GET_CS: m = new GetCSMsg; break;
   case M_USE_CS: m = new UseCSMsg; break;
   case M_COMPILE_FILE: m = new CompileFileMsg; break;
@@ -191,38 +188,6 @@ bool
 Msg::send_to_fd (int fd) const
 {
   return writeuint (fd, (unsigned int) type);
-}
-
-bool
-CompileReqMsg::fill_from_fd (int fd)
-{
-  if (!Msg::fill_from_fd (fd))
-    return false;
-  return true;
-}
-
-bool
-CompileReqMsg::send_to_fd (int fd) const
-{
-  if (!Msg::send_to_fd (fd))
-    return false;
-  return true;
-}
-
-bool
-CompileDoneMsg::fill_from_fd (int fd)
-{
-  if (!Msg::fill_from_fd (fd))
-    return false;
-  return true;
-}
-
-bool
-CompileDoneMsg::send_to_fd (int fd) const
-{
-  if (!Msg::send_to_fd (fd))
-    return false;
-  return true;
 }
 
 bool
