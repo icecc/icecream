@@ -524,16 +524,16 @@ platforms_compatible( const string &target, const string &platform )
       platform_map.insert( make_pair( string( "i386" ), string( "i486" ) ) );
       platform_map.insert( make_pair( string( "i386" ), string( "i586" ) ) );
       platform_map.insert( make_pair( string( "i386" ), string( "i686" ) ) );
-      platform_map.insert( make_pair( string( "i386" ), string( "x86_64" ) ) );
+      // platform_map.insert( make_pair( string( "i386" ), string( "x86_64" ) ) );
 
       platform_map.insert( make_pair( string( "i486" ), string( "i586" ) ) );
       platform_map.insert( make_pair( string( "i486" ), string( "i686" ) ) );
-      platform_map.insert( make_pair( string( "i486" ), string( "x86_64" ) ) );
+     // platform_map.insert( make_pair( string( "i486" ), string( "x86_64" ) ) );
 
       platform_map.insert( make_pair( string( "i586" ), string( "i686" ) ) );
-      platform_map.insert( make_pair( string( "i586" ), string( "x86_64" ) ) );
+//      platform_map.insert( make_pair( string( "i586" ), string( "x86_64" ) ) );
 
-      platform_map.insert( make_pair( string( "i686" ), string( "x86_64" ) ) );
+ //     platform_map.insert( make_pair( string( "i686" ), string( "x86_64" ) ) );
 
       platform_map.insert( make_pair( string( "ppc" ), string( "ppc64" ) ) );
       platform_map.insert( make_pair( string( "s390" ), string( "s390x" ) ) );
@@ -658,7 +658,7 @@ pick_server(Job *job)
       }
 
       /* Don't use non-chroot-able daemons for remote jobs.  XXX */
-      if (!cs->chroot_possible)
+      if (!allow_run_as_user && !cs->chroot_possible)
         {
 	  trace() << cs->nodename << " can't use chroot\n";
 	  continue;
