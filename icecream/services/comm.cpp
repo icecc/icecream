@@ -2,6 +2,15 @@
 #include <errno.h>
 #include "comm.h"
 
+/* TODO
+ * buffered in/output per MsgChannel
+    + move read* into MsgChannel, create buffer-fill function
+    + add timeouting select() there, handle it in the different
+    + read* functions.
+    + write* unbuffered / or per message buffer (flush in send_msg)
+ * think about error handling
+    + saving errno somewhere (in MsgChannel class)
+ */   
 bool
 readfull (int fd, char *buf, size_t count)
 {

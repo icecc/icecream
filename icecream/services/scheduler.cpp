@@ -93,6 +93,8 @@ handle_job_done (MsgChannel *c, Msg *_m)
     return 1;
   if (jobs[m->job_id].server != c->other_end)
     return 1;
+  Job &j = * jobs.find(m->job_id);
+  j.server.joblist.remove (j);
   jobs.erase (m->job_id);
   return 0;
 }
