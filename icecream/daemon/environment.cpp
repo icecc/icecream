@@ -27,6 +27,7 @@
 #include <stdio.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <sys/wait.h>
 #include "comm.h"
 
 using namespace std;
@@ -108,20 +109,31 @@ static void list_target_dirs( const string &current_target, const string &target
     closedir( envdir );
 }
 
-bool cleanup_cache( const string &basedir )
+bool cleanup_cache( const string &basedir, uid_t nobody_uid )
 {
+    pid_t pid = fork();
+    if ( pid )
+    {
+        int status = 0;
+        if ( wait( &status ) != pid )
+            status = 1;
+        return status == 0;
+    }
+    // else
+    setuid( nobody_uid );
+
     if ( !::access( basedir.c_str(), W_OK ) ) { // it exists - removing
         if ( ( basedir.substr( 0, 5 ) != "/tmp/" && basedir.substr( 0, 9 ) != "/var/tmp/" ) ||
              basedir.find_first_of( "'\"" ) != string::npos )
         {
             log_error() << "the cache directory for icecream isn't below /tmp or /var/tmp and already exists - I won't remove it!\n";
-            return false;
+            ::exit( 1 );
         }
         char buffer[PATH_MAX];
         snprintf( buffer, PATH_MAX, "rm -rf '%s'", basedir.c_str() );
         if ( system( buffer ) ) {
             perror( "rm -rf failed" );
-            return false;
+            ::exit( 1 );
         }
     }
 
@@ -132,10 +144,10 @@ bool cleanup_cache( const string &basedir )
             log_error() << "cache directory already exists and can't be removed: " << basedir << endl;
         else
             perror( "Failed " );
-        return false;
+        ::exit( 1 );
     }
 
-    return true;
+    ::exit( 0 );
 }
 
 Environments available_environmnents(const string &basedir)
@@ -165,40 +177,54 @@ Environments available_environmnents(const string &basedir)
     return envs;
 }
 
-bool setup_env_cache(const string &basedir, string &native_environment)
+bool setup_env_cache(const string &basedir, string &native_environment, uid_t nobody_uid)
 {
     native_environment = "";
+    string nativedir = basedir + "/native/";
+
+    pid_t pid = fork();
+    if ( pid )
+    {
+        int status = 0;
+        if ( wait( &status ) != pid )
+            status = 1;
+        if ( !status )
+        {
+            native_environment = list_native_environment( nativedir );
+            if ( native_environment.empty() )
+                status = 1;
+        }
+        trace() << "native_environment " << native_environment << endl;
+        return status == 0;
+    }
+    // else
+    setuid( nobody_uid );
 
     if ( !::access( "/usr/bin/gcc", X_OK ) && !::access( "/usr/bin/g++", X_OK ) ) {
-        string nativedir = basedir + "/native/";
         if ( !mkdir ( nativedir.c_str(), 0755 ) )
         {
-            char pwd[PATH_MAX];
-            getcwd(pwd, PATH_MAX);
             if ( chdir( nativedir.c_str() ) ) {
                 perror( "chdir" );
-                return false;
+                rmdir( nativedir.c_str() );
+                goto error;
             }
 
             if ( system( BINDIR "/create-env" ) ) {
                 log_error() << BINDIR "/create-env failed\n";
+                goto error;
             } else {
-                native_environment = list_native_environment( nativedir );
+                exit( 0 );
             }
-
-            if ( native_environment.empty() )
-                if ( !rmdir( nativedir.c_str() ) ) {
-                    perror( "rmdir nativedir" );
-                }
-
-            chdir( pwd );
         }
     }
 
-    return true;
+error:
+    rmdir( nativedir.c_str() );
+    exit( 1 );
 }
 
-bool install_environment( const std::string &basename, const std::string &target, const std::string &name, MsgChannel *c )
+bool install_environment( const std::string &basename, const std::string &target,
+                          const std::string &name, MsgChannel *c, uid_t nobody_uid )
 {
     if ( !name.size() || name[0] == '.' ) {
         log_error() << "illegal name for environment " << name << endl;
@@ -212,78 +238,106 @@ bool install_environment( const std::string &basename, const std::string &target
         return false;
     }
 
+    string dirname = basename + "/target=" + target;
+
+    int fds[2];
+    if ( pipe( fds ) )
+        return false;
+
+    pid_t pid = fork();
+    if ( pid )
+    {
+        trace() << "pid " << pid << endl;
+        close( fds[0] );
+        FILE *fpipe = fdopen( fds[1], "w" );
+
+        bool error = false;
+        Msg *msg = 0;
+        do {
+            delete msg;
+            msg = c->get_msg(30);
+            if (!msg) {
+                error = true;
+                break;
+            }
+
+            if ( msg->type == M_END ) {
+                trace() << "end\n";
+                break;
+            }
+            FileChunkMsg *fmsg = dynamic_cast<FileChunkMsg*>( msg );
+            if ( !fmsg ) {
+                log_error() << "Expected another file chunk\n";
+                error = true;
+                break;
+            }
+            maybe_stats();
+            trace() << "got env share: " << fmsg->len << endl;
+            int ret = fwrite( fmsg->buffer, fmsg->len, 1, fpipe );
+            if ( ret != 1 ) {
+                log_error() << "wrote " << ret << " bytes\n";
+                error = true;
+                break;
+            }
+        } while ( true );
+
+        maybe_stats();
+
+        delete msg;
+
+        fclose( fpipe );
+        close( fds[1] );
+
+        int status = 0;
+        if ( error ) {
+            kill( pid, SIGTERM );
+            char buffer[PATH_MAX];
+            sprintf( buffer, "rm -rf '/%s'", dirname.c_str() );
+            system( buffer );
+            status = 1;
+        } else {
+
+            if ( wait( &status ) != pid )
+                status = 1;
+            dirname = dirname + "/" + name;
+            mkdir( ( dirname + "/var/tmp" ).c_str(), 0755 );
+            chown( ( dirname + "/var/tmp" ).c_str(), nobody_uid, 0 );
+            mkdir( ( dirname + "/tmp" ).c_str(), 0755 );
+            chown( ( dirname + "/tmp" ).c_str(), nobody_uid, 0 );
+        }
+
+        return status == 0;
+    }
+    // else
+    setuid( nobody_uid );
+    close( 0 );
+    close( fds[1] );
+    dup2( fds[0], 0 );
+
     assert( !::access( basename.c_str(), W_OK ) );
 
-    string dirname = basename + "/target=" + target;
     if ( mkdir( dirname.c_str(), 0755 ) && errno != EEXIST ) {
         perror( "mkdir target" );
-        return false;
+        ::exit( 1 );
     }
 
     dirname = dirname + "/" + name;
     if ( mkdir( dirname.c_str(), 0755 ) ) {
         perror( "mkdir name" );
-        return false;
+        ::exit( 1 );
     }
 
-    char pwd[PATH_MAX];
-    getcwd(pwd, PATH_MAX);
     if ( chdir( dirname.c_str() ) ) {
         perror( "chdir" );
-        return false;
+        ::exit( 1 );
     }
 
-    trace() << "set it up, opening tar\n";
-
-    FILE *pipe = popen( "tar xjf -", "w" );
-    if ( !pipe ) {
-        perror( "popen tar" );
-        return false; // TODO: rm?
-    }
-
-    bool error = false;
-    Msg *msg = 0;
-    do {
-        delete msg;
-        msg = c->get_msg(30);
-	if (!msg) {
-            error = true;
-	    break;
-	}
-
-        if ( msg->type == M_END ) {
-            trace() << "end\n";
-            break;
-        }
-        FileChunkMsg *fmsg = dynamic_cast<FileChunkMsg*>( msg );
-        if ( !fmsg ) {
-            log_error() << "Expected another file chunk\n";
-            error = true;
-            break;
-        }
-        maybe_stats();
-        trace() << "got env share: " << fmsg->len << endl;
-        int ret = fwrite( fmsg->buffer, fmsg->len, 1, pipe );
-        if ( ret != 1 ) {
-            log_error() << "wrote " << ret << " bytes\n";
-            error = true;
-            break;
-        }
-    } while ( true );
-
-    maybe_stats();
-
-    delete msg;
-    chdir( pwd );
-    pclose( pipe );
-    if ( error ) {
-        char buffer[PATH_MAX];
-        sprintf( buffer, "rm -rf '/%s'", dirname.c_str() );
-        system( buffer );
-        return false;
-    } else {
-        mkdir( ( dirname + "/var/tmp" ).c_str(), 0755 );
-        mkdir( ( dirname + "/tmp" ).c_str(), 0755 );
-    }
-    return true;
+    char **argv;
+    argv = new char*[4];
+    argv[0] = strdup( "/bin/tar" );
+    argv[1] = strdup( "xjf" );
+    argv[2] = strdup( "-" );
+    argv[3] = 0;
+    execv( argv[0], argv );
+    ::exit( 1 ); // if tar fails
 }

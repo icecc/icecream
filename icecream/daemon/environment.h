@@ -26,9 +26,13 @@
 #include <string>
 
 class MsgChannel;
-bool cleanup_cache( const std::string &basedir );
-bool setup_env_cache(const std::string &basedir, std::string &native_environment);
+bool cleanup_cache( const std::string &basedir, uid_t nobody_uid );
+bool setup_env_cache(const std::string &basedir,
+                     std::string &native_environment, uid_t nobody_uid);
 Environments available_environmnents(const std::string &basename);
-bool install_environment( const std::string &basename, const std::string &target, const std::string &name, MsgChannel *c );
+bool install_environment( const std::string &basename,
+                          const std::string &target,
+                          const std::string &name,
+                          MsgChannel *c, uid_t nobody_uid );
 
 #endif

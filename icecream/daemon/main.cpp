@@ -40,6 +40,7 @@
 #include <sys/un.h>
 #include <sys/param.h>
 #include <sys/socket.h>
+#include <pwd.h>
 
 #include <netinet/in.h>
 #include <netinet/tcp.h>
@@ -188,7 +189,7 @@ void usage(const char* reason = 0)
   if (reason)
      cerr << reason << endl;
 
-  cerr << "usage: iceccd [-n <netname>] [-m <max_processes>] [-w] [-d|--daemonize] [-l logfile] [-s <schedulerhost>] [-v[v[v]]] [-u|--run-as-user] [-b <env-basedir>]" << endl;
+  cerr << "usage: iceccd [-n <netname>] [-m <max_processes>] [-w] [-d|--daemonize] [-l logfile] [-s <schedulerhost>] [-v[v[v]]] [-r|--run-as-user] [-b <env-basedir>] [-u|--nobody-uid <nobody_uid>]" << endl;
   exit(1);
 }
 
@@ -247,7 +248,6 @@ int max_kids = 0;
 
 bool maybe_stats() {
     if ( time( 0 ) - last_stat >= 6 ) {
-        trace() << "sending stats\n";
 
         StatsMsg msg;
         if ( !fill_stats( msg ) ) {
@@ -280,6 +280,7 @@ int main( int argc, char ** argv )
     string nodename;
     string schedname;
     bool runasuser = false;
+    uid_t nobody_uid = 65534;
 
     while ( true ) {
         int option_index = 0;
@@ -293,12 +294,13 @@ int main( int argc, char ** argv )
             { "nice", 1, NULL, 0},
             { "name", 1, NULL, 'n'},
             { "scheduler-host", 1, NULL, 's' },
-            { "run-as-user", 1, NULL, 'u' },
+            { "run-as-user", 1, NULL, 'r' },
             { "env-basedir", 1, NULL, 'b' },
+            { "nobody-uid", 1, NULL, 'u'},
             { 0, 0, 0, 0 }
         };
 
-        const int c = getopt_long( argc, argv, "n:m:l:s:whvdub:", long_options, &option_index );
+        const int c = getopt_long( argc, argv, "n:m:l:s:whvdrb:u:", long_options, &option_index );
         if ( c == -1 ) break; // eoo
 
         switch ( c ) {
@@ -364,9 +366,21 @@ int main( int argc, char ** argv )
                 if ( optarg && *optarg )
                     envbasedir = optarg;
                 break;
-            case 'u':
+            case 'r':
                 runasuser = true;
                 break;
+            case 'u':
+                if ( optarg && *optarg )
+                {
+                    struct passwd *pw = getpwnam( optarg );
+                    if ( !pw ) {
+                        usage( "Error: -u requires a valid username" );
+                    } else
+                        nobody_uid = pw->pw_uid;
+                } else
+                    usage( "Error: -u requires a valid username" );
+                break;
+
             default:
                 usage();
         }
@@ -466,7 +480,7 @@ int main( int argc, char ** argv )
     Pidmap pidmap;
 
     string native_environment;
-    if ( !cleanup_cache( envbasedir ) )
+    if ( !cleanup_cache( envbasedir, nobody_uid ) )
         return 1;
 
     list<string> nl = get_netnames (200);
@@ -571,7 +585,7 @@ int main( int argc, char ** argv )
                     } else
                         close( sockets[1] );
                 } else
-                    pid = handle_connection( envbasedir, req.first, req.second, sock, mem_limit );
+                    pid = handle_connection( envbasedir, req.first, req.second, sock, mem_limit, nobody_uid );
 
 
                 if ( pid > 0) { // forks away
@@ -716,7 +730,7 @@ int main( int argc, char ** argv )
                                 GetSchedulerMsg *gsm = dynamic_cast<GetSchedulerMsg*>( msg );
                                 if ( scheduler && gsm ) {
                                     if ( gsm->wants_native && !native_environment.length() )
-                                        if ( !setup_env_cache( envbasedir, native_environment ) ) {
+                                        if ( !setup_env_cache( envbasedir, native_environment, nobody_uid ) ) {
                                             c->send_msg( EndMsg() );
                                             delete scheduler;
                                             return 1;
@@ -737,7 +751,7 @@ int main( int argc, char ** argv )
                                 string target = emsg->target;
                                 if ( target.empty() )
                                     target =  uname_buf.machine;
-                                if (!install_environment( envbasedir, emsg->target, emsg->name, c )) {
+                                if (!install_environment( envbasedir, emsg->target, emsg->name, c, nobody_uid )) {
                                     trace() << "install environment failed" << endl;
                                     c->send_msg(EndMsg()); // shut up, we had an error
                                     reannounce_environments(envbasedir, nodename);

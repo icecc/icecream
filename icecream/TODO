@@ -1,6 +1,5 @@
 Release Critical:
 * keep better track of currently installing daemons (matz)
-* daemon: drop root rights before doing anything with client data (coolo)
 * bind the broadcast listener to fixed local port (8765) (otherwise not firewallable)
 * chmod TMPDIR/native, as otherwise set umask prevent it from being readable by the client
    I'm wondering if it doesn't make sense to leave the daemon out of the game and let the

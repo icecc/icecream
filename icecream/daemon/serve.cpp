@@ -83,7 +83,9 @@ public:
 /**
  * Read a request, run the compiler, and send a response.
  **/
-int handle_connection( const string &basedir, CompileJob *job, MsgChannel *serv, int &out_fd, unsigned int mem_limit )
+int handle_connection( const string &basedir, CompileJob *job,
+                       MsgChannel *serv, int &out_fd,
+                       unsigned int mem_limit, uid_t nobody_uid )
 {
     int socket[2];
     if ( pipe( socket ) == -1)
@@ -121,6 +123,7 @@ int handle_connection( const string &basedir, CompileJob *job, MsgChannel *serv,
             if ( getuid() == 0 ) {
                 chdir( dirname.c_str() ); // without the chdir, the chroot will escape the jail right away
                 chroot( dirname.c_str() );
+                setuid( nobody_uid );
             }
             else
                 if ( chdir( dirname.c_str() ) ) {
