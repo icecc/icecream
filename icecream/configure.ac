@@ -10,6 +10,9 @@ dnl Checks for programs
 AC_PROG_CC
 if test "$GCC" = yes 
 then
+ CFLAGS="-g $CFLAGS"
+ CXXFLAGS="-g $CXXFLAGS"
+
     CFLAGS="-W -Wall -Wimplicit \
 -Wshadow -Wpointer-arith -Wcast-align -Wwrite-strings \
 -Waggregate-return -Wstrict-prototypes -Wmissing-prototypes \

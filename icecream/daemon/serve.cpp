@@ -94,6 +94,45 @@ int dcc_ignore_sigpipe(int val)
     return 0;
 }
 
+/**
+ * Run @p argv in a child asynchronously.
+ *
+ * stdin, stdout and stderr are redirected as shown, unless those
+ * filenames are NULL.
+ *
+ * Better server-side load limitation must still be organized.
+ *
+ * @warning When called on the daemon, where stdin/stdout may refer to random
+ * network sockets, all of the standard file descriptors must be redirected!
+ **/
+int dcc_spawn_child(char **argv, pid_t *pidptr,
+                    const char *stdin_file,
+                    const char *stdout_file,
+                    const char *stderr_file)
+{
+    pid_t pid;
+
+    printf( "forking to execute " );
+    for ( int i = 0; argv[i]; i++ )
+        printf( "%s ", argv[i] );
+    printf( "\n" );
+
+#if 0
+    pid = fork();
+    if (pid == -1) {
+        rs_log_error("failed to fork: %s", strerror(errno));
+        return EXIT_OUT_OF_MEMORY; /* probably */
+    } else if (pid == 0) {
+        exit(dcc_inside_child(argv, stdin_file, stdout_file, stderr_file));
+        /* !! NEVER RETURN FROM HERE !! */
+    } else {
+        *pidptr = pid;
+        rs_trace("child started as pid%d", (int) pid);
+        return 0;
+    }
+#endif
+    return 0;
+}
 
 #if 0
 /**
@@ -164,6 +203,47 @@ static int dcc_check_compiler_masq(char *compiler_name)
 #endif
 
 /**
+ * Blocking wait for a child to exit.  This is used when waiting for
+ * cpp, gcc, etc.
+ *
+ * This is not used by the daemon-parent; it has its own
+ * implementation in dcc_reap_kids().  They could be unified, but the
+ * parent only waits when it thinks a child has exited; the child
+ * waits all the time.
+ **/
+int dcc_collect_child(const char *what, pid_t pid,
+                      int *wait_status)
+{
+    struct rusage ru;
+    pid_t ret_pid;
+
+    while (1) {
+        if ((ret_pid = wait4(pid, wait_status, 0, &ru)) != -1) {
+            /* This is not the main user-visible message, that comes from
+             * critique_status(). */
+            rs_trace("%s child %ld terminated with status %#x",
+                     what, (long) ret_pid, *wait_status);
+
+            rs_log_info("%s times: user %ld.%06lds, system %ld.%06lds, "
+                        "%ld minflt, %ld majflt",
+                        what,
+                        ru.ru_utime.tv_sec, ru.ru_utime.tv_usec,
+                        ru.ru_stime.tv_sec, ru.ru_stime.tv_usec,
+                        ru.ru_minflt, ru.ru_majflt);
+
+            return 0;
+        } else if (errno == EINTR) {
+            rs_trace("wait4 was interrupted; retrying");
+            continue;
+        } else {
+            rs_log_error("sys_wait4(pid=%d) borked: %s", (int) pid, strerror(errno));
+            return EXIT_DISTCC_FAILED;
+        }
+    }
+}
+
+
+/**
  * Read a request, run the compiler, and send a response.
  **/
 int run_job(int in_fd,
@@ -197,7 +277,7 @@ int run_job(int in_fd,
 
     int argc = m.length;
     printf( "argc = %d\n", argc );
-    char **argv = new char*[argc + 1];
+    char **argv = new char*[argc + 1 +1 ]; // +1 for -fpreprocessed
     for ( int i = 0; i < argc; i++ ) {
         ret = client_read_message( in_fd, &m );
         if ( ret )
@@ -209,6 +289,7 @@ int run_job(int in_fd,
         argv[i][m.length] = 0;
         printf( "argv[%d] = '%s'\n", i, argv[i] );
     }
+    argv[argc++] = strdup( "-fpreprocessed" );
     argv[argc] = 0;
 
     // TODO: PROF data if available
@@ -230,13 +311,15 @@ int run_job(int in_fd,
         if ( preproc_length + m.length > preproc_bufsize ) {
             preproc_bufsize *= 2;
             preproc = (char* )realloc(preproc, preproc_bufsize);
-            preproc_bufsize *= 2;
         }
         if ( read( in_fd, preproc + preproc_length, m.length ) != ( ssize_t )m.length )
             return EXIT_PROTOCOL_ERROR;
         preproc_length += m.length;
     }
 
+    printf( "pre %s\n", preproc );
+
+    /* NOW WE'VE GOT ALL DATA AND SHOULD DISTRIBUTE */
     const char *orig_input;
     const char *orig_output;
 
@@ -246,12 +329,31 @@ int run_job(int in_fd,
     if (dot && dot[1] == '\0')
         dot = NULL;
 
-    dot = dcc_preproc_exten( dot );
-    char tmpname[PATH_MAX];
-    if ( ( ret = dcc_make_tmpnam("icecc_", dot, tmpname ) ) != 0 )
+    // if using gcc: dot = dcc_preproc_exten( dot );
+    char tmp_input[PATH_MAX];
+    if ( ( ret = dcc_make_tmpnam("icecc", dot, tmp_input ) ) != 0 )
+        return ret;
+    char tmp_output[PATH_MAX];
+    if ( ( ret = dcc_make_tmpnam("icecc", ".o", tmp_output ) ) != 0 )
         return ret;
 
-    printf( "tmpname %s\n", tmpname );
+    for ( int i = 0; i < argc; i++ ) {
+        if ( argv[i] == orig_input )
+            argv[i] = tmp_input;
+        else if ( argv[i] == orig_output )
+            argv[i] = tmp_output;
+    }
+
+    FILE *ti = fopen( tmp_input, "wt" );
+    fwrite( preproc, 1, preproc_length, ti );
+    fclose( ti );
+
+    if ((compile_ret = dcc_spawn_child(argv, &cc_pid,
+                                       "/dev/null", out_fname, err_fname))
+        || (compile_ret = dcc_collect_child("cc", cc_pid, &status))) {
+        /* We didn't get around to finding a wait status from the actual compiler */
+        status = W_EXITCODE(compile_ret, 0);
+    }
 
 #if 0
     if ((ret = dcc_check_compiler_masq(argv[0])))

@@ -83,13 +83,11 @@ static int dcc_listen_by_addr(int *listen_fd,
     /* now we've got a socket - we need to bind it */
     if (bind(fd, sa, salen) == -1) {
 	rs_log_error("bind of %s failed: %s\n", sa_buf, strerror(errno));
-        free(sa_buf);
 	close(fd);
 	return EXIT_BIND_FAILED;
     }
 
     rs_log_info("listening on %s\n", sa_buf);
-    free(sa_buf);
 
     if (listen(fd, 10)) {
         rs_log_error("listen failed: %s\n", strerror(errno));
