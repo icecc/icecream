@@ -8,16 +8,16 @@ case "$1" in
 		rm -rf /var/cache/icecc
 		rm -f $conffile
 		echo Deleting icecc user...
-                deluser --quiet --system icecc
-        ;;
+		deluser --quiet --system icecc
+		;;
 	remove)
 		;;	
 	upgrade|failed-upgrade|abort-install|abort-upgrade|disappear)
 		;;
 	*)
-        	echo "postrm called with unknown argument \`$1'" >&2
-        	exit 1
-	;;
+		echo "postrm called with unknown argument \`$1'" >&2
+		exit 1
+		;;
 esac
 
 # dh_installdeb will replace this with shell code automatically
