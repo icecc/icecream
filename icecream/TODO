@@ -11,6 +11,7 @@
 * scheduler, daemon: handle multiple environments
 * scheduler: Arvin rebooted purcell and noone noticed (my compile jobs stayed in Compiling)
     The daemon tries to tell the scheduler if it goes down, but I guess purcell crashed
+* client: valgrind doesn't compile (.S file)
 
 IDEAS:
 * provide a way to pass jobs through the scheduler for multihomed servers
