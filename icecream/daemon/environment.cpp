@@ -82,8 +82,13 @@ list<string> available_environmnents(const string &basedir)
 
 bool install_environment( const std::string &basename, const std::string &name, MsgChannel *c )
 {
+    if ( !name.size() || name[0] == '.' ) {
+        log_error() << "illegal name for environment " << name << endl;
+        return false;
+    }
+
     for ( string::size_type i = 0; i < name.size(); ++i ) {
-        if ( isalnum( name[i] ) || name[i] == '-' )
+        if ( isascii( name[i] ) && !isspace( name[i]) && name[i] != '/' && isprint( name[i] ) )
             continue;
         log_error() << "illegal char '" << name[i] << "' - rejecting environment " << name << endl;
         return false;
