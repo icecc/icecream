@@ -34,3 +34,4 @@ Random:
 * better support for gcc installations not in /usr - for example in allowing the distcc way
   icecc /opt/gcc-cvs/bin/g++ -c test.cpp (you would need to rely on $ICECC_VERSION then as
   the daemon can hardly know what compiler you used, but that should be ok)
+* keep the environment cache dir under a configurable limit 
