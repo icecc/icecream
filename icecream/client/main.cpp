@@ -139,5 +139,5 @@ int main(int argc, char **argv)
     if ( local )
         return build_local( job );
     else
-        return build_remote(job );
+        return build_remote( job );
 }

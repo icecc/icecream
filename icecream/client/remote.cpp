@@ -12,6 +12,7 @@
 #include <fcntl.h>
 #include <sys/sendfile.h>
 #include <signal.h>
+#include <sys/wait.h>
 
 using namespace std;
 
@@ -111,7 +112,8 @@ int build_remote(CompileJob &job )
     UseCSMsg *usecs = dynamic_cast<UseCSMsg *>(umsg);
     string hostname = usecs->hostname;
     unsigned int port = usecs->port;
-    job.setJobID( usecs->job_id );
+    int job_id = usecs->job_id;
+    job.setJobID( job_id );
     job.setEnvironmentVersion( usecs->environment ); // hoping on the scheduler's wisdom
     // printf ("Have to use host %s:%d - Job ID: %d\n", hostname.c_str(), port, job.jobID() );
     delete usecs;
@@ -168,6 +170,18 @@ int build_remote(CompileJob &job )
         }
     } while (1);
 
+    int status = 255;
+    waitpid( cpp_pid, &status, 0);
+
+    if ( status ) { // failure
+
+        // cserver->send_msg( CancelJob( job_id ) );
+        delete cserver;
+        cserver = 0;
+
+        return WEXITSTATUS( status );
+    }
+
     EndMsg emsg;
     if ( !cserver->send_msg( emsg ) ) {
         log_info() << "write of end failed" << endl;
@@ -184,7 +198,7 @@ int build_remote(CompileJob &job )
     CompileResultMsg *crmsg = dynamic_cast<CompileResultMsg*>( msg );
     assert ( crmsg );
 
-    int status = crmsg->status;
+    status = crmsg->status;
     fprintf( stdout, "%s", crmsg->out.c_str() );
     fprintf( stderr, "%s", crmsg->err.c_str() );
 
@@ -208,7 +222,7 @@ int build_remote(CompileJob &job )
         FileChunkMsg *fcmsg = dynamic_cast<FileChunkMsg*>( msg );
         if ( write( obj_fd, fcmsg->buffer, fcmsg->len ) != ( ssize_t )fcmsg->len )
             return EXIT_DISTCC_FAILED;
-    }
+        }
 
     close( obj_fd );
     return status;
