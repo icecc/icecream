@@ -22,10 +22,10 @@ class Job {
 public:
   unsigned int id;
   enum {PENDING, COMPILING} state;
-  const CS *server;
+  CS *server;
   time_t starttime;  // _local_ to the compiler server
   time_t start_on_scheduler;  // starttime local to scheduler
-  Job (const CS *cs, unsigned int _id) : id(_id), state(PENDING), server(cs),
+  Job (CS *cs, unsigned int _id) : id(_id), state(PENDING), server(cs),
     starttime(0), start_on_scheduler(0) {}
 };
 
@@ -41,10 +41,7 @@ public:
   unsigned int bytes_per_ms;
   unsigned int max_jobs;
   time_t uptime;  // time connected with scheduler
-  // Hmm, mutable is necessary, so that Job->server->joblist.remove() works
-  // Maybe a compiler error?  Although server ist "const CS*", that doesn't
-  // make server->joblist const, does it?
-  mutable list<Job*> joblist;
+  list<Job*> joblist;
   list<string> compiler_versions;  // Available compilers
   enum {AVAILABLE, DISCONNECTED} state;
   CS (struct sockaddr *_addr, socklen_t _len) : Service (_addr, _len) {}
