@@ -321,13 +321,15 @@ MsgChannel *Service::createChannel( int remote_fd )
 #include <sys/ioctl.h>
 
 MsgChannel *
-connect_scheduler ()
+connect_scheduler (const char *netname)
 {
   const char *get = getenv( "USE_SCHEDULER" );
   string hostname;
   unsigned int sport = 8765;
   char buf2[16];
-  const char *netname;
+
+  if (!netname)
+    netname = "ICECREAM";
 
   if (get)
     {
@@ -400,39 +402,50 @@ connect_scheduler ()
                 }
             }
         }
-      freeifaddrs( addrs );
+      freeifaddrs (addrs);
 
-      fd_set read_set;
-      FD_ZERO (&read_set);
-      FD_SET (ask_fd, &read_set);
-      struct timeval tv;
-      tv.tv_sec = 2;
-      tv.tv_usec = 0;
-      errno = 0;
-      if (select (ask_fd + 1, &read_set, NULL, NULL, &tv) <= 0)
+      time_t time0 = time (0);
+      bool found = false;
+      while (time (0) - time0 < 4)
         {
-          /* Normally this is a timeout, i.e. no scheduler there.  */
-          if (errno)
-            perror ("waiting for scheduler");
-          close (ask_fd);
-          return 0;
-        }
-      remote_len = sizeof (remote_addr);
-      if (recvfrom (ask_fd, &buf2, sizeof (buf2), 0, (struct sockaddr*) &remote_addr,
-                    &remote_len) != sizeof (buf2))
-        {
-          perror ("recvfrom()");
-          close (ask_fd);
-          return 0;
-        }
+	  fd_set read_set;
+	  FD_ZERO (&read_set);
+	  FD_SET (ask_fd, &read_set);
+	  struct timeval tv;
+	  tv.tv_sec = 2;
+	  tv.tv_usec = 0;
+	  errno = 0;
+	  if (select (ask_fd + 1, &read_set, NULL, NULL, &tv) <= 0)
+	    {
+	      /* Normally this is a timeout, i.e. no scheduler there.  */
+	      if (errno)
+		perror ("waiting for scheduler");
+	      continue;
+	    }
+	  remote_len = sizeof (remote_addr);
+	  if (recvfrom (ask_fd, &buf2, sizeof (buf2), 0, (struct sockaddr*) &remote_addr,
+			&remote_len) != sizeof (buf2))
+	    {
+	      perror ("recvfrom()");
+	      continue;
+	    }
+	  if (buf + 1 != buf2[0])
+	    {
+	      fprintf (stderr, "wrong answer\n");
+	      continue;
+	    }
+	  buf2[sizeof (buf2) - 1] = 0;
+	  if (strcasecmp (netname, buf2 + 1) == 0)
+	    {
+	      found = true;
+	      break;
+	    }
+	}
       close (ask_fd);
-      if (buf + 1 != buf2[0])
-        {
-          fprintf (stderr, "wrong answer\n");
-          return 0;
-        }
+      if (!found)
+        return 0;
       hostname = inet_ntoa (remote_addr.sin_addr);
-      sport = ntohs( remote_addr.sin_port );
+      sport = ntohs (remote_addr.sin_port);
       netname = buf2 + 1;
     }
 

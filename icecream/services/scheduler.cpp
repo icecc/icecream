@@ -547,11 +547,35 @@ open_broad_listener ()
 }
 
 int
-main (int /*argc*/, char * /*argv*/ [])
+main (int argc, char * argv[])
 {
   int listen_fd, remote_fd, broad_fd;
   struct sockaddr_in myaddr, remote_addr;
   socklen_t remote_len;
+  char *netname = (char*)"ICECREAM";
+
+  for (int argi = 1; argi < argc; argi++)
+    if (argv[argi][0] == '-' && argv[argi][2] == 0)
+      {
+        switch (argv[argi][1])
+	  {
+	  case 'n':
+	    argi++;
+	    if (argi >= argc)
+	      fprintf (stderr, "-n requires argument\n");
+	    else
+	      {
+	        netname = strdup (argv[argi]);
+		for (int i = 0; netname[i]; i++)
+		  netname[i] = toupper (netname[i]);
+	      }
+	    break;
+	  default:
+	    fprintf (stderr, "Unknown argument %s\n", argv[argi]);
+	    break;
+	  }
+      }
+
   if ((listen_fd = socket (PF_INET, SOCK_STREAM, 0)) < 0)
     {
       perror ("socket()");
@@ -666,7 +690,7 @@ main (int /*argc*/, char * /*argv*/ [])
 		      ntohs (broad_addr.sin_port));
 	      buf[0]++;
 	      memset (buf + 1, 0, sizeof (buf) - 1);
-	      snprintf (buf + 1, sizeof (buf) - 1, "ICECREAM");
+	      snprintf (buf + 1, sizeof (buf) - 1, netname);
 	      buf[sizeof (buf) - 1] = 0;
 	      if (sendto (broad_fd, buf, sizeof (buf), 0,
 	      		  (struct sockaddr*)&broad_addr, broad_len) != sizeof (buf))
