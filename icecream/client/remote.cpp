@@ -16,6 +16,7 @@
 #include <fcntl.h>
 #include <signal.h>
 #include <assert.h>
+#include <unistd.h>
 
 #include <comm.h>
 #include "client.h"
