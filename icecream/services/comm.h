@@ -1,5 +1,5 @@
 enum MsgType {
-  M_PING,
+  M_PING = 'A',
   M_END, // End of all kinds of message chunks
   // Fake message used in message chunk looks
   M_TIMEOUT, 
