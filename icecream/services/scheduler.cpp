@@ -712,7 +712,13 @@ usage(const char* reason = 0)
   if (reason)
      cerr << reason << endl;
 
-  cerr << "usage: scheduler [-n <netname>] " << endl;
+  cerr << "usage: scheduler [options] \n"
+       << "Options:\n"
+       << "  -n, --netname <name>\n"
+       << "  -p, --port <port>\n"
+       << "  -h, --help <port>\n"
+       << endl;
+  
   exit(1);
 }
 
@@ -720,6 +726,7 @@ int
 main (int argc, char * argv[])
 {
   int listen_fd, remote_fd, broad_fd;
+  unsigned int port = 8765;
   struct sockaddr_in myaddr, remote_addr;
   socklen_t remote_len;
   char *netname = (char*)"ICECREAM";
@@ -729,10 +736,11 @@ main (int argc, char * argv[])
     static const struct option long_options[] = {
       { "netname", 1, NULL, 'n' },
       { "help", 0, NULL, 'h' },
+      { "port", 0, NULL, 'p' },
       { 0, 0, 0, 0 }
     };
 
-    const int c = getopt_long( argc, argv, "n:h", long_options, &option_index );
+    const int c = getopt_long( argc, argv, "n:p:h", long_options, &option_index );
     if ( c == -1 ) break; // eoo
 
     switch ( c ) {
@@ -741,8 +749,18 @@ main (int argc, char * argv[])
           netname = optarg;
         else
           usage("Error: -n requires argument");
-        break;
-      default:
+       break;
+      case 'p':
+         if ( optarg && *optarg )
+         {
+           port = 0; port = atoi( optarg );
+           if ( 0 == port )
+             usage("Error: Invalid port specified");
+         }
+        else
+           usage("Error: -p requires argument");
+      break;
+     default:
         usage();
     }
   }
@@ -767,7 +785,7 @@ main (int argc, char * argv[])
       return 1;
     }
   myaddr.sin_family = AF_INET;
-  myaddr.sin_port = htons (8765);
+  myaddr.sin_port = htons (port);
   myaddr.sin_addr.s_addr = INADDR_ANY;
   if (bind (listen_fd, (struct sockaddr *) &myaddr, sizeof (myaddr)) < 0)
     {
