@@ -9,6 +9,7 @@
 #include <errno.h>
 #include <string>
 #include <iostream>
+#include <cassert>
 
 #include "logging.h"
 #include "job.h"
@@ -249,7 +250,7 @@ MsgChannel::get_msg(void)
   case M_TIMEOUT: m = new TimeoutMsg; break;
   case M_GET_CS: m = new GetCSMsg; break;
   case M_USE_CS: m = new UseCSMsg; break;
-  case M_COMPILE_FILE: m = new CompileFileMsg (new CompileJob); break;
+  case M_COMPILE_FILE: m = new CompileFileMsg (new CompileJob, true); break;
   case M_FILE_CHUNK: m = new FileChunkMsg; break;
   case M_COMPILE_RESULT: m = new CompileResultMsg; break;
   case M_JOB_BEGIN: m = new JobBeginMsg; break;
@@ -488,6 +489,12 @@ CompileFileMsg::send_to_fd (int fd) const
   	  && writeuint (fd, job->jobID())
   	  && write_strlist (fd, job->remoteFlags())
           && write_strlist (fd, job->restFlags()));
+}
+
+CompileJob *CompileFileMsg::takeJob() {
+    assert( deleteit );
+    deleteit = false;
+    return job;
 }
 
 bool

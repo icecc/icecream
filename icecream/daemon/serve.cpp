@@ -160,7 +160,7 @@ int handle_connection( MsgChannel *serv )
         return EXIT_PROTOCOL_ERROR;
     }
 
-    CompileJob *job = dynamic_cast<CompileFileMsg*>( msg )->job;
+    CompileJob *job = dynamic_cast<CompileFileMsg*>( msg )->takeJob();
     delete msg;
 
     // teambuilder needs faking
@@ -191,7 +191,9 @@ int handle_connection( MsgChannel *serv )
 
     while ( 1 ) {
         msg = serv->get_msg();
+
         if ( !msg ) {
+            delete job;
             log_error() << "no message while reading file chunk\n";
             return EXIT_PROTOCOL_ERROR;
         }
@@ -203,6 +205,7 @@ int handle_connection( MsgChannel *serv )
         }
 
         if ( msg->type != M_FILE_CHUNK ) {
+            delete job;
             delete msg;
             trace() << "file chunk\n";
             return EXIT_PROTOCOL_ERROR;
@@ -210,14 +213,17 @@ int handle_connection( MsgChannel *serv )
 
         FileChunkMsg *fcmsg = dynamic_cast<FileChunkMsg*>( msg );
         if ( !fcmsg ) {
+            delete job;
             delete msg;
             log_error() << "FileChunkMsg\n";
             return EXIT_PROTOCOL_ERROR;
         }
         if ( write( ti, fcmsg->buffer, fcmsg->len ) != ( ssize_t )fcmsg->len ) {
+            delete job;
             delete msg;
             return EXIT_DISTCC_FAILED;
         }
+
         delete msg;
     }
     close( ti );
@@ -228,6 +234,7 @@ int handle_connection( MsgChannel *serv )
     ret = work_it( *job, tmp_input,
                    rmsg.out, rmsg.err, rmsg.status, filename );
     unlink( tmp_input );
+    delete job;
 
     if ( ret )
         return ret;

@@ -151,10 +151,16 @@ public:
 
 class CompileFileMsg : public Msg {
 public:
-  CompileJob *job;
-  CompileFileMsg (CompileJob *j) : Msg(M_COMPILE_FILE), job(j) {}
+  CompileFileMsg (CompileJob *j, bool delete_job = false)
+      : Msg(M_COMPILE_FILE), deleteit( delete_job ), job( j ) {}
+  ~CompileFileMsg() { if ( deleteit ) delete job; }
   virtual bool fill_from_fd (int fd);
   virtual bool send_to_fd (int fd) const;
+  CompileJob *takeJob();
+
+private:
+  bool deleteit;
+  CompileJob *job;
 };
 
 class FileChunkMsg : public Msg {

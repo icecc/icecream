@@ -88,9 +88,9 @@ int work_it( CompileJob &j,
         argc += 4; // file.i -o file.o
         char **argv = new char*[argc + 1];
         if (j.language() == CompileJob::Lang_C)
-            argv[0] = strdup( "/opt/teambuilder/bin/gcc" );
+            argv[0] = strdup( "/usr/bin/gcc" );
         else if (j.language() == CompileJob::Lang_CXX)
-            argv[0] = strdup( "/opt/teambuilder/bin/g++" );
+            argv[0] = strdup( "/usr/bin/g++" );
         else
             assert(0);
         int i = 1;

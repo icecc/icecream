@@ -7,13 +7,12 @@ AC_CONFIG_HEADERS(config.h)
 AC_CANONICAL_HOST
 
 dnl Checks for programs
+CFLAGS=-g
+CXXFLAGS=-g
 AC_PROG_CC
 AC_PROG_CXX
 if test "$GCC" = yes 
 then
- CFLAGS="-g $CFLAGS"
- CXXFLAGS="-g $CXXFLAGS"
-
     CFLAGS="-W -Wall -Wimplicit \
 -Wshadow -Wpointer-arith -Wcast-align -Wwrite-strings \
 -Waggregate-return -Wstrict-prototypes -Wmissing-prototypes \

@@ -1669,7 +1669,7 @@ lzo_uint do_compress     ( const lzo_byte *in , lzo_uint  in_len,
 #else
 	register const lzo_byte *m_pos;
 #endif
-	lzo_moff_t m_off;
+	lzo_moff_t m_off = 0;
 	lzo_uint m_len;
 	lzo_uint dindex;
 

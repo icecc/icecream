@@ -227,8 +227,6 @@ int main( int /*argc*/, char ** /*argv*/ )
     if ((ret = dcc_socket_listen(10245, &listen_fd)) != 0)
         return ret;
 
-    string host = "localhost";
-
     MsgChannel *channel = connect_scheduler ();
     if ( !channel ) {
         log_error() << "no scheduler found\n";
@@ -264,6 +262,7 @@ int main( int /*argc*/, char ** /*argv*/ )
      * not.  */
     dcc_master_pid = getpid();
 
+    const int max_count = 0;
     int count = 0;
 
     while (1) {
@@ -286,8 +285,10 @@ int main( int /*argc*/, char ** /*argv*/ )
             handle_connection (c);
             delete c;
             delete client;
-            if ( ++count > 10 )
+            if ( max_count && ++count > max_count ) {
+                cout << "I'm closing now. Hoping you had used valgrind! :)\n";
                 exit( 0 );
+            }
         }
     }
     delete channel->other_end;
