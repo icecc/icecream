@@ -91,15 +91,67 @@ MsgChannel::read_a_bit (void)
       break;
     }
   inofs = buf - inbuf;
-  update_state ();
+  if (!update_state ())
+    error = true;
   return !error;
 }
 
-void
+bool
 MsgChannel::update_state (void)
 {
   switch (instate)
     {
+    case NEED_PROTO:
+      while (inofs - intogo >= 4)
+	{
+	  if (protocol == 0)
+	    return false;
+	  uint32_t remote_prot;
+	  unsigned char vers[4];
+	  //readuint32 (remote_prot);
+	  memcpy(vers, inbuf + intogo, 4);
+	  intogo += 4;
+	  remote_prot = vers[0];
+	  if (protocol == -1)
+	    {
+	      /* The first time we read the remote protocol.  */
+	      protocol = 0;
+	      if (remote_prot < MIN_PROTOCOL_VERSION)
+		remote_prot = 0;
+	      else if (remote_prot > PROTOCOL_VERSION)
+		remote_prot = PROTOCOL_VERSION; // ours is smaller
+	      if (remote_prot == 0)
+		return false;
+	      else
+		{
+		  vers[0] = remote_prot;
+		  //writeuint32 (remote_prot);
+		  writefull (vers, 4);
+		  if (!flush_writebuf (true))
+		    return false;
+		  protocol = -1 - remote_prot;
+		}
+	    }
+	  else if (protocol < -1)
+	    {
+	      /* The second time we read the remote protocol.  */
+	      protocol = - (protocol + 1);
+	      if ((int)remote_prot != protocol)
+		{
+		  protocol = 0;
+		  return false;
+		}
+	      instate = NEED_LEN;
+	      /* Don't consume bytes from messages.  */
+	      break;
+	    }
+	  else
+	    trace() << "NEED_PROTO but protocol > 0" << endl;
+	}
+      /* FALLTHROUGH if the protocol setup was complete (instate was changed
+	 to NEED_LEN then).  */
+      if (instate != NEED_LEN)
+	break;
     case NEED_LEN:
       if (text_based)
         {
@@ -134,6 +186,7 @@ MsgChannel::update_state (void)
       /* handled elsewere */
       break;
     }
+  return true;
 }
 
 void
@@ -319,7 +372,6 @@ MsgChannel::read_environments( Environments &envs )
       envs.push_back( make_pair( plat, vers ) );
     }
 }
-
 
 void
 MsgChannel::readcompressed (unsigned char **uncompressed_buf,
@@ -541,10 +593,11 @@ MsgChannel *Service::createChannel (const string &hostname, unsigned short p, in
     }
   MsgChannel * c = new MsgChannel( remote_fd, (struct sockaddr *)&remote_addr, sizeof( remote_addr ) );
   c->port = p;
-  if ( !c->protocol ) {
-    delete c;
-    c = 0;
-  }
+  if (!c->wait_for_protocol ())
+    {
+      delete c;
+      c = 0;
+    }
   return c;
 }
 
@@ -561,10 +614,11 @@ MsgChannel::eq_ip (const MsgChannel &s)
 MsgChannel *Service::createChannel (int fd, struct sockaddr *_a, socklen_t _l)
 {
   MsgChannel * c = new MsgChannel( fd, _a, _l, false );
-  if ( !c->protocol ) {
-    delete c;
-    c = 0;
-  }
+  if (!c->wait_for_protocol ())
+    {
+      delete c;
+      c = 0;
+    }
   return c;
 }
 
@@ -595,18 +649,29 @@ MsgChannel::MsgChannel (int _fd, struct sockaddr *_a, socklen_t _l, bool text)
   inbuflen = 128;
   inofs = 0;
   intogo = 0;
-  instate = NEED_LEN;
   eof = false;
   text_based = text;
 
-  if ( !check_protocol( ) )
-    protocol = 0; // unusable
+  if (fcntl (fd, F_SETFL, O_NONBLOCK) < 0)
+    log_perror("MsgChannel fcntl()");
 
-  if ( protocol ) // otherwise the socket might be dead
-    if (fcntl (fd, F_SETFL, O_NONBLOCK) < 0)
-      log_perror("MsgChannel fcntl()");
+  if (text_based)
+    {
+      instate = NEED_LEN;
+      protocol = PROTOCOL_VERSION;
+    }
+  else
+    {
+      instate = NEED_PROTO;
+      protocol = -1;
+      unsigned char vers[4] = {PROTOCOL_VERSION, 0, 0, 0};
+      //writeuint32 ((uint32_t) PROTOCOL_VERSION);
+      writefull (vers, 4);
+      if (!flush_writebuf (true))
+	protocol = 0; // unusable
+    }
 
-  last_talk = time( 0 );
+  last_talk = time (0);
 }
 
 MsgChannel::~MsgChannel()
@@ -622,86 +687,27 @@ MsgChannel::~MsgChannel()
     free (addr);
 }
 
-static bool read_vers( int fd, unsigned char *vers )
-{
-  fd_set set;
-  FD_ZERO (&set);
-  FD_SET (fd, &set);
-  struct timeval tv;
-  tv.tv_sec = 5;
-  tv.tv_usec = 0;
-  if (select (fd + 1, &set, NULL, NULL, &tv) <= 0)
-    return false;
-
-  if ( read( fd, vers, 4 ) == 4 )
-    return true;
-
-  if ( errno == EINTR )
-    return read_vers( fd, vers );
-
-  return false;
-}
-
-static bool write_vers( int fd, const unsigned char *vers )
-{
-  fd_set set;
-  FD_ZERO (&set);
-  FD_SET (fd, &set);
-  struct timeval tv;
-  tv.tv_sec = 5;
-  tv.tv_usec = 0;
-  if (select (fd + 1, NULL, &set, NULL, &tv) <= 0)
-    return false;
-
-  if ( write( fd, vers, 4 ) == 4 )
-    return true;
-
-  if ( errno == EINTR )
-    return write_vers( fd, vers );
-
-  return false;
-}
-
+/* Wait blocking until the protocol setup for this channel is complete.
+   Returns false if an error occured.  */
 bool
-MsgChannel::check_protocol()
+MsgChannel::wait_for_protocol ()
 {
-  protocol = PROTOCOL_VERSION;
-  if (text_based)
-    return true;
-
-  unsigned char vers[4] = { PROTOCOL_VERSION, 0, 0, 0 };
-  if ( !write_vers( fd, vers ) )
+  /* protocol is 0 if we couldn't send our initial protocol version.  */
+  if (protocol == 0)
     return false;
-  if ( !read_vers( fd, vers ) ) // just the other side's
-    return false;
-  if ( vers[0] < MIN_PROTOCOL_VERSION )
-    vers[0] = 0;
-  else if ( vers[0] > PROTOCOL_VERSION )
-    vers[0] = PROTOCOL_VERSION; // our is smaller
-  protocol = vers[0];
-
-  if ( !write_vers( fd, vers ) ) {
-    close( fd );
-    fd = -1;
-    return false;
-  }
-
-  if ( !protocol ) {
-    close( fd );
-    fd = -1;
-    return false;
-  }
-
-  if ( !read_vers( fd, vers ) ) // just the other side's again
-    return false;
-
-  if ( vers[0] != protocol ) { // mach sauce!
-    protocol = 0;
-    close( fd );
-    fd = -1;
-    return false;
-  }
-
+  while (instate == NEED_PROTO)
+    {
+      fd_set set;
+      FD_ZERO (&set);
+      FD_SET (fd, &set);
+      struct timeval tv;
+      tv.tv_sec = 5;
+      tv.tv_usec = 0;
+      if (select (fd + 1, &set, NULL, NULL, &tv) <= 0)
+	return false;
+      if (!read_a_bit ())
+	return false;
+    }
   return true;
 }
 
@@ -807,6 +813,9 @@ MsgChannel::get_msg(int timeout)
 bool
 MsgChannel::send_msg (const Msg &m, bool blocking)
 {
+  if (instate == NEED_PROTO
+      && !wait_for_protocol ())
+    return false;
   chop_output ();
   size_t msgtogo_old = msgtogo;
   if (text_based)
@@ -1532,3 +1541,7 @@ TextMsg::send_to_channel (MsgChannel *c) const
 {
   c->write_line (text);
 }
+
+/*
+vim:cinoptions={.5s,g0,p5,t0,(0,^-0.5s,n-0.5s:tw=78:cindent:sw=4:
+*/

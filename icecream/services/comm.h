@@ -167,17 +167,18 @@ public:
   void read_line (std::string &line);
   void write_line (const std::string &line);
 
-  bool check_protocol( );
   bool eq_ip (const MsgChannel &s);
 
   virtual ~MsgChannel ();
 
 protected:
   MsgChannel (int _fd, struct sockaddr *, socklen_t, bool text = false);
+  bool wait_for_protocol ();
   // returns false if there was an error sending something
   bool flush_writebuf (bool blocking);
   void writefull (const void *_buf, size_t count);
-  void update_state (void);
+  // returns false if there was an error in the protocol setup
+  bool update_state (void);
   void chop_input (void);
   void chop_output (void);
   bool wait_for_msg (int timeout);
@@ -189,7 +190,7 @@ protected:
   size_t inbuflen;
   size_t inofs;
   size_t intogo;
-  enum {NEED_LEN, FILL_BUF, HAS_MSG} instate;
+  enum {NEED_PROTO, NEED_LEN, FILL_BUF, HAS_MSG} instate;
   uint32_t inmsglen;
   bool eof;
   bool text_based;
