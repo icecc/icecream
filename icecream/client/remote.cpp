@@ -437,13 +437,6 @@ int build_remote(CompileJob &job, MsgChannel *scheduler, const Environments &_en
 
     trace() << job.inputFile() << " compiled " << torepeat << " times on " << job.targetPlatform() << "\n";
 
-#if 0
-    job.appendFlag( "--param", Arg_Remote );
-    job.appendFlag( "ggc-min-expand=64", Arg_Remote );
-    job.appendFlag( "--param", Arg_Remote );
-    job.appendFlag( "ggc-min-heapsize=64589", Arg_Remote );
-#endif
-
     map<string, string> versionfile_map, version_map;
     Environments envs = rip_out_paths( _envs, version_map, versionfile_map );
 

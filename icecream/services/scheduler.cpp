@@ -910,7 +910,7 @@ handle_job_done (MsgChannel *c, Msg *_m)
 #if DEBUG_SCHEDULER > 0
   bool first = true;
 
-  fqor (map<unsigned int, Job *>::const_iterator it = jobs.begin();
+  for (map<unsigned int, Job*>::const_iterator it = jobs.begin();
        it != jobs.end(); ++it)
     {
       int id = it->first;

@@ -26,6 +26,7 @@
 #include "exitcode.h"
 #include "logging.h"
 #include <sys/select.h>
+#include <algorithm>
 
 /* According to earlier standards */
 #include <sys/time.h>
@@ -52,6 +53,38 @@
 
 using namespace std;
 
+// code based on gcc - Copyright (C) 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
+
+/* Heuristic to set a default for GGC_MIN_EXPAND.  */
+int
+ggc_min_expand_heuristic(unsigned int mem_limit)
+{
+    double min_expand = mem_limit;
+
+    /* The heuristic is a percentage equal to 30% + 70%*(RAM/1GB), yielding
+       a lower bound of 30% and an upper bound of 100% (when RAM >= 1GB).  */
+    min_expand /= 1024;
+    min_expand *= 70;
+    min_expand = std::min (min_expand, 70.);
+    min_expand += 30;
+
+    return int( min_expand );
+}
+
+/* Heuristic to set a default for GGC_MIN_HEAPSIZE.  */
+unsigned int
+ggc_min_heapsize_heuristic(unsigned int mem_limit)
+{
+    /* The heuristic is RAM/8, with a lower bound of 4M and an upper
+       bound of 128M (when RAM >= 1GB).  */
+    mem_limit /= 8;
+    mem_limit = std::max (mem_limit, 4U);
+    mem_limit = std::min (mem_limit, 128U);
+
+    return mem_limit * 1024;
+}
+
+
 volatile bool must_reap = false;
 
 void theSigCHLDHandler( int )
@@ -64,6 +97,8 @@ int work_it( CompileJob &j,
              string &str_out, string &str_err,
              int &status, string &outfilename, unsigned int mem_limit )
 {
+    trace() << "gpc " << << endl;
+
     str_out.erase(str_out.begin(), str_out.end());
     str_out.erase(str_out.begin(), str_out.end());
 
@@ -110,6 +145,7 @@ int work_it( CompileJob &j,
     sigaddset( &act.sa_mask, SIGCHLD );
     // Make sure we don't block this signal. gdb tends to do that :-(
     sigprocmask( SIG_UNBLOCK, &act.sa_mask, 0 );
+    char buffer[4096];
 
     pid_t pid = fork();
     if ( pid == -1 ) {
@@ -158,6 +194,12 @@ int work_it( CompileJob &j,
         argv[i++] = strdup( infilename.c_str() );
         argv[i++] = strdup( "-o" );
         argv[i++] = tmp_output;
+        argv[i++] = strdup( "--param" );
+        sprintf( buffer, "ggc-min-expand=%d", ggc_min_expand_heuristic( mem_limit ) );
+        argv[i++] = strdup( buffer );
+        argv[i++] = strdup( "--param" );
+        sprintf( buffer, "ggc-min-heapsize=%d", ggc_min_heapsize_heuristic( mem_limit ) );
+        argv[i++] = strdup( buffer );
         argv[i] = 0;
 #if 0
         printf( "forking " );
@@ -180,8 +222,6 @@ int work_it( CompileJob &j,
         write(main_sock[1], &resultByte, 1);
         exit(-1);
     } else {
-        char buffer[4096];
-
         close( main_sock[1] );
 
         // idea borrowed from kprocess
