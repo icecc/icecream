@@ -159,7 +159,7 @@ public:
   enum {PENDING, WAITINGFORCS, COMPILING} state;
   CS *server;  // on which server we build
   CS *submitter;  // who submitted us
-  MsgChannel *channel;
+  MsgChannel *client_channel;
   Environments environments;
   time_t starttime;  // _local_ to the compiler server
   time_t start_on_scheduler;  // starttime local to scheduler
@@ -170,7 +170,7 @@ public:
   Job (MsgChannel *c, unsigned int _id, CS *subm)
      : id(_id), state(PENDING), server(0),
        submitter(subm),
-       channel(c), starttime(0), start_on_scheduler(0), arg_flags( 0 ) {}
+       client_channel(c), starttime(0), start_on_scheduler(0), arg_flags( 0 ) {}
   ~Job()
   {
    // XXX is this really deleted on all other paths?
@@ -761,7 +761,8 @@ empty_queue()
     {
       trace() << "no servers to handle\n";
       remove_job_request ();
-      job->channel->send_msg( EndMsg() );
+      if ( job->client_channel )
+        job->client_channel->send_msg( EndMsg() );
       jobs.erase( job->id );
       notify_monitors (MonJobDoneMsg (JobDoneMsg( job->id,  255 )));
       // Don't delete channel here.  We expect the client on the other side
@@ -795,10 +796,11 @@ empty_queue()
   bool gotit = envs_match( cs, job );
   UseCSMsg m2(cs->host_platform, cs->name, cs->remote_port, job->id, gotit );
 
-  if (!job->channel->send_msg (m2))
+  if (!job->client_channel || !job->client_channel->send_msg (m2))
     {
       trace() << "failed to deliver job " << job->id << endl;
-      job->channel->send_msg (EndMsg()); // most likely won't work
+      if ( job->client_channel )
+        job->client_channel->send_msg (EndMsg()); // most likely won't work
       jobs.erase( job->id );
       notify_monitors (MonJobDoneMsg (JobDoneMsg( job->id, 255 )));
       delete job;
@@ -1111,7 +1113,8 @@ handle_end (MsgChannel *c, Msg *m)
 	    for (jit = l->l.begin(); jit != l->l.end(); ++jit)
 	      {
 		trace() << "STOP (DAEMON) FOR " << (*jit)->id << endl;
-		(*jit)->channel->send_msg( EndMsg() );
+                if ( ( *jit )->client_channel )
+                  (*jit)->client_channel->send_msg( EndMsg() );
                 notify_monitors (MonJobDoneMsg (JobDoneMsg( ( *jit )->id,  255 )));
 		jobs.erase( (*jit)->id );
 		delete (*jit);
@@ -1124,61 +1127,82 @@ handle_end (MsgChannel *c, Msg *m)
 
       map<unsigned int, Job*>::iterator mit;
       for (mit = jobs.begin(); mit != jobs.end(); )
-	if (mit->second->server == toremove
-	    || mit->second->submitter == toremove)
-	  {
-	    trace() << "STOP (DAEMON2) FOR " << mit->first << endl;
-	    mit->second->channel->send_msg( EndMsg() );
-            notify_monitors (MonJobDoneMsg (JobDoneMsg( mit->second->id,  255 )));
-	    delete mit->second;
-	    jobs.erase( mit++ );
-	  }
-        else
-          {
-            ++mit;
-          }
+        {
+          Job *job = mit->second;
+          if (job->server == toremove || job->submitter == toremove)
+            {
+              trace() << "STOP (DAEMON2) FOR " << mit->first << endl;
+              if ( job->client_channel )
+                job->client_channel->send_msg( EndMsg() );
+              notify_monitors (MonJobDoneMsg (JobDoneMsg( job->id,  255 )));
+              delete job;
+              jobs.erase( mit++ );
+            }
+          else
+            {
+              ++mit;
+            }
+        }
     }
   else if (toremove->type == CS::CLIENT)
     {
       trace() << "remove client\n";
 
-      /* If it's disconnected we must remove all its job requests and jobs.
-         All job requests are also in the jobs list, so it's enough to traverse
-         that one, and when finding a job to possibly remove it also
-         from any request queues.
-         XXX This is made particularly ugly due to using real queues.  */
       map<unsigned int, Job*>::iterator it;
-      for (it = jobs.begin(); it != jobs.end();)
+
+      /* A client disconnected.  */
+      if (!m )
         {
-          if (it->second->channel == c)
-            {
-              trace() << "STOP FOR " << it->first << endl;
-              Job *job = it->second;
-              notify_monitors (MonJobDoneMsg (JobDoneMsg( job->id,  255 )));
+	  /* If it's disconnected without END message something went wrong,
+	     and we must remove all its job requests and jobs.  All job
+	     requests are also in the jobs list, so it's enough to traverse
+	     that one, and when finding a job to possibly remove it also
+	     from any request queues.
+	     XXX This is made particularly ugly due to using real queues.  */
+          for (it = jobs.begin(); it != jobs.end();)
+	    {
+	      if (it->second->client_channel == c)
+		{
+		  trace() << "STOP FOR " << it->first << endl;
+		  Job *job = it->second;
+                  notify_monitors (MonJobDoneMsg (JobDoneMsg( job->id,  255 )));
 
-              /* Remove this job from the request queue.  */
-              list<UnansweredList*>::iterator ait;
-              for (ait = toanswer.begin(); ait != toanswer.end();)
-                {
-                  UnansweredList *l = *ait;
-                  if (l->server == job->submitter
-                      && (l->l.remove (job), true)
-                      && l->l.empty())
-                    {
-                      ait = toanswer.erase (ait);
-                      delete l;
-                    }
-                  else
-                    ++ait;
-                }
+		  /* Remove this job from the request queue.  */
+		  list<UnansweredList*>::iterator ait;
+		  for (ait = toanswer.begin(); ait != toanswer.end();)
+		    {
+		      UnansweredList *l = *ait;
+		      if (l->server == job->submitter
+			  && (l->l.remove (job), true)
+			  && l->l.empty())
+			{
+			  ait = toanswer.erase (ait);
+			  delete l;
+			}
+		      else
+			++ait;
+		    }
 
-              if ( job->server )
-                job->server->joblist.remove (job);
-              jobs.erase (it++);
-              delete job;
+		  if ( job->server )
+		      job->server->joblist.remove (job);
+		  jobs.erase (it++);
+		  delete job;
+		}
+              else
+                ++it;
+	    }
+	}
+      else
+        {
+          /* If it's disconnected _with_ END message we want to make sure
+             we don't want to send something through the channel when the job
+             done message arrives
+           */
+          for (it = jobs.begin(); it != jobs.end(); ++it)
+	    {
+              if ( it->second->client_channel == c )
+                it->second->client_channel = 0;
             }
-          else
-            ++it;
         }
     }
   else
