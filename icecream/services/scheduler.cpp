@@ -46,7 +46,7 @@
    This means, that iff the client somehow closes the connection we can and
    must remove all traces of jobs resulting from that client in all lists.
  */
-     
+
 using namespace std;
 
 struct JobStat {
@@ -351,6 +351,17 @@ can_install( CS*, const string & )
   return true; // TODO/XXX: uname call
 }
 
+static bool
+pick_environment( CS* cs, string &env )
+{
+  if ( env == "*" ) {
+    env = "";
+    return true;
+  }
+
+  return envs_match( cs, env );
+}
+
 static CS *
 pick_server(Job *job)
 {
@@ -408,6 +419,11 @@ pick_server(Job *job)
 	    bestui = cs;
 	  break;
 	}
+
+      /* Servers that are already compiling jobs but got no environments
+         are currently installing new environments - ignore so far */
+      if ( cs->joblist.size() != 0 && cs->compiler_versions.size() == 0 )
+        break;
 
       if ( envs_match( cs, environment ) )
         {
@@ -469,9 +485,8 @@ empty_queue()
   job->server = cs;
 
   string env = job->environment;
-  if ( env == "*" )
-    env = "";
-  UseCSMsg m2(env, cs->name, cs->remote_port, job->id, envs_match( cs, job->environment ) );
+  bool gotit = pick_environment( cs, env );
+  UseCSMsg m2(env, cs->name, cs->remote_port, job->id, gotit );
 
   if (!job->channel->send_msg (m2))
     {
@@ -487,6 +502,9 @@ empty_queue()
     {
       trace() << "put " << job->id << " in joblist of " << cs->name << endl;
       cs->joblist.push_back( job );
+      if ( !gotit ) { // if we made the environment transfer, don't rely on the list
+        cs->compiler_versions.clear();
+      }
     }
   return true;
 }
@@ -502,6 +520,25 @@ handle_login (MsgChannel *c, Msg *_m)
   cs->compiler_versions = m->envs;
   cs->max_jobs = m->max_kids;
   css.push_back (cs);
+
+  trace() << cs->name << ": [";
+  for (list<string>::const_iterator it = m->envs.begin();
+       it != m->envs.end(); ++it)
+    trace() << *it << ", ";
+  trace() << "]\n";
+
+  return true;
+}
+
+static bool
+handle_relogin (MsgChannel *c, Msg *_m)
+{
+  LoginMsg *m = dynamic_cast<LoginMsg *>(_m);
+  if (!m)
+    return false;
+
+  CS *cs = static_cast<CS *>(c->other_end);
+  cs->compiler_versions = m->envs;
 
   trace() << cs->name << ": [";
   for (list<string>::const_iterator it = m->envs.begin();
@@ -798,6 +835,7 @@ handle_activity (MsgChannel *c)
     case M_TIMEOUT: ret = handle_timeout (c, m); break;
     case M_JOB_LOCAL_BEGIN: ret = handle_local_job (c, m); break;
     case M_JOB_LOCAL_DONE: ret = handle_local_job_end (c, m); break;
+    case M_LOGIN: ret = handle_relogin( c, m ); break;
     default:
       log_info() << "Invalid message type arrived " << ( char )m->type << endl;
       handle_end (c, m);

@@ -176,6 +176,13 @@ void usage(const char* reason = 0)
   exit(1);
 }
 
+void reannounce_environments(const string &envbasedir)
+{
+    LoginMsg lmsg( 0 );
+    lmsg.envs = available_environmnents(envbasedir);
+    scheduler->send_msg( lmsg );
+}
+
 int main( int argc, char ** argv )
 {
     const int START_PORT = 10245;
@@ -237,8 +244,6 @@ int main( int argc, char ** argv )
         stat( binary_path.c_str(), &st );
         binary_on_startup = st.st_mtime;
     }
-
-    list<string> environments = available_environmnents(envbasedir);
 
     chdir( "/" );
 
@@ -349,7 +354,7 @@ int main( int argc, char ** argv )
         }
 
         LoginMsg lmsg( port );
-        lmsg.envs = environments;
+        lmsg.envs = available_environmnents(envbasedir);
         lmsg.max_kids = max_kids;
         scheduler->send_msg( lmsg );
 
@@ -498,15 +503,20 @@ int main( int argc, char ** argv )
                                 client = 0; // forget you saw him
                             } else if ( msg->type == M_TRANFER_ENV ) {
                                 EnvTransferMsg *emsg = dynamic_cast<EnvTransferMsg*>( msg );
-                                install_environment( envbasedir, emsg->name, c );
-                                delete msg;
-                                msg = c->get_msg();
-                                if ( msg->type == M_COMPILE_FILE ) { // we sure hope so
-                                    CompileJob *job = dynamic_cast<CompileFileMsg*>( msg )->takeJob();
-                                    requests.push( make_pair( job, c ));
-                                    client = 0; // forget you saw him
-                                } else {
-                                    log_error() << "not compile file\n";
+                                if (!install_environment( envbasedir, emsg->name, c )) {
+                                    c->send_msg(EndMsg()); // shut up, we had an error
+                                    reannounce_environments(envbasedir);
+				} else {
+                                    reannounce_environments(envbasedir); // do that before the file compiles
+                                    delete msg;
+                                    msg = c->get_msg();
+                                    if ( msg->type == M_COMPILE_FILE ) { // we sure hope so
+                                        CompileJob *job = dynamic_cast<CompileFileMsg*>( msg )->takeJob();
+                                        requests.push( make_pair( job, c ));
+                                        client = 0; // forget you saw him
+                                    } else {
+                                        log_error() << "not compile file\n";
+                                    }
                                 }
                             } else
                                 log_error() << "not compile: " << ( char )msg->type << endl;

@@ -39,7 +39,7 @@ enum MsgType {
   M_USE_CS,
 
   // C --> CS
-  M_COMPILE_FILE,
+  M_COMPILE_FILE, // = 'I'
   // generic file transfer
   M_FILE_CHUNK,
   // CS --> C
@@ -55,7 +55,7 @@ enum MsgType {
   M_JOB_LOCAL_DONE,
 
   // CS --> S, first message sent
-  M_LOGIN,
+  M_LOGIN, // = 'Q'
 
   // CS --> S (periodic)
   M_STATS,
