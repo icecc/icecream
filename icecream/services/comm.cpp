@@ -146,6 +146,16 @@ Service::~Service ()
     free (addr);
 }
 
+bool
+Service::eq_ip (const Service &s)
+{
+  struct sockaddr_in *s1, *s2;
+  s1 = (struct sockaddr_in *) addr;
+  s2 = (struct sockaddr_in *) s.addr;
+  return (len == s.len
+          && memcmp (&s1->sin_addr, &s2->sin_addr, sizeof (s1->sin_addr)) == 0);
+}
+
 MsgChannel::MsgChannel (int _fd)
   : other_end(0), fd(_fd)
 {
@@ -182,6 +192,7 @@ MsgChannel::get_msg(void)
   case M_COMPILE_RESULT: m = new CompileResultMsg; break;
   case M_JOB_BEGIN: m = new JobBeginMsg; break;
   case M_JOB_DONE: m = new JobDoneMsg; break;
+  case M_LOGIN: m = new LoginMsg; break;
   case M_STATS: m = new StatsMsg; break;
   default: return 0; break;
   }
@@ -414,6 +425,22 @@ JobDoneMsg::send_to_fd (int fd) const
   if (!Msg::send_to_fd (fd))
     return false;
   return writeuint (fd, job_id);
+}
+
+bool
+LoginMsg::fill_from_fd (int fd)
+{
+  if (!Msg::fill_from_fd (fd))
+    return false;
+  return true;
+}
+
+bool
+LoginMsg::send_to_fd (int fd) const
+{
+  if (!Msg::send_to_fd (fd))
+    return false;
+  return true;
 }
 
 bool

@@ -11,9 +11,9 @@
 using namespace std;
 
 static void
-submit_job (MsgChannel *c, char *filename, unsigned int fsize)
+submit_job (MsgChannel *c, char *filename)
 {
-  GetCSMsg m1 ("gcc33", filename, fsize);
+  GetCSMsg m1 ("gcc33", filename, CompileJob::Lang_CXX);
   if (!c->send_msg (m1))
     return;
   Msg *_m2 = c->get_msg ();
@@ -62,22 +62,18 @@ submit_job (MsgChannel *c, char *filename, unsigned int fsize)
 int main (int argc, char *argv[])
 {
   char *filename;
-  unsigned int fsize;
   if (argc < 2)
     {
-      fprintf (stderr, "submitter <filename> [<size>]\n");
+      fprintf (stderr, "submitter <filename>\n");
       return 1;
     }
   filename = argv[1];
-  fsize = 0;
-  if (argc > 2)
-    fsize = atoi (argv[2]);
   
   Service *serv = new Service ("localhost", 8765);
   MsgChannel *c = serv->channel();
   if (!c)
     return 1;
-  submit_job (c, filename, fsize);
+  submit_job (c, filename);
   delete c;
   delete serv;
   return 0;

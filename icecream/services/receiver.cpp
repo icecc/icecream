@@ -25,6 +25,12 @@ open_scheduler ()
 {
   scheduler = new Service ("localhost", 8765);
   sched_channel = scheduler->channel();
+  if (!sched_channel)
+    {
+      fprintf (stderr, "No scheduler running\n");
+      exit (1);
+    }
+  sched_channel->send_msg (LoginMsg());
 }
 
 static int
@@ -100,6 +106,7 @@ int main (int , char *[])
       perror ("listen()");
       return 1;
     }
+  open_scheduler ();
   while (1)
     {
       remote_len = sizeof (remote_addr);

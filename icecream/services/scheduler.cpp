@@ -2,6 +2,9 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <sys/select.h>
+#include <unistd.h>
+#include <errno.h>
+#include <fcntl.h>
 #include <time.h>
 #include <string>
 #include <list>
@@ -71,8 +74,14 @@ handle_cs_request (MsgChannel *c, Msg *_m)
   // XXX select a nice CS
   // For now: compile it yourself
   list<CS*>::iterator it;
-  if ((it = find(css.begin(), css.end(), c->other_end)) == css.end())
-    return 1;
+  for (it = css.begin(); it != css.end(); ++it)
+    if (c->other_end->eq_ip (**it))
+      break;
+  if (it == css.end())
+    {
+      fprintf (stderr, "Asking host not connected\n");
+      return 1;
+    }
   CS *cs = *it;
   if (!create_new_job (cs))
     return 1;
@@ -81,6 +90,18 @@ handle_cs_request (MsgChannel *c, Msg *_m)
   if (!c->send_msg (m2)
       || !c->send_msg (m3))
     return 1;
+  return 0;
+}
+
+static int
+handle_login (MsgChannel *c, Msg *_m)
+{
+  LoginMsg *m = dynamic_cast<LoginMsg *>(_m);
+  if (!m)
+    return 1;
+  CS *cs = static_cast<CS *>(c->other_end);
+  css.push_back (cs);
+  fd2chan[c->fd] = c;
   return 0;
 }
 
@@ -133,25 +154,61 @@ handle_timeout (MsgChannel * /*c*/, Msg * /*_m*/)
 
 // Return 1 if some error occured, leaves C open.  */
 static int
-handle_connection (MsgChannel *c)
+handle_new_connection (MsgChannel *c)
 {
   Msg *m;
   int ret = 0;
-  while ((m = c->get_msg ()) && m->type != M_END)
+  m = c->get_msg ();
+  if (!m)
+    return 1;
+  switch (m->type)
     {
-      switch (m->type)
-        {
-	case M_GET_CS: ret = handle_cs_request (c, m); break;
-	case M_JOB_BEGIN: ret = handle_job_begin (c, m); break;
-	case M_JOB_DONE: ret = handle_job_done (c, m); break;
-	case M_PING: ret = handle_ping (c, m); break;
-	case M_STATS: ret = handle_stats (c, m); break;
-	case M_TIMEOUT: ret = handle_timeout (c, m); break;
-	default: ret = 1; break;
-	}
-      delete m;
-      if (ret)
-        break;
+    case M_GET_CS:
+      ret = handle_cs_request (c, m);
+      delete c->other_end;
+      delete c;
+      break;
+    case M_LOGIN: ret = handle_login (c, m); break;
+    default:
+      ret = 1;
+      delete c->other_end;
+      delete c;
+      break;
+    }
+  delete m;
+  return ret;
+}
+
+static int
+handle_end (MsgChannel *c, Msg *)
+{
+  fd2chan.erase (c->fd);
+  css.remove (static_cast<CS*>(c->other_end));
+  delete c->other_end;
+  delete c;
+  return 0;
+}
+
+static int
+handle_activity (MsgChannel *c)
+{
+  Msg *m;
+  int ret = 0;
+  m = c->get_msg ();
+  if (!m)
+    {
+      handle_end (c, m);
+      return 1;
+    }
+  switch (m->type)
+    {
+    case M_JOB_BEGIN: ret = handle_job_begin (c, m); break;
+    case M_JOB_DONE: ret = handle_job_done (c, m); break;
+    case M_PING: ret = handle_ping (c, m); break;
+    case M_STATS: ret = handle_stats (c, m); break;
+    case M_END: ret = handle_end (c, m); break;
+    case M_TIMEOUT: ret = handle_timeout (c, m); break;
+    default: ret = 1; break;
     }
   delete m;
   return ret;
@@ -174,6 +231,14 @@ main (int /*argc*/, char * /*argv*/ [])
       perror ("setsockopt()");
       return 1;
     }
+  /* Although we select() on listen_fd we need O_NONBLOCK, due to
+     possible network errors making accept() block although select() said
+     there was some activity.  */
+  if (fcntl (listen_fd, F_SETFL, O_NONBLOCK) < 0)
+    {
+      perror ("fcntl()");
+      return 1;
+    }
   myaddr.sin_family = AF_INET;
   myaddr.sin_port = htons (8765);
   myaddr.sin_addr.s_addr = INADDR_ANY;
@@ -189,19 +254,58 @@ main (int /*argc*/, char * /*argv*/ [])
     }
   while (1)
     {
-      remote_len = sizeof (remote_addr);
-      if ((remote_fd = accept (listen_fd, (struct sockaddr *) &remote_addr, &remote_len)) < 0)
-	{
-	  perror ("accept()");
+      fd_set read_set;
+      int max_fd;
+      FD_ZERO (&read_set);
+      max_fd = listen_fd;
+      FD_SET (listen_fd, &read_set);
+      for (map<int, MsgChannel *>::const_iterator it = fd2chan.begin();
+           it != fd2chan.end(); ++it)
+	 {
+	   int i = it->first;
+	   if (i > max_fd)
+	     max_fd = i;
+	   FD_SET (i, &read_set);
+	 }
+      max_fd = select (max_fd + 1, &read_set, NULL, NULL, NULL);
+      if (max_fd < 0 && errno == EINTR)
+        continue;
+      if (max_fd < 0)
+        {
+	  perror ("select()");
 	  return 1;
 	}
-      CS *cs = new CS ((struct sockaddr*) &remote_addr, remote_len);
-      printf ("accepting from %s:%d\n", cs->name.c_str(), cs->port);
-      css.push_back (cs);
-      MsgChannel *c = new MsgChannel (remote_fd, cs);
-      handle_connection (c);
-      delete c;
-      delete cs;
+      if (FD_ISSET (listen_fd, &read_set))
+        {
+	  max_fd--;
+	  remote_len = sizeof (remote_addr);
+	  if ((remote_fd = accept (listen_fd, (struct sockaddr *) &remote_addr, &remote_len)) < 0
+	      && errno != EAGAIN && errno != EINTR)
+	    {
+	      perror ("accept()");
+	      return 1;
+	    }
+	  if (remote_fd >= 0)
+	    {
+	      CS *cs = new CS ((struct sockaddr*) &remote_addr, remote_len);
+	      printf ("accepting from %s:%d\n", cs->name.c_str(), cs->port);
+	      MsgChannel *c = new MsgChannel (remote_fd, cs);
+	      handle_new_connection (c);
+	    }
+        }
+      for (map<int, MsgChannel *>::const_iterator it = fd2chan.begin();
+           max_fd && it != fd2chan.end(); ++it)
+	 {
+	   int i = it->first;
+	   if (FD_ISSET (i, &read_set))
+	     {
+	       MsgChannel *c = it->second;
+	       printf ("message from %s:%d (%d)\n", c->other_end->name.c_str(),
+	               c->other_end->port, i);
+	       handle_activity (c);
+	       max_fd--;
+	     }
+	 }
     }
   return 0;
 }

@@ -34,6 +34,9 @@ enum MsgType {
   M_JOB_BEGIN,
   M_JOB_DONE,
 
+  // CS --> S, first message sent
+  M_LOGIN,
+
   // CS --> S (peridioc)
   M_STATS
 };
@@ -62,6 +65,7 @@ public:
   Service (const std::string &host, unsigned short p);
   MsgChannel *channel() const { return c; }
   ~Service ();
+  bool eq_ip (const Service &s);
 };
 
 class MsgChannel {
@@ -156,6 +160,13 @@ public:
   unsigned int job_id;
   JobDoneMsg () : Msg(M_JOB_DONE) {}
   JobDoneMsg (unsigned int i) : Msg(M_JOB_DONE), job_id(i) {}
+  virtual bool fill_from_fd (int fd);
+  virtual bool send_to_fd (int fd) const;
+};
+
+class LoginMsg : public Msg {
+public:
+  LoginMsg () : Msg(M_LOGIN) {}
   virtual bool fill_from_fd (int fd);
   virtual bool send_to_fd (int fd) const;
 };
