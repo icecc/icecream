@@ -148,11 +148,12 @@ static unsigned int new_job_id;
 static map<unsigned int, Job*> jobs;
 /* XXX Uah.  Don't use a queue for the job requests.  It's a hell
    to delete anything out of them (for clean up).  */
-struct UnansweredList : queue<Job*> {
+struct UnansweredList {
+  list<Job*> l;
   CS *server;
   bool remove_job (Job *);
 };
-static queue<UnansweredList*> toanswer;
+static list<UnansweredList*> toanswer;
 
 static list<JobStat> all_job_stats;
 static JobStat cum_job_stats;
@@ -164,11 +165,11 @@ static list<Service*> monitors;
 bool
 UnansweredList::remove_job (Job *job)
 {
-  container_type::iterator it;
-  for (it = c.begin(); it != c.end(); ++it)
+  list<Job*>::iterator it;
+  for (it = l.begin(); it != l.end(); ++it)
     if (*it == job)
       {
-        c.erase (it);
+        l.erase (it);
 	return true;
       }
   return false;
@@ -237,13 +238,13 @@ create_new_job (MsgChannel *channel, CS *submitter)
 static void
 enqueue_job_request (Job *job)
 {
-  if (!toanswer.empty() && toanswer.front()->server == job->submitter)
-    toanswer.front()->push (job);
+  if (!toanswer.empty() && toanswer.back()->server == job->submitter)
+    toanswer.back()->l.push_back (job);
   else {
     UnansweredList *newone = new UnansweredList();
     newone->server = job->submitter;
-    newone->push (job);
-    toanswer.push (newone);
+    newone->l.push_back (job);
+    toanswer.push_back (newone);
   }
 }
 
@@ -254,8 +255,8 @@ get_job_request (void)
     return 0;
 
   UnansweredList *first = toanswer.front();
-  assert (!first->empty());
-  return first->front();
+  assert (!first->l.empty());
+  return first->l.front();
 }
 
 /* Removes the first job request (the one returned by get_job_request()) */
@@ -265,9 +266,12 @@ remove_job_request (void)
   if (toanswer.empty())
     return;
   UnansweredList *first = toanswer.front();
-  first->pop();
-  if (first->empty())
-    toanswer.pop();
+  first->l.pop_front();
+  if (first->l.empty())
+    {
+      toanswer.pop_front();
+      delete first;
+    }
 }
 
 static bool
@@ -468,7 +472,11 @@ empty_queue()
       trace() << "no servers to handle\n";
       remove_job_request ();
       job->channel->send_msg( EndMsg() );
+      jobs.erase( job->id );
       notify_monitors (MonJobDoneMsg (JobDoneMsg( job->id,  255 )));
+      // Don't delete channel here.  We expect the client on the other side
+      // to exit, and that will remove the channel in handle_end
+      delete job;
       return false;
     }
 
@@ -492,7 +500,6 @@ empty_queue()
     {
       trace() << "failed to deliver job " << job->id << endl;
       job->channel->send_msg (EndMsg()); // most likely won't work
-      cs->joblist.remove (job);
       jobs.erase( job->id );
       notify_monitors (MonJobDoneMsg (JobDoneMsg( job->id, 255 )));
       delete job;
@@ -736,34 +743,33 @@ handle_end (MsgChannel *c, Msg *m)
 
       /* Unfortunately the toanswer queues are also tagged based on the daemon,
          so we need to clean them up also.  */
-      queue<UnansweredList*> newtoanswer;
-      while (!toanswer.empty())
-	{
-	  UnansweredList *l = toanswer.front();
-	  if (l->server != toremove)
-	    newtoanswer.push (l);
-	  else
-	    {
-	      while (!l->empty())
-		{
-		  trace() << "STOP FOR " << l->front()->id << endl;
-		  jobs.erase( l->front()->id );
-		  delete l->front();
-		  l->pop();
-		}
-	      delete l;
-	    }
-	  toanswer.pop();
-	}
-      toanswer = newtoanswer;
-
-      map<unsigned int, Job*>::iterator it;
-      for (it = jobs.begin(); it != jobs.end(); ++it )
-	if (it->second->server == toremove)
+      list<UnansweredList*>::iterator it;
+      for (it = toanswer.begin(); it != toanswer.end();)
+	if ((*it)->server == toremove)
 	  {
-	    trace() << "STOP FOR " << it->first << endl;
-	    delete it->second; // closes socket -> causes continuing
-	    jobs.erase( it );
+	    UnansweredList *l = *it;
+	    list<Job*>::iterator jit;
+	    for (jit = l->l.begin(); jit != l->l.end(); ++jit)
+	      {
+		trace() << "STOP FOR " << (*jit)->id << endl;
+		(*jit)->channel->send_msg( EndMsg() );
+		jobs.erase( (*jit)->id );
+		delete (*jit);
+	      }
+	    delete l;
+	    it = toanswer.erase (it);
+	  }
+	else
+	  ++it;
+
+      map<unsigned int, Job*>::iterator mit;
+      for (mit = jobs.begin(); mit != jobs.end(); ++mit )
+	if (mit->second->server == toremove)
+	  {
+	    trace() << "STOP FOR " << mit->first << endl;
+	    mit->second->channel->send_msg( EndMsg() );
+	    delete mit->second;
+	    jobs.erase( mit );
 	  }
     }
   else if (toremove->type == CS::CLIENT)
@@ -786,23 +792,24 @@ handle_end (MsgChannel *c, Msg *m)
 		  Job *job = it->second;
 
 		  /* Remove this job from the request queue.  */
-		  queue<UnansweredList*> newtoanswer;
-		  while (!toanswer.empty())
+		  list<UnansweredList*>::iterator ait;
+		  for (ait = toanswer.begin(); ait != toanswer.end();)
 		    {
-		      UnansweredList *l = toanswer.front();
-		      toanswer.pop();
+		      UnansweredList *l = *ait;
 		      if (l->server == job->submitter
-			  && l->remove_job (job)
-			  && l->empty())
-			delete l;
+			  && (l->l.remove (job), true)
+			  && l->l.empty())
+			{
+			  ait = toanswer.erase (ait);
+			  delete l;
+			}
 		      else
-			newtoanswer.push(l);
+			++ait;
 		    }
-		  toanswer = newtoanswer;
 
 		  job->server->joblist.remove (job);
 		  jobs.erase (it);
-		  delete job; // closes socket -> causes continuing
+		  delete job;
 		}
 	    }
 	}
