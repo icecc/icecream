@@ -77,7 +77,12 @@ private:
 };
 
 void appendList( std::list<std::string> &list,
-                 const std::list<std::string> &toadd );
+                 const std::list<std::string> &toadd )
+{
+    // Cannot splice since toadd is a reference-to-const
+    list.insert( list.end(), toadd.begin(), toadd.end() );
+}
+
 bool write_job( int fd, const CompileJob &job );
 bool read_job( int in_fd, CompileJob &job );
 

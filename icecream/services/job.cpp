@@ -4,13 +4,6 @@
 
 using namespace std;
 
-void appendList( std::list<string> &list,
-                 const std::list<string> &toadd )
-{
-    // Cannot splice since toadd is a reference-to-const
-    list.insert( list.end(), toadd.begin(), toadd.end() );
-}
-
 list<string> CompileJob::flags( Argument_Type argumentType ) const
 {
     list<string> args;
