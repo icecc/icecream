@@ -33,7 +33,7 @@
 #include "job.h"
 
 // if you increase the PROTOCOL_VERSION, add a macro below and use that
-#define PROTOCOL_VERSION 19
+#define PROTOCOL_VERSION 20
 // if you increase the MIN_PROTOCOL_VERSION, comment out macros below and clean up the code
 #define MIN_PROTOCOL_VERSION 14
 
@@ -43,6 +43,7 @@
 #define IS_PROTOCOL_17( c ) ( c->protocol >= 17 )
 #define IS_PROTOCOL_18( c ) ( c->protocol >= 18 )
 #define IS_PROTOCOL_19( c ) ( c->protocol >= 19 )
+#define IS_PROTOCOL_20( c ) ( c->protocol >= 20 )
 
 enum MsgType {
   // so far unknown
@@ -333,10 +334,7 @@ public:
   unsigned int real_msec;  /* real time it used */
   unsigned int user_msec;  /* user time used */
   unsigned int sys_msec;   /* system time used */
-  unsigned int maxrss;     /* maximum resident set size (KB) */
-  unsigned int idrss;      /* integral unshared data size (KB) */
-  unsigned int majflt;     /* page faults */
-  unsigned int nswap;      /* swaps */
+  unsigned int pfaults;     /* page faults */
 
   int exitcode;            /* exit code */
 

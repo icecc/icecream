@@ -986,38 +986,45 @@ handle_job_done (MsgChannel *c, Msg *_m)
   if ( !m )
     return false;
 
-  if (jobs.find(m->job_id) == jobs.end()) {
-    trace() << "job ID not present " << m->job_id << endl;
-    return false;
-  }
+  if (jobs.find(m->job_id) == jobs.end())
+    {
+      trace() << "job ID not present " << m->job_id << endl;
+      return false;
+    }
 
-  if ( m->exitcode == 0 && m->out_uncompressed ) {
-    trace() << "END " << m->job_id
-            << " status=" << m->exitcode;
+  if ( m->exitcode == 0 )
+    {
+      trace() << "END " << m->job_id
+              << " status=" << m->exitcode;
 
-    if ( m->in_uncompressed )
-      trace() << " in=" << m->in_uncompressed
-              << "(" << int( m->in_compressed * 100 / m->in_uncompressed ) << "%)";
-    else
-      trace() << " in=0(0%)";
+      if ( m->in_uncompressed )
+        trace() << " in=" << m->in_uncompressed
+                << "(" << int( m->in_compressed * 100 / m->in_uncompressed ) << "%)";
+      else
+        trace() << " in=0(0%)";
 
-    trace() << " out=" << m->out_uncompressed
-            << "(" << int( m->out_compressed * 100 / m->out_uncompressed ) << "%)"
-            << " real=" << m->real_msec
-            << " user=" << m->user_msec
-            << " sys=" << m->sys_msec
-            << " pfaults=" << m->majflt
-            << " nswaps=" << m->nswap
-            << " server=" << c->name
-            << endl;
-  } else
+      if ( m->out_uncompressed )
+        trace() << " out=" << m->out_uncompressed
+                << "(" << int( m->out_compressed * 100 / m->out_uncompressed ) << "%)";
+      else
+        trace() << " out=0(0%)";
+
+      trace() << " real=" << m->real_msec
+              << " user=" << m->user_msec
+              << " sys=" << m->sys_msec
+              << " pfaults=" << m->pfaults
+              << " server=" << c->name
+              << endl;
+    }
+  else
     trace() << "END " << m->job_id
             << " status=" << m->exitcode << endl;
 
-  if (jobs[m->job_id]->server != c ) {
-    log_info() << "the server isn't the same for job " << m->job_id << endl;
-    return false;
-  }
+  if (jobs[m->job_id]->server != c )
+    {
+      log_info() << "the server isn't the same for job " << m->job_id << endl;
+      return false;
+    }
   c->last_talk = time( 0 );
 
   Job *j = jobs[m->job_id];

@@ -1254,10 +1254,7 @@ JobDoneMsg::JobDoneMsg (int id, int exit)
   real_msec = 0;
   user_msec = 0;
   sys_msec = 0;
-  maxrss = 0;
-  idrss = 0;
-  majflt = 0;
-  nswap = 0;
+  pfaults = 0;
   in_compressed = 0;
   in_uncompressed = 0;
   out_compressed = 0;
@@ -1274,10 +1271,17 @@ JobDoneMsg::fill_from_channel (MsgChannel *c)
   c->readuint32 (real_msec);
   c->readuint32 (user_msec);
   c->readuint32 (sys_msec);
-  c->readuint32 (maxrss);
-  c->readuint32 (idrss);
-  c->readuint32 (majflt);
-  c->readuint32 (nswap);
+  if ( !IS_PROTOCOL_20( c ) )
+    {
+      unsigned int maxrss, idrss, majflt, nswap;
+      c->readuint32 (maxrss);
+      c->readuint32 (idrss);
+      c->readuint32 (majflt);
+      c->readuint32 (nswap);
+      pfaults = majflt;
+    }
+  else
+    c->readuint32( pfaults );
   c->readuint32 (in_compressed);
   c->readuint32 (in_uncompressed);
   c->readuint32 (out_compressed);
@@ -1294,10 +1298,14 @@ JobDoneMsg::send_to_channel (MsgChannel *c) const
   c->writeuint32 (real_msec);
   c->writeuint32 (user_msec);
   c->writeuint32 (sys_msec);
-  c->writeuint32 (maxrss);
-  c->writeuint32 (idrss);
-  c->writeuint32 (majflt);
-  c->writeuint32 (nswap);
+  if ( !IS_PROTOCOL_20( c ) )
+    {
+      c->writeuint32( 0 );
+      c->writeuint32( 0 );
+      c->writeuint32( pfaults );
+      c->writeuint32( 0 );
+    } else
+    c->writeuint32( pfaults );
   c->writeuint32 (in_compressed);
   c->writeuint32 (in_uncompressed);
   c->writeuint32 (out_compressed);

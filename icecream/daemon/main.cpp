@@ -621,11 +621,7 @@ int main( int argc, char ** argv )
                         write( sockets[1], &jdmsg->job_id, sizeof( unsigned int ) );
                         write( sockets[1], &jdmsg->user_msec, sizeof( unsigned int ) );
                         write( sockets[1], &jdmsg->sys_msec, sizeof( unsigned int ) );
-                        write( sockets[1], &jdmsg->maxrss, sizeof( unsigned int ) );
-                        write( sockets[1], &jdmsg->idrss, sizeof( unsigned int ) );
-                        write( sockets[1], &jdmsg->majflt, sizeof( unsigned int ) );
-                        write( sockets[1], &jdmsg->nswap, sizeof( unsigned int ) );
-
+                        write( sockets[1], &jdmsg->pfaults, sizeof( unsigned int ) );
                         ::exit( jdmsg->exitcode );
                     } else
                         close( sockets[1] );
@@ -671,10 +667,7 @@ int main( int argc, char ** argv )
                     if ( !msg->user_msec ) { // if not already set
                         msg->user_msec = ru.ru_utime.tv_sec * 1000 + ru.ru_utime.tv_usec / 1000;
                         msg->sys_msec = ru.ru_stime.tv_sec * 1000 + ru.ru_stime.tv_usec / 1000;
-                        msg->maxrss = (ru.ru_maxrss + 1023) / 1024;
-                        msg->idrss = (ru.ru_idrss + 1023) / 1024;
-                        msg->majflt = ru.ru_majflt;
-                        msg->nswap = ru.ru_nswap;
+                        msg->pfaults = ru.ru_majflt + ru.ru_nswap + ru.ru_minflt;
                     }
                     scheduler->send_msg( *msg );
                 }
@@ -820,10 +813,7 @@ int main( int argc, char ** argv )
                                         log_error() << "the job ids for the client job do not match: " << job_id << " " << msg->job_id << endl;
                                     read( it->second, &msg->user_msec, sizeof( unsigned int ) );
                                     read( it->second, &msg->sys_msec, sizeof( unsigned int ) );
-                                    read( it->second, &msg->maxrss, sizeof( unsigned int ) );
-                                    read( it->second, &msg->idrss, sizeof( unsigned int ) );
-                                    read( it->second, &msg->majflt, sizeof( unsigned int ) );
-                                    read( it->second, &msg->nswap, sizeof( unsigned int ) );
+                                    read( it->second, &msg->pfaults, sizeof( unsigned int ) );
                                 }
                                 close( it->second );
                                 pidmap.erase( it );

@@ -475,10 +475,7 @@ maybe_build_local (MsgChannel *scheduler, UseCSMsg *usecs, CompileJob &job,
                 msg.out_uncompressed = st.st_size;
             msg.user_msec = ru.ru_utime.tv_sec * 1000 + ru.ru_utime.tv_usec / 1000;
             msg.sys_msec = ru.ru_stime.tv_sec * 1000 + ru.ru_stime.tv_usec / 1000;
-            msg.maxrss = (ru.ru_maxrss + 1023) / 1024;
-            msg.idrss = (ru.ru_idrss + 1023) / 1024;
-            msg.majflt = ru.ru_majflt;
-            msg.nswap = ru.ru_nswap;
+            msg.pfaults = ru.ru_majflt + ru.ru_minflt + ru.ru_nswap ;
 
             if ( IS_PROTOCOL_16( cserver ) )
                 cserver->send_msg( msg );
