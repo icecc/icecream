@@ -594,7 +594,7 @@ handle_end (MsgChannel *c, Msg *)
 
       if ( css.size() == osize )
         for ( map<unsigned int, Job*>::iterator it = jobs.begin(); it != jobs.end(); ++it )
-          if ( it->second->channel == c && it->second->state == Job::PENDUGING )
+          if ( it->second->channel == c && it->second->state == Job::PENDING )
             {
               trace() << "client died in pending mode\n";
               // we're afraid
