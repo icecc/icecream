@@ -77,7 +77,6 @@
 #include <comm.h>
 #include "load.h"
 #include "environment.h"
-#include "findmyself.h"
 
 const int PORT = 10245;
 
@@ -271,7 +270,6 @@ int main( int argc, char ** argv )
     int max_processes = -1;
 
     string netname;
-    bool watch_binary = false;
     string envbasedir = "/tmp/icecc-envs";
     int debug_level = Error;
     string logfile;
@@ -287,7 +285,6 @@ int main( int argc, char ** argv )
         static const struct option long_options[] = {
             { "netname", 1, NULL, 'n' },
             { "max-processes", 1, NULL, 'm' },
-            { "watch", 0, NULL, 'w' },
             { "help", 0, NULL, 'h' },
             { "daemonize", 0, NULL, 'd'},
             { "log-file", 1, NULL, 'l'},
@@ -353,9 +350,6 @@ int main( int argc, char ** argv )
                 else
                     usage("Error: -m requires argument");
                 break;
-            case 'w':
-                watch_binary = true;
-                break;
             case 's':
                 if ( optarg && *optarg )
                     schedname = optarg;
@@ -407,20 +401,6 @@ int main( int argc, char ** argv )
 
     if ( !nodename.length() )
         nodename = uname_buf.nodename;
-
-    std::string binary_path = argv[0];
-    time_t binary_on_startup = 0;
-    if ( watch_binary ) {
-        // important to do before chdir ;/
-        if ( !findmyself( binary_path ) ) {
-            log_error() << "can't find binary " << argv[0] << endl;
-            return 1;
-        }
-        trace() << "watching " << binary_path << endl;
-        struct stat st;
-        stat( binary_path.c_str(), &st );
-        binary_on_startup = st.st_mtime;
-    }
 
     chdir( "/" );
 
@@ -633,24 +613,6 @@ int main( int argc, char ** argv )
                 }
                 delete msg;
                 continue;
-            }
-
-            if (  time( 0 ) - last_stat >= 10 && watch_binary ) {
-                struct stat st;
-                ::stat( binary_path.c_str(), &st );
-                if ( binary_on_startup != st.st_mtime ) {
-                    log_info() << "binary changed. Going to restart it" << endl;
-                    char **new_argv = new char *[netname.empty() ? 3 : 5];
-                    int argi = 0;
-                    new_argv[argi++] = strdup( binary_path.c_str() );
-                    new_argv[argi++] = strdup( "-w" );
-                    if ( !netname.empty() ) {
-                        new_argv[argi++] = strdup( "-n" );
-                        new_argv[argi++] = strdup( netname.c_str() );
-                    }
-                    new_argv[argi++] = 0;
-                    execv( binary_path.c_str(), new_argv );
-                }
             }
 
             if ( !maybe_stats() ) {
