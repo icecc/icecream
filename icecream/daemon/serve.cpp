@@ -170,18 +170,13 @@ int handle_connection( MsgChannel *serv )
         return EXIT_DISTCC_FAILED;
     }
 
-    // teambuilder needs faking
     const char *dot;
     if (job->language() == CompileJob::Lang_C)
-        dot = ".c";
+        dot = ".i";
     else if (job->language() == CompileJob::Lang_CXX)
-        dot = ".cpp";
+        dot = ".ii";
     else
         assert(0);
-    CompileJob::ArgumentsList list= job->restFlags();
-    list.push_back( "-fpreprocessed" );
-    job->setRestFlags( list );
-    // end faking
 
     char tmp_input[PATH_MAX];
     if ( ( ret = dcc_make_tmpnam("icecc", dot, tmp_input ) ) != 0 ) {
