@@ -84,12 +84,12 @@ create_new_job (MsgChannel *channel)
   return job;
 }
 
-static int
+static bool
 handle_cs_request (MsgChannel *c, Msg *_m)
 {
   GetCSMsg *m = dynamic_cast<GetCSMsg *>(_m);
   if (!m)
-    return 1;
+    return false;
 
   list<CS*>::iterator it;
   for (it = css.begin(); it != css.end(); ++it)
@@ -99,7 +99,7 @@ handle_cs_request (MsgChannel *c, Msg *_m)
     {
       fprintf (stderr, "Asking host not connected\n");
       c->send_msg( EndMsg() ); // forget it!
-      return 0;
+      return true;
     }
 
   Job *job = create_new_job ( c );
@@ -108,7 +108,7 @@ handle_cs_request (MsgChannel *c, Msg *_m)
              << job->environment << "\" " << m->filename
              << " " << ( m->lang == CompileJob::Lang_C ? "C" : "C++" ) << endl;
   toanswer.push( job );
-  return 0;
+  return true;
 }
 
 CS *
@@ -180,12 +180,12 @@ empty_queue()
   return true;
 }
 
-static int
+static bool
 handle_login (MsgChannel *c, Msg *_m)
 {
   LoginMsg *m = dynamic_cast<LoginMsg *>(_m);
   if (!m)
-    return 1;
+    return false;
   CS *cs = static_cast<CS *>(c->other_end);
   cs->remote_port = m->port;
   cs->compiler_versions = m->envs;
@@ -194,30 +194,30 @@ handle_login (MsgChannel *c, Msg *_m)
   css.push_back (cs);
   fd2chan[c->fd] = c;
   tochoose = true;
-  return 0;
+  return true;
 }
 
-static int
+static bool
 handle_job_begin (MsgChannel *c, Msg *_m)
 {
   JobBeginMsg *m = dynamic_cast<JobBeginMsg *>(_m);
   if (!m || jobs.find(m->job_id) == jobs.end())
-    return 1;
+    return false;
   //  trace() << "BEGIN: " << m->job_id << endl;
   if (jobs[m->job_id]->server != c->other_end)
-    return 1;
+    return false;
   jobs[m->job_id]->state = Job::COMPILING;
   jobs[m->job_id]->starttime = m->stime;
   jobs[m->job_id]->start_on_scheduler = time(0);
-  return 0;
+  return true;
 }
 
-static int
+static bool
 handle_job_done (MsgChannel *c, Msg *_m)
 {
   JobDoneMsg *m = dynamic_cast<JobDoneMsg *>(_m);
   if (!m || jobs.find(m->job_id) == jobs.end())
-    return 1;
+    return false;
   if ( m->exitcode == 0 && m->in_uncompressed && m->out_uncompressed )
     trace() << "END " << m->job_id
             << " status=" << m->exitcode
@@ -239,64 +239,66 @@ handle_job_done (MsgChannel *c, Msg *_m)
             << " status=" << m->exitcode << endl;
 
   if (jobs[m->job_id]->server != c->other_end)
-    return 1;
+    return false;
   tochoose = true;
   Job *j = jobs[m->job_id];
   j->server->joblist.remove (j);
   jobs.erase (m->job_id);
   delete j;
-  return 0;
+  return true;
 }
 
-static int
+static bool
 handle_ping (MsgChannel * /*c*/, Msg * /*_m*/)
 {
   trace() << "handle_ping\n";
-  return 0;
+  return true;
 }
 
-static int
+static bool
 handle_stats (MsgChannel * c, Msg * _m)
 {
   StatsMsg *m = dynamic_cast<StatsMsg *>(_m);
   if ( !m )
-    return 1;
+    return false;
 
   for (list<CS*>::iterator it = css.begin(); it != css.end(); ++it)
     if ( ( *it )->channel() == c )
       {
         ( *it )->load = ( unsigned int )( m->load[0] * 1000 );
         tochoose = true;
-        return 0;
+        return true;
       }
 
-  return 1;
+  return false;
 }
 
-static int
+static bool
 handle_timeout (MsgChannel * /*c*/, Msg * /*_m*/)
 {
-  return 1;
+  return false;
 }
 
-// Return 1 if some error occured, leaves C open.  */
-static int
+// return false if some error occured, leaves C open.  */
+static bool
 handle_new_connection (MsgChannel *c)
 {
-  Msg *m;
-  int ret = 0;
-  m = c->get_msg ();
+  Msg *m = c->get_msg ();
   if (!m)
-    return 1;
+    return false;
+
+  bool ret = true;
   switch (m->type)
     {
     case M_GET_CS:
       ret = handle_cs_request (c, m);
       break;
-    case M_LOGIN: ret = handle_login (c, m); break;
+    case M_LOGIN:
+      ret = handle_login (c, m);
+      break;
     default:
       abort();
-      ret = 1;
+      ret = false;
       delete c;
       break;
     }
@@ -304,7 +306,7 @@ handle_new_connection (MsgChannel *c)
   return ret;
 }
 
-static int
+static bool
 handle_end (MsgChannel *c, Msg *)
 {
   fd2chan.erase (c->fd);
@@ -312,19 +314,19 @@ handle_end (MsgChannel *c, Msg *)
   trace() << "handle_end " << css.size() << endl;
 
   delete c;
-  return 0;
+  return true;
 }
 
-static int
+static bool
 handle_activity (MsgChannel *c)
 {
   Msg *m;
-  int ret = 0;
+  bool ret = true;
   m = c->get_msg ();
   if (!m)
     {
       handle_end (c, m);
-      return 1;
+      return false;
     }
   switch (m->type)
     {
@@ -334,7 +336,8 @@ handle_activity (MsgChannel *c)
     case M_STATS: ret = handle_stats (c, m); break;
     case M_END: ret = handle_end (c, m); break;
     case M_TIMEOUT: ret = handle_timeout (c, m); break;
-    default: ret = 1;
+    default:
+      ret = false;
       abort();
       break;
     }
