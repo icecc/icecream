@@ -866,9 +866,9 @@ GetCSMsg::send_to_channel (MsgChannel *c) const
   Msg::send_to_channel (c);
   c->write_string (version);
   c->write_string (filename);
+  c->writeuint32 ((uint32_t) lang);
   if ( c->protocol > 4 )
     c->writeuint32( count );
-  c->writeuint32 ((uint32_t) lang);
 }
 
 void
