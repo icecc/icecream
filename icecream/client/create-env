@@ -52,8 +52,11 @@ fi
 added_gcc=/usr/bin/gcc
 added_gxx=/usr/bin/g++
 
+if test "$1" = "--respect-path"; then
+  added_gcc=`which gcc` 
+  added_gxx=`which g++` 
 # Perhaps we are on Gentoo.  They provide a wrapper for GCC.
-if test -x /usr/bin/gcc-config; then
+elif test -x /usr/bin/gcc-config; then
   gccpath=`/usr/bin/gcc-config -B`
   if test -d "$gccpath" && test -x "$gccpath/gcc"; then
     added_gcc=$gccpath/gcc
@@ -65,9 +68,9 @@ add_file $added_gcc /usr/bin/gcc
 add_file $added_gxx /usr/bin/g++
 add_file /usr/bin/as
 
-add_file `/usr/bin/gcc -print-prog-name=cc1`
-add_file `/usr/bin/g++ -print-prog-name=cc1plus`
-add_file `/usr/bin/gcc -print-file-name=specs`
+add_file `$added_gcc -print-prog-name=cc1`
+add_file `$added_gxx -print-prog-name=cc1plus`
+add_file `$added_gcc -print-file-name=specs`
 
 tempdir=`mktemp -d /tmp/iceccenvXXXXXX`
 new_target_files=
