@@ -70,13 +70,13 @@ writefull (int fd, const void *_buf, size_t count)
 }
 
 bool
-readuint (int fd, unsigned int *buf)
+readuint (int fd, unsigned int &buf)
 {
   unsigned int b;
-  *buf = 0;
+  buf = 0;
   if (!readfull (fd, &b, 4))
     return false;
-  *buf = ntohl (b);
+  buf = ntohl (b);
   return true;
 }
 
@@ -89,9 +89,9 @@ writeuint (int fd, unsigned int i)
 
 #include <minilzo.h>
 
-bool writecompressed( int fd, const unsigned char *in_buf, lzo_uint in_len )
+bool writecompressed( int fd, const unsigned char *in_buf, lzo_uint in_len, lzo_uint &out_len )
 {
-  lzo_uint out_len = in_len + in_len / 64 + 16 + 3;
+  out_len = in_len + in_len / 64 + 16 + 3;
   lzo_byte *out_buf = new lzo_byte[out_len];
   lzo_voidp wrkmem = ( lzo_voidp )malloc(LZO1X_MEM_COMPRESS);
   int ret = lzo1x_1_compress( in_buf, in_len, out_buf, &out_len, wrkmem );
@@ -115,37 +115,31 @@ bool writecompressed( int fd, const unsigned char *in_buf, lzo_uint in_len )
   return bret;
 }
 
-bool readcompressed( int fd, unsigned char **out_buf,lzo_uint *out_len )
+bool readcompressed( int fd, unsigned char **uncompressed_buf, lzo_uint &uncompressed_len, lzo_uint &compressed_len )
 {
-  lzo_uint in_len;
-  if ( !readuint( fd, out_len ) )
+  if ( !readuint( fd, uncompressed_len ) )
     return false;
-  if ( !readuint( fd, &in_len ) )
+  if ( !readuint( fd, compressed_len ) )
     return false;
-  *out_buf = new unsigned char[*out_len];
-  unsigned char *in_buf = new unsigned char[in_len];
+  *uncompressed_buf = new unsigned char[uncompressed_len];
+  unsigned char *compressed_buf = new unsigned char[compressed_len];
   lzo_voidp wrkmem = ( lzo_voidp )malloc(LZO1X_MEM_COMPRESS);
-  bool bret = readfull( fd, in_buf, in_len );
+  bool bret = readfull( fd, compressed_buf, compressed_len );
   int ret = LZO_E_OK;
   if ( bret )
-    ret = lzo1x_decompress( in_buf, in_len, *out_buf, out_len, wrkmem );
+    ret = lzo1x_decompress( compressed_buf, compressed_len, *uncompressed_buf, &uncompressed_len, wrkmem );
   if ( ret !=  LZO_E_OK) {
     /* this should NEVER happen */
     printf("internal error - decompression failed: %d\n", ret);
     bret = false;
   }
   if ( !bret ) {
-    delete [] *out_buf;
-    *out_buf = 0;
-    *out_len = 0;
+    delete [] *uncompressed_buf;
+    *uncompressed_buf = 0;
+    uncompressed_len = 0;
   }
-#if 0
-  else {
-    printf( "decompressed %d bytes to %d bytes\n", in_len, *out_len );
-  }
-#endif
   free( wrkmem );
-  delete [] in_buf;
+  delete [] compressed_buf;
   return bret;
 }
 
@@ -262,7 +256,7 @@ MsgChannel::get_msg(void)
   Msg *m;
   enum MsgType type;
   unsigned int t;
-  if (!readuint (fd, &t))
+  if (!readuint (fd, t))
     return 0;
   type = (enum MsgType) t;
   switch (type) {
@@ -444,7 +438,7 @@ read_string (int fd, string &s)
   char *buf;
   // len is including the (also saved) 0 Byte
   unsigned int len;
-  if (!readuint (fd, &len))
+  if (!readuint (fd, len))
     return false;
   buf = new char[len];
   if (!readfull (fd, buf, len))
@@ -472,7 +466,7 @@ read_strlist (int fd, list<string> &l)
 {
   unsigned int len;
   l.clear();
-  if (!readuint (fd, &len))
+  if (!readuint (fd, len))
     return false;
   while (len--)
     {
@@ -520,7 +514,7 @@ GetCSMsg::fill_from_fd (int fd)
   unsigned int _lang;
   if (!read_string (fd, version)
       || !read_string (fd, filename)
-      || !readuint (fd, &_lang))
+      || !readuint (fd, _lang))
     return false;
   lang = static_cast<CompileJob::Language>( _lang );
   return true;
@@ -544,8 +538,8 @@ UseCSMsg::fill_from_fd (int fd)
 {
   if (!Msg::fill_from_fd (fd))
     return false;
-  bool ret = (readuint (fd, &job_id)
-              && readuint (fd, &port)
+  bool ret = (readuint (fd, job_id)
+              && readuint (fd, port)
               && read_string (fd, hostname)
               && read_string( fd, environment ) );
   return ret;
@@ -570,8 +564,8 @@ CompileFileMsg::fill_from_fd (int fd)
   unsigned int id, lang;
   list<string> l1, l2;
   string version;
-  if (!readuint (fd, &lang)
-      || !readuint (fd, &id)
+  if (!readuint (fd, lang)
+      || !readuint (fd, id)
       || !read_strlist (fd, l1)
       || !read_strlist (fd, l2)
       || !read_string( fd, version ) )
@@ -613,10 +607,12 @@ FileChunkMsg::fill_from_fd (int fd)
   if (!Msg::fill_from_fd (fd))
     return false;
   lzo_uint _len = 0;
-  if ( !readcompressed( fd, &buffer, &_len ) )
+  lzo_uint _compressed = 0;
+  if ( !readcompressed( fd, &buffer, _len, _compressed ) )
       return false;
 
   len = _len;
+  compressed = _compressed;
 
   return true;
 }
@@ -626,7 +622,9 @@ FileChunkMsg::send_to_fd (int fd) const
 {
   if (!Msg::send_to_fd (fd))
     return false;
-  bool ret = writecompressed( fd, buffer, len );
+  lzo_uint _compressed;
+  bool ret = writecompressed( fd, buffer, len, _compressed );
+  compressed = _compressed;
   return ret;
 }
 
@@ -644,7 +642,7 @@ CompileResultMsg::fill_from_fd (int fd)
   unsigned int _status = 0;
   if ( !read_string( fd, err )
        || !read_string( fd, out )
-       || !readuint( fd, &_status ) )
+       || !readuint( fd, _status ) )
       return false;
   status = _status;
   return true;
@@ -665,8 +663,8 @@ JobBeginMsg::fill_from_fd (int fd)
 {
   if (!Msg::fill_from_fd (fd))
     return false;
-  return readuint (fd, &job_id)
-  	 && readuint (fd, &stime);
+  return readuint (fd, job_id)
+  	 && readuint (fd, stime);
 }
 
 bool
@@ -678,12 +676,35 @@ JobBeginMsg::send_to_fd (int fd) const
   	 && writeuint (fd, stime);
 }
 
+JobDoneMsg::JobDoneMsg () : Msg(M_JOB_DONE),  status( -1 ), job_id( 0 )
+{
+}
+
+JobDoneMsg::JobDoneMsg (unsigned int i)
+  : Msg(M_JOB_DONE), status( -1 ), job_id(i)
+{
+}
+
+JobDoneMsg::~JobDoneMsg()
+{
+}
+
 bool
 JobDoneMsg::fill_from_fd (int fd)
 {
   if (!Msg::fill_from_fd (fd))
     return false;
-  return readuint (fd, &job_id);
+  unsigned int _status;
+  bool ret = readuint (fd, job_id)
+    && readuint( fd, _status )
+    && readuint( fd, user_msec )
+    && readuint( fd, sys_msec )
+    && readuint( fd, maxrss )
+    && readuint( fd, idrss )
+    && readuint( fd, majflt )
+    && readuint( fd, nswap );
+  status = _status;
+  return ret;
 }
 
 bool
@@ -691,7 +712,14 @@ JobDoneMsg::send_to_fd (int fd) const
 {
   if (!Msg::send_to_fd (fd))
     return false;
-  return writeuint (fd, job_id);
+  return writeuint (fd, job_id)
+    && writeuint( fd, status )
+    && writeuint( fd, user_msec )
+    && writeuint( fd, sys_msec )
+    && writeuint( fd, maxrss )
+    && writeuint( fd, idrss )
+    && writeuint( fd, majflt )
+    && writeuint( fd, nswap );
 }
 
 bool
@@ -699,9 +727,9 @@ LoginMsg::fill_from_fd (int fd)
 {
   if (!Msg::fill_from_fd (fd))
     return false;
-  return ( readuint( fd, &port )
-           && readuint( fd, &max_kids )
-           && readuint( fd, &max_load )
+  return ( readuint( fd, port )
+           && readuint( fd, max_kids )
+           && readuint( fd, max_load )
            && read_strlist( fd, envs ) );
 }
 
@@ -723,9 +751,9 @@ StatsMsg::fill_from_fd (int fd)
     return false;
 
   unsigned int f[3];
-  if ( !readuint( fd, &f[0] )
-       || !readuint( fd, &f[1] )
-       || !readuint( fd, &f[2] ) )
+  if ( !readuint( fd, f[0] )
+       || !readuint( fd, f[1] )
+       || !readuint( fd, f[2] ) )
       return false;
   for ( int i = 0; i < 3; i++ )
       load[i] = double( f[i] ) / 1000;
@@ -763,7 +791,7 @@ UseSchedulerMsg::fill_from_fd (int fd)
 {
   if (!Msg::fill_from_fd (fd))
     return false;
-  bool ret = ( readuint (fd, &port)
+  bool ret = ( readuint (fd, port)
                && read_string (fd, hostname));
   return ret;
 }

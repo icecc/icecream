@@ -6,6 +6,6 @@
 class CompileJob;
 class MsgChannel;
 
-int handle_connection( CompileJob *job, MsgChannel *serv );
+int handle_connection( CompileJob *job, MsgChannel *serv, int & out_fd );
 
 #endif

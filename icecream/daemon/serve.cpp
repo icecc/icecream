@@ -28,6 +28,7 @@
 #include "serve.h"
 #include <sys/sendfile.h>
 #include <exception>
+#include <sys/time.h>
 
 using namespace std;
 
@@ -42,11 +43,22 @@ public:
 /**
  * Read a request, run the compiler, and send a response.
  **/
-int handle_connection( CompileJob *job, MsgChannel *serv )
+int handle_connection( CompileJob *job, MsgChannel *serv, int &out_fd )
 {
+    int socket[2];
+    if ( pipe( socket ) == -1)
+        return -1;
+
     pid_t pid = fork();
-    if ( pid != 0) // parent
+    if ( pid != 0) { // parent
+        close( socket[1] );
+        out_fd = socket[0];
         return pid;
+    }
+
+    close( socket[0] );
+    FILE *out = fdopen( socket[1], "wt" );
+    assert( out );
 
     Msg *msg = 0; // The current read message
     char tmp_input[PATH_MAX];
@@ -88,6 +100,8 @@ int handle_connection( CompileJob *job, MsgChannel *serv )
         throw myexception( EXIT_DISTCC_FAILED );
     }
 
+    size_t compressed = 0;
+    size_t uncompressed = 0;
 
     while ( 1 ) {
         msg = serv->get_msg();
@@ -113,6 +127,9 @@ int handle_connection( CompileJob *job, MsgChannel *serv )
             log_error() << "FileChunkMsg not dynamic_castable\n";
             throw myexception( EXIT_PROTOCOL_ERROR );
         }
+        uncompressed += fcmsg->len;
+        compressed += fcmsg->compressed;
+
         ssize_t len = fcmsg->len;
         off_t off = 0;
         while ( len ) {
@@ -130,6 +147,11 @@ int handle_connection( CompileJob *job, MsgChannel *serv )
     }
     close( ti );
     ti = 0;
+
+    fprintf( out, "ICOMPR: %ld\n", compressed );
+    fprintf( out, "IDECOM: %ld\n", uncompressed );
+    struct timeval begintv;
+    gettimeofday( &begintv, 0 );
 
     CompileResultMsg rmsg;
 
@@ -150,28 +172,50 @@ int handle_connection( CompileJob *job, MsgChannel *serv )
         throw myexception( EXIT_DISTCC_FAILED );
     }
 
-    obj_fd = open( obj_file.c_str(), O_RDONLY|O_LARGEFILE );
-    if ( obj_fd == -1 ) {
-        log_error() << "open failed\n";
-        throw myexception( EXIT_DISTCC_FAILED );
-    }
-
-    unsigned char buffer[100000];
-    do {
-        ssize_t bytes = read(obj_fd, buffer, sizeof(buffer));
-        if (!bytes)
-            break;
-        FileChunkMsg fcmsg( buffer, bytes );
-        if ( !serv->send_msg( fcmsg ) ) {
-            log_info() << "write of obj chunk failed " << bytes << endl;
+    if ( rmsg.status == 0 ) {
+        obj_fd = open( obj_file.c_str(), O_RDONLY|O_LARGEFILE );
+        if ( obj_fd == -1 ) {
+            log_error() << "open failed\n";
             throw myexception( EXIT_DISTCC_FAILED );
         }
-    } while (1);
+
+        compressed = 0;
+        uncompressed = 0;
+
+        unsigned char buffer[100000];
+        do {
+            ssize_t bytes = read(obj_fd, buffer, sizeof(buffer));
+            uncompressed += bytes;
+            if (!bytes)
+                break;
+            FileChunkMsg fcmsg( buffer, bytes );
+            if ( !serv->send_msg( fcmsg ) ) {
+                log_info() << "write of obj chunk failed " << bytes << endl;
+                throw myexception( EXIT_DISTCC_FAILED );
+            }
+            compressed += fcmsg.compressed;
+        } while (1);
+
+        fprintf( out, "OCOMPR: %ld\n", compressed );
+        fprintf( out, "ODECOM: %ld\n", uncompressed );
+        struct timeval endtv;
+        gettimeofday(&endtv, 0 );
+        fprintf( out, "DURATI: %ld\n", ( endtv.tv_sec - begintv.tv_sec ) * 1000000 + endtv.tv_usec - begintv.tv_usec );
+    } else {
+        unsigned char buffer[10];
+        FileChunkMsg fcmsg( buffer, 0 );
+        if ( !serv->send_msg( fcmsg ) ) {
+            log_info() << "write of empty chunk failed " << endl;
+            throw myexception( EXIT_DISTCC_FAILED );
+        }
+    }
 
     throw myexception( 0 );
 
     } catch ( myexception e )
     {
+        serv->send_msg( EndMsg() );
+
         delete msg;
         delete job;
 
@@ -181,13 +225,15 @@ int handle_connection( CompileJob *job, MsgChannel *serv )
         if ( ti )
             close( ti );
 
-        serv->send_msg( EndMsg() );
-
         if ( obj_fd > 0)
             close( obj_fd );
 
         if ( !obj_file.empty() )
             unlink( obj_file.c_str() );
+
+        if ( out )
+            fclose( out );
+
         exit( e.exitcode() );
     }
 }

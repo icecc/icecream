@@ -175,6 +175,7 @@ class FileChunkMsg : public Msg {
 public:
   unsigned char* buffer;
   size_t len;
+  mutable size_t compressed;
   bool del_buf;
 
   FileChunkMsg (unsigned char *_buffer, size_t _len)
@@ -208,9 +209,18 @@ public:
 
 class JobDoneMsg : public Msg {
 public:
+  unsigned int user_msec;
+  unsigned int sys_msec;   /* system time used */
+  unsigned int maxrss;     /* maximum resident set size */
+  unsigned int idrss;      /* integral unshared data size */
+  unsigned int majflt;     /* page faults */
+  unsigned int nswap;      /* swaps */
+
+  int status;
   unsigned int job_id;
-  JobDoneMsg () : Msg(M_JOB_DONE) {}
-  JobDoneMsg (unsigned int i) : Msg(M_JOB_DONE), job_id(i) {}
+  JobDoneMsg ();
+  JobDoneMsg (unsigned int i);
+  ~JobDoneMsg();
   virtual bool fill_from_fd (int fd);
   virtual bool send_to_fd (int fd) const;
 };

@@ -220,7 +220,9 @@ int main( int /*argc*/, char ** /*argv*/ )
     int count = 0; // DEBUG
     typedef pair<CompileJob*, MsgChannel*> Compile_Request;
     queue<Compile_Request> requests;
-    map<pid_t, unsigned int> jobmap;
+    map<pid_t, JobDoneMsg*> jobmap;
+    typedef map<int, pid_t> Pidmap;
+    Pidmap pidmap;
 
     while ( 1 ) {
         if ( !scheduler ) {
@@ -257,7 +259,8 @@ int main( int /*argc*/, char ** /*argv*/ )
                 Compile_Request req = requests.front();
                 requests.pop();
                 CompileJob *job = req.first;
-                pid_t pid = handle_connection( req.first, req.second );
+                int sock;
+                pid_t pid = handle_connection( req.first, req.second, sock );
                 if ( pid > 0) { // forks away
                     current_kids++;
                     if ( !scheduler || !scheduler->send_msg( JobBeginMsg( job->jobID() ) ) ) {
@@ -268,7 +271,8 @@ int main( int /*argc*/, char ** /*argv*/ )
                         delete req.second;
                         break;
                     }
-                    jobmap[pid] = job->jobID();
+                    jobmap[pid] = new JobDoneMsg( job->jobID() );
+                    pidmap[sock] = pid;
                 }
                 delete req.first;
                 delete req.second;
@@ -277,11 +281,23 @@ int main( int /*argc*/, char ** /*argv*/ )
             int status;
             pid_t child = wait3(&status, WNOHANG, &ru);
             if ( child > 0 ) {
-                log_info() << "one child got " << status << endl;
                 current_kids--;
-                int job_id = jobmap[child];
-                if ( job_id && scheduler )
-                    scheduler->send_msg( JobDoneMsg( job_id ) );
+                JobDoneMsg *msg = jobmap[child];
+                jobmap.erase( child );
+                if ( msg && scheduler ) {
+                    msg->status = status;
+                    msg->user_msec = ru.ru_utime.tv_sec * 1000 + ru.ru_utime.tv_usec % 1000;
+                    msg->sys_msec = ru.ru_stime.tv_sec * 1000 + ru.ru_stime.tv_usec % 1000;
+                    msg->maxrss = ru.ru_maxrss;
+                    msg->idrss = ru.ru_idrss;
+                    msg->majflt = ru.ru_majflt;
+                    msg->nswap = ru.ru_nswap;
+                    log_info() << "one child got " << status << endl;
+                    log_info() << "user " << ru.ru_utime.tv_sec * 1000000 + ru.ru_utime.tv_usec << " "
+                               << "system " << ru.ru_stime.tv_sec * 1000000 + ru.ru_stime.tv_usec << " " << ru.ru_majflt << endl;
+                    scheduler->send_msg( *msg );
+                }
+                delete msg;
                 continue;
             }
 
@@ -306,48 +322,69 @@ int main( int /*argc*/, char ** /*argv*/ )
 
             FD_ZERO (&listen_set);
             FD_SET (listen_fd, &listen_set);
-            FD_SET (listen_fd, &listen_set);
+            int max_fd = listen_fd;
+
+            for ( Pidmap::const_iterator it = pidmap.begin(); it != pidmap.end(); ++it ) {
+                FD_SET( it->first, &listen_set );
+                if ( max_fd < it->first )
+                    max_fd = it->first;
+            }
             tv.tv_sec = 2;
             tv.tv_usec = 0;
 
-            ret = select (listen_fd + 1, &listen_set, NULL, NULL, &tv);
+            ret = select (max_fd + 1, &listen_set, NULL, NULL, &tv);
 
             if ( ret > 0 ) {
-                cli_len = sizeof cli_addr;
-                acc_fd = accept(listen_fd, &cli_addr, &cli_len);
-                if (acc_fd == -1 && errno == EINTR) {
-                    ;
-                }  else if (acc_fd == -1) {
-                    log_error() << "accept failed: " << strerror(errno) << endl;
-                    return EXIT_CONNECT_FAILED;
-                } else {
-                    Service *client = new Service ((struct sockaddr*) &cli_addr, cli_len);
-                    MsgChannel *c = client->createChannel( acc_fd );
-
-                    Msg *msg = c->get_msg();
-                    if ( !msg ) {
-                        log_error() << "no message?\n";
+                if ( FD_ISSET( listen_fd, &listen_set ) ) {
+                    cli_len = sizeof cli_addr;
+                    acc_fd = accept(listen_fd, &cli_addr, &cli_len);
+                    if (acc_fd == -1 && errno == EINTR) {
+                        ;
+                    }  else if (acc_fd == -1) {
+                        log_error() << "accept failed: " << strerror(errno) << endl;
+                        return EXIT_CONNECT_FAILED;
                     } else {
-                        if ( msg->type == M_GET_SCHEDULER ) {
-                            if ( scheduler ) {
-                                UseSchedulerMsg m( scheduler->other_end->name, scheduler->other_end->port );
-                                c->send_msg( m );
-                            } else {
-                                c->send_msg( EndMsg() );
-                            }
-                        } else if ( msg->type == M_COMPILE_FILE ) {
-                            CompileJob *job = dynamic_cast<CompileFileMsg*>( msg )->takeJob();
-                            requests.push( make_pair( job, c ));
-                            client = 0; // forget you saw him
-                        } else
-                            log_error() << "not compile\n";
-                        delete msg;
-                    }
-                    delete client;
+                        Service *client = new Service ((struct sockaddr*) &cli_addr, cli_len);
+                        MsgChannel *c = client->createChannel( acc_fd );
 
-                    if ( max_count && ++count > max_count ) {
-                        cout << "I'm closing now. Hoping you used valgrind! :)\n";
-                        exit( 0 );
+                        Msg *msg = c->get_msg();
+                        if ( !msg ) {
+                            log_error() << "no message?\n";
+                        } else {
+                            if ( msg->type == M_GET_SCHEDULER ) {
+                                if ( scheduler ) {
+                                    UseSchedulerMsg m( scheduler->other_end->name, scheduler->other_end->port );
+                                    c->send_msg( m );
+                                } else {
+                                    c->send_msg( EndMsg() );
+                                }
+                            } else if ( msg->type == M_COMPILE_FILE ) {
+                                CompileJob *job = dynamic_cast<CompileFileMsg*>( msg )->takeJob();
+                                requests.push( make_pair( job, c ));
+                                client = 0; // forget you saw him
+                            } else
+                                log_error() << "not compile\n";
+                            delete msg;
+                        }
+                        delete client;
+
+                        if ( max_count && ++count > max_count ) {
+                            cout << "I'm closing now. Hoping you used valgrind! :)\n";
+                            exit( 0 );
+                        }
+                    }
+                } else {
+                    for ( Pidmap::iterator it = pidmap.begin(); it != pidmap.end(); ++it ) {
+                        if ( FD_ISSET( it->first, &listen_set ) ) {
+                            char buffer[4096];
+                            ssize_t bytes = read( it->first, buffer, 4096 );
+                            if ( bytes <= 0 ) {
+                                pidmap.erase( it );
+                            } else {
+                                buffer[bytes] = 0;
+                                printf( "pid %d babbelt: %d %s", it->second, bytes, buffer );
+                            }
+                        }
                     }
                 }
             }
