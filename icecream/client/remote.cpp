@@ -176,27 +176,30 @@ int build_remote(CompileJob &job, MsgChannel *scheduler )
     fprintf( stderr, "%s", crmsg->err.c_str() );
 
     assert( !job.outputFile().empty() );
-    int obj_fd = open( job.outputFile().c_str(),
-                       O_CREAT|O_TRUNC|O_WRONLY|O_LARGEFILE, 0666 );
+    
+    if( status == 0 ) {
+        int obj_fd = open( job.outputFile().c_str(),
+                           O_CREAT|O_TRUNC|O_WRONLY|O_LARGEFILE, 0666 );
 
-    if ( obj_fd == -1 ) {
-        log_error() << "open failed\n";
-        return EXIT_DISTCC_FAILED;
-    }
-
-    while ( 1 ) {
-        msg = cserver->get_msg();
-        if ( msg->type == M_END )
-            break;
-
-        if ( msg->type != M_FILE_CHUNK )
-            return EXIT_PROTOCOL_ERROR;
-
-        FileChunkMsg *fcmsg = dynamic_cast<FileChunkMsg*>( msg );
-        if ( write( obj_fd, fcmsg->buffer, fcmsg->len ) != ( ssize_t )fcmsg->len )
+        if ( obj_fd == -1 ) {
+            log_error() << "open failed\n";
             return EXIT_DISTCC_FAILED;
-    }
+        }
 
-    close( obj_fd );
+        while ( 1 ) {
+            msg = cserver->get_msg();
+            if ( msg->type == M_END )
+                break;
+
+            if ( msg->type != M_FILE_CHUNK )
+                return EXIT_PROTOCOL_ERROR;
+
+            FileChunkMsg *fcmsg = dynamic_cast<FileChunkMsg*>( msg );
+            if ( write( obj_fd, fcmsg->buffer, fcmsg->len ) != ( ssize_t )fcmsg->len )
+                return EXIT_DISTCC_FAILED;
+        }
+
+        close( obj_fd );
+    }
     return status;
 }
