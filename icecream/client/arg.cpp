@@ -43,6 +43,20 @@
 
 using namespace std;
 
+static string concat_args( const CompileJob::ArgumentsList &list )
+{
+    int len = list.size() - 1;
+    string result = "\"";
+    for ( CompileJob::ArgumentsList::const_iterator it = list.begin();
+          it != list.end(); ++it, len-- ) {
+        result += *it;
+        if ( len )
+            result += ", ";
+    }
+    result += "\"";
+    return result;
+}
+
 bool analyse_argv( const char * const *argv,
                    CompileJob::ArgumentsList &local_args,
                    CompileJob::ArgumentsList &remote_args,
@@ -130,6 +144,41 @@ bool analyse_argv( const char * const *argv,
                     a += 2;
                     ofile = a;
                 }
+            } else if (str_equal("-D", a)
+                       || str_equal("-I", a)
+                       || str_equal("-U", a)
+                       || str_equal("-L", a)
+                       || str_equal("-l", a)
+                       || str_equal("-MF", a)
+                       || str_equal("-MT", a)
+                       || str_equal("-MQ", a)
+                       || str_equal("-include", a)
+                       || str_equal("-imacros", a)
+                       || str_equal("-iprefix", a)
+                       || str_equal("-iwithprefix", a)
+                       || str_equal("-isystem", a)
+                       || str_equal("-iwithprefixbefore", a)
+                       || str_equal("-idirafter", a) ) {
+                local_args.push_back( a );
+                /* skip next word, being option argument */
+                if (argv[i+1])
+                    local_args.push_back( argv[++i] );
+            } else if (str_startswith("-Wp,", a)
+                 || str_startswith("-Wl,", a)
+                 || str_startswith("-D", a)
+                 || str_startswith("-U", a)
+                 || str_startswith("-I", a)
+                 || str_startswith("-l", a)
+                 || str_startswith("-L", a)) {
+                local_args.push_back( a );
+            } else if (str_equal("-undef", a)
+                 || str_equal("-nostdinc", a)
+                 || str_equal("-nostdinc++", a)
+                 || str_equal("-MD", a)
+                 || str_equal("-MMD", a)
+                 || str_equal("-MG", a)
+                 || str_equal("-MP", a)) {
+                local_args.push_back( a );
             } else
                 rest_args.push_back( a );
         } else {
@@ -159,6 +208,9 @@ bool analyse_argv( const char * const *argv,
         always_local = true;
     }
 
+    trace() << "scanned result: local args=" << concat_args( local_args )
+            << ", remote args=" << concat_args( remote_args )
+            << ", rest=" << concat_args( rest_args ) << " local=" << always_local << endl;
     return always_local;
 }
 
