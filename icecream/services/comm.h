@@ -33,11 +33,12 @@
 #include "job.h"
 
 // if you increase the PROTOCOL_VERSION, add a macro below and use that
-#define PROTOCOL_VERSION 11
+#define PROTOCOL_VERSION 12
 // if you increase the MIN_PROTOCOL_VERSION, comment out macros below and clean up the code
 #define MIN_PROTOCOL_VERSION 10
 
 #define IS_PROTOCOL_11( c ) ( c->protocol >= 11 )
+#define IS_PROTOCOL_12( c ) ( c->protocol >= 12 )
 
 enum MsgType {
   // so far unknown
@@ -251,7 +252,8 @@ public:
 
 class GetSchedulerMsg : public Msg {
 public:
-  GetSchedulerMsg () : Msg(M_GET_SCHEDULER) {}
+  unsigned int local_job;
+  GetSchedulerMsg (bool _local_job = 1) : Msg(M_GET_SCHEDULER), local_job( _local_job ) { }
   virtual void fill_from_channel (MsgChannel * c);
   virtual void send_to_channel (MsgChannel * c) const;
 };
@@ -261,9 +263,10 @@ public:
   std::string hostname;
   unsigned int port;
   std::string nativeVersion;
-  UseSchedulerMsg () : Msg(M_USE_SCHEDULER), port( 0 ) {}
-  UseSchedulerMsg (std::string host, unsigned int p, std::string _native)
-      : Msg(M_USE_SCHEDULER), hostname (host), port (p), nativeVersion( _native ) {}
+  unsigned int build_yourself;
+  UseSchedulerMsg () : Msg(M_USE_SCHEDULER), port( 0 ), build_yourself( 0 ) {}
+  UseSchedulerMsg (std::string host, unsigned int p, std::string _native, bool _build_yourself)
+      : Msg(M_USE_SCHEDULER), hostname (host), port (p), nativeVersion( _native ), build_yourself( _build_yourself ) {}
   virtual void fill_from_channel (MsgChannel * c);
   virtual void send_to_channel (MsgChannel * c) const;
 };
@@ -346,8 +349,11 @@ class JobLocalBeginMsg : public Msg {
 public:
   std::string outfile;
   unsigned int stime;
-  JobLocalBeginMsg(const std::string &file = "") : Msg( M_JOB_LOCAL_BEGIN ),
-                                                   outfile( file ), stime(time(0)) {}
+  unsigned build_yourself;
+  JobLocalBeginMsg(const std::string &file = "",
+                   bool _build_yourself = false) : Msg( M_JOB_LOCAL_BEGIN ),
+                                                   outfile( file ), stime(time(0)),
+                                                   build_yourself( _build_yourself ) {}
   virtual void fill_from_channel (MsgChannel * c);
   virtual void send_to_channel (MsgChannel * c) const;
 };

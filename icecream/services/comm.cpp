@@ -1079,6 +1079,10 @@ void JobLocalBeginMsg::fill_from_channel( MsgChannel *c )
   Msg::fill_from_channel(c);
   c->readuint32(stime);
   c->read_string( outfile );
+  if ( IS_PROTOCOL_12( c ) )
+    c->readuint32( build_yourself );
+  else
+    build_yourself = 0;
 }
 
 void JobLocalBeginMsg::send_to_channel( MsgChannel *c ) const
@@ -1086,6 +1090,7 @@ void JobLocalBeginMsg::send_to_channel( MsgChannel *c ) const
   Msg::send_to_channel( c );
   c->writeuint32(stime);
   c->write_string( outfile );
+  c->writeuint32( build_yourself );
 }
 
 JobLocalDoneMsg::JobLocalDoneMsg (int id, int exit)
@@ -1233,12 +1238,18 @@ void
 GetSchedulerMsg::fill_from_channel (MsgChannel *c)
 {
   Msg::fill_from_channel (c);
+  if ( IS_PROTOCOL_12( c ) )
+    c->readuint32( local_job );
+  else
+    local_job = 1; // this what was the default before
 }
 
 void
 GetSchedulerMsg::send_to_channel (MsgChannel *c) const
 {
   Msg::send_to_channel (c);
+  if ( IS_PROTOCOL_12( c ) )
+    c->writeuint32( local_job );
 }
 
 void
@@ -1248,6 +1259,10 @@ UseSchedulerMsg::fill_from_channel (MsgChannel *c)
   c->readuint32 (port);
   c->read_string (hostname);
   c->read_string( nativeVersion );
+  if ( IS_PROTOCOL_12( c ) )
+    c->readuint32( build_yourself );
+  else
+    build_yourself = 0;
 }
 
 void
@@ -1257,6 +1272,8 @@ UseSchedulerMsg::send_to_channel (MsgChannel *c) const
   c->writeuint32 (port);
   c->write_string (hostname);
   c->write_string( nativeVersion );
+  if ( IS_PROTOCOL_12( c ) )
+    c->writeuint32( build_yourself );
 }
 
 void

@@ -2,6 +2,30 @@
   to use for the daemon.
 * Don't explicitly forbid tunnels because it could be useful for things like
   vmware
-* compile the first job locally without preprocessing if the machine is quick (coolo)
+* Numbers of my test case (some STL C++ genetic algorithm)
+  g++ on my machine: 1.6s
+  g++ on Maren's machine: 1.1s
+  icecream using my machine: 2.4s
+  icecream using Maren's machine: 1.8s
+
+  So even if Maren's computer is faster, using g++ on my local machine is faster (kind of sad, the icecream
+  overhead is so big, but the compiler can't interleave preprocessing with compilation and the file needs to
+  be read/written once more - g++ -E combined with g++ -c on the ii file takes 1.9s). If Maren's computer
+  is shut down, the overhead becomes unbearable.
+
+  So I implemented something that the local daemon decides that it's good enough and the remote compilation
+  process isn't started at all. This makes compiling on my machine using icecream down to 1.7s (the overhead
+  is actually less than 0.1s in average). 
+
+  For this to make general sense though, the scheduler should tell each daemon how it performs relative
+  to the top hosts. My above number suggests, that it shouldn't compile locally if the cs_speed is less than
+  60% of another fast host.
+
+  Keep in mind, that this affects only the first compile job, the second one is distributed anyway. So if I 
+  had to compile two files, I would get
+  g++ -j1 on my machine: 3.2s
+  g++ -j1 on Maren's machine: 2.2s
+  using icecream -j2: min(1.7,1.8)=1.7s 
+
 * keep better track of currently installing daemons (matz)
 * try to find a way to not fork bomb proprocessors
