@@ -5,8 +5,7 @@
 
 class MsgChannel;
 
-extern std::string scheduler_host;
-extern unsigned short scheduler_port;
+extern MsgChannel *scheduler;
 
 int handle_connection( MsgChannel *serv );
 

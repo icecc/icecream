@@ -12,6 +12,7 @@
 #include <map>
 #include <algorithm>
 #include "comm.h"
+#include "logging.h"
 
 using namespace std;
 
@@ -110,8 +111,9 @@ static int
 handle_job_begin (MsgChannel *c, Msg *_m)
 {
   JobBeginMsg *m = dynamic_cast<JobBeginMsg *>(_m);
-  if (jobs.find(m->job_id) == jobs.end())
+  if (!m || jobs.find(m->job_id) == jobs.end())
     return 1;
+  trace() << "job begin " << m->job_id << endl;
   if (jobs[m->job_id]->server != c->other_end)
     return 1;
   jobs[m->job_id]->state = Job::COMPILING;
@@ -124,8 +126,9 @@ static int
 handle_job_done (MsgChannel *c, Msg *_m)
 {
   JobDoneMsg *m = dynamic_cast<JobDoneMsg *>(_m);
-  if (jobs.find(m->job_id) == jobs.end())
+  if (!m || jobs.find(m->job_id) == jobs.end())
     return 1;
+  trace() << "job ended " << m->job_id << endl;
   if (jobs[m->job_id]->server != c->other_end)
     return 1;
   Job *j = jobs[m->job_id];
@@ -138,12 +141,14 @@ handle_job_done (MsgChannel *c, Msg *_m)
 static int
 handle_ping (MsgChannel * /*c*/, Msg * /*_m*/)
 {
+  trace() << "handle_ping\n";
   return 0;
 }
 
 static int
 handle_stats (MsgChannel * /*c*/, Msg * /*_m*/)
 {
+  trace() << "handle_stats\n";
   return 0;
 }
 

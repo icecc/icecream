@@ -148,8 +148,10 @@ int handle_connection( MsgChannel *serv )
     }
 
     if ( msg->type == M_GET_SCHEDULER ) {
-        UseSchedulerMsg m( scheduler_host, scheduler_port );
-        serv->send_msg( m );
+        if ( scheduler ) {
+            UseSchedulerMsg m( scheduler->other_end->name, scheduler->other_end->port );
+            serv->send_msg( m );
+        }
         delete msg;
         return 0;
     }
@@ -162,6 +164,11 @@ int handle_connection( MsgChannel *serv )
 
     CompileJob *job = dynamic_cast<CompileFileMsg*>( msg )->takeJob();
     delete msg;
+
+    if ( !scheduler || !scheduler->send_msg( JobBeginMsg( job->jobID() ) ) ) {
+        log_error() << "can't reach scheduler to tell him about job start of " << job->jobID() << endl;
+        return EXIT_DISTCC_FAILED;
+    }
 
     // teambuilder needs faking
     const char *dot;
@@ -234,6 +241,7 @@ int handle_connection( MsgChannel *serv )
     ret = work_it( *job, tmp_input,
                    rmsg.out, rmsg.err, rmsg.status, filename );
     unlink( tmp_input );
+    unsigned int job_id = job->jobID();
     delete job;
 
     if ( ret )
@@ -243,8 +251,6 @@ int handle_connection( MsgChannel *serv )
         log_info() << "write of result failed\n";
         return EXIT_DISTCC_FAILED;
     }
-
-    trace() << "wrote all stream data\n";
 
     int obj_fd = open( filename.c_str(), O_RDONLY|O_LARGEFILE );
     if ( obj_fd == -1 ) {
@@ -264,6 +270,8 @@ int handle_connection( MsgChannel *serv )
     } while (1);
     EndMsg emsg;
     serv->send_msg( emsg );
+
+    scheduler->send_msg( JobDoneMsg( job_id ) );
 
     close( obj_fd );
     unlink( filename.c_str() );

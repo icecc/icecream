@@ -215,8 +215,7 @@ static void dcc_daemon_terminate(int whichsig)
     raise(whichsig);
 }
 
-string scheduler_host;
-unsigned short scheduler_port;
+MsgChannel *scheduler = 0;
 
 int main( int /*argc*/, char ** /*argv*/ )
 {
@@ -227,15 +226,13 @@ int main( int /*argc*/, char ** /*argv*/ )
     if ((ret = dcc_socket_listen(10245, &listen_fd)) != 0)
         return ret;
 
-    MsgChannel *channel = connect_scheduler ();
-    if ( !channel ) {
+    scheduler = connect_scheduler ();
+    if ( !scheduler ) {
         log_error() << "no scheduler found\n";
         return -1;
     }
-    scheduler_host = channel->other_end->name;
-    scheduler_port = channel->other_end->port;
 
-    channel->send_msg( LoginMsg() );
+    scheduler->send_msg( LoginMsg() );
 
     set_cloexec_flag(listen_fd, 1);
 
@@ -286,11 +283,12 @@ int main( int /*argc*/, char ** /*argv*/ )
             delete c;
             delete client;
             if ( max_count && ++count > max_count ) {
-                cout << "I'm closing now. Hoping you had used valgrind! :)\n";
+                cout << "I'm closing now. Hoping you used valgrind! :)\n";
                 exit( 0 );
             }
         }
     }
-    delete channel->other_end;
-    delete channel;
+    delete scheduler->other_end;
+    delete scheduler;
+    scheduler = 0;
 }

@@ -193,7 +193,7 @@ public:
   unsigned int job_id;
   unsigned int stime;
   JobBeginMsg () : Msg(M_JOB_BEGIN) {}
-  JobBeginMsg (unsigned int i) : Msg(M_JOB_BEGIN), job_id(i), stime(time(0)) {}
+  JobBeginMsg (unsigned int j) : Msg(M_JOB_BEGIN), job_id(j), stime(time(0)) {}
   virtual bool fill_from_fd (int fd);
   virtual bool send_to_fd (int fd) const;
 };
