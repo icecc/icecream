@@ -8,7 +8,6 @@ void appendList( std::list<string> &list,
                  const std::list<string> &toadd )
 {
     // Cannot splice since toadd is a reference-to-const
-    list.resize( list.size() + toadd.size() );
     list.insert( list.end(), toadd.begin(), toadd.end() );
 }
 
