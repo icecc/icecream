@@ -21,30 +21,51 @@
 
 using namespace std;
 
-class CS;
-
-class Job {
-public:
-  unsigned int id;
-  enum {PENDING, COMPILING} state;
-  CS *server;
-  MsgChannel *channel;
-  string environment;
-  time_t starttime;  // _local_ to the compiler server
-  time_t start_on_scheduler;  // starttime local to scheduler
-  Job (MsgChannel *c, unsigned int _id) : id(_id), state( PENDING ),
-                                          server( 0 ),
-                                          channel( c ), starttime(0),
-                                          start_on_scheduler(0) {}
-  ~Job()
-  {
-    delete channel;
+struct JobStat {
+  unsigned long osize;  // output size (uncompressed)
+  unsigned long compile_time_real;  // in milliseconds
+  unsigned long compile_time_user;
+  unsigned long compile_time_sys;
+  unsigned long maxrss; // KB
+  JobStat() : osize(0), compile_time_real(0), compile_time_user(0),
+	      compile_time_sys(0), maxrss(0) {}
+  JobStat& operator +=(const JobStat &st) {
+    osize += st.osize;
+    compile_time_real += st.compile_time_real;
+    compile_time_user += st.compile_time_user;
+    compile_time_sys += st.compile_time_sys;
+    maxrss += st.maxrss;
+    return *this;
+  }
+  JobStat& operator -=(const JobStat &st) {
+    osize -= st.osize;
+    compile_time_real -= st.compile_time_real;
+    compile_time_user -= st.compile_time_user;
+    compile_time_sys -= st.compile_time_sys;
+    maxrss -= st.maxrss;
+    return *this;
+  }
+  JobStat& operator /=(int d) {
+    osize /= d;
+    compile_time_real /= d;
+    compile_time_user /= d;
+    compile_time_sys /= d;
+    maxrss /= d;
+    return *this;
+  }
+  JobStat operator /(int d) const {
+    JobStat r = *this;
+    r /= d;
+    return r;
   }
 };
+
+class Job;
 
 /* One compile server (receiver, compile daemon)  */
 class CS : public Service {
 public:
+  /* The listener port, on which it takes compile requests.  */
   unsigned int remote_port;
   unsigned int id;
 
@@ -55,14 +76,36 @@ public:
   // LOAD is load * 1000
   unsigned int load;
   unsigned int max_jobs;
-  unsigned int max_load;
   //  time_t uptime;  // time connected with scheduler
   list<Job*> joblist;
   list<string> compiler_versions;  // Available compilers
     // enum {AVAILABLE, DISCONNECTED} state;
   CS (struct sockaddr *_addr, socklen_t _len) : Service (_addr, _len),
-                                                load( 9000 ), max_jobs( 0 ),
-                                                max_load( 0 ) {}
+                                                load( 1000 ), max_jobs( 0 ) {}
+  list<JobStat> last_compiled_jobs;
+  list<JobStat> last_requested_jobs;
+  JobStat cum_compiled;  // cumulated
+  JobStat cum_requested;
+};
+
+class Job {
+public:
+  unsigned int id;
+  enum {PENDING, COMPILING} state;
+  CS *server;  // on which server we build
+  CS *submitter;  // who submitted us
+  MsgChannel *channel;
+  string environment;
+  time_t starttime;  // _local_ to the compiler server
+  time_t start_on_scheduler;  // starttime local to scheduler
+  Job (MsgChannel *c, unsigned int _id)
+     : id(_id), state(PENDING), server(0),
+       submitter(static_cast<CS*>(c->other_end)),
+       channel(c), starttime(0), start_on_scheduler(0) {}
+  ~Job()
+  {
+    delete channel;
+  }
 };
 
 // A subset of connected_hosts representing the compiler servers
@@ -71,7 +114,42 @@ unsigned int new_job_id;
 map<unsigned int, Job*> jobs;
 map<int, MsgChannel *> fd2chan;
 queue<Job*> toanswer;
-bool tochoose = true;
+
+list<JobStat> all_job_stats;
+JobStat cum_job_stats;
+
+static void
+add_job_stats (Job *job, JobDoneMsg *msg)
+{
+  JobStat st;
+  st.osize = msg->out_uncompressed;
+  st.compile_time_real = msg->real_msec;
+  st.compile_time_user = msg->user_msec;
+  st.compile_time_sys = msg->sys_msec;
+  st.maxrss = msg->maxrss;
+  job->server->last_compiled_jobs.push_back (st);
+  job->server->cum_compiled += st;
+  if (job->server->last_compiled_jobs.size() > 40)
+    {
+      job->server->cum_compiled -= *job->server->last_compiled_jobs.begin ();
+      job->server->last_compiled_jobs.pop_front ();
+    }
+  job->submitter->last_requested_jobs.push_back (st);
+  job->submitter->cum_requested += st;
+  if (job->submitter->last_requested_jobs.size() > 40)
+    {
+      job->submitter->cum_requested
+        -= *job->submitter->last_requested_jobs.begin ();
+      job->submitter->last_requested_jobs.pop_front ();
+    }
+  all_job_stats.push_back (st);
+  cum_job_stats += st;
+  if (all_job_stats.size () > 500)
+    {
+      cum_job_stats -= *all_job_stats.begin ();
+      all_job_stats.pop_front ();
+    }
+}
 
 static Job *
 create_new_job (MsgChannel *channel)
@@ -99,7 +177,7 @@ handle_cs_request (MsgChannel *c, Msg *_m)
     {
       fprintf (stderr, "Asking host not connected\n");
       c->send_msg( EndMsg() ); // forget it!
-      return true;
+      return false;
     }
 
   Job *job = create_new_job ( c );
@@ -111,23 +189,73 @@ handle_cs_request (MsgChannel *c, Msg *_m)
   return true;
 }
 
-CS *
-pick_server(string &environment)
+static float
+server_speed (CS *cs)
 {
+  if (cs->last_compiled_jobs.size() == 0
+      || cs->cum_compiled.compile_time_user == 0)
+    return 0;
+  else
+    return (float)cs->cum_compiled.osize
+             / (float) cs->cum_compiled.compile_time_user;
+}
+
+static CS *
+pick_server(Job *job)
+{
+  string environment = job->environment;
   assert( !environment.empty() );
   if ( environment == "*" )
     environment = "gcc33"; // TODO: logic
 
-  int i = random() % css.size();
   list<CS*>::iterator it;
-  for (it = css.begin(); it != css.end(); ++it)
-    if ( !i-- )
-      break;
 
-  CS *cs = *it;
-  if ( cs->joblist.size() >= cs->max_jobs || cs->load > cs->max_load )
-    cs = 0;
-  return cs;
+  /* If we have no statistics simply use the first server which is usable.  */
+  if (!all_job_stats.size ())
+    {
+      for (it = css.begin(); it != css.end(); ++it)
+        if ((*it)->joblist.size() < (*it)->max_jobs
+	    && (*it)->load <= 1000)
+          return *it;
+      return 0;
+    }
+
+  /* Now guess about the job.  First see, if this submitter already
+     had other jobs.  Use them as base.  */
+  JobStat guess;
+  if (job->submitter->last_requested_jobs.size() > 0)
+    {
+      guess = job->submitter->cum_requested
+	        / job->submitter->last_requested_jobs.size();
+    }
+  else
+    {
+      /* Otherwise simply average over all jobs.  */
+      guess = cum_job_stats / all_job_stats.size();
+    }
+  CS *best = 0;
+  for (it = css.begin(); it != css.end(); ++it)
+    {
+      CS *cs = *it;
+      /* For now ignore overloaded servers.  */
+      if (cs->joblist.size() >= cs->max_jobs || cs->load > 1000)
+        ;
+      else if (!best)
+	best = cs;
+      else if (cs->last_compiled_jobs.size() == 0)
+	best = cs;
+      /* Search the server with the earliest projected time to compile
+         the job.  (XXX currently this is equivalent to the fastest one)  */
+      else if (best->last_compiled_jobs.size() != 0
+               && server_speed (best) < server_speed (cs))
+	best = cs;
+      /* Make all servers compile a job at least once, so we'll get an
+         idea about their speed.  */
+      if (best && best->last_compiled_jobs.size() == 0)
+        break;
+    }
+
+  return best;
 }
 
 static bool
@@ -140,7 +268,7 @@ empty_queue()
 
   Job *job = toanswer.front();
 
-  if ( css.empty() )
+  if (css.empty())
     {
       trace() << "no servers to handle\n";
       toanswer.pop();
@@ -148,26 +276,21 @@ empty_queue()
       return false;
     }
 
-  string environment = job->environment;
-  CS *cs = pick_server(environment);
+  CS *cs = pick_server (job);
 
-  if ( !cs )
-    {
-      tochoose = false;
-      return false;
-    }
+  if (!cs)
+    return false;
 
   toanswer.pop();
   job->server = cs;
 
-  UseCSMsg m2(environment, cs->name, cs->remote_port, job->id );
+  UseCSMsg m2(job->environment, cs->name, cs->remote_port, job->id );
 
   if (!job->channel->send_msg (m2))
     {
       trace() << "failed to deliver job " << job->id << endl;
 
       job->channel->send_msg (EndMsg()); // most likely won't work
-      tochoose = true;
       cs->joblist.remove (job);
       jobs.erase(job->id );
       delete job;
@@ -190,10 +313,8 @@ handle_login (MsgChannel *c, Msg *_m)
   cs->remote_port = m->port;
   cs->compiler_versions = m->envs;
   cs->max_jobs = m->max_kids;
-  cs->max_load = m->max_load;
   css.push_back (cs);
   fd2chan[c->fd] = c;
-  tochoose = true;
   return true;
 }
 
@@ -240,9 +361,9 @@ handle_job_done (MsgChannel *c, Msg *_m)
 
   if (jobs[m->job_id]->server != c->other_end)
     return false;
-  tochoose = true;
   Job *j = jobs[m->job_id];
   j->server->joblist.remove (j);
+  add_job_stats (j, m);
   jobs.erase (m->job_id);
   delete j;
   return true;
@@ -259,14 +380,13 @@ static bool
 handle_stats (MsgChannel * c, Msg * _m)
 {
   StatsMsg *m = dynamic_cast<StatsMsg *>(_m);
-  if ( !m )
+  if (!m)
     return false;
 
   for (list<CS*>::iterator it = css.begin(); it != css.end(); ++it)
-    if ( ( *it )->channel() == c )
+    if (( *it )->channel() == c)
       {
         ( *it )->load = m->load;
-        tochoose = true;
         return true;
       }
 
@@ -470,7 +590,8 @@ main (int /*argc*/, char * /*argv*/ [])
 	    {
 	      CS *cs = new CS ((struct sockaddr*) &remote_addr, remote_len);
 	      // printf ("accepting from %s:%d\n", cs->name.c_str(), cs->port);
-	      handle_new_connection ( cs->createChannel( remote_fd ));
+	      if (!handle_new_connection ( cs->createChannel( remote_fd )))
+		delete cs;
 	    }
         }
       if (max_fd && FD_ISSET (broad_fd, &read_set))

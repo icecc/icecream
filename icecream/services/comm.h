@@ -212,8 +212,8 @@ public:
   unsigned int real_msec;  /* real time it used */
   unsigned int user_msec;  /* user time used */
   unsigned int sys_msec;   /* system time used */
-  unsigned int maxrss;     /* maximum resident set size */
-  unsigned int idrss;      /* integral unshared data size */
+  unsigned int maxrss;     /* maximum resident set size (KB) */
+  unsigned int idrss;      /* integral unshared data size (KB) */
   unsigned int majflt;     /* page faults */
   unsigned int nswap;      /* swaps */
 
@@ -235,7 +235,6 @@ public:
   unsigned int port;
   std::list<std::string> envs;
   unsigned int max_kids;
-  unsigned int max_load;
   LoginMsg (unsigned int myport)
       : Msg(M_LOGIN), port( myport ) {}
   LoginMsg () : Msg(M_LOGIN), port( 0 ) {}

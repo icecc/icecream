@@ -748,7 +748,6 @@ LoginMsg::fill_from_fd (int fd)
     return false;
   return ( readuint( fd, port )
            && readuint( fd, max_kids )
-           && readuint( fd, max_load )
            && read_strlist( fd, envs ) );
 }
 
@@ -759,7 +758,6 @@ LoginMsg::send_to_fd (int fd) const
     return false;
   return ( writeuint( fd, port )
            && writeuint( fd, max_kids )
-           && writeuint( fd, max_load )
            && write_strlist( fd, envs ) );
 }
 
