@@ -81,14 +81,14 @@ int build_remote(CompileJob &job, MsgChannel *scheduler )
     GetCSMsg getcs (version, get_absfilename( job.inputFile() ), job.language() );
     if (!scheduler->send_msg (getcs)) {
         log_error() << "asked for CS\n";
-        return build_local( job, scheduler );
+        throw( 0 );
     }
     Msg * umsg = scheduler->get_msg();
     if (!umsg || umsg->type != M_USE_CS)
     {
         log_error() << "replied not with use_cs " << ( umsg ? ( char )umsg->type : '0' )  << endl;
         delete umsg;
-        return build_local( job, scheduler );
+        throw( 1 );
     }
     UseCSMsg *usecs = dynamic_cast<UseCSMsg *>(umsg);
     string hostname = usecs->hostname;
@@ -104,30 +104,30 @@ int build_remote(CompileJob &job, MsgChannel *scheduler )
     MsgChannel *cserver = serv->channel();
     if ( ! cserver ) {
         log_error() << "no server found behind given hostname " << hostname << ":" << port << endl;
-        return build_local( job, scheduler );
+        throw ( 2 );
     }
 
-    trace() << "got environment " << ( got_env ? "true" : "false" ) << endl;
+    // trace() << "got environment " << ( got_env ? "true" : "false" ) << endl;
 
     if ( !got_env ) {
         if ( ::access( version_file.c_str(), R_OK ) ) {
             log_error() << "$ICECC_VERSION has to point to an existing file to be installed\n";
-            return build_local( job, scheduler );
+            throw ( 3 );
         }
         // transfer env
         struct stat buf;
         if ( stat( version_file.c_str(), &buf ) ) {
             perror( "stat" );
-            return build_local( job, scheduler );
+            throw( 4 );
         }
 
         FILE *file = fopen( version_file.c_str(), "rb" );
         if ( !file )
-            return build_local( job, scheduler );
+            throw( 5 );
 
         EnvTransferMsg msg( job.environmentVersion() );
         if ( !cserver->send_msg( msg ) )
-            return build_local( job, scheduler );
+            throw( 6 );
 
         offset = 0;
 
@@ -140,7 +140,7 @@ int build_remote(CompileJob &job, MsgChannel *scheduler )
                     if ( !cserver->send_msg( fcmsg ) ) {
                         log_info() << "write of source chunk failed " << offset << " " << bytes << endl;
                         fclose( file );
-                        return build_local( job, scheduler );
+                        throw( 7 );
                     }
                     offset = 0;
                 }
@@ -152,7 +152,7 @@ int build_remote(CompileJob &job, MsgChannel *scheduler )
 
         if ( !cserver->send_msg( EndMsg() ) ) {
             log_info() << "write of end failed" << endl;
-            return build_local( job, scheduler );
+            throw( 8 );
         }
     }
 
@@ -160,7 +160,7 @@ int build_remote(CompileJob &job, MsgChannel *scheduler )
     if ( !cserver->send_msg( compile_file ) ) {
         log_info() << "write of job failed" << endl;
         delete serv;
-        return build_local( job, scheduler );
+        throw( 9 );
     }
 
     int sockets[2];
@@ -171,7 +171,7 @@ int build_remote(CompileJob &job, MsgChannel *scheduler )
 
     pid_t cpp_pid = call_cpp(job, sockets[1] );
     if ( cpp_pid == -1 )
-        return build_local( job, scheduler );
+        throw( 10 );
     close(sockets[1]);
 
     offset = 0;
@@ -186,7 +186,7 @@ int build_remote(CompileJob &job, MsgChannel *scheduler )
                     log_info() << "write of source chunk failed " << offset << " " << bytes << endl;
                     close( sockets[0] );
                     kill( cpp_pid, SIGTERM );
-                    return build_local( job, scheduler );
+                    throw( 11 );
                 }
                 offset = 0;
             }
@@ -209,15 +209,15 @@ int build_remote(CompileJob &job, MsgChannel *scheduler )
 
     if ( !cserver->send_msg( EndMsg() ) ) {
         log_info() << "write of end failed" << endl;
-        return build_local( job, scheduler );
+        throw( 12 );
     }
 
     Msg *msg = cserver->get_msg();
     if ( !msg )
-        return build_local( job, scheduler );
+        throw( 14 );
 
     if ( msg->type != M_COMPILE_RESULT )
-        return EXIT_PROTOCOL_ERROR;
+        throw( 13 );
 
     CompileResultMsg *crmsg = dynamic_cast<CompileResultMsg*>( msg );
     assert ( crmsg );

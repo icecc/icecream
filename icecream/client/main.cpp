@@ -167,9 +167,14 @@ int main(int argc, char **argv)
     int ret;
     if ( local )
         ret = build_local( job, scheduler );
-    else
-        ret = build_remote( job, scheduler );
-
+    else {
+        try {
+            ret = build_remote( job, scheduler );
+        } catch ( int error ) {
+            delete scheduler;
+            return build_local( job, 0 );
+        }
+    }
     scheduler->send_msg (EndMsg());
     delete scheduler;
     return ret;
