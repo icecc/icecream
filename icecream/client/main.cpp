@@ -90,6 +90,27 @@ list<string> split_ldd_output( string &out )
     return res;
 }
 
+string read_prog_output( const char *command )
+{
+    FILE *pipe = popen( command, "r" );
+    if ( !pipe ) {
+        perror( "popen" );
+        return "";
+    }
+
+    string output;
+    char buffer[1000];
+    do {
+        size_t res = fread( buffer, 1,  999, pipe );
+        buffer[res] = 0;
+        output += buffer;
+        if ( res < PATH_MAX - 1 )
+            break;
+    } while ( true );
+    pclose(pipe);
+    return output;
+}
+
 bool collect_file( const string &dirname, const string &file )
 {
     if ( !::access( ( dirname + "/" + file ).c_str(), R_OK ) ) // already in there
@@ -100,21 +121,8 @@ bool collect_file( const string &dirname, const string &file )
     setenv( "LD_ASSUME_KERNEL", "2.4.0", 1 );
     char buffer[PATH_MAX];
     sprintf( buffer, "/usr/bin/ldd '%s' 2>&1", file.c_str() );
-    FILE *pipe = popen( buffer, "r" );
-    if ( !pipe ) {
-        perror( "popen" );
-        return false;
-    }
+    string output = read_prog_output( buffer );
 
-    string output;
-    do {
-        size_t res = fread( buffer, 1,  PATH_MAX - 1, pipe );
-        buffer[res] = 0;
-        output += buffer;
-        if ( res < PATH_MAX - 1 )
-            break;
-    } while ( true );
-    pclose(pipe);
     list<string> files = split_ldd_output( output );
     for ( list<string>::const_iterator it = files.begin();
           it != files.end(); ++it ) {
@@ -162,6 +170,20 @@ bool collect_env( )
         return false;
     if ( !collect_file( dirname, "/usr/bin/as" ) )
         return false;
+    string output = read_prog_output( "/usr/bin/gcc -print-prog-name=cc1" );
+    if ( output.size() < 5 )
+        return false;
+    while ( output[output.size() - 1] == '\n' )
+        output = output.substr( 0, output.size() - 1 );
+    trace() << "output " << output << " " <<  output.substr( output.size() - 4, 4 ) << endl;
+    if ( output.size() < 5 || output.substr( output.size() - 4, 4 ) != "/cc1" )
+        return false;
+    if ( !collect_file( dirname, output ) )
+        return false;
+    output = output.substr( 0, output.size() - 3 );
+    if ( !collect_file( dirname, output + "/cc1plus") )
+        return false;
+    collect_file( dirname, output + "/specs");
 
     char buffer[] = "/var/tmp/icecream_env_XXXXXX";
     if ( !mkstemp( buffer ) ) {

@@ -178,12 +178,12 @@ void usage(const char* reason = 0)
 
 int main( int argc, char ** argv )
 {
-    list<string> environments = available_environmnents();
     const int START_PORT = 10245;
     int max_processes = -1;
 
     string netname;
     bool watch_binary = false;
+    string envbasedir = "/tmp/icecc-envs"; // TODO: getopt :/
 
     while ( true ) {
         int option_index = 0;
@@ -237,6 +237,8 @@ int main( int argc, char ** argv )
         stat( binary_path.c_str(), &st );
         binary_on_startup = st.st_mtime;
     }
+
+    list<string> environments = available_environmnents(envbasedir);
 
     chdir( "/" );
 
@@ -372,7 +374,7 @@ int main( int argc, char ** argv )
                 requests.pop();
                 CompileJob *job = req.first;
                 int sock;
-                pid_t pid = handle_connection( req.first, req.second, sock );
+                pid_t pid = handle_connection( envbasedir, req.first, req.second, sock );
                 if ( pid > 0) { // forks away
                     current_kids++;
                     if ( !scheduler || !scheduler->send_msg( JobBeginMsg( job->jobID() ) ) ) {
@@ -494,8 +496,20 @@ int main( int argc, char ** argv )
                                 CompileJob *job = dynamic_cast<CompileFileMsg*>( msg )->takeJob();
                                 requests.push( make_pair( job, c ));
                                 client = 0; // forget you saw him
+                            } else if ( msg->type == M_TRANFER_ENV ) {
+                                EnvTransferMsg *emsg = dynamic_cast<EnvTransferMsg*>( msg );
+                                install_environment( envbasedir, emsg->name, c );
+                                delete msg;
+                                msg = c->get_msg();
+                                if ( msg->type == M_COMPILE_FILE ) { // we sure hope so
+                                    CompileJob *job = dynamic_cast<CompileFileMsg*>( msg )->takeJob();
+                                    requests.push( make_pair( job, c ));
+                                    client = 0; // forget you saw him
+                                } else {
+                                    log_error() << "not compile file\n";
+                                }
                             } else
-                                log_error() << "not compile\n";
+                                log_error() << "not compile: " << ( char )msg->type << endl;
                             delete msg;
                         }
                         delete client;

@@ -42,6 +42,10 @@
 #include <sys/uio.h>
 #endif
 
+#ifndef _PATH_TMP
+#define _PATH_TMP "/tmp"
+#endif
+
 using namespace std;
 
 class myexception: public exception
@@ -55,7 +59,7 @@ public:
 /**
  * Read a request, run the compiler, and send a response.
  **/
-int handle_connection( CompileJob *job, MsgChannel *serv, int &out_fd )
+int handle_connection( const string &basedir, CompileJob *job, MsgChannel *serv, int &out_fd )
 {
     int socket[2];
     if ( pipe( socket ) == -1)
@@ -83,15 +87,26 @@ int handle_connection( CompileJob *job, MsgChannel *serv, int &out_fd )
 
     try {
         log_info() << "should use " << job->environmentVersion() << endl;
-        string basedir = "/tmp/icecc-envs/";
-        if ( !access( string( basedir + job->environmentVersion() + "/usr/bin/gcc" ).c_str(), X_OK ) ) {
-            if ( getuid() == 0 )
-                chroot( string( basedir + job->environmentVersion() ).c_str() );
+        string dirname = basedir + "/" + job->environmentVersion();
+        if ( !::access( string( dirname + "/usr/bin/gcc" ).c_str(), X_OK ) ) {
+            if ( getuid() == 0 ) {
+                chdir( dirname.c_str() ); // without the chdir, the chroot will escape the jail right away
+                chroot( dirname.c_str() );
+            }
             else
-                chdir( string( basedir + job->environmentVersion() ).c_str() );
+                if ( chdir( dirname.c_str() ) ) {
+                    perror( "chdir" );
+                } else {
+                    trace() << "chdir to " << dirname << endl;
+                }
         }
         else
             chdir( "/" );
+
+        if ( ::access( _PATH_TMP + 1, W_OK ) ) {
+            log_error() << "can't write into " << _PATH_TMP << endl;
+            throw myexception( -1 );
+        }
 
         const char *dot;
         if (job->language() == CompileJob::Lang_C)

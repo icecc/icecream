@@ -1180,13 +1180,13 @@ MonStatsMsg::send_to_channel (MsgChannel *c) const
 void
 EnvTransferMsg::fill_from_channel (MsgChannel *c)
 {
-  FileChunkMsg::fill_from_channel (c);
+  Msg::fill_from_channel (c);
   c->read_string(name);
 }
 
 void
 EnvTransferMsg::send_to_channel (MsgChannel *c) const
 {
-  FileChunkMsg::send_to_channel (c);
+  Msg::send_to_channel (c);
   c->write_string(name);
 }

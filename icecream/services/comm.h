@@ -449,17 +449,13 @@ public:
   virtual void send_to_channel (MsgChannel * c) const;
 };
 
-class EnvTransferMsg : public FileChunkMsg {
+class EnvTransferMsg : public Msg {
 public:
   std::string name;
-  EnvTransferMsg() : FileChunkMsg() {
-    type = M_TRANFER_ENV;
+  EnvTransferMsg() : Msg( M_TRANFER_ENV ) {
   }
-  EnvTransferMsg( const std::string &_name, unsigned char *_buffer, size_t _len)
-    : FileChunkMsg( _buffer, _len ), name( _name )
-  {
-     type = M_TRANFER_ENV;
-  }
+  EnvTransferMsg( const std::string &_name )
+    : Msg( M_TRANFER_ENV ), name( _name ) {}
   virtual void fill_from_channel (MsgChannel * c);
   virtual void send_to_channel (MsgChannel * c) const;
 };

@@ -4,6 +4,9 @@
 #include <errno.h>
 #include <dirent.h>
 #include <unistd.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include "comm.h"
 
 using namespace std;
 
@@ -41,7 +44,7 @@ static bool extract_version( string &version )
     return true;
 }
 
-list<string> available_environmnents()
+list<string> available_environmnents(const string &basedir)
 {
     list<string> envs;
     string gcc_version = read_fromFILE( popen( "/usr/bin/gcc -v 2>&1", "r" ) );
@@ -51,7 +54,6 @@ list<string> available_environmnents()
     if ( extract_version( gpp_version ) )
         envs.push_back( "g++ " + gpp_version );
 
-    string basedir = "/tmp/icecc-envs/";
     DIR *envdir = opendir( basedir.c_str() );
     if ( !envdir ) {
         log_info() << "can't open envs dir " << strerror( errno ) << endl;
@@ -61,7 +63,7 @@ list<string> available_environmnents()
             string dirname = ent->d_name;
             if ( dirname.at( 0 ) != '.' )
             {
-                if ( !access( string( basedir + dirname + "/usr/bin/gcc" ).c_str(), X_OK ) )
+                if ( !access( string( basedir + "/" + dirname + "/usr/bin/gcc" ).c_str(), X_OK ) )
                      envs.push_back( dirname );
             }
             ent = readdir( envdir );
@@ -74,4 +76,79 @@ list<string> available_environmnents()
         cout << "'" << *it << "' ";
     cout << endl;
     return envs;
+}
+
+
+bool install_environment( const std::string &basename, const std::string &name, MsgChannel *c )
+{
+    for ( string::size_type i = 0; i < name.size(); ++i ) {
+        if ( isalnum( name[i] ) || name[i] == '-' )
+            continue;
+        log_error() << "illegal char '" << name[i] << "' - rejecting environment " << name << endl;
+        return false;
+    }
+
+    if ( mkdir( basename.c_str(), 0755 ) && errno != EEXIST ) {
+        perror( "mkdir" );
+        return false;
+    }
+
+    string dirname = basename + "/" + name;
+    if ( mkdir( dirname.c_str(), 0755 ) ) {
+        perror( "mkdir" );
+        return false;
+    }
+
+    char pwd[PATH_MAX];
+    getcwd(pwd, PATH_MAX);
+    if ( chdir( dirname.c_str() ) ) {
+        perror( "chdir" );
+        return false;
+    }
+
+    trace() << "set it up, opening tar\n";
+
+    FILE *pipe = popen( "tar xjf -", "w" );
+    if ( !pipe ) {
+        perror( "popen tar" );
+        return false; // TODO: rm?
+    }
+
+    bool error = false;
+    Msg *msg = 0;
+    do {
+        delete msg;
+        msg = c->get_msg();
+        if ( msg->type == M_END ) {
+            trace() << "end\n";
+            break;
+        }
+        FileChunkMsg *fmsg = dynamic_cast<FileChunkMsg*>( msg );
+        if ( !fmsg ) {
+            log_error() << "Expected another file chunk\n";
+            error = true;
+            break;
+        }
+        trace() << "got env share: " << fmsg->len << endl;
+        int ret = fwrite( fmsg->buffer, fmsg->len, 1, pipe );
+        if ( ret != 1 ) {
+            log_error() << "wrote " << ret << " bytes\n";
+            error = true;
+            break;
+        }
+    } while ( true );
+
+    delete msg;
+    chdir( pwd );
+    pclose( pipe );
+    if ( error ) {
+        char buffer[PATH_MAX];
+        sprintf( buffer, "rm -rf '/%s'", dirname.c_str() );
+        system( buffer );
+        return false;
+    } else {
+        mkdir( ( dirname + "/var/tmp" ).c_str(), 0755 );
+        mkdir( ( dirname + "/tmp" ).c_str(), 0755 );
+    }
+    return true;
 }

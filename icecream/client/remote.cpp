@@ -62,9 +62,10 @@ string get_absfilename( const string &_file )
 
 int build_remote(CompileJob &job, MsgChannel *scheduler )
 {
-    string version_file = getenv( "ICECC_VERSION");
-    if ( !version_file.size() )
-        version_file = "*";
+    char *get = getenv( "ICECC_VERSION");
+    string version_file = "*";
+    if ( get )
+        version_file = get;
     string version = version_file;
     string suff = ".tar.bz2";
     if ( version.size() > suff.size() && version.substr( version.size() - suff.size() ) == suff )
@@ -92,9 +93,8 @@ int build_remote(CompileJob &job, MsgChannel *scheduler )
     job.setEnvironmentVersion( usecs->environment ); // hoping on the scheduler's wisdom
     // printf ("Have to use host %s:%d - Job ID: %d\n", hostname.c_str(), port, job.jobID() );
     delete usecs;
-    EndMsg em;
     // if the scheduler ignores us, ignore it in return :/
-    ( void )scheduler->send_msg (em);
+    ( void )scheduler->send_msg ( EndMsg() );
 
     Service *serv = new Service (hostname, port);
     MsgChannel *cserver = serv->channel();
@@ -102,6 +102,8 @@ int build_remote(CompileJob &job, MsgChannel *scheduler )
         log_error() << "no server found behind given hostname " << hostname << ":" << port << endl;
         return build_local( job, scheduler );
     }
+
+    trace() << "got environment " << ( usecs->got_env ? "true" : "false" ) << endl;
 
     if ( !usecs->got_env ) {
         if ( ::access( version_file.c_str(), R_OK ) ) {
@@ -115,13 +117,40 @@ int build_remote(CompileJob &job, MsgChannel *scheduler )
             return build_local( job, scheduler );
         }
 
-        unsigned char *buffer = new unsigned char[buf.st_size];
+        unsigned char buffer[100000];
         FILE *file = fopen( version_file.c_str(), "rb" );
-        fread( buffer, buf.st_size, 1, file ); // assume it works
-        EnvTransferMsg msg( job.environmentVersion(), buffer, buf.st_size );
-        cserver->send_msg( msg );
-        delete [] buffer;
+        if ( !file )
+            return build_local( job, scheduler );
+
+        EnvTransferMsg msg( job.environmentVersion() );
+        if ( !cserver->send_msg( msg ) )
+            return build_local( job, scheduler );
+
+        off_t offset = 0;
+
+        do {
+            ssize_t bytes = fread(buffer + offset, 1, sizeof(buffer) - offset, file );
+            offset += bytes;
+            if (!bytes || offset == sizeof( buffer ) ) {
+                if ( offset ) {
+                    FileChunkMsg fcmsg( buffer, offset );
+                    if ( !cserver->send_msg( fcmsg ) ) {
+                        log_info() << "write of source chunk failed " << offset << " " << bytes << endl;
+                        fclose( file );
+                        return build_local( job, scheduler );
+                    }
+                    offset = 0;
+                }
+                if ( !bytes )
+                    break;
+            }
+        } while (1);
         fclose( file );
+
+        if ( !cserver->send_msg( EndMsg() ) ) {
+            log_info() << "write of end failed" << endl;
+            return build_local( job, scheduler );
+        }
     }
 
     CompileFileMsg compile_file( &job );
@@ -176,8 +205,7 @@ int build_remote(CompileJob &job, MsgChannel *scheduler )
         return WEXITSTATUS( status );
     }
 
-    EndMsg emsg;
-    if ( !cserver->send_msg( emsg ) ) {
+    if ( !cserver->send_msg( EndMsg() ) ) {
         log_info() << "write of end failed" << endl;
         return build_local( job, scheduler );
     }
