@@ -154,6 +154,7 @@ int main( int argc, char ** argv )
     const int START_PORT = 10245;
 
     const char *netname = 0;
+    bool watch_binary = false;
 
     for (int argi = 1; argi < argc; argi++)
         if (argv[argi][0] == '-' && argv[argi][2] == 0) {
@@ -165,19 +166,24 @@ int main( int argc, char ** argv )
 	        else
 	            netname = strdup (argv[argi]);
 	        break;
+            case 'w':
+                watch_binary = true;
+                break;
 	    default:
 	        log_warning() << "Unknown argument " << argv[argi] << endl;
 	        break;
 	    }
         }
 
-    // important to do before chdir ;/
     std::string binary_path = argv[0];
-    if ( !findmyself( binary_path ) ) {
-        log_error() << "can't find binary " << argv[0] << endl;
-        return 1;
+    if ( watch_binary ) {
+        // important to do before chdir ;/
+        if ( !findmyself( binary_path ) ) {
+            log_error() << "can't find binary " << argv[0] << endl;
+            return 1;
+        }
+        trace() << "watching " << binary_path << endl;
     }
-    trace() << "watching " << binary_path << endl;
 
     chdir( "/" );
 
