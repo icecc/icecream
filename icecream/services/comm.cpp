@@ -321,14 +321,15 @@ MsgChannel *Service::createChannel( int remote_fd )
 #include <sys/ioctl.h>
 
 MsgChannel *
-connect_scheduler (const char *netname)
+connect_scheduler (const string &_netname)
 {
   const char *get = getenv( "USE_SCHEDULER" );
   string hostname;
   unsigned int sport = 8765;
   char buf2[16];
 
-  if (!netname)
+  string netname = _netname;
+  if (netname.empty())
     netname = "ICECREAM";
 
   if (get)
@@ -435,7 +436,7 @@ connect_scheduler (const char *netname)
 	      continue;
 	    }
 	  buf2[sizeof (buf2) - 1] = 0;
-	  if (strcasecmp (netname, buf2 + 1) == 0)
+	  if (strcasecmp (netname.c_str(), buf2 + 1) == 0)
 	    {
 	      found = true;
 	      break;
@@ -450,7 +451,7 @@ connect_scheduler (const char *netname)
     }
 
   printf ("scheduler is on %s:%d (net %s)\n", hostname.c_str(), sport,
-	  netname);
+	  netname.c_str());
   Service *sched = new Service (hostname, sport);
   return sched->channel();
 }

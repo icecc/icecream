@@ -5,8 +5,6 @@
 * client: if the is interrupted, remove the job from the CS
 * if the client is cancelled, there might be jobs that reside in the joblist
   even though the daemon never heared of them - timeout!
-* Netname to have DEBUG and REAL (Matz)
-* watch the binary and restart the daemon (Coolo)
 * easier monitor views
 * let the client have run the job on two different servers for every 10th or 100th job
 

@@ -153,7 +153,7 @@ int main( int argc, char ** argv )
     list<string> environments = available_environmnents();
     const int START_PORT = 10245;
 
-    const char *netname = 0;
+    string netname;
     bool watch_binary = false;
 
     for (int argi = 1; argi < argc; argi++)
@@ -164,7 +164,7 @@ int main( int argc, char ** argv )
 	        if (argi >= argc)
 	            log_warning() << "-n requires argument" << endl;
 	        else
-	            netname = strdup (argv[argi]);
+	            netname = argv[argi];
 	        break;
             case 'w':
                 watch_binary = true;
@@ -176,6 +176,7 @@ int main( int argc, char ** argv )
         }
 
     std::string binary_path = argv[0];
+    time_t binary_on_startup = 0;
     if ( watch_binary ) {
         // important to do before chdir ;/
         if ( !findmyself( binary_path ) ) {
@@ -183,6 +184,9 @@ int main( int argc, char ** argv )
             return 1;
         }
         trace() << "watching " << binary_path << endl;
+        struct stat st;
+        stat( binary_path.c_str(), &st );
+        binary_on_startup = st.st_mtime;
     }
 
     chdir( "/" );
@@ -368,6 +372,23 @@ int main( int argc, char ** argv )
                     delete scheduler;
                     scheduler = 0;
                     break;
+                }
+                if ( watch_binary ) {
+                    struct stat st;
+                    ::stat( binary_path.c_str(), &st );
+                    if ( binary_on_startup != st.st_mtime ) {
+                        log_info() << "binary changed. Going to restart it" << endl;
+                        char **new_argv = new char *[netname.empty() ? 3 : 5];
+                        int argi = 0;
+                        new_argv[argi++] = strdup( binary_path.c_str() );
+                        new_argv[argi++] = strdup( "-w" );
+                        if ( !netname.empty() ) {
+                            new_argv[argi++] = strdup( "-n" );
+                            new_argv[argi++] = strdup( netname.c_str() );
+                        }
+                        new_argv[argi++] = 0;
+                        execv( binary_path.c_str(), new_argv );
+                    }
                 }
             }
 

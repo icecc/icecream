@@ -102,7 +102,7 @@ private:
   MsgChannel (int _fd, Service *serv);
 };
 
-MsgChannel *connect_scheduler (const char *netname = 0);
+MsgChannel *connect_scheduler (const std::string &netname = std::string());
 
 class PingMsg : public Msg {
 public:
