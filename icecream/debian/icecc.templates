@@ -1,0 +1,21 @@
+Template: icecc/daemon
+Type: boolean
+Default: true
+Description: Start the icecc daemon on startup?
+ icecc can be run as a daemon, listening for incoming connections.
+ .
+ You have the option of starting the icecc daemon automatically on the
+ computer startup. If in doubt, I suggest you not to start automatically it
+ on startup. If you later change your mind, you can run: 'dpkg-reconfigure
+ icecc'.
+
+Template: icecc/scheduler
+Type: boolean
+Default: false
+Description: Start the icecc scheduler on startup?
+ scheduler can be run as a daemon, listening for incoming connections.
+ .
+ You have the option of starting the icecc scheduler automatically on the
+ computer startup. If in doubt, I suggest you not to start automatically it
+ on startup. If you later change your mind, you can run: 'dpkg-reconfigure
+ icecc'.
