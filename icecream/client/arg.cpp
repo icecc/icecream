@@ -253,16 +253,10 @@ bool analyse_argv( const char * const *argv,
             string::size_type dot_index = ifile.find_last_of( '.' );
             string ext = ifile.substr( dot_index + 1 );
 
-            if (ext == "i" || ext == "c") {
-#if CLIENT_DEBUG
-                if ( job.language() != CompileJob::Lang_C )
-                    log_info() << "switching to C for " << ifile << endl;
-#endif
-                job.setLanguage( CompileJob::Lang_C );
-            } else if (ext == "cc"
-                       || ext == "cpp" || ext == "cxx"
-                       || ext == "cp" || ext == "c++"
-                       || ext == "C" || ext == "ii") {
+            if (ext == "cc"
+                || ext == "cpp" || ext == "cxx"
+                || ext == "cp" || ext == "c++"
+                || ext == "C" || ext == "ii") {
 #if CLIENT_DEBUG
                 if ( job.language() != CompileJob::Lang_CXX )
                     log_info() << "switching to C++ for " << ifile << endl;
@@ -279,7 +273,7 @@ bool analyse_argv( const char * const *argv,
                         ext == "fpp" || ext == "FPP" ||
                         ext == "r" )  {
                 always_local = true;
-            } else {
+            } else if ( ext != "c" && ext != "i" ) { // C is special, it depends on arg[0] name
                 log_warning() << "unknown extension " << ext << endl;
                 always_local = true;
             }
