@@ -1,0 +1,32 @@
+How to install icecream
+=======================
+
+cd kdenonbeta/icecream/icecream
+(make -f Makefile.cvs)
+./configure --prefix=/opt/icecream
+make
+make install
+
+WARNING: Make sure you specify a prefix, otherwise icecream
+might override your gcc installation!
+
+How to use icecream
+===================
+
+You need:
+
+- One machine that runs the scheduler ("./scheduler &")
+- Many machines that run the daemon ("./iceccd &")
+
+If you want to compile using icecream, make sure $prefix/bin 
+is the first first entry in your path, e.g. type
+
+export PATH=/opt/icecream/bin:$PATH
+
+Then you just compile with make -j <num>, where <num> is the amount
+of jobs you want to compile in parallel. Don't exaggerate. Numbers
+>15 normally cause trouble.
+
+If you want funny stats, you might want to run "icemon".
+
+Enjoy!
