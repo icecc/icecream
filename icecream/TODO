@@ -1,11 +1,4 @@
-* daemon: install and use build root
-   as user: (not sure it's worth it)
-      chown 0 lib/libc.so*
-      PATH=$PWD/usr/bin LD_LIBRARY_PATH=$PWD/lib:$PWD/usr/lib:/lib usr/bin/gcc -B/tmp/test/usr/lib/gcc-lib/i586-suse-linux/3.3.1/ -c ~/test.ii
-* monitor: easier monitor views
-* scheduler: If ICECC_VERSION isn't set at all the client is confused,
-  because the scheduler returns with 'false' in got_env (because it doesn't
-  yet handle the catch-all environment), but, well, ICECC_VERSION isn't set ;)
+* cross compiling and multiple architectures in general
 * daemon/client: register the system compiler with <uname>-<gcc version> and if a client compiles
   without ICECC_VERSION, let the daemon package the environment. This way, the user doesn't
   need to setup anything
