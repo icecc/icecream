@@ -528,6 +528,34 @@ int main( int argc, char ** argv )
         tosleep = 0;
 
         if ( !scheduler ) {
+
+            while ( !requests.empty() )
+            {
+                Compile_Request req = requests.front();
+                requests.pop();
+                delete req.first;
+                delete req.second;
+            }
+
+            while ( current_kids > 0 )
+            {
+                int status;
+                pid_t child = wait(&status);
+                current_kids--;
+                if ( child > 0 )
+                {
+                    jobmap.erase( child );
+                    Pidmap::iterator pid_it = pidmap.find( child );
+                    if ( pid_it != pidmap.end() ) {
+                        close( pid_it->second );
+                        pidmap.erase( pid_it );
+                    }
+                }
+            }
+
+            jobmap.clear();
+            pidmap.clear();
+
             trace() << "connect_scheduler\n";
             scheduler = connect_scheduler (netname, 2000, schedname);
             if ( !scheduler ) {
@@ -535,7 +563,6 @@ int main( int argc, char ** argv )
                 tosleep = 1;
                 continue;
             }
-            jobmap.clear();
         }
 
         listen_fd = setup_listen_fd();
@@ -548,21 +575,17 @@ int main( int argc, char ** argv )
         lmsg.max_kids = max_kids;
         scheduler->send_msg( lmsg );
 
-        // TODO: clean up the mess from before
-        // for now I just hope schedulers don't go up
-        // and down that often
-
-        while ( !requests.empty() )
-            requests.pop();
-
         while (1) {
             int acc_fd;
             struct sockaddr cli_addr;
             socklen_t cli_len;
 
             if ( requests.size() + current_kids )
-/*                log_info() << "requests " << requests.size() << " "
-                  << current_kids << " (" << max_kids << ")\n";*/
+            {
+                log_info() << "requests " << requests.size() << " "
+                           << current_kids << " (" << max_kids << ")\n";
+            }
+
             if ( !requests.empty() && current_kids < max_kids ) {
                 Compile_Request req = requests.front();
                 requests.pop();
