@@ -530,22 +530,22 @@ platforms_compatible( const string &target, const string &platform )
 
   if (platform_map.empty())
     {
-      platform_map.insert( make_pair( "i386", "i486" ) );
-      platform_map.insert( make_pair( "i386", "i586" ) );
-      platform_map.insert( make_pair( "i386", "i686" ) );
- //     platform_map.insert( make_pair( "i386", "x86_64" ) );
+      platform_map.insert( make_pair( string( "i386" ), string( "i486" ) ) );
+      platform_map.insert( make_pair( string( "i386" ), string( "i586" ) ) );
+      platform_map.insert( make_pair( string( "i386" ), string( "i686" ) ) );
+      // platform_map.insert( make_pair( string( "i386", string( "x86_64" ) );
 
-      platform_map.insert( make_pair( "i486", "i586" ) );
-      platform_map.insert( make_pair( "i486", "i686" ) );
-  //    platform_map.insert( make_pair( "i486", "x86_64" ) );
+      platform_map.insert( make_pair( string( "i486" ), string( "i586" ) ) );
+      platform_map.insert( make_pair( string( "i486" ), string( "i686" ) ) );
+      // platform_map.insert( make_pair( string( "i486" ), string( "x86_64" ) ) );
 
-      platform_map.insert( make_pair( "i586", "i686" ) );
-   //   platform_map.insert( make_pair( "i586", "x86_64" ) );
+      platform_map.insert( make_pair( string( "i586" ), string( "i686" ) ) );
+      // platform_map.insert( make_pair( string( "i586" ), string( "x86_64" ) ) );
 
-    //  platform_map.insert( make_pair( "i686", "x86_64" ) );
+      //  platform_map.insert( make_pair( string( "i686" ), string( "x86_64" ) ) );
 
-      platform_map.insert( make_pair( "ppc", "ppc64" ) );
-      platform_map.insert( make_pair( "s390", "s390x" ) );
+      platform_map.insert( make_pair( string( "ppc" ), string( "ppc64" ) ) );
+      platform_map.insert( make_pair( string( "s390" ), string( "s390x" ) ) );
     }
 
   multimap<string, string>::const_iterator end = platform_map.upper_bound( target );
