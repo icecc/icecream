@@ -191,8 +191,15 @@ int main(int argc, char **argv)
         envs.push_back(make_pair( job.targetPlatform(), native ) );
     }
 
-    for ( Environments::const_iterator it = envs.begin(); it != envs.end(); ++it )
+    for ( Environments::const_iterator it = envs.begin(); it != envs.end(); ++it ) {
         trace() << "env: " << it->first << " '" << it->second << "'" << endl;
+        if ( ::access( it->second.c_str(), R_OK ) ) {
+            log_error() << "can't read environment " << it->second << endl;
+            delete local_daemon;
+            delete ucs;
+            return build_local( job, 0 );
+        }
+    }
 
     trace() << "contacting scheduler " << ucs->hostname << ":" << ucs->port << endl;
 
