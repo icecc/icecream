@@ -716,7 +716,7 @@ usage(const char* reason = 0)
        << "Options:\n"
        << "  -n, --netname <name>\n"
        << "  -p, --port <port>\n"
-       << "  -h, --help <port>\n"
+       << "  -h, --help\n"
        << endl;
   
   exit(1);
