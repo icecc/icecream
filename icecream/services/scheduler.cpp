@@ -1005,6 +1005,7 @@ usage(const char* reason = 0)
        << "  -n, --netname <name>\n"
        << "  -p, --port <port>\n"
        << "  -h, --help\n"
+       << "  -l, --log-file <file>\n"
        << endl;
 
   exit(1);
