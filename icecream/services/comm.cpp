@@ -1,3 +1,5 @@
+/*  -*- mode: C++; c-file-style: "gnu" -*- */
+
 #include <sys/types.h>
 #include <netinet/in.h>
 #include <sys/socket.h>
@@ -89,61 +91,62 @@ writeuint (int fd, unsigned int i)
 
 bool writecompressed( int fd, const unsigned char *in_buf, lzo_uint in_len )
 {
-    lzo_uint out_len = in_len + in_len / 64 + 16 + 3;
-    lzo_byte *out_buf = new lzo_byte[out_len];
-    lzo_voidp wrkmem = ( lzo_voidp )malloc(LZO1X_MEM_COMPRESS);
-    int ret = lzo1x_1_compress( in_buf, in_len, out_buf, &out_len, wrkmem );
-    if ( ret != LZO_E_OK) {
-        /* this should NEVER happen */
-        printf("internal error - compression failed: %d\n", ret);
-        free( wrkmem );
-        delete [] out_buf;
-        return false;
+  lzo_uint out_len = in_len + in_len / 64 + 16 + 3;
+  lzo_byte *out_buf = new lzo_byte[out_len];
+  lzo_voidp wrkmem = ( lzo_voidp )malloc(LZO1X_MEM_COMPRESS);
+  int ret = lzo1x_1_compress( in_buf, in_len, out_buf, &out_len, wrkmem );
+  if ( ret != LZO_E_OK)
+    {
+      /* this should NEVER happen */
+      printf("internal error - compression failed: %d\n", ret);
+      free( wrkmem );
+      delete [] out_buf;
+      return false;
     }
 #if 0
-    printf( "compress %d bytes to %d bytes\n", in_len, out_len );
+  printf( "compress %d bytes to %d bytes\n", in_len, out_len );
 #endif
-    bool bret = ( writeuint( fd, in_len )
-                  && writeuint( fd, out_len )
-                  && writefull( fd, out_buf, out_len ) );
+  bool bret = ( writeuint( fd, in_len )
+                && writeuint( fd, out_len )
+                && writefull( fd, out_buf, out_len ) );
 
-    free( wrkmem );
-    delete [] out_buf;
-    return bret;
+  free( wrkmem );
+  delete [] out_buf;
+  return bret;
 }
 
 bool readcompressed( int fd, unsigned char **out_buf,lzo_uint *out_len )
 {
-    lzo_uint in_len;
-    if ( !readuint( fd, out_len ) )
-        return false;
-    if ( !readuint( fd, &in_len ) )
-        return false;
-    *out_buf = new unsigned char[*out_len];
-    unsigned char *in_buf = new unsigned char[in_len];
-    lzo_voidp wrkmem = ( lzo_voidp )malloc(LZO1X_MEM_COMPRESS);
-    bool bret = readfull( fd, in_buf, in_len );
-    int ret = LZO_E_OK;
-    if ( bret )
-        ret = lzo1x_decompress( in_buf, in_len, *out_buf, out_len, wrkmem );
-    if ( ret !=  LZO_E_OK) {
-         /* this should NEVER happen */
-        printf("internal error - decompression failed: %d\n", ret);
-        bret = false;
-    }
-    if ( !bret ) {
-        delete [] *out_buf;
-        *out_buf = 0;
-        *out_len = 0;
-    }
+  lzo_uint in_len;
+  if ( !readuint( fd, out_len ) )
+    return false;
+  if ( !readuint( fd, &in_len ) )
+    return false;
+  *out_buf = new unsigned char[*out_len];
+  unsigned char *in_buf = new unsigned char[in_len];
+  lzo_voidp wrkmem = ( lzo_voidp )malloc(LZO1X_MEM_COMPRESS);
+  bool bret = readfull( fd, in_buf, in_len );
+  int ret = LZO_E_OK;
+  if ( bret )
+    ret = lzo1x_decompress( in_buf, in_len, *out_buf, out_len, wrkmem );
+  if ( ret !=  LZO_E_OK) {
+    /* this should NEVER happen */
+    printf("internal error - decompression failed: %d\n", ret);
+    bret = false;
+  }
+  if ( !bret ) {
+    delete [] *out_buf;
+    *out_buf = 0;
+    *out_len = 0;
+  }
 #if 0
-    else {
-        printf( "decompressed %d bytes to %d bytes\n", in_len, *out_len );
-    }
+  else {
+    printf( "decompressed %d bytes to %d bytes\n", in_len, *out_len );
+  }
 #endif
-    free( wrkmem );
-    delete [] in_buf;
-    return bret;
+  free( wrkmem );
+  delete [] in_buf;
+  return bret;
 }
 
 Service::Service (struct sockaddr *_a, socklen_t _l)
@@ -298,81 +301,113 @@ MsgChannel::send_msg (const Msg &m)
 
 MsgChannel *Service::createChannel( int remote_fd )
 {
-    if ( c ) {
-        assert( remote_fd == c->fd );
-        return c;
-    }
-    new MsgChannel( remote_fd, this ); // sets c
-    assert( c );
+  if ( c ) {
+    assert( remote_fd == c->fd );
     return c;
+  }
+  new MsgChannel( remote_fd, this ); // sets c
+  assert( c );
+  return c;
 }
+
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <ifaddrs.h>
+#include <net/if.h>
+#include <sys/ioctl.h>
 
 MsgChannel *
 connect_scheduler ()
 {
-    const char *get = getenv( "USE_SCHEDULER" );
-    string hostname;
-    unsigned int sport = 8765;
+  const char *get = getenv( "USE_SCHEDULER" );
+  string hostname;
+  unsigned int sport = 8765;
 
-    if (get) {
-	hostname = get;
-    } else {
-  int ask_fd;
-  struct sockaddr_in remote_addr;
-  socklen_t remote_len;
-  if ((ask_fd = socket (PF_INET, SOCK_DGRAM, 0)) < 0)
-    {
-      perror ("socket()");
+  if (get) {
+    hostname = get;
+  } else {
+
+    int ask_fd;
+    struct sockaddr_in remote_addr;
+    socklen_t remote_len;
+    if ((ask_fd = socket (PF_INET, SOCK_DGRAM, 0)) < 0)
+      {
+        perror ("socket()");
+        return 0;
+      }
+
+    int optval = 1;
+    if (setsockopt (ask_fd, SOL_SOCKET, SO_BROADCAST, &optval, sizeof(optval)) < 0)
+      {
+        perror ("setsockopt()");
+        close (ask_fd);
+        return 0;
+      }
+
+    struct ifaddrs *addrs;
+    int ret = getifaddrs(&addrs);
+
+    if ( ret < 0 )
       return 0;
-    }
-  int optval = 1;
-  if (setsockopt (ask_fd, SOL_SOCKET, SO_BROADCAST, &optval, sizeof(optval)) < 0)
-    {
-      perror ("setsockopt()");
-      close (ask_fd);
-      return 0;
-    }
-  remote_addr.sin_family = AF_INET;
-  remote_addr.sin_port = htons (8765);
-  remote_addr.sin_addr.s_addr = INADDR_BROADCAST;
-  char buf = 42, buf2;
-  if (sendto (ask_fd, &buf, 1, 0, (struct sockaddr*)&remote_addr,
-  	      sizeof (remote_addr)) != 1)
-    {
-      perror ("sendto()");
-      close (ask_fd);
-      return 0;
-    }
-  fd_set read_set;
-  FD_ZERO (&read_set);
-  FD_SET (ask_fd, &read_set);
-  struct timeval tv;
-  tv.tv_sec = 5;
-  tv.tv_usec = 0;
-  if (select (ask_fd + 1, &read_set, NULL, NULL, &tv) != 1)
-    {
-      /* Normally this is a timeout, i.e. no scheduler there.  */
-      if (errno)
-        perror ("waiting for scheduler");
-      close (ask_fd);
-      return 0;
-    }
-  remote_len = sizeof (remote_addr);
-  if (recvfrom (ask_fd, &buf2, 1, 0, (struct sockaddr*) &remote_addr,
-		&remote_len) != 1)
-    {
-      perror ("recvfrom()");
-      close (ask_fd);
-      return 0;
-    }
-  close (ask_fd);
-  if (buf + 1 != buf2)
-    {
-      fprintf (stderr, "wrong answer\n");
-      return 0;
-    }
-  hostname = inet_ntoa (remote_addr.sin_addr);
-  sport = ntohs( remote_addr.sin_port );
+
+    char buf = 42, buf2;
+    for (struct ifaddrs *addr = addrs; addr != NULL; addr = addr->ifa_next)
+      {
+        /*
+         * See if this interface address is IPv4...
+         */
+
+        if (addr->ifa_addr == NULL || addr->ifa_addr->sa_family != AF_INET ||
+            addr->ifa_netmask == NULL || addr->ifa_name == NULL)
+          continue;
+
+        if (addr->ifa_dstaddr)
+          {
+            log_info() << "broadcast " << inet_ntoa( ( ( sockaddr_in* )addr->ifa_dstaddr )->sin_addr ) << endl;
+
+            remote_addr.sin_family = AF_INET;
+            remote_addr.sin_port = htons (8765);
+            remote_addr.sin_addr = ( ( sockaddr_in* )addr->ifa_dstaddr )->sin_addr ;
+
+            if (sendto (ask_fd, &buf, 1, 0, (struct sockaddr*)&remote_addr,
+                        sizeof (remote_addr)) != 1)
+              {
+                perror ("sendto()");
+              }
+          }
+      }
+    freeifaddrs( addrs );
+
+    fd_set read_set;
+    FD_ZERO (&read_set);
+    FD_SET (ask_fd, &read_set);
+    struct timeval tv;
+    tv.tv_sec = 5;
+    tv.tv_usec = 0;
+    if (select (ask_fd + 1, &read_set, NULL, NULL, &tv) != 1)
+      {
+        /* Normally this is a timeout, i.e. no scheduler there.  */
+        if (errno)
+          perror ("waiting for scheduler");
+        close (ask_fd);
+        return 0;
+      }
+    remote_len = sizeof (remote_addr);
+    if (recvfrom (ask_fd, &buf2, 1, 0, (struct sockaddr*) &remote_addr,
+                  &remote_len) != 1)
+      {
+        perror ("recvfrom()");
+        close (ask_fd);
+        return 0;
+      }
+    close (ask_fd);
+    if (buf + 1 != buf2)
+      {
+        fprintf (stderr, "wrong answer\n");
+        return 0;
+      }
+    hostname = inet_ntoa (remote_addr.sin_addr);
+    sport = ntohs( remote_addr.sin_port );
   }
 
   printf ("scheduler is on %s:%d\n", hostname.c_str(), sport);
@@ -443,14 +478,14 @@ write_strlist (int fd, const list<string> &l)
 bool
 Msg::fill_from_fd (int fd)
 {
-    assert( fd != 0 );
+  assert( fd != 0 );
   return true;
 }
 
 bool
 Msg::send_to_fd (int fd) const
 {
-    assert( fd != 0 );
+  assert( fd != 0 );
   return writeuint (fd, (unsigned int) type);
 }
 
