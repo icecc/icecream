@@ -17,8 +17,7 @@ then
 -Wshadow -Wpointer-arith -Wcast-align -Wwrite-strings \
 -Waggregate-return -Wstrict-prototypes -Wmissing-prototypes \
 -Wnested-externs $CFLAGS"
-    CXXFLAGS="-W -Wall -Wimplicit \
--Wshadow -Wpointer-arith -Wcast-align -Wwrite-strings \
+    CXXFLAGS="-W -Wall -Wimplicit -Wpointer-arith -Wcast-align -Wwrite-strings \
 -Wstrict-prototypes -Wmissing-prototypes $CXXFLAGS"
     AC_MSG_NOTICE([Adding gcc options: $CFLAGS])
 fi
@@ -148,6 +147,6 @@ dnl Checks for library functions
 AC_CHECK_FUNCS(memcmp memcpy memmove memset)
 dnl === END LZO
 
-AC_CONFIG_FILES([Makefile minilzo/Makefile client/Makefile daemon/Makefile services/Makefile])
+AC_CONFIG_FILES([Makefile minilzo/Makefile client/Makefile daemon/Makefile mon/Makefile services/Makefile])
 AC_OUTPUT
 
