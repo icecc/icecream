@@ -1,7 +1,7 @@
 INCLUDES = -I$(srcdir)/../services
 
 bin_PROGRAMS = icecc
-icecc_SOURCES = main.cpp arg.cpp argutil.cpp climasq.cpp clinet.cpp \
+icecc_SOURCES = main.cpp arg.cpp climasq.cpp clinet.cpp \
 	cpp.cpp exec.cpp filename.cpp implicit.cpp netutil.cpp io.cpp \
 	safeguard.cpp sendfile.cpp strip.cpp tempfile.cpp util.cpp
 

@@ -55,6 +55,8 @@
 #include "filename.h"
 #include "distcc.h"
 
+#include <job.h>
+
 /* Name of this program, for trace.c */
 const char *const rs_program_name = "icecc";
 
@@ -212,7 +214,7 @@ static int dcc_build_somewhere(char *argv[],
         goto run_local;
 
     /* TODO: Perhaps tidy up these gotos. */
-
+#if 0
     if (dcc_scan_args(argv, &input_fname, &output_fname, &argv) != 0) {
         /* we need to scan the arguments even if we already know it's
          * local, so that we can pick up distcc client options. */
@@ -235,6 +237,7 @@ static int dcc_build_somewhere(char *argv[],
         log_info() << "write of arguments failed" << endl;
         goto run_local;
     }
+#endif
 
     if (pipe(sockets)) {
         /* for all possible cases, this is something severe */
@@ -327,6 +330,12 @@ int main(int argc, char **argv)
     dcc_ignore_sigpipe(1);
 
     sg_level = dcc_recursion_safeguard();
+
+    CompileJob::ArgumentsList local_args;
+    CompileJob::ArgumentsList remote_args;
+    CompileJob::ArgumentsList rest_args;
+    string outfile;
+    analyse_argv( argv, local_args, remote_args, rest_args, outfile );
 
     if (strncmp(compiler_name, rs_program_name, strlen(rs_program_name)) == 0) {
         /* Either "icecc(++) -c hello.c" or "distcc gcc|g++ -c hello.c" */
