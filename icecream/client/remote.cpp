@@ -1,31 +1,24 @@
 #include "config.h"
-#include <job.h>
-#include "local.h"
-#include "exitcode.h"
-#include "logging.h"
-#include "filename.h"
-#include "cpp.h"
-#include <cassert>
-#include <comm.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <fcntl.h>
 
-#ifdef __linux__
-#include <sys/sendfile.h>
-#endif
-
-#ifdef __FreeBSD__
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <sys/stat.h>
+#include <sys/wait.h>
+
+#ifdef __FreeBSD__
+// Grmbl  Why is this needed?  We don't use readv/writev
 #include <sys/uio.h>
 #ifndef O_LARGEFILE
 #define O_LARGEFILE	(0)
 #endif
 #endif
 
+#include <fcntl.h>
 #include <signal.h>
-#include <sys/wait.h>
+#include <assert.h>
+
+#include <comm.h>
+#include "client.h"
 
 using namespace std;
 
@@ -201,7 +194,7 @@ int build_remote(CompileJob &job, MsgChannel *scheduler )
         FileChunkMsg *fcmsg = dynamic_cast<FileChunkMsg*>( msg );
         if ( write( obj_fd, fcmsg->buffer, fcmsg->len ) != ( ssize_t )fcmsg->len )
             return EXIT_DISTCC_FAILED;
-        }
+    }
 
     close( obj_fd );
     return status;

@@ -1,14 +1,14 @@
-#include <string>
-#include <job.h>
-#include "exitcode.h"
+#include "config.h"
+
 #include <sys/types.h>
 #include <sys/stat.h>
-#include <unistd.h>
-#include <errno.h>
-#include "logging.h"
-#include "filename.h"
-#include <comm.h>
 #include <sys/wait.h>
+#include <unistd.h>
+#include <string.h>
+#include <errno.h>
+
+#include <comm.h>
+#include "client.h"
 
 using namespace std;
 
@@ -76,7 +76,7 @@ string find_compiler( const string &compiler )
  **/
 int build_local(CompileJob &job, MsgChannel *scheduler)
 {
-    std::list<string> arguments;
+    list<string> arguments;
 
     string compiler_name = "gcc";
     if ( job.language() == CompileJob::Lang_CXX )
@@ -96,7 +96,7 @@ int build_local(CompileJob &job, MsgChannel *scheduler)
     }
     char **argv = new char*[arguments.size() + 1];
     int argc = 0;
-    for ( std::list<string>::const_iterator it = arguments.begin();
+    for ( list<string>::const_iterator it = arguments.begin();
           it != arguments.end(); ++it )
         argv[argc++] = strdup( it->c_str() );
     argv[argc] = 0;

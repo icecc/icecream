@@ -26,74 +26,19 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
-#include <fcntl.h>
 #include <errno.h>
+#include <fcntl.h>
 #include <signal.h>
-#include <netdb.h>
 
-#include <sys/stat.h>
-#include <sys/time.h>
-
-#ifdef HAVE_SYS_RESOURCE_H
-#include <sys/resource.h>
-#endif
-
-#include <sys/param.h>
-
-#include "util.h"
 #include "exitcode.h"
 #include "logging.h"
+#include "util.h"
 
 using namespace std;
-
-			/* I will make a man more precious than fine
-			 * gold; even a man than the golden wedge of
-			 * Ophir.
-			 *		-- Isaiah 13:12 */
-
-
-int str_endswith(const char *tail, const char *tiger)
-{
-        size_t len_tail = strlen(tail);
-	size_t len_tiger = strlen(tiger);
-
-	if (len_tail > len_tiger)
-		return 0;
-
-	return !strcmp(tiger + len_tiger - len_tail, tail);
-}
-
 
 int str_startswith(const char *head, const char *worm)
 {
     return !strncmp(head, worm, strlen(head));
-}
-
-
-
-/**
- * Skim through NULL-terminated @p argv, looking for @p s.
- **/
-int argv_contains(char **argv, const char *s)
-{
-	while (*argv) {
-		if (!strcmp(*argv, s))
-			return 1;
-		argv++;
-	}
-	return 0;
-}
-
-char *dcc_gethostname(void)
-{
-    static char myname[100] = "\0";
-
-    if (!myname[0]) {
-        if (gethostname(myname, sizeof myname - 1) == -1)
-            strcpy(myname, "UNKNOWN");
-    }
-
-    return myname;
 }
 
 /**
@@ -119,7 +64,6 @@ int set_cloexec_flag (int desc, int value)
     return fcntl (desc, F_SETFD, oldflags);
 }
 
-
 /**
  * Ignore or unignore SIGPIPE.
  *
@@ -138,75 +82,15 @@ int dcc_ignore_sigpipe(int val)
     return 0;
 }
 
-/* Return the supplied path with the current-working directory prefixed (if
- * needed) and all "dir/.." references removed.  Supply path_len if you want
- * to use only a substring of the path string, otherwise make it 0. */
-char *dcc_abspath(const char *path, int path_len)
+/**
+ * Return a pointer to the basename of the file (everything after the
+ * last slash.)  If there is no slash, return the whole filename,
+ * which is presumably in the current directory.
+ **/
+string find_basename(const string &sfile)
 {
-    static char buf[MAXPATHLEN];
-    unsigned len;
-    char *p, *slash;
-
-    if (*path == '/')
-        len = 0;
-    else {
-#ifdef HAVE_GETCWD
-        getcwd(buf, sizeof buf);
-#else
-        getwd(buf);
-#endif
-        len = strlen(buf);
-        if (len >= sizeof buf) {
-            log_error() << "getwd overflowed in dcc_abspath()" << endl;
-            abort();
-        }
-        buf[len++] = '/';
-    }
-    if (path_len <= 0)
-        path_len = strlen(path);
-    if (path_len >= 2 && *path == '.' && path[1] == '/') {
-	path += 2;
-	path_len -= 2;
-    }
-    if (len + (unsigned)path_len >= sizeof buf) {
-        log_error() << "path overflowed in dcc_abspath()" << endl;
-        exit(EXIT_OUT_OF_MEMORY);
-    }
-    strncpy(buf + len, path, path_len);
-    buf[len + path_len] = '\0';
-    for (p = buf+len-(len > 0); (p = strstr(p, "/../")) != NULL; p = slash) {
-	*p = '\0';
-	if (!(slash = strrchr(buf, '/')))
-	    slash = p;
-	strcpy(slash, p+3);
-    }
-    return buf;
+    size_t index = sfile.find_last_of( '/' );
+    if ( index == string::npos )
+        return sfile;
+    return sfile.substr( index + 1);
 }
-
-
-int dcc_remove_if_exists(const char *fname)
-{
-    if (unlink(fname) && errno != ENOENT) {
-        log_warning() << "failed to unlink " << fname << ": "
-                      << strerror(errno) << endl;
-        return EXIT_IO_ERROR;
-    }
-    return 0;
-}
-
-
-#ifndef HAVE_STRLCPY
-/* like strncpy but does not 0 fill the buffer and always null
-   terminates. bufsize is the size of the destination buffer */
- size_t strlcpy(char *d, const char *s, size_t bufsize)
-{
-	size_t len = strlen(s);
-	size_t ret = len;
-	if (bufsize <= 0) return 0;
-	if (len >= bufsize) len = bufsize-1;
-	memcpy(d, s, len);
-	d[len] = 0;
-	return ret;
-}
-#endif
-

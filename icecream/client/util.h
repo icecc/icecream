@@ -20,25 +20,13 @@
  * USA
  */
 
-#include "distcc.h"
+#include <string>
 
 /* util.c */
-int argv_contains(char **argv, const char *s);
-int str_startswith(const char *head, const char *worm);
-char *dcc_gethostname(void);
+int str_startswith (const char *head, const char *worm);
 int set_cloexec_flag (int desc, int value);
-int dcc_ignore_sigpipe(int val);
-int dcc_remove_if_exists(const char *fname);
-int dcc_set_path(const char *newpath);
-char *dcc_abspath(const char *path, int path_len);
+int dcc_ignore_sigpipe (int val);
 
 #define str_equal(a, b) (!strcmp((a), (b)))
 
-
-
-int dcc_dup_part(const char **psrc, char **pdst, const char *sep);
-
-#ifndef HAVE_STRLCPY
-size_t strlcpy(char *d, const char *s, size_t bufsize);
-#endif
-
+std::string find_basename(const std::string &sfile);

@@ -27,16 +27,10 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
-#include <fcntl.h>
 #include <errno.h>
-#include <cassert>
+#include <assert.h>
 
-#include <sys/stat.h>
-
-#include "logging.h"
-#include "util.h"
-#include "filename.h"
-#include "arg.h"
+#include "client.h"
 
 using namespace std;
 
@@ -47,7 +41,7 @@ static string concat_args( const list<string> &list )
 {
     int len = list.size() - 1;
     string result = "\"";
-    for ( std::list<std::string>::const_iterator it = list.begin();
+    for ( list<string>::const_iterator it = list.begin();
           it != list.end(); ++it, len-- ) {
         result += *it;
         if ( len )

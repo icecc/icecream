@@ -32,12 +32,10 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
-#include <assert.h>
 #include <errno.h>
+#include <assert.h>
 
-#include "logging.h"
-#include "util.h"
-#include "cpp.h"
+#include "client.h"
 
 using namespace std;
 
@@ -75,9 +73,9 @@ pid_t call_cpp(CompileJob &job, int fd)
         if (ret)    /* set handler back to default */
             exit(ret);
 
-        list<string> list = job.localFlags();
-        appendList( list, job.restFlags() );
-        int argc = list.size();
+        list<string> flags = job.localFlags();
+        appendList( flags, job.restFlags() );
+        int argc = flags.size();
         argc++; // the program
         argc += 2; // -E file.i
         char **argv = new char*[argc + 1];
@@ -88,8 +86,8 @@ pid_t call_cpp(CompileJob &job, int fd)
         else
             assert(0);
         int i = 1;
-        for ( std::list<std::string>::const_iterator it = list.begin();
-              it != list.end(); ++it) {
+        for ( list<string>::const_iterator it = flags.begin();
+              it != flags.end(); ++it) {
             argv[i++] = strdup( it->c_str() );
         }
         argv[i++] = strdup( "-E" );
@@ -113,5 +111,3 @@ pid_t call_cpp(CompileJob &job, int fd)
     } else
         return pid;
 }
-
-

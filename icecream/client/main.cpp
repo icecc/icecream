@@ -44,16 +44,9 @@
 #include <signal.h>
 #include <cassert>
 
-#include "logging.h"
-
-#include "arg.h"
-#include "util.h"
-#include "filename.h"
-#include "remote.h"
-#include "local.h"
-
 #include <comm.h>
-#include <job.h>
+
+#include "client.h"
 
 /* Name of this program, for trace.c */
 const char * rs_program_name = "icecc";

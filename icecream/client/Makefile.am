@@ -1,8 +1,7 @@
 INCLUDES = -I$(srcdir)/../services
 
 bin_PROGRAMS = icecc
-icecc_SOURCES = main.cpp arg.cpp cpp.cpp filename.cpp io.cpp \
-	remote.cpp sendfile.cpp tempfile.cpp util.cpp local.cpp
+icecc_SOURCES = main.cpp arg.cpp cpp.cpp local.cpp remote.cpp util.cpp
 icecc_LDADD = ../services/libcommon.la
 
 CLEANFILES = icecc++
