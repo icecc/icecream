@@ -41,7 +41,7 @@ static string concat_args( const list<string> &list )
 {
     int len = list.size() - 1;
     string result = "\"";
-    for ( list<string>::const_iterator it = list.begin();
+    for ( std::list<string>::const_iterator it = list.begin();
           it != list.end(); ++it, len-- ) {
         result += *it;
         if ( len )
