@@ -322,10 +322,13 @@ connect_scheduler ()
   const char *get = getenv( "USE_SCHEDULER" );
   string hostname;
   unsigned int sport = 8765;
+  char buf2[16];
+  char *netname;
 
   if (get)
     {
       hostname = get;
+      netname = "";
     }
   else
     {
@@ -352,7 +355,7 @@ connect_scheduler ()
       if ( ret < 0 )
         return 0;
 
-      char buf = 42, buf2;
+      char buf = 42;
       for (struct ifaddrs *addr = addrs; addr != NULL; addr = addr->ifa_next)
         {
           /*
@@ -411,24 +414,26 @@ connect_scheduler ()
           return 0;
         }
       remote_len = sizeof (remote_addr);
-      if (recvfrom (ask_fd, &buf2, 1, 0, (struct sockaddr*) &remote_addr,
-                    &remote_len) != 1)
+      if (recvfrom (ask_fd, &buf2, sizeof (buf2), 0, (struct sockaddr*) &remote_addr,
+                    &remote_len) != sizeof (buf2))
         {
           perror ("recvfrom()");
           close (ask_fd);
           return 0;
         }
       close (ask_fd);
-      if (buf + 1 != buf2)
+      if (buf + 1 != buf2[0])
         {
           fprintf (stderr, "wrong answer\n");
           return 0;
         }
       hostname = inet_ntoa (remote_addr.sin_addr);
       sport = ntohs( remote_addr.sin_port );
+      netname = buf2 + 1;
     }
 
-  printf ("scheduler is on %s:%d\n", hostname.c_str(), sport);
+  printf ("scheduler is on %s:%d (net %s)\n", hostname.c_str(), sport,
+	  netname);
   Service *sched = new Service (hostname, sport);
   return sched->channel();
 }

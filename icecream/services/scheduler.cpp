@@ -457,10 +457,10 @@ main (int /*argc*/, char * /*argv*/ [])
       if (max_fd && FD_ISSET (broad_fd, &read_set))
         {
 	  max_fd--;
-	  char buf;
+	  char buf[16];
 	  struct sockaddr_in broad_addr;
 	  socklen_t broad_len = sizeof (broad_addr);
-	  if (recvfrom (broad_fd, &buf, 1, 0, (struct sockaddr*) &broad_addr,
+	  if (recvfrom (broad_fd, buf, 1, 0, (struct sockaddr*) &broad_addr,
 			&broad_len) != 1)
 	    {
 	      perror ("recvfrom()");
@@ -470,9 +470,12 @@ main (int /*argc*/, char * /*argv*/ [])
 	    {
 	      printf ("broadcast from %s:%d\n", inet_ntoa (broad_addr.sin_addr),
 		      ntohs (broad_addr.sin_port));
-	      buf++;
-	      if (sendto (broad_fd, &buf, 1, 0, (struct sockaddr*)&broad_addr,
-		          broad_len) != 1)
+	      buf[0]++;
+	      memset (buf + 1, 0, sizeof (buf) - 1);
+	      snprintf (buf + 1, sizeof (buf) - 1, "ICECREAM");
+	      buf[sizeof (buf) - 1] = 0;
+	      if (sendto (broad_fd, buf, sizeof (buf), 0,
+	      		  (struct sockaddr*)&broad_addr, broad_len) != sizeof (buf))
 		{
 		  perror ("sendto()");
 		}
