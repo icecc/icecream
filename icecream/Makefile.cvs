@@ -1,7 +1,14 @@
 
 all:
-	libtoolize --force --copy
-	aclocal
-	autoconf
-	autoheader
-	automake -a -f -c || :
+	if test -d ../admin; then \
+		rm -rf admin ;\
+		cp -a ../admin . ;\
+	fi
+
+	if ! test -d admin; then \
+		echo "Need admin in .." ;\
+		exit ;\
+	fi
+		
+
+	$(MAKE) -f admin/Makefile.common cvs

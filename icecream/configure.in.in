@@ -1,9 +1,14 @@
 # quite some macros are taken from distcc
 
 AC_PREREQ(2.53)
+
 AC_INIT(client/main.cpp)
+
+dnl This is so we can use kde-common
+AC_CONFIG_AUX_DIR(admin)
+
 AM_INIT_AUTOMAKE(icecream, "0.1")
-AC_CONFIG_HEADERS(config.h)
+AM_CONFIG_HEADER(config.h)
 AC_CANONICAL_HOST
 
 dnl Checks for programs
@@ -147,5 +152,3 @@ dnl Checks for library functions
 AC_CHECK_FUNCS(memcmp memcpy memmove memset)
 dnl === END LZO
 
-AC_CONFIG_FILES([Makefile minilzo/Makefile client/Makefile daemon/Makefile mon/Makefile services/Makefile])
-AC_OUTPUT
