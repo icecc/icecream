@@ -12,6 +12,18 @@
 #include <unistd.h>
 #include <sys/fcntl.h>
 #include <sys/wait.h>
+
+#ifdef __FreeBSD__
+#include <signal.h>
+#include <sys/resource.h>
+#ifndef RUSAGE_SELF
+#define   RUSAGE_SELF     (0)
+#endif
+#ifndef RUSAGE_CHILDREN
+#define   RUSAGE_CHILDREN     (-1)
+#endif
+#endif
+
 #include <errno.h>
 #include <string>
 
