@@ -135,8 +135,6 @@ int main(int argc, char **argv)
                 return 0;
             }
         }
-        dcc_show_usage();
-        return 0;
     }
 
     /* Ignore SIGPIPE; we consistently check error codes and will
