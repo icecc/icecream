@@ -71,6 +71,7 @@
 #include <sys/param.h>
 
 #include "exitcode.h"
+#include "client_comm.h"
 
 /**
  * Ignore or unignore SIGPIPE.
@@ -166,7 +167,6 @@ static int dcc_check_compiler_masq(char *compiler_name)
 int run_job(int in_fd,
             int out_fd)
 {
-    char **argv;
     int status;
     char *temp_i, *temp_o, *err_fname, *out_fname;
     int ret, compile_ret;
@@ -179,26 +179,66 @@ int run_job(int in_fd,
      * from the compiler */
     dcc_ignore_sigpipe(1);
 
+    Client_Message m;
+    client_read_message( in_fd, &m );
+    if ( m.type != C_VERSION && ( int )m.length != ICECC_PROTO_VERSION ) {
+        close( in_fd );
+        close( out_fd );
+        return EXIT_PROTOCOL_ERROR;
+    }
+
+    ret = client_read_message( in_fd, &m );
+    if ( ret )
+        return ret;
+
+    if ( m.type != C_ARGC )
+        return EXIT_PROTOCOL_ERROR;
+
+    int argc = m.length;
+    printf( "argc = %d\n", argc );
+    char **argv = new char*[argc + 1];
+    for ( int i = 0; i < argc; i++ ) {
+        ret = client_read_message( in_fd, &m );
+        if ( ret )
+            return ret;
+        if ( m.type != C_ARGV )
+            return EXIT_PROTOCOL_ERROR;
+        argv[i] = new char[m.length + 1];
+        read( in_fd, argv[i], m.length );
+        argv[i][m.length] = 0;
+        printf( "argv[%d] = '%s'\n", i, argv[i] );
+    }
+    argv[argc] = 0;
+
+    // TODO: PROF data if available
+
+    size_t preproc_length = 0;
+    size_t preproc_bufsize = 8192;
+    char *preproc = ( char* )malloc( preproc_bufsize );
+
+    while ( 1 ) {
+        ret = client_read_message( in_fd, &m );
+        if ( ret )
+            return ret;
+
+        if ( m.type == C_DONE )
+            break;
+
+        if ( m.type != C_PREPROC )
+            return EXIT_PROTOCOL_ERROR;
+        if ( preproc_length + m.length > preproc_bufsize ) {
+            preproc_bufsize *= 2;
+            preproc = (char* )realloc(preproc, preproc_bufsize);
+            preproc_bufsize *= 2;
+        }
+        if ( read( in_fd, preproc + preproc_length, m.length ) != m.length )
+            return EXIT_PROTOCOL_ERROR;
+        preproc_length += m.length;
+    }
+
+    printf( "got it %d\n", preproc_length );
+
 #if 0
-    if ((ret = dcc_r_request_header(in_fd, &protover))
-        || (ret = dcc_r_argv(in_fd, &argv))
-        || (ret = dcc_scan_args(argv, &orig_input, &orig_output, &argv)))
-        goto out_cleanup;
-
-    rs_trace("output file %s", orig_output);
-
-    if ((ret = dcc_input_tmpnam(orig_input, &temp_i)))
-        goto out_cleanup;
-    if ((ret = dcc_make_tmpnam("distccd", ".o", &temp_o)))
-        goto out_cleanup;
-
-    //    compr = (protover == 2) ? DCC_COMPRESS_LZO1X : DCC_COMPRESS_NONE;
-
-    if ((ret = dcc_r_token_file(in_fd, "DOTI", temp_i, compr))
-        || (ret = dcc_set_input(argv, temp_i))
-        || (ret = dcc_set_output(argv, temp_o)))
-        goto out_cleanup;
-
     if ((ret = dcc_check_compiler_masq(argv[0])))
         goto out_cleanup;
 
@@ -226,10 +266,10 @@ int run_job(int in_fd,
 
     // rs_log(RS_LOG_INFO|RS_LOG_NONAME, "job complete");
 
+#endif
     out_cleanup:
     // dcc_remove_log_to_file();
     // dcc_cleanup_tempfiles();
-#endif
 
     return ret;
 }
