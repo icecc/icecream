@@ -575,7 +575,7 @@ Service::Service (const string &hostname, unsigned short p)
   len = sizeof (remote_addr);
   addr = (struct sockaddr *)malloc (len);
   memcpy (addr, &remote_addr, len);
-  name = hostname;
+  name = inet_ntoa (remote_addr.sin_addr);
   port = p;
   last_talk = time( 0 );
   createChannel( remote_fd );
