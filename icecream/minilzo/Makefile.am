@@ -44,3 +44,7 @@ AM_CFLAGS = $(L_CFLAGS) $(A_CFLAGS_W) $(L_CFLAGS_W) $(LZO_CFLAGS) $(LZO_DEBUG)
 
 libminilzo_la_SOURCES = minilzo.c
 noinst_LTLIBRARIES = libminilzo.la
+noinst_HEADERS = lzoconf.h minilzo.h
+
+EXTRA_DIST = README.LZO 
+
