@@ -1,6 +1,6 @@
-usr/bin/create-env usr/bin/icecc-create-env
-usr/bin/icecc
-usr/bin/iceccd usr/sbin/
-usr/bin/scheduler usr/sbin/icecc-scheduler
-usr/lib/icecc/bin/g++
-usr/lib/icecc/bin/gcc
+debian/tmp/usr/bin/icecc
+debian/tmp/usr/bin/icecc-create-env
+debian/tmp/usr/bin/icecc-scheduler
+debian/tmp/usr/bin/iceccd usr/sbin/
+debian/tmp/usr/lib/icecc/bin/g++
+debian/tmp/usr/lib/icecc/bin/gcc

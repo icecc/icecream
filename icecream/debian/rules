@@ -143,7 +143,7 @@ clean:
 		$(MAKE) distclean; \
 	fi
 
-	if test -d CVS; then \
+#	if test -d CVS; then \
 		$(MAKE) -f admin/Makefile.common cvs-clean ;\
 	fi
 
@@ -163,6 +163,8 @@ install-arch:
 	mkdir -p $(CURDIR)/debian/tmp/usr/lib/icecc/bin
 	ln -s /usr/bin/icecc $(CURDIR)/debian/tmp/usr/lib/icecc/bin/gcc 
 	ln -s /usr/bin/icecc $(CURDIR)/debian/tmp/usr/lib/icecc/bin/g++
+
+	(cd $(CURDIR)/debian/tmp/usr/bin ; mv scheduler icecc-scheduler ; mv create-env icecc-create-env)
 
 	dh_install -s
 
