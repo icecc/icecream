@@ -97,6 +97,7 @@ public:
   unsigned int remote_port;
   unsigned int hostid;
   string nodename;
+  bool busy_installing;
 
     // unsigned int jobs_done;
     //  unsigned long long rcvd_kb, sent_kb;
@@ -111,6 +112,7 @@ public:
     : Service(_addr, _len), load(1000), max_jobs(0), state(CONNECTED),
       type(UNKNOWN) {
     hostid = 0;
+    busy_installing = false;
   }
   void pick_new_id() {
     assert( !hostid );
@@ -406,8 +408,10 @@ envs_match( CS* cs, const string &env )
 }
 
 static bool
-can_install( CS*, const string & )
+can_install( CS* cs, const string & )
 {
+  if ( cs->busy_installing )
+    return false;
   return true; // TODO/XXX: uname call
 }
 
@@ -593,6 +597,7 @@ empty_queue()
       cs->joblist.push_back( job );
       if ( !gotit ) { // if we made the environment transfer, don't rely on the list
         cs->compiler_versions.clear();
+        cs->busy_installing = true;
       }
     }
   return true;
@@ -632,6 +637,7 @@ handle_relogin (MsgChannel *c, Msg *_m)
 
   CS *cs = static_cast<CS *>(c->other_end);
   cs->compiler_versions = m->envs;
+  cs->busy_installing = false;
 
   trace() << cs->name << ": [";
   for (list<string>::const_iterator it = m->envs.begin();

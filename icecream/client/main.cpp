@@ -182,7 +182,7 @@ int main(int argc, char **argv)
         ret = build_local( job, scheduler );
     else {
         try {
-            ret = build_remote( job, scheduler );
+            ret = build_remote( job, scheduler, 200 ); // every 5th is compiled three times
         } catch ( int error ) {
             delete scheduler;
             return build_local( job, 0 );

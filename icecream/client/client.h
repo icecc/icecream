@@ -19,7 +19,7 @@ pid_t call_cpp (CompileJob &job, int fd);
 /* In local.cpp.  */
 int build_local (CompileJob& job, MsgChannel *scheduler);
 
-/* In remote.cpp.  */
-int build_remote (CompileJob &job, MsgChannel *scheduler);
+/* In remote.cpp - permill is the probability it will be compiled three times */
+int build_remote (CompileJob &job, MsgChannel *scheduler, int permill);
 
 #endif

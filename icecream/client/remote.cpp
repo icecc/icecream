@@ -284,14 +284,18 @@ string md5_for_file( const string & file )
     return result;
 }
 
-int build_remote(CompileJob &job, MsgChannel *scheduler )
+int build_remote(CompileJob &job, MsgChannel *scheduler, int permill )
 {
     char *get = getenv( "ICECC_VERSION");
     string version_file = "*";
     if ( get )
         version_file = get;
 
+    srand( time( 0 ) );
+
     int torepeat = 1;
+    if ( rand() % 1000 < permill )
+        torepeat = 3;
 
     string version = version_file;
     string suff = ".tar.bz2";
@@ -331,9 +335,7 @@ int build_remote(CompileJob &job, MsgChannel *scheduler )
 
             umsgs[i] = get_server( scheduler );
             trace() << "got_server_for_job " << umsgs[i]->hostname << endl;
-        }
 
-        for ( int i = 0; i < torepeat; i++ ) {
             pid_t pid = fork();
             if ( !pid ) {
                 int ret = -1;
@@ -361,7 +363,6 @@ int build_remote(CompileJob &job, MsgChannel *scheduler )
                 status = -1;
             } else {
                 exit_codes[jobmap[pid]] = status;
-                trace() << "status " << jobmap[pid] << " " << status << endl;
             }
         }
 
