@@ -301,7 +301,7 @@ pick_server(Job *job)
     {
       for (it = css.begin(); it != css.end(); ++it)
         if ((*it)->joblist.size() < (*it)->max_jobs
-	    && (*it)->load < 1000 && envs_match( *it, environment ))
+	    && (*it)->load < 1000 && can_install( *it, environment ) )
           return *it;
       return 0;
     }
