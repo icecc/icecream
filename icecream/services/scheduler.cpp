@@ -983,13 +983,8 @@ handle_job_done (MsgChannel *c, Msg *_m)
     {
       int id = it->first;
       Job *c = it->second;
-      if ( new_job_id - id > 100 ) {
+      if (new_job_id - id > 100)
         trace() << "  undone: " << id << " state " << c->state << endl;
-        if ( first && c->state == Job::PENDING ) {
-          trace() << "first job is pending! Something is fishy\n";
-          abort();
-	}
-      }
       first = false;
     }
 #endif
