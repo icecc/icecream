@@ -145,6 +145,15 @@ static void dcc_daemon_terminate(int whichsig)
 
 int main( int /*argc*/, char ** /*argv*/ )
 {
+    while ( !scheduler ) {
+        scheduler = connect_scheduler ();
+        if ( !scheduler ) {
+            log_error() << "no scheduler found. Sleeping.\n";
+            sleep( 1 );
+        } else
+            break;
+    }
+
     const int START_PORT = 10245;
 
     // daemon(0, 0);
@@ -222,11 +231,13 @@ int main( int /*argc*/, char ** /*argv*/ )
     map<pid_t, unsigned int> jobmap;
 
     while ( 1 ) {
-        scheduler = connect_scheduler ();
         if ( !scheduler ) {
-            log_error() << "no scheduler found. Sleeping.\n";
-            sleep( 1 );
-            continue;
+            scheduler = connect_scheduler ();
+            if ( !scheduler ) {
+                log_error() << "no scheduler found. Sleeping.\n";
+                sleep( 1 );
+                continue;
+            }
         }
 
         scheduler->send_msg( LoginMsg( port ) );

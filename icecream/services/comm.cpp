@@ -323,93 +323,110 @@ connect_scheduler ()
   string hostname;
   unsigned int sport = 8765;
 
-  if (get) {
-    hostname = get;
-  } else {
+  if (get)
+    {
+      hostname = get;
+    }
+  else
+    {
+      int ask_fd;
+      struct sockaddr_in remote_addr;
+      socklen_t remote_len;
+      if ((ask_fd = socket (PF_INET, SOCK_DGRAM, 0)) < 0)
+        {
+          perror ("socket()");
+          return 0;
+        }
 
-    int ask_fd;
-    struct sockaddr_in remote_addr;
-    socklen_t remote_len;
-    if ((ask_fd = socket (PF_INET, SOCK_DGRAM, 0)) < 0)
-      {
-        perror ("socket()");
+      int optval = 1;
+      if (setsockopt (ask_fd, SOL_SOCKET, SO_BROADCAST, &optval, sizeof(optval)) < 0)
+        {
+          perror ("setsockopt()");
+          close (ask_fd);
+          return 0;
+        }
+
+      struct ifaddrs *addrs;
+      int ret = getifaddrs(&addrs);
+
+      if ( ret < 0 )
         return 0;
-      }
 
-    int optval = 1;
-    if (setsockopt (ask_fd, SOL_SOCKET, SO_BROADCAST, &optval, sizeof(optval)) < 0)
-      {
-        perror ("setsockopt()");
-        close (ask_fd);
-        return 0;
-      }
+      char buf = 42, buf2;
+      for (struct ifaddrs *addr = addrs; addr != NULL; addr = addr->ifa_next)
+        {
+          /*
+           * See if this interface address is IPv4...
+           */
 
-    struct ifaddrs *addrs;
-    int ret = getifaddrs(&addrs);
+          if (addr->ifa_addr == NULL || addr->ifa_addr->sa_family != AF_INET ||
+              addr->ifa_netmask == NULL || addr->ifa_name == NULL)
+            continue;
 
-    if ( ret < 0 )
-      return 0;
+          if ( ntohl( ( ( struct sockaddr_in* ) addr->ifa_addr )->sin_addr.s_addr ) == 0x7f000001 )
+            {
+              trace() << "ignoring localhost " << addr->ifa_name << endl;
+              continue;
+            }
 
-    char buf = 42, buf2;
-    for (struct ifaddrs *addr = addrs; addr != NULL; addr = addr->ifa_next)
-      {
-        /*
-         * See if this interface address is IPv4...
-         */
+          if ( ( addr->ifa_flags & IFF_POINTOPOINT ) || !( addr->ifa_flags & IFF_BROADCAST) )
+            {
+              log_info() << "ignoring tunnels " << addr->ifa_name << endl;
+              continue;
+            }
 
-        if (addr->ifa_addr == NULL || addr->ifa_addr->sa_family != AF_INET ||
-            addr->ifa_netmask == NULL || addr->ifa_name == NULL)
-          continue;
+          if ( addr->ifa_dstaddr )
+            {
+              log_info() << "broadcast "
+                         << addr->ifa_name << " "
+                         << inet_ntoa( ( ( sockaddr_in* )addr->ifa_dstaddr )->sin_addr )
+                         << endl;
 
-        if (addr->ifa_dstaddr)
-          {
-            log_info() << "broadcast " << inet_ntoa( ( ( sockaddr_in* )addr->ifa_dstaddr )->sin_addr ) << endl;
+              remote_addr.sin_family = AF_INET;
+              remote_addr.sin_port = htons (8765);
+              remote_addr.sin_addr = ( ( sockaddr_in* )addr->ifa_dstaddr )->sin_addr ;
 
-            remote_addr.sin_family = AF_INET;
-            remote_addr.sin_port = htons (8765);
-            remote_addr.sin_addr = ( ( sockaddr_in* )addr->ifa_dstaddr )->sin_addr ;
-
-            if (sendto (ask_fd, &buf, 1, 0, (struct sockaddr*)&remote_addr,
+              if (sendto (ask_fd, &buf, 1, 0, (struct sockaddr*)&remote_addr,
                         sizeof (remote_addr)) != 1)
-              {
-                perror ("sendto()");
-              }
-          }
-      }
-    freeifaddrs( addrs );
+                {
+                  perror ("sendto()");
+                }
+            }
+        }
+      freeifaddrs( addrs );
 
-    fd_set read_set;
-    FD_ZERO (&read_set);
-    FD_SET (ask_fd, &read_set);
-    struct timeval tv;
-    tv.tv_sec = 2;
-    tv.tv_usec = 0;
-    errno = 0;
-    if (select (ask_fd + 1, &read_set, NULL, NULL, &tv) <= 0)
-      {
-        /* Normally this is a timeout, i.e. no scheduler there.  */
-        if (errno)
-          perror ("waiting for scheduler");
-        close (ask_fd);
-        return 0;
-      }
-    remote_len = sizeof (remote_addr);
-    if (recvfrom (ask_fd, &buf2, 1, 0, (struct sockaddr*) &remote_addr,
-                  &remote_len) != 1)
-      {
-        perror ("recvfrom()");
-        close (ask_fd);
-        return 0;
-      }
-    close (ask_fd);
-    if (buf + 1 != buf2)
-      {
-        fprintf (stderr, "wrong answer\n");
-        return 0;
-      }
-    hostname = inet_ntoa (remote_addr.sin_addr);
-    sport = ntohs( remote_addr.sin_port );
-  }
+      fd_set read_set;
+      FD_ZERO (&read_set);
+      FD_SET (ask_fd, &read_set);
+      struct timeval tv;
+      tv.tv_sec = 2;
+      tv.tv_usec = 0;
+      errno = 0;
+      if (select (ask_fd + 1, &read_set, NULL, NULL, &tv) <= 0)
+        {
+          /* Normally this is a timeout, i.e. no scheduler there.  */
+          if (errno)
+            perror ("waiting for scheduler");
+          close (ask_fd);
+          return 0;
+        }
+      remote_len = sizeof (remote_addr);
+      if (recvfrom (ask_fd, &buf2, 1, 0, (struct sockaddr*) &remote_addr,
+                    &remote_len) != 1)
+        {
+          perror ("recvfrom()");
+          close (ask_fd);
+          return 0;
+        }
+      close (ask_fd);
+      if (buf + 1 != buf2)
+        {
+          fprintf (stderr, "wrong answer\n");
+          return 0;
+        }
+      hostname = inet_ntoa (remote_addr.sin_addr);
+      sport = ntohs( remote_addr.sin_port );
+    }
 
   printf ("scheduler is on %s:%d\n", hostname.c_str(), sport);
   Service *sched = new Service (hostname, sport);
