@@ -1,0 +1,3487 @@
+2004-09-05 12:13  Stephan Kulow <coolo@kde.org>
+
+	* client/local.cpp, client/remote.cpp, daemon/main.cpp,
+	  daemon/serve.cpp: don't make up exit codes
+
+2004-09-04 22:26  Stephan Kulow <coolo@kde.org>
+
+	* services/scheduler.cpp: less debug output
+
+2004-09-04 22:16  Stephan Kulow <coolo@kde.org>
+
+	* daemon/main.cpp: avoid a race between select and wait - loosing
+	  data on the road
+
+2004-09-04 19:18  Stephan Kulow <coolo@kde.org>
+
+	* client/client.h, client/local.cpp, client/main.cpp,
+	  client/remote.cpp, mon/monitor.cc, services/comm.cpp,
+	  services/comm.h, services/scheduler.cpp: tell the scheduler about
+	  local jobs in a child proces that is started right away to avoid
+	  any kind of delay (there is nothing the client waits on anyway)
+
+	  This speeds up calling configure in kdelibs by around 20% in my
+	  test system Said differently: This makes the icecream overhead
+	  for configure go from 50% to 11% (for a ~100% for teambuilder)
+
+2004-09-04 17:30  Stephan Kulow <coolo@kde.org>
+
+	* client/main.cpp, client/remote.cpp, daemon/main.cpp, mon/job.h,
+	  mon/joblistview.cc, mon/monitor.cc, services/comm.cpp,
+	  services/comm.h, services/scheduler.cpp: transfer min_flt too and
+	  summarize it in the scheduler log so I can figure what memory
+	  limits gcc fails on
+
+2004-09-04 10:14  Stephan Kulow <coolo@kde.org>
+
+	* client/local.cpp: another error not caused by the user but by the
+	  network
+
+2004-09-03 10:55  Stephan Kulow <coolo@kde.org>
+
+	* TODO, client/main.cpp, client/remote.cpp, daemon/main.cpp,
+	  services/comm.cpp, services/comm.h, services/scheduler.cpp: one
+	  class less to destruct
+
+2004-09-02 11:07  Stephan Kulow <coolo@kde.org>
+
+	* client/main.cpp, client/remote.cpp, services/comm.cpp,
+	  services/comm.h: for whatever reason these unblocking connects
+	  generate more problems than they are worth on most parts of the
+	  code - so use them only for the parts we need them
+
+2004-09-02 08:11  Stephan Kulow <coolo@kde.org>
+
+	* services/comm.cpp: these short time out are causing a lot of
+	  trouble. And as soon as the trouble starts, it's getting worse
+	  and worse ;(
+
+2004-09-01 18:28  David Faure <faure@kde.org>
+
+	* daemon/environment.cpp: More informative than just the assert.
+	  The problem was solved by "rm -rf /tmp/icecc-envs" btw.
+
+2004-09-01 17:54  Stephan Kulow <coolo@kde.org>
+
+	* daemon/environment.cpp: --enable-final rules the world
+
+2004-09-01 11:57  Stephan Kulow <coolo@kde.org>
+
+	* daemon/main.cpp: do not sleep just because we're overloaded
+
+2004-09-01 10:14  Stephan Kulow <coolo@kde.org>
+
+	* daemon/environment.cpp: I think I know now who eats my child pids
+	  (never hack in keynotes :) No child pids -> no job done messages
+
+2004-08-31 18:54  Stephan Kulow <coolo@kde.org>
+
+	* daemon/main.cpp, services/logging.h: trying to make sense of the
+	  log files
+
+2004-08-31 18:23  Stephan Kulow <coolo@kde.org>
+
+	* daemon/main.cpp: mean, mean regression: don't hang forever (and
+	  eat client connections) While I looked at the code I noticed a
+	  TODO to do
+
+2004-08-31 10:41  Stephan Kulow <coolo@kde.org>
+
+	* services/scheduler.cpp: * ignore the load of the submitter (it's
+	  all his fault) * increase grace interval
+
+2004-08-31 09:52  Stephan Kulow <coolo@kde.org>
+
+	* client/main.cpp: don't use log_error for things caused by the
+	  network not by the user
+
+2004-08-31 01:58  Thomas Capricelli <orzel@kde.org>
+
+	* services/logging.h: compile fix
+
+2004-08-30 22:09  Stephan Kulow <coolo@kde.org>
+
+	* services/scheduler.cpp: prefer servers with fewer load
+
+2004-08-30 22:01  Stephan Kulow <coolo@kde.org>
+
+	* services/scheduler.cpp: less debug output
+
+2004-08-30 22:00  Stephan Kulow <coolo@kde.org>
+
+	* daemon/environment.cpp, daemon/load.cpp, daemon/load.h,
+	  daemon/main.cpp, services/comm.cpp, services/comm.h,
+	  services/scheduler.cpp: try to calculate the load a bit more
+	  accurate so we take jobs that run niced in account and only
+	  substract our own load.
+
+2004-08-30 17:16  Stephan Kulow <coolo@kde.org>
+
+	* daemon/: Makefile.am, findmyself.cpp, findmyself.h, main.cpp:
+	  don't support this strange -w feature any longer (doesn't work
+	  with NFS, etc, etc)
+
+2004-08-30 16:06  Stephan Kulow <coolo@kde.org>
+
+	* services/scheduler.cpp: if the client exited, we give the job a
+	  different state. I see lately the effect, that the daemon misses
+	  to send the jobdone message, so this will help to indicate the
+	  problem
+
+2004-08-30 15:56  Stephan Kulow <coolo@kde.org>
+
+	* services/scheduler.cpp: put less output in the default debug
+
+2004-08-30 12:16  Stephan Kulow <coolo@kde.org>
+
+	* client/cpp.cpp, client/remote.cpp, client/util.cpp,
+	  daemon/environment.cpp, daemon/findmyself.cpp, daemon/main.cpp,
+	  daemon/serve.cpp, daemon/workit.cpp, services/Makefile.am,
+	  services/comm.cpp, services/job.cpp, services/receiver.cpp,
+	  services/scheduler.cpp, services/submitter.cpp: use log_perror
+	  everywhere
+
+2004-08-30 11:01  Stephan Kulow <coolo@kde.org>
+
+	* suse/sysconfig.icecream: fixing comments
+
+2004-08-30 10:15  Stephan Kulow <coolo@kde.org>
+
+	* services/comm.cpp: the daemon already did a DNS lookup, so spare
+	  this for the client and return the IP right away
+
+2004-08-30 10:03  Stephan Kulow <coolo@kde.org>
+
+	* services/comm.cpp: before I forget
+
+2004-08-30 09:50  Stephan Kulow <coolo@kde.org>
+
+	* client/Makefile.am: tricky. If you make -j, it goes in the client
+	  dir to create icecc from there while another make is busy doing
+	  it from the toplevel -> ugly file corruptions
+
+2004-08-29 22:27  Stephan Kulow <coolo@kde.org>
+
+	* services/comm.cpp: really remove debug output
+
+2004-08-29 22:25  Stephan Kulow <coolo@kde.org>
+
+	* services/scheduler.cpp: removing debug output as I verified the
+	  10s timeout works
+
+2004-08-29 22:19  Stephan Kulow <coolo@kde.org>
+
+	* services/: comm.cpp, logging.h: trying to support shorter time
+	  outs in connect
+
+2004-08-29 21:12  Stephan Kulow <coolo@kde.org>
+
+	* client/remote.cpp: firewalls are mean and crash the client on
+	  timeout
+
+2004-08-29 18:22  Stephan Kulow <coolo@kde.org>
+
+	* suse/init.icecream: this doesn't seem to work
+
+2004-08-29 18:10  Stephan Kulow <coolo@kde.org>
+
+	* client/main.cpp, services/scheduler.cpp: improving debug output
+
+2004-08-29 17:32  Stephan Kulow <coolo@kde.org>
+
+	* client/main.cpp: fixing mem leak on error case
+
+2004-08-29 17:25  Stephan Kulow <coolo@kde.org>
+
+	* TODO: run as user is dead (maybe we will later require a setuid
+	  wrapper to be installed, but that's another story) adding API
+	  cleanup as release critical
+
+2004-08-29 17:23  Stephan Kulow <coolo@kde.org>
+
+	* client/main.cpp: fixing (rather unlikely) memory corruption in
+	  the client found by Andreas Schwab 
+
+2004-08-29 16:12  Stephan Kulow <coolo@kde.org>
+
+	* mon/: joblistview.cc, starview.cc: fixing compile (with final)
+
+2004-08-29 14:34  Stephan Kulow <coolo@kde.org>
+
+	* suse/: init.icecream, sysconfig.icecream: create the log file as
+	  user icecream before starting the scheduler as user
+
+2004-08-29 14:01  Stephan Kulow <coolo@kde.org>
+
+	* daemon/environment.cpp, suse/init.icecream,
+	  suse/sysconfig.icecream: support more features of the daemon
+	  through sysconfig
+
+2004-08-29 13:41  Stephan Kulow <coolo@kde.org>
+
+	* client/create-env: clean up
+
+2004-08-29 13:29  André Wöbbeking <Woebbeking@web.de>
+
+	* mon/: detailedhostview.h, ganttstatusview.cc, ganttstatusview.h,
+	  hostview.cc, hostview.h, mon-kde.cc, mon-kde.h, monitor.cc,
+	  monitor.h, starview.cc, starview.h, statusview.cc, statusview.h,
+	  summaryview.cc, summaryview.h: cleanedup the includes
+
+2004-08-29 00:53  Stephan Kulow <coolo@kde.org>
+
+	* services/scheduler.cpp: rename the option to -r for consistency
+
+2004-08-28 19:05  André Wöbbeking <Woebbeking@web.de>
+
+	* mon/mon-kde.cc: fixed accelerator clash
+
+2004-08-28 19:01  André Wöbbeking <Woebbeking@web.de>
+
+	* mon/joblistview.cc: sort by job id (descending)
+
+2004-08-28 18:46  Michael Matz <matz@kde.org>
+
+	* services/scheduler.cpp: Maybe this looks better.
+
+2004-08-28 15:45  André Wöbbeking <Woebbeking@web.de>
+
+	* mon/detailedhostview.cc: David is right, outgoing jobs can also
+	  be incoming jobs
+
+2004-08-28 13:37  André Wöbbeking <Woebbeking@web.de>
+
+	* mon/starview.cc: skip hosts without name or which are offline
+
+2004-08-28 12:02  André Wöbbeking <Woebbeking@web.de>
+
+	* mon/joblistview.cc: JobListViewItem can be created for already
+	  finished jobs so expire them too
+
+2004-08-28 11:53  André Wöbbeking <Woebbeking@web.de>
+
+	* mon/: Makefile.am, detailedhostview.cc, detailedhostview.h,
+	  joblistview.cc, joblistview.h, listview.cc, listview.h: factored
+	  out the list view from ListStatusView into JobListView
+
+2004-08-28 10:50  André Wöbbeking <Woebbeking@web.de>
+
+	* mon/: hostlistview.cc, hostlistview.h: Reimplemented clear() to
+	  get rid of dangling pointers. Even if it's not called yet.
+
+2004-08-28 09:55  Stephan Kulow <coolo@kde.org>
+
+	* TODO, daemon/environment.cpp, daemon/environment.h,
+	  daemon/main.cpp, daemon/serve.cpp, daemon/serve.h: making it
+	  _way_ harder to accuse me of having caused a rootkit: * changed
+	  the -u option to a -r option (still useful for homogenous
+	  networks) * added -u <nobody_uid> (defaults to 65534) that it
+	  runs all processes under   that handle any client data.
+
+	  So now the compilations runs as nobody in a chroot environment
+	  together with the "rootkit", this should make a sniffing attack
+	  quite complex, but of course it still allows DoS (even though the
+	  memory usage is limited and the CPU usage is niced).
+
+2004-08-27 23:37  Michael Matz <matz@kde.org>
+
+	* services/scheduler.cpp: More commands.
+
+2004-08-27 21:50  André Wöbbeking <Woebbeking@web.de>
+
+	* mon/: listview.cc, listview.h: reimplement clear() to get rid of
+	  dangling pointers
+
+2004-08-27 21:42  André Wöbbeking <Woebbeking@web.de>
+
+	* mon/listview.cc: only start the timer if it's not running
+
+2004-08-27 20:09  Michael Matz <matz@kde.org>
+
+	* services/scheduler.cpp: Ui.  Ugly bug.
+
+2004-08-27 19:56  André Wöbbeking <Woebbeking@web.de>
+
+	* mon/: detailedhostview.cc, listview.cc, listview.h: don't remove
+	  finished jobs at once.
+
+	  don't know if it's bug free because icecream's scheduler is down
+	  again :-(
+
+2004-08-27 18:34  Stephan Kulow <coolo@kde.org>
+
+	* services/scheduler.cpp: add some consistency check
+
+2004-08-27 17:24  André Wöbbeking <Woebbeking@web.de>
+
+	* mon/: detailedhostview.cc, listview.cc, listview.h: hide useless
+	  columns
+
+2004-08-27 16:59  André Wöbbeking <Woebbeking@web.de>
+
+	* mon/: listview.cc, listview.h: don't show the complete file path
+
+2004-08-27 16:40  Stephan Kulow <coolo@kde.org>
+
+	* services/scheduler.cpp: fixing layout
+
+2004-08-27 16:32  Stephan Kulow <coolo@kde.org>
+
+	* services/scheduler.cpp: seems, monitors aren't removed cleanly
+	  from fd2chan
+
+2004-08-27 14:39  Stephan Kulow <coolo@kde.org>
+
+	* services/scheduler.cpp: work correctly
+
+2004-08-27 14:35  Stephan Kulow <coolo@kde.org>
+
+	* services/scheduler.cpp: trying to improve ways to debug
+
+2004-08-27 13:24  André Wöbbeking <Woebbeking@web.de>
+
+	* mon/: hostinfo.cc, hostinfo.h, hostlistview.cc: coolo wants it
+	  coolo gets it: the load of the hosts
+
+2004-08-27 13:05  André Wöbbeking <Woebbeking@web.de>
+
+	* mon/hostlistview.cc: the state column is useless (a host is
+	  online or not shown)
+
+2004-08-27 12:26  André Wöbbeking <Woebbeking@web.de>
+
+	* mon/: hostlistview.cc, hostlistview.h, listview.cc, listview.h:
+	  hey, it's a KDE app so use KDE classes
+
+2004-08-27 12:15  André Wöbbeking <Woebbeking@web.de>
+
+	* mon/detailedhostview.cc: some labels added
+
+2004-08-26 23:34  André Wöbbeking <Woebbeking@web.de>
+
+	* mon/: detailedhostview.cc, detailedhostview.h, hostlistview.cc,
+	  hostlistview.h, icemonui.rc, listview.cc, listview.h, mon-kde.cc,
+	  mon-kde.h, Makefile.am: new view: DetailedHostView. Cleanups will
+	  follow tomorrow.
+
+2004-08-26 20:24  Stephan Kulow <coolo@kde.org>
+
+	* services/comm.cpp: yes, the network is flacky and icecream can
+	  handle it
+
+2004-08-26 20:24  Stephan Kulow <coolo@kde.org>
+
+	* client/remote.cpp: give better hint
+
+2004-08-26 15:02  Simon Hausmann <hausmann@kde.org>
+
+	* mon/doc/: .cvsignore, icemon/.cvsignore: - I admit, I'm building
+	  icecream with srcdir==builddir :)
+
+2004-08-26 14:57  André Wöbbeking <Woebbeking@web.de>
+
+	* mon/listview.cc: - use MB, KB for size in/out - right align all
+	  numbers - setAllColumnsShowFocus(true)
+
+2004-08-26 11:07  Simon Hausmann <hausmann@kde.org>
+
+	* mon/mon-kde.cc: - a slightly prettier window title :)
+
+2004-08-26 03:07  Daniel Molkentin <molkentin@kde.org>
+
+	* mon/doc/icemon/index.docbook: use entities, plus I wasn't aware
+	  that frerich works for suse ;)
+
+2004-08-26 02:20  Cornelius Schumacher <schumacher@kde.org>
+
+	* mon/: Makefile.am, doc/.cvsignore, doc/Makefile.am,
+	  doc/icemon/.cvsignore, doc/icemon/Makefile.am,
+	  doc/icemon/index.docbook: Add icemon manual.
+
+2004-08-26 02:18  Cornelius Schumacher <schumacher@kde.org>
+
+	* mon/starview.cc: Make halos slightly bigger.
+
+2004-08-25 22:01  Stephan Binner <binner@kde.org>
+
+	* mon/: ganttstatusview.cc, hostview.cc, mon-kde.cc, starview.cc:
+	  CVS_SILENT i18n style guide fixes
+
+2004-08-25 20:07  Simon Hausmann <hausmann@kde.org>
+
+	* TODO: - this one is done
+
+2004-08-25 19:58  Stephan Kulow <coolo@kde.org>
+
+	* mon/monitor.cc: forget jobs after some time - the list view would
+	  need to do some code on it's own, but at least you can clean up
+	  the history now by changing views
+
+2004-08-25 18:17  Stephan Kulow <coolo@kde.org>
+
+	* daemon/main.cpp: try some times more if bind fails - not forever
+	  though
+
+2004-08-25 18:06  Simon Hausmann <hausmann@kde.org>
+
+	* client/local.cpp: - when ICECC_VERISON is not set we want to pick
+	  the same compiler as	 create-env, the one in /usr/bin
+
+2004-08-25 14:37  Stephan Kulow <coolo@kde.org>
+
+	* services/scheduler.cpp: trying to fix client fairness again
+
+2004-08-24 23:27  Cornelius Schumacher <schumacher@kde.org>
+
+	* mon/: job.h, starview.cc, starview.h: Color halo in client color.
+	  Needs more testing with multi-job machines.
+
+2004-08-24 22:19  Cornelius Schumacher <schumacher@kde.org>
+
+	* mon/mon-kde.cc: Correctly remember view and view menu. Patch by
+	  bruggie.
+
+2004-08-24 21:25  Simon Hausmann <hausmann@kde.org>
+
+	* client/: client.h, cpp.cpp, create-env: - when calling the
+	  preprocessor find gcc/g++ from $PATH - added support for
+	  --respect-path to create-env, which picks gcc/g++ from   $PATH
+	  instead of /usr/bin, allowing the use of icecream with custom
+	  gcc installations
+
+2004-08-24 10:05  Stephan Kulow <coolo@kde.org>
+
+	* TODO: I already said that I'm not sure if it's worth it, no?
+
+2004-08-24 07:53  Stephan Kulow <coolo@kde.org>
+
+	* client/remote.cpp: another protection against stupid KDE
+	  developers
+
+2004-08-24 04:20  Nikolas Zimmermann <wildfox@kde.org>
+
+	* client/: main.cpp, remote.cpp: Use 127.0.0.1 instead of localhost
+	  - we sat nearly two hours in front of Max Howell's laptop
+	  trying to figure out why the heck icecream didn't work..  -> the
+	  hosts file somehow contained an entry with a different    ip for
+	  'localhost'; this would avoid such a problem in future...
+
+2004-08-24 00:06  Script Kiddy <sysadmin@office.kde.org>
+
+	* mon/icemonapplet.desktop: CVS_SILENT made messages
+
+2004-08-23 23:10  Stephan Kulow <coolo@kde.org>
+
+	* client/create-env: the -a is of no importance now that we care
+	  for symlinks
+
+2004-08-23 22:30  Frerich Raabe <raabe@kde.org>
+
+	* Makefile.cvs: - Trying to approximate 'cp -a' as it exists on
+	  Linux, so that we can run   gmake -f Makefile.cvs here on FreeBSD
+	  boxen, too.
+
+2004-08-23 22:03  Frerich Raabe <raabe@kde.org>
+
+	* mon/IDEAS.poolview: - So that I don't forget about it
+
+2004-08-23 21:56  Stephan Kulow <coolo@kde.org>
+
+	* client/create-env: avoid starting /
+
+2004-08-23 21:15  Stephan Kulow <coolo@kde.org>
+
+	* client/create-env: try to solve symlinks more globally
+
+2004-08-23 16:35  Stephan Kulow <coolo@kde.org>
+
+	* TODO: I was sure it's commited
+
+2004-08-23 16:34  Stephan Kulow <coolo@kde.org>
+
+	* daemon/environment.cpp: slashes - you can never have enough of it
+
+2004-08-23 16:18  Stephan Kulow <coolo@kde.org>
+
+	* client/create-env: trying to support gentoo and debian
+
+2004-08-23 16:07  Frerich Raabe <raabe@kde.org>
+
+	* mon/starview.cc: - Don't update the canvas for every single new
+	  node item, but only once   after all items have been added.
+
+2004-08-23 14:29  Stephan Kulow <coolo@kde.org>
+
+	* TODO, configure.in.mid, daemon/environment.cpp: don't rely on
+	  $PATH
+
+2004-08-23 13:52  Stephan Kulow <coolo@kde.org>
+
+	* TODO: investigated again what it would mean to build as non-root
+	  and put missing things in categories
+
+2004-08-23 13:33  Frerich Raabe <raabe@kde.org>
+
+	* daemon/main.cpp: - Typo fix :-)
+
+2004-08-23 11:52  Stephan Kulow <coolo@kde.org>
+
+	* services/scheduler.cpp: * don't give out 32bit compilers to
+	  hammers (kernel 2.6.8 rules ;( * don't bother me with chroot
+	  problems when I said I allow them (old daemons)
+
+2004-08-23 11:23  Stephan Kulow <coolo@kde.org>
+
+	* daemon/: workit.cpp, workit.h: f*** - 64GB of free memory are
+	  just too much for the little ints ;(
+
+2004-08-22 17:47  Dirk Mueller <mueller@kde.org>
+
+	* services/scheduler.cpp: d'oh
+
+2004-08-22 17:37  Michael Matz <matz@kde.org>
+
+	* services/scheduler.cpp: Don't allow non-chroot-able daemons to
+	  connect without cmdline option.  And don't give them out as
+	  compile hosts.
+
+2004-08-22 17:20  Dirk Mueller <mueller@kde.org>
+
+	* services/scheduler.cpp: prepare to be able to reject clients that
+	  cannot do chroot - they will always compile on localhost. add
+	  command line option that disables the behaviour for very
+	  homogenous compiler setups
+
+2004-08-22 16:58  Dirk Mueller <mueller@kde.org>
+
+	* services/: comm.cpp, comm.h: add the information if the daemon is
+	  running as root (for chroot/environment support) to the login
+	  message, so that the scheduler can disconnect clients that do not
+	  accept chrooted compiles
+
+2004-08-22 16:34  Stephan Kulow <coolo@kde.org>
+
+	* daemon/main.cpp: this wasn't meant to go into CVS
+
+2004-08-22 16:33  Michael Matz <matz@kde.org>
+
+	* client/create-env: Gentoo has a funny wrapper.  Perhaps this
+	  works for them.  Perhaps not OTOH.
+
+2004-08-22 15:10  Dirk Mueller <mueller@kde.org>
+
+	* client/safeguard.cpp: I do believe the safeguard code works - so
+	  don't bother me with its debug output
+
+2004-08-22 14:59  Cornelius Schumacher <schumacher@kde.org>
+
+	* mon/starview.cc: Show dashed lines in correct color from the
+	  beginning.
+
+2004-08-22 14:50  Michael Matz <matz@kde.org>
+
+	* services/scheduler.cpp: More info.
+
+2004-08-22 14:36  Michael Matz <matz@kde.org>
+
+	* services/scheduler.cpp: Better.
+
+2004-08-22 14:09  Michael Matz <matz@kde.org>
+
+	* services/scheduler.cpp: More debug possibilities.
+
+2004-08-22 14:05  Stephan Kulow <coolo@kde.org>
+
+	* mon/: hostinfo.cc, starview.cc: don't invent clients
+
+2004-08-22 13:00  Stephan Kulow <coolo@kde.org>
+
+	* client/remote.cpp: don't let Dirk f*** the system
+
+2004-08-22 11:02  Michael Matz <matz@kde.org>
+
+	* services/: comm.cpp, comm.h, scheduler.cpp: Text based control
+	  stuff.  Long live telnet.
+
+2004-08-21 19:14  Michael Matz <matz@kde.org>
+
+	* TODO: Done.
+
+2004-08-21 19:11  Stephan Kulow <coolo@kde.org>
+
+	* daemon/: environment.cpp, main.cpp: send stats also while
+	  retrieving and unpacking environments to avoid falling out of the
+	  network
+
+2004-08-21 19:09  Michael Matz <matz@kde.org>
+
+	* services/comm.cpp: Not really tested, but anyway.  The lunch is
+	  starting soon.
+
+2004-08-21 18:49  Michael Matz <matz@kde.org>
+
+	* TODO: Bloody social event.
+
+2004-08-21 18:15  Stephan Kulow <coolo@kde.org>
+
+	* daemon/main.cpp: don't bind to random port if there is already a
+	  iceccd running. There are just too many conflicts
+
+2004-08-21 17:06  Stephan Kulow <coolo@kde.org>
+
+	* daemon/environment.cpp: don't crash
+
+2004-08-21 16:51  Stephan Kulow <coolo@kde.org>
+
+	* TODO: Martin's bug
+
+2004-08-21 16:51  Frerich Raabe <raabe@kde.org>
+
+	* mon/starview.cc: - comment out the assertion that the hostname is
+	  empty. I have no idea why   this happens, and don't want to debug
+	  this right now, but having icemon   bail out everytime i switch
+	  to the star view is annoying.
+
+2004-08-21 16:45  Michael Matz <matz@kde.org>
+
+	* TODO: Chris is paranoid
+
+2004-08-21 15:48  Stephan Kulow <coolo@kde.org>
+
+	* services/scheduler.cpp: don't want to brag, but with 100 clients
+	  it's quite common that there are undone jobs in the queue
+
+2004-08-21 15:15  Stephan Kulow <coolo@kde.org>
+
+	* client/remote.cpp: enough faking
+
+2004-08-21 15:03  Frerich Raabe <raabe@kde.org>
+
+	* mon/ganttstatusview.cc: - Draw the node names in bold letters so
+	  it's easier to see which box has   which color. Now I know it's
+	  the damn 'linux' node which has the same color   as mine. :-)
+
+2004-08-21 13:41  Stephan Kulow <coolo@kde.org>
+
+	* services/scheduler.cpp: finishing what Scott started ages ago
+	  (and never tested :): give i386 environments out to i686 and
+	  x86_64 hosts
+
+2004-08-21 11:47  Stephan Kulow <coolo@kde.org>
+
+	* daemon/main.cpp: Success? Aja
+
+2004-08-21 11:36  Michael Matz <matz@kde.org>
+
+	* services/scheduler.cpp: We seem to be unable to recover why this
+	  test was there exactly, and when it was still valid.	Currently
+	  it doesn't test a fishy condition, but is fishy itself.
+
+2004-08-21 11:14  Stephan Kulow <coolo@kde.org>
+
+	* client/Makefile.am: don't fool dirk - icecc++ is only my testing
+	  symlink
+
+2004-08-21 11:00  Stephan Kulow <coolo@kde.org>
+
+	* services/scheduler.cpp: ah, I forgot to commit that - funny that
+	  they got the problem just today :)
+
+2004-08-21 10:58  Stephan Kulow <coolo@kde.org>
+
+	* TODO: I guess, there are about 3 people wanting this feature
+
+2004-08-21 00:50  Daniel Molkentin <molkentin@kde.org>
+
+	* daemon/main.cpp: - allow for specifying an env basedir - disallow
+	  running icecream as user by default. coolo said it's not
+	  supported and it creates problem here at the cluster. The proper
+	  fix would probably be to block non-chrooted daemons at the
+	  scheduler.
+
+2004-08-20 18:19  Stephan Kulow <coolo@kde.org>
+
+	* TODO: Matz warms up old dreams
+
+2004-08-19 14:48  Stephan Kulow <coolo@kde.org>
+
+	* services/scheduler.cpp: my "I give up" commit was a bit too brute
+	  force. Still the same reasoning leads to this commit: remove the
+	  channel from all jobs before it's deleted
+
+2004-08-19 09:24  Stephan Kulow <coolo@kde.org>
+
+	* services/comm.cpp: avoid warnings from valgrind
+
+2004-08-18 21:08  Stephan Kulow <coolo@kde.org>
+
+	* services/scheduler.cpp: some more detailed debug output
+
+2004-08-18 20:57  Stephan Kulow <coolo@kde.org>
+
+	* services/scheduler.cpp: there are still cases where the client
+	  exists before all jobs are done. This leads to a dangling
+	  job->channel and it's just not worth the couple of cycles we
+	  spare
+
+2004-08-18 16:07  Stephan Kulow <coolo@kde.org>
+
+	* services/scheduler.cpp: STL is just different - that's all
+
+2004-08-18 12:16  Stephan Kulow <coolo@kde.org>
+
+	* client/remote.cpp: try harder not to crash in strange
+	  circumstances
+
+2004-08-17 18:00  Michael Matz <matz@kde.org>
+
+	* services/scheduler.cpp: Either remove the comment, or don't
+	  remove the function call it is talking about.  But I like it
+	  better this way.
+
+2004-08-17 13:49  Stephan Kulow <coolo@kde.org>
+
+	* services/scheduler.cpp: only fake with speeds when there is some
+	  history
+
+2004-08-17 13:46  Stephan Kulow <coolo@kde.org>
+
+	* client/arg.cpp: handle --param and make sure we don't mix the
+	  order of command line options in case we find a second input file
+
+2004-08-17 01:06  Scott Wheeler <wheeler@kde.org>
+
+	* services/scheduler.cpp: build
+
+2004-08-16 21:29  Stephan Kulow <coolo@kde.org>
+
+	* mon/monitor.cc: $USE_SCHEDULER doesn't need a netname
+
+2004-08-16 18:41  Stephan Kulow <coolo@kde.org>
+
+	* services/scheduler.cpp: if it doesn't have a speed yet, take
+	  whatever you can get
+
+2004-08-16 18:34  Stephan Kulow <coolo@kde.org>
+
+	* services/scheduler.cpp: trying to improve the statistics
+
+2004-08-16 18:12  Stephan Kulow <coolo@kde.org>
+
+	* client/main.cpp: if you can't access the ICECC environment, don't
+	  bother the scheduler
+
+2004-08-16 17:25  Michael Matz <matz@kde.org>
+
+	* services/scheduler.cpp: Smooth out the speed measurement history.
+	  It compiles.  No idea if it works as well as the perl script ;)
+
+2004-08-16 16:07  Stephan Kulow <coolo@kde.org>
+
+	* services/: comm.cpp, logging.cpp, logging.h: if get_msg() times
+	  out, it's quite interesting to know what it waited for: backtrace
+	  might help
+
+2004-08-16 16:06  Stephan Kulow <coolo@kde.org>
+
+	* client/arg.cpp: -frepo creates local files
+
+2004-08-16 16:05  Stephan Kulow <coolo@kde.org>
+
+	* daemon/serve.cpp: give the preprocessor some time
+
+2004-08-16 09:17  Stephan Kulow <coolo@kde.org>
+
+	* TODO: noticed something ;)
+
+2004-08-15 22:00  Stephan Kulow <coolo@kde.org>
+
+	* client/main.cpp, daemon/environment.cpp, daemon/environment.h,
+	  daemon/main.cpp, services/comm.cpp, services/comm.h: only package
+	  the native directory when it's requested by the client
+
+2004-08-15 16:23  Stephan Kulow <coolo@kde.org>
+
+	* client/remote.cpp, services/job.cpp, services/scheduler.cpp: some
+	  more statistics fishing
+
+2004-08-15 13:37  Stephan Kulow <coolo@kde.org>
+
+	* daemon/main.cpp, services/scheduler.cpp: didn't mean to commit
+	  this debug
+
+2004-08-15 13:33  Stephan Kulow <coolo@kde.org>
+
+	* daemon/main.cpp: I hope this cures the fd leak I added
+
+2004-08-15 11:37  Stephan Kulow <coolo@kde.org>
+
+	* client/client.h, client/local.cpp, client/remote.cpp,
+	  daemon/main.cpp, services/comm.h, services/scheduler.cpp: collect
+	  speed infos also for local jobs. If you're only compiling from
+	  your old laptop, you want the scheduler to know it's slow That
+	  local jobs also count the preprocessor in it's used time, causes
+	  some bias. But as the builtin preprocessor is damn quick, I doubt
+	  it weights a lot
+
+2004-08-15 09:19  Stephan Kulow <coolo@kde.org>
+
+	* services/comm.cpp: don't write to stderr, but catch the error in
+	  the log file
+
+2004-08-14 20:01  Stephan Kulow <coolo@kde.org>
+
+	* daemon/environment.cpp: better error message
+
+2004-08-14 19:37  Stephan Kulow <coolo@kde.org>
+
+	* daemon/: serve.cpp, workit.cpp: I guess, we only had one place
+	  where a correct calculation of the time was necessary. Too bad
+	  that one was bogus ;(
+
+2004-08-14 19:29  Stephan Kulow <coolo@kde.org>
+
+	* daemon/workit.cpp: catching some failing syscalls. I still get
+	  some weired lock ups ;(
+
+2004-08-14 18:26  Stephan Kulow <coolo@kde.org>
+
+	* services/comm.cpp: Michael, that code was filling the log files
+	  on ia64. Not sure it's the most elegant solution to fix it, but
+	  the warning is gone
+
+2004-08-14 13:51  Stephan Kulow <coolo@kde.org>
+
+	* client/remote.cpp: this is bad - the real exit code was only in a
+	  local variable, the return value was the status of the
+	  preprocessor ;(
+
+2004-08-13 18:13  Michael Matz <matz@kde.org>
+
+	* client/cpp.cpp: More refactoring.
+
+2004-08-13 17:58  Michael Matz <matz@kde.org>
+
+	* client/remote.cpp: Make the multiple job case also recognize when
+	  to build locally.  This all has many nearly duplicated code paths
+	  handling slightly different conditions.  Factor it a bit at
+	  least.
+
+2004-08-13 17:16  Michael Matz <matz@kde.org>
+
+	* client/: client.h, cpp.cpp, remote.cpp: Be a bit more paranoid
+	  with file descriptors.  Perhaps it solves the funny hangs of cc1,
+	  or makes them more reproducable.
+
+2004-08-13 15:34  Stephan Kulow <coolo@kde.org>
+
+	* services/: comm.cpp, scheduler.cpp: * reducing a bit of debug
+	  (100M in a night is just too much for my little $HOME :) * after
+	  doing some linear fitting I found some factors to not prefer -g
+	  jobs	(hunting further factors)
+
+2004-08-12 21:56  Stephan Kulow <coolo@kde.org>
+
+	* client/remote.cpp, services/comm.cpp, services/comm.h,
+	  services/job.cpp, services/job.h, services/scheduler.cpp:
+	  transfer some important flags with the job, so that the scheduler
+	  has a chance to split between non debug build and debug builds
+	  (that generate way more bytes in the same time). Now we can start
+	  to collect data ;)
+
+2004-08-12 17:48  Michael Matz <matz@kde.org>
+
+	* daemon/workit.cpp: Ensure an invariant which bit us.
+
+2004-08-12 17:42  Michael Matz <matz@kde.org>
+
+	* daemon/: main.cpp, serve.cpp: 0 is a valid fd.
+
+2004-08-12 16:28  Stephan Kulow <coolo@kde.org>
+
+	* daemon/main.cpp: no comment
+
+2004-08-12 15:38  Stephan Kulow <coolo@kde.org>
+
+	* daemon/main.cpp: don't create busy loops while waiting for local
+	  jobs to finish
+
+2004-08-12 14:47  Stephan Kulow <coolo@kde.org>
+
+	* services/scheduler.cpp: as a matter of fact, now that the
+	  compiler is given room for garbage collection, the overhead price
+	  isn't as big anymore
+
+2004-08-12 10:22  Stephan Kulow <coolo@kde.org>
+
+	* services/: comm.cpp, comm.h, scheduler.cpp: always assume the
+	  local daemon got the environment - increased minimum protocol
+	  version for that
+
+2004-08-12 09:23  Stephan Kulow <coolo@kde.org>
+
+	* daemon/workit.cpp: fixing grave bug: it's just too hot ;(
+
+2004-08-12 09:01  Stephan Kulow <coolo@kde.org>
+
+	* client/remote.cpp: another place that can take longer than 10s
+
+2004-08-11 21:20  Stephan Kulow <coolo@kde.org>
+
+	* daemon/main.cpp: this was supposed to go out only shortly
+
+2004-08-11 20:48  Stephan Kulow <coolo@kde.org>
+
+	* README: this looks nicer
+
+2004-08-11 20:39  Stephan Kulow <coolo@kde.org>
+
+	* README: better have it there for the moment
+
+2004-08-11 19:50  Stephan Kulow <coolo@kde.org>
+
+	* daemon/workit.cpp: it shouldn't even be there
+
+2004-08-11 16:55  David Faure <faure@kde.org>
+
+	* daemon/workit.cpp: thou shalt compile
+
+2004-08-11 16:41  Stephan Kulow <coolo@kde.org>
+
+	* client/remote.cpp, daemon/workit.cpp, services/scheduler.cpp:
+	  implementing gcc's heuristics for our compiler, so it works
+	  quickly even if run in chroot. That chroot feature caused
+	  unexpected slow downs because of missing /proc, now it should
+	  have the same speed again
+
+2004-08-11 14:51  Stephan Kulow <coolo@kde.org>
+
+	* services/scheduler.cpp: interesting debug message
+
+2004-08-10 23:10  Stephan Kulow <coolo@kde.org>
+
+	* client/remote.cpp: neat experiment
+
+2004-08-10 20:55  Stephan Kulow <coolo@kde.org>
+
+	* README: for the scheduler it's of little importance and the
+	  daemon is root only
+
+2004-08-10 19:06  Stephan Kulow <coolo@kde.org>
+
+	* client/remote.cpp, daemon/main.cpp: waiting for a long time where
+	  the other side compiles
+
+2004-08-10 18:08  Michael Matz <matz@kde.org>
+
+	* services/: comm.cpp, comm.h, scheduler.cpp: Configurable timeout
+	  for get_msg.	coolo: you need to update at least one of the
+	  callers in the client.  The default is now only 10 seconds.
+
+2004-08-10 18:00  Stephan Kulow <coolo@kde.org>
+
+	* daemon/workit.cpp: be a good guy and use the API
+
+2004-08-10 14:26  Stephan Kulow <coolo@kde.org>
+
+	* services/scheduler.cpp: * cleanup * pessimism factor * nicer
+	  debug output
+
+2004-08-10 14:17  Cornelius Schumacher <schumacher@kde.org>
+
+	* mon/: starview.cc, starview.h: Implement architecture filter.
+
+2004-08-10 13:49  Michael Matz <matz@kde.org>
+
+	* services/scheduler.cpp: Ugly bug in stats collection.
+
+2004-08-10 12:04  Stephan Kulow <coolo@kde.org>
+
+	* TODO: outdated infos
+
+2004-08-10 11:58  Stephan Kulow <coolo@kde.org>
+
+	* client/remote.cpp: doing some memory leak hunting
+
+2004-08-10 10:54  Stephan Kulow <coolo@kde.org>
+
+	* client/arg.cpp: this feature requires files that are stored
+	  locally
+
+2004-08-10 09:20  Stephan Kulow <coolo@kde.org>
+
+	* TODO, services/scheduler.cpp: removing untested feature for now
+
+2004-08-09 20:41  Stephan Kulow <coolo@kde.org>
+
+	* .cvsignore: ignore
+
+2004-08-09 20:40  Stephan Kulow <coolo@kde.org>
+
+	* services/scheduler.cpp: I swear: I said, divide by 0.7 - what did
+	  he do? Math on his own
+
+2004-08-09 20:38  Stephan Kulow <coolo@kde.org>
+
+	* client/local.cpp, client/remote.cpp, daemon/main.cpp: if I say
+	  that I'm not proud off it, can I leave it in?
+
+2004-08-09 18:10  Michael Matz <matz@kde.org>
+
+	* services/scheduler.cpp: Prefer the submitter to compile a job.
+	  coolo: About the environment thing we have to talk again.
+	  Depending on the outcome we have to ignore it for the submitter
+	  (then we have to rely on the client to use the exact same
+	  compiler as what was used for preprocessing, in _every case_), or
+	  we can't ignore it, namely when the short-cut is not implemented
+	  for all cases.
+
+2004-08-09 17:48  Michael Matz <matz@kde.org>
+
+	* services/comm.h: Surely this was wanted.
+
+2004-08-09 17:38  Stephan Kulow <coolo@kde.org>
+
+	* client/client.h, client/local.cpp, client/main.cpp,
+	  client/remote.cpp, daemon/main.cpp, services/comm.cpp,
+	  services/comm.h: reworked my saturday night commit - the daemon
+	  no longer decides if the client should ask the scheduler, but in
+	  case the scheduler decides to give the localhost to the client,
+	  it will use a short path within the daemon and compile itself.
+
+2004-08-09 09:15  Stephan Kulow <coolo@kde.org>
+
+	* client/arg.cpp: Matz is right, g++ test.c compiles as C++ not as
+	  C
+
+2004-08-07 23:12  Stephan Kulow <coolo@kde.org>
+
+	* TODO, client/client.h, client/local.cpp, client/main.cpp,
+	  daemon/main.cpp, services/comm.cpp, services/comm.h,
+	  services/scheduler.cpp: implementing a neat feature described in
+	  TODO (danimo, should be interesting read for you) Michael: I left
+	  some MATZ comments in the code
+
+2004-08-05 17:36  Stephan Kulow <coolo@kde.org>
+
+	* TODO: before I forget
+
+2004-08-04 11:55  Stephan Kulow <coolo@kde.org>
+
+	* mon/configure.in.in: this is needed for the monitor to work kind
+	  of reliable.	Note: this might change your icecream installation
+	  path from /usr/local to $KDEDIR
+
+2004-08-03 09:59  Stephan Kulow <coolo@kde.org>
+
+	* services/: comm.h, scheduler.cpp: Lubos is right, I was wrong
+
+2004-08-02 21:07  Stephan Kulow <coolo@kde.org>
+
+	* services/scheduler.cpp: you can talk to them all day, but they
+	  don't listen
+
+2004-08-02 17:00  Stephan Kulow <coolo@kde.org>
+
+	* mon/hostinfo.cc, mon/hostinfo.h, mon/starview.cc,
+	  services/scheduler.cpp: showing the speed the scheduler considers
+	  in the starview
+
+2004-08-02 15:59  Stephan Kulow <coolo@kde.org>
+
+	* client/remote.cpp, daemon/load.cpp, daemon/main.cpp,
+	  daemon/serve.cpp, daemon/serve.h, daemon/workit.cpp,
+	  daemon/workit.h, services/comm.cpp, services/comm.h: implemented
+	  some heuristic that prevents processes to take all memory. Niced
+	  compile jobs are all fine, but if they take 2GB on a 512MB
+	  machine, you notice them
+
+	  In this case, the client will fall back to compiling locally
+	  under this condition and will not treat it as hard error (of
+	  course you need 2GB then)
+
+2004-08-02 15:46  Michael Matz <matz@kde.org>
+
+	* services/scheduler.cpp: Hmm, perhaps it might not be a good idea
+	  to trigger interesting errors in the public version, as long as
+	  they are still there.
+
+2004-08-02 15:44  Michael Matz <matz@kde.org>
+
+	* services/scheduler.cpp: * Don't optimize cleanups with old
+	  clients * ignore load of the submitter when farm is dense *
+	  forced throwing out of daemon.  Triggers interesting errors.
+
+2004-08-02 11:08  Stephan Kulow <coolo@kde.org>
+
+	* mon/hostinfo.cc: even more colourful
+
+2004-08-02 10:40  Stephan Kulow <coolo@kde.org>
+
+	* mon/hostinfo.cc: trying to make the color distribution appearing
+	  more random (for those with less than 70 nodes, it might not be
+	  that obvious :)
+
+2004-08-02 08:54  Script Kiddy <sysadmin@office.kde.org>
+
+	* mon/icemonapplet.desktop: CVS_SILENT made messages
+
+2004-08-01 13:13  Stephan Kulow <coolo@kde.org>
+
+	* README: give a little hint to those that are never satisfied
+
+2004-07-30 16:48  Stephan Kulow <coolo@kde.org>
+
+	* services/scheduler.cpp: these can walk like its older sister too
+
+2004-07-30 16:04  Cornelius Schumacher <schumacher@kde.org>
+
+	* mon/: hostinfo.cc, monitor.cc, starview.cc: Don't create empty
+	  nodes for end of job message for offline hosts.
+
+2004-07-30 15:01  Stephan Kulow <coolo@kde.org>
+
+	* services/comm.h: matz needs a CURRENT
+
+2004-07-30 14:55  Cornelius Schumacher <schumacher@kde.org>
+
+	* mon/starview.cc: Forget all nodes when scheduler goes down.
+
+2004-07-30 12:19  Cornelius Schumacher <schumacher@kde.org>
+
+	* mon/starview.cc: Fix crash.
+
+2004-07-30 12:06  Stephan Kulow <coolo@kde.org>
+
+	* suse/init.icecream: do not start before you know your network
+	  name - we had _tons_ of nodes named linux after a while
+
+2004-07-30 09:02  Script Kiddy <sysadmin@office.kde.org>
+
+	* mon/icemonapplet.desktop: CVS_SILENT made messages
+
+2004-07-29 15:01  Stephan Kulow <coolo@kde.org>
+
+	* client/remote.cpp: throw an error in case something wild
+	  happened. Otherwise the scheduler sees an EndMsg and expects a
+	  sane processing (he only does the big cleanup for unexpected
+	  errors)
+
+2004-07-28 13:29  Stephan Kulow <coolo@kde.org>
+
+	* client/arg.cpp: .c is a C file too
+
+2004-07-28 08:38  Script Kiddy <sysadmin@office.kde.org>
+
+	* mon/icemonapplet.desktop: CVS_SILENT made messages
+
+2004-07-26 16:00  Michael Matz <matz@kde.org>
+
+	* services/scheduler.cpp: This fixes some rare segfaults.
+
+2004-07-18 20:36  Stephan Kulow <coolo@kde.org>
+
+	* suse/init.icecream: that's nonsense
+
+2004-07-15 11:11  Will Stephenson <lists@stevello.free-online.co.uk>
+
+	* mon/hostinfo.cc: In a previous life I worked in an Eiscafe.
+
+2004-07-11 09:07  Script Kiddy <sysadmin@office.kde.org>
+
+	* mon/icemonapplet.desktop: CVS_SILENT made messages
+
+2004-07-06 08:33  Script Kiddy <sysadmin@office.kde.org>
+
+	* mon/icemonapplet.desktop: CVS_SILENT made messages
+
+2004-07-04 08:15  Script Kiddy <sysadmin@office.kde.org>
+
+	* mon/icemonapplet.desktop: CVS_SILENT made messages
+
+2004-07-03 09:02  Script Kiddy <sysadmin@office.kde.org>
+
+	* mon/icemonapplet.desktop: CVS_SILENT made messages
+
+2004-07-02 13:43  Andrew Coles <andrew_coles@yahoo.co.uk>
+
+	* mon/icemonapplet.desktop:
+
+	  CVS_SILENT
+
+	  Corrected typo.
+
+2004-06-30 09:06  Script Kiddy <sysadmin@office.kde.org>
+
+	* mon/icemonapplet.desktop: CVS_SILENT made messages
+
+2004-06-29 09:15  Stephan Kulow <coolo@kde.org>
+
+	* client/arg.cpp: gcc allows -o foo -o bar and will output to bar
+
+2004-06-27 09:30  Script Kiddy <sysadmin@office.kde.org>
+
+	* mon/icemonapplet.desktop: CVS_SILENT made messages
+
+2004-06-19 18:10  Cornelius Schumacher <schumacher@kde.org>
+
+	* daemon/main.cpp: Remove untrue message.
+
+2004-06-16 16:46  Stephan Kulow <coolo@kde.org>
+
+	* daemon/main.cpp: always sleep when the scheduler goes away
+
+2004-06-15 16:01  Cornelius Schumacher <schumacher@kde.org>
+
+	* mon/: monitor.cc, monitor.h: Remember scheduler state when
+	  switching views.
+
+2004-06-14 11:50  Cornelius Schumacher <schumacher@kde.org>
+
+	* mon/monitor.cc: Detect missing scheduler in all cases.
+
+2004-06-11 13:48  Stephan Kulow <coolo@kde.org>
+
+	* mon/Makefile.am: almost
+
+2004-06-11 13:01  Stephan Kulow <coolo@kde.org>
+
+	* client/arg.cpp: filter out ada and fortran extensions and set
+	  unknown extensions to local jobs too
+
+2004-06-07 21:35  Frerich Raabe <raabe@kde.org>
+
+	* services/scheduler.cpp: - Simplify, and don't call
+	  multimap<T>::upper_bound all that often
+
+2004-06-07 19:49  Scott Wheeler <wheeler@kde.org>
+
+	* services/scheduler.cpp: Add some basic support for compatible
+	  platforms.
+
+2004-06-07 19:49  Scott Wheeler <wheeler@kde.org>
+
+	* client/remote.cpp: Make things a little more clear.
+
+2004-06-07 12:02  David Faure <faure@kde.org>
+
+	* configure.in.cvs: Don't bother me for uic, it's not used here.
+
+2004-06-07 10:20  Stephan Kulow <coolo@kde.org>
+
+	* Makefile.cvs, mon/Makefile.am: trying to fix automake build
+
+2004-06-04 19:59  Scott Wheeler <wheeler@kde.org>
+
+	* client/main.cpp: Repeating one out of every 5 jobs 3 times is way
+	  too high for the common case.  Default to 1 in 100 and make it
+	  possible to override this with an environment variable.
+
+2004-06-04 15:16  Stephan Kulow <coolo@kde.org>
+
+	* Makefile.am, Makefile.am.in: trying to avoid problems with
+	  toplevel kdenonbeta
+
+2004-06-03 12:48  Frerich Raabe <raabe@kde.org>
+
+	* mon/: hostview.cc, hostview.h: - Walking past this without doing
+	  anything would've made me feel bad.
+
+2004-06-03 09:09  Script Kiddy <sysadmin@office.kde.org>
+
+	* mon/icemonapplet.desktop: CVS_SILENT made messages
+
+2004-06-02 13:43  Cornelius Schumacher <schumacher@kde.org>
+
+	* mon/: hostview.cc, hostview.h: Show state of scheduler in host
+	  view.
+
+2004-06-02 13:39  Cornelius Schumacher <schumacher@kde.org>
+
+	* README: Add hint how to get debug output.
+
+2004-06-02 13:38  Cornelius Schumacher <schumacher@kde.org>
+
+	* mon/: mon-kde.cc, monitor.cc, starview.cc, starview.h,
+	  statusview.cc, statusview.h: Show state of scheduler in star
+	  view.
+
+2004-05-31 08:53  Script Kiddy <sysadmin@office.kde.org>
+
+	* mon/icemonapplet.desktop: CVS_SILENT made messages
+
+2004-05-30 09:14  Script Kiddy <sysadmin@office.kde.org>
+
+	* mon/icemonapplet.desktop: CVS_SILENT made messages
+
+2004-05-29 11:27  Stephan Kulow <coolo@kde.org>
+
+	* .cvsignore: icecream works with unsermake finally :)
+
+2004-05-29 10:57  Stephan Kulow <coolo@kde.org>
+
+	* daemon/Makefile.am, minilzo/Makefile.am, mon/Makefile.am,
+	  mon/configure.in.in, services/Makefile.am: trying to be good guys
+
+2004-05-28 15:52  Cornelius Schumacher <schumacher@kde.org>
+
+	* mon/: Makefile.am, hostview.cc, hostview.h, icemonapplet.cpp,
+	  icemonapplet.desktop, icemonapplet.h, icemonui.rc, job.h,
+	  mon-kde.cc, mon-kde.h, monitor.cc, monitor.h, starview.cc,
+	  starview.h, statusview.cc, statusview.h: - Add view for
+	  displaying status of single host.  - Add kicker applet making use
+	  of this view.
+
+2004-05-28 15:09  Stephan Kulow <coolo@kde.org>
+
+	* mon/Makefile.am: WORKSFORME
+
+2004-05-28 15:03  Stephan Kulow <coolo@kde.org>
+
+	* Makefile.cvs: remove it before link
+
+2004-05-17 09:27  Stephan Kulow <coolo@kde.org>
+
+	* Makefile.cvs, configure.in.cvs, configure.in.in: you want tricks?
+	  You can have them
+
+2004-05-14 12:09  Stephan Kulow <coolo@kde.org>
+
+	* Makefile.am, configure.in.in: needed
+
+2004-05-14 10:43  Stephan Kulow <coolo@kde.org>
+
+	* .cvsignore, Makefile.cvs, configure.ac, configure.in.in: using
+	  ../admin
+
+2004-05-13 02:12  Otto Bruggeman <ottobruggeman@kde.nl>
+
+	* client/remote.cpp: Last commit to fix this, i swear :)
+
+2004-05-12 10:24  Cornelius Schumacher <schumacher@kde.org>
+
+	* mon/: mon-kde.cc, starview.cc: Use table for tooltip formatting,
+	  update star view when jobs are finished, fix about data.
+
+2004-05-12 09:17  Otto Bruggeman <ottobruggeman@kde.nl>
+
+	* client/remote.cpp: This makes the logic better. Sorry, should not
+	  do this when just waking up.
+
+2004-05-12 09:15  Otto Bruggeman <ottobruggeman@kde.nl>
+
+	* client/remote.cpp: Ok now gcc >= 4 should work as well when it
+	  comes. Thanks Helge for noticing.
+
+2004-05-12 00:24  Otto Bruggeman <ottobruggeman@kde.nl>
+
+	* client/remote.cpp: Need this on our Itanium cluster (for the rest
+	  it works just fine there, great work guys!) since gcc 3.2.2 does
+	  not understand this option either.
+
+2004-05-11 15:20  Stephan Kulow <coolo@kde.org>
+
+	* client/arg.cpp: fix compilation of several C files in one
+	  compiler call (missed one)
+
+2004-05-09 14:18  Scott Wheeler <wheeler@kde.org>
+
+	* daemon/environment.cpp, services/job.cpp: build
+
+2004-05-07 19:27  Scott Wheeler <wheeler@kde.org>
+
+	* mon/summaryview.h: Yuck.  I had two things labeled "parent".
+
+2004-05-04 20:13  Stephan Kulow <coolo@kde.org>
+
+	* client/arg.cpp: compile g++ -c *.c as local job instead of
+	  aborting
+
+2004-05-04 14:20  Stephan Kulow <coolo@kde.org>
+
+	* services/scheduler.cpp: some more fairness
+
+2004-05-04 14:18  Stephan Kulow <coolo@kde.org>
+
+	* mon/: hostinfo.cc, hostinfo.h, starview.cc: showing the platform
+
+2004-05-04 13:35  Stephan Kulow <coolo@kde.org>
+
+	* services/scheduler.cpp: excellent interface micha
+
+2004-05-03 13:11  Stephan Kulow <coolo@kde.org>
+
+	* services/scheduler.cpp: make sure not to compare apple and pears
+
+2004-05-03 11:54  Stephan Kulow <coolo@kde.org>
+
+	* client/remote.cpp: everything that we can ignore, is a warning.
+	  So if you find your farm pretty slow and unused, check
+	  ICECC_DEBUG=warnings to find out if the client does something at
+	  all :)
+
+2004-05-03 11:52  Stephan Kulow <coolo@kde.org>
+
+	* daemon/main.cpp: avoid net storms
+
+2004-05-01 09:58  Cornelius Schumacher <schumacher@kde.org>
+
+	* mon/: ganttstatusview.cc, ganttstatusview.h: Add config dialog
+	  for gantt view.
+
+2004-05-01 09:42  Cornelius Schumacher <schumacher@kde.org>
+
+	* mon/ganttstatusview.cc: Use white background.
+
+2004-05-01 09:34  Cornelius Schumacher <schumacher@kde.org>
+
+	* mon/ganttstatusview.cc: Put text in the center of the bar.
+
+2004-05-01 09:31  Cornelius Schumacher <schumacher@kde.org>
+
+	* mon/: ganttstatusview.cc, starview.cc, statusview.cc,
+	  statusview.h: Use same text color in gantt view as in star view.
+
+2004-05-01 08:50  Cornelius Schumacher <schumacher@kde.org>
+
+	* mon/mon-kde.cc: Compile without Qt STL support.
+
+2004-04-30 21:14  Stephan Kulow <coolo@kde.org>
+
+	* TODO: I forgot
+
+2004-04-30 16:35  Stephan Kulow <coolo@kde.org>
+
+	* client/main.cpp: or that
+
+2004-04-30 14:42  Stephan Kulow <coolo@kde.org>
+
+	* client/remote.cpp, daemon/main.cpp, daemon/serve.cpp,
+	  services/comm.cpp, services/comm.h, services/job.cpp,
+	  services/job.h, services/scheduler.cpp: great, I cross compiled!
+	  :) (you need to update all of your farm, I bumped the minimum
+	  protocol)
+
+2004-04-30 13:56  Cornelius Schumacher <schumacher@kde.org>
+
+	* mon/starview.cc: Use center of items as reference.
+
+2004-04-30 13:32  Cornelius Schumacher <schumacher@kde.org>
+
+	* mon/: icemonui.rc, mon-kde.cc, mon-kde.h, starview.cc,
+	  starview.h, statusview.h: Show nodes in more than one ring if
+	  there are lots of hosts.  Add configuration dialog for star view.
+
+2004-04-30 11:59  Stephan Kulow <coolo@kde.org>
+
+	* client/remote.cpp, daemon/environment.cpp, daemon/environment.h,
+	  daemon/main.cpp, daemon/serve.cpp, services/comm.cpp,
+	  services/comm.h, services/scheduler.cpp: further preparation for
+	  cross compiling
+
+2004-04-30 10:07  Stephan Kulow <coolo@kde.org>
+
+	* TODO, daemon/environment.cpp, daemon/environment.h,
+	  daemon/main.cpp: package the local environment for users without
+	  ICECC_VERSION - convenient feature (and another nail in the
+	  coffin for "let the daemon run as user")
+
+2004-04-29 17:50  Stephan Kulow <coolo@kde.org>
+
+	* client/client.h, client/main.cpp, client/remote.cpp,
+	  daemon/environment.cpp, daemon/environment.h, daemon/main.cpp,
+	  services/comm.cpp, services/comm.h, services/scheduler.cpp:
+	  preparation for cross-compiler support - from now on
+	  $ICECC_VERSION got a bit different format   (mine is
+	  /work/users/coolo/9.1-i386.tar.bz2,x86_64:/work/users/coolo/9.1-x86_64-cross-i386.tar.bz2)
+
+	  this is just the first step. Until Michael finished reading his
+	  mail, the scheduler will ignore all but the environments from the
+	  target platform (the one without actual prefix in $ICECC_VERSION)
+
+2004-04-29 17:00  Stephan Kulow <coolo@kde.org>
+
+	* mon/: job.h, mon-kde.cc: no one cares for the version
+
+2004-04-29 11:05  Cornelius Schumacher <schumacher@kde.org>
+
+	* mon/: ganttstatusview.cc, ganttstatusview.h, statusview.cc,
+	  statusview.h: Add vertical scrollbar to ganttstatusview.
+
+2004-04-28 17:00  Stephan Kulow <coolo@kde.org>
+
+	* client/create-env: that's interesting. 2.4.0 breaks lib64 support
+	  :)
+
+2004-04-28 12:01  Stephan Kulow <coolo@kde.org>
+
+	* client/remote.cpp: as I said
+
+2004-04-28 11:37  Stephan Kulow <coolo@kde.org>
+
+	* services/comm.cpp: oops
+
+2004-04-28 11:31  Stephan Kulow <coolo@kde.org>
+
+	* Makefile.cvs, TODO, client/main.cpp, client/remote.cpp,
+	  daemon/main.cpp, services/comm.cpp, services/comm.h,
+	  services/job.cpp, services/job.h, services/scheduler.cpp: support
+	  for differing platforms (by uname's .machine) - require
+	  ICECC_VERSION to be set for now (read the TODO file if you're
+	  annoyed :)   - which in return means iceccd requires being
+	  started as root feedback wanted - especially from those that
+	  share i686 and i586 build hosts (those poor souls :)
+
+2004-04-27 18:03  Cornelius Schumacher <schumacher@kde.org>
+
+	* mon/: hostinfo.cc, hostinfo.h, mon-kde.cc, starview.cc,
+	  starview.h, statusview.h: - Tell the status view if a node has
+	  gone offline.  - Remove offline nodes in star view.
+
+2004-04-27 16:35  Cornelius Schumacher <schumacher@kde.org>
+
+	* mon/: hostinfo.cc, hostinfo.h, starview.cc, starview.h:
+	  Immediately create all known hosts.
+
+2004-04-27 11:29  Cornelius Schumacher <schumacher@kde.org>
+
+	* mon/starview.cc: Show lines not only for the server but also for
+	  the client.
+
+2004-04-27 09:53  Cornelius Schumacher <schumacher@kde.org>
+
+	* mon/starview.cc: Use full width of window.
+
+2004-04-26 17:22  Stephan Kulow <coolo@kde.org>
+
+	* client/: Makefile.am, client.h, cpp.cpp, local.cpp, main.cpp,
+	  safeguard.cpp: trying to protect against recursive calling -
+	  Scott, please test
+
+2004-04-26 16:31  Stephan Kulow <coolo@kde.org>
+
+	* client/arg.cpp: building binutils with icecream is no fun - tons
+	  of bugs :)
+
+2004-04-26 15:58  Stephan Kulow <coolo@kde.org>
+
+	* client/remote.cpp: don't annoy users that do not know
+	  ICECC_VERSION
+
+2004-04-26 15:03  Stephan Kulow <coolo@kde.org>
+
+	* client/remote.cpp: empty files are absolute too - by definition
+	  :)
+
+2004-04-26 11:02  Stephan Kulow <coolo@kde.org>
+
+	* suse/: icecream.spec, init.icecream, sysconfig.icecream: for
+	  whoever finds it interesting to have packages
+
+2004-04-26 10:34  Stephan Kulow <coolo@kde.org>
+
+	* client/client.h, client/local.cpp, client/remote.cpp,
+	  daemon/environment.cpp, daemon/environment.h,
+	  daemon/findmyself.h, daemon/load.h, daemon/main.cpp,
+	  daemon/ncpus.h, daemon/serve.cpp, daemon/serve.h,
+	  daemon/workit.cpp, daemon/workit.h, services/comm.cpp,
+	  services/comm.h, services/job.cpp, services/job.h,
+	  services/logging.cpp, services/logging.h, services/receiver.cpp,
+	  services/scheduler.cpp, services/submitter.cpp,
+	  services/tempfile.h: adding copyright headers to all files
+
+2004-04-26 10:22  Stephan Kulow <coolo@kde.org>
+
+	* client/client.h, client/local.cpp, mon/mon-kde.cc,
+	  services/comm.cpp, services/comm.h, services/scheduler.cpp:
+	  submit the output filename for local jobs too
+
+2004-04-26 01:01  Scott Wheeler <wheeler@kde.org>
+
+	* mon/: summaryview.cc, summaryview.h: Remove machines from the
+	  monitor as they drop out of the cluster.
+
+2004-04-25 23:01  Scott Wheeler <wheeler@kde.org>
+
+	* client/main.cpp: This is no good.  If the user does "icecc foo.c"
+	  this currently just prints the usage message and exits.  Only
+	  print the usage stuff if it's asked for.
+
+2004-04-25 21:02  Scott Wheeler <wheeler@kde.org>
+
+	* client/remote.cpp: -frandome-seed doesn't exist on GCC < 3.
+
+2004-04-25 12:44  Stephan Kulow <coolo@kde.org>
+
+	* client/remote.cpp, services/job.h: found the "make gcc
+	  compilation reproducible" option - which gives comparing md5sum
+	  of the output kind of a sense for some more advanced usage of C++
+	  :)
+
+2004-04-24 09:26  Stephan Kulow <coolo@kde.org>
+
+	* mon/hostinfo.cc: a fresh one :)
+
+2004-04-23 23:46  Stephan Kulow <coolo@kde.org>
+
+	* client/remote.cpp, daemon/serve.cpp: another case where the farm
+	  locked ;(
+
+2004-04-23 21:17  Stephan Kulow <coolo@kde.org>
+
+	* mon/hostinfo.cc: minor optimizations
+
+2004-04-23 18:38  Stephan Kulow <coolo@kde.org>
+
+	* daemon/workit.cpp, services/comm.cpp: I was hunting this bug for
+	  quite a while - which shows what UNIX novice I am ;(
+
+2004-04-23 14:21  Stephan Kulow <coolo@kde.org>
+
+	* client/remote.cpp: I guess, relying on the preprocessor to create
+	  always the same output is naiv
+
+2004-04-23 12:12  Stephan Kulow <coolo@kde.org>
+
+	* daemon/main.cpp: don't let the number of current childs go below
+	  0 just because the scheduler is unavailable for a moment
+
+2004-04-23 09:42  Stephan Kulow <coolo@kde.org>
+
+	* services/scheduler.cpp: too much information even for debug
+
+2004-04-22 11:22  Stephan Kulow <coolo@kde.org>
+
+	* client/remote.cpp: jobs started at the same time tend to have the
+	  same random - that wasn't my intention :)
+
+2004-04-22 11:19  Stephan Kulow <coolo@kde.org>
+
+	* TODO: cleaning up a bit
+
+2004-04-22 09:57  Stephan Kulow <coolo@kde.org>
+
+	* TODO, client/client.h, client/main.cpp, client/remote.cpp,
+	  services/scheduler.cpp: finally finished my failsafe feature.
+	  every ~5th job is compiled three times and then checked if the
+	  resulting object files are all the same.
+
+	  Don't worry, I'll make that configurable through ICECC_DEBUG as
+	  soon as I know it works :)
+
+2004-04-22 09:32  Stephan Kulow <coolo@kde.org>
+
+	* mon/: hostinfo.cc, hostinfo.h: make it easier to have the color
+	  in kcolorchooser CCMAIL: wimer@suse.de
+
+2004-04-22 01:20  Scott Wheeler <wheeler@kde.org>
+
+	* mon/summaryview.cc: Don't get confused by failed / canceled jobs.
+
+2004-04-21 17:06  Stephan Kulow <coolo@kde.org>
+
+	* client/Makefile.am, client/md5.c, client/md5.h,
+	  client/remote.cpp, daemon/Makefile.am, daemon/serve.cpp,
+	  daemon/tempfile.c, daemon/tempfile.h, daemon/workit.cpp,
+	  services/Makefile.am, services/tempfile.c, services/tempfile.h:
+	  getting somewhere with my failsafe mode
+
+2004-04-21 14:29  Stephan Kulow <coolo@kde.org>
+
+	* services/comm.cpp: a little less conversation...
+
+2004-04-21 13:50  Stephan Kulow <coolo@kde.org>
+
+	* services/comm.cpp: is that part of "off by one"?
+
+2004-04-21 13:30  Stephan Kulow <coolo@kde.org>
+
+	* daemon/main.cpp, mon/mon-kde.cc, services/comm.cpp,
+	  services/scheduler.cpp: fixing the handling of protocol out of
+	  rage
+
+2004-04-21 11:51  Stephan Kulow <coolo@kde.org>
+
+	* daemon/main.cpp, services/scheduler.cpp: no one can spell
+	  --no-detach - default to foreground and make the switch -d,
+	  --daemonize
+
+2004-04-21 11:32  Stephan Kulow <coolo@kde.org>
+
+	* services/: comm.cpp, comm.h: making the protocol version hand
+	  shake more safe
+
+2004-04-21 10:44  Stephan Kulow <coolo@kde.org>
+
+	* client/remote.cpp, daemon/main.cpp, services/comm.cpp,
+	  services/comm.h, services/scheduler.cpp: * introducing at least a
+	  concept of different protocol versions talking with	each other
+	  in trying to get the minimal version and then chat with that
+	  (requires increased protocol version :) * let the client request
+	  x jobs per file and compile it - still experimental
+
+2004-04-21 01:41  Scott Wheeler <wheeler@kde.org>
+
+	* mon/: hostinfo.cc, hostinfo.h: make methods const where
+	  appropriate
+
+2004-04-21 01:28  Scott Wheeler <wheeler@kde.org>
+
+	* mon/summaryview.cc: Add color coding.
+
+2004-04-20 23:19  Scott Wheeler <wheeler@kde.org>
+
+	* mon/summaryview.cc: Add a bit of spacing between items if the
+	  system can handle multiple jobs.
+
+2004-04-20 20:44  Scott Wheeler <wheeler@kde.org>
+
+	* mon/: summaryview.cc, summaryview.h: Support for multiple CPUs.
+
+	  CCMAIL:staikos@kde.org
+
+2004-04-20 19:04  Scott Wheeler <wheeler@kde.org>
+
+	* mon/: summaryview.cc, summaryview.h: minor layouting fixes
+
+2004-04-20 18:56  Scott Wheeler <wheeler@kde.org>
+
+	* mon/summaryview.cc: Set the minimum height and avoid a weird
+	  resizing thing that happens when less than is used when the
+	  heights are equal.
+
+2004-04-20 18:50  Scott Wheeler <wheeler@kde.org>
+
+	* mon/: summaryview.cc, summaryview.h: Make it scrollable.
+
+2004-04-20 17:19  Scott Wheeler <wheeler@kde.org>
+
+	* mon/summaryview.cc: Just show the file name -- not the full path.
+
+2004-04-20 17:12  Scott Wheeler <wheeler@kde.org>
+
+	* mon/: summaryview.cc, summaryview.h: Make sure that the columns
+	  are balanced.
+
+2004-04-20 14:47  Stephan Kulow <coolo@kde.org>
+
+	* client/remote.cpp, services/job.h: preparing the client in
+	  general to compile all jobs several times (experimental, still
+	  disabled)
+
+2004-04-20 13:12  Frerich Raabe <raabe@kde.org>
+
+	* daemon/main.cpp, services/comm.cpp, services/comm.h: - Make it
+	  possible to tell the daemon what host the scheduler runs on via
+	  the commandline.
+
+2004-04-19 21:41  Stephan Kulow <coolo@kde.org>
+
+	* mon/starview.cc: init variables
+
+2004-04-19 21:06  Scott Wheeler <wheeler@kde.org>
+
+	* services/scheduler.cpp, daemon/main.cpp: Mention the --no-detach
+	  option.
+
+2004-04-19 16:40  Cornelius Schumacher <schumacher@kde.org>
+
+	* mon/: hostinfo.cc, hostinfo.h, starview.cc: Show IP address in
+	  tooltip.
+
+2004-04-19 16:08  Stephan Kulow <coolo@kde.org>
+
+	* services/scheduler.cpp: give the IP too
+
+2004-04-19 16:00  Cornelius Schumacher <schumacher@kde.org>
+
+	* mon/: Makefile.am, ganttstatusview.cc, ganttstatusview.h,
+	  hostinfo.cc, hostinfo.h, job.cc, job.h, listview.cc, listview.h,
+	  mon-kde.cc, mon-kde.h, starview.cc, starview.h, statusview.cc,
+	  statusview.h, summaryview.cc, summaryview.h: - Hold host
+	  information in own objects independent of the views.	- Assign
+	  fixed colors to hosts based on host names.  - Move Job class two
+	  own source file.
+
+2004-04-18 23:43  Cornelius Schumacher <schumacher@kde.org>
+
+	* mon/: starview.cc, starview.h: Show all available nodes in star
+	  view.
+
+2004-04-18 19:17  Stephan Kulow <coolo@kde.org>
+
+	* mon/mon-kde.cc: as long as the summary view doesn't scale, using
+	  it as default is bad ;(
+
+2004-04-18 10:24  Stephan Kulow <coolo@kde.org>
+
+	* mon/statusview.cc, services/scheduler.cpp: tell the monitor when
+	  one node went away - currently unused by most views
+
+2004-04-16 16:54  Frerich Raabe <raabe@kde.org>
+
+	* services/scheduler.cpp: - Mention --log-file in usage
+	  instructions
+
+2004-04-16 16:37  Stephan Kulow <coolo@kde.org>
+
+	* mon/: ganttstatusview.cc, ganttstatusview.h, mon-kde.cc,
+	  statusview.cc, statusview.h, summaryview.cc, summaryview.h:
+	  finding the number of maximum jobs
+
+2004-04-16 16:25  Stephan Kulow <coolo@kde.org>
+
+	* mon/: mon-kde.cc, statusview.cc, statusview.h: inheriting the
+	  host names is the minimum you expect when switching views
+
+2004-04-16 16:20  Stephan Kulow <coolo@kde.org>
+
+	* services/scheduler.cpp: find the server for the local job - we
+	  used to compare by IP, but this is no longer good enough
+
+2004-04-16 15:56  Stephan Kulow <coolo@kde.org>
+
+	* services/scheduler.cpp: IDs are expensive, spare them for servers
+
+2004-04-16 15:11  Stephan Kulow <coolo@kde.org>
+
+	* mon/mon-kde.cc: conditional casts are stupid ;(
+
+2004-04-16 14:44  Stephan Kulow <coolo@kde.org>
+
+	* mon/mon-kde.cc: don't rely on STL support in Qt
+
+2004-04-16 14:30  Stephan Kulow <coolo@kde.org>
+
+	* mon/: Makefile.am, mon-kde.cc, starview.cc, starview.h: it
+	  compiles and adds nodes
+
+2004-04-16 14:22  Stephan Kulow <coolo@kde.org>
+
+	* mon/: Makefile.am, mon-kde.cc, summaryview.cc, summaryview.h:
+	  summary view is in again too
+
+2004-04-16 14:17  Stephan Kulow <coolo@kde.org>
+
+	* mon/: Makefile.am, ganttstatusview.cc, ganttstatusview.h,
+	  mon-kde.cc, statusview.cc, summaryview.cc, summaryview.h:
+	  ganttview is ported too
+
+2004-04-16 14:03  Stephan Kulow <coolo@kde.org>
+
+	* mon/Makefile.am, mon/ganttstatusview.cc, mon/ganttstatusview.h,
+	  mon/listview.cc, mon/mon-kde.cc, mon/starview.cc,
+	  mon/statusview.cc, mon/statusview.h, services/comm.cpp,
+	  services/scheduler.cpp: porting monitor to new protocol - only
+	  list view activated
+
+2004-04-16 12:00  Stephan Kulow <coolo@kde.org>
+
+	* daemon/main.cpp, services/comm.cpp, services/comm.h,
+	  services/scheduler.cpp: raising protocol version for * daemons
+	  submit there local node name * the statistics message from
+	  scheduler to monitor is free text allowing me   to change the
+	  format and the content without raising protocol version (does not
+	  compile right now - work in progress)
+
+2004-04-16 09:38  Stephan Kulow <coolo@kde.org>
+
+	* daemon/: main.cpp, serve.cpp, serve.h: make nice level
+	  configurable (Lubos, your fault)
+
+2004-04-15 17:24  Stephan Kulow <coolo@kde.org>
+
+	* mon/starview.cc: just a proof of concept - combining starview and
+	  summary view
+
+2004-04-15 09:12  Stephan Kulow <coolo@kde.org>
+
+	* mon/mon-kde.cc: on scheduler disconnect, forget about the jobs
+
+2004-04-14 22:21  Scott Wheeler <wheeler@kde.org>
+
+	* services/logging.h: build
+
+2004-04-14 20:29  Stephan Kulow <coolo@kde.org>
+
+	* mon/statusview.h: compile
+
+2004-04-14 17:20  Cornelius Schumacher <schumacher@kde.org>
+
+	* mon/starview.cc: Adapt text color to host color.
+
+2004-04-14 17:04  Cornelius Schumacher <schumacher@kde.org>
+
+	* mon/starview.cc: Draw star view lines in color of client.
+
+2004-04-14 16:51  Cornelius Schumacher <schumacher@kde.org>
+
+	* mon/: starview.cc, starview.h: Remove finished local jobs from
+	  star view.
+
+2004-04-14 15:38  Cornelius Schumacher <schumacher@kde.org>
+
+	* mon/: ganttstatusview.cc, starview.cc: Show multiple jobs on
+	  compile hosts in star view.
+
+2004-04-14 14:24  Cornelius Schumacher <schumacher@kde.org>
+
+	* mon/: ganttstatusview.cc, ganttstatusview.h, starview.cc,
+	  starview.h, statusview.cc, statusview.h: Show host names and
+	  colors in star view.
+
+2004-04-14 13:24  Cornelius Schumacher <schumacher@kde.org>
+
+	* mon/: starview.cc, starview.h: Make star view show something more
+	  useful.
+
+2004-04-14 11:38  Cornelius Schumacher <schumacher@kde.org>
+
+	* mon/: Makefile.am, ganttstatusview.cc, mon-kde.cc, starview.cc,
+	  starview.h: Make star view compile and at least do something.
+
+2004-04-14 10:54  Cornelius Schumacher <schumacher@kde.org>
+
+	* mon/: Makefile.am, ganttstatusview.cc, ganttstatusview.h,
+	  listview.cc, listview.h, mon-kde.cc, mon-kde.h, starview.cc,
+	  starview.h, statusview.cc, statusview.h, summaryview.h: - Moved
+	  view classes to own files.  - Added copyright headers.  -
+	  Remember current view.
+
+2004-04-14 09:51  Cornelius Schumacher <schumacher@kde.org>
+
+	* mon/: ganttstatusview.cc, ganttstatusview.h: Show host names
+	  instead of ip addresses.
+
+2004-04-13 21:07  Stephan Kulow <coolo@kde.org>
+
+	* client/main.cpp: no warnings by default
+
+2004-04-13 20:43  Scott Wheeler <wheeler@kde.org>
+
+	* mon/: summaryview.cc, summaryview.h: Notice which machines are on
+	  the network...
+
+2004-04-13 14:01  Stephan Kulow <coolo@kde.org>
+
+	* services/: comm.cpp, comm.h: new protocol version - with working
+	  hand shake :)
+
+2004-04-13 14:00  Stephan Kulow <coolo@kde.org>
+
+	* client/remote.cpp: just a warning
+
+2004-04-13 12:04  Stephan Kulow <coolo@kde.org>
+
+	* services/comm.cpp: give feedback for the protocol version -
+	  trying to avoid hanging clients
+
+2004-04-13 11:40  Stephan Kulow <coolo@kde.org>
+
+	* client/remote.cpp, services/scheduler.cpp: trying harder to give
+	  any host in the farm a chance to proof he's fastest (if the farm
+	  is big enough, we used to stick to the same set of hosts)
+
+2004-04-13 10:58  Stephan Kulow <coolo@kde.org>
+
+	* daemon/environment.cpp: no cout
+
+2004-04-13 10:48  Stephan Kulow <coolo@kde.org>
+
+	* daemon/main.cpp: if the scheduler is down, reconnect
+
+2004-04-12 22:52  Stephan Kulow <coolo@kde.org>
+
+	* daemon/main.cpp, services/comm.cpp, services/comm.h,
+	  services/scheduler.cpp: trying harder not to loose track of
+	  daemons - ping them and if they still don't answer, kill them.
+
+2004-04-12 17:13  Stephan Kulow <coolo@kde.org>
+
+	* daemon/main.cpp: oops
+
+2004-04-12 16:30  Stephan Kulow <coolo@kde.org>
+
+	* services/scheduler.cpp: don't printf
+
+2004-04-12 14:11  Stephan Kulow <coolo@kde.org>
+
+	* daemon/main.cpp, services/scheduler.cpp: call iceccd as
+	  --no-detach -vvv to get the old behaviour
+
+2004-04-12 13:44  Stephan Kulow <coolo@kde.org>
+
+	* TODO, daemon/main.cpp, services/comm.cpp, services/comm.h,
+	  services/scheduler.cpp: first try to get the protocol version
+
+2004-04-12 12:07  Stephan Kulow <coolo@kde.org>
+
+	* mon/mon-kde.cc: the monitor calls trace() indirectly too
+
+2004-04-12 12:01  Stephan Kulow <coolo@kde.org>
+
+	* daemon/load.cpp: trace() the load (to /dev/null)
+
+2004-04-12 12:01  Stephan Kulow <coolo@kde.org>
+
+	* services/scheduler.cpp: more trace() debugs
+
+2004-04-12 12:00  Stephan Kulow <coolo@kde.org>
+
+	* client/main.cpp, daemon/main.cpp, services/Makefile.am,
+	  services/logging.cpp, services/logging.h, services/scheduler.cpp:
+	  log to a file and filter out trace() etc per default
+
+2004-04-09 23:03  Scott Wheeler <wheeler@kde.org>
+
+	* mon/mon-kde.cc: i18n-ifying these strings...
+
+2004-04-09 21:54  Scott Wheeler <wheeler@kde.org>
+
+	* mon/: Makefile.am, icemonnode.png, icemonui.rc, mon-kde.cc,
+	  mon-kde.h, summaryview.cc, summaryview.h: Adding a new view mode
+	  (and by coolo's request making it the default).
+
+	  This is a more visually attrative way of viewing things than the
+	  listview and doesn't take near as much CPU as the Gantt View.
+
+	  There are still several things left to be done like having it
+	  search for nodes on startup and turning it into a scrollview for
+	  build farms with lots of nodes, but that will come later...
+
+2004-03-10 10:25  Cornelius Schumacher <schumacher@kde.org>
+
+	* mon/: ganttstatusview.cc, ganttstatusview.h, icemonui.rc,
+	  mon-kde.cc, mon-kde.h: Remove dead nodes.
+
+2004-03-03 22:17  Cornelius Schumacher <schumacher@kde.org>
+
+	* README: Fix typo.
+
+2004-03-03 11:19  Cornelius Schumacher <schumacher@kde.org>
+
+	* README: Add some docs about ICECC_VERSION.
+
+2004-03-03 10:44  Stephan Kulow <coolo@kde.org>
+
+	* client/create-env: back
+
+2004-03-03 09:54  Stephan Kulow <coolo@kde.org>
+
+	* client/create-env: this is now the third time I tell someone he
+	  needs to patch PATH before calling this script
+
+2004-03-02 17:28  Stephan Kulow <coolo@kde.org>
+
+	* daemon/: load.cpp, main.cpp: be more conservative on what hosts
+	  you label as free
+
+2004-03-02 16:24  Stephan Kulow <coolo@kde.org>
+
+	* client/: main.cpp, remote.cpp: don't send an EndMsg to the
+	  scheduler if something failed. Just throw an exception, shut down
+	  all connections and build local without telling anyone
+
+2004-03-02 14:49  Stephan Kulow <coolo@kde.org>
+
+	* services/scheduler.cpp: take canceled jobs out of the monitors
+
+2004-03-01 16:01  Luboš Luňák <l.lunak@kde.org>
+
+	* mon/: ganttstatusview.cc, ganttstatusview.h: Don't repaint the
+	  filename in the monitor all the time (all job 50 times a second),
+	  instead cache the drawn text in a pixmap and redo it only when
+	  necessary. Greatly reduces CPU usage.
+
+2004-03-01 15:57  Luboš Luňák <l.lunak@kde.org>
+
+	* mon/: ganttstatusview.cc, ganttstatusview.h: Use normal struct
+	  for data in the list instead of QPair.
+
+2004-03-01 07:48  George Staikos <staikos@kde.org>
+
+	* TODO: more to do :)
+
+2004-02-27 22:29  David Faure <faure@kde.org>
+
+	* services/scheduler.cpp: Don't crash
+
+2004-02-27 08:10  Stephan Kulow <coolo@kde.org>
+
+	* client/util.cpp: less debug
+
+2004-02-23 11:16  Stephan Kulow <coolo@kde.org>
+
+	* daemon/environment.cpp: allow names with .
+
+2004-02-20 20:03  Stephan Kulow <coolo@kde.org>
+
+	* TODO, client/arg.cpp, client/local.cpp, client/util.cpp,
+	  client/util.h, services/comm.cpp: don't kill the machine if the
+	  scheduler can't be reached, but lock the machine and run one job
+	  at a time
+
+2004-02-20 18:38  Michael Matz <matz@kde.org>
+
+	* services/scheduler.cpp: This should fix it.
+
+2004-02-20 15:21  Stephan Kulow <coolo@kde.org>
+
+	* TODO: Cornelius was annoyed by this very simple thing we added,
+	  but at least he had an idea we like :)
+
+2004-02-20 10:08  Stephan Kulow <coolo@kde.org>
+
+	* daemon/main.cpp: don't even listen for clients when we're not
+	  connected to a scheduler. Otherwise we listen but don't talk -
+	  which gives hanging clients
+
+2004-02-20 09:54  Stephan Kulow <coolo@kde.org>
+
+	* mon/mon-kde.cc: reconnect to the scheduler
+
+2004-02-20 09:07  Stephan Kulow <coolo@kde.org>
+
+	* Makefile.cvs, services/comm.h, services/scheduler.cpp: some more
+	  debug
+
+2004-02-19 19:14  Michael Matz <matz@kde.org>
+
+	* services/scheduler.cpp: I overlooked one path, where this is
+	  indeed an login message.  Like, ...  erm ..., linking.
+
+2004-02-18 21:39  Michael Matz <matz@kde.org>
+
+	* services/scheduler.cpp: Make toanswer a list, not queue.
+	  Correctly send end messages for deleted jobs.  Otherwise if a
+	  daemon dies all clients currently waiting on that machine would
+	  hang.
+
+2004-02-18 18:12  Michael Matz <matz@kde.org>
+
+	* TODO: Would be nice.
+
+2004-02-18 17:56  Michael Matz <matz@kde.org>
+
+	* client/remote.cpp: This is done later unconditionally.
+
+2004-02-18 17:55  Michael Matz <matz@kde.org>
+
+	* client/remote.cpp: No need to two local 100k arrays.
+
+2004-02-18 17:47  Michael Matz <matz@kde.org>
+
+	* client/Makefile.am: Installing it is a good idea.
+
+2004-02-18 17:44  Michael Matz <matz@kde.org>
+
+	* client/main.cpp: Done by a script now.
+
+2004-02-18 15:35  Michael Matz <matz@kde.org>
+
+	* services/scheduler.cpp: If the client end normally, don't do
+	  cleanups.  (This will break if the daemon exits after sending the
+	  .o file, but before sending the job_end message).
+
+2004-02-18 15:27  Stephan Kulow <coolo@kde.org>
+
+	* services/comm.cpp: avoid bogus warning
+
+2004-02-18 15:16  Stephan Kulow <coolo@kde.org>
+
+	* daemon/main.cpp, services/comm.h, services/scheduler.cpp:
+	  reannounce environments and ignore meanwhile the servers with
+	  installing environments
+
+2004-02-18 15:05  Michael Matz <matz@kde.org>
+
+	* client/create-env: I didn't want to check in the use of gzip.
+
+2004-02-18 14:15  Scott Wheeler <wheeler@kde.org>
+
+	* configure.ac, client/main.cpp, client/remote.cpp,
+	  daemon/Makefile.am, daemon/environment.cpp, daemon/serve.cpp,
+	  daemon/workit.cpp, services/Makefile.am, services/comm.cpp,
+	  services/getifaddrs.cpp, services/getifaddrs.h,
+	  services/scheduler.cpp: Make icecream build on older systems
+	  (glibc 2.2.5, gcc 2.95).  Approved by Matz...
+
+2004-02-18 00:55  Michael Matz <matz@kde.org>
+
+	* TODO: In retrospective just the scheduler is broken.
+
+2004-02-18 00:53  Michael Matz <matz@kde.org>
+
+	* TODO: Did something.
+
+2004-02-17 23:50  Michael Matz <matz@kde.org>
+
+	* client/main.cpp, client/remote.cpp, services/scheduler.cpp:
+	  local-job messages to the scheduler were broken.  Client tried to
+	  send them after END was already sent.  Not possible.	Working
+	  around this exposed some other bugs.
+
+2004-02-17 23:01  Michael Matz <matz@kde.org>
+
+	* services/scheduler.cpp: Also removing it from daemons joblist
+	  leaves the scheduler in a saner state.
+
+2004-02-17 22:50  Michael Matz <matz@kde.org>
+
+	* services/scheduler.cpp: Rewrite end of socket handling.  Fixes at
+	  least one segfault.  Still not complete though.
+
+2004-02-17 22:49  Michael Matz <matz@kde.org>
+
+	* client/remote.cpp: Don't access deleted message.  Send END
+	  message only when daemon got successfully contacted.
+
+2004-02-17 13:48  Stephan Kulow <coolo@kde.org>
+
+	* daemon/serve.cpp, services/scheduler.cpp: do not fall back in the
+	  daemon when the environment doesn't exist
+
+2004-02-16 17:48  Michael Matz <matz@kde.org>
+
+	* services/scheduler.cpp: Otherwise we have forgotten in two weeks.
+
+2004-02-16 17:11  Stephan Kulow <coolo@kde.org>
+
+	* services/scheduler.cpp: don't let linux 2.6.2 DoS us ;(
+
+2004-02-16 15:54  Michael Matz <matz@kde.org>
+
+	* client/create-env: I think a script is better.
+
+2004-02-09 21:57  Stephan Kulow <coolo@kde.org>
+
+	* TODO: one part is done
+
+2004-02-09 21:51  Stephan Kulow <coolo@kde.org>
+
+	* client/main.cpp, client/remote.cpp, daemon/environment.cpp,
+	  daemon/environment.h, daemon/main.cpp, daemon/serve.cpp,
+	  daemon/serve.h, services/comm.cpp, services/comm.h: make support
+	  for versions work. You still better do not update though :)
+
+2004-02-09 19:33  Stephan Kulow <coolo@kde.org>
+
+	* services/: comm.cpp, scheduler.cpp: two fixes for the env
+	  transfer
+
+2004-02-08 22:27  Stephan Kulow <coolo@kde.org>
+
+	* client/main.cpp, client/remote.cpp, services/comm.cpp,
+	  services/comm.h, services/scheduler.cpp: more work on compiler
+	  environments
+
+2004-02-07 23:31  Stephan Kulow <coolo@kde.org>
+
+	* client/main.cpp, services/job.h: adding an option to create a tar
+	  ball with the compile environment
+
+2004-02-07 13:12  Stephan Kulow <coolo@kde.org>
+
+	* services/: job.cpp, job.h: let the compiler decide if he can
+	  inline
+
+2004-02-07 13:06  Stephan Kulow <coolo@kde.org>
+
+	* services/job.cpp: thanks Frerich, but the arguments once are fine
+
+2004-02-06 23:50  Frerich Raabe <raabe@kde.org>
+
+	* services/comm.h: - Whoever wanted to make this compile on FreeBSD
+	  must've been using an editor	 window which was only three lines
+	  in height.
+
+2004-02-06 23:38  Frerich Raabe <raabe@kde.org>
+
+	* services/scheduler.cpp: - fixed copy&paste error
+
+2004-02-06 19:39  Daniel Molkentin <molkentin@kde.org>
+
+	* services/scheduler.cpp: - allow for selecting a custom port
+	  (pending: implement in daemon and monitor) - more verbose help
+
+2004-02-06 16:30  Daniel Molkentin <molkentin@kde.org>
+
+	* services/scheduler.cpp: compile
+
+2004-02-06 16:23  Stephan Kulow <coolo@kde.org>
+
+	* services/scheduler.cpp: trying harder to catch unexpected client
+	  errors gracefully
+
+2004-02-05 15:27  Luboš Luňák <l.lunak@kde.org>
+
+	* mon/: ganttstatusview.cc, ganttstatusview.h: When removing a
+	  slot, I guess I forgot to remove it also from mJobMap.
+
+2004-02-05 13:59  Frerich Raabe <raabe@kde.org>
+
+	* services/: job.cpp, job.h: - Fix code duplication (and removed
+	  funny appendList implementation, why on   earth is there a
+	  dedicated method for such a task?)
+
+2004-02-02 14:09  Luboš Luňák <l.lunak@kde.org>
+
+	* mon/: ganttstatusview.cc, ganttstatusview.h: Show no slots for
+	  gone nodes. They should be perhaps removed completely, but
+	  QGridLayout can't be shrinked.
+
+2004-02-02 14:09  Luboš Luňák <l.lunak@kde.org>
+
+	* mon/: ganttstatusview.cc, ganttstatusview.h, mon-kde.cc,
+	  mon-kde.h: Limit the numbers of slots per node to the maximum
+	  allowed processes, and drop excessive empty slots. It looks
+	  stupid if a machine gets 10 slots forever just because it did 10
+	  local link jobs due to make -j10.
+
+2004-02-02 14:03  Luboš Luňák <l.lunak@kde.org>
+
+	* client/local.cpp: Handle user break doing local compiles, in
+	  order to always send JobLocalDoneMsg. They'd stay stuck in icemon
+	  (at least).
+
+2004-02-02 13:58  Luboš Luňák <l.lunak@kde.org>
+
+	* client/remote.cpp: Maybe even better - create the data from
+	  remote compilation first as a temporary file, rename only after
+	  successfully receving it.
+
+2004-02-02 13:57  Luboš Luňák <l.lunak@kde.org>
+
+	* client/remote.cpp: Don't create empty .o files if remote compile
+	  failed.
+
+2004-02-02 13:56  Luboš Luňák <l.lunak@kde.org>
+
+	* client/cpp.cpp: Fix usage when used together with ccache. Gcc has
+	  the brai^H^H^Hinteresting feature that g++ -E preprocessed.ii
+	  outputs big nothing. Detect .i/.ii files and use cat instead of
+	  g++ -E for them.
+
+2004-01-31 16:26  Frerich Raabe <raabe@kde.org>
+
+	* daemon/load.cpp: - Trying to get /proc-dependant stuff ported to
+	  FreeBSD
+
+2004-01-30 13:23  Luboš Luňák <l.lunak@kde.org>
+
+	* daemon/load.cpp: 1014 -> 1024 . Let's not risk load higher than
+	  maximum ;).
+
+2004-01-30 13:17  Michael Matz <matz@kde.org>
+
+	* client/main.cpp: Too much copy-paste.  No sense in an own process
+	  group for the client.
+
+2004-01-29 20:36  Michael Matz <matz@kde.org>
+
+	* client/arg.cpp: I prefer it this way.
+
+2004-01-29 20:14  Luboš Luňák <l.lunak@kde.org>
+
+	* client/arg.cpp: Nice cryptic error message. Either the type is
+	  list, or the variable is list, but not both.
+
+2004-01-29 16:05  Luboš Luňák <l.lunak@kde.org>
+
+	* mon/Makefile.am: Add missing $(DESTDIR).
+
+2004-01-26 22:07  George Staikos <staikos@kde.org>
+
+	* daemon/environment.cpp, services/comm.h: compile
+
+2004-01-26 20:04  George Staikos <staikos@kde.org>
+
+	* client/remote.cpp: compile
+
+2004-01-21 16:32  Michael Matz <matz@kde.org>
+
+	* client/client.h: Forgot.
+
+2004-01-21 16:32  Michael Matz <matz@kde.org>
+
+	* client/: Makefile.am, arg.cpp, cpp.cpp, local.cpp, main.cpp,
+	  remote.cpp, util.cpp, util.h: Clean up unused code.
+
+2004-01-19 11:58  Cornelius Schumacher <schumacher@kde.org>
+
+	* mon/: mon-kde.cc, mon-kde.h: Add command line option for setting
+	  icecream network name.
+
+2004-01-19 11:42  Cornelius Schumacher <schumacher@kde.org>
+
+	* mon/: mon-kde.cc, mon-kde.h: Don't remeber all jobs when
+	  switching to gantt view.
+
+2004-01-18 23:14  Cornelius Schumacher <schumacher@kde.org>
+
+	* mon/: ganttstatusview.cc, ganttstatusview.h: Make all progress
+	  bars use the same height. That means machines taking more jobs
+	  now get more space in the monitor.
+
+2004-01-16 18:12  Michael Matz <matz@kde.org>
+
+	* services/comm.cpp: Subtle.  Obviously people only compile correct
+	  code, because with errors the client would segfault.
+
+2004-01-09 10:19  Stephan Kulow <coolo@kde.org>
+
+	* TODO: people are mean ;)
+
+2004-01-09 09:49  Stephan Kulow <coolo@kde.org>
+
+	* daemon/main.cpp: do not use more jobs than CPUs (still suggested
+	  to overrun machines that are idle most of the time - use -m for
+	  that) -w is without option
+
+2004-01-05 17:37  Stephan Kulow <coolo@kde.org>
+
+	* services/scheduler.cpp: when a daemon exits, remove everything we
+	  know about it to avoid crashes (this might not be the perfect
+	  solution, better might be to keep it around for a while and mark
+	  it offline)
+
+2004-01-05 16:24  Stephan Kulow <coolo@kde.org>
+
+	* daemon/main.cpp: allowing 0 jobs is all fine, but it does it
+	  really have to be the default?
+
+2004-01-04 19:14  Daniel Molkentin <molkentin@kde.org>
+
+	* daemon/main.cpp: As long as the scheduler is not smart enough to
+	  spare old and slow PC's, allow 0 compile processes. Also allowing
+	  negative -m's do not really make sense :)
+
+2004-01-04 09:53  Daniel Molkentin <molkentin@kde.org>
+
+	* client/main.cpp: fix copyright. Too bad there is no AUTHORS file
+	  or any copyright headers.  Could somebody please add them?
+
+2004-01-04 09:50  Daniel Molkentin <molkentin@kde.org>
+
+	* mon/: ganttstatusview.cc, ganttstatusview.h, mon-kde.cc,
+	  mon-kde.h: that was not meant to go in
+
+2004-01-04 09:49  Daniel Molkentin <molkentin@kde.org>
+
+	* README, mon/ganttstatusview.cc, mon/ganttstatusview.h,
+	  mon/mon-kde.cc, mon/mon-kde.h: add warning about use in untrusted
+	  networks
+
+2004-01-04 01:33  Daniel Molkentin <molkentin@kde.org>
+
+	* README: Add a small README :)
+
+2004-01-04 01:01  Daniel Molkentin <molkentin@kde.org>
+
+	* services/scheduler.cpp: ported to getopt
+
+2004-01-04 00:53  Daniel Molkentin <molkentin@kde.org>
+
+	* client/main.cpp: don't lie
+
+2004-01-04 00:45  Daniel Molkentin <molkentin@kde.org>
+
+	* daemon/main.cpp: port to getopt
+
+2004-01-04 00:10  Daniel Molkentin <molkentin@kde.org>
+
+	* daemon/main.cpp: Ok, everybody sick of hacking his own processor
+	  limit in main.cpp: Enter -m (max_processes)
+
+2004-01-02 19:05  Adriaan de Groot <groot@kde.org>
+
+	* daemon/: main.cpp, ncpus.c, serve.cpp: More includes, and what
+	  the heck is rs_log_error?
+
+2004-01-02 18:48  Adriaan de Groot <groot@kde.org>
+
+	* daemon/workit.cpp: Get the includes right
+
+2004-01-02 18:20  Adriaan de Groot <groot@kde.org>
+
+	* client/remote.cpp: Need other includes for sendfile; O_LARGEFILE
+	  doesn't exist.
+
+2004-01-02 18:17  Adriaan de Groot <groot@kde.org>
+
+	* services/comm.h: socklen_t needs includes in BSD
+
+2004-01-02 18:11  Adriaan de Groot <groot@kde.org>
+
+	* services/comm.h: stdint.h is a linuxism
+
+2003-12-31 15:49  Cornelius Schumacher <schumacher@kde.org>
+
+	* mon/ganttstatusview.cc: Fix display of local jobs.
+
+2003-12-30 17:55  Stephan Kulow <coolo@kde.org>
+
+	* services/scheduler.cpp: At least some fairness. Rotate through
+	  the clients when looking for a new job.
+
+2003-12-30 00:28  Cornelius Schumacher <schumacher@kde.org>
+
+	* mon/ganttstatusview.cc: Fix layout warning.
+
+2003-12-29 23:06  Cornelius Schumacher <schumacher@kde.org>
+
+	* mon/Makefile.am: Fix srcdir!=builddir.
+
+2003-12-26 23:48  Stephan Kulow <coolo@kde.org>
+
+	* services/scheduler.cpp: removing debug output always makes me
+	  think it's stable :)
+
+2003-12-26 22:11  Stephan Kulow <coolo@kde.org>
+
+	* services/scheduler.cpp: removing some debug blah blah
+
+2003-12-25 22:35  Stephan Kulow <coolo@kde.org>
+
+	* mon/Makefile.am: reverting last commit - this configure doesn't
+	  use KDE's build system
+
+2003-12-25 22:34  Stephan Kulow <coolo@kde.org>
+
+	* services/Makefile.am: relocatable
+
+2003-12-25 22:30  Stephan Kulow <coolo@kde.org>
+
+	* client/local.cpp, client/main.cpp, client/remote.cpp,
+	  mon/ganttstatusview.cc, mon/mon-kde.cc, mon/mon-kde.h,
+	  services/comm.cpp, services/comm.h, services/scheduler.cpp: show
+	  link jobs in the monitor. Triggers some bugs in ganttview and
+	  shows nicely how urgently the libtool rewrite needs to be
+	  finished :)
+
+2003-12-23 22:58  Ingo Klöcker <kloecker@kde.org>
+
+	* mon/Makefile.am: Make it compile if KDEDIR isn't set. I mean, why
+	  do all_includes and all_libraries exist if they aren't used?
+
+2003-12-23 21:38  Ingo Klöcker <kloecker@kde.org>
+
+	* services/Makefile.am: make it compile
+
+2003-12-18 12:08  cschum
+
+	* mon/: ganttstatusview.cc, ganttstatusview.h, icemonui.rc,
+	  mon-kde.cc, mon-kde.h: Show one progress bar for each slot on a
+	  node. This now correctly shows all jobs including not showing
+	  them anymore when they are ended.
+
+2003-12-12 10:02  Stephan Kulow <coolo@kde.org>
+
+	* services/: comm.cpp, scheduler.cpp: uncommented some debug output
+	  and do not abort on empty msgs until matz tells what it is :)
+
+2003-12-11 14:04  Stephan Kulow <coolo@kde.org>
+
+	* services/: comm.cpp, comm.h, scheduler.cpp: transfer the max_kids
+	  number per host to the mon
+
+2003-12-11 13:51  Stephan Kulow <coolo@kde.org>
+
+	* services/: comm.cpp, scheduler.cpp: adding tons of debug output
+	  to get closer to a problem that had a simple origin: select can
+	  return with errno = EINTR without it being a fatal error
+
+2003-12-11 09:31  Stephan Kulow <coolo@kde.org>
+
+	* mon/ganttstatusview.cc: display short name - possibly remember
+	  it?
+
+2003-12-10 17:46  cschum
+
+	* mon/: ganttstatusview.cc, ganttstatusview.h, mon-kde.cc,
+	  mon-kde.h: - Show all known nodes, even when they haven't
+	  compiled anything yet.  - Correctly position jobs on time scale.
+
+2003-12-10 15:36  cschum
+
+	* mon/: ganttstatusview.cc, ganttstatusview.h, mon-kde.cc,
+	  mon-kde.h: - Color code hosts.  - Fix display for end of jobs
+	  (seems not to cover all cases yet).  - Show host name labels.
+
+2003-11-13 16:39  Stephan Kulow <coolo@kde.org>
+
+	* TODO, client/arg.cpp: argument lists
+
+2003-11-13 15:38  Stephan Kulow <coolo@kde.org>
+
+	* client/main.cpp: start process group
+
+2003-11-12 18:10  Michael Matz <matz@kde.org>
+
+	* services/comm.cpp: Blocking write on a non-blocking socket needs
+	  more that just some write calls (should fix some strange
+	  behaviour of lingering cc1(plus)).
+
+2003-11-10 17:08  Michael Matz <matz@kde.org>
+
+	* services/: comm.cpp, comm.h: EOF is also a "message".
+
+2003-11-10 16:24  Stephan Kulow <coolo@kde.org>
+
+	* mon/: .cvsignore, Makefile.am, ganttstatusview.cc,
+	  ganttstatusview.h, icemonui.rc, mon-kde.cc, mon-kde.h: ganttview
+
+2003-10-31 23:42  Michael Matz <matz@kde.org>
+
+	* services/scheduler.cpp: Make use of nonblocking reading.  Didn't
+	  check if it's really nonblocking ;-) While doing this it turned
+	  out that the lifetime of objects became quite complex and
+	  unmanagable.
+
+2003-10-31 02:15  Michael Matz <matz@kde.org>
+
+	* services/: comm.cpp, comm.h, scheduler.cpp: Backbone for
+	  nonblocking MsgChannels.  Also has a (mostly) blocking interface
+	  (by default) for easy use.
+
+2003-10-28 20:21  Stephan Kulow <coolo@kde.org>
+
+	* TODO: bug found
+
+2003-10-28 16:16  Stephan Kulow <coolo@kde.org>
+
+	* client/: arg.cpp, local.cpp: try to keep the arguments list
+	  intact as much as possible
+
+2003-10-28 16:15  Stephan Kulow <coolo@kde.org>
+
+	* minilzo/Makefile.am: some fixes for make dist
+
+2003-10-25 15:30  Stephan Kulow <coolo@kde.org>
+
+	* TODO, client/arg.cpp, client/cpp.cpp, client/local.cpp,
+	  daemon/workit.cpp, services/comm.cpp, services/job.cpp,
+	  services/job.h: don't split the args in three list, but in one
+	  flags list
+
+2003-10-24 11:33  Stephan Kulow <coolo@kde.org>
+
+	* TODO: ugly
+
+2003-10-24 11:16  Stephan Kulow <coolo@kde.org>
+
+	* TODO, client/local.cpp: local args last - as they contain the
+	  link arguments
+
+2003-10-23 01:34  Michael Matz <matz@kde.org>
+
+	* services/comm.h: Ja ja, nicht wirklich viel.	Kann man zu dieser
+	  Zeit auch nicht erwarten.
+
+2003-10-22 15:13  Michael Matz <matz@kde.org>
+
+	* mon/mon-kde.cc: Make it compile on 8.2
+
+2003-10-22 14:50  Stephan Kulow <coolo@kde.org>
+
+	* mon/: mon-kde.cc, mon-kde.h: for now it picks the first scheduler
+
+2003-10-22 11:14  cschum
+
+	* mon/mon-kde.cc: Fix sorting.
+
+2003-10-22 09:36  Stephan Kulow <coolo@kde.org>
+
+	* TODO: moved the file
+
+2003-10-21 21:19  Stephan Kulow <coolo@kde.org>
+
+	* TODO: note
+
+2003-10-21 21:17  Stephan Kulow <coolo@kde.org>
+
+	* daemon/: workit.cpp: return only the exit status
+
+2003-10-21 21:06  Stephan Kulow <coolo@kde.org>
+
+	* client/: main.cpp, remote.cpp: handle failures of preprocessor
+
+2003-10-21 20:39  Stephan Kulow <coolo@kde.org>
+
+	* client/Makefile.am: install symlinks
+
+2003-10-21 19:37  Stephan Kulow <coolo@kde.org>
+
+	* daemon/load.cpp, mon/.cvsignore, mon/mon-kde.cc, mon/mon-kde.h,
+	  services/comm.cpp, services/comm.h, services/scheduler.cpp:
+	  distribute load to the monitors
+
+2003-10-21 17:46  Michael Matz <matz@kde.org>
+
+	* TODO: More stuff
+
+2003-10-21 17:43  Michael Matz <matz@kde.org>
+
+	* services/comm.cpp: Coolo had to go home, hence the bodies from
+	  me.
+
+2003-10-21 17:30  Stephan Kulow <coolo@kde.org>
+
+	* TODO, daemon/load.cpp, services/comm.h: more load numbers
+
+2003-10-21 17:27  Michael Matz <matz@kde.org>
+
+	* daemon/main.cpp: Output all available netnames.
+
+2003-10-21 17:27  Michael Matz <matz@kde.org>
+
+	* services/: comm.cpp, comm.h: Factor code and a get_netnames()
+	  method.
+
+2003-10-21 17:14  Stephan Kulow <coolo@kde.org>
+
+	* client/remote.cpp: removed debug output
+
+2003-10-21 16:37  Stephan Kulow <coolo@kde.org>
+
+	* client/: local.cpp, util.cpp, util.h: ignore tbcompiler links too
+
+2003-10-21 16:23  Stephan Kulow <coolo@kde.org>
+
+	* mon/Makefile.am: icemon!
+
+2003-10-21 15:54  Stephan Kulow <coolo@kde.org>
+
+	* TODO, daemon/main.cpp, services/comm.cpp, services/comm.h: fixing
+	  two TODOs
+
+2003-10-21 15:28  Stephan Kulow <coolo@kde.org>
+
+	* daemon/main.cpp: aetsch
+
+2003-10-21 15:26  Stephan Kulow <coolo@kde.org>
+
+	* TODO: checking
+
+2003-10-21 15:25  Stephan Kulow <coolo@kde.org>
+
+	* daemon/: Makefile.am, findmyself.cpp, findmyself.h, main.cpp:
+	  finding the binary
+
+2003-10-21 15:22  Michael Matz <matz@kde.org>
+
+	* daemon/main.cpp: Add -n option for giving a netname.
+
+2003-10-21 15:22  Michael Matz <matz@kde.org>
+
+	* services/: comm.cpp, comm.h, scheduler.cpp: Support searching for
+	  a given netname.
+
+2003-10-21 14:34  Michael Matz <matz@kde.org>
+
+	* daemon/load.cpp: Count nice load as idle, so we ignore our own
+	  jobs.
+
+2003-10-21 13:42  Stephan Kulow <coolo@kde.org>
+
+	* TODO: updated
+
+2003-10-21 11:54  Stephan Kulow <coolo@kde.org>
+
+	* mon/mon-kde.cc, mon/mon-kde.h, services/comm.cpp,
+	  services/comm.h, services/scheduler.cpp: trying to catch failed
+	  jobs
+
+2003-10-21 08:47  Stephan Kulow <coolo@kde.org>
+
+	* mon/mon-kde.cc: don't update on every job change
+
+2003-10-20 22:11  Stephan Kulow <coolo@kde.org>
+
+	* mon/mon-kde.cc: fixing cols
+
+2003-10-20 22:08  Stephan Kulow <coolo@kde.org>
+
+	* mon/: mon-kde.cc, mon-kde.h: correct sorting
+
+2003-10-20 21:39  Stephan Kulow <coolo@kde.org>
+
+	* mon/: mon-kde.cc, mon-kde.h: don't flicker
+
+2003-10-20 20:55  Stephan Kulow <coolo@kde.org>
+
+	* mon/: mon-kde.cc, mon-kde.h: more infos
+
+2003-10-20 20:37  Michael Matz <matz@kde.org>
+
+	* daemon/main.cpp: Make the toplevel SIGCHLD handler not restart
+	  some syscalls (select() in our case).
+
+2003-10-20 20:31  Stephan Kulow <coolo@kde.org>
+
+	* mon/mon-kde.cc, mon/mon-kde.h, services/comm.cpp,
+	  services/comm.h, services/scheduler.cpp: the client is important
+	  too
+
+2003-10-20 20:17  Stephan Kulow <coolo@kde.org>
+
+	* mon/mon-kde.cc, mon/mon-kde.h, services/comm.cpp,
+	  services/comm.h, services/scheduler.cpp: finished
+
+2003-10-20 20:05  Stephan Kulow <coolo@kde.org>
+
+	* mon/: mon-kde.cc, mon-kde.h: it updates the GUI
+
+2003-10-20 19:45  Stephan Kulow <coolo@kde.org>
+
+	* mon/mon-kde.cc, services/comm.cpp, services/comm.h,
+	  services/scheduler.cpp: JobBegin
+
+2003-10-20 19:34  Stephan Kulow <coolo@kde.org>
+
+	* mon/mon-kde.cc, mon/mon-kde.h, services/comm.cpp,
+	  services/comm.h, services/scheduler.cpp: GetCS message
+
+2003-10-20 19:12  Stephan Kulow <coolo@kde.org>
+
+	* mon/: mon-kde.cc, mon-kde.h: handle_ functions
+
+2003-10-20 18:48  Stephan Kulow <coolo@kde.org>
+
+	* mon/: mon-kde.cc, mon-kde.h: integrate the Msgs into the event
+	  loop
+
+2003-10-20 18:08  Michael Matz <matz@kde.org>
+
+	* mon/: Makefile.am, mon-kde.cc: Dump some monitor messages.
+
+2003-10-20 18:07  Michael Matz <matz@kde.org>
+
+	* services/: comm.cpp, comm.h, scheduler.cpp: Monitor messages.
+
+2003-10-20 16:13  Stephan Kulow <coolo@kde.org>
+
+	* daemon/: load.cpp, serve.cpp: nice 5, safer cut offs
+
+2003-10-20 15:11  Michael Matz <matz@kde.org>
+
+	* services/scheduler.cpp: Output the supported compiler version
+	  when daemon connects.
+
+2003-10-20 14:44  Stephan Kulow <coolo@kde.org>
+
+	* daemon/load.cpp: total=
+
+2003-10-20 14:41  Stephan Kulow <coolo@kde.org>
+
+	* daemon/load.cpp: memory load
+
+2003-10-20 14:08  Michael Matz <matz@kde.org>
+
+	* services/: comm.cpp, comm.h, scheduler.cpp: collect and use
+	  statistics.
+
+2003-10-20 14:07  Michael Matz <matz@kde.org>
+
+	* daemon/main.cpp: max_load is no more.
+
+2003-10-20 13:23  Stephan Kulow <coolo@kde.org>
+
+	* daemon/load.cpp: compile
+
+2003-10-20 13:21  Stephan Kulow <coolo@kde.org>
+
+	* daemon/Makefile.am, daemon/load.cpp, daemon/load.h,
+	  daemon/main.cpp, services/comm.cpp, services/comm.h,
+	  services/scheduler.cpp: load is 0-1000 now
+
+2003-10-20 11:07  Michael Matz <matz@kde.org>
+
+	* daemon/main.cpp: First build, then commit.
+
+2003-10-20 10:39  Michael Matz <matz@kde.org>
+
+	* daemon/main.cpp: Transmit RSS in KB.
+
+2003-10-15 08:59  Stephan Kulow <coolo@kde.org>
+
+	* services/scheduler.cpp: let handle_* return bool, I always mix if
+	  a 1 is good or bad :)
+
+2003-10-14 15:09  Stephan Kulow <coolo@kde.org>
+
+	* services/: comm.cpp, scheduler.cpp: checking for gnu indent style
+	  :)
+
+2003-10-13 21:13  Stephan Kulow <coolo@kde.org>
+
+	* client/remote.cpp: fixing get_absname
+
+2003-10-13 20:37  Stephan Kulow <coolo@kde.org>
+
+	* services/scheduler.cpp: don't try to div 0
+
+2003-10-13 20:28  Stephan Kulow <coolo@kde.org>
+
+	* daemon/main.cpp, services/comm.cpp, services/comm.h,
+	  services/scheduler.cpp: cooler debug output
+
+2003-10-13 19:41  Stephan Kulow <coolo@kde.org>
+
+	* daemon/main.cpp, services/scheduler.cpp: removing some debug
+	  output - fixing select in daemon
+
+2003-10-13 17:50  Stephan Kulow <coolo@kde.org>
+
+	* daemon/main.cpp, daemon/serve.cpp, services/comm.cpp,
+	  services/comm.h: more infos in JobDoneMsg
+
+2003-10-13 17:33  Stephan Kulow <coolo@kde.org>
+
+	* daemon/main.cpp, daemon/serve.cpp, daemon/serve.h,
+	  services/comm.cpp, services/comm.h: filling JobDoneMsg with flesh
+
+2003-10-13 14:55  Stephan Kulow <coolo@kde.org>
+
+	* services/comm.cpp: const
+
+2003-10-13 14:09  Michael Matz <matz@kde.org>
+
+	* services/: comm.cpp, scheduler.cpp: Make scheduler send a netname
+	  (currently hardcoded to "ICECREAM").
+
+2003-10-10 23:00  Stephan Kulow <coolo@kde.org>
+
+	* services/scheduler.cpp: don't leak fds and channels
+
+2003-10-10 22:38  Stephan Kulow <coolo@kde.org>
+
+	* daemon/main.cpp, services/scheduler.cpp: correctly spread jobs
+
+2003-10-10 22:27  Stephan Kulow <coolo@kde.org>
+
+	* daemon/: main.cpp, serve.cpp, tempfile.c, tempfile.h, workit.cpp:
+	  trying to use the envs
+
+2003-10-10 21:26  Stephan Kulow <coolo@kde.org>
+
+	* TODO, client/main.cpp, client/remote.cpp, daemon/Makefile.am,
+	  daemon/environment.cpp, daemon/environment.h, daemon/main.cpp,
+	  daemon/serve.cpp, services/comm.cpp, services/comm.h,
+	  services/scheduler.cpp: find and distribute the list of
+	  environments
+
+2003-10-10 17:52  Michael Matz <matz@kde.org>
+
+	* mon/Makefile.am: srcdir != builddir
+
+2003-10-10 16:54  Stephan Kulow <coolo@kde.org>
+
+	* TODO: notes
+
+2003-10-10 16:38  Stephan Kulow <coolo@kde.org>
+
+	* TODO, client/main.cpp, client/remote.cpp, daemon/workit.cpp,
+	  services/comm.cpp, services/comm.h, services/scheduler.cpp:
+	  spread the version
+
+2003-10-10 10:36  Stephan Kulow <coolo@kde.org>
+
+	* services/scheduler.cpp: trying more gnu style :)
+
+2003-10-09 22:29  Stephan Kulow <coolo@kde.org>
+
+	* daemon/main.cpp, services/comm.cpp: trying harder to broadcast,
+	  but meanwhile I blame the firewall ;(
+
+2003-10-09 21:38  Stephan Kulow <coolo@kde.org>
+
+	* mon/Makefile.am: moc file
+
+2003-10-09 21:27  Stephan Kulow <coolo@kde.org>
+
+	* mon/.cvsignore: shut ushut upp
+
+2003-10-09 21:27  Stephan Kulow <coolo@kde.org>
+
+	* Makefile.am, configure.ac, mon/.cvsignore, mon/Makefile.am,
+	  mon/mon-kde.cc, mon/mon-kde.h: copyright Frerich Raabe
+
+2003-10-09 20:24  Stephan Kulow <coolo@kde.org>
+
+	* daemon/: main.cpp, serve.cpp, serve.h: don't fork off the
+	  scheduler
+
+2003-10-09 17:47  Stephan Kulow <coolo@kde.org>
+
+	* daemon/main.cpp, daemon/serve.cpp, services/Makefile.am,
+	  services/comm.cpp, services/scheduler.cpp: trying to cope better
+	  with errors in the scheduler
+
+2003-10-09 16:55  Stephan Kulow <coolo@kde.org>
+
+	* daemon/: main.cpp, serve.cpp: trying to be a bit smarter in error
+	  handling
+
+2003-10-09 16:04  Stephan Kulow <coolo@kde.org>
+
+	* daemon/main.cpp, services/comm.cpp: don't wait too long for the
+	  scheduler
+
+2003-10-09 16:02  Stephan Kulow <coolo@kde.org>
+
+	* client/remote.cpp, daemon/main.cpp, daemon/serve.cpp,
+	  services/comm.cpp, services/job.cpp, services/scheduler.cpp:
+	  reconnect to scheduler
+
+2003-10-09 14:07  Stephan Kulow <coolo@kde.org>
+
+	* services/comm.cpp: better broadcast
+
+2003-10-09 14:06  Michael Matz <matz@kde.org>
+
+	* services/scheduler.cpp: Grmbl.
+
+2003-10-08 22:13  Stephan Kulow <coolo@kde.org>
+
+	* daemon/main.cpp, services/comm.cpp, services/scheduler.cpp: found
+	  the problem: the scheduler queues getcs requests now.  I put a
+	  limit of 100 unhandled requests in there, after that it stops
+	  listening to the crowd :)
+
+2003-10-08 18:25  Stephan Kulow <coolo@kde.org>
+
+	* services/scheduler.cpp: trying to get cs request queueing work -
+	  so far no luck
+
+2003-10-08 17:37  Stephan Kulow <coolo@kde.org>
+
+	* services/scheduler.cpp: removing wrong comment
+
+2003-10-08 06:50  Michael Matz <matz@kde.org>
+
+	* services/comm.h: cosmetic
+
+2003-10-07 22:03  Stephan Kulow <coolo@kde.org>
+
+	* daemon/main.cpp: shuffling the code a bit
+
+2003-10-07 21:45  Stephan Kulow <coolo@kde.org>
+
+	* client/arg.cpp, client/remote.cpp, daemon/main.cpp,
+	  daemon/serve.cpp, daemon/serve.h, services/.cvsignore,
+	  services/Makefile.am, services/comm.cpp, services/comm.h,
+	  services/receiver.cpp, services/scheduler.cpp,
+	  services/submitter.cpp: couple MsgChannel and Service much closer
+	  together so you don't need to save two pointers for not leaking
+
+2003-10-07 17:42  Stephan Kulow <coolo@kde.org>
+
+	* daemon/: main.cpp, workit.cpp: cool progress
+
+2003-10-07 17:09  Stephan Kulow <coolo@kde.org>
+
+	* daemon/: main.cpp, workit.cpp: less debug output less leaking
+	  sockets
+
+2003-10-07 17:03  Stephan Kulow <coolo@kde.org>
+
+	* client/local.cpp: even less debug output
+
+2003-10-07 16:55  Stephan Kulow <coolo@kde.org>
+
+	* daemon/serve.cpp: removing debug output
+
+2003-10-07 16:52  Stephan Kulow <coolo@kde.org>
+
+	* client/arg.cpp, client/cpp.cpp, client/remote.cpp,
+	  services/comm.cpp: taking out some client debug output
+
+2003-10-07 16:40  Stephan Kulow <coolo@kde.org>
+
+	* daemon/main.cpp, daemon/serve.cpp, services/comm.cpp,
+	  services/comm.h, services/scheduler.cpp: make two iceccds on one
+	  machine work
+
+2003-10-07 15:00  Michael Matz <matz@kde.org>
+
+	* services/scheduler.cpp: Randomize compile host.
+
+2003-10-07 14:59  Stephan Kulow <coolo@kde.org>
+
+	* services/scheduler.cpp: debug output for stats
+
+2003-10-07 14:51  Stephan Kulow <coolo@kde.org>
+
+	* daemon/main.cpp, services/comm.cpp, services/comm.h: every two
+	  seconds the load
+
+2003-10-07 13:42  Stephan Kulow <coolo@kde.org>
+
+	* daemon/serve.cpp: no more teambuilder
+
+2003-10-07 13:21  Stephan Kulow <coolo@kde.org>
+
+	* daemon/workit.cpp: off by one
+
+2003-10-07 11:06  Stephan Kulow <coolo@kde.org>
+
+	* daemon/main.cpp, daemon/serve.cpp, daemon/serve.h,
+	  services/comm.h, services/scheduler.cpp: implemented
+	  Job{Begin,End}Msg
+
+2003-10-07 10:16  Stephan Kulow <coolo@kde.org>
+
+	* configure.ac, daemon/main.cpp, daemon/serve.cpp,
+	  daemon/workit.cpp, minilzo/minilzo.c, services/comm.cpp,
+	  services/comm.h: fixing memory leaks
+
+2003-10-06 23:16  Michael Matz <matz@kde.org>
+
+	* services/comm.cpp: close fds, and some timeout while looking for
+	  a scheduler.
+
+2003-10-06 23:01  Michael Matz <matz@kde.org>
+
+	* services/: comm.cpp, comm.h: Deleting memory on stack is not very
+	  segfault-avoiding, even if it removes leaks.
+
+2003-10-06 22:53  Michael Matz <matz@kde.org>
+
+	* daemon/main.cpp, daemon/serve.cpp, daemon/serve.h,
+	  services/comm.cpp, services/comm.h, services/receiver.cpp,
+	  services/scheduler.cpp, services/submitter.cpp: broadcast asking
+	  for scheduler
+
+2003-10-06 22:15  Stephan Kulow <coolo@kde.org>
+
+	* daemon/serve.cpp: memleak--
+
+2003-10-06 22:14  Stephan Kulow <coolo@kde.org>
+
+	* daemon/main.cpp, daemon/serve.cpp, services/comm.cpp,
+	  services/comm.h: trying to fix mem leaks
+
+2003-10-06 22:00  Stephan Kulow <coolo@kde.org>
+
+	* services/Makefile.am: do not install
+
+2003-10-06 22:00  Stephan Kulow <coolo@kde.org>
+
+	* daemon/Makefile.am: install
+
+2003-10-06 21:59  Stephan Kulow <coolo@kde.org>
+
+	* client/remote.cpp, daemon/serve.cpp: bigger chunks
+
+2003-10-06 21:39  Stephan Kulow <coolo@kde.org>
+
+	* client/Makefile.am: not needed
+
+2003-10-06 21:27  Stephan Kulow <coolo@kde.org>
+
+	* Makefile.am, configure.ac, client/cpp.cpp, client/remote.cpp,
+	  daemon/serve.cpp, minilzo/.cvsignore, minilzo/Makefile.am,
+	  minilzo/README.LZO, minilzo/lzoconf.h, minilzo/minilzo.c,
+	  minilzo/minilzo.h, services/Makefile.am, services/comm.cpp:
+	  compression using minilzo
+
+2003-10-06 19:33  Stephan Kulow <coolo@kde.org>
+
+	* daemon/serve.cpp: less debug
+
+2003-10-06 19:01  Stephan Kulow <coolo@kde.org>
+
+	* client/remote.cpp, daemon/serve.cpp, services/comm.cpp,
+	  services/comm.h, services/scheduler.cpp: make it work again with
+	  GET_SCHEDULER
+
+2003-10-06 18:46  Stephan Kulow <coolo@kde.org>
+
+	* services/.cvsignore: ignore
+
+2003-10-06 18:45  Stephan Kulow <coolo@kde.org>
+
+	* services/comm.cpp: compile (on 8.2)
+
+2003-10-06 18:09  Stephan Kulow <coolo@kde.org>
+
+	* client/remote.cpp, daemon/main.cpp, daemon/serve.cpp,
+	  daemon/serve.h, services/Makefile.am, services/comm.cpp,
+	  services/comm.h, services/scheduler.cpp: trying to make
+	  M_*_SCHEDULER work
+
+2003-10-06 17:11  Stephan Kulow <coolo@kde.org>
+
+	* daemon/main.cpp: login
+
+2003-10-06 17:03  Stephan Kulow <coolo@kde.org>
+
+	* configure.ac: nonsense
+
+2003-10-06 16:58  Stephan Kulow <coolo@kde.org>
+
+	* client/remote.cpp, daemon/main.cpp, daemon/serve.cpp,
+	  daemon/serve.h, services/comm.cpp, services/comm.h,
+	  services/job.cpp: it compiles again
+
+2003-10-06 16:14  Michael Matz <matz@kde.org>
+
+	* services/: comm.cpp, comm.h, receiver.cpp, scheduler.cpp,
+	  submitter.cpp: New msg type M_LOGIN.	scheduler is now select()
+	  based and accepts multiple connections.
+
+2003-10-06 15:09  Stephan Kulow <coolo@kde.org>
+
+	* client/Makefile.am, client/remote.cpp, daemon/main.cpp,
+	  services/comm.cpp, services/comm.h: using MsgChannel
+
+2003-10-06 14:27  Michael Matz <matz@kde.org>
+
+	* services/: comm.cpp, comm.h, scheduler.cpp, submitter.cpp: Add
+	  port member to UseCSMsg (and Service).  Currently it's hardcoded
+	  to 10245 (in the Message only).
+
+2003-10-06 13:48  Stephan Kulow <coolo@kde.org>
+
+	* configure.ac: disable static libs
+
+2003-10-06 13:46  Stephan Kulow <coolo@kde.org>
+
+	* services/.cvsignore: ignore
+
+2003-10-06 13:26  Michael Matz <matz@kde.org>
+
+	* services/: comm.cpp, comm.h, receiver.cpp, submitter.cpp:
+	  Factoring out the connection to a know host function (now it's a
+	  Service constructor).
+
+2003-10-06 12:11  Michael Matz <matz@kde.org>
+
+	* services/: comm.cpp, comm.h, receiver.cpp, submitter.cpp: They
+	  talk.
+
+2003-10-06 10:24  Stephan Kulow <coolo@kde.org>
+
+	* services/: Makefile.am, comm.cpp, comm.h: removing unneeded
+	  messages
+
+2003-10-06 08:55  Stephan Kulow <coolo@kde.org>
+
+	* daemon/.cvsignore: ignoring
+
+2003-10-06 08:43  Stephan Kulow <coolo@kde.org>
+
+	* client/: arg.cpp, cpp.cpp, main.cpp, util.cpp: fixincludes
+
+2003-10-06 08:39  Stephan Kulow <coolo@kde.org>
+
+	* client/util.cpp: removing unneeded stuff
+
+2003-10-06 08:34  Stephan Kulow <coolo@kde.org>
+
+	* client/cpp.cpp: not needed
+
+2003-10-04 18:18  Stephan Kulow <coolo@kde.org>
+
+	* client/Makefile.am, daemon/main.cpp, daemon/serve.cpp,
+	  daemon/workit.cpp: little debugging
+
+2003-10-03 17:42  Stephan Kulow <coolo@kde.org>
+
+	* Makefile.am, client/Makefile.am, client/arg.cpp, client/cpp.cpp,
+	  client/local.cpp, client/main.cpp, client/remote.cpp,
+	  daemon/Makefile.am, daemon/main.cpp, daemon/ncpus.c,
+	  daemon/serve.cpp, daemon/tempfile.c, daemon/workit.cpp,
+	  daemon/workit.h, services/Makefile.am, services/exitcode.h,
+	  services/job.cpp, services/job.h, services/logging.h: making the
+	  client smarter and the daemon dumber
+
+2003-10-02 17:37  Michael Matz <matz@kde.org>
+
+	* services/: comm.cpp, comm.h, scheduler.cpp, submitter.cpp: I can
+	  connect to it, and get an answer to use host "127.0.0.1"
+
+2003-10-01 18:17  Michael Matz <matz@kde.org>
+
+	* services/: comm.cpp, comm.h, scheduler.cpp, submitter.cpp: Small
+	  non-working test program.
+
+2003-10-01 16:37  Michael Matz <matz@kde.org>
+
+	* services/: comm.cpp, comm.h, scheduler.cpp: Compile!	(plus a
+	  non-tested main function for the scheduler)
+
+2003-09-30 23:15  Stephan Kulow <coolo@kde.org>
+
+	* client/: Makefile.am, cpp.cpp, main.cpp: some more cleanup
+
+2003-09-30 23:15  Stephan Kulow <coolo@kde.org>
+
+	* client/arg.cpp: some debug and some strip
+
+2003-09-30 22:39  Stephan Kulow <coolo@kde.org>
+
+	* client/: Makefile.am, arg.cpp, main.cpp: playing around with args
+
+2003-09-30 21:59  Stephan Kulow <coolo@kde.org>
+
+	* client/: Makefile.am, util.cpp, util.h: some more cleaning up
+
+2003-09-30 21:29  Stephan Kulow <coolo@kde.org>
+
+	* services/.cvsignore: shutup
+
+2003-09-30 17:56  Stephan Kulow <coolo@kde.org>
+
+	* daemon/serve.cpp: compile
+
+2003-09-30 17:55  Stephan Kulow <coolo@kde.org>
+
+	* Makefile.am, configure.ac, client/Makefile.am, client/arg.cpp,
+	  client/cpp.cpp, client/main.cpp, client/util.cpp, client/util.h,
+	  daemon/Makefile.am, daemon/serve.cpp: moving common stuff into
+	  client to sort it out there
+
+2003-09-30 13:36  Stephan Kulow <coolo@kde.org>
+
+	* services/.cvsignore, services/Makefile.am, configure.ac: giving
+	  it a Makefile, even when it doesn't compile
+
+2003-09-30 13:17  Michael Matz <matz@kde.org>
+
+	* daemon/workit.cpp: Add volatile.
+
+2003-09-30 11:55  Stephan Kulow <coolo@kde.org>
+
+	* daemon/: serve.cpp, workit.cpp, workit.h: zombies ade
+
+2003-09-29 23:34  Michael Matz <matz@kde.org>
+
+	* services/: comm.cpp, scheduler.cpp: Some TODO, and JobDone
+	  handling.
+
+2003-09-29 23:13  Michael Matz <matz@kde.org>
+
+	* services/: comm.cpp, comm.h, scheduler.cpp: Communication stuff
+	  and some messages.
+
+2003-09-29 22:14  Stephan Kulow <coolo@kde.org>
+
+	* daemon/workit.cpp: I'm getting nowhere
+
+2003-09-29 20:55  Stephan Kulow <coolo@kde.org>
+
+	* configure.ac, daemon/serve.cpp, daemon/workit.cpp,
+	  daemon/workit.h: first work on forking
+
+2003-09-29 18:04  Michael Matz <matz@kde.org>
+
+	* services/comm.h: Some more stuff
+
+2003-09-29 18:04  Michael Matz <matz@kde.org>
+
+	* services/comm.cpp: Seleton of the message sender/receivers.
+
+2003-09-29 16:44  Michael Matz <matz@kde.org>
+
+	* services/scheduler.cpp: skeleton of a scheduler
+
+2003-09-29 16:44  Michael Matz <matz@kde.org>
+
+	* services/comm.h: Some more messages I think I'll need.
+
+2003-09-29 15:58  Stephan Kulow <coolo@kde.org>
+
+	* configure.ac, daemon/Makefile.am, daemon/serve.cpp,
+	  daemon/workit.cpp, daemon/workit.h, services/job.h: some more
+	  work on CompileJob
+
+2003-09-29 15:22  Stephan Kulow <coolo@kde.org>
+
+	* services/job.h: some thinking
+
+2003-09-28 21:17  Stephan Kulow <coolo@kde.org>
+
+	* client/: .cvsignore, Makefile.am: ignoring
+
+2003-09-26 17:17  Stephan Kulow <coolo@kde.org>
+
+	* daemon/serve.cpp: remove verbose mode
+
+2003-09-26 17:16  Stephan Kulow <coolo@kde.org>
+
+	* daemon/.cvsignore: ignore
+
+2003-09-26 17:16  Stephan Kulow <coolo@kde.org>
+
+	* configure.ac, daemon/main.cpp, daemon/serve.cpp: debug
+
+2003-09-26 16:52  Stephan Kulow <coolo@kde.org>
+
+	* daemon/: Makefile.am, serve.cpp, tempfile.c, tempfile.h: new
+	  files
+
+2003-09-26 14:39  Stephan Kulow <coolo@kde.org>
+
+	* daemon/: Makefile.am, serve.cpp: one step closer
+
+2003-09-26 13:49  Stephan Kulow <coolo@kde.org>
+
+	* client/Makefile.am, daemon/.cvsignore, daemon/main.cpp,
+	  daemon/serve.cpp: some more C<->CD proto work
+
+2003-09-26 12:58  Stephan Kulow <coolo@kde.org>
+
+	* daemon/: main.cpp, serve.cpp, serve.h: little
+
+2003-09-26 10:25  Stephan Kulow <coolo@kde.org>
+
+	* Makefile.am, configure.ac: adding daemon
+
+2003-09-26 10:25  Stephan Kulow <coolo@kde.org>
+
+	* daemon/: .cvsignore, Makefile.am, main.cpp, ncpus.c, ncpus.h,
+	  serve.cpp, serve.h: I better commit before it becomes serious
+
+2003-09-25 22:04  Stephan Kulow <coolo@kde.org>
+
+	* client/Makefile.am: provide a icecc++ too
+
+2003-09-25 17:29  Stephan Kulow <coolo@kde.org>
+
+	* client/Makefile.am: continue from here
+
+2003-09-25 15:44  Michael Matz <matz@kde.org>
+
+	* services/comm.h: tcpdump support
+
+2003-09-25 15:21  Michael Matz <matz@kde.org>
+
+	* services/comm.h: First thoughts.
+
+2003-09-25 14:35  Stephan Kulow <coolo@kde.org>
+
+	* .cvsignore: ignore all links
+
+2003-09-25 14:26  Stephan Kulow <coolo@kde.org>
+
+	* client/: .cvsignore, Makefile.am: renamed
+
+2003-09-25 14:24  Stephan Kulow <coolo@kde.org>
+
+	* Makefile.am, configure.ac, client/.cvsignore, client/Makefile.am:
+	  more files to build
+
+2003-09-25 13:46  Stephan Kulow <coolo@kde.org>
+
+	* .cvsignore, Makefile.am, Makefile.cvs, configure.ac: framework
+
+2003-09-25 12:58  Stephan Kulow <coolo@kde.org>
+
+	* daemon/ncpus.c: Initial revision
+
+2003-09-25 12:58  Stephan Kulow <coolo@kde.org>
+
+	* daemon/ncpus.c: importing exploded distcc sources
+
