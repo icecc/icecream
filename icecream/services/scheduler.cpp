@@ -1131,7 +1131,7 @@ handle_activity (MsgChannel *c)
 {
   Msg *m;
   bool ret = true;
-  m = c->get_msg (false);
+  m = c->get_msg (0);
   if (!m)
     {
       handle_end (c, m);

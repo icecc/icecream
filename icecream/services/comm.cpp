@@ -581,24 +581,25 @@ MsgChannel::check_protocol()
   return true;
 }
 
-/* This waits indefinitely (well, 5 minutes) for some a complete
+/* This waits indefinitely (well, TIMEOUT seconds) for a complete
    message to arrive.  Returns false if there was some error.  */
 bool
-MsgChannel::wait_for_msg (void)
+MsgChannel::wait_for_msg (int timeout)
 {
   if (has_msg ())
     return true;
-  if (!read_a_bit ()) {
-    trace() << "!read_a_bit\n";
-    return false;
-  }
+  if (!read_a_bit () || timeout <= 0)
+    {
+      trace() << "!read_a_bit || timeout <= 0\n";
+      return false;
+    }
   while (!has_msg ())
     {
       fd_set read_set;
       FD_ZERO (&read_set);
       FD_SET (fd, &read_set);
       struct timeval tv;
-      tv.tv_sec = 5 * 60;
+      tv.tv_sec = timeout;
       tv.tv_usec = 0;
       if (select (fd + 1, &read_set, NULL, NULL, &tv) <= 0) {
         if ( errno == EINTR )
@@ -617,12 +618,12 @@ MsgChannel::wait_for_msg (void)
 }
 
 Msg *
-MsgChannel::get_msg(bool blocking)
+MsgChannel::get_msg(int timeout)
 {
   Msg *m = 0;
   enum MsgType type;
   unsigned int t;
-  if (blocking && !wait_for_msg () ) {
+  if (timeout > 0 && !wait_for_msg (timeout) ) {
     trace() << "blocking && !waiting_for_msg()\n";
     return 0;
   }

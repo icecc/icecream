@@ -143,7 +143,7 @@ public:
   // the minimum protocol version between me and him
   int protocol;
   // NULL  <--> channel closed
-  Msg *get_msg(bool blocking = true);
+  Msg *get_msg(int timeout = 10);
   // false <--> error (msg not send)
   bool send_msg (const Msg &, bool blocking = true);
   // return last error (0 == no error)
@@ -181,7 +181,7 @@ private:
   void update_state (void);
   void chop_input (void);
   void chop_output (void);
-  bool wait_for_msg (void);
+  bool wait_for_msg (int timeout);
   char *msgbuf;
   size_t msgbuflen;
   size_t msgofs;
