@@ -64,6 +64,8 @@ Environments parse_icecc_version(const string &target_platform )
     string::size_type lastPos = icecc_version.find_first_not_of(',', 0);
     string::size_type pos     = icecc_version.find_first_of(',', lastPos);
 
+    list<string> platforms;
+
     while (pos != string::npos || lastPos != string::npos)
     {
         string couple = icecc_version.substr(lastPos, pos - lastPos);
@@ -73,6 +75,16 @@ Environments parse_icecc_version(const string &target_platform )
         if (  colon != string::npos ) {
             platform = couple.substr( 0, colon );
             version = couple.substr( colon + 1, couple.length() );
+        }
+
+        // Skip delimiters.  Note the "not_of"
+        lastPos = icecc_version.find_first_not_of(',', pos);
+        // Find next "non-delimiter"
+        pos = icecc_version.find_first_of(',', lastPos);
+
+        if (find(platforms.begin(), platforms.end(), platform) != platforms.end()) {
+		log_error() << "there are two environments for platform " << platform << " - ignoring " << version << endl;
+		continue;
         }
 
         trace() << "platform '" << platform << "' '" << version << "'" << endl;
@@ -88,12 +100,9 @@ Environments parse_icecc_version(const string &target_platform )
             throw ( 3 );
         }
 
-        envs.push_back(make_pair( platform, version ) ) ;
+        envs.push_back(make_pair( platform, version ) );
+        platforms.push_back(platform);
 
-        // Skip delimiters.  Note the "not_of"
-        lastPos = icecc_version.find_first_not_of(',', pos);
-        // Find next "non-delimiter"
-        pos = icecc_version.find_first_of(',', lastPos);
     }
 
     return envs;
