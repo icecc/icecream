@@ -1,5 +1,10 @@
 /*  -*- mode: C++; c-file-style: "gnu"; fill-column: 78 -*- */
 
+#ifndef _GNU_SOURCE
+// getopt_long
+#define _GNU_SOURCE 1
+#endif
+
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -10,6 +15,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <time.h>
+#include <getopt.h>
 #include <string>
 #include <list>
 #include <map>
@@ -651,6 +657,16 @@ open_broad_listener ()
   return listen_fd;
 }
 
+void
+usage(const char* reason = 0)
+{
+  if (reason)
+     cerr << reason << endl;
+
+  cerr << "usage: scheduler [-n <netname>] " << endl;
+  exit(1);
+}
+
 int
 main (int argc, char * argv[])
 {
@@ -659,27 +675,28 @@ main (int argc, char * argv[])
   socklen_t remote_len;
   char *netname = (char*)"ICECREAM";
 
-  for (int argi = 1; argi < argc; argi++)
-    if (argv[argi][0] == '-' && argv[argi][2] == 0)
-      {
-        switch (argv[argi][1])
-	  {
-	  case 'n':
-	    argi++;
-	    if (argi >= argc)
-	      fprintf (stderr, "-n requires argument\n");
-	    else
-	      {
-	        netname = strdup (argv[argi]);
-		for (int i = 0; netname[i]; i++)
-		  netname[i] = toupper (netname[i]);
-	      }
-	    break;
-	  default:
-	    fprintf (stderr, "Unknown argument %s\n", argv[argi]);
-	    break;
-	  }
-      }
+  while ( true ) {
+    int option_index = 0;
+    static const struct option long_options[] = {
+      { "netname", 1, NULL, 'n' },
+      { "help", 0, NULL, 'h' },
+      { 0, 0, 0, 0 }
+    };
+
+    const int c = getopt_long( argc, argv, "n:h", long_options, &option_index );
+    if ( c == -1 ) break; // eoo
+
+    switch ( c ) {
+      case 'n':
+        if ( optarg && *optarg )
+          netname = optarg;
+        else
+          usage("Error: -n requires argument");
+        break;
+      default:
+        usage();
+    }
+  }
 
   if ((listen_fd = socket (PF_INET, SOCK_STREAM, 0)) < 0)
     {
