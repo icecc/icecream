@@ -195,7 +195,7 @@ static JobStat cum_job_stats;
 static list<Service*> monitors;
 
 /* Searches the queue for JOB and removes it.
-   Returns true of something was deleted.  */
+   Returns true if something was deleted.  */
 bool
 UnansweredList::remove_job (Job *job)
 {
@@ -213,6 +213,10 @@ static void
 add_job_stats (Job *job, JobDoneMsg *msg)
 {
   JobStat st;
+  /* We don't want to base our timings on failed or too small jobs.  */
+  if (msg->out_uncompressed < 512
+      || msg->exitcode != 0)
+    return;
   st.osize = msg->out_uncompressed;
   st.compile_time_real = msg->real_msec;
   st.compile_time_user = msg->user_msec;
