@@ -35,6 +35,7 @@
 #endif
 #include <netdb.h>
 #include <queue>
+#include <map>
 #include "ncpus.h"
 #include "exitcode.h"
 #include "serve.h"
@@ -218,6 +219,7 @@ int main( int /*argc*/, char ** /*argv*/ )
     int count = 0; // DEBUG
     typedef pair<CompileJob*, MsgChannel*> Compile_Request;
     queue<Compile_Request> requests;
+    map<pid_t, unsigned int> jobmap;
 
     while ( 1 ) {
         scheduler = connect_scheduler ();
@@ -246,8 +248,21 @@ int main( int /*argc*/, char ** /*argv*/ )
                 Compile_Request req = requests.front();
                 requests.pop();
                 log_info() << "handle\n";
-                if ( handle_connection( req.first, req.second ) == 0) // forks away
+                CompileJob *job = req.first;
+                pid_t pid = handle_connection( req.first, req.second );
+                trace() << "handled " << pid << endl;
+                if ( pid > 0) { // forks away
                     current_kids++;
+                    if ( !scheduler || !scheduler->send_msg( JobBeginMsg( job->jobID() ) ) ) {
+                        log_error() << "can't reach scheduler to tell him about job start of " << job->jobID() << endl;
+                        delete scheduler;
+                        scheduler = 0;
+                        delete req.first;
+                        delete req.second;
+                        break;
+                    }
+                    jobmap[pid] = job->jobID();
+                }
                 delete req.first;
                 delete req.second;
             }
@@ -257,6 +272,9 @@ int main( int /*argc*/, char ** /*argv*/ )
             if ( child > 0 ) {
                 log_info() << "one child got " << status << endl;
                 current_kids--;
+                int job_id = jobmap[child];
+                if ( job_id && scheduler )
+                    scheduler->send_msg( JobDoneMsg( job_id ) );
                 continue;
             }
 

@@ -45,16 +45,8 @@ public:
 int handle_connection( CompileJob *job, MsgChannel *serv )
 {
     pid_t pid = fork();
-    if ( pid == -1 )
-        return EXIT_DISTCC_FAILED;
-
-    if ( pid ) // parent
-        return 0;
-
-    if ( !scheduler || !scheduler->send_msg( JobBeginMsg( job->jobID() ) ) ) {
-        log_error() << "can't reach scheduler to tell him about job start of " << job->jobID() << endl;
-        exit ( EXIT_DISTCC_FAILED );
-    }
+    if ( pid != 0) // parent
+        return pid;
 
     Msg *msg = 0; // The current read message
     char tmp_input[PATH_MAX];
@@ -179,10 +171,6 @@ int handle_connection( CompileJob *job, MsgChannel *serv )
             close( ti );
 
         serv->send_msg( EndMsg() );
-
-        printf( "exception %d %p\n", job_id, scheduler );
-        if ( job_id && scheduler)
-            scheduler->send_msg( JobDoneMsg( job_id ) );
 
         if ( obj_fd > 0)
             close( obj_fd );
