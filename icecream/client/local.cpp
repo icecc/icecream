@@ -169,7 +169,7 @@ int build_local(CompileJob &job, MsgChannel *scheduler, struct rusage *used)
             Msg * umsg = scheduler->get_msg();
             if (!umsg || umsg->type != M_JOB_LOCAL_ID)
             {
-                log_error() << "replied not with local job id " << ( umsg ? ( char )umsg->type : '0' )  << endl;
+                log_warning() << "replied not with local job id " << ( umsg ? ( char )umsg->type : '0' )  << endl;
                 delete umsg;
                 scheduler = 0;
             } else
