@@ -325,7 +325,10 @@ bool install_environment( const std::string &basename, const std::string &target
     close( fds[1] );
     dup2( fds[0], 0 );
 
-    assert( !::access( basename.c_str(), W_OK ) );
+    if( ::access( basename.c_str(), W_OK ) ) {
+       log_perror( basename.c_str() );
+       ::exit( 1 );
+    }
 
     if ( mkdir( dirname.c_str(), 0755 ) && errno != EEXIST ) {
         log_perror( "mkdir target" );
