@@ -421,11 +421,15 @@ remove_job_request (void)
   if (toanswer.empty())
     return;
   UnansweredList *first = toanswer.front();
+  toanswer.pop_front();
   first->l.pop_front();
   if (first->l.empty())
     {
-      toanswer.pop_front();
       delete first;
+    }
+  else
+    {
+      toanswer.push_back( first );
     }
 }
 
@@ -663,7 +667,7 @@ pick_server(Job *job)
 	  trace() << cs->nodename << " can't use chroot\n";
 	  continue;
 	}
-	 
+
 
 #if DEBUG_SCHEDULER > 1
       trace() << cs->nodename << " compiled " << cs->last_compiled_jobs.size() << " got now: " <<
