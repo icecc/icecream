@@ -3,7 +3,10 @@
 #ifndef _COMM_H
 #define _COMM_H
 
+#ifdef __linux__
 #include <stdint.h>
+#endif
+
 #include "job.h"
 
 #define PROTOCOL_VERSION 1
