@@ -104,8 +104,10 @@ static void updateCPULoad( const char* line, CPULoadInfo* load )
     load->idleLoad = ( 1000 - ( load->userLoad + load->sysLoad + load->niceLoad) );
     if ( load->idleLoad < 0 )
         load->idleLoad = 0;
-  } else
-    load->userLoad = load->sysLoad = load->niceLoad = load->idleLoad = 0;
+  } else {
+    load->userLoad = load->sysLoad = load->niceLoad = 0; 
+    load->idleLoad = 1000;
+  }
 
   load->userTicks = currUserTicks;
   load->sysTicks = currSysTicks;
