@@ -86,9 +86,12 @@ int handle_connection( const string &basedir, CompileJob *job, MsgChannel *serv,
     string obj_file;
 
     try {
-        log_info() << "should use " << job->environmentVersion() << endl;
-        string dirname = basedir + "/" + job->environmentVersion();
-        if ( !::access( string( dirname + "/usr/bin/gcc" ).c_str(), X_OK ) ) {
+        if ( job->environmentVersion().size() ) {
+	    log_info() << "should use " << job->environmentVersion() << endl;
+            string dirname = basedir + "/" + job->environmentVersion();
+            if ( ::access( string( dirname + "/usr/bin/gcc" ).c_str(), X_OK ) )
+                throw myexception( EXIT_DISTCC_FAILED ); // the scheduler didn't listen to us!
+
             if ( getuid() == 0 ) {
                 chdir( dirname.c_str() ); // without the chdir, the chroot will escape the jail right away
                 chroot( dirname.c_str() );

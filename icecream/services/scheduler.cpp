@@ -408,7 +408,10 @@ empty_queue()
   job->state = Job::WAITINGFORCS;
   job->server = cs;
 
-  UseCSMsg m2(job->environment, cs->name, cs->remote_port, job->id, envs_match( cs, job->environment ) );
+  string env = job->environment;
+  if ( env == "*" )
+    env = "";
+  UseCSMsg m2(env, cs->name, cs->remote_port, job->id, envs_match( cs, job->environment ) );
 
   if (!job->channel->send_msg (m2))
     {
