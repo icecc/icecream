@@ -146,7 +146,6 @@ bool analyse_argv( const char * const *argv,
             } else if (!strcmp(a, "-c")) {
                 seen_c = true;
             } else if (str_startswith("-o", a)) {
-                assert( ofile.empty() );
                 if (!strcmp(a, "-o")) {
                     /* Whatever follows must be the output */
                     ofile = argv[++i];
