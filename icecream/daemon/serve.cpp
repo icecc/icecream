@@ -57,8 +57,7 @@ int handle_connection( CompileJob *job, MsgChannel *serv, int &out_fd )
     }
 
     close( socket[0] );
-    FILE *out = fdopen( socket[1], "wt" );
-    assert( out );
+    out_fd = socket[1];
 
     Msg *msg = 0; // The current read message
     char tmp_input[PATH_MAX];
@@ -100,8 +99,8 @@ int handle_connection( CompileJob *job, MsgChannel *serv, int &out_fd )
         throw myexception( EXIT_DISTCC_FAILED );
     }
 
-    size_t compressed = 0;
-    size_t uncompressed = 0;
+    unsigned int in_compressed = 0;
+    unsigned int in_uncompressed = 0;
 
     while ( 1 ) {
         msg = serv->get_msg();
@@ -127,8 +126,8 @@ int handle_connection( CompileJob *job, MsgChannel *serv, int &out_fd )
             log_error() << "FileChunkMsg not dynamic_castable\n";
             throw myexception( EXIT_PROTOCOL_ERROR );
         }
-        uncompressed += fcmsg->len;
-        compressed += fcmsg->compressed;
+        in_uncompressed += fcmsg->len;
+        in_compressed += fcmsg->compressed;
 
         ssize_t len = fcmsg->len;
         off_t off = 0;
@@ -148,8 +147,6 @@ int handle_connection( CompileJob *job, MsgChannel *serv, int &out_fd )
     close( ti );
     ti = 0;
 
-    fprintf( out, "ICOMPR: %ld\n", compressed );
-    fprintf( out, "IDECOM: %ld\n", uncompressed );
     struct timeval begintv;
     gettimeofday( &begintv, 0 );
 
@@ -179,13 +176,13 @@ int handle_connection( CompileJob *job, MsgChannel *serv, int &out_fd )
             throw myexception( EXIT_DISTCC_FAILED );
         }
 
-        compressed = 0;
-        uncompressed = 0;
+        unsigned int out_compressed = 0;
+        unsigned int out_uncompressed = 0;
 
         unsigned char buffer[100000];
         do {
             ssize_t bytes = read(obj_fd, buffer, sizeof(buffer));
-            uncompressed += bytes;
+            out_uncompressed += bytes;
             if (!bytes)
                 break;
             FileChunkMsg fcmsg( buffer, bytes );
@@ -193,14 +190,17 @@ int handle_connection( CompileJob *job, MsgChannel *serv, int &out_fd )
                 log_info() << "write of obj chunk failed " << bytes << endl;
                 throw myexception( EXIT_DISTCC_FAILED );
             }
-            compressed += fcmsg.compressed;
+            out_compressed += fcmsg.compressed;
         } while (1);
 
-        fprintf( out, "OCOMPR: %ld\n", compressed );
-        fprintf( out, "ODECOM: %ld\n", uncompressed );
         struct timeval endtv;
         gettimeofday(&endtv, 0 );
-        fprintf( out, "DURATI: %ld\n", ( endtv.tv_sec - begintv.tv_sec ) * 1000000 + endtv.tv_usec - begintv.tv_usec );
+        unsigned int duration = ( endtv.tv_sec - begintv.tv_sec ) * 1000 + ( endtv.tv_usec - begintv.tv_usec ) % 1000;
+        write( out_fd, &in_compressed, sizeof( unsigned int ) );
+        write( out_fd, &in_uncompressed, sizeof( unsigned int ) );
+        write( out_fd, &out_compressed, sizeof( unsigned int ) );
+        write( out_fd, &out_uncompressed, sizeof( unsigned int ) );
+        write( out_fd, &duration, sizeof( unsigned int ) );
     } else {
         unsigned char buffer[10];
         FileChunkMsg fcmsg( buffer, 0 );
@@ -231,8 +231,8 @@ int handle_connection( CompileJob *job, MsgChannel *serv, int &out_fd )
         if ( !obj_file.empty() )
             unlink( obj_file.c_str() );
 
-        if ( out )
-            fclose( out );
+        if ( out_fd )
+            close( out_fd );
 
         exit( e.exitcode() );
     }

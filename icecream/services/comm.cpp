@@ -676,16 +676,12 @@ JobBeginMsg::send_to_fd (int fd) const
   	 && writeuint (fd, stime);
 }
 
-JobDoneMsg::JobDoneMsg () : Msg(M_JOB_DONE),  status( -1 ), job_id( 0 )
+JobDoneMsg::JobDoneMsg () : Msg(M_JOB_DONE),  exitcode( -1 ), job_id( 0 )
 {
 }
 
 JobDoneMsg::JobDoneMsg (unsigned int i)
-  : Msg(M_JOB_DONE), status( -1 ), job_id(i)
-{
-}
-
-JobDoneMsg::~JobDoneMsg()
+  : Msg(M_JOB_DONE), exitcode( -1 ), job_id(i)
 {
 }
 
@@ -694,16 +690,21 @@ JobDoneMsg::fill_from_fd (int fd)
 {
   if (!Msg::fill_from_fd (fd))
     return false;
-  unsigned int _status;
+  unsigned int _exitcode;
   bool ret = readuint (fd, job_id)
-    && readuint( fd, _status )
+    && readuint( fd, _exitcode )
+    && readuint( fd, real_msec )
     && readuint( fd, user_msec )
     && readuint( fd, sys_msec )
     && readuint( fd, maxrss )
     && readuint( fd, idrss )
     && readuint( fd, majflt )
-    && readuint( fd, nswap );
-  status = _status;
+    && readuint( fd, nswap )
+    && readuint( fd, in_compressed )
+    && readuint( fd, in_uncompressed )
+    && readuint( fd, out_compressed )
+    && readuint( fd, out_uncompressed );
+  exitcode = _exitcode;
   return ret;
 }
 
@@ -713,13 +714,18 @@ JobDoneMsg::send_to_fd (int fd) const
   if (!Msg::send_to_fd (fd))
     return false;
   return writeuint (fd, job_id)
-    && writeuint( fd, status )
+    && writeuint( fd, exitcode )
+    && writeuint( fd, real_msec )
     && writeuint( fd, user_msec )
     && writeuint( fd, sys_msec )
     && writeuint( fd, maxrss )
     && writeuint( fd, idrss )
     && writeuint( fd, majflt )
-    && writeuint( fd, nswap );
+    && writeuint( fd, nswap )
+    && writeuint( fd, in_compressed )
+    && writeuint( fd, in_uncompressed )
+    && writeuint( fd, out_compressed )
+    && writeuint( fd, out_uncompressed );
 }
 
 bool

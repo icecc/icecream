@@ -209,18 +209,24 @@ public:
 
 class JobDoneMsg : public Msg {
 public:
-  unsigned int user_msec;
+  unsigned int real_msec;  /* real time it used */
+  unsigned int user_msec;  /* user time used */
   unsigned int sys_msec;   /* system time used */
   unsigned int maxrss;     /* maximum resident set size */
   unsigned int idrss;      /* integral unshared data size */
   unsigned int majflt;     /* page faults */
   unsigned int nswap;      /* swaps */
 
-  int status;
+  int exitcode;            /* exit code */
+
+  unsigned int in_compressed;
+  unsigned int in_uncompressed;
+  unsigned int out_compressed;
+  unsigned int out_uncompressed;
+
   unsigned int job_id;
   JobDoneMsg ();
   JobDoneMsg (unsigned int i);
-  ~JobDoneMsg();
   virtual bool fill_from_fd (int fd);
   virtual bool send_to_fd (int fd) const;
 };

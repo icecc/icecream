@@ -285,7 +285,7 @@ int main( int /*argc*/, char ** /*argv*/ )
                 JobDoneMsg *msg = jobmap[child];
                 jobmap.erase( child );
                 if ( msg && scheduler ) {
-                    msg->status = status;
+                    msg->exitcode = status;
                     msg->user_msec = ru.ru_utime.tv_sec * 1000 + ru.ru_utime.tv_usec % 1000;
                     msg->sys_msec = ru.ru_stime.tv_sec * 1000 + ru.ru_stime.tv_usec % 1000;
                     msg->maxrss = ru.ru_maxrss;
@@ -376,13 +376,13 @@ int main( int /*argc*/, char ** /*argv*/ )
                 } else {
                     for ( Pidmap::iterator it = pidmap.begin(); it != pidmap.end(); ++it ) {
                         if ( FD_ISSET( it->first, &listen_set ) ) {
-                            char buffer[4096];
-                            ssize_t bytes = read( it->first, buffer, 4096 );
-                            if ( bytes <= 0 ) {
-                                pidmap.erase( it );
-                            } else {
-                                buffer[bytes] = 0;
-                                printf( "pid %d babbelt: %d %s", it->second, bytes, buffer );
+                            JobDoneMsg *msg = jobmap[it->second];
+                            if ( msg ) {
+                                read( it->first, &msg->in_compressed, sizeof( unsigned int ) );
+                                read( it->first, &msg->in_uncompressed, sizeof( unsigned int ) );
+                                read( it->first, &msg->out_compressed, sizeof( unsigned int ) );
+                                read( it->first, &msg->out_uncompressed, sizeof( unsigned int ) );
+                                read( it->first, &msg->real_msec, sizeof( unsigned int ) );
                             }
                         }
                     }
