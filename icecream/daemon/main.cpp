@@ -41,6 +41,7 @@
 #include <sys/param.h>
 #include <sys/socket.h>
 #include <sys/time.h>
+#include <sys/resource.h>
 #include <pwd.h>
 
 #include <netinet/in.h>

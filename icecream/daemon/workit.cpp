@@ -175,6 +175,7 @@ int work_it( CompileJob &j,
         setenv( "PATH", "usr/bin", 1 );
         setenv( "LD_LIBRARY_PATH", "usr/lib:lib", 1 );
 
+#ifdef RLIMIT_AS
         struct rlimit rlim;
         if ( getrlimit( RLIMIT_AS, &rlim ) )
             log_perror( "getrlimit" );
@@ -183,6 +184,7 @@ int work_it( CompileJob &j,
         rlim.rlim_max = mem_limit*1024*1024;
         if ( setrlimit( RLIMIT_AS, &rlim ) )
             log_perror( "setrlimit" );
+#endif
 
         int argc = list.size();
         argc++; // the program

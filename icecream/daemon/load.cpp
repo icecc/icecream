@@ -181,7 +181,7 @@ bool fill_stats( unsigned long &myniceload, unsigned long &myidleload, unsigned 
     if ( ( fd = open( "/proc/stat", O_RDONLY ) ) < 0 ) {
         log_error() << "Cannot open file \'/proc/stat\'!\n"
             "The kernel needs to be compiled with support\n"
-            "forks /proc filesystem enabled!" << endl;
+            "for /proc filesystem enabled!" << endl;
         return false;
     }
 
@@ -208,7 +208,7 @@ bool fill_stats( unsigned long &myniceload, unsigned long &myidleload, unsigned 
         if ( ( fd = open( "/proc/meminfo", O_RDONLY ) ) < 0 ) {
             log_error() << "Cannot open file \'/proc/meminfo\'!\n"
                 "The kernel needs to be compiled with support\n"
-                "forks /proc filesystem enabled!" << endl;
+                "for /proc filesystem enabled!" << endl;
             return false;
         }
 
