@@ -94,19 +94,11 @@ int build_remote(CompileJob &job )
         return build_local( job );
     }
 
-    int out_fd = cserver->fd;
-
-    log_info() << "got connection: fd=" << out_fd << endl;
-
-    int version = ICECC_PROTO_VERSION;
-
-    if ( client_write_message( out_fd, C_VERSION, version) ) {
-        log_info() << "write of version failed" << endl;
-        return build_local( job );
-    }
-
-    if ( !write_job( out_fd, job ) ) {
+    CompileFileMsg compile_file( &job );
+    if ( !cserver->send_msg( compile_file ) ) {
         log_info() << "write of job failed" << endl;
+        delete cserver;
+        delete serv;
         return build_local( job );
     }
 
@@ -121,88 +113,64 @@ int build_remote(CompileJob &job )
         return build_local( job );
     close(sockets[1]);
 
-    char buffer[14097];
+    unsigned char buffer[50000]; // some random but huge number
 
     do {
         ssize_t bytes = read(sockets[0], buffer, sizeof(buffer));
         if (!bytes)
             break;
-        if ( client_write_message( out_fd, C_PREPROC, bytes) ) {
-            log_info() << "failed to write preproc header" << endl;
-            return build_local( job );
-        }
-        if (write(out_fd, buffer, bytes) != bytes) {
-            log_info() << "write failed" << endl;
+        FileChunkMsg fcmsg( buffer, bytes );
+        if ( !cserver->send_msg( fcmsg ) ) {
+            log_info() << "write of chunk failed" << endl;
             close(sockets[0]);
-            close(out_fd);
             return build_local( job );
         }
     } while (1);
 
-    if ( client_write_message( out_fd, C_DONE, 0) )
+    EndMsg emsg;
+    if ( !cserver->send_msg( emsg ) ) {
+        log_info() << "write of end failed" << endl;
+        return build_local( job );
+    }
+
+    Msg *msg = cserver->get_msg();
+    if ( !msg )
         return build_local( job );
 
-    Client_Message m;
-    client_read_message( out_fd, &m );
-    if ( m.type != C_STATUS) {
-        close( out_fd );
+    if ( msg->type != M_COMPILE_RESULT )
         return EXIT_PROTOCOL_ERROR;
-    }
-    int status = m.length;
 
-    client_read_message( out_fd, &m );
-    if ( m.type != C_STDOUT) {
-        close( out_fd );
-        return EXIT_PROTOCOL_ERROR;
-    }
+    CompileResultMsg *crmsg = dynamic_cast<CompileResultMsg*>( msg );
+    assert ( crmsg );
 
-    assert(m.length < sizeof( buffer )); // for now :/
-    read(out_fd, buffer, m.length);
-    buffer[m.length] = 0;
-    fprintf(stdout, "%s", buffer);
-
-    client_read_message( out_fd, &m );
-    if ( m.type != C_STDERR) {
-        close( out_fd );
-        return EXIT_PROTOCOL_ERROR;
-    }
-
-    while ( m.length >= sizeof( buffer ) ) {
-        ssize_t n = read( out_fd, buffer, sizeof( buffer ) - 1);
-        buffer[n] = 0;
-        fprintf(stderr, "%s", buffer);
-        m.length -= n;
-    }
-    assert(m.length < sizeof( buffer ));
-    read(out_fd, buffer, m.length);
-    buffer[m.length] = 0;
-    fprintf(stderr, "%s", buffer);
-
-    client_read_message( out_fd, &m );
-    if ( m.type != C_OBJ) {
-        close( out_fd );
-        return EXIT_PROTOCOL_ERROR;
-    }
+    int status = crmsg->status;
+    fprintf( stdout, "%s", crmsg->out.c_str() );
+    fprintf( stderr, "%s", crmsg->err.c_str() );
 
     assert( !job.outputFile().empty() );
     int obj_fd = open( job.outputFile().c_str(),
                        O_CREAT|O_TRUNC|O_WRONLY|O_LARGEFILE, 0666 );
+
     if ( obj_fd == -1 ) {
         log_error() << "open failed\n";
         return EXIT_DISTCC_FAILED;
     }
-    while ( m.length > 0 ) {
-        ssize_t n = read( out_fd, buffer, min( m.length, sizeof( buffer ) - 1) );
-        buffer[n] = 0;
-        if ( write( obj_fd, buffer, n ) != n ) {
-            log_error() << "writing failed\n";
+
+    while ( 1 ) {
+        msg = cserver->get_msg();
+        if ( msg->type == M_END )
+            break;
+
+        if ( msg->type != M_FILE_CHUNK )
+            return EXIT_PROTOCOL_ERROR;
+
+        FileChunkMsg *fcmsg = dynamic_cast<FileChunkMsg*>( msg );
+        if ( write( obj_fd, fcmsg->buffer, fcmsg->len ) != ( ssize_t )fcmsg->len )
             return EXIT_DISTCC_FAILED;
-        }
-        m.length -= n;
     }
 
     close( obj_fd );
-    close( out_fd );
+
     log_info() << "got status " << status << endl;
     return status;
 }

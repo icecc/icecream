@@ -39,6 +39,7 @@
 #include "exitcode.h"
 #include "serve.h"
 #include "logging.h"
+#include <comm.h>
 
 using namespace std;
 
@@ -215,7 +216,7 @@ static void dcc_daemon_terminate(int whichsig)
 }
 
 
-int main( int argc, char **argv )
+int main( int , char ** )
 {
     int listen_fd;
     int n_cpus;
@@ -264,20 +265,11 @@ int main( int argc, char **argv )
             log_error() << "accept failed: " << strerror(errno) << endl;
             return EXIT_CONNECT_FAILED;
         } else {
-
-            /* Log client name and check access if appropriate.  For ssh connections
-             * the client comes from a localhost socket. */
-            // if ((ret = dcc_check_client(cli_addr, cli_len)) != 0)
-            // return ret;
-
-            if ( ( ret = run_job(acc_fd, acc_fd) ) != 0 )
-                return ret; // return is most likely not the best :/
-
-            // dcc_cleanup_tempfiles();
-            if (close(acc_fd) != 0) {
-                log_error() << "failed to close fd " << acc_fd << ": " << strerror(errno) << endl;
-                return EXIT_IO_ERROR;
-            }
+            Service *client = new Service ((struct sockaddr*) &cli_addr, cli_len);
+            MsgChannel *c = new MsgChannel (acc_fd, client);
+            handle_connection (c);
+            delete c;
+            delete client;
         }
     }
 }

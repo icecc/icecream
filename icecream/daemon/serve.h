@@ -1,3 +1,8 @@
+#ifndef _SERVE_H
+#define _SERVE_H
 
-int run_job( int in_fd,
-             int out_fd );
+class MsgChannel;
+
+int handle_connection( MsgChannel *serv );
+
+#endif

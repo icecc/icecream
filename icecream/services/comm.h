@@ -133,13 +133,22 @@ public:
 
 class FileChunkMsg : public Msg {
 public:
-  FileChunkMsg () : Msg(M_FILE_CHUNK) {}
+  unsigned char* buffer;
+  size_t len;
+
+  FileChunkMsg (unsigned char *_buffer, size_t _len)
+      : Msg(M_FILE_CHUNK), buffer( _buffer ), len( _len ) {}
+  FileChunkMsg() : Msg( M_FILE_CHUNK ), buffer( 0 ), len( 0 ) {}
   virtual bool fill_from_fd (int fd);
   virtual bool send_to_fd (int fd) const;
 };
 
 class CompileResultMsg : public Msg {
 public:
+  int status;
+  std::string out;
+  std::string err;
+
   CompileResultMsg () : Msg(M_COMPILE_RESULT) {}
   virtual bool fill_from_fd (int fd);
   virtual bool send_to_fd (int fd) const;

@@ -72,6 +72,7 @@
 #include <sys/param.h>
 
 #include <job.h>
+#include <comm.h>
 
 #include "exitcode.h"
 #include "client_comm.h"
@@ -129,8 +130,7 @@ int client_write_message( int fd, enum ClientMsgType type, const string& str )
 /**
  * Read a request, run the compiler, and send a response.
  **/
-int run_job(int in_fd,
-            int out_fd)
+int handle_connection( MsgChannel *serv )
 {
     int ret;
 
@@ -140,107 +140,95 @@ int run_job(int in_fd,
      * from the compiler */
     dcc_ignore_sigpipe(1);
 
-    Client_Message m;
-    client_read_message( in_fd, &m );
-    if ( m.type != C_VERSION && ( int )m.length != ICECC_PROTO_VERSION ) {
-        close( in_fd );
-        close( out_fd );
+    Msg *msg = serv->get_msg();
+    if ( !msg || msg->type != M_COMPILE_FILE )
         return EXIT_PROTOCOL_ERROR;
-    }
-    CompileJob job;
-    if ( !read_job( in_fd, job ) )
-        return EXIT_PROTOCOL_ERROR;
+
+    CompileJob *job = dynamic_cast<CompileFileMsg*>( msg )->job;
+    delete msg;
 
     // teambuilder needs faking
     const char *dot;
-    if (job.language() == CompileJob::Lang_C)
+    if (job->language() == CompileJob::Lang_C)
         dot = ".c";
-    else if (job.language() == CompileJob::Lang_CXX)
+    else if (job->language() == CompileJob::Lang_CXX)
         dot = ".cpp";
     else
         assert(0);
-    CompileJob::ArgumentsList list= job.restFlags();
+    CompileJob::ArgumentsList list= job->restFlags();
     list.push_back( "-fpreprocessed" );
-    job.setRestFlags( list );
+    job->setRestFlags( list );
     // end faking
 
     char tmp_input[PATH_MAX];
-    if ( ( ret = dcc_make_tmpnam("icecc", dot, tmp_input ) ) != 0 )
+    if ( ( ret = dcc_make_tmpnam("icecc", dot, tmp_input ) ) != 0 ) {
+        delete job;
         return ret;
+    }
 
     int ti = open( tmp_input, O_CREAT|O_WRONLY|O_LARGEFILE );
     if ( ti == -1 ) {
+        delete job;
         log_error() << "open failed\n";
         return EXIT_DISTCC_FAILED;
     }
 
-    char buffer[15000];
-
     while ( 1 ) {
-        ret = client_read_message( in_fd, &m );
-        if ( ret )
-            return ret;
+        msg = serv->get_msg();
+        if ( !msg )
+            return EXIT_PROTOCOL_ERROR;
 
-        if ( m.type == C_DONE )
+        if ( msg->type == M_END )
             break;
 
-        if ( m.type != C_PREPROC )
+        if ( msg->type != M_FILE_CHUNK )
             return EXIT_PROTOCOL_ERROR;
-        assert( m.length < sizeof( buffer ) );
-        if ( read( in_fd, buffer, m.length ) != ( ssize_t )m.length )
+
+        FileChunkMsg *fcmsg = dynamic_cast<FileChunkMsg*>( msg );
+        if ( !fcmsg )
             return EXIT_PROTOCOL_ERROR;
-        if ( write( ti, buffer, m.length ) != ( ssize_t )m.length )
+
+        if ( write( ti, fcmsg->buffer, fcmsg->len ) != ( ssize_t )fcmsg->len )
             return EXIT_DISTCC_FAILED;
     }
     close( ti );
 
-    int status;
-    string str_out;
-    string str_err;
+    CompileResultMsg rmsg;
+
     string filename;
-    ret = work_it( job, tmp_input,
-                   str_out, str_err, status, filename );
+    ret = work_it( *job, tmp_input,
+                   rmsg.out, rmsg.err, rmsg.status, filename );
     unlink( tmp_input );
 
     if ( ret )
         return ret;
 
-    if ((ret = client_write_message( out_fd, C_STATUS, status)) != 0) {
-        log_info() << "write of status failed\n";
-        return ret;
+    if ( !serv->send_msg( rmsg ) ) {
+        log_info() << "write of result failed\n";
+        return EXIT_DISTCC_FAILED;
     }
 
-    if ( ( ret = client_write_message( out_fd, C_STDOUT, str_out ) ) != 0 ) {
-        log_info() << "write of stdout failed\n";
-        return ret;
-    }
-
-    if ( ( ret = client_write_message( out_fd, C_STDERR, str_err ) ) != 0 ) {
-        log_info() << "write of stderr failed\n";
-        return ret;
-    }
     cout << "wrote all stream data\n";
-
-    struct stat s;
-    if (stat(filename.c_str(), &s) != 0) {
-        log_info() <<  "where's the file? " << strerror( errno ) << endl;
-        return errno;
-    }
 
     int obj_fd = open( filename.c_str(), O_RDONLY|O_LARGEFILE );
     if ( obj_fd == -1 ) {
         log_error() << "open failed\n";
     }
-    if ( ( ret = client_write_message( out_fd, C_OBJ, s.st_size ) ) != 0 ) {
-        log_info() << "write of filesize failed\n";
-        return ret;
-    }
-    off_t t = 0;
-    ssize_t res = sendfile( out_fd, obj_fd, &t, s.st_size );
-    if ( res != s.st_size ) {
-        log_info() << "sendfile failed\n";
-        return ret;
-    }
+
+    unsigned char buffer[50000];
+    do {
+        ssize_t bytes = read(obj_fd, buffer, sizeof(buffer));
+        if (!bytes)
+            break;
+        FileChunkMsg fcmsg( buffer, bytes );
+        if ( !serv->send_msg( fcmsg ) ) {
+            log_info() << "write of chunk failed" << endl;
+            return EXIT_DISTCC_FAILED;
+        }
+    } while (1);
+    EndMsg emsg;
+    serv->send_msg( emsg );
+
     close( obj_fd );
     unlink( filename.c_str() );
 

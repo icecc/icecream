@@ -5,6 +5,8 @@
 #include <unistd.h>
 #include <errno.h>
 #include <string>
+#include <iostream>
+
 #include "job.h"
 #include "comm.h"
 
@@ -217,7 +219,7 @@ read_string (int fd, string &s)
   // len is including the (also saved) 0 Byte
   unsigned int len;
   if (!readuint (fd, &len))
-    return 0;
+    return false;
   buf = new char[len];
   if (!readfull (fd, buf, len))
     {
@@ -236,7 +238,7 @@ write_string (int fd, const string &s)
   unsigned int len = 1 + s.length();
   if (!writeuint (fd, len))
     return false;
-  return writefull (fd, s.data(), len);
+  return writefull (fd, s.c_str(), len);
 }
 
 bool
@@ -364,8 +366,22 @@ CompileFileMsg::send_to_fd (int fd) const
 bool
 FileChunkMsg::fill_from_fd (int fd)
 {
+  delete [] buffer;
+  buffer = 0;
+
   if (!Msg::fill_from_fd (fd))
     return false;
+  if ( !readuint( fd, &len ) ) {
+      len = 0;
+      return false;
+  }
+  buffer = new unsigned char[len];
+  if ( !readfull( fd, buffer, len ) ) {
+      delete [] buffer;
+      buffer = 0;
+      len = 0;
+      return false;
+  }
   return true;
 }
 
@@ -374,7 +390,8 @@ FileChunkMsg::send_to_fd (int fd) const
 {
   if (!Msg::send_to_fd (fd))
     return false;
-  return true;
+ return ( writeuint( fd, ( unsigned int )len )
+          && writefull( fd, buffer, len ) );
 }
 
 bool
@@ -382,6 +399,12 @@ CompileResultMsg::fill_from_fd (int fd)
 {
   if (!Msg::fill_from_fd (fd))
     return false;
+  unsigned int _status = 0;
+  if ( !read_string( fd, err )
+       || !read_string( fd, out )
+       || !readuint( fd, &_status ) )
+      return false;
+  status = _status;
   return true;
 }
 
@@ -390,7 +413,9 @@ CompileResultMsg::send_to_fd (int fd) const
 {
   if (!Msg::send_to_fd (fd))
     return false;
-  return true;
+  return ( write_string( fd, err )
+           && write_string( fd, out )
+           && writeuint( fd, status ) );
 }
 
 bool
@@ -448,6 +473,7 @@ StatsMsg::fill_from_fd (int fd)
 {
   if (!Msg::fill_from_fd (fd))
     return false;
+  abort();
   return true;
 }
 
@@ -456,5 +482,6 @@ StatsMsg::send_to_fd (int fd) const
 {
   if (!Msg::send_to_fd (fd))
     return false;
+  abort();
   return true;
 }
