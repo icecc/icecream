@@ -507,6 +507,7 @@ int main( int argc, char ** argv )
                     pid = fork();
                     if ( pid == 0 ) {
 
+                        close( sockets[0] );
                         Msg *msg = req.second->get_msg(12 * 60); // wait forever
                         if ( !msg )
                             ::exit( 1 );
@@ -529,9 +530,11 @@ int main( int argc, char ** argv )
                         write( sockets[1], &jdmsg->nswap, sizeof( unsigned int ) );
 
                         ::exit( jdmsg->exitcode );
-                    }
+                    } else
+                        close( sockets[1] );
                 } else
                     pid = handle_connection( envbasedir, req.first, req.second, sock, mem_limit );
+
 
                 if ( pid > 0) { // forks away
                     current_kids++;
@@ -559,7 +562,11 @@ int main( int argc, char ** argv )
                 if ( msg )
                     current_kids--;
                 jobmap.erase( child );
-                pidmap.erase( child );
+                Pidmap::iterator pid_it = pidmap.find( child );
+                if ( pid_it != pidmap.end() ) {
+                    close( pid_it->second );
+                    pidmap.erase( pid_it );
+                }
                 if ( msg && scheduler ) {
                     msg->exitcode = status;
                     if ( !msg->user_msec ) { // if not already set
