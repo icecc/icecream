@@ -46,6 +46,8 @@
 #include "comm.h"
 #include "logging.h"
 
+#define DEBUG_SCHEDULER 0
+
 /* TODO:
    * leak check
    * are all filedescs closed when done?
@@ -74,15 +76,13 @@ struct JobStat {
   unsigned long compile_time_real;  // in milliseconds
   unsigned long compile_time_user;
   unsigned long compile_time_sys;
-  unsigned long maxrss; // KB
   JobStat() : osize(0), compile_time_real(0), compile_time_user(0),
-	      compile_time_sys(0), maxrss(0) {}
+	      compile_time_sys(0) {}
   JobStat& operator +=(const JobStat &st) {
     osize += st.osize;
     compile_time_real += st.compile_time_real;
     compile_time_user += st.compile_time_user;
     compile_time_sys += st.compile_time_sys;
-    maxrss += st.maxrss;
     return *this;
   }
   JobStat& operator -=(const JobStat &st) {
@@ -90,7 +90,6 @@ struct JobStat {
     compile_time_real -= st.compile_time_real;
     compile_time_user -= st.compile_time_user;
     compile_time_sys -= st.compile_time_sys;
-    maxrss -= st.maxrss;
     return *this;
   }
   JobStat& operator /=(int d) {
@@ -98,7 +97,6 @@ struct JobStat {
     compile_time_real /= d;
     compile_time_user /= d;
     compile_time_sys /= d;
-    maxrss /= d;
     return *this;
   }
   JobStat operator /(int d) const {
@@ -221,7 +219,6 @@ add_job_stats (Job *job, JobDoneMsg *msg)
   st.compile_time_real = msg->real_msec;
   st.compile_time_user = msg->user_msec;
   st.compile_time_sys = msg->sys_msec;
-  st.maxrss = msg->maxrss;
   job->server->last_compiled_jobs.push_back (st);
   job->server->cum_compiled += st;
   if (job->server->last_compiled_jobs.size() > 40)
@@ -278,6 +275,11 @@ server_speed (CS *cs, Job *job = 0)
 	 needing the preprocessor.  */
       if (job && job->submitter == cs)
         f *= 1.4;
+
+      // below we add a pessimism factor - assuming the first job a computer got is not representative
+      if ( cs->last_compiled_jobs.size() < 7 )
+          f *= ( -0.5 * cs->last_compiled_jobs.size() + 4.5 );
+
       return f;
     }
 }
@@ -471,8 +473,8 @@ platforms_compatible( const string &target, const string &platform )
 {
   if ( target == platform )
     return true;
-  return false; // the below doesn't work as the unmapped platform is transfered back to the
-		// client and that asks the daemon for a platform he can't install (see TODO)
+  // the below doesn't work as the unmapped platform is transfered back to the
+  // client and that asks the daemon for a platform he can't install (see TODO)
 
   static multimap<string, string> platform_map;
 
@@ -481,16 +483,16 @@ platforms_compatible( const string &target, const string &platform )
       platform_map.insert( make_pair( "i386", "i486" ) );
       platform_map.insert( make_pair( "i386", "i586" ) );
       platform_map.insert( make_pair( "i386", "i686" ) );
-      platform_map.insert( make_pair( "i386", "x86_64" ) );
+ //     platform_map.insert( make_pair( "i386", "x86_64" ) );
 
       platform_map.insert( make_pair( "i486", "i586" ) );
       platform_map.insert( make_pair( "i486", "i686" ) );
-      platform_map.insert( make_pair( "i486", "x86_64" ) );
+  //    platform_map.insert( make_pair( "i486", "x86_64" ) );
 
       platform_map.insert( make_pair( "i586", "i686" ) );
-      platform_map.insert( make_pair( "i586", "x86_64" ) );
+   //   platform_map.insert( make_pair( "i586", "x86_64" ) );
 
-      platform_map.insert( make_pair( "i686", "x86_64" ) );
+    //  platform_map.insert( make_pair( "i686", "x86_64" ) );
 
       platform_map.insert( make_pair( "ppc", "ppc64" ) );
       platform_map.insert( make_pair( "s390", "s390x" ) );
@@ -535,11 +537,11 @@ pick_server(Job *job)
     {
       for (it = css.begin(); it != css.end(); ++it)
         {
-          trace() << "no job stats - looking at " << ( *it )->name << " load: " << (*it )->load << " can install: " << can_install( *it, job ) << endl;
+          trace() << "no job stats - looking at " << ( *it )->nodename << " load: " << (*it )->load << " can install: " << can_install( *it, job ) << endl;
           if (int( (*it)->joblist.size() ) < (*it)->max_jobs
               && (*it)->load < 1000 && can_install( *it, job ) )
             {
-              trace() << "returning first " << ( *it )->name << endl;
+              trace() << "returning first " << ( *it )->nodename << endl;
               return *it;
             }
         }
@@ -568,22 +570,31 @@ pick_server(Job *job)
       CS *cs = *it;
       /* For now ignore overloaded servers.  */
       if (int( cs->joblist.size() ) >= cs->max_jobs || cs->load >= 1000) {
-	// trace() << "overloaded " << cs->name << " " << cs->joblist.size() << "/" <<  cs->max_jobs << " jobs, load:" << cs->load << endl;
+#if DEBUG_SCHEDULER
+        trace() << "overloaded " << cs->nodename << " " << cs->joblist.size() << "/" <<  cs->max_jobs << " jobs, load:" << cs->load << endl;
+#endif
         continue;
       }
 
       // incompatible architecture
       if ( !can_install( cs, job ) ) {
-	// trace() << cs->name << " can't install " << job->environment << endl;
+#if DEBUG_SCHEDULER
+        trace() << cs->nodename << " can't install " << job->id << endl;
+#endif
         continue;
       }
 
       /* Servers that are already compiling jobs but got no environments
          are currently installing new environments - ignore so far */
       if ( cs->joblist.size() != 0 && cs->compiler_versions.size() == 0 ) {
-        trace() << cs->name << " is currently installing\n";
+        trace() << cs->nodename << " is currently installing\n";
         continue;
       }
+
+#if DEBUG_SCHEDULER
+      trace() << cs->nodename << " compiled " << cs->last_compiled_jobs.size() << " got now: " <<
+        cs->joblist.size() << " speed: " << server_speed (cs) << " compile time " << cs->cum_compiled.compile_time_user << " produced code " << cs->cum_compiled.osize << endl;
+#endif
 
       if ( cs->last_compiled_jobs.size() == 0 && cs->joblist.size() == 0)
 	{
@@ -604,7 +615,6 @@ pick_server(Job *job)
 	  break;
 	}
 
-      // trace() << "server_speed " << cs->nodename << " " << server_speed (cs) << endl;
       if ( envs_match( cs, job ) )
         {
           if ( !best )
@@ -629,8 +639,16 @@ pick_server(Job *job)
         }
     }
 
-  if ( best )
+  if ( best ) {
+#if DEBUG_SCHEDULER
+    trace() << "taking best installed " << best->nodename << " " <<  server_speed (best) << endl;
+#endif
     return best;
+  }
+#if DEBUG_SCHEDULER
+  if ( bestui )
+    trace() << "taking best uninstalled " << bestui->nodename << " " <<  server_speed (bestui) << endl;
+#endif
   return bestui;
 }
 
@@ -645,11 +663,11 @@ prune_clients ()
   for (it = css.begin(); it != css.end(); ) {
     if ( now - ( *it )->last_talk > 15 ) {
       if ( ( *it )->max_jobs > 0 ) {
-        trace() << "send ping " << ( *it )->name << endl;
+        trace() << "send ping " << ( *it )->nodename << endl;
         ( *it )->channel()->send_msg( PingMsg() );
         ( *it )->max_jobs *= -1; // better not give it
       } else { // R.I.P.
-        trace() << "removing " << ( *it )->name << endl;
+        trace() << "removing " << ( *it )->nodename << endl;
 	CS *old = *it;
 	++it;
 	handle_end (old->channel(), 0);
@@ -658,7 +676,7 @@ prune_clients ()
     }
     if ((random() % 400) < 0)
       { // R.I.P.
-        trace() << "FORCED removing " << ( *it )->name << endl;
+        trace() << "FORCED removing " << ( *it )->nodename << endl;
 	CS *old = *it;
 	++it;
 	handle_end (old->channel(), 0);
@@ -727,7 +745,7 @@ empty_queue()
     }
   else
     {
-      trace() << "put " << job->id << " in joblist of " << cs->name << endl;
+      trace() << "put " << job->id << " in joblist of " << cs->nodename << endl;
       cs->joblist.push_back( job );
       if ( !gotit ) { // if we made the environment transfer, don't rely on the list
         cs->compiler_versions.clear();
@@ -777,7 +795,7 @@ handle_login (MsgChannel *c, Msg *_m)
   css.push_back (cs);
 
 #if 0
-  trace() << cs->name << ": [";
+  trace() << cs->nodename << ": [";
   for (list<string>::const_iterator it = m->envs.begin();
        it != m->envs.end(); ++it)
     trace() << *it << ", ";
@@ -798,7 +816,7 @@ handle_relogin (MsgChannel *c, Msg *_m)
   cs->compiler_versions = m->envs;
   cs->busy_installing = false;
 
-  trace() << cs->name << "(" << cs->host_platform << "): [";
+  trace() << cs->nodename << "(" << cs->host_platform << "): [";
   for (Environments::const_iterator it = m->envs.begin();
        it != m->envs.end(); ++it)
     trace() << it->second << "(" << it->first << "), ";
@@ -867,8 +885,6 @@ handle_job_done (MsgChannel *c, Msg *_m)
             << " real=" << m->real_msec
             << " user=" << m->user_msec
             << " sys=" << m->sys_msec
-            << " rss=" << m->maxrss
-            << " idrss=" << m->idrss
             << " pfaults=" << m->majflt
             << " nswaps=" << m->nswap
             << " server=" << c->other_end->name
