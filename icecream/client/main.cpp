@@ -107,15 +107,15 @@ static void dcc_client_catch_signals(void)
 int main(int argc, char **argv)
 {
     char *env = getenv( "ICECC_DEBUG" );
-    int debug_level = Warning|Error;
+    int debug_level = Error;
     if ( env ) {
         if ( !strcasecmp( env, "info" ) )  {
-            debug_level += Info;
+            debug_level |= Info|Warning;
         } else if ( !strcasecmp( env, "debug" ) ||
                     !strcasecmp( env, "trace" ) )  {
-            debug_level += Info|Debug;
-        } else if ( !strcasecmp( env, "error" ) ) {
-            debug_level = Error; // taking out warning
+            debug_level |= Info|Debug|Warning;
+        } else if ( !strcasecmp( env, "warnings" ) ) {
+            debug_level |= Warning; // taking out warning
         }
     }
     setup_debug(debug_level);
