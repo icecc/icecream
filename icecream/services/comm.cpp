@@ -101,7 +101,16 @@ MsgChannel::update_state (void)
   switch (instate)
     {
     case NEED_LEN:
-      if (inofs - intogo >= 4)
+      if (text_based)
+        {
+	  /* XXX handle other line endings.  */
+	  void *lineend = memchr (inbuf + intogo, '\r', inofs - intogo);
+	  if (!lineend)
+	    break;
+	  instate = HAS_MSG;
+	  goto has_msg;
+	}
+      else if (inofs - intogo >= 4)
         {
 	  readuint32 (inmsglen);
 	  if (inbuflen - intogo < inmsglen)
@@ -121,6 +130,7 @@ MsgChannel::update_state (void)
       else
         break;
     case HAS_MSG:
+    has_msg:
       /* handled elsewere */
       break;
     }
@@ -391,6 +401,43 @@ MsgChannel::writecompressed (const unsigned char *in_buf,
   _out_len = out_len;
 }
 
+void
+MsgChannel::read_line (string &line)
+{
+  /* XXX handle DOS and MAC line endings and null bytes as string endings.  */
+  if (!text_based || inofs < intogo)
+    {
+      line = "";
+    }
+  else
+    {
+      const char *linebeg = inbuf + intogo;
+      const char *lineend = (const char *) memchr (linebeg, '\r', inofs - intogo);
+      if (!lineend)
+        line = "";
+      else
+        {
+	  /* Without the EOL */
+	  line = string(linebeg, lineend - linebeg);
+	  intogo += lineend - linebeg + 1;
+	  if (intogo < inofs && inbuf[intogo] == '\n')
+	    intogo++;
+	}
+    }
+}
+
+void
+MsgChannel::write_line (const string &line)
+{
+  size_t len = line.length();
+  writefull (line.c_str(), len);
+  if (line[len-1] != '\n')
+    {
+      char c = '\n';
+      writefull (&c, 1);
+    }
+}
+
 Service::Service (struct sockaddr *_a, socklen_t _l)
 {
   last_talk = time( 0 );
@@ -478,12 +525,13 @@ Service::eq_ip (const Service &s)
 
 MsgChannel::MsgChannel (int _fd)
   : other_end(0), fd(_fd), msgbuf(0), msgbuflen(0), msgofs(0), msgtogo(0),
-    inbuf(0), inbuflen(0), inofs(0), intogo(0), instate(NEED_LEN), eof(false)
+    inbuf(0), inbuflen(0), inofs(0), intogo(0), instate(NEED_LEN), eof(false),
+    text_based(false)
 {
   abort (); // currently not tested
 }
 
-MsgChannel::MsgChannel (int _fd, Service *serv)
+MsgChannel::MsgChannel (int _fd, Service *serv, bool text)
   : other_end(serv), fd(_fd)
 {
   assert (!serv->c);
@@ -499,6 +547,7 @@ MsgChannel::MsgChannel (int _fd, Service *serv)
   intogo = 0;
   instate = NEED_LEN;
   eof = false;
+  text_based = text;
 
   if ( !check_protocol( ) )
     protocol = 0; // unusable
@@ -569,6 +618,9 @@ bool
 MsgChannel::check_protocol()
 {
   protocol = PROTOCOL_VERSION;
+  if (text_based)
+    return true;
+
   unsigned char vers[4] = { PROTOCOL_VERSION, 0, 0, 0 };
   if ( !write_vers( fd, vers ) )
     return false;
@@ -663,8 +715,13 @@ MsgChannel::get_msg(int timeout)
     return 0;
     abort (); // XXX but what else?
   }
-  readuint32 (t);
-  type = (enum MsgType) t;
+  if (text_based)
+    type = M_TEXT;
+  else
+    {
+      readuint32 (t);
+      type = (enum MsgType) t;
+    }
   switch (type)
     {
     case M_UNKNOWN: return 0;
@@ -693,6 +750,7 @@ MsgChannel::get_msg(int timeout)
     case M_MON_LOCAL_JOB_BEGIN: m = new MonLocalJobBeginMsg; break;
     case M_MON_LOCAL_JOB_DONE: m = new MonLocalJobDoneMsg; break;
     case M_TRANFER_ENV: m = new EnvTransferMsg; break;
+    case M_TEXT: m = new TextMsg; break;
     }
   m->fill_from_channel (this);
   instate = NEED_LEN;
@@ -705,21 +763,28 @@ MsgChannel::send_msg (const Msg &m, bool blocking)
 {
   chop_output ();
   size_t msgtogo_old = msgtogo;
-  writeuint32 (0);  // filled out later with the overall len
-  m.send_to_channel (this);
-  uint32_t len = htonl (msgtogo - msgtogo_old - 4);
-  memcpy (msgbuf + msgtogo_old, &len, 4);
+  if (text_based)
+    {
+      m.send_to_channel (this);
+    }
+  else
+    {
+      writeuint32 (0);  // filled out later with the overall len
+      m.send_to_channel (this);
+      uint32_t len = htonl (msgtogo - msgtogo_old - 4);
+      memcpy (msgbuf + msgtogo_old, &len, 4);
+    }    
   return flush_writebuf (blocking);
 }
 
-MsgChannel *Service::createChannel( int remote_fd )
+MsgChannel *Service::createChannel( int remote_fd, bool text_based )
 {
   if (channel())
     {
       assert( remote_fd == c->fd );
       return channel();
     }
-  new MsgChannel( remote_fd, this ); // sets c
+  new MsgChannel( remote_fd, this, text_based ); // sets c
   assert( channel() );
 
   return channel();
@@ -934,6 +999,8 @@ Msg::fill_from_channel (MsgChannel *)
 void
 Msg::send_to_channel (MsgChannel *c) const
 {
+  if (c->is_text_based())
+    return;
   c->writeuint32 ((uint32_t) type);
 }
 
@@ -1376,3 +1443,14 @@ MonStatsMsg::send_to_channel (MsgChannel *c) const
   c->write_string(statmsg);
 }
 
+void
+TextMsg::fill_from_channel (MsgChannel *c)
+{
+  c->read_line (text);
+}
+
+void
+TextMsg::send_to_channel (MsgChannel *c) const
+{
+  c->write_line (text);
+}

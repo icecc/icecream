@@ -98,7 +98,9 @@ enum MsgType {
   M_MON_LOCAL_JOB_DONE,
   M_MON_STATS,
 
-  M_TRANFER_ENV
+  M_TRANFER_ENV,
+
+  M_TEXT
 };
 
 class MsgChannel;
@@ -129,7 +131,7 @@ public:
   Service (struct sockaddr *, socklen_t);
   Service (const std::string &host, unsigned short p);
   MsgChannel *channel() const { return c; }
-  MsgChannel *createChannel( int remote_fd );
+  MsgChannel *createChannel( int remote_fd, bool text_based = false );
   bool eq_ip (const Service &s);
   virtual ~Service ();
 };
@@ -156,6 +158,7 @@ public:
     return need_write () ? flush_writebuf (false) : true;
   }
   bool at_eof (void) const { return eof; }
+  bool is_text_based(void) const { return text_based; }
 
   void readuint32 (uint32_t &buf);
   void writeuint32 (uint32_t u);
@@ -168,6 +171,8 @@ public:
 			size_t _in_len, size_t &_out_len);
   void write_environments( const Environments &envs );
   void read_environments( Environments &envs );
+  void read_line (std::string &line);
+  void write_line (const std::string &line);
 
   bool check_protocol( );
 
@@ -175,7 +180,7 @@ public:
   ~MsgChannel ();
 private:
   MsgChannel (int _fd);
-  MsgChannel (int _fd, Service *serv);
+  MsgChannel (int _fd, Service *serv, bool text = false);
   // returns false if there was an error sending something
   bool flush_writebuf (bool blocking);
   void writefull (const void *_buf, size_t count);
@@ -194,6 +199,7 @@ private:
   enum {NEED_LEN, FILL_BUF, HAS_MSG} instate;
   uint32_t inmsglen;
   bool eof;
+  bool text_based;
 };
 
 /* Connect to a scheduler waiting max. TIMEOUT milliseconds.
@@ -512,6 +518,16 @@ public:
   }
   virtual void fill_from_channel (MsgChannel * c);
   virtual void send_to_channel (MsgChannel * c) const;
+};
+
+class TextMsg : public Msg {
+public:
+  std::string text;
+  TextMsg() : Msg( M_TEXT ) {}
+  TextMsg( const std::string &_text)
+    : Msg ( M_TEXT ), text(_text) {}
+  virtual void fill_from_channel (MsgChannel *c);
+  virtual void send_to_channel (MsgChannel *c) const;
 };
 
 #endif

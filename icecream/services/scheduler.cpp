@@ -143,7 +143,7 @@ public:
   JobStat cum_compiled;  // cumulated
   JobStat cum_requested;
   enum {CONNECTED, LOGGEDIN} state;
-  enum {UNKNOWN, CLIENT, DAEMON, MONITOR} type;
+  enum {UNKNOWN, CLIENT, DAEMON, MONITOR, LINE} type;
   static unsigned int hostid_counter;
 };
 
@@ -1033,6 +1033,41 @@ handle_timeout (MsgChannel * c, Msg * /*_m*/)
   return false;
 }
 
+static bool
+handle_line (MsgChannel *c, Msg *_m)
+{
+  TextMsg *m = dynamic_cast<TextMsg *>(_m);
+  if (!m)
+    return false;
+  if (m->text == "listcs")
+    {
+      for (list<CS*>::iterator it = css.begin(); it != css.end(); ++it)
+	{
+	  CS* cs= *it;
+	  string line;
+	  char buffer[1000];
+	  line = " " + cs->nodename + "(" + cs->name + ")";
+	  line += "[" + cs->host_platform + "] speed= ";
+	  sprintf (buffer, "%.2f max=%d", server_speed (cs), cs->max_jobs);
+	  line = line + buffer;
+	  c->send_msg (TextMsg (line));
+	}
+    }
+  else if (m->text == "quit")
+    {
+      handle_end (c, m);
+      return false;
+    }
+  else
+    {
+      string txt = "Invalid command '";
+      txt += m->text;
+      txt += "'";
+      c->send_msg (TextMsg (txt));
+    }
+  return true;
+}
+
 // return false if some error occured, leaves C open.  */
 static bool
 try_login (MsgChannel *c, Msg *m)
@@ -1057,6 +1092,10 @@ try_login (MsgChannel *c, Msg *m)
     case M_JOB_LOCAL_BEGIN:
       cs->type = CS::CLIENT;
       ret = handle_local_job (c, m);
+      break;
+    case M_TEXT:
+      cs->type = CS::LINE;
+      ret = handle_line (c, m);
       break;
     default:
       log_info() << "Invalid first message " << (char)m->type << endl;
@@ -1202,6 +1241,10 @@ handle_end (MsgChannel *c, Msg *m)
             }
         }
     }
+  else if (toremove->type == CS::LINE)
+    {
+      c->send_msg (TextMsg ("Good Bye!"));
+    }
   else
     trace() << "remote end had UNKNOWN type?" << endl;
 
@@ -1236,7 +1279,8 @@ handle_activity (MsgChannel *c)
     case M_TIMEOUT: ret = handle_timeout (c, m); break;
     case M_JOB_LOCAL_BEGIN: ret = handle_local_job (c, m); break;
     case M_JOB_LOCAL_DONE: ret = handle_local_job_end (c, m); break;
-    case M_LOGIN: ret = handle_relogin( c, m ); break;
+    case M_LOGIN: ret = handle_relogin (c, m); break;
+    case M_TEXT: ret = handle_line (c, m); break;
     default:
       log_info() << "Invalid message type arrived " << ( char )m->type << endl;
       handle_end (c, m);
@@ -1274,6 +1318,46 @@ open_broad_listener ()
   return listen_fd;
 }
 
+static int
+open_tcp_listener (short port)
+{
+  int fd;
+  struct sockaddr_in myaddr;
+  if ((fd = socket (PF_INET, SOCK_STREAM, 0)) < 0)
+    {
+      perror ("socket()");
+      return -1;
+    }
+  int optval = 1;
+  if (setsockopt (fd, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(optval)) < 0)
+    {
+      perror ("setsockopt()");
+      return -1;
+    }
+  /* Although we select() on fd we need O_NONBLOCK, due to
+     possible network errors making accept() block although select() said
+     there was some activity.  */
+  if (fcntl (fd, F_SETFL, O_NONBLOCK) < 0)
+    {
+      perror ("fcntl()");
+      return -1;
+    }
+  myaddr.sin_family = AF_INET;
+  myaddr.sin_port = htons (port);
+  myaddr.sin_addr.s_addr = INADDR_ANY;
+  if (bind (fd, (struct sockaddr *) &myaddr, sizeof (myaddr)) < 0)
+    {
+      perror ("bind()");
+      return -1;
+    }
+  if (listen (fd, 20) < 0)
+    {
+      perror ("listen()");
+      return -1;
+    }
+  return fd;
+}
+
 static void
 usage(const char* reason = 0)
 {
@@ -1296,9 +1380,9 @@ usage(const char* reason = 0)
 int
 main (int argc, char * argv[])
 {
-  int listen_fd, remote_fd, broad_fd;
+  int listen_fd, remote_fd, broad_fd, text_fd;
+  struct sockaddr_in remote_addr;
   unsigned int port = 8765;
-  struct sockaddr_in myaddr, remote_addr;
   socklen_t remote_len;
   char *netname = (char*)"ICECREAM";
   bool detach = false;
@@ -1371,43 +1455,15 @@ main (int argc, char * argv[])
   if ( detach )
     daemon( 0, 0 );
 
-  if ((listen_fd = socket (PF_INET, SOCK_STREAM, 0)) < 0)
-    {
-      perror ("socket()");
-      return 1;
-    }
-  int optval = 1;
-  if (setsockopt (listen_fd, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(optval)) < 0)
-    {
-      perror ("setsockopt()");
-      return 1;
-    }
-  /* Although we select() on listen_fd we need O_NONBLOCK, due to
-     possible network errors making accept() block although select() said
-     there was some activity.  */
-  if (fcntl (listen_fd, F_SETFL, O_NONBLOCK) < 0)
-    {
-      perror ("fcntl()");
-      return 1;
-    }
-  myaddr.sin_family = AF_INET;
-  myaddr.sin_port = htons (port);
-  myaddr.sin_addr.s_addr = INADDR_ANY;
-  if (bind (listen_fd, (struct sockaddr *) &myaddr, sizeof (myaddr)) < 0)
-    {
-      perror ("bind()");
-      return 1;
-    }
-  if (listen (listen_fd, 20) < 0)
-    {
-      perror ("listen()");
-      return 1;
-    }
+  listen_fd = open_tcp_listener (port);
+  if (listen_fd < 0)
+    return 1;
+  text_fd = open_tcp_listener (port + 1);
+  if (text_fd < 0)
+    return 1;
   broad_fd = open_broad_listener ();
   if (broad_fd < 0)
-    {
-      return 1;
-    }
+    return 1;
 
   if (signal(SIGPIPE, SIG_IGN) == SIG_ERR)
     {
@@ -1430,6 +1486,9 @@ main (int argc, char * argv[])
           max_fd = listen_fd;
           FD_SET (listen_fd, &read_set);
         }
+      if (text_fd > max_fd)
+	max_fd = text_fd;
+      FD_SET (text_fd, &read_set);
       if (broad_fd > max_fd)
         max_fd = broad_fd;
       FD_SET (broad_fd, &read_set);
@@ -1488,6 +1547,35 @@ main (int argc, char * argv[])
 	        handle_activity (c);
 	    }
         }
+      if (max_fd && FD_ISSET (text_fd, &read_set))
+        {
+	  max_fd--;
+	  remote_len = sizeof (remote_addr);
+          remote_fd = accept (text_fd,
+                              (struct sockaddr *) &remote_addr,
+                              &remote_len );
+	  if (remote_fd < 0 && errno != EAGAIN && errno != EINTR)
+	    {
+	      perror ("accept()");
+	      /* Don't quit the scheduler just because a debugger couldn't
+	         connect.  */
+	    }
+	  if (remote_fd >= 0)
+	    {
+	      CS *cs = new CS ((struct sockaddr*) &remote_addr, remote_len);
+              cs->last_talk = time( 0 );
+	      trace() << "accepting from " << cs->name << ":" << cs->port << "\n";
+	      MsgChannel *c = cs->createChannel (remote_fd, true);
+              if ( !c->protocol ) // protocol mismatch
+                {
+                  delete cs;
+                  continue;
+                }
+	      fd2chan[c->fd] = c;
+	      if (!c->read_a_bit () || c->has_msg ())
+	        handle_activity (c);
+	    }
+	}
       if (max_fd && FD_ISSET (broad_fd, &read_set))
         {
 	  max_fd--;
