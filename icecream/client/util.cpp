@@ -125,7 +125,6 @@ static int sys_lock(int fd, bool block)
 
 bool dcc_unlock(int lock_fd)
 {
-    trace() << "release lock fd" << lock_fd << endl;
     /* All our current locks can just be closed */
     if (close(lock_fd)) {
         log_error() << "close failed: " << strerror(errno) << endl;
