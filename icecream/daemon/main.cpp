@@ -624,6 +624,7 @@ int main( int argc, char ** argv )
                         MsgChannel *c = client->createChannel( acc_fd );
                         if ( !c->protocol ) { // protocol mismatch
                             delete client;
+                            sleep( 1 );
                             continue;
                         }
 
