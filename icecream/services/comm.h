@@ -42,7 +42,7 @@ enum MsgType {
   // CS --> S, first message sent
   M_LOGIN,
 
-  // CS --> S (peridioc)
+  // CS --> S (periodic)
   M_STATS
 };
 
@@ -92,7 +92,6 @@ public:
 private:
   MsgChannel (int _fd);
   MsgChannel (int _fd, Service *serv);
-
 };
 
 MsgChannel *connect_scheduler ();
