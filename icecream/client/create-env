@@ -1,0 +1,61 @@
+#! /bin/sh
+# icecc -- A simple distributed compiler system
+#
+# Copyright (C) 2004 by the Icecream Authors
+# GPL
+
+target_files=
+
+is_contained ()
+{
+  case " $target_files " in
+    *" $1 "* ) return 0 ;;
+    * ) return 1 ;;
+  esac
+}
+
+add_file ()
+{
+  local name="$1"
+  test -z "$name" && return
+  is_contained "$name" && return
+  echo "adding file $name"
+  target_files="$target_files $1"
+  if test -x "$name"; then
+    # Only call ldd when it makes sense
+    if file "$name" | grep 'ELF' > /dev/null 2>&1 ; then
+      for lib in `ldd "$name" | sed -n 's/^.*=> \([^ ]*\).*$/\1/p'`; do
+        add_file "$lib"
+      done
+    fi
+  fi
+}
+
+LD_ASSUME_KERNEL=2.4.0
+export LD_ASSUME_KERNEL
+
+if test -z "`type -p gcc`"; then
+  echo "No gcc found in path."
+  exit 1
+fi
+
+add_file `type -p gcc`
+add_file `type -p g++`
+add_file `type -p as`
+add_file `gcc -print-prog-name=cc1`
+add_file `g++ -print-prog-name=cc1plus`
+add_file `gcc -print-file-name=specs`
+
+# now sort the files in order to make the md5sums independent
+# of ordering
+target_files=`for i in $target_files; do echo $i; done | sort`
+#echo "adding files $target_files"
+md5=`md5sum $target_files | sed -e 's/ .*$//' | md5sum | sed -e 's/ .*$//'` || {
+  echo "Couldn't compute MD5 sum."
+  exit 2
+}
+echo "creating $md5.tar.bz2"
+tar -czhf "$md5".tar.bz2 $target_files || {
+  echo "Couldn't create archive"
+  exit 3
+}
