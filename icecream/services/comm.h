@@ -93,6 +93,7 @@ class Service {
 public:
   std::string name;
   unsigned short port;
+  time_t last_talk;
   Service (struct sockaddr *, socklen_t);
   Service (const std::string &host, unsigned short p);
   MsgChannel *channel() const { return c; }

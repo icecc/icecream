@@ -477,7 +477,7 @@ int main( int argc, char ** argv )
                 continue;
             }
 
-            if ( time( 0 ) - last_stat >= 10 ) {
+            if ( time( 0 ) - last_stat >= 7 ) {
                 StatsMsg msg;
                 if ( !fill_stats( msg ) )
                     break;
@@ -521,12 +521,35 @@ int main( int argc, char ** argv )
                 if ( max_fd < it->first )
                     max_fd = it->first;
             }
+
+            FD_SET( scheduler->fd, &listen_set );
+            if ( max_fd < scheduler->fd )
+                max_fd = scheduler->fd;
+
             tv.tv_sec = 2;
             tv.tv_usec = 0;
 
             ret = select (max_fd + 1, &listen_set, NULL, NULL, &tv);
 
             if ( ret > 0 ) {
+                if ( FD_ISSET( scheduler->fd, &listen_set ) ) {
+                    Msg *msg = scheduler->get_msg();
+                    if ( !msg )
+                        log_error() << "no message from scheduler\n";
+                    else {
+                        if ( msg->type == M_PING ) {
+                            StatsMsg smsg;
+                            if ( !fill_stats( smsg ) )
+                                continue;
+
+                            if ( scheduler->send_msg( smsg ) )
+                                last_stat = time( 0 );
+                        } else
+                            log_error() << "unknown scheduler type " << ( char )msg->type << endl;
+                    }
+                    continue;
+                }
+
                 if ( FD_ISSET( listen_fd, &listen_set ) ) {
                     cli_len = sizeof cli_addr;
                     acc_fd = accept(listen_fd, &cli_addr, &cli_len);

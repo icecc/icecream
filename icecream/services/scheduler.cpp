@@ -103,8 +103,7 @@ public:
     // unsigned int bytes_per_ms;
   // LOAD is load * 1000
   unsigned int load;
-  unsigned int max_jobs;
-  //  time_t uptime;  // time connected with scheduler
+  int max_jobs;
   list<Job*> joblist;
   list<string> compiler_versions;  // Available compilers
   CS (struct sockaddr *_addr, socklen_t _len)
@@ -375,11 +374,28 @@ pick_server(Job *job)
 
   list<CS*>::iterator it;
 
+  time_t now = time( 0 );
+  // first we check if all are up
+  for (it = css.begin(); it != css.end(); ) {
+    if ( now - ( *it )->last_talk > 15 ) {
+      if ( ( *it )->max_jobs > 0 ) {
+        trace() << "send ping " << ( *it )->name << endl;
+        ( *it )->channel()->send_msg( PingMsg() );
+        ( *it )->max_jobs *= -1; // better not give it
+      } else { // R.I.P.
+        trace() << "removing " << ( *it )->name << endl;
+        it = css.erase( it );
+        continue;
+      }
+    }
+    ++it;
+  }
+
   /* If we have no statistics simply use the first server which is usable.  */
   if (!all_job_stats.size ())
     {
       for (it = css.begin(); it != css.end(); ++it)
-        if ((*it)->joblist.size() < (*it)->max_jobs
+        if (int( (*it)->joblist.size() ) < (*it)->max_jobs
 	    && (*it)->load < 1000 && can_install( *it, environment ) )
           return *it;
       return 0;
@@ -406,7 +422,7 @@ pick_server(Job *job)
     {
       CS *cs = *it;
       /* For now ignore overloaded servers.  */
-      if (cs->joblist.size() >= cs->max_jobs || cs->load >= 1000)
+      if (int( cs->joblist.size() ) >= cs->max_jobs || cs->load >= 1000)
         continue;
 
       // incompatible architecture
@@ -627,6 +643,8 @@ handle_job_done (MsgChannel *c, Msg *_m)
     log_info() << "the server isn't the same for job " << m->job_id << endl;
     return false;
   }
+  c->other_end->last_talk = time( 0 );
+
   Job *j = jobs[m->job_id];
   j->server->joblist.remove (j);
   add_job_stats (j, m);
@@ -656,9 +674,13 @@ handle_job_done (MsgChannel *c, Msg *_m)
 }
 
 static bool
-handle_ping (MsgChannel * /*c*/, Msg * /*_m*/)
+handle_ping (MsgChannel * c, Msg * /*_m*/)
 {
   trace() << "handle_ping\n";
+  c->other_end->last_talk = time( 0 );
+  CS *cs = dynamic_cast<CS*>( c->other_end );
+  if ( cs && cs->max_jobs < 0 )
+    cs->max_jobs *= -1;
   return true;
 }
 
@@ -668,6 +690,13 @@ handle_stats (MsgChannel * c, Msg * _m)
   StatsMsg *m = dynamic_cast<StatsMsg *>(_m);
   if (!m)
     return false;
+
+  trace() << "handle_stats " << c->other_end->name << endl;
+
+  c->other_end->last_talk = time( 0 );
+  CS *cs = dynamic_cast<CS*>( c->other_end );
+  if ( cs && cs->max_jobs < 0 )
+    cs->max_jobs *= -1;
 
   for (list<CS*>::iterator it = css.begin(); it != css.end(); ++it)
     if (( *it )->channel() == c)
@@ -681,8 +710,9 @@ handle_stats (MsgChannel * c, Msg * _m)
 }
 
 static bool
-handle_timeout (MsgChannel * /*c*/, Msg * /*_m*/)
+handle_timeout (MsgChannel * c, Msg * /*_m*/)
 {
+  c->other_end->last_talk = time( 0 );
   return false;
 }
 
@@ -1104,6 +1134,7 @@ main (int argc, char * argv[])
               }
 
 	      CS *cs = new CS ((struct sockaddr*) &remote_addr, remote_len);
+              cs->last_talk = time( 0 );
 	      // printf ("accepting from %s:%d\n", cs->name.c_str(), cs->port);
 	      MsgChannel *c = cs->createChannel (remote_fd);
 	      fd2chan[c->fd] = c;
@@ -1132,7 +1163,7 @@ main (int argc, char * argv[])
 	    }
 	  else
 	    {
-	      log_info() << "broadcast from " << inet_ntoa (broad_addr.sin_addr) 
+	      log_info() << "broadcast from " << inet_ntoa (broad_addr.sin_addr)
                          << ":" << ntohs (broad_addr.sin_port) << "\n";
 	      buf[0]++;
 	      memset (buf + 1, 0, sizeof (buf) - 1);

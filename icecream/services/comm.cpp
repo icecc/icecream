@@ -338,6 +338,7 @@ MsgChannel::writecompressed (const unsigned char *in_buf,
 
 Service::Service (struct sockaddr *_a, socklen_t _l)
 {
+  last_talk = time( 0 );
   c = 0;
   len = _l;
   if (len && _a)
@@ -399,6 +400,7 @@ Service::Service (const string &hostname, unsigned short p)
   memcpy (addr, &remote_addr, len);
   name = hostname;
   port = p;
+  last_talk = time( 0 );
   new MsgChannel (remote_fd, this); // sets c
 }
 
