@@ -1087,7 +1087,7 @@ dump_job (MsgChannel *c, Job *job)
 {
   char buffer[1000];
   string line;
-  snprintf (buffer, sizeof (buffer), "%d %s sub:%s on:%s ",
+  snprintf (buffer, sizeof (buffer), "  %d %s sub:%s on:%s ",
 	   job->id,
 	   job->state == Job::PENDING ? "PEND"
 	     : job->state == Job::WAITINGFORCS ? "WAIT"
