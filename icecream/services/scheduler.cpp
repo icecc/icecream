@@ -905,6 +905,8 @@ handle_login (MsgChannel *c, Msg *_m)
   handle_monitor_stats( cs );
   css.push_back (cs);
 
+  trace() << "login " << cs->nodename << " protocol version: " << c->protocol << endl;
+
 #if 0
   trace() << cs->nodename << ": [";
   for (list<string>::const_iterator it = m->envs.begin();
@@ -1212,7 +1214,6 @@ try_login (MsgChannel *c, Msg *m)
 {
   bool ret = true;
   CS *cs = static_cast<CS *>(c->other_end);
-  trace() << "login " << cs->name << " protocol version: " << c->protocol << endl;
   switch (m->type)
     {
     case M_GET_CS:

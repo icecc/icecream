@@ -172,7 +172,6 @@ int main(int argc, char **argv)
     // the timeout is high because it creates the native version
     Msg *umsg = local_daemon->get_msg(4 * 60);
     if ( !umsg || umsg->type != M_USE_SCHEDULER ) {
-        log_error() << "umsg != scheduler\n";
         delete serv;
         return build_local( job, 0 );
     }
