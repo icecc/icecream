@@ -239,13 +239,13 @@ bool analyse_argv( const char * const *argv,
             string::size_type dot_index = ifile.find_last_of( '.' );
             string ext = ifile.substr( dot_index + 1 );
 
-            if (ext == "i" || ext == "c") {
+            if (ext == "i") {
 #if CLIENT_DEBUG
                 if ( job.language() != CompileJob::Lang_C )
                     log_info() << "switching to C for " << ifile << endl;
 #endif
                 job.setLanguage( CompileJob::Lang_C );
-            } else if (ext == "c" || ext == "cc"
+            } else if (ext == "cc"
                        || ext == "cpp" || ext == "cxx"
                        || ext == "cp" || ext == "c++"
                        || ext == "C" || ext == "ii") {
@@ -256,10 +256,13 @@ bool analyse_argv( const char * const *argv,
                 job.setLanguage( CompileJob::Lang_CXX );
             } else if(ext == "mi" || ext == "m"
                       || ext == "mii" || ext == "mm"
-                      || ext == "M" )
+                      || ext == "M" ) {
                 job.setLanguage( CompileJob::Lang_OBJC );
+            } else if ( ext == "s" || ext == "S" ) {
+                always_local = true;
+            }
 
-            if ( ofile.empty() ) {
+            if ( !always_local && ofile.empty() ) {
                 ofile = ifile.substr( 0, dot_index ) + ".o";
                 string::size_type slash = ofile.find_last_of( '/' );
                 if ( slash != string::npos )
