@@ -10,6 +10,8 @@
 * all: protocol version
 * scheduler, daemon: handle multiple environments
 * client: for local jobs try to get remote and local args back in original form
+* scheduler: Arvin rebooted purcell and noone noticed (my compile jobs stayed in Compiling)
+    The daemon tries to tell the scheduler if it goes down, but I guess purcell crashed
 
 IDEAS:
 * provide a way to pass jobs through the scheduler for multihomed servers
