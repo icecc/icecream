@@ -12,23 +12,23 @@
 #include <sys/fcntl.h>
 #include <sys/wait.h>
 #include <errno.h>
+#include <string>
 
-// the pipe is needed to sync the child reaping with our event processing,
-// as otherwise there are race conditions, locking requirements, and things
-// generally get harder
-void theSigCHLDHandler( int arg )
+using namespace std;
+
+bool must_reap = false;
+
+void theSigCHLDHandler( int )
 {
-  int saved_errno = errno;
-
-  char dummy = 0;
-  printf( "theSig %d", arg );
-
-  errno = saved_errno;
+    must_reap = true;
 }
 
-
-int work_it( CompileJob &j, const char *preproc, size_t preproc_length )
+int work_it( CompileJob &j, const char *preproc, size_t preproc_length, string &str_out, string &str_err,
+             int &status, string &outfilename )
 {
+    str_out.clear();
+    str_out.clear();
+
     CompileJob::ArgumentsList list = j.compileFlags();
     int ret;
 
@@ -40,15 +40,15 @@ int work_it( CompileJob &j, const char *preproc, size_t preproc_length )
         dot = ".cpp";
     else
         assert(0);
-    list.push_back( "-fpreprocessing" );
+    list.push_back( "-fpreprocessed" );
 
-    // if using gcc: dot = dcc_preproc_exten( dot );
     char tmp_input[PATH_MAX];
     if ( ( ret = dcc_make_tmpnam("icecc", dot, tmp_input ) ) != 0 )
         return ret;
     char tmp_output[PATH_MAX];
     if ( ( ret = dcc_make_tmpnam("icecc", ".o", tmp_output ) ) != 0 )
         return ret;
+    outfilename = tmp_output;
 
     FILE *ti = fopen( tmp_input, "wt" );
     fwrite( preproc, 1, preproc_length, ti );
@@ -69,6 +69,8 @@ int work_it( CompileJob &j, const char *preproc, size_t preproc_length )
     fcntl( sock_err[0], F_SETFD, FD_CLOEXEC );
     fcntl( sock_out[1], F_SETFD, FD_CLOEXEC );
     fcntl( sock_err[1], F_SETFD, FD_CLOEXEC );
+
+    must_reap = true;
 
     /* Testing */
     struct sigaction act;
@@ -92,8 +94,11 @@ int work_it( CompileJob &j, const char *preproc, size_t preproc_length )
     sigprocmask( SIG_UNBLOCK, &act.sa_mask, 0 );
 
     pid_t pid = fork();
-    if ( pid == -1 )
+    if ( pid == -1 ) {
+        unlink( tmp_input );
+        unlink( tmp_output );
         return EXIT_OUT_OF_MEMORY;
+    }
     else if ( pid == 0 ) {
 
         close( main_sock[0] );
@@ -138,6 +143,7 @@ int work_it( CompileJob &j, const char *preproc, size_t preproc_length )
         write(main_sock[1], &resultByte, 1);
         exit(-1);
     } else {
+        char buffer[4096];
 
         close( main_sock[1] );
 
@@ -148,10 +154,13 @@ int work_it( CompileJob &j, const char *preproc, size_t preproc_length )
             int n = ::read(main_sock[0], &resultByte, 1);
             if (n == 1)
             {
+                status = resultByte;
                 // exec() failed
                 close(main_sock[0]);
                 waitpid(pid, 0, 0);
-                return EXIT_COMPILER_CRASHED;
+                unlink( tmp_input );
+                unlink( tmp_output );
+                return EXIT_COMPILER_MISSING; // most likely cause
             }
             if (n == -1)
             {
@@ -162,30 +171,22 @@ int work_it( CompileJob &j, const char *preproc, size_t preproc_length )
         }
         close( main_sock[0] );
 
-        int status;
-
         for(;;)
         {
             fd_set rfds;
             FD_ZERO( &rfds );
             FD_SET( sock_out[0], &rfds );
             FD_SET( sock_err[0], &rfds );
-            fd_set efds;
-            FD_ZERO( &efds );
-            FD_SET( sock_out[0], &efds );
-            FD_SET( sock_err[0], &efds );
 
             struct timeval tv;
             /* Wait up to five seconds. */
             tv.tv_sec = 5;
             tv.tv_usec = 0;
 
-            ret =  select( std::max( sock_out[0], sock_err[0] )+1, &rfds, 0, &efds, &tv );
-            printf( "ret %d\n", ret );
+            ret =  select( std::max( sock_out[0], sock_err[0] )+1, &rfds, 0, 0, &tv );
             switch( ret )
             {
             case -1:
-                printf( "errno %s\n", strerror( errno ) );
                 if( errno == EINTR )
                     break;
                 // fall through; should happen if tvp->tv_sec < 0
@@ -193,51 +194,29 @@ int work_it( CompileJob &j, const char *preproc, size_t preproc_length )
                 continue;
             default:
                 if ( FD_ISSET(sock_out[0], &rfds) ) {
-                    char buffer[4096];
-                    printf( "stdout:\n" );
                     ssize_t bytes = read( sock_out[0], buffer, 4096 );
                     if ( bytes > 0 ) {
                         buffer[bytes] = 0;
-                        printf( "%s\n", buffer );
+                        str_out.append( buffer );
                     }
                 }
                 if ( FD_ISSET(sock_err[0], &rfds) ) {
-                    char buffer[4096];
-                    printf( "stderr:\n" );
                     ssize_t bytes = read( sock_err[0], buffer, 4096 );
                     if ( bytes > 0 ) {
                         buffer[bytes] = 0;
-                        printf( "%s\n", buffer );
+                        str_err.append( buffer );
                     }
                 }
-                if ( FD_ISSET(sock_out[0], &efds) || FD_ISSET( sock_err[0], &efds ) ) {
-                    printf( "error\n" );
-                }
                 struct rusage ru;
-                if (wait4(pid, &status, WNOHANG, &ru) != 0) // error finishes, too
+                if (wait4(pid, &status, must_reap ? 0 : WNOHANG, &ru) != 0) // error finishes, too
                 {
                     printf( "has exited: %d %d\n", pid, status );
-                    return true;
-                } else {
-                    printf( "not yet exited\n" );
+                    unlink( tmp_input );
+                    return 0;
                 }
             }
         }
     }
-
-#if 0
-    if ((ret = dcc_x_result_header(out_fd, protover))
-        || (ret = dcc_x_cc_status(out_fd, status))
-        || (ret = dcc_x_file(out_fd, err_fname, "SERR", compr))
-        || (ret = dcc_x_file(out_fd, out_fname, "SOUT", compr))
-        || WIFSIGNALED(status)
-        || WEXITSTATUS(status)) {
-        /* Something went wrong, so send DOTO 0 */
-        dcc_x_token_int(out_fd, "DOTO", 0);
-    } else {
-        ret = dcc_x_file(out_fd, temp_o, "DOTO", compr);
-    }
-#endif
-
+    assert( false );
     return 0;
 }

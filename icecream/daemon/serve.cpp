@@ -77,6 +77,9 @@
 #include "arg.h"
 #include "tempfile.h"
 #include "workit.h"
+#include <sys/sendfile.h>
+
+using namespace std;
 
 /**
  * Ignore or unignore SIGPIPE.
@@ -112,6 +115,15 @@ const char * dcc_find_basename(const char *sfile)
     return slash+1;
 }
 
+int client_write_message( int fd, enum ClientMsgType type, const string& str )
+{
+    int ret;
+    if ( ( ret = client_write_message( fd, type, str.size() ) ) != 0 )
+        return ret;
+    if ( write( fd, str.c_str(), str.size() ) != ( ssize_t )str.size() )
+        return -1;
+    return 0;
+}
 
 /**
  * Read a request, run the compiler, and send a response.
@@ -119,10 +131,7 @@ const char * dcc_find_basename(const char *sfile)
 int run_job(int in_fd,
             int out_fd)
 {
-    int status;
-    char *temp_i, *temp_o, *err_fname, *out_fname;
-    int ret, compile_ret;
-    pid_t cc_pid;
+    int ret;
 
     /* Ignore SIGPIPE; we consistently check error codes and will see the
      * EPIPE.  Note that it is set back to the default behaviour when spawning
@@ -165,6 +174,8 @@ int run_job(int in_fd,
 
     size_t preproc_length = 0;
     size_t preproc_bufsize = 8192;
+
+    // TODO: leaks on every return
     char *preproc = ( char* )malloc( preproc_bufsize );
 
     while ( 1 ) {
@@ -202,7 +213,50 @@ int run_job(int in_fd,
     }
 
     find_flags( argv, j );
-    work_it( j, preproc, preproc_length );
 
-    return ret;
+    int status;
+    string str_out;
+    string str_err;
+    string filename;
+    ret = work_it( j, preproc, preproc_length, str_out, str_err, status, filename );
+    if ( ret )
+        return ret;
+
+    if ((ret = client_write_message( out_fd, C_STATUS, status)) != 0) {
+        rs_log_info("write of status failed\n");
+        return ret;
+    }
+
+    if ( ( ret = client_write_message( out_fd, C_STDOUT, str_out ) ) != 0 ) {
+        rs_log_info("write of stdout failed\n");
+        return ret;
+    }
+
+    if ( ( ret = client_write_message( out_fd, C_STDERR, str_err ) ) != 0 ) {
+        rs_log_info("write of stderr failed\n");
+        return ret;
+    }
+
+    struct stat s;
+    if (stat(filename.c_str(), &s) != 0) {
+        rs_log_info( "where's the file? %s\n", strerror( errno ) );
+        return errno;
+    }
+
+    int obj_fd = open( filename.c_str(), O_RDONLY|O_LARGEFILE );
+    if ( obj_fd == -1 ) {
+        rs_log_error( "open failed\n" );
+    }
+    if ( ( ret = client_write_message( out_fd, C_OBJ, s.st_size ) ) != 0 ) {
+        rs_log_info("write of filesize failed\n");
+        return ret;
+    }
+    off_t t = 0;
+    ssize_t res = sendfile( out_fd, obj_fd, &t, s.st_size );
+    if ( res != s.st_size ) {
+        rs_log_info( "sendfile failed\n" );
+        return ret;
+    }
+
+    return 0;
 }
