@@ -14,3 +14,7 @@
   icecc /opt/gcc-cvs/bin/g++ -c test.cpp (you would need to rely on $ICECC_VERSION then as
   the daemon can hardly know what compiler you used, but that should be ok)
 
+Features for paranoid users (hi Chris):
+  - bind the broadcast listener to fixed local port (8765) (otherwise not firewallable)
+  - chmod TMPDIR/native, as otherwise set umask prevent it from being readable
+    by the client
