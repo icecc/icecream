@@ -32,8 +32,7 @@
 #include <unistd.h>
 #include <sys/stat.h>
 
-#include "distcc.h"
-#include "trace.h"
+#include "ncpus.h"
 #include "exitcode.h"
 
 /**
