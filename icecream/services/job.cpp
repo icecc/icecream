@@ -1,6 +1,5 @@
 #include "job.h"
 #include "logging.h"
-#include "client_comm.h"
 #include "exitcode.h"
 
 using namespace std;

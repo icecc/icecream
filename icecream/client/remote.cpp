@@ -1,7 +1,6 @@
 #include <job.h>
 #include "local.h"
 #include "exitcode.h"
-#include <client_comm.h>
 #include "logging.h"
 #include "cpp.h"
 #include <cassert>

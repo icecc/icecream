@@ -49,7 +49,7 @@ public:
   list<Job*> joblist;
     // list<string> compiler_versions;  // Available compilers
     // enum {AVAILABLE, DISCONNECTED} state;
-  CS (struct sockaddr *_addr, socklen_t _len) : Service (_addr, _len), load( 1200 ), max_jobs( 1 ), max_load( 1100 ) {}
+  CS (struct sockaddr *_addr, socklen_t _len) : Service (_addr, _len), load( 1200 ), max_jobs( 3 ), max_load( 1500 ) {}
 };
 
 // A subset of connected_hosts representing the compiler servers
@@ -362,7 +362,7 @@ main (int /*argc*/, char * /*argv*/ [])
     }
   while (1)
     {
-      while (empty_queue()) 
+      while (empty_queue())
 	continue;
 
       fd_set read_set;
@@ -371,7 +371,7 @@ main (int /*argc*/, char * /*argv*/ [])
       if (toanswer.size() < 100) { // don't let us overrun
         max_fd = listen_fd;
         FD_SET (listen_fd, &read_set);
-      } 
+      }
       if (broad_fd > max_fd)
         max_fd = broad_fd;
       FD_SET (broad_fd, &read_set);

@@ -75,7 +75,6 @@
 #include <comm.h>
 
 #include "exitcode.h"
-#include "client_comm.h"
 #include "tempfile.h"
 #include "workit.h"
 #include "logging.h"
@@ -84,49 +83,6 @@
 // #include <scheduler.h>
 
 using namespace std;
-
-/**
- * Ignore or unignore SIGPIPE.
- *
- * The server and child ignore it, because distcc code wants to see
- * EPIPE errors if something goes wrong.  However, for invoked
- * children it is set back to the default value, because they may not
- * handle the error properly.
- **/
-int dcc_ignore_sigpipe(int val)
-{
-    if (signal(SIGPIPE, val ? SIG_IGN : SIG_DFL) == SIG_ERR) {
-        log_warning() << "signal(SIGPIPE, " << ( val ? "ignore" : "default" ) << ") failed: "
-                      << strerror(errno) << endl;
-        return EXIT_DISTCC_FAILED;
-    }
-    return 0;
-}
-
-const char * dcc_find_basename(const char *sfile)
-{
-    char *slash;
-
-    if (!sfile)
-        return sfile;
-
-    slash = strrchr(sfile, '/');
-
-    if (slash == NULL || slash[1] == '\0')
-        return sfile;
-
-    return slash+1;
-}
-
-int client_write_message( int fd, enum ClientMsgType type, const string& str )
-{
-    int ret;
-    if ( ( ret = client_write_message( fd, type, str.size() ) ) != 0 )
-        return ret;
-    if ( write( fd, str.c_str(), str.size() ) != ( ssize_t )str.size() )
-        return -1;
-    return 0;
-}
 
 /**
  * Read a request, run the compiler, and send a response.
@@ -139,12 +95,6 @@ int handle_connection( CompileJob *job, MsgChannel *serv )
 
     if ( pid ) // parent
         return 0;
-
-    /* Ignore SIGPIPE; we consistently check error codes and will see the
-     * EPIPE.  Note that it is set back to the default behaviour when spawning
-     * a child, to handle cases like the assembler dying while its being fed
-     * from the compiler */
-    dcc_ignore_sigpipe(1);
 
     if ( !scheduler || !scheduler->send_msg( JobBeginMsg( job->jobID() ) ) ) {
         log_error() << "can't reach scheduler to tell him about job start of " << job->jobID() << endl;

@@ -182,14 +182,6 @@ int main( int /*argc*/, char ** /*argv*/ )
       return 1;
     }
 
-    scheduler = connect_scheduler ();
-    if ( !scheduler ) {
-        log_error() << "no scheduler found\n";
-        return -1;
-    }
-
-    scheduler->send_msg( LoginMsg( port ) );
-
     set_cloexec_flag(listen_fd, 1);
 
     int n_cpus;
@@ -213,6 +205,11 @@ int main( int /*argc*/, char ** /*argv*/ )
     /* Don't catch signals until we've detached or created a process group. */
     dcc_daemon_catch_signals();
 
+    if (signal(SIGPIPE, SIG_IGN) == SIG_ERR) {
+        log_warning() << "signal(SIGPIPE, ignore) failed: " << strerror(errno) << endl;
+        exit( EXIT_DISTCC_FAILED );
+    }
+
     /* This is called in the master daemon, whether that is detached or
      * not.  */
     dcc_master_pid = getpid();
@@ -224,97 +221,108 @@ int main( int /*argc*/, char ** /*argv*/ )
     typedef pair<CompileJob*, MsgChannel*> Compile_Request;
     queue<Compile_Request> requests;
 
-    while (1) {
-        int acc_fd;
-        struct sockaddr cli_addr;
-        socklen_t cli_len;
-
-	log_info() << "requests " << requests.size() << " " << current_kids << " (" << max_kids << ")\n";
-        if ( !requests.empty() && current_kids < max_kids ) {
-            Compile_Request req = requests.front();
-            requests.pop();
-	    log_info() << "handle\n";
-            if ( handle_connection( req.first, req.second ) == 0) // forks away
-                current_kids++;
-            delete req.first;
-            delete req.second;
-        }
-        struct rusage ru;
-        int status;
-        pid_t child = wait3(&status, WNOHANG, &ru);
-        if ( child > 0 ) {
-	    log_info() << "one child got " << status << endl;
-            current_kids--;
+    while ( 1 ) {
+        scheduler = connect_scheduler ();
+        if ( !scheduler ) {
+            log_error() << "no scheduler found. Sleeping.\n";
+            sleep( 5 );
             continue;
         }
 
-        if ( time( 0 ) - last_stat >= 2 ) {
-            StatsMsg msg;
-            if (getloadavg (msg.load, 3) == -1) {
-                log_error() << "getloadavg failed: " << strerror( errno ) << endl;
-                msg.load[0] = msg.load[1] = msg.load[2] = 0;
+        scheduler->send_msg( LoginMsg( port ) );
+
+        while (1) {
+            int acc_fd;
+            struct sockaddr cli_addr;
+            socklen_t cli_len;
+
+            log_info() << "requests " << requests.size() << " " << current_kids << " (" << max_kids << ")\n";
+            if ( !requests.empty() && current_kids < max_kids ) {
+                Compile_Request req = requests.front();
+                requests.pop();
+                log_info() << "handle\n";
+                if ( handle_connection( req.first, req.second ) == 0) // forks away
+                    current_kids++;
+                delete req.first;
+                delete req.second;
             }
-            if ( scheduler->send_msg( msg ) )
-                last_stat = time( 0 );
-            else {
-                log_error() << "lost connection to scheduler. Exiting\n";
-                delete scheduler;
-                scheduler = 0;
-                return 1; // TODO: try to get it back
+            struct rusage ru;
+            int status;
+            pid_t child = wait3(&status, WNOHANG, &ru);
+            if ( child > 0 ) {
+                log_info() << "one child got " << status << endl;
+                current_kids--;
+                continue;
             }
-        }
 
-        fd_set listen_set;
-        struct timeval tv;
+            if ( time( 0 ) - last_stat >= 2 ) {
+                StatsMsg msg;
+                if (getloadavg (msg.load, 3) == -1) {
+                    log_error() << "getloadavg failed: " << strerror( errno ) << endl;
+                    msg.load[0] = msg.load[1] = msg.load[2] = 0;
+                }
+                if ( scheduler->send_msg( msg ) )
+                    last_stat = time( 0 );
+                else {
+                    log_error() << "lost connection to scheduler. Exiting\n";
+                    delete scheduler;
+                    scheduler = 0;
+                    break;
+                }
+            }
 
-        FD_ZERO (&listen_set);
-        FD_SET (listen_fd, &listen_set);
-        FD_SET (listen_fd, &listen_set);
-        tv.tv_sec = 2;
-        tv.tv_usec = 0;
+            fd_set listen_set;
+            struct timeval tv;
 
-        ret = select (listen_fd + 1, &listen_set, NULL, NULL, &tv);
+            FD_ZERO (&listen_set);
+            FD_SET (listen_fd, &listen_set);
+            FD_SET (listen_fd, &listen_set);
+            tv.tv_sec = 2;
+            tv.tv_usec = 0;
 
-        if ( ret > 0 ) {
-            cli_len = sizeof cli_addr;
-            acc_fd = accept(listen_fd, &cli_addr, &cli_len);
-            if (acc_fd == -1 && errno == EINTR) {
-                ;
-            }  else if (acc_fd == -1) {
-                log_error() << "accept failed: " << strerror(errno) << endl;
-                return EXIT_CONNECT_FAILED;
-            } else {
-                Service *client = new Service ((struct sockaddr*) &cli_addr, cli_len);
-                MsgChannel *c = client->createChannel( acc_fd );
+            ret = select (listen_fd + 1, &listen_set, NULL, NULL, &tv);
 
-                Msg *msg = c->get_msg();
-                if ( !msg ) {
-                    log_error() << "no message?\n";
+            if ( ret > 0 ) {
+                cli_len = sizeof cli_addr;
+                acc_fd = accept(listen_fd, &cli_addr, &cli_len);
+                if (acc_fd == -1 && errno == EINTR) {
+                    ;
+                }  else if (acc_fd == -1) {
+                    log_error() << "accept failed: " << strerror(errno) << endl;
+                    return EXIT_CONNECT_FAILED;
                 } else {
-                    if ( msg->type == M_GET_SCHEDULER ) {
-                        if ( scheduler ) {
-                            UseSchedulerMsg m( scheduler->other_end->name, scheduler->other_end->port );
-                            c->send_msg( m );
-                        } else {
-                            c->send_msg( EndMsg() );
-                        }
-                    } else if ( msg->type == M_COMPILE_FILE ) {
-                        CompileJob *job = dynamic_cast<CompileFileMsg*>( msg )->takeJob();
-                        requests.push( make_pair( job, c ));
-                        client = 0; // forget you saw him
-                    } else
-                        log_error() << "not compile\n";
-                    delete msg;
-                }
-                delete client;
+                    Service *client = new Service ((struct sockaddr*) &cli_addr, cli_len);
+                    MsgChannel *c = client->createChannel( acc_fd );
 
-                if ( max_count && ++count > max_count ) {
-                    cout << "I'm closing now. Hoping you used valgrind! :)\n";
-                    exit( 0 );
+                    Msg *msg = c->get_msg();
+                    if ( !msg ) {
+                        log_error() << "no message?\n";
+                    } else {
+                        if ( msg->type == M_GET_SCHEDULER ) {
+                            if ( scheduler ) {
+                                UseSchedulerMsg m( scheduler->other_end->name, scheduler->other_end->port );
+                                c->send_msg( m );
+                            } else {
+                                c->send_msg( EndMsg() );
+                            }
+                        } else if ( msg->type == M_COMPILE_FILE ) {
+                            CompileJob *job = dynamic_cast<CompileFileMsg*>( msg )->takeJob();
+                            requests.push( make_pair( job, c ));
+                            client = 0; // forget you saw him
+                        } else
+                            log_error() << "not compile\n";
+                        delete msg;
+                    }
+                    delete client;
+
+                    if ( max_count && ++count > max_count ) {
+                        cout << "I'm closing now. Hoping you used valgrind! :)\n";
+                        exit( 0 );
+                    }
                 }
             }
         }
+        delete scheduler;
+        scheduler = 0;
     }
-    delete scheduler;
-    scheduler = 0;
 }

@@ -384,7 +384,8 @@ connect_scheduler ()
     struct timeval tv;
     tv.tv_sec = 5;
     tv.tv_usec = 0;
-    if (select (ask_fd + 1, &read_set, NULL, NULL, &tv) != 1)
+    errno = 0;
+    if (select (ask_fd + 1, &read_set, NULL, NULL, &tv) <= 0)
       {
         /* Normally this is a timeout, i.e. no scheduler there.  */
         if (errno)
