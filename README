@@ -1,0 +1,7 @@
+Hi!
+
+This subdir isn't compiled because it installs a g++ replacement
+and I don't want people to do that without explicit intend.
+
+Thanks, Stephan
+

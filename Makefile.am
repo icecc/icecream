@@ -1,0 +1,2 @@
+
+KDE_OPTIONS = foreign
