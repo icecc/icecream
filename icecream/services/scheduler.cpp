@@ -1132,8 +1132,8 @@ main (int argc, char * argv[])
 	    }
 	  else
 	    {
-	      printf ("broadcast from %s:%d\n", inet_ntoa (broad_addr.sin_addr),
-		      ntohs (broad_addr.sin_port));
+	      log_info() << "broadcast from " << inet_ntoa (broad_addr.sin_addr) 
+                         << ":" << ntohs (broad_addr.sin_port) << "\n";
 	      buf[0]++;
 	      memset (buf + 1, 0, sizeof (buf) - 1);
 	      snprintf (buf + 1, sizeof (buf) - 1, netname);
