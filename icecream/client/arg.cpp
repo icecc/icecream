@@ -243,9 +243,10 @@ bool analyse_argv( const char * const *argv,
             } else {
                 log_info() << "found another non option on command line. Two input files? " << it->first << endl;
                 always_local = true;
+                it = args.insert( it, make_pair( ifile, Arg_Rest ) );
 		ifile = string();
 		job.setInputFile( ifile );
-                ++it;
+                break;
             }
         }
 
