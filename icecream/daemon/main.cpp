@@ -301,7 +301,7 @@ int main( int argc, char ** argv )
     }
 
     if ( !logfile.size() && detach)
-        logfile = "/var/log/distccd";
+        logfile = "/var/log/iceccd";
 
     setup_debug( debug_level, logfile );
 
