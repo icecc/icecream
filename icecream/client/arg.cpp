@@ -253,7 +253,7 @@ bool analyse_argv( const char * const *argv,
             string::size_type dot_index = ifile.find_last_of( '.' );
             string ext = ifile.substr( dot_index + 1 );
 
-            if (ext == "i") {
+            if (ext == "i" || ext == "c") {
 #if CLIENT_DEBUG
                 if ( job.language() != CompileJob::Lang_C )
                     log_info() << "switching to C for " << ifile << endl;
