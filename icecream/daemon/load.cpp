@@ -69,6 +69,8 @@ static void updateCPULoad( const char* line, CPULoadInfo* load )
     load->sysLoad = ( 1000 * ( currSysTicks - load->sysTicks ) ) / totalTicks;
     load->niceLoad = ( 1000 * ( currNiceTicks - load->niceTicks ) ) / totalTicks;
     load->idleLoad = ( 1000 - ( load->userLoad + load->sysLoad + load->niceLoad ) );
+    if ( load->idleLoad < 0 )
+        load->idleLoad = 0;
   } else
     load->userLoad = load->sysLoad = load->niceLoad = load->idleLoad = 0;
 
@@ -152,6 +154,10 @@ bool fill_stats( StatsMsg &msg )
     unsigned int memory_fillgrade = calculateMemLoad( StatBuf );
 
     msg.load = ( 700 * ( 1000 - load.idleLoad ) + 300 * memory_fillgrade ) / 1000;
+    if ( memory_fillgrade > 600 )
+        msg.load = 1000;
+    if ( load.idleLoad < 50 )
+        msg.load = 1000;
     trace() << "load cpu=" << 1000 - load.idleLoad << " mem=" << memory_fillgrade << " total=" << msg.load << endl;
     return true;
 }

@@ -59,6 +59,8 @@ int handle_connection( CompileJob *job, MsgChannel *serv, int &out_fd )
     close( socket[0] );
     out_fd = socket[1];
 
+    nice( 5 );
+
     Msg *msg = 0; // The current read message
     char tmp_input[PATH_MAX];
     tmp_input[0] = 0;
