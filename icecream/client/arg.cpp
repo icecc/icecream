@@ -142,6 +142,16 @@ bool analyse_argv( const char * const *argv,
                     a += 2;
                     ofile = a;
                 }
+                if (ofile == "-" ) {
+                    /* Different compilers may treat "-o -" as either "write to
+                     * stdout", or "write to a file called '-'".  We can't know,
+                     * so we just always run it locally.  Hopefully this is a
+                     * pretty rare case. */
+#if CLIENT_DEBUG
+                    log_info() << "output to stdout?  running locally" << endl;
+#endif
+                    always_local = true;
+                }
             } else if (str_equal("-D", a)
                        || str_equal("-I", a)
                        || str_equal("-U", a)
@@ -189,18 +199,8 @@ bool analyse_argv( const char * const *argv,
         if ( seen_c )
             log_error() << "can't have both -c and -S, ignoring -c" << endl;
         args.append( "-S", Arg_Remote );
-    } else
+    } else {
         args.append( "-c", Arg_Remote );
-
-    if (ofile == "-" ) {
-        /* Different compilers may treat "-o -" as either "write to
-         * stdout", or "write to a file called '-'".  We can't know,
-         * so we just always run it locally.  Hopefully this is a
-         * pretty rare case. */
-#ifdef CLIENT_DEBUG
-        log_info() << "output to stdout?  running locally" << endl;
-#endif
-        always_local = true;
     }
 
     string compiler_name = find_basename( args.front().first );
@@ -208,19 +208,23 @@ bool analyse_argv( const char * const *argv,
 
     job.setLanguage( CompileJob::Lang_C );
     if ( ( compiler_name.size() > 2 &&
-         compiler_name.substr( compiler_name.size() - 2 ) == "++" ) || compiler_name == "CC" )
+           compiler_name.substr( compiler_name.size() - 2 ) == "++" ) || compiler_name == "CC" )
         job.setLanguage( CompileJob::Lang_CXX );
 
-    if ( seen_c || seen_s ) {
+    if ( !always_local ) {
+
         /* TODO: ccache has the heuristic of ignoring arguments that are not
          * extant files when looking for the input file; that's possibly
          * worthwile.  Of course we can't do that on the server. */
         string ifile;
         for ( ArgumentsList::iterator it = args.begin();
               it != args.end(); ) {
-            if ( it->first.at( 0 ) == '-' )
+            if ( it->second != Arg_Rest || it->first.at( 0 ) == '-' )
                 ++it;
             else if ( ifile.empty() ) {
+#if CLIENT_DEBUG
+                log_info() << "input file: " << it->first << endl;
+#endif
                 job.setInputFile( it->first );
                 ifile = it->first;
                 it = args.erase( it );
@@ -262,8 +266,10 @@ bool analyse_argv( const char * const *argv,
                     ofile = ofile.substr( slash + 1 );
             }
         }
-    } else
-        assert( always_local );
+
+    } else {
+        job.setInputFile( string() );
+    }
 
     job.setFlags( args );
     job.setOutputFile( ofile );

@@ -74,6 +74,8 @@ string find_compiler( const string &compiler )
  **/
 int build_local(CompileJob &job)
 {
+    std::list<string> arguments;
+
     string compiler_name = "gcc";
     if ( job.language() == CompileJob::Lang_CXX )
         compiler_name = "g++";
@@ -81,7 +83,6 @@ int build_local(CompileJob &job)
 
     if ( compiler_name.empty() )
         return EXIT_NO_SUCH_FILE;
-    std::list<string> arguments;
     arguments.push_back( compiler_name );
     appendList( arguments, job.allFlags() );
 
