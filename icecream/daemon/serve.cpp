@@ -161,7 +161,7 @@ int handle_connection( const string &basedir, CompileJob *job, MsgChannel *serv,
     unsigned int in_uncompressed = 0;
 
     while ( 1 ) {
-        msg = serv->get_msg();
+        msg = serv->get_msg(60);
 
         if ( !msg ) {
             log_error() << "no message while reading file chunk\n";
