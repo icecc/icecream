@@ -716,7 +716,7 @@ try_login (MsgChannel *c, Msg *m)
 }
 
 static bool
-handle_end (MsgChannel *c, Msg *)
+handle_end (MsgChannel *c, Msg *m)
 {
   CS *toremove = static_cast<CS *>(c->other_end);
   if (toremove->type == CS::MONITOR)
@@ -768,36 +768,42 @@ handle_end (MsgChannel *c, Msg *)
     }
   else if (toremove->type == CS::CLIENT)
     {
-      /* A client disconnected.  We must remove all its job requests
-         and jobs.  All job requests are also in the jobs list, so it's
-	 enough to traverse that one, and when finding a job to possibly
-	 remove it also from any request queues.
-	 XXX This is made particularly ugly due to using real queues.  */
-      for ( map<unsigned int, Job*>::iterator it = jobs.begin(); it != jobs.end(); ++it )
-	{
-	  if (it->second->channel == c)
+      /* A client disconnected.  */
+      if (!m)
+        {
+	  /* If it's disconnected without END message something went wrong,
+	     and we must remove all its job requests and jobs.  All job
+	     requests are also in the jobs list, so it's enough to traverse
+	     that one, and when finding a job to possibly remove it also
+	     from any request queues.
+	     XXX This is made particularly ugly due to using real queues.  */
+	  map<unsigned int, Job*>::iterator it;
+	  for (it = jobs.begin(); it != jobs.end(); ++it)
 	    {
-	      trace() << "STOP FOR " << it->first << endl;
-	      Job *job = it->second;
-
-	      /* Remove this job from the request queue.  */
-	      queue<UnansweredList*> newtoanswer;
-	      while (!toanswer.empty())
+	      if (it->second->channel == c)
 		{
-		  UnansweredList *l = toanswer.front();
-		  toanswer.pop();
-		  if (l->server == job->submitter
-		      && l->remove_job (job)
-		      && l->empty())
-		    delete l;
-		  else
-		    newtoanswer.push(l);
-		}
-	      toanswer = newtoanswer;
+		  trace() << "STOP FOR " << it->first << endl;
+		  Job *job = it->second;
 
-	      job->server->joblist.remove (job);
-	      jobs.erase (it);
-	      delete job; // closes socket -> causes continuing
+		  /* Remove this job from the request queue.  */
+		  queue<UnansweredList*> newtoanswer;
+		  while (!toanswer.empty())
+		    {
+		      UnansweredList *l = toanswer.front();
+		      toanswer.pop();
+		      if (l->server == job->submitter
+			  && l->remove_job (job)
+			  && l->empty())
+			delete l;
+		      else
+			newtoanswer.push(l);
+		    }
+		  toanswer = newtoanswer;
+
+		  job->server->joblist.remove (job);
+		  jobs.erase (it);
+		  delete job; // closes socket -> causes continuing
+		}
 	    }
 	}
     }
