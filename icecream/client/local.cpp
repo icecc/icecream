@@ -58,9 +58,13 @@ string find_compiler( const string &compiler )
     return string();
 }
 
+static volatile int lock_fd = 0;
 static volatile int user_break_signal = 0;
 void handle_user_break( int sig )
 {
+    if ( lock_fd )
+        dcc_unlock( lock_fd );
+    lock_fd = 0;
     user_break_signal = sig;
     signal( sig, handle_user_break );
 }
@@ -92,6 +96,7 @@ int build_local(CompileJob &job, MsgChannel *scheduler)
 
     if ( compiler_name.empty() )
         return EXIT_NO_SUCH_FILE;
+
     arguments.push_back( compiler_name );
     appendList( arguments, job.allFlags() );
 
@@ -113,6 +118,14 @@ int build_local(CompileJob &job, MsgChannel *scheduler)
         trace() << argv[i] << " ";
     trace() << endl;
 #endif
+
+    int fd;
+    if ( !dcc_lock_host(fd ) ) {
+        log_error() << "can't lock for local job\n";
+        return EXIT_DISTCC_FAILED;
+    }
+    lock_fd = fd;
+
     pid_t child = 0;
 
     if ( scheduler )
@@ -147,8 +160,15 @@ int build_local(CompileJob &job, MsgChannel *scheduler)
         signal( SIGHUP, old_sighup );
         if( user_break_signal )
             raise( user_break_signal );
+        if ( lock_fd )
+            dcc_unlock( lock_fd );
         return status;
     } else {
-        return execv( argv[0], argv ); // if it returns at all
+        int ret = execv( argv[0], argv ); // if it returns at all
+        if ( lock_fd )
+            dcc_unlock( lock_fd );
+        return ret;
     }
+
+
 }

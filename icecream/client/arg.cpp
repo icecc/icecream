@@ -52,6 +52,13 @@ static string concat_args( const list<string> &args )
 }
 #endif
 
+#define str_equal(a, b) (!strcmp((a), (b)))
+
+inline int str_startswith(const char *head, const char *worm)
+{
+    return !strncmp(head, worm, strlen(head));
+}
+
 bool analyse_argv( const char * const *argv,
                    CompileJob &job )
 {

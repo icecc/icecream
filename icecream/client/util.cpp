@@ -29,17 +29,16 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <signal.h>
+#include <time.h>
+
+#include <sys/stat.h>
+#include <sys/file.h>
 
 #include "exitcode.h"
 #include "logging.h"
 #include "util.h"
 
 using namespace std;
-
-int str_startswith(const char *head, const char *worm)
-{
-    return !strncmp(head, worm, strlen(head));
-}
 
 /**
  * Set the `FD_CLOEXEC' flag of DESC if VALUE is nonzero,
@@ -93,4 +92,104 @@ string find_basename(const string &sfile)
     if ( index == string::npos )
         return sfile;
     return sfile.substr( index + 1);
+}
+
+
+/**
+ * Get an exclusive, non-blocking lock on a file using whatever method
+ * is available on this system.
+ *
+ * @retval 0 if we got the lock
+ * @retval -1 with errno set if the file is already locked.
+ **/
+static int sys_lock(int fd, bool block)
+{
+#if defined(F_SETLK)
+    struct flock lockparam;
+
+    lockparam.l_type = F_WRLCK;
+    lockparam.l_whence = SEEK_SET;
+    lockparam.l_start = 0;
+    lockparam.l_len = 0;        /* whole file */
+
+    return fcntl(fd, block ? F_SETLKW : F_SETLK, &lockparam);
+#elif defined(HAVE_FLOCK)
+    return flock(fd, LOCK_EX | (block ? 0 : LOCK_NB));
+#elif defined(HAVE_LOCKF)
+    return lockf(fd, block ? F_LOCK : F_TLOCK, 0);
+#else
+#  error "No supported lock method.  Please port this code."
+#endif
+}
+
+
+bool dcc_unlock(int lock_fd)
+{
+    trace() << "release lock fd" << lock_fd << endl;
+    /* All our current locks can just be closed */
+    if (close(lock_fd)) {
+        log_error() << "close failed: " << strerror(errno) << endl;
+        return false;
+    }
+    return true;
+}
+
+
+/**
+ * Open a lockfile, creating if it does not exist.
+ **/
+static bool dcc_open_lockfile(const string &fname, int &plockfd)
+{
+    /* Create if it doesn't exist.  We don't actually do anything with
+     * the file except lock it.
+     *
+     * The file is created with the loosest permissions allowed by the user's
+     * umask, to give the best chance of avoiding problems if they should
+     * happen to use a shared lock dir. */
+    plockfd = open(fname.c_str(), O_WRONLY|O_CREAT, 0666);
+    if (plockfd == -1 && errno != EEXIST) {
+        log_error() << "failed to creat " << fname << ": " << strerror(errno) << endl;
+        return false;
+    }
+
+    return true;
+}
+
+bool dcc_lock_host(int &lock_fd)
+{
+    string fname = getenv( "HOME" );
+    if ( !fname.size() )
+        fname = "/tmp";
+
+    fname += "/.icecream";
+    if ( mkdir( fname.c_str(), 0700 ) && errno != EEXIST ) {
+        perror( "mkdir" );
+        return false;
+    }
+
+    fname += "/local_lock";
+
+    lock_fd = 0;
+    if (!dcc_open_lockfile(fname, lock_fd) )
+        return false;
+
+    if (sys_lock(lock_fd, true) == 0) {
+        return true;
+    } else {
+        switch (errno) {
+#if defined(EWOULDBLOCK) && EWOULDBLOCK != EAGAIN
+        case EWOULDBLOCK:
+#endif
+        case EAGAIN:
+        case EACCES: /* HP-UX and Cygwin give this for exclusion */
+            trace() << fname << " is busy" << endl;
+            break;
+        default:
+            log_error() << "lock " << fname << " failed: " << strerror(errno) << endl;
+            break;
+        }
+
+        ::close(lock_fd);
+        return false;
+    }
 }

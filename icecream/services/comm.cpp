@@ -386,7 +386,6 @@ Service::Service (const string &hostname, unsigned short p)
   memcpy (&remote_addr.sin_addr.s_addr, host->h_addr_list[0], host->h_length);
   if (connect (remote_fd, (struct sockaddr *) &remote_addr, sizeof (remote_addr)) < 0)
     {
-      perror ("connect()");
       close (remote_fd);
       return;
     }

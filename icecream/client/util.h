@@ -23,10 +23,10 @@
 #include <string>
 
 /* util.c */
-int str_startswith (const char *head, const char *worm);
 int set_cloexec_flag (int desc, int value);
 int dcc_ignore_sigpipe (int val);
 
-#define str_equal(a, b) (!strcmp((a), (b)))
-
 std::string find_basename(const std::string &sfile);
+
+bool dcc_unlock(int lock_fd);
+bool dcc_lock_host(int &lock_fd);
