@@ -10,7 +10,20 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+
+#ifdef __linux__
 #include <sys/sendfile.h>
+#endif
+
+#ifdef __FreeBSD__
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <sys/uio.h>
+#ifndef O_LARGEFILE
+#define O_LARGEFILE	(0)
+#endif
+#endif
+
 #include <signal.h>
 #include <sys/wait.h>
 
