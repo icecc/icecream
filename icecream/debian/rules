@@ -174,13 +174,13 @@ install-indep:
 	dh_clean -k -i
 	dh_installdirs -i
 
-	cd $(objdir) && \
-	$(MAKE) install DESTDIR=$(CURDIR)/debian/tmp
+	#cd $(objdir) && \
+	#$(MAKE) install DESTDIR=$(CURDIR)/debian/tmp
 
 	#cd $(objdir) && \
-	$(MAKE) install-apidox DESTDIR=$(CURDIR)/debian/tmp
+	#$(MAKE) install-apidox DESTDIR=$(CURDIR)/debian/tmp
 
-	dh_install -i
+	#dh_install -i
 
 # Must not depend on anything. This is to be called by
 # binary-arch/binary-indep
