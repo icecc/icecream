@@ -12,6 +12,12 @@ Release Critical:
 * I'm not sure but I think we need to lock the local host _before_ we fork off the notification
   child. Otherwise the gantt view explodes :)
 * make the protocol version an uint32, not a hand-build array.
+* Sometimes the daemon loses jobs.  I noticed very run longing cc1 but the scheduler
+  didn't know about them anymore.  The client disconnected, hence the job was stoped
+  but somehow either the daemon didn't get this.  Perhaps a network hickup, were
+  clients connection to scheduler broke, but not to daemon.  Anyway the daemon
+  wasn't killing this job, although it was an orphan.
+  --> make the scheduler inform the daemon about such stop, so it can react.
 
 Random:
 * Option -iiface to specify the interface[s] to listen on for the scheduler, or
