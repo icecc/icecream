@@ -503,7 +503,6 @@ handle_local_job (MsgChannel *c, Msg *_m)
     // the older clients get a different way to the end
     if ( IS_PROTOCOL_20( c ) )
       dynamic_cast<CS*>( c )->local_job_id = new_job_id;
-    trace() << "handle_local_job " << ( *it )->local_job_id << endl;
     notify_monitors (MonLocalJobBeginMsg( new_job_id, m->outfile, m->stime, ( *it )->hostid ) );
   }
   return true;
