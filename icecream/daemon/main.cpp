@@ -441,6 +441,8 @@ int main( int argc, char ** argv )
       trace() << *it << endl;
 
     int listen_fd = 0;
+    int tosleep = 0;
+
     while ( 1 ) {
         if ( listen_fd ) {
             // as long as we have no scheduler, don't listen for clients
@@ -448,11 +450,16 @@ int main( int argc, char ** argv )
             listen_fd = 0;
         }
 
+        if ( tosleep )
+            sleep( tosleep );
+
+        tosleep = 0;
+
         if ( !scheduler ) {
             scheduler = connect_scheduler (netname, 2000, schedname);
             if ( !scheduler ) {
                 log_warning() << "no scheduler found. Sleeping.\n";
-                sleep( 1 );
+                tosleep = 1;
                 continue;
             }
             jobmap.clear();
@@ -496,8 +503,7 @@ int main( int argc, char ** argv )
                     if ( !scheduler || !scheduler->send_msg( JobBeginMsg( job->jobID() ) ) ) {
                         log_warning() << "can't reach scheduler to tell him about job start of "
                                     << job->jobID() << endl;
-                        delete scheduler;
-                        scheduler = 0;
+                        tosleep = 2;
                         delete req.first;
                         delete req.second;
                         break;
@@ -539,8 +545,9 @@ int main( int argc, char ** argv )
 
             if ( time( 0 ) - last_stat >= 7 ) {
                 StatsMsg msg;
-                if ( !fill_stats( msg ) )
-                    break;
+                if ( !fill_stats( msg ) ) {
+                    log_error() << "can't find out stats" << endl;
+                }
 
                 if ( scheduler->send_msg( msg ) )
                     last_stat = time( 0 );
@@ -548,6 +555,7 @@ int main( int argc, char ** argv )
                     log_error() << "lost connection to scheduler. Trying again.\n";
                     delete scheduler;
                     scheduler = 0;
+                    tosleep = 2;
                     break;
                 }
                 if ( watch_binary ) {
@@ -598,6 +606,7 @@ int main( int argc, char ** argv )
                         log_error() << "no message from scheduler\n";
                         delete scheduler;
                         scheduler = 0;
+                        tosleep = 1;
                         break;
                      } else {
                         if ( msg->type == M_PING ) {
