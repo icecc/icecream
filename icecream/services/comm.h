@@ -1,5 +1,6 @@
 enum MsgType {
-  M_PING = 'A',
+  M_UNKNOWN = 'A',
+  M_PING,
   M_END, // End of all kinds of message chunks
   // Fake message used in message chunk looks
   M_TIMEOUT, 
@@ -30,7 +31,10 @@ enum MsgType {
 
 class Msg {
   enum MsgType type;
-  size_t size;
+public:
+  Msg (enum MsgType t) : type(t) {}
+  virtual bool fill_from_fd (int fd);
+  virtual bool send_to_fd (int fd);
 };
 
 // an endpoint of a MsgChannel, i.e. most often a host
@@ -51,37 +55,31 @@ class MsgChannel {
   int error(void);
 };
 
-class PingMsg : public Msg {
+#define DECL_MSG_SIMPLE(NAME,ENUM)	\
+class NAME : public Msg {	\
+public:				\
+  NAME () : Msg(ENUM) {}	\
 };
 
-class EndMsg : public Msg {
+#define DECL_MSG(NAME,ENUM)	\
+class NAME : public Msg {	\
+public:				\
+  NAME () : Msg(ENUM) {}	\
+  virtual bool fill_from_fd (int fd);	\
+  virtual bool send_to_fd (int fd);	\
 };
 
-class CompileReqMsg : public Msg {
-};
-
-class GetCSMsg : public Msg {
-};
-
-class UseCSMsg : public Msg {
-};
-
-class CompileFileMsg : public Msg {
-};
-
-class FileChunkMsg : public Msg {
-};
-
-class CompileResultMsg : public Msg {
-};
-
-struct JobBeginMsg : public Msg {
-  unsigned int job_id;
-  time_t stime;
-};
-
-class JobDoneMsg : public Msg {
-};
-
-class StatsMsg : public Msg {
-};
+DECL_MSG_SIMPLE (PingMsg, M_PING)
+DECL_MSG_SIMPLE (EndMsg, M_END)
+DECL_MSG (CompileReqMsg, M_COMPILE_REQ)
+DECL_MSG_SIMPLE (TimeoutMsg, M_TIMEOUT)
+DECL_MSG_SIMPLE (DisconnectMsg, M_DISCONNECT)
+DECL_MSG (CompileDoneMsg, M_COMPILE_DONE)
+DECL_MSG (GetCSMsg, M_GET_CS)
+DECL_MSG (UseCSMsg, M_USE_CS)
+DECL_MSG (CompileFileMsg, M_COMPILE_FILE)
+DECL_MSG (FileChunkMsg, M_FILE_CHUNK)
+DECL_MSG (CompileResultMsg, M_COMPILE_RESULT)
+DECL_MSG (JobBeginMsg, M_JOB_BEGIN)
+DECL_MSG (JobDoneMsg, M_JOB_DONE)
+DECL_MSG (StatsMsg, M_STATS)
