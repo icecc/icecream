@@ -4,6 +4,7 @@
 #include <errno.h>
 #include <dirent.h>
 #include <unistd.h>
+#include <stdio.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include "comm.h"

@@ -14,6 +14,7 @@
 #include <iostream>
 #include <assert.h>
 #include <minilzo.h>
+#include <stdio.h>
 
 #include "logging.h"
 #include "job.h"
@@ -580,7 +581,7 @@ MsgChannel *Service::createChannel( int remote_fd )
   return channel();
 }
 
-#include <ifaddrs.h>
+#include "getifaddrs.h"
 #include <net/if.h>
 #include <sys/ioctl.h>
 
@@ -604,14 +605,14 @@ open_send_broadcast (void)
       return -1;
     }
 
-  struct ifaddrs *addrs;
-  int ret = getifaddrs(&addrs);
+  struct kde_ifaddrs *addrs;
+  int ret = kde_getifaddrs(&addrs);
 
   if ( ret < 0 )
     return ret;
 
   char buf = 42;
-  for (struct ifaddrs *addr = addrs; addr != NULL; addr = addr->ifa_next)
+  for (struct kde_ifaddrs *addr = addrs; addr != NULL; addr = addr->ifa_next)
     {
       /*
        * See if this interface address is IPv4...
@@ -651,7 +652,7 @@ open_send_broadcast (void)
 	    }
 	}
     }
-  freeifaddrs (addrs);
+  kde_freeifaddrs (addrs);
   return ask_fd;
 }
 

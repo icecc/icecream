@@ -33,7 +33,7 @@ AC_PROG_LIBTOOL
 
 # Some of these are needed by popt (or other libraries included in the future).
 
-AC_CHECK_HEADERS([unistd.h stdint.h sys/types.h sys/sendfile.h sys/signal.h])
+AC_CHECK_HEADERS([unistd.h stdint.h sys/types.h sys/sendfile.h sys/signal.h ifaddrs.h])
 AC_CHECK_HEADERS([ctype.h sys/resource.h sys/socket.h sys/select.h])
 AC_CHECK_HEADERS([netinet/in.h], [], [],
 [#if HAVE_SYS_TYPES_H
@@ -149,4 +149,3 @@ dnl === END LZO
 
 AC_CONFIG_FILES([Makefile minilzo/Makefile client/Makefile daemon/Makefile mon/Makefile services/Makefile])
 AC_OUTPUT
-

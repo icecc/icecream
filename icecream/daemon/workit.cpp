@@ -24,6 +24,7 @@
 #endif
 #endif
 
+#include <stdio.h>
 #include <errno.h>
 #include <string>
 
@@ -41,8 +42,8 @@ int work_it( CompileJob &j,
              string &str_out, string &str_err,
              int &status, string &outfilename )
 {
-    str_out.clear();
-    str_out.clear();
+    str_out.erase(str_out.begin(), str_out.end());
+    str_out.erase(str_out.begin(), str_out.end());
 
     std::list<string> list = j.remoteFlags();
     appendList( list, j.restFlags() );

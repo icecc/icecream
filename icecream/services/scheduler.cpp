@@ -22,6 +22,7 @@
 #include <queue>
 #include <algorithm>
 #include <cassert>
+#include <stdio.h>
 #include "comm.h"
 #include "logging.h"
 

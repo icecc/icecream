@@ -35,11 +35,12 @@
 #include <sys/time.h>
 
 #ifdef __FreeBSD__
-#ifndef O_LARGEFILE
-#define O_LARGEFILE (0)
-#endif
 #include <sys/socket.h>
 #include <sys/uio.h>
+#endif
+
+#ifndef O_LARGEFILE
+#define O_LARGEFILE 0
 #endif
 
 #ifndef _PATH_TMP

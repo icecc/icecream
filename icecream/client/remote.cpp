@@ -17,9 +17,15 @@
 #include <signal.h>
 #include <assert.h>
 #include <unistd.h>
+#include <stdio.h>
+#include <errno.h>
 
 #include <comm.h>
 #include "client.h"
+
+#ifndef O_LARGEFILE
+#define O_LARGEFILE 0
+#endif
 
 using namespace std;
 
