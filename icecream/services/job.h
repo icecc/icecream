@@ -86,6 +86,10 @@ public:
         return *this;
     }
 
+    void appendFlag( std::string arg, Argument_Type argumentType ) {
+        m_flags.append( arg, argumentType );
+    }
+
 private:
     std::list<std::string> flags( Argument_Type argumentType ) const;
 
