@@ -315,6 +315,13 @@ handle_login (MsgChannel *c, Msg *_m)
   cs->max_jobs = m->max_kids;
   css.push_back (cs);
   fd2chan[c->fd] = c;
+
+  trace() << cs->name << ": [";
+  for (list<string>::const_iterator it = m->envs.begin();
+       it != m->envs.end(); ++it)
+    trace() << *it << ", ";
+  trace() << "]\n";
+
   return true;
 }
 
