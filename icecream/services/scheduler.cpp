@@ -919,6 +919,8 @@ main (int argc, char * argv[])
   struct sockaddr_in myaddr, remote_addr;
   socklen_t remote_len;
   char *netname = (char*)"ICECREAM";
+  int debug_level = Error|Warning|Info|Debug;
+  string logfile = "/var/log/icecc_scheduler";
 
   while ( true ) {
     int option_index = 0;
@@ -953,6 +955,9 @@ main (int argc, char * argv[])
         usage();
     }
   }
+
+  setup_debug( debug_level, logfile );
+  daemon( 0, 0 );
 
   if ((listen_fd = socket (PF_INET, SOCK_STREAM, 0)) < 0)
     {

@@ -232,6 +232,8 @@ int main( int argc, char ** argv )
     string netname;
     bool watch_binary = false;
     string envbasedir = "/tmp/icecc-envs"; // TODO: getopt :/
+    int debug_level = Warning|Error|Info;
+    string logfile = "/var/log/iceccd";
 
     while ( true ) {
         int option_index = 0;
@@ -260,8 +262,8 @@ int main( int argc, char ** argv )
                     usage("Error: -m requires argument");
 
                 if (max_processes < 1) {
-                    log_warning() << "You must at allow least one process."
-                                  << " Assuming -m 1." << endl;
+                    cerr << "You must at allow least one process."
+                         << " Assuming -m 1." << endl;
                 }
                 break;
             case 'w':
@@ -271,6 +273,8 @@ int main( int argc, char ** argv )
                 usage();
         }
     }
+
+    setup_debug( debug_level, logfile );
 
     std::string binary_path = argv[0];
     time_t binary_on_startup = 0;
@@ -288,7 +292,7 @@ int main( int argc, char ** argv )
 
     chdir( "/" );
 
-    // daemon(0, 0);
+    daemon(0, 0);
 
     int n_cpus;
     if (dcc_ncpus(&n_cpus) == 0)

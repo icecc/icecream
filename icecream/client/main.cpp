@@ -106,24 +106,37 @@ static void dcc_client_catch_signals(void)
  **/
 int main(int argc, char **argv)
 {
+    char *env = getenv( "ICECC_DEBUG" );
+    int debug_level = Warning|Error;
+    if ( env ) {
+        if ( !strcasecmp( env, "info" ) )  {
+            debug_level += Info;
+        } else if ( !strcasecmp( env, "debug" ) ||
+                    !strcasecmp( env, "trace" ) )  {
+            debug_level += Info|Debug;
+        } else if ( !strcasecmp( env, "error" ) ) {
+            debug_level = Error; // taking out warning
+        }
+    }
+    setup_debug(debug_level);
     dcc_client_catch_signals();
     string compiler_name = argv[0];
 
-    if ( argc == 1 && find_basename( compiler_name ) == rs_program_name) {
+    if ( find_basename( compiler_name ) == rs_program_name) {
+        trace() << argc << endl;
+        if ( argc > 1 ) {
+            string arg = argv[1];
+            if ( arg == "--help" ) {
+                dcc_show_usage();
+                return 0;
+            }
+            if ( arg == "--version" ) {
+                printf( "ICECREAM 0.1\n" );
+                return 0;
+            }
+        }
         dcc_show_usage();
         return 0;
-    }
-
-    if ( argc == 2 ) { // check for known arguments
-        string arg = argv[1];
-        if ( arg == "--help" ) {
-            dcc_show_usage();
-            return 0;
-        }
-        if ( arg == "--version" ) {
-            printf( "ICECREAM 0.1\n" );
-            return 0;
-        }
     }
 
     /* Ignore SIGPIPE; we consistently check error codes and will
