@@ -32,9 +32,12 @@ public:
   string environment;
   time_t starttime;  // _local_ to the compiler server
   time_t start_on_scheduler;  // starttime local to scheduler
-  Job (MsgChannel *c, unsigned int _id) : id(_id), state( PENDING ), server( 0 ),
-                                          channel( c ), starttime(0), start_on_scheduler(0) {}
-  ~Job() {
+  Job (MsgChannel *c, unsigned int _id) : id(_id), state( PENDING ),
+                                          server( 0 ),
+                                          channel( c ), starttime(0),
+                                          start_on_scheduler(0) {}
+  ~Job()
+  {
     delete channel;
   }
 };
@@ -424,10 +427,11 @@ main (int /*argc*/, char * /*argv*/ [])
       fd_set read_set;
       int max_fd = 0;
       FD_ZERO (&read_set);
-      if (toanswer.size() < 100) { // don't let us overrun
-        max_fd = listen_fd;
-        FD_SET (listen_fd, &read_set);
-      }
+      if (toanswer.size() < 100)
+        { // don't let us overrun
+          max_fd = listen_fd;
+          FD_SET (listen_fd, &read_set);
+        }
       if (broad_fd > max_fd)
         max_fd = broad_fd;
       FD_SET (broad_fd, &read_set);

@@ -128,16 +128,18 @@ bool readcompressed( int fd, unsigned char **uncompressed_buf, lzo_uint &uncompr
   int ret = LZO_E_OK;
   if ( bret )
     ret = lzo1x_decompress( compressed_buf, compressed_len, *uncompressed_buf, &uncompressed_len, wrkmem );
-  if ( ret !=  LZO_E_OK) {
-    /* this should NEVER happen */
-    printf("internal error - decompression failed: %d\n", ret);
-    bret = false;
+  if ( ret !=  LZO_E_OK)
+    {
+      /* this should NEVER happen */
+      printf("internal error - decompression failed: %d\n", ret);
+      bret = false;
   }
-  if ( !bret ) {
-    delete [] *uncompressed_buf;
-    *uncompressed_buf = 0;
-    uncompressed_len = 0;
-  }
+  if ( !bret )
+    {
+      delete [] *uncompressed_buf;
+      *uncompressed_buf = 0;
+      uncompressed_len = 0;
+    }
   free( wrkmem );
   delete [] compressed_buf;
   return bret;
@@ -209,10 +211,11 @@ Service::~Service ()
 {
   if (addr)
     free (addr);
-  if ( c ) {
+  if ( c )
+    {
       assert( c->other_end == this );
       c->other_end = 0;
-  }
+    }
   delete c;
 }
 
@@ -243,10 +246,11 @@ MsgChannel::~MsgChannel()
 {
   close (fd);
   fd = 0;
-  if ( other_end ) {
+  if ( other_end )
+    {
       assert( !other_end->c || other_end->c == this );
       other_end->c = 0;
-  }
+    }
   delete other_end;
 }
 
@@ -259,26 +263,27 @@ MsgChannel::get_msg(void)
   if (!readuint (fd, t))
     return 0;
   type = (enum MsgType) t;
-  switch (type) {
-  case M_UNKNOWN: return 0;
-  case M_PING: m = new PingMsg; break;
-  case M_END:  m = new EndMsg; break;
-  case M_TIMEOUT: m = new TimeoutMsg; break;
-  case M_GET_CS: m = new GetCSMsg; break;
-  case M_USE_CS: m = new UseCSMsg; break;
-  case M_COMPILE_FILE: m = new CompileFileMsg (new CompileJob, true); break;
-  case M_FILE_CHUNK: m = new FileChunkMsg; break;
-  case M_COMPILE_RESULT: m = new CompileResultMsg; break;
-  case M_JOB_BEGIN: m = new JobBeginMsg; break;
-  case M_JOB_DONE: m = new JobDoneMsg; break;
-  case M_LOGIN: m = new LoginMsg; break;
-  case M_STATS: m = new StatsMsg; break;
-  case M_GET_SCHEDULER: m = new GetSchedulerMsg; break;
-  case M_USE_SCHEDULER: m = new UseSchedulerMsg; break;
-  default:
+  switch (type)
+    {
+    case M_UNKNOWN: return 0;
+    case M_PING: m = new PingMsg; break;
+    case M_END:  m = new EndMsg; break;
+    case M_TIMEOUT: m = new TimeoutMsg; break;
+    case M_GET_CS: m = new GetCSMsg; break;
+    case M_USE_CS: m = new UseCSMsg; break;
+    case M_COMPILE_FILE: m = new CompileFileMsg (new CompileJob, true); break;
+    case M_FILE_CHUNK: m = new FileChunkMsg; break;
+    case M_COMPILE_RESULT: m = new CompileResultMsg; break;
+    case M_JOB_BEGIN: m = new JobBeginMsg; break;
+    case M_JOB_DONE: m = new JobDoneMsg; break;
+    case M_LOGIN: m = new LoginMsg; break;
+    case M_STATS: m = new StatsMsg; break;
+    case M_GET_SCHEDULER: m = new GetSchedulerMsg; break;
+    case M_USE_SCHEDULER: m = new UseSchedulerMsg; break;
+    default:
       abort();
       return 0; break;
-  }
+    }
   if (!m->fill_from_fd (fd))
     {
       delete m;
@@ -295,10 +300,11 @@ MsgChannel::send_msg (const Msg &m)
 
 MsgChannel *Service::createChannel( int remote_fd )
 {
-  if ( channel() ) {
-    assert( remote_fd == c->fd );
-    return channel();
-  }
+  if ( channel() )
+    {
+      assert( remote_fd == c->fd );
+      return channel();
+    }
   new MsgChannel( remote_fd, this ); // sets c
   assert( channel() );
   return channel();
