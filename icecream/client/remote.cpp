@@ -125,7 +125,7 @@ static int build_remote_int(CompileJob &job, UseCSMsg *usecs, const string &vers
 
     MsgChannel *cserver = serv->channel();
     if ( !cserver || !cserver->protocol ) {
-        log_warning() << "no server found behind given hostname " << hostname << ":" << port << endl;
+        log_error() << "no server found behind given hostname " << hostname << ":" << port << endl;
         throw ( 2 );
     }
 
@@ -323,6 +323,7 @@ int build_remote(CompileJob &job, MsgChannel *scheduler, int permill )
     int torepeat = 1;
     if ( rand() % 1000 < permill )
         torepeat = 3;
+    trace() << job.inputFile() << " compiled " << torepeat << " times\n";
 
     string version = version_file;
     string suff = ".tar.bz2";
@@ -332,16 +333,16 @@ int build_remote(CompileJob &job, MsgChannel *scheduler, int permill )
         version = find_basename( version.substr( 0, version.size() - suff.size() ) );
     }
 
-    GetCSMsg getcs (version, get_absfilename( job.inputFile() ), job.language(), torepeat );
-    if (!scheduler->send_msg (getcs)) {
-        log_error() << "asked for CS\n";
-        throw( 0 );
-    }
-
     if ( scheduler->protocol < 5 )
         torepeat = 1;
 
     if ( torepeat == 1 ) {
+        GetCSMsg getcs (version, get_absfilename( job.inputFile() ), job.language(), torepeat );
+        if (!scheduler->send_msg (getcs)) {
+            log_error() << "asked for CS\n";
+            throw( 0 );
+        }
+
         UseCSMsg *usecs = get_server( scheduler );
         int ret = build_remote_int( job, usecs, version_file, 0, true );
         delete usecs;
@@ -361,6 +362,12 @@ int build_remote(CompileJob &job, MsgChannel *scheduler, int permill )
         if ( status ) { // failure
             ::unlink( preproc );
             return WEXITSTATUS( status );
+        }
+
+        GetCSMsg getcs (version, get_absfilename( job.inputFile() ), job.language(), torepeat );
+        if (!scheduler->send_msg (getcs)) {
+            log_error() << "asked for CS\n";
+            throw( 0 );
         }
 
         map<pid_t, int> jobmap;

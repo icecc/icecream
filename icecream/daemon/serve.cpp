@@ -90,7 +90,7 @@ int handle_connection( const string &basedir, CompileJob *job, MsgChannel *serv,
 
     try {
         if ( job->environmentVersion().size() ) {
-	    log_info() << "should use " << job->environmentVersion() << endl;
+	    log_info() << "should use " << job->environmentVersion() << " " << job->jobID() << endl;
             string dirname = basedir + "/" + job->environmentVersion();
             if ( ::access( string( dirname + "/usr/bin/gcc" ).c_str(), X_OK ) )
                 throw myexception( EXIT_DISTCC_FAILED ); // the scheduler didn't listen to us!
