@@ -2,6 +2,8 @@
 #include <netinet/in.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>
+#include <sys/select.h>
+#include <errno.h>
 #include <netdb.h>
 #include <unistd.h>
 #include <errno.h>
@@ -289,6 +291,7 @@ connect_scheduler ()
   if (setsockopt (ask_fd, SOL_SOCKET, SO_BROADCAST, &optval, sizeof(optval)) < 0)
     {
       perror ("setsockopt()");
+      close (ask_fd);
       return 0;
     }
   remote_addr.sin_family = AF_INET;
@@ -299,6 +302,21 @@ connect_scheduler ()
   	      sizeof (remote_addr)) != 1)
     {
       perror ("sendto()");
+      close (ask_fd);
+      return 0;
+    }
+  fd_set read_set;
+  FD_ZERO (&read_set);
+  FD_SET (ask_fd, &read_set);
+  struct timeval tv;
+  tv.tv_sec = 5;
+  tv.tv_usec = 0;
+  if (select (ask_fd + 1, &read_set, NULL, NULL, &tv) != 1)
+    {
+      /* Normally this is a timeout, i.e. no scheduler there.  */
+      if (errno)
+        perror ("waiting for scheduler");
+      close (ask_fd);
       return 0;
     }
   remote_len = sizeof (remote_addr);
@@ -306,8 +324,10 @@ connect_scheduler ()
 		&remote_len) != 1)
     {
       perror ("recvfrom()");
+      close (ask_fd);
       return 0;
     }
+  close (ask_fd);
   if (buf + 1 != buf2)
     {
       fprintf (stderr, "wrong answer\n");
