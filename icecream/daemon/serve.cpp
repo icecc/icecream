@@ -150,10 +150,12 @@ int handle_connection( MsgChannel *serv )
     if ( msg->type == M_GET_SCHEDULER ) {
         UseSchedulerMsg m( *scheduler_host, scheduler_port );
         serv->send_msg( m );
+        delete msg;
         return 0;
     }
 
     if ( msg->type != M_COMPILE_FILE ) {
+        delete msg;
         log_error() << "not compile\n";
         return EXIT_PROTOCOL_ERROR;
     }
