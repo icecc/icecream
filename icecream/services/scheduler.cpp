@@ -273,7 +273,7 @@ server_speed (CS *cs, Job *job = 0)
 	 to compile the job.  Then this can be done locally without
 	 needing the preprocessor.  */
       if (job && job->submitter == cs)
-        f *= 1.3;
+        f *= 1.4;
       return f;
     }
 }
@@ -430,8 +430,6 @@ handle_local_job (MsgChannel *c, Msg *_m)
   for (it = css.begin(); it != css.end(); ++it)
     if (c->other_end->eq_ip (**it))
       break;
-  // MATZ: m->build_yourself is true when this is a fake local job.
-  // The daemon could send an end signal or the client. Preferences?
   if ( it != css.end() )
     notify_monitors (MonLocalJobBeginMsg( new_job_id, m->outfile, m->stime, ( *it )->hostid ) );
   return true;
