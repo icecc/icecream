@@ -452,6 +452,8 @@ int build_remote(CompileJob &job, MsgChannel *scheduler, const Environments &_en
         CompileJob *jobs = new CompileJob[torepeat];
         UseCSMsg **umsgs = new UseCSMsg*[torepeat];
 
+        bool misc_error = false;
+
         for ( int i = 0; i < torepeat; i++ ) {
             jobs[i] = job;
             char buffer[PATH_MAX];
@@ -472,10 +474,8 @@ int build_remote(CompileJob &job, MsgChannel *scheduler, const Environments &_en
                                             versionfile_map[umsgs[i]->host_platform], preproc, i == 0 );
                 } catch ( int error ) {
                     log_info() << "build_remote_int failed and has thrown " << error << endl;
-                    if ( i == 0 ) { // ignore for misc jobs
-                        trace() << "build first job locally" << endl;
-                        ret = build_local( jobs[i], 0 );
-                    }
+                    kill( getpid(), SIGTERM );
+                    return 0; // shouldn't matter
                 }
                 ::exit( ret );
                 return 0; // doesn't matter
@@ -493,40 +493,55 @@ int build_remote(CompileJob &job, MsgChannel *scheduler, const Environments &_en
                 perror( "wait failed" );
                 status = -1;
             } else {
+                if ( WIFSIGNALED( status ) )
+                {
+                    // there was some misc error in processing
+                    misc_error = true;
+                    break;
+                }
                 exit_codes[jobmap[pid]] = WEXITSTATUS( status );
             }
         }
 
-        string first_md5 = md5_for_file( jobs[0].outputFile() );
+        if (! misc_error ) {
+            string first_md5 = md5_for_file( jobs[0].outputFile() );
 
-        for ( int i = 1; i < torepeat; i++ ) {
-            if ( !exit_codes[0] ) { // if the first failed, we fail anyway
-		if ( exit_codes[i] == 42 ) // they are free to fail for misc reasons
+            for ( int i = 1; i < torepeat; i++ ) {
+                if ( !exit_codes[0] ) { // if the first failed, we fail anyway
+                    if ( exit_codes[i] == 42 ) // they are free to fail for misc reasons
 			continue;
 
-                if ( exit_codes[i] ) {
-                    log_error() << umsgs[i]->hostname << " compiled with exit code " << exit_codes[i]
-                                << " and " << umsgs[0]->hostname << " compiled with exit code " << exit_codes[0] << " - aborting!\n";
-		    ::unlink( jobs[0].outputFile().c_str());
-                    exit_codes[0] = -1; // overwrite
-                    break;
+                    if ( exit_codes[i] ) {
+                        log_error() << umsgs[i]->hostname << " compiled with exit code " << exit_codes[i]
+                                    << " and " << umsgs[0]->hostname << " compiled with exit code " << exit_codes[0] << " - aborting!\n";
+                        ::unlink( jobs[0].outputFile().c_str());
+                        exit_codes[0] = -1; // overwrite
+                        break;
+                    }
+
+                    string other_md5 = md5_for_file( jobs[i].outputFile() );
+
+                    if ( other_md5 != first_md5 ) {
+                        log_error() << umsgs[i]->hostname << " compiled " << jobs[0].outputFile() << " with md5 sum " << other_md5 << "(" << jobs[i].outputFile() << ")"
+                                    << " and " << umsgs[0]->hostname << " compiled with md5 sum " << first_md5 << " - aborting!\n";
+                        rename( jobs[0].outputFile().c_str(), ( jobs[0].outputFile() + ".caught" ).c_str() );
+                        rename( preproc, ( string( preproc ) + ".caught" ).c_str() );
+                        exit_codes[0] = -1; // overwrite
+                        break;
+                    }
                 }
 
-                string other_md5 = md5_for_file( jobs[i].outputFile() );
-
-                if ( other_md5 != first_md5 ) {
-                    log_error() << umsgs[i]->hostname << " compiled " << jobs[0].outputFile() << " with md5 sum " << other_md5 << "(" << jobs[i].outputFile() << ")"
-                                << " and " << umsgs[0]->hostname << " compiled with md5 sum " << first_md5 << " - aborting!\n";
-		    rename( jobs[0].outputFile().c_str(), ( jobs[0].outputFile() + ".caught" ).c_str() );
-                    rename( preproc, ( string( preproc ) + ".caught" ).c_str() );
-                    exit_codes[0] = -1; // overwrite
-                    break;
-                }
+                ::unlink( jobs[i].outputFile().c_str() );
+                delete umsgs[i];
             }
-
-            ::unlink( jobs[i].outputFile().c_str() );
-            delete umsgs[i];
+        } else {
+            ::unlink( jobs[0].outputFile().c_str() );
+             for ( int i = 1; i < torepeat; i++ ) {
+                 ::unlink( jobs[i].outputFile().c_str());
+                 delete umsgs[i];
+             }
         }
+
         delete umsgs[0];
 
         ::unlink( preproc );
@@ -536,6 +551,9 @@ int build_remote(CompileJob &job, MsgChannel *scheduler, const Environments &_en
         delete [] umsgs;
         delete [] jobs;
         delete [] exit_codes;
+
+        if ( misc_error )
+            throw ( 27 );
 
         return ret;
     }
