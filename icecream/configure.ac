@@ -130,6 +130,6 @@ AC_CHECK_FUNCS([strndup mmap strlcpy])
 
 AC_CHECK_DECLS([snprintf, vsnprintf, vasprintf, asprintf, strndup])
 
-AC_CONFIG_FILES([Makefile common/Makefile client/Makefile daemon/Makefile])
+AC_CONFIG_FILES([Makefile common/Makefile client/Makefile daemon/Makefile services/Makefile])
 AC_OUTPUT
 
