@@ -28,4 +28,3 @@
   using icecream -j2: min(1.7,1.8)=1.7s 
 
 * keep better track of currently installing daemons (matz)
-* try to find a way to not fork bomb proprocessors

@@ -467,6 +467,8 @@ platforms_compatible( const string &target, const string &platform )
 {
   if ( target == platform )
     return true;
+  return false; // the below doesn't work as the unmapped platform is transfered back to the
+		// client and that asks the daemon for a platform he can't install (see TODO)
 
   static multimap<string, string> platform_map;
 
