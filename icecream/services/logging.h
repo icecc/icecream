@@ -1,6 +1,7 @@
 #ifndef _LOGGING_H
 #define _LOGGING_H
 
+#include <string>
 #include <iostream>
 #include <cassert>
 
