@@ -164,7 +164,7 @@ int main(int argc, char **argv)
         return build_local( job, 0 );
     }
     if ( !local_daemon->send_msg( GetSchedulerMsg( getenv( "ICECC_VERSION" ) == 0 ) ) ) {
-        log_error() << "failed to write get scheduler\n";
+        log_warning() << "failed to write get scheduler\n";
         delete serv;
         return build_local( job, 0 );
     }
@@ -209,7 +209,7 @@ int main(int argc, char **argv)
     serv = new Service( ucs->hostname, ucs->port );
     MsgChannel *scheduler = serv->channel();
     if ( ! scheduler ) {
-        log_error() << "no scheduler found at " << ucs->hostname << ":" << ucs->port << endl;
+        log_warning() << "no scheduler found at " << ucs->hostname << ":" << ucs->port << endl;
         delete serv;
 	delete ucs;
         return build_local( job, 0 );
