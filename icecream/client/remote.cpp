@@ -104,7 +104,7 @@ int build_remote(CompileJob &job, MsgChannel *scheduler )
     trace() << getpid() << " service is there " << serv->channel() << endl;
     MsgChannel *cserver = serv->channel();
     if ( ! cserver ) {
-        log_error() << "no server found behind given hostname " << hostname << ":" << port << endl;
+        log_warning() << "no server found behind given hostname " << hostname << ":" << port << endl;
         throw ( 2 );
     }
 
