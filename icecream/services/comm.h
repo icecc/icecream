@@ -1,7 +1,12 @@
+#ifndef _COMM_H
+#define _COMM_H
+
+#include "job.h"
+
 enum MsgType {
   // so far unknown
   M_UNKNOWN = 'A',
- 
+
   /* When the scheduler didn't get M_STATS from a CS
      for a specified time (e.g. 10m), then he sends a
      ping */
@@ -11,7 +16,7 @@ enum MsgType {
   M_END,
 
   // Fake message used in message reading loops (A<->A)
-  M_TIMEOUT, 
+  M_TIMEOUT,
 
   // C --> S
   M_GET_CS,
@@ -32,8 +37,6 @@ enum MsgType {
   // CS --> S (peridioc)
   M_STATS
 };
-
-class CompileJob;
 
 class Msg {
 public:
@@ -95,11 +98,11 @@ public:
 class GetCSMsg : public Msg {
   std::string version;
   std::string filename;
-  unsigned int filesize;
+  CompileJob::Language lang;
 public:
   GetCSMsg () : Msg(M_GET_CS) {}
-  GetCSMsg (const std::string &v, const std::string &f, unsigned int fs)
-    : Msg(M_GET_CS), version(v), filename(f), filesize(fs) {}
+  GetCSMsg (const std::string &v, const std::string &f, CompileJob::Language _lang)
+    : Msg(M_GET_CS), version(v), filename(f), lang(_lang) {}
   virtual bool fill_from_fd (int fd);
   virtual bool send_to_fd (int fd) const;
 };
@@ -163,3 +166,5 @@ public:
   virtual bool fill_from_fd (int fd);
   virtual bool send_to_fd (int fd) const;
 };
+
+#endif

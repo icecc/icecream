@@ -18,7 +18,7 @@ using namespace std;
     + write* unbuffered / or per message buffer (flush in send_msg)
  * think about error handling
     + saving errno somewhere (in MsgChannel class)
- */   
+ */
 bool
 readfull (int fd, void *_buf, size_t count)
 {
@@ -276,10 +276,12 @@ GetCSMsg::fill_from_fd (int fd)
 {
   if (!Msg::fill_from_fd (fd))
     return false;
+  unsigned int _lang;
   if (!read_string (fd, version)
       || !read_string (fd, filename)
-      || !readuint (fd, &filesize))
+      || !readuint (fd, &_lang))
     return false;
+  lang = static_cast<CompileJob::Language>( _lang );
   return true;
 }
 
@@ -288,9 +290,10 @@ GetCSMsg::send_to_fd (int fd) const
 {
   if (!Msg::send_to_fd (fd))
     return false;
+  unsigned int _lang = lang;
   if (!write_string (fd, version)
       || !write_string (fd, filename)
-      || !writeuint (fd, filesize))
+      || !writeuint (fd, _lang))
     return false;
   return true;
 }

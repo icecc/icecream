@@ -221,7 +221,7 @@ int main( int argc, char **argv )
     int n_cpus;
     int ret;
 
-    if ((ret = dcc_socket_listen(7000, &listen_fd)) != 0)
+    if ((ret = dcc_socket_listen(10245, &listen_fd)) != 0)
         return ret;
 
     set_cloexec_flag(listen_fd, 1);

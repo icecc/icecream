@@ -1,11 +1,11 @@
 #include <job.h>
 #include "local.h"
-#include "clinet.h"
 #include "exitcode.h"
 #include <client_comm.h>
 #include "logging.h"
 #include "cpp.h"
 #include <cassert>
+#include <comm.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
@@ -13,49 +13,88 @@
 
 using namespace std;
 
-/**
- * Execute the commands in argv remotely or locally as appropriate.
- *
- * We may need to run cpp locally; we can do that in the background
- * while trying to open a remote connection.
- *
- * This function is slightly inefficient when it falls back to running
- * gcc locally, because cpp may be run twice.  Perhaps we could adjust
- * the command line to pass in the .i file.  On the other hand, if
- * something has gone wrong, we should probably take the most
- * conservative course and run the command unaltered.  It should not
- * be a big performance problem because this should occur only rarely.
- *
- * @param argv Command to execute.  Does not include 0='distcc'.
- * Treated as read-only, because it is a pointer to the program's real
- * argv.
- *
- * @param status On return, contains the waitstatus of the compiler or
- * preprocessor.  This function can succeed (in running the compiler) even if
- * the compiler itself fails.  If either the compiler or preprocessor fails,
- * @p status is guaranteed to hold a failure value.
- **/
+string get_absfilename( const string &_file )
+{
+    string file;
+
+    assert( !_file.empty() );
+    if ( _file.at( 0 ) != '/' ) {
+        static char buffer[PATH_MAX];
+
+#ifdef HAVE_GETCWD
+        getcwd(buffer, sizeof( buffer ) );
+#else
+        getwd(buffer);
+#endif
+        buffer[PATH_MAX - 1] = 0;
+        file = buffer + '/' + _file;
+    } else {
+        file = _file;
+    }
+
+    string::size_type idx = file.find( "/.." );
+    while ( idx != string::npos ) {
+        file.replace( idx, 3, "/" );
+        idx = file.find( "/.." );
+    }
+    idx = file.find( "/." );
+    while ( idx != string::npos ) {
+        file.replace( idx, 2, "/" );
+        idx = file.find( "/." );
+    }
+    idx = file.find( "//" );
+    while ( idx != string::npos ) {
+        file.replace( idx, 2, "/" );
+        idx = file.find( "//" );
+    }
+    return file;
+}
+
 int build_remote(CompileJob &job )
 {
-    int out_fd;
-
-    /*
-    Scheduler_Stub scheduler = Scheduler::findScheduler();
-    if ( scheduler.isNull() ) {
-        // TODO: goto run_local
-        printf( "No Scheduler found\n" );
-        return -1;
-    }
-    Server_Stub server = scheduler.findServer( j ); // sets job-ID
-    if ( server.isNull() ) {
-        // TODO: goto run_local
-        printf( "No Server found\n" );
-        return -1;
-    }
-    */
-
-    if ( dcc_connect_by_name( "localhost", 7000, &out_fd) )
+    Service *serv = new Service ("localhost", 8765);
+    MsgChannel *scheduler = serv->channel();
+    if ( ! scheduler ) {
+        log_error() << "no scheduler found\n";
         return build_local( job );
+    }
+
+    // TODO: getenv("ICECC_VERSION")
+    GetCSMsg getcs ("gcc33", get_absfilename( job.inputFile() ), job.language() );
+    if (!scheduler->send_msg (getcs)) {
+        delete serv;
+        return build_local( job );
+    }
+    Msg *umsg = scheduler->get_msg();
+    if (!umsg || umsg->type != M_USE_CS)
+    {
+       delete umsg;
+       delete serv;
+       return build_local( job );
+    }
+    UseCSMsg *usecs = dynamic_cast<UseCSMsg *>(umsg);
+    string hostname = usecs->hostname;
+    unsigned int port = usecs->port;
+    job.setJobID( usecs->job_id );
+    printf ("Have to use host %s:%d\n", hostname.c_str(), port );
+    printf ("Job ID: %d\n", job.jobID());
+    delete usecs;
+    EndMsg em;
+    // if the scheduler ignores us, ignore it in return :/
+    ( void )scheduler->send_msg (em);
+    delete scheduler;
+    delete serv;
+
+    serv = new Service (hostname, port);
+    MsgChannel *cserver = serv->channel();
+    if ( ! cserver ) {
+        log_error() << "no server found behind given hostname " << hostname << ":" << port << endl;
+        delete cserver;
+        delete serv;
+        return build_local( job );
+    }
+
+    int out_fd = cserver->fd;
 
     log_info() << "got connection: fd=" << out_fd << endl;
 
