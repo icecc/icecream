@@ -89,23 +89,26 @@ int build_remote(CompileJob &job, MsgChannel *scheduler )
     string hostname = usecs->hostname;
     unsigned int port = usecs->port;
     int job_id = usecs->job_id;
+    bool got_env = usecs->got_env;
     job.setJobID( job_id );
     job.setEnvironmentVersion( usecs->environment ); // hoping on the scheduler's wisdom
     // printf ("Have to use host %s:%d - Job ID: %d\n", hostname.c_str(), port, job.jobID() );
     delete usecs;
     // if the scheduler ignores us, ignore it in return :/
-    ( void )scheduler->send_msg ( EndMsg() );
 
     Service *serv = new Service (hostname, port);
     MsgChannel *cserver = serv->channel();
     if ( ! cserver ) {
         log_error() << "no server found behind given hostname " << hostname << ":" << port << endl;
+	scheduler->send_msg ( EndMsg() );
         return build_local( job, scheduler );
     }
 
-    trace() << "got environment " << ( usecs->got_env ? "true" : "false" ) << endl;
+    scheduler->send_msg ( EndMsg() );
 
-    if ( !usecs->got_env ) {
+    trace() << "got environment " << ( got_env ? "true" : "false" ) << endl;
+
+    if ( !got_env ) {
         if ( ::access( version_file.c_str(), R_OK ) ) {
             log_error() << "$ICECC_VERSION has to point to an existing file to be installed\n";
             return build_local( job, scheduler );
