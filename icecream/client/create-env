@@ -31,7 +31,7 @@ add_file ()
   fi
 }
 
-LD_ASSUME_KERNEL=2.4.0
+LD_ASSUME_KERNEL=2.4.20
 export LD_ASSUME_KERNEL
 
 if test -z "`type -p gcc`"; then
