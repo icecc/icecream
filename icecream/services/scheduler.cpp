@@ -195,6 +195,8 @@ static JobStat cum_job_stats;
 
 static list<Service*> monitors;
 
+static float server_speed (CS *cs, Job *job = 0);
+
 /* Searches the queue for JOB and removes it.
    Returns true if something was deleted.  */
 bool
@@ -222,6 +224,7 @@ add_job_stats (Job *job, JobDoneMsg *msg)
   st.osize = msg->out_uncompressed;
   st.compile_time_real = msg->real_msec;
   st.compile_time_user = msg->user_msec;
+  st.compile_time_sys = msg->sys_msec;
 
   if ( job->arg_flags & CompileJob::Flag_g )
     st.osize = st.osize * 10 / 36; // average over 1900 jobs: faktor 3.6 in osize
@@ -246,17 +249,27 @@ add_job_stats (Job *job, JobDoneMsg *msg)
             << " " << st.osize << " " << msg->in_uncompressed << " "
             << job->server->nodename << endl ;
 
-  st.compile_time_sys = msg->sys_msec;
+  /* Smooth out spikes by not allowing one job to add more than
+     20% of the current speed.  */
+  float this_speed = (float) st.osize / (float) st.compile_time_user;
+  /* The current speed of the server, but without adjusting to the current
+     job, hence no second argument.  */
+  float cur_speed = server_speed (job->server); 
+  if ((this_speed / 1.2) > cur_speed)
+    st.osize = (long unsigned) (cur_speed * 1.2 * st.compile_time_user);
+  else if ((this_speed * 1.2) < cur_speed)
+    st.osize = (long unsigned) (cur_speed / 1.2 * st.compile_time_user);
+
   job->server->last_compiled_jobs.push_back (st);
   job->server->cum_compiled += st;
-  if (job->server->last_compiled_jobs.size() > 40)
+  if (job->server->last_compiled_jobs.size() > 200)
     {
       job->server->cum_compiled -= *job->server->last_compiled_jobs.begin ();
       job->server->last_compiled_jobs.pop_front ();
     }
   job->submitter->last_requested_jobs.push_back (st);
   job->submitter->cum_requested += st;
-  if (job->submitter->last_requested_jobs.size() > 40)
+  if (job->submitter->last_requested_jobs.size() > 200)
     {
       job->submitter->cum_requested
         -= *job->submitter->last_requested_jobs.begin ();
@@ -264,7 +277,7 @@ add_job_stats (Job *job, JobDoneMsg *msg)
     }
   all_job_stats.push_back (st);
   cum_job_stats += st;
-  if (all_job_stats.size () > 500)
+  if (all_job_stats.size () > 2000)
     {
       cum_job_stats -= *all_job_stats.begin ();
       all_job_stats.pop_front ();
@@ -288,7 +301,7 @@ notify_monitors (const Msg &m)
 }
 
 static float
-server_speed (CS *cs, Job *job = 0)
+server_speed (CS *cs, Job *job)
 {
   if (cs->last_compiled_jobs.size() == 0
       || cs->cum_compiled.compile_time_user == 0)
