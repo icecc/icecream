@@ -505,13 +505,13 @@ int build_remote(CompileJob &job, MsgChannel *scheduler, const Environments &_en
 
     if ( torepeat == 1 ) {
         string fake_filename;
-        list<string> args = job.remoteFlags();
+/*        list<string> args = job.remoteFlags();
         for ( list<string>::const_iterator it = args.begin(); it != args.end(); ++it )
             fake_filename += "/" + *it;
         args = job.restFlags();
         for ( list<string>::const_iterator it = args.begin(); it != args.end(); ++it )
             fake_filename += "/" + *it;
-
+*/
         fake_filename += get_absfilename( job.inputFile() );
         GetCSMsg getcs (envs, fake_filename, job.language(), torepeat, job.targetPlatform(), job.argumentFlags() );
         if (!scheduler->send_msg (getcs)) {
