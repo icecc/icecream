@@ -133,6 +133,11 @@ int main(int argc, char **argv)
      * see the EPIPE. */
     dcc_ignore_sigpipe(1);
 
+    if (setpgid(0, 0) != 0) {
+        perror("setpgid" );
+        return -1;
+    }
+
     CompileJob job;
     bool local = analyse_argv( argv, job );
 
