@@ -8,9 +8,6 @@
 #ifdef __FreeBSD__
 // Grmbl  Why is this needed?  We don't use readv/writev
 #include <sys/uio.h>
-#ifndef O_LARGEFILE
-#define O_LARGEFILE	(0)
-#endif
 #endif
 
 #include <fcntl.h>
