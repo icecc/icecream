@@ -105,6 +105,11 @@ bool analyse_argv( const char * const *argv,
                     to distribute it even if we could. */
                 always_local = true;
                 args.append(a, Arg_Local);
+            } else if ( str_equal( "--param", a ) ) {
+                args.append( a, Arg_Remote );
+                /* skip next word, being option argument */
+                if (argv[i+1])
+                    args.append( argv[++i], Arg_Remote );
             } else if ( a[1] == 'B' ) {
                 /* -B overwrites the path where the compiler finds the assembler.
                    As we don't use that, better force local job.
@@ -226,6 +231,8 @@ bool analyse_argv( const char * const *argv,
 
     if ( !always_local ) {
 
+        ArgumentsList backup = args;
+
         /* TODO: ccache has the heuristic of ignoring arguments that are not
          * extant files when looking for the input file; that's possibly
          * worthwile.  Of course we can't do that on the server. */
@@ -244,9 +251,8 @@ bool analyse_argv( const char * const *argv,
             } else {
                 log_info() << "found another non option on command line. Two input files? " << it->first << endl;
                 always_local = true;
-                it = args.insert( it, make_pair( ifile, Arg_Rest ) );
-		ifile = string();
-		job.setInputFile( ifile );
+                args = backup;
+		job.setInputFile( string() );
                 break;
             }
         }
