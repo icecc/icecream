@@ -509,26 +509,6 @@ pick_server(Job *job)
 
   trace() << "pick_server " << job->id << " " << job->target_platform << endl;
 
-  time_t now = time( 0 );
-  // first we check if all are up
-  for (it = css.begin(); it != css.end(); ) {
-    if ( now - ( *it )->last_talk > 15 ) {
-      if ( ( *it )->max_jobs > 0 ) {
-        trace() << "send ping " << ( *it )->name << endl;
-        ( *it )->channel()->send_msg( PingMsg() );
-        ( *it )->max_jobs *= -1; // better not give it
-      } else { // R.I.P.
-        trace() << "removing " << ( *it )->name << endl;
-        CS* old = *it;
-        it = css.erase( it );
-        fd2chan.erase( old->channel()->fd );
-        delete old;
-        continue;
-      }
-    }
-    ++it;
-  }
-
   /* If we have no statistics simply use the first server which is usable.  */
   if (!all_job_stats.size ())
     {
@@ -633,9 +613,37 @@ pick_server(Job *job)
   return bestui;
 }
 
+/* Prunes the list of connected clients by those which haven't
+   answered for a long time.  */
+static void
+prune_clients ()
+{
+  list<CS*>::iterator it;
+
+  time_t now = time( 0 );
+  for (it = css.begin(); it != css.end(); ) {
+    if ( now - ( *it )->last_talk > 15 ) {
+      if ( ( *it )->max_jobs > 0 ) {
+        trace() << "send ping " << ( *it )->name << endl;
+        ( *it )->channel()->send_msg( PingMsg() );
+        ( *it )->max_jobs *= -1; // better not give it
+      } else { // R.I.P.
+        trace() << "removing " << ( *it )->name << endl;
+	CS *old = *it;
+	++it;
+	handle_end (old->channel(), 0);
+        continue;
+      }
+    }
+    ++it;
+  }
+}
+
 static bool
 empty_queue()
 {
+  prune_clients ();
+
   Job *job = get_job_request ();
   if (!job)
     return false;
@@ -947,7 +955,7 @@ try_login (MsgChannel *c, Msg *m)
 static bool
 handle_end (MsgChannel *c, Msg *m)
 {
-  trace() << "Handle_end " << c << m << endl;
+  trace() << "Handle_end " << c << " " << m << endl;
 
   CS *toremove = static_cast<CS *>(c->other_end);
   if (toremove->type == CS::MONITOR)
