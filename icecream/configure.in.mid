@@ -1,0 +1,7 @@
+if test "$prefix" = NONE; then
+  prefix=$ac_default_prefix
+fi
+
+KDE_EXPAND_MAKEVAR(mybindir, bindir)
+AC_DEFINE_UNQUOTED(BINDIR, "$mybindir", [Where to look for create-env])
+

@@ -180,8 +180,8 @@ bool setup_env_cache(const string &basedir, string &native_environment)
                 return false;
             }
 
-            if ( system( "create-env" ) ) {
-                log_error() << "create-env failed\n";
+            if ( system( BINDIR "create-env" ) ) {
+                log_error() << BINDIR "create-env failed\n";
             } else {
                 native_environment = list_native_environment( nativedir );
             }
