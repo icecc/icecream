@@ -138,7 +138,7 @@ int build_local(CompileJob &job, MsgChannel *scheduler)
         void (*old_sigterm)(int) = signal( SIGTERM, handle_user_break );
         void (*old_sigquit)(int) = signal( SIGQUIT, handle_user_break );
         void (*old_sighup)(int) = signal( SIGHUP, handle_user_break );
-        scheduler->send_msg( JobLocalBeginMsg() );
+        scheduler->send_msg( JobLocalBeginMsg( get_absfilename( job.outputFile() ) ) );
         Msg * umsg = scheduler->get_msg();
         uint job_id = 0;
         if (!umsg || umsg->type != M_JOB_LOCAL_ID)

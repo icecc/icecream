@@ -9,6 +9,9 @@
 
 class MsgChannel;
 
+/* in remote.cpp */
+std::string get_absfilename( const std::string &_file );
+
 /* In arg.cpp.  */
 bool analyse_argv (const char * const *argv,
                    CompileJob &job);

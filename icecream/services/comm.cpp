@@ -1017,12 +1017,16 @@ void JobLocalBeginMsg::fill_from_channel( MsgChannel *c )
 {
   Msg::fill_from_channel(c);
   c->readuint32(stime);
+  if ( c->protocol > 5 )
+    c->read_string( outfile );
 }
 
 void JobLocalBeginMsg::send_to_channel( MsgChannel *c ) const
 {
   Msg::send_to_channel( c );
   c->writeuint32(stime);
+  if ( c->protocol > 5 )
+    c->write_string( outfile );
 }
 
 JobLocalDoneMsg::JobLocalDoneMsg (int id, int exit)
@@ -1246,6 +1250,10 @@ void MonLocalJobBeginMsg::fill_from_channel (MsgChannel * c)
   c->readuint32 (hostid );
   c->readuint32( job_id );
   c->readuint32( stime );
+  if ( c->protocol > 5 )
+    c->read_string( file );
+  else
+    file = "";
 }
 
 void MonLocalJobBeginMsg::send_to_channel (MsgChannel * c) const
@@ -1254,6 +1262,8 @@ void MonLocalJobBeginMsg::send_to_channel (MsgChannel * c) const
   c->writeuint32( hostid );
   c->writeuint32( job_id );
   c->writeuint32( stime );
+  if ( c->protocol > 5 )
+    c->write_string( file );
 }
 
 void

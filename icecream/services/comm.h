@@ -11,7 +11,7 @@
 
 #include "job.h"
 
-#define PROTOCOL_VERSION 5
+#define PROTOCOL_VERSION 6
 #define MIN_PROTOCOL_VERSION 5
 
 enum MsgType {
@@ -310,8 +310,10 @@ public:
 
 class JobLocalBeginMsg : public Msg {
 public:
+  std::string outfile;
   unsigned int stime;
-  JobLocalBeginMsg() : Msg( M_JOB_LOCAL_BEGIN ), stime(time(0)) {}
+  JobLocalBeginMsg(const std::string &file = "") : Msg( M_JOB_LOCAL_BEGIN ),
+                                                   outfile( file ), stime(time(0)) {}
   virtual void fill_from_channel (MsgChannel * c);
   virtual void send_to_channel (MsgChannel * c) const;
 };
@@ -413,8 +415,8 @@ public:
   unsigned int job_id;
   unsigned int stime;
   unsigned int hostid;
-  MonJobBeginMsg() : Msg(M_MON_JOB_BEGIN) {}
-  MonJobBeginMsg( unsigned int id, unsigned int time, int _hostid )
+  MonJobBeginMsg() : Msg(M_MON_JOB_BEGIN), job_id( 0 ), stime( 0 ), hostid( 0 ) {}
+  MonJobBeginMsg( unsigned int id, unsigned int time, int _hostid)
     : Msg( M_MON_JOB_BEGIN ), job_id( id ), stime( time ), hostid( _hostid ) {}
   virtual void fill_from_channel (MsgChannel * c);
   virtual void send_to_channel (MsgChannel * c) const;
@@ -437,9 +439,10 @@ public:
   unsigned int job_id;
   unsigned int stime;
   unsigned int hostid;
+  std::string file;
   MonLocalJobBeginMsg() : Msg(M_MON_LOCAL_JOB_BEGIN) {}
-  MonLocalJobBeginMsg( unsigned int id, unsigned int time, int _hostid )
-    : Msg( M_MON_LOCAL_JOB_BEGIN ), job_id( id ), stime( time ), hostid( _hostid ) {}
+  MonLocalJobBeginMsg( unsigned int id, const std::string &_file, unsigned int time, int _hostid )
+    : Msg( M_MON_LOCAL_JOB_BEGIN ), job_id( id ), stime( time ), hostid( _hostid ), file( _file ) {}
   virtual void fill_from_channel (MsgChannel * c);
   virtual void send_to_channel (MsgChannel * c) const;
 };

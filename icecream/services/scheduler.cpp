@@ -375,7 +375,7 @@ handle_local_job (MsgChannel *c, Msg *_m)
     if (c->other_end->eq_ip (**it))
       break;
   if ( it != css.end() )
-    notify_monitors (MonLocalJobBeginMsg( new_job_id, m->stime, ( *it )->hostid ) );
+    notify_monitors (MonLocalJobBeginMsg( new_job_id, m->outfile, m->stime, ( *it )->hostid ) );
   return true;
 }
 
