@@ -835,6 +835,8 @@ handle_end (MsgChannel *c, Msg *m)
     {
       trace() << "remove daemon\n";
 
+      notify_monitors( MonStatsMsg( toremove->hostid, "State:Offline\n" ) );
+
       /* A daemon disconnected.  We must remove it from the css list,
          and we have to delete all jobs scheduled on that daemon.
 	 There might be still clients connected running on the machine on which
