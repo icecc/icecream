@@ -61,7 +61,7 @@ bool dcc_is_preprocessed(const string& sfile)
  * allows us to overlap opening the TCP socket, which probably doesn't
  * use many cycles, with running the preprocessor.
  **/
-pid_t call_cpp(CompileJob &job, int fd)
+pid_t call_cpp(CompileJob &job, int fdwrite, int fdread)
 {
     if ( dcc_is_preprocessed( job.inputFile() ) ) {
         /* TODO: Perhaps also consider the option that says not to use cpp.
@@ -70,12 +70,15 @@ pid_t call_cpp(CompileJob &job, int fd)
         trace() << "input is already preprocessed" << endl;
 #endif
         /* already preprocessed, great. */
-        /* write the file to the fd (fork cat) */
+        /* write the file to the fdwrite (fork cat) */
         pid_t pid = fork();
         if (pid == -1) {
             log_error() << "failed to fork: " << strerror(errno) << endl;
             return -1; /* probably */
         } else if (pid == 0) {
+	    /* Child.  Close the read fd, in case we have one.  */
+	    if (fdread > -1)
+	        close (fdread);
             int ret = dcc_ignore_sigpipe(0);
             if (ret)    /* set handler back to default */
                 exit(ret);
@@ -85,17 +88,24 @@ pid_t call_cpp(CompileJob &job, int fd)
             argv[1] = strdup( job.inputFile().c_str() );
             argv[2] = 0;
 
-            /* Ignore failure */
-            close(STDOUT_FILENO);
-            dup2(fd, STDOUT_FILENO);
+	    if (fdwrite != STDOUT_FILENO) {
+		/* Ignore failure */
+		close(STDOUT_FILENO);
+		dup2(fdwrite, STDOUT_FILENO);
+		close(fdwrite);
+	    }
 
             dcc_increment_safeguard();
 
             execvp(argv[0], argv);
             /* !! NEVER RETURN FROM HERE !! */
             return 0;
-        } else
+        } else {
+	    /* Parent.  Close the write fd.  */
+	    if (fdwrite > -1)
+	        close (fdwrite);
             return pid;
+	}
     }
 
     pid_t pid = fork();
@@ -103,6 +113,9 @@ pid_t call_cpp(CompileJob &job, int fd)
         log_error() << "failed to fork: " << strerror(errno) << endl;
         return -1; /* probably */
     } else if (pid == 0) {
+	/* Child.  Close the read fd, in case we have one.  */
+	if (fdread > -1)
+	    close (fdread);
         int ret = dcc_ignore_sigpipe(0);
         if (ret)    /* set handler back to default */
             exit(ret);
@@ -135,15 +148,22 @@ pid_t call_cpp(CompileJob &job, int fd)
         printf( "\n" );
 #endif
 
-        /* Ignore failure */
-        close(STDOUT_FILENO);
-        dup2(fd, STDOUT_FILENO);
+	if (fdwrite != STDOUT_FILENO) {
+            /* Ignore failure */
+            close(STDOUT_FILENO);
+            dup2(fdwrite, STDOUT_FILENO);
+	    close(fdwrite);
+	}
 
         dcc_increment_safeguard();
 
         execvp(argv[0], argv);
         /* !! NEVER RETURN FROM HERE !! */
         return 0;
-    } else
+    } else {
+	/* Parent.  Close the write fd.  */
+	if (fdwrite > -1)
+	    close (fdwrite);
         return pid;
+    }
 }

@@ -285,10 +285,12 @@ static int build_remote_int(CompileJob &job, UseCSMsg *usecs, const string &envi
             exit(errno);
         }
 
-        pid_t cpp_pid = call_cpp(job, sockets[1] );
+	/* This will fork, and return the pid of the child.  It will not
+	   return for the child itself.  If it returns normally it will have
+	   closed the write fd, i.e. sockets[1].  */
+        pid_t cpp_pid = call_cpp(job, sockets[1], sockets[0] );
         if ( cpp_pid == -1 )
             throw( 10 );
-        close(sockets[1]);
 
         try {
             write_server_cpp( sockets[0], cserver );
@@ -483,13 +485,14 @@ int build_remote(CompileJob &job, MsgChannel *scheduler, const Environments &_en
         char preproc[PATH_MAX];
         dcc_make_tmpnam( "icecc", ".ix", preproc, 0 );
         int cpp_fd = open(preproc, O_WRONLY );
+	/* When call_cpp returns normally (for the parent) it will have closed
+	   the write fd, i.e. cpp_fd.  */
         pid_t cpp_pid = call_cpp(job, cpp_fd );
         if ( cpp_pid == -1 ) {
             ::unlink( preproc );
             throw( 10 );
         }
         int status = 255;
-        close( cpp_fd ); // the child has it
         waitpid( cpp_pid, &status, 0);
         if ( status ) { // failure
             ::unlink( preproc );
