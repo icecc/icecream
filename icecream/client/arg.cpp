@@ -287,7 +287,11 @@ bool analyse_argv( const char * const *argv,
             }
 
             if ( !always_local && ofile.empty() ) {
-                ofile = ifile.substr( 0, dot_index ) + ".o";
+                ofile = ifile.substr( 0, dot_index );
+                if ( seen_s )
+                    ofile += ".s";
+                else
+                    ofile += ".o";
                 string::size_type slash = ofile.find_last_of( '/' );
                 if ( slash != string::npos )
                     ofile = ofile.substr( slash + 1 );
