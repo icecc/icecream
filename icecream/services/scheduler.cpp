@@ -110,7 +110,7 @@ struct JobStat {
 class Job;
 
 /* One compile server (receiver, compile daemon)  */
-class CS : public Service {
+class CS : public MsgChannel {
 public:
   /* The listener port, on which it takes compile requests.  */
   unsigned int remote_port;
@@ -128,8 +128,8 @@ public:
   int max_jobs;
   list<Job*> joblist;
   Environments compiler_versions;  // Available compilers
-  CS (struct sockaddr *_addr, socklen_t _len)
-    : Service(_addr, _len), load(1000), max_jobs(0), state(CONNECTED),
+  CS (int fd, struct sockaddr *_addr, socklen_t _len, bool text_based)
+    : MsgChannel(fd, _addr, _len, text_based), load(1000), max_jobs(0), state(CONNECTED),
       type(UNKNOWN), chroot_possible(false) {
     hostid = 0;
     busy_installing = 0;
@@ -198,7 +198,7 @@ static list<UnansweredList*> toanswer;
 static list<JobStat> all_job_stats;
 static JobStat cum_job_stats;
 
-static list<Service*> monitors;
+static list<MsgChannel*> monitors;
 
 static float server_speed (CS *cs, Job *job = 0);
 
@@ -304,14 +304,13 @@ static bool handle_end (MsgChannel *c, Msg *);
 static void
 notify_monitors (const Msg &m)
 {
-  list<Service*>::iterator it;
+  list<MsgChannel*>::iterator it, it_old;
   for (it = monitors.begin(); it != monitors.end();)
     {
-      MsgChannel *c = (*it)->channel();
-      ++it; // handle_end removes it from monitors, so don't be clever
+      it_old = it++; // handle_end removes it from monitors, so don't be clever
       /* If we can't send it, don't be clever, simply close this monitor.  */
-      if (!c->send_msg (m))
-        handle_end (c, 0);
+      if (!(*it_old)->send_msg (m))
+        handle_end (*it_old, 0);
     }
 }
 
@@ -442,7 +441,7 @@ handle_cs_request (MsgChannel *c, Msg *_m)
 
   list<CS*>::iterator it;
   for (it = css.begin(); it != css.end(); ++it)
-    if (c->other_end->eq_ip (**it))
+    if (c->eq_ip (**it))
       break;
   if (it == css.end())
     {
@@ -495,7 +494,7 @@ handle_local_job (MsgChannel *c, Msg *_m)
 
   list<CS*>::iterator it;
   for (it = css.begin(); it != css.end(); ++it)
-    if (c->other_end->eq_ip (**it))
+    if (c->eq_ip (**it))
       break;
   if ( it != css.end() )
     notify_monitors (MonLocalJobBeginMsg( new_job_id, m->outfile, m->stime, ( *it )->hostid ) );
@@ -765,14 +764,14 @@ prune_clients ()
     if ( now - ( *it )->last_talk > 35 ) {
       if ( ( *it )->max_jobs > 0 ) {
         trace() << "send ping " << ( *it )->nodename << endl;
-        ( *it )->channel()->send_msg( PingMsg() );
+        ( *it )->send_msg( PingMsg() );
         ( *it )->max_jobs *= -1; // better not give it away
         ( *it )->last_talk = time( 0 ); // now wait another 15s
       } else { // R.I.P.
         trace() << "removing " << ( *it )->nodename << endl;
 	CS *old = *it;
 	++it;
-	handle_end (old->channel(), 0);
+	handle_end (old, 0);
         continue;
       }
     }
@@ -781,7 +780,7 @@ prune_clients ()
         trace() << "FORCED removing " << ( *it )->nodename << endl;
 	CS *old = *it;
 	++it;
-	handle_end (old->channel(), 0);
+	handle_end (old, 0);
         continue;
       }
 
@@ -893,7 +892,7 @@ handle_login (MsgChannel *c, Msg *_m)
 
   trace() << "login " << m->nodename << " protocol version: " << c->protocol << endl;
 
-  CS *cs = static_cast<CS *>(c->other_end);
+  CS *cs = static_cast<CS *>(c);
   cs->remote_port = m->port;
   cs->compiler_versions = m->envs;
   cs->max_jobs = m->max_kids;
@@ -925,7 +924,7 @@ handle_relogin (MsgChannel *c, Msg *_m)
   if (!m)
     return false;
 
-  CS *cs = static_cast<CS *>(c->other_end);
+  CS *cs = static_cast<CS *>(c);
   cs->compiler_versions = m->envs;
   cs->busy_installing = 0;
 
@@ -945,8 +944,7 @@ handle_mon_login (MsgChannel *c, Msg *_m)
   if (!m)
     return false;
   // This is really a CS*, but we don't need the full one here
-  Service *s = c->other_end;
-  monitors.push_back (s);
+  monitors.push_back (c);
   for (list<CS*>::iterator it = css.begin(); it != css.end(); ++it)
     handle_monitor_stats( *it );
 
@@ -966,14 +964,14 @@ handle_job_begin (MsgChannel *c, Msg *_m)
     return false;
   }
   trace() << "BEGIN: " << m->job_id << endl;
-  if (jobs[m->job_id]->server != c->other_end) {
-    trace() << "that job isn't handled by " << c->other_end->name << endl;
+  if (jobs[m->job_id]->server != c) {
+    trace() << "that job isn't handled by " << c->name << endl;
     return false;
   }
   jobs[m->job_id]->state = Job::COMPILING;
   jobs[m->job_id]->starttime = m->stime;
   jobs[m->job_id]->start_on_scheduler = time(0);
-  CS *cs = dynamic_cast<CS*>( c->other_end );
+  CS *cs = dynamic_cast<CS*>( c );
   notify_monitors (MonJobBeginMsg (m->job_id, m->stime, cs->hostid));
   return true;
 }
@@ -1010,17 +1008,17 @@ handle_job_done (MsgChannel *c, Msg *_m)
             << " sys=" << m->sys_msec
             << " pfaults=" << m->majflt
             << " nswaps=" << m->nswap
-            << " server=" << c->other_end->name
+            << " server=" << c->name
             << endl;
   } else
     trace() << "END " << m->job_id
             << " status=" << m->exitcode << endl;
 
-  if (jobs[m->job_id]->server != c->other_end) {
+  if (jobs[m->job_id]->server != c ) {
     log_info() << "the server isn't the same for job " << m->job_id << endl;
     return false;
   }
-  c->other_end->last_talk = time( 0 );
+  c->last_talk = time( 0 );
 
   Job *j = jobs[m->job_id];
   j->server->joblist.remove (j);
@@ -1053,8 +1051,8 @@ handle_job_done (MsgChannel *c, Msg *_m)
 static bool
 handle_ping (MsgChannel * c, Msg * /*_m*/)
 {
-  c->other_end->last_talk = time( 0 );
-  CS *cs = dynamic_cast<CS*>( c->other_end );
+  c->last_talk = time( 0 );
+  CS *cs = dynamic_cast<CS*>( c );
   if ( cs && cs->max_jobs < 0 )
     cs->max_jobs *= -1;
   return true;
@@ -1067,13 +1065,13 @@ handle_stats (MsgChannel * c, Msg * _m)
   if (!m)
     return false;
 
-  c->other_end->last_talk = time( 0 );
-  CS *cs = dynamic_cast<CS*>( c->other_end );
+  c->last_talk = time( 0 );
+  CS *cs = dynamic_cast<CS*>( c );
   if ( cs && cs->max_jobs < 0 )
     cs->max_jobs *= -1;
 
   for (list<CS*>::iterator it = css.begin(); it != css.end(); ++it)
-    if (( *it )->channel() == c)
+    if ( *it == c)
       {
         ( *it )->load = m->load;
         handle_monitor_stats( *it, m );
@@ -1086,7 +1084,7 @@ handle_stats (MsgChannel * c, Msg * _m)
 static bool
 handle_timeout (MsgChannel * c, Msg * /*_m*/)
 {
-  c->other_end->last_talk = time( 0 );
+  c->last_talk = time( 0 );
   return false;
 }
 
@@ -1191,7 +1189,7 @@ handle_line (MsgChannel *c, Msg *_m)
 	    if ((*it)->nodename == *si || (*it)->name == *si)
 	      {
                 c->send_msg (TextMsg (string ("removing host ") + *si));
-		handle_end ((*it)->channel(), 0);
+		handle_end ( *it, 0);
 		break;
 	      }
     }
@@ -1220,7 +1218,7 @@ static bool
 try_login (MsgChannel *c, Msg *m)
 {
   bool ret = true;
-  CS *cs = static_cast<CS *>(c->other_end);
+  CS *cs = static_cast<CS *>(c);
   switch (m->type)
     {
     case M_GET_CS:
@@ -1266,11 +1264,11 @@ handle_end (MsgChannel *c, Msg *m)
   trace() << "Handle_end " << c << " " << m << endl;
 #endif
 
-  CS *toremove = static_cast<CS *>(c->other_end);
+  CS *toremove = static_cast<CS *>(c);
   if (toremove->type == CS::MONITOR)
     {
-      assert (find (monitors.begin(), monitors.end(), c->other_end) != monitors.end());
-      monitors.remove (c->other_end);
+      assert (find (monitors.begin(), monitors.end(), c) != monitors.end());
+      monitors.remove (c);
 #if DEBUG_SCHEDULER > 1
       trace() << "handle_end(moni) " << monitors.size() << endl;
 #endif
@@ -1426,7 +1424,7 @@ handle_activity (MsgChannel *c)
       return false;
     }
   /* First we need to login.  */
-  if (static_cast<CS *>(c->other_end)->state == CS::CONNECTED)
+  if (static_cast<CS *>(c)->state == CS::CONNECTED)
     return try_login (c, m);
 
   switch (m->type)
@@ -1700,18 +1698,17 @@ main (int argc, char * argv[])
 	    }
 	  if (remote_fd >= 0)
 	    {
-	      CS *cs = new CS ((struct sockaddr*) &remote_addr, remote_len);
+	      CS *cs = new CS (remote_fd, (struct sockaddr*) &remote_addr, remote_len, false);
               cs->last_talk = time( 0 );
-	      //trace() << "accepting from " << cs->name << ":" << cs->port << "\n";
-	      MsgChannel *c = cs->createChannel (remote_fd);
-              if ( !c->protocol ) // protocol mismatch
+
+              if ( !cs->protocol ) // protocol mismatch
                 {
                   delete cs;
                   continue;
                 }
-	      fd2chan[c->fd] = c;
-	      if (!c->read_a_bit () || c->has_msg ())
-	        handle_activity (c);
+	      fd2chan[cs->fd] = cs;
+	      if (!cs->read_a_bit () || cs->has_msg ())
+	        handle_activity (cs);
 	    }
         }
       if (max_fd && FD_ISSET (text_fd, &read_set))
@@ -1729,18 +1726,16 @@ main (int argc, char * argv[])
 	    }
 	  if (remote_fd >= 0)
 	    {
-	      CS *cs = new CS ((struct sockaddr*) &remote_addr, remote_len);
+	      CS *cs = new CS (remote_fd, (struct sockaddr*) &remote_addr, remote_len, true);
               cs->last_talk = time( 0 );
-	      trace() << "accepting from " << cs->name << ":" << cs->port << "\n";
-	      MsgChannel *c = cs->createChannel (remote_fd, true);
-              if ( !c->protocol ) // protocol mismatch
+              if ( !cs->protocol ) // protocol mismatch
                 {
                   delete cs;
                   continue;
                 }
-	      fd2chan[c->fd] = c;
-	      if (!c->read_a_bit () || c->has_msg ())
-	        handle_activity (c);
+	      fd2chan[cs->fd] = cs;
+	      if (!cs->read_a_bit () || cs->has_msg ())
+	        handle_activity (cs);
 	    }
 	}
       if (max_fd && FD_ISSET (broad_fd, &read_set))

@@ -119,34 +119,22 @@ public:
   virtual void send_to_channel (MsgChannel * c) const;
 };
 
-// an endpoint of a MsgChannel, i.e. most often a host
-class Service {
-  friend class MsgChannel;
+class MsgChannel {
+  friend class Service;
   // deep copied
   struct sockaddr *addr;
   socklen_t len;
-  MsgChannel *c;
 public:
-  std::string name;
-  unsigned short port;
-  time_t last_talk;
-  Service (struct sockaddr *, socklen_t);
-  Service (const std::string &host, unsigned short p, int timeout);
-  MsgChannel *channel() const { return c; }
-  MsgChannel *createChannel( int remote_fd, bool text_based = false );
-  bool eq_ip (const Service &s);
-  virtual ~Service ();
-};
-
-class MsgChannel {
-  friend class Service;
-public:
-  Service *other_end;
   // our filedesc
   int fd;
 
   // the minimum protocol version between me and him
   int protocol;
+
+  std::string name;
+  unsigned short port;
+  time_t last_talk;
+
   // NULL  <--> channel closed
   Msg *get_msg(int timeout = 10);
   // false <--> error (msg not send)
@@ -177,12 +165,12 @@ public:
   void write_line (const std::string &line);
 
   bool check_protocol( );
+  bool eq_ip (const MsgChannel &s);
 
-  // be careful: it also deletes the service it belongs to
-  ~MsgChannel ();
-private:
-  MsgChannel (int _fd);
-  MsgChannel (int _fd, Service *serv, bool text = false);
+  virtual ~MsgChannel ();
+
+protected:
+  MsgChannel (int _fd, struct sockaddr *, socklen_t, bool text = false);
   // returns false if there was an error sending something
   bool flush_writebuf (bool blocking);
   void writefull (const void *_buf, size_t count);
@@ -202,6 +190,13 @@ private:
   uint32_t inmsglen;
   bool eof;
   bool text_based;
+};
+
+// just convenient functions to create MsgChannels
+class Service {
+public:
+  static MsgChannel *createChannel( const std::string &host, unsigned short p, int timeout);
+  static MsgChannel *createChannel( int remote_fd, struct sockaddr *, socklen_t );
 };
 
 /* Connect to a scheduler waiting max. TIMEOUT milliseconds.

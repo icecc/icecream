@@ -743,12 +743,9 @@ int main( int argc, char ** argv )
                         log_perror("accept failed:");
                         return EXIT_CONNECT_FAILED;
                     } else {
-                        Service *client = new Service ((struct sockaddr*) &cli_addr, cli_len);
-                        MsgChannel *c = client->createChannel( acc_fd );
-                        if ( !c || !c->protocol ) { // protocol mismatch
-                            delete client;
+                        MsgChannel *c = Service::createChannel( acc_fd, (struct sockaddr*) &cli_addr, cli_len );
+                        if ( !c )
                             continue;
-                        }
 
                         Msg *msg = c->get_msg();
                         if ( !msg ) {
@@ -763,8 +760,8 @@ int main( int argc, char ** argv )
                                             delete scheduler;
                                             return 1;
                                         }
-                                    UseSchedulerMsg m( scheduler->other_end->name,
-                                                       scheduler->other_end->port,
+                                    UseSchedulerMsg m( scheduler->name,
+                                                       scheduler->port,
                                                        native_environment );
                                     c->send_msg( m );
                                 } else {
@@ -773,7 +770,7 @@ int main( int argc, char ** argv )
                             } else if ( msg->type == M_COMPILE_FILE ) {
                                 CompileJob *job = dynamic_cast<CompileFileMsg*>( msg )->takeJob();
                                 requests.push( make_pair( job, c ));
-                                client = 0; // forget you saw him
+                                c = 0; // forget you saw him
                             } else if ( msg->type == M_TRANFER_ENV ) {
                                 EnvTransferMsg *emsg = dynamic_cast<EnvTransferMsg*>( msg );
                                 string target = emsg->target;
@@ -790,7 +787,7 @@ int main( int argc, char ** argv )
                                     if ( msg->type == M_COMPILE_FILE ) { // we sure hope so
                                         CompileJob *job = dynamic_cast<CompileFileMsg*>( msg )->takeJob();
                                         requests.push( make_pair( job, c ));
-                                        client = 0; // forget you saw him
+                                        c = 0; // forget you saw him
                                     } else {
                                         log_error() << "not compile file\n";
                                     }
@@ -799,7 +796,7 @@ int main( int argc, char ** argv )
                                 log_error() << "not compile: " << ( char )msg->type << endl;
                             delete msg;
                         }
-                        delete client;
+                        delete c;
 
                         if ( max_count && ++count > max_count ) {
                             cout << "I'm closing now. Hoping you used valgrind! :)\n";

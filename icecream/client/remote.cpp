@@ -217,11 +217,11 @@ static int build_remote_int(CompileJob &job, UseCSMsg *usecs, const string &envi
 
     int status = 255;
 
-    Service *serv = new Service (hostname, port, 10); // trying a short timeout in case the daemon is firewalled to us
+    MsgChannel *cserver = 0;
 
     try {
-    MsgChannel *cserver = serv->channel();
-    if ( !cserver || !cserver->protocol ) {
+         cserver = Service::createChannel(hostname, port, 10);
+    if ( !cserver ) {
         log_warning() << "no server found behind given hostname " << hostname << ":" << port << endl;
         throw ( 2 );
     }
@@ -397,11 +397,11 @@ static int build_remote_int(CompileJob &job, UseCSMsg *usecs, const string &envi
     }
 
     } catch ( int x ) {
-        delete serv;
-        serv = 0;
+        delete cserver;
+        cserver = 0;
         throw( x );
     }
-    delete serv;
+    delete cserver;
     return status;
 }
 
@@ -449,15 +449,14 @@ maybe_build_local (MsgChannel *scheduler, UseCSMsg *usecs, CompileJob &job,
 	    int job_id = usecs->job_id;
 	    job.setJobID( job_id );
 	    job.setEnvironmentVersion( "__client" );
-	    Service *serv = new Service("127.0.0.1", port, 0); // 0 == no time out
-	    MsgChannel *cserver = serv->channel();
-	    if ( !cserver->protocol ) // very unlikely as we talked before with him
+	    MsgChannel *cserver = Service::createChannel( "127.0.0.1", port, 0 ); // 0 == no time out
+	    if ( !cserver ) // very unlikely as we talked before with him
 		throw ( 2 );
 	    CompileFileMsg compile_file( &job );
 	    if ( !cserver->send_msg( compile_file ) ) {
 		log_info() << "write of job failed" << endl;
-		delete serv;
-		serv = 0;
+		delete cserver;
+		cserver = 0;
 		throw( 9 );
 	    }
             struct timeval begintv,  endtv;

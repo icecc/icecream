@@ -9,7 +9,6 @@ Release Critical:
    This would simplify some things and avoid the above bugs (and it would make it more
    convenient for users of /opt/gcc-cvs/bin too)
 * Improve Documentation (cschum)
-* remove the redudancy between Service/MsgChannel (matz)
 
 Random:
 * Option -iiface to specify the interface[s] to listen on for the scheduler, or

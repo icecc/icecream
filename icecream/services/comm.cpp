@@ -438,26 +438,6 @@ MsgChannel::write_line (const string &line)
     }
 }
 
-Service::Service (struct sockaddr *_a, socklen_t _l)
-{
-  last_talk = time( 0 );
-  c = 0;
-  len = _l;
-  if (len && _a)
-    {
-      addr = (struct sockaddr *)malloc (len);
-      memcpy (addr, _a, len);
-      name = inet_ntoa (((struct sockaddr_in *) addr)->sin_addr);
-      port = ntohs (((struct sockaddr_in *)addr)->sin_port);
-    }
-  else
-    {
-      addr = 0;
-      name = "";
-      port = 0;
-    }
-}
-
 static bool connect_async( int remote_fd, struct sockaddr *remote_addr, size_t remote_size, int timeout  )
 {
   fcntl(remote_fd, F_SETFL, O_NONBLOCK);
@@ -518,31 +498,28 @@ static bool connect_async( int remote_fd, struct sockaddr *remote_addr, size_t r
   return true;
 }
 
-Service::Service (const string &hostname, unsigned short p, int timeout)
+MsgChannel *Service::createChannel (const string &hostname, unsigned short p, int timeout)
 {
   int remote_fd;
   struct sockaddr_in remote_addr;
-  c = 0;
-  addr = 0;
-  port = 0;
-  name = "";
+
   if ((remote_fd = socket (PF_INET, SOCK_STREAM, 0)) < 0)
     {
       log_perror("socket()");
-      return;
+      return 0;
     }
   struct hostent *host = gethostbyname (hostname.c_str());
   if (!host)
     {
       log_perror("Unknown host");
       close (remote_fd);
-      return;
+      return 0;
     }
   if (host->h_length != 4)
     {
       log_error() << "Invalid address length" << endl;
       close (remote_fd);
-      return;
+      return 0;
     }
 
   remote_addr.sin_family = AF_INET;
@@ -552,39 +529,27 @@ Service::Service (const string &hostname, unsigned short p, int timeout)
   if ( timeout )
     {
       if ( !connect_async( remote_fd, (struct sockaddr *) &remote_addr, sizeof( remote_addr ), timeout ) )
-        return;
+        return 0; // remote_fd is already closed
     }
   else
     {
       if (connect (remote_fd, (struct sockaddr *) &remote_addr, sizeof (remote_addr)) < 0)
         {
           close( remote_fd );
-          return;
+          return 0;
         }
     }
-  len = sizeof (remote_addr);
-  addr = (struct sockaddr *)malloc (len);
-  memcpy (addr, &remote_addr, len);
-  name = inet_ntoa (remote_addr.sin_addr);
-  port = p;
-  last_talk = time( 0 );
-  createChannel( remote_fd );
-}
-
-Service::~Service ()
-{
-  if (addr)
-    free (addr);
-  if ( c )
-    {
-      assert( c->other_end == this );
-      c->other_end = 0;
-    }
-  delete c;
+  MsgChannel * c = new MsgChannel( remote_fd, (struct sockaddr *)&remote_addr, sizeof( remote_addr ) );
+  c->port = p;
+  if ( !c->protocol ) {
+    delete c;
+    c = 0;
+  }
+  return c;
 }
 
 bool
-Service::eq_ip (const Service &s)
+MsgChannel::eq_ip (const MsgChannel &s)
 {
   struct sockaddr_in *s1, *s2;
   s1 = (struct sockaddr_in *) addr;
@@ -593,19 +558,34 @@ Service::eq_ip (const Service &s)
           && memcmp (&s1->sin_addr, &s2->sin_addr, sizeof (s1->sin_addr)) == 0);
 }
 
-MsgChannel::MsgChannel (int _fd)
-  : other_end(0), fd(_fd), msgbuf(0), msgbuflen(0), msgofs(0), msgtogo(0),
-    inbuf(0), inbuflen(0), inofs(0), intogo(0), instate(NEED_LEN), eof(false),
-    text_based(false)
+MsgChannel *Service::createChannel (int fd, struct sockaddr *_a, socklen_t _l)
 {
-  abort (); // currently not tested
+  MsgChannel * c = new MsgChannel( fd, _a, _l, false );
+  if ( !c->protocol ) {
+    delete c;
+    c = 0;
+  }
+  return c;
 }
 
-MsgChannel::MsgChannel (int _fd, Service *serv, bool text)
-  : other_end(serv), fd(_fd)
+MsgChannel::MsgChannel (int _fd, struct sockaddr *_a, socklen_t _l, bool text)
+  : fd(_fd)
 {
-  assert (!serv->c);
-  serv->c = this;
+  len = _l;
+  if (len && _a)
+    {
+      addr = (struct sockaddr *)malloc (len);
+      memcpy (addr, _a, len);
+      name = inet_ntoa (((struct sockaddr_in *) addr)->sin_addr);
+      port = ntohs (((struct sockaddr_in *)addr)->sin_port);
+    }
+  else
+    {
+      addr = 0;
+      name = "";
+      port = 0;
+    }
+
   // not using new/delete because of the need of realloc()
   msgbuf = (char *) malloc (128);
   msgbuflen = 128;
@@ -625,6 +605,8 @@ MsgChannel::MsgChannel (int _fd, Service *serv, bool text)
   if ( protocol ) // otherwise the socket might be dead
     if (fcntl (fd, F_SETFL, O_NONBLOCK) < 0)
       log_perror("MsgChannel fcntl()");
+
+  last_talk = time( 0 );
 }
 
 MsgChannel::~MsgChannel()
@@ -632,16 +614,12 @@ MsgChannel::~MsgChannel()
   if (fd >= 0)
     close (fd);
   fd = -1;
-  if (other_end)
-    {
-      assert( !other_end->c || other_end->c == this );
-      other_end->c = 0;
-    }
-  delete other_end;
   if (msgbuf)
     free (msgbuf);
   if (inbuf)
     free (inbuf);
+  if (addr)
+    free (addr);
 }
 
 static bool read_vers( int fd, unsigned char *vers )
@@ -846,19 +824,6 @@ MsgChannel::send_msg (const Msg &m, bool blocking)
   return flush_writebuf (blocking);
 }
 
-MsgChannel *Service::createChannel( int remote_fd, bool text_based )
-{
-  if (channel())
-    {
-      assert( remote_fd == c->fd );
-      return channel();
-    }
-  new MsgChannel( remote_fd, this, text_based ); // sets c
-  assert( channel() );
-
-  return channel();
-}
-
 #include "getifaddrs.h"
 #include <net/if.h>
 #include <sys/ioctl.h>
@@ -1028,8 +993,7 @@ connect_scheduler (const string &_netname, int timeout, const string &schedname)
     }
 
   log_info() << "scheduler is on " << hostname << ":" << sport << " (net " << netname << ")\n";
-  Service *sched = new Service (hostname, sport, 0); // 0 == no timeout
-  return sched->channel();
+  return Service::createChannel( hostname, sport, 0); // 0 == no timeout
 }
 
 list<string>

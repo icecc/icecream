@@ -156,23 +156,22 @@ int main(int argc, char **argv)
     CompileJob job;
     bool local = analyse_argv( argv, job );
 
-    Service *serv = new Service ("127.0.0.1", 10245, 0); // 0 == no timeout
-    MsgChannel *local_daemon = serv->channel();
-    if ( ! local_daemon || !local_daemon->protocol ) {
+    MsgChannel *local_daemon = Service::createChannel( "127.0.0.1", 10245, 0); // 0 == no timeout
+    if ( ! local_daemon ) {
         log_warning() << "no local daemon found\n";
-        delete serv;
+        delete local_daemon;
         return build_local( job, 0 );
     }
     if ( !local_daemon->send_msg( GetSchedulerMsg( getenv( "ICECC_VERSION" ) == 0 ) ) ) {
         log_warning() << "failed to write get scheduler\n";
-        delete serv;
+        delete local_daemon;
         return build_local( job, 0 );
     }
 
     // the timeout is high because it creates the native version
     Msg *umsg = local_daemon->get_msg(4 * 60);
     if ( !umsg || umsg->type != M_USE_SCHEDULER ) {
-        delete serv;
+        delete local_daemon;
         return build_local( job, 0 );
     }
     UseSchedulerMsg *ucs = dynamic_cast<UseSchedulerMsg*>( umsg );
@@ -206,11 +205,10 @@ int main(int argc, char **argv)
 
     delete local_daemon;
 
-    serv = new Service( ucs->hostname, ucs->port, 0 ); // 0 == no time out
-    MsgChannel *scheduler = serv->channel();
+    MsgChannel *scheduler = Service::createChannel( ucs->hostname, ucs->port, 0 ); // 0 == no time out
     if ( ! scheduler ) {
         log_warning() << "no scheduler found at " << ucs->hostname << ":" << ucs->port << endl;
-        delete serv;
+        delete scheduler;
 	delete ucs;
         return build_local( job, 0 );
     }
