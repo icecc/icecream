@@ -23,6 +23,9 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#ifdef __FreeBSD__
+#  include <dkstat.h>
+#endif
 
 using namespace std;
 
@@ -53,11 +56,18 @@ struct CPULoadInfo
 
 static void updateCPULoad( const char* line, CPULoadInfo* load )
 {
-  unsigned long currUserTicks, currSysTicks, currNiceTicks, currIdleTicks;
   unsigned long totalTicks;
+#ifdef __FreeBSD__
+  unsigned long currUserTicks = cp_time[ CP_USER ];
+  unsigned long currSysTicks = cp_time[ CP_SYS ];
+  unsigned long currNiceTicks = cp_time[ CP_NICE ];
+  unsigned long currIdleTicks = cp_time[ CP_IDLE ];
+#else
+  unsigned long currUserTicks, currSysTicks, currNiceTicks, currIdleTicks;
 
   sscanf( line, "%*s %lu %lu %lu %lu", &currUserTicks, &currNiceTicks,
           &currSysTicks, &currIdleTicks );
+#endif
 
   totalTicks = ( currUserTicks - load->userTicks ) +
                ( currSysTicks - load->sysTicks ) +
@@ -93,9 +103,25 @@ static unsigned long int scan_one( const char* buff, const char *key )
 
 static unsigned int calculateMemLoad( const char* MemInfoBuf, unsigned long int &MemFree )
 {
+#ifdef __FreeBSD__
+    size_t len = sizeof (MemFree);
+    if ((sysctlbyname("vm.stats.vm.v_free_count", &MemFree, &len, NULL, 0) == -1) || !len)
+        MemFree = 0; /* Doesn't work under FreeBSD v2.2.x */
+
+    unsigned long int Buffers;
+    len = sizeof (Buffers);
+    if ((sysctlbyname("vfs.bufspace", &Buffers, &len, NULL, 0) == -1) || !len)
+        Buffers = 0; /* Doesn't work under FreeBSD v2.2.x */
+
+    unsigned long int Cached;
+    len = sizeof (Cached);
+    if ((sysctlbyname("vm.stats.vm.v_cache_count", &Cached, &len, NULL, 0) == -1) || !len)
+            Cached = 0; /* Doesn't work under FreeBSD v2.2.x */
+#else
     MemFree = scan_one( MemInfoBuf, "MemFree" );
     unsigned long int Buffers = scan_one( MemInfoBuf, "Buffers" );
     unsigned long int Cached = scan_one( MemInfoBuf, "Cached" );
+#endif
 
     if ( Buffers > 50 * 1024 )
         Buffers -= 50 * 1024;
@@ -117,6 +143,10 @@ static unsigned int calculateMemLoad( const char* MemInfoBuf, unsigned long int 
 bool fill_stats( StatsMsg &msg )
 {
     static CPULoadInfo load;
+
+#ifdef __FreeBSD__
+    updateCPULoad( 0, &load );
+#else
     static char StatBuf[ 32 * 1024 ];
     int fd;
 
@@ -136,7 +166,13 @@ bool fill_stats( StatsMsg &msg )
     }
     StatBuf[n] = 0;
     updateCPULoad( StatBuf, &load );
+#endif
 
+    unsigned long int MemFree = 0;
+    unsigned int memory_fillgrade = 0;
+#ifdef __FreeBSD__
+    memory_fillgrade = calucateMemLoad( 0, MemFree );
+#else
     if ( ( fd = open( "/proc/meminfo", O_RDONLY ) ) < 0 ) {
         log_error() << "Cannot open file \'/proc/meminfo\'!\n"
             "The kernel needs to be compiled with support\n"
@@ -151,8 +187,8 @@ bool fill_stats( StatsMsg &msg )
         return false;
     }
     StatBuf[n] = 0;
-    unsigned long int MemFree = 0;
-    unsigned int memory_fillgrade = calculateMemLoad( StatBuf, MemFree );
+    memory_fillgrade = calculateMemLoad( StatBuf, MemFree );
+#endif
 
     unsigned int realLoad = 1000 - load.idleLoad - load.niceLoad;
     msg.load = ( 700 * realLoad + 300 * memory_fillgrade ) / 1000;
