@@ -152,6 +152,6 @@ bool fill_stats( StatsMsg &msg )
     unsigned int memory_fillgrade = calculateMemLoad( StatBuf );
 
     msg.load = ( 700 * ( 1000 - load.idleLoad ) + 300 * memory_fillgrade ) / 1000;
-    trace() << "load cpu=" << 1000 - load.idleLoad << " mem=" << memory_fillgrade << " " << msg.load << endl;
+    trace() << "load cpu=" << 1000 - load.idleLoad << " mem=" << memory_fillgrade << " total=" << msg.load << endl;
     return true;
 }
