@@ -5,6 +5,8 @@
 
 #include "job.h"
 
+#define PROTOCOL_VERSION 1
+
 enum MsgType {
   // so far unknown
   M_UNKNOWN = 'A',
