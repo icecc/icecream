@@ -350,7 +350,7 @@ int main( int argc, char ** argv )
 
     if ((geteuid()!=0) && !runasuser)
     {
-        perror("Please run iceccd with root privileges");
+        log_error() << "Please run iceccd with root privileges" << endl;
         return 1;
     }
  
