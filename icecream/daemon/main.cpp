@@ -187,7 +187,7 @@ void usage(const char* reason = 0)
   if (reason)
      cerr << reason << endl;
 
-  cerr << "usage: iceccd [-n <netname>] [-m <max_processes>] [-w] [--daemonize] [-l logfile] [-s <schedulerhost>] [-v[v[v]]]" << endl;
+  cerr << "usage: iceccd [-n <netname>] [-m <max_processes>] [-w] [-d|--daemonize] [-l logfile] [-s <schedulerhost>] [-v[v[v]]] [-u|--run-as-user] [-b <env-basedir>]" << endl;
   exit(1);
 }
 
@@ -246,13 +246,14 @@ int main( int argc, char ** argv )
 
     string netname;
     bool watch_binary = false;
-    string envbasedir = "/tmp/icecc-envs"; // TODO: getopt :/
+    string envbasedir = "/tmp/icecc-envs";
     int debug_level = Error;
     string logfile;
     bool detach = false;
     nice_level = 5; // defined in serve.h
     string nodename;
     string schedname;
+    bool runasuser = false;
 
     int mem_limit = 100;
 
@@ -268,10 +269,12 @@ int main( int argc, char ** argv )
             { "nice", 1, NULL, 0},
             { "name", 1, NULL, 'n'},
             { "scheduler-host", 1, NULL, 's' },
+            { "run-as-user", 1, NULL, 'u' },
+            { "env-basedir", 1, NULL, 'b' },
             { 0, 0, 0, 0 }
         };
 
-        const int c = getopt_long( argc, argv, "n:m:l:s:whvd", long_options, &option_index );
+        const int c = getopt_long( argc, argv, "n:m:l:s:whvdub:", long_options, &option_index );
         if ( c == -1 ) break; // eoo
 
         switch ( c ) {
@@ -333,11 +336,24 @@ int main( int argc, char ** argv )
                 else
                     usage("Error: -s requires hostname argument");
                 break;
+            case 'b':
+                if ( optarg && *optarg )
+                    envbasedir = optarg;
+                break;
+            case 'u':
+                runasuser = true;
+                break;                
             default:
                 usage();
         }
     }
 
+    if ((geteuid()!=0) && !runasuser)
+    {
+        perror("Please run iceccd with root privileges");
+        return 1;
+    }
+ 
     if ( !logfile.length() && detach)
         logfile = "/var/log/iceccd";
 
