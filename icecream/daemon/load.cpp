@@ -23,7 +23,12 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
-#ifdef __FreeBSD__
+
+#if defined( __FreeBSD__ ) || defined( MACOS )
+#define USE_SYSCTL
+#endif
+
+#ifdef USE_SYSCTL
 #include <sys/resource.h>
 #include <sys/sysctl.h>
 #include <devstat.h>
@@ -61,7 +66,7 @@ static void updateCPULoad( const char* line, CPULoadInfo* load )
   unsigned long totalTicks;
   unsigned long currUserTicks, currSysTicks, currNiceTicks, currIdleTicks;
 
-#ifdef __FreeBSD__
+#ifdef USE_SYSCTL
   static int mibs[4] = { 0,0,0,0 };
   static size_t mibsize = 4;
   unsigned long ticks[CPUSTATES];
@@ -130,7 +135,7 @@ static unsigned int calculateMemLoad( const char* MemInfoBuf, unsigned long int 
 {
     unsigned long int MemFree;
 
-#ifdef __FreeBSD__
+#ifdef USE_SYSCTL
     size_t len = sizeof (MemFree);
     if ((sysctlbyname("vm.stats.vm.v_free_count", &MemFree, &len, NULL, 0) == -1) || !len)
         MemFree = 0; /* Doesn't work under FreeBSD v2.2.x */
@@ -172,7 +177,7 @@ bool fill_stats( unsigned long &myniceload, unsigned long &myidleload, unsigned 
 {
     static CPULoadInfo load;
 
-#ifdef __FreeBSD__
+#ifdef USE_SYSCTL
     updateCPULoad( 0, &load );
 #else
     static char StatBuf[ 32 * 1024 ];
@@ -202,7 +207,7 @@ bool fill_stats( unsigned long &myniceload, unsigned long &myidleload, unsigned 
     if ( msg ) {
         unsigned long int MemFree = 0;
 
-#ifdef __FreeBSD__
+#ifdef USE_SYSCTL
         memory_fillgrade = calculateMemLoad( 0, MemFree );
 #else
         if ( ( fd = open( "/proc/meminfo", O_RDONLY ) ) < 0 ) {
