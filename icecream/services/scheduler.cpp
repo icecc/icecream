@@ -1142,49 +1142,44 @@ handle_end (MsgChannel *c, Msg *m)
     {
       trace() << "remove client\n";
 
-      /* A client disconnected.  */
-      if (!m )
+      /* If it's disconnected we must remove all its job requests and jobs.
+         All job requests are also in the jobs list, so it's enough to traverse
+         that one, and when finding a job to possibly remove it also
+         from any request queues.
+         XXX This is made particularly ugly due to using real queues.  */
+      map<unsigned int, Job*>::iterator it;
+      for (it = jobs.begin(); it != jobs.end();)
         {
-	  /* If it's disconnected without END message something went wrong,
-	     and we must remove all its job requests and jobs.  All job
-	     requests are also in the jobs list, so it's enough to traverse
-	     that one, and when finding a job to possibly remove it also
-	     from any request queues.
-	     XXX This is made particularly ugly due to using real queues.  */
-	  map<unsigned int, Job*>::iterator it;
-	  for (it = jobs.begin(); it != jobs.end();)
-	    {
-	      if (it->second->channel == c)
-		{
-		  trace() << "STOP FOR " << it->first << endl;
-		  Job *job = it->second;
-                  notify_monitors (MonJobDoneMsg (JobDoneMsg( job->id,  255 )));
+          if (it->second->channel == c)
+            {
+              trace() << "STOP FOR " << it->first << endl;
+              Job *job = it->second;
+              notify_monitors (MonJobDoneMsg (JobDoneMsg( job->id,  255 )));
 
-		  /* Remove this job from the request queue.  */
-		  list<UnansweredList*>::iterator ait;
-		  for (ait = toanswer.begin(); ait != toanswer.end();)
-		    {
-		      UnansweredList *l = *ait;
-		      if (l->server == job->submitter
-			  && (l->l.remove (job), true)
-			  && l->l.empty())
-			{
-			  ait = toanswer.erase (ait);
-			  delete l;
-			}
-		      else
-			++ait;
-		    }
+              /* Remove this job from the request queue.  */
+              list<UnansweredList*>::iterator ait;
+              for (ait = toanswer.begin(); ait != toanswer.end();)
+                {
+                  UnansweredList *l = *ait;
+                  if (l->server == job->submitter
+                      && (l->l.remove (job), true)
+                      && l->l.empty())
+                    {
+                      ait = toanswer.erase (ait);
+                      delete l;
+                    }
+                  else
+                    ++ait;
+                }
 
-		  if ( job->server )
-		      job->server->joblist.remove (job);
-		  jobs.erase (it++);
-		  delete job;
-		}
-              else
-                ++it;
-	    }
-	}
+              if ( job->server )
+                job->server->joblist.remove (job);
+              jobs.erase (it++);
+              delete job;
+            }
+          else
+            ++it;
+        }
     }
   else
     trace() << "remote end had UNKNOWN type?" << endl;
