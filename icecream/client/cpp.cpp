@@ -79,7 +79,7 @@ pid_t call_cpp(CompileJob &job, int fd)
             int ret = dcc_ignore_sigpipe(0);
             if (ret)    /* set handler back to default */
                 exit(ret);
-    
+
             char **argv = new char*[2+1];
             argv[0] = strdup( "/bin/cat" );
             argv[1] = strdup( job.inputFile().c_str() );
@@ -88,6 +88,8 @@ pid_t call_cpp(CompileJob &job, int fd)
             /* Ignore failure */
             close(STDOUT_FILENO);
             dup2(fd, STDOUT_FILENO);
+
+            dcc_increment_safeguard();
 
             execvp(argv[0], argv);
             /* !! NEVER RETURN FROM HERE !! */
@@ -136,6 +138,8 @@ pid_t call_cpp(CompileJob &job, int fd)
         /* Ignore failure */
         close(STDOUT_FILENO);
         dup2(fd, STDOUT_FILENO);
+
+        dcc_increment_safeguard();
 
         execvp(argv[0], argv);
         /* !! NEVER RETURN FROM HERE !! */

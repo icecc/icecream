@@ -46,4 +46,8 @@ int build_local (CompileJob& job, MsgChannel *scheduler);
 /* In remote.cpp - permill is the probability it will be compiled three times */
 int build_remote (CompileJob &job, MsgChannel *scheduler, int permill);
 
+/* safeguard.cpp */
+void dcc_increment_safeguard(void);
+int dcc_recursion_safeguard(void);
+
 #endif

@@ -185,6 +185,8 @@ int build_local(CompileJob &job, MsgChannel *scheduler)
             dcc_unlock( lock_fd );
         return status;
     } else {
+        dcc_increment_safeguard();
+
         int ret = execv( argv[0], argv ); // if it returns at all
         if ( lock_fd )
             dcc_unlock( lock_fd );
