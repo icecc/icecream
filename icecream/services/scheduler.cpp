@@ -274,7 +274,7 @@ server_speed (CS *cs, Job *job = 0)
 	 to compile the job.  Then this can be done locally without
 	 needing the preprocessor.  */
       if (job && job->submitter == cs)
-        f *= 1.4;
+        f *= 1.2;
 
       // below we add a pessimism factor - assuming the first job a computer got is not representative
       if ( cs->last_compiled_jobs.size() < 7 )
