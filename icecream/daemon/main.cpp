@@ -199,7 +199,7 @@ int main( int /*argc*/, char ** /*argv*/ )
     /* By default, allow one job per CPU, plus two for the pot.  The extra
      * ones are started to allow for a bit of extra concurrency so that the
      * machine is not idle waiting for disk or network IO. */
-    int max_kids = 2 + n_cpus;
+    int max_kids = n_cpus; // + 2;
 
     log_info() << "allowing up to " << max_kids << " active jobs\n";
 
@@ -228,14 +228,6 @@ int main( int /*argc*/, char ** /*argv*/ )
         int acc_fd;
         struct sockaddr cli_addr;
         socklen_t cli_len;
-        fd_set listen_set;
-        struct timeval tv;
-
-        FD_ZERO (&listen_set);
-        FD_SET (listen_fd, &listen_set);
-        FD_SET (listen_fd, &listen_set);
-        tv.tv_sec = 2;
-        tv.tv_usec = 0;
 
 	log_info() << "requests " << requests.size() << " " << current_kids << " (" << max_kids << ")\n";
         if ( !requests.empty() && current_kids < max_kids ) {
@@ -256,7 +248,6 @@ int main( int /*argc*/, char ** /*argv*/ )
             continue;
         }
 
-        ret = select (listen_fd + 1, &listen_set, NULL, NULL, &tv);
         if ( time( 0 ) - last_stat >= 2 ) {
             StatsMsg msg;
             if (getloadavg (msg.load, 3) == -1) {
@@ -272,6 +263,18 @@ int main( int /*argc*/, char ** /*argv*/ )
                 return 1; // TODO: try to get it back
             }
         }
+
+        fd_set listen_set;
+        struct timeval tv;
+
+        FD_ZERO (&listen_set);
+        FD_SET (listen_fd, &listen_set);
+        FD_SET (listen_fd, &listen_set);
+        tv.tv_sec = 2;
+        tv.tv_usec = 0;
+
+        ret = select (listen_fd + 1, &listen_set, NULL, NULL, &tv);
+
         if ( ret > 0 ) {
             cli_len = sizeof cli_addr;
             acc_fd = accept(listen_fd, &cli_addr, &cli_len);
