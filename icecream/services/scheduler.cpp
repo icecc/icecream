@@ -325,20 +325,22 @@ server_speed (CS *cs, Job *job)
     {
       float f = (float)cs->cum_compiled.osize
 	       / (float) cs->cum_compiled.compile_time_user;
-      /* The submitter of a job gets more speed.  So if he is equally
-         fast to the rest of the farm it will be prefered to chose him
-	 to compile the job.  Then this can be done locally without
-	 needing the preprocessor.  */
-      if (job && job->submitter == cs)
-        f *= 1.2;
+
+      // we only care for the load if we're about to add a job to it
+      if (job) {
+        /* The submitter of a job gets more speed.  So if he is equally
+           fast to the rest of the farm it will be prefered to chose him
+           to compile the job.  Then this can be done locally without
+           needing the preprocessor.  */
+        if (job->submitter == cs)
+          f *= 1.2;
+        else // ignoring load for submitter - assuming the load is our own
+          f *= float(1000 - cs->load) / 1000;
+      }
 
       // below we add a pessimism factor - assuming the first job a computer got is not representative
       if ( cs->last_compiled_jobs.size() < 7 )
           f *= ( -0.5 * cs->last_compiled_jobs.size() + 4.5 );
-
-      // we only care for the load if we're about to add a job to it
-      if (job) 
-          f *= (1000 - cs->load) / 1000;
 
       return f;
     }
@@ -760,7 +762,7 @@ prune_clients ()
 
   time_t now = time( 0 );
   for (it = css.begin(); it != css.end(); ) {
-    if ( now - ( *it )->last_talk > 15 ) {
+    if ( now - ( *it )->last_talk > 35 ) {
       if ( ( *it )->max_jobs > 0 ) {
         trace() << "send ping " << ( *it )->nodename << endl;
         ( *it )->channel()->send_msg( PingMsg() );
