@@ -16,8 +16,7 @@ then
 -Wnested-externs $CFLAGS"
     CXXFLAGS="-W -Wall -Wimplicit \
 -Wshadow -Wpointer-arith -Wcast-align -Wwrite-strings \
--Waggregate-return -Wstrict-prototypes -Wmissing-prototypes \
--Wnested-externs $CXXFLAGS"
+-Waggregate-return -Wstrict-prototypes -Wmissing-prototypes $CXXFLAGS"
     AC_MSG_NOTICE([Adding gcc options: $CFLAGS])
 fi
 
@@ -127,6 +126,6 @@ AC_CHECK_FUNCS([strndup mmap strlcpy])
 
 AC_CHECK_DECLS([snprintf, vsnprintf, vasprintf, asprintf, strndup])
 
-AC_CONFIG_FILES([Makefile common/Makefile client/Makefile])
+AC_CONFIG_FILES([Makefile common/Makefile client/Makefile daemon/Makefile])
 AC_OUTPUT
 
