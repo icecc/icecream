@@ -480,8 +480,9 @@ MsgChannel::get_msg(bool blocking)
   if (blocking && !wait_for_msg ())
     return 0;
   /* If we've seen the EOF, and we don't have a complete message,
-     then we won't see it anymore.  Return that to the caller.  */
-  if (eof && !has_msg ())
+     then we won't see it anymore.  Return that to the caller.
+     Don't use has_msg() here, as it returns true for eof.  */
+  if (eof && instate != HAS_MSG)
     return 0;
   if (!has_msg ())
     abort (); // XXX but what else?

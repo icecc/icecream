@@ -99,7 +99,7 @@ public:
   bool send_msg (const Msg &, bool blocking = true);
   // return last error (0 == no error)
   int error(void) {return 0;}
-  bool has_msg (void) const { return instate == HAS_MSG; }
+  bool has_msg (void) const { return eof || instate == HAS_MSG; }
   bool need_write (void) const { return msgtogo != 0; }
   bool read_a_bit (void);
   bool write_a_bit (void) {
