@@ -217,7 +217,6 @@ static int build_remote_int(CompileJob &job, UseCSMsg *usecs, const string &envi
     MsgChannel *cserver = serv->channel();
     if ( !cserver->protocol ) {
         log_warning() << "no server found behind given hostname " << hostname << ":" << port << endl;
-        delete serv;
         throw ( 2 );
     }
 
@@ -361,21 +360,26 @@ static int build_remote_int(CompileJob &job, UseCSMsg *usecs, const string &envi
         while ( 1 ) {
             delete msg;
 
-            msg = cserver->get_msg();
+            msg = cserver->get_msg(40);
+            if ( !msg ) { // the network went down?
+                unlink( tmp_file.c_str());
+                throw ( 19 );
+            }
+
             if ( msg->type == M_END )
                 break;
 
             if ( msg->type != M_FILE_CHUNK ) {
                 unlink( tmp_file.c_str());
                 delete msg;
-                return EXIT_PROTOCOL_ERROR;
+                throw ( 20 );
             }
 
             FileChunkMsg *fcmsg = dynamic_cast<FileChunkMsg*>( msg );
             if ( write( obj_fd, fcmsg->buffer, fcmsg->len ) != ( ssize_t )fcmsg->len ) {
                 unlink( tmp_file.c_str());
                 delete msg;
-                return EXIT_DISTCC_FAILED;
+                throw ( 21 );
             }
         }
 
