@@ -10,6 +10,7 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <sys/sendfile.h>
+#include <signal.h>
 
 using namespace std;
 
@@ -144,13 +145,14 @@ int build_remote(CompileJob &job )
     unsigned char buffer[50000]; // some random but huge number
 
     do {
-        ssize_t bytes = read(sockets[0], buffer, sizeof(buffer));
+        ssize_t bytes = read(sockets[0], buffer, sizeof(buffer) );
         if (!bytes)
             break;
         FileChunkMsg fcmsg( buffer, bytes );
         if ( !cserver->send_msg( fcmsg ) ) {
             log_info() << "write of chunk failed" << endl;
-            close(sockets[0]);
+            close( sockets[0] );
+            kill( cpp_pid, SIGTERM );
             return build_local( job );
         }
     } while (1);

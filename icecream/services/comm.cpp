@@ -8,6 +8,7 @@
 #include <string>
 #include <iostream>
 
+#include "logging.h"
 #include "job.h"
 #include "comm.h"
 
@@ -79,6 +80,62 @@ writeuint (int fd, unsigned int i)
 {
   i = htonl (i);
   return writefull (fd, &i, 4);
+}
+
+#include <minilzo.h>
+
+bool writecompressed( int fd, const unsigned char *in_buf, lzo_uint in_len )
+{
+    lzo_uint out_len = in_len + in_len / 64 + 16 + 3;
+    lzo_byte *out_buf = new lzo_byte[out_len];
+    lzo_voidp wrkmem = ( lzo_voidp )malloc(LZO1X_MEM_COMPRESS);
+    int ret = lzo1x_1_compress( in_buf, in_len, out_buf, &out_len, wrkmem );
+    if ( ret != LZO_E_OK) {
+        /* this should NEVER happen */
+        printf("internal error - compression failed: %d\n", ret);
+        free( wrkmem );
+        delete [] out_buf;
+        return false;
+    }
+    printf( "compress %d bytes to %d bytes\n", in_len, out_len );
+    bool bret = ( writeuint( fd, in_len )
+                  && writeuint( fd, out_len )
+                  && writefull( fd, out_buf, out_len ) );
+
+    free( wrkmem );
+    delete [] out_buf;
+    return bret;
+}
+
+bool readcompressed( int fd, unsigned char **out_buf,lzo_uint *out_len )
+{
+    lzo_uint in_len;
+    if ( !readuint( fd, out_len ) )
+        return false;
+    if ( !readuint( fd, &in_len ) )
+        return false;
+    *out_buf = new unsigned char[*out_len];
+    unsigned char *in_buf = new unsigned char[in_len];
+    lzo_voidp wrkmem = ( lzo_voidp )malloc(LZO1X_MEM_COMPRESS);
+    bool bret = readfull( fd, in_buf, in_len );
+    int ret = LZO_E_OK;
+    if ( bret )
+        ret = lzo1x_decompress( in_buf, in_len, *out_buf, out_len, wrkmem );
+    if ( ret !=  LZO_E_OK) {
+         /* this should NEVER happen */
+        printf("internal error - decompression failed: %d\n", ret);
+        bret = false;
+    }
+    if ( bret ) {
+        printf( "decompressed %d bytes to %d bytes\n", in_len, *out_len );
+    } else {
+        delete [] *out_buf;
+        *out_buf = 0;
+        *out_len = 0;
+    }
+    free( wrkmem );
+    delete [] in_buf;
+    return bret;
 }
 
 Service::Service (struct sockaddr *_a, socklen_t _l)
@@ -322,8 +379,8 @@ UseCSMsg::fill_from_fd (int fd)
   if (!Msg::fill_from_fd (fd))
     return false;
   bool ret = (readuint (fd, &job_id)
-  	  && readuint (fd, &port)
-          && read_string (fd, hostname));
+              && readuint (fd, &port)
+              && read_string (fd, hostname));
   return ret;
 }
 
@@ -375,17 +432,12 @@ FileChunkMsg::fill_from_fd (int fd)
 
   if (!Msg::fill_from_fd (fd))
     return false;
-  if ( !readuint( fd, &len ) ) {
-      len = 0;
+  lzo_uint _len = 0;
+  if ( !readcompressed( fd, &buffer, &_len ) )
       return false;
-  }
-  buffer = new unsigned char[len];
-  if ( !readfull( fd, buffer, len ) ) {
-      delete [] buffer;
-      buffer = 0;
-      len = 0;
-      return false;
-  }
+
+  len = _len;
+
   return true;
 }
 
@@ -394,8 +446,8 @@ FileChunkMsg::send_to_fd (int fd) const
 {
   if (!Msg::send_to_fd (fd))
     return false;
- return ( writeuint( fd, ( unsigned int )len )
-          && writefull( fd, buffer, len ) );
+  bool ret = writecompressed( fd, buffer, len );
+  return ret;
 }
 
 bool

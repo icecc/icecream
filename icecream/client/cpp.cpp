@@ -82,9 +82,9 @@ pid_t call_cpp(CompileJob &job, int fd)
         argc += 2; // -E file.i
         char **argv = new char*[argc + 1];
         if (job.language() == CompileJob::Lang_C)
-            argv[0] = strdup( "/opt/teambuilder/bin/gcc" );
+            argv[0] = strdup( "/usr/bin/gcc" );
         else if (job.language() == CompileJob::Lang_CXX)
-            argv[0] = strdup( "/opt/teambuilder/bin/g++" );
+            argv[0] = strdup( "/usr/bin/g++" );
         else
             assert(0);
         int i = 1;

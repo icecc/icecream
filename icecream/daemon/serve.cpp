@@ -189,19 +189,26 @@ int handle_connection( MsgChannel *serv )
 
     while ( 1 ) {
         msg = serv->get_msg();
-        if ( !msg )
+        if ( !msg ) {
+            log_error() << "no message while reading file chunk\n";
             return EXIT_PROTOCOL_ERROR;
+        }
 
-        if ( msg->type == M_END )
+        if ( msg->type == M_END ) {
+            trace() << "end\n";
             break;
+        }
 
-        if ( msg->type != M_FILE_CHUNK )
+        if ( msg->type != M_FILE_CHUNK ) {
+            trace() << "file chunk\n";
             return EXIT_PROTOCOL_ERROR;
+        }
 
         FileChunkMsg *fcmsg = dynamic_cast<FileChunkMsg*>( msg );
-        if ( !fcmsg )
+        if ( !fcmsg ) {
+            log_error() << "FileChunkMsg\n";
             return EXIT_PROTOCOL_ERROR;
-
+        }
         if ( write( ti, fcmsg->buffer, fcmsg->len ) != ( ssize_t )fcmsg->len )
             return EXIT_DISTCC_FAILED;
     }
