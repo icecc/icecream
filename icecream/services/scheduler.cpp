@@ -32,6 +32,20 @@
      of each other and sometimes take over ownership)
  */
 
+/* The typical flow of messages for a remote job should be like this:
+     prereq: daemon is connected to scheduler
+     * client does GET_CS
+     * request gets queued
+     * request gets handled
+     * scheduler sends USE_CS
+     * client asks remote daemon
+     * daemon sends JOB_BEGIN
+     * client sends END + closes connection
+     * daemon sends JOB_DONE (this can be swapped with the above one)
+   This means, that iff the client somehow closes the connection we can and
+   must remove all traces of jobs resulting from that client in all lists.
+ */
+     
 using namespace std;
 
 struct JobStat {
@@ -93,15 +107,17 @@ public:
   list<Job*> joblist;
   list<string> compiler_versions;  // Available compilers
   CS (struct sockaddr *_addr, socklen_t _len)
-    : Service (_addr, _len), load(1000), max_jobs(0), state(CONNECTED) {}
+    : Service(_addr, _len), load(1000), max_jobs(0), state(CONNECTED),
+      type(UNKNOWN) {}
   list<JobStat> last_compiled_jobs;
   list<JobStat> last_requested_jobs;
   JobStat cum_compiled;  // cumulated
   JobStat cum_requested;
   enum {CONNECTED, LOGGEDIN} state;
+  enum {UNKNOWN, CLIENT, DAEMON, MONITOR} type;
 };
 
-map<int, MsgChannel *> fd2chan;
+static map<int, MsgChannel *> fd2chan;
 
 class Job {
 public:
@@ -126,18 +142,36 @@ public:
 };
 
 // A subset of connected_hosts representing the compiler servers
-list<CS*> css;
-unsigned int new_job_id;
-map<unsigned int, Job*> jobs;
+static list<CS*> css;
+static unsigned int new_job_id;
+static map<unsigned int, Job*> jobs;
+/* XXX Uah.  Don't use a queue for the job requests.  It's a hell
+   to delete anything out of them (for clean up).  */
 struct UnansweredList : queue<Job*> {
   CS *server;
+  bool remove_job (Job *);
 };
-queue<UnansweredList*> toanswer;
+static queue<UnansweredList*> toanswer;
 
-list<JobStat> all_job_stats;
-JobStat cum_job_stats;
+static list<JobStat> all_job_stats;
+static JobStat cum_job_stats;
 
-list<Service*> monitors;
+static list<Service*> monitors;
+
+/* Searches the queue for JOB and removes it.
+   Returns true of something was deleted.  */
+bool
+UnansweredList::remove_job (Job *job)
+{
+  container_type::iterator it;
+  for (it = c.begin(); it != c.end(); ++it)
+    if (*it == job)
+      {
+        c.erase (it);
+	return true;
+      }
+  return false;
+}
 
 static void
 add_job_stats (Job *job, JobDoneMsg *msg)
@@ -199,6 +233,42 @@ create_new_job (MsgChannel *channel, CS *submitter)
   return job;
 }
 
+static void
+enqueue_job_request (Job *job)
+{
+  if (!toanswer.empty() && toanswer.front()->server == job->submitter)
+    toanswer.front()->push (job);
+  else {
+    UnansweredList *newone = new UnansweredList();
+    newone->server = job->submitter;
+    newone->push (job);
+    toanswer.push (newone);
+  }
+}
+
+static Job *
+get_job_request (void)
+{
+  if (toanswer.empty())
+    return 0;
+
+  UnansweredList *first = toanswer.front();
+  assert (!first->empty());
+  return first->front();
+}
+
+/* Removes the first job request (the one returned by get_job_request()) */
+static void
+remove_job_request (void)
+{
+  if (toanswer.empty())
+    return;
+  UnansweredList *first = toanswer.front();
+  first->pop();
+  if (first->empty())
+    toanswer.pop();
+}
+
 static bool
 handle_cs_request (MsgChannel *c, Msg *_m)
 {
@@ -223,17 +293,10 @@ handle_cs_request (MsgChannel *c, Msg *_m)
   CS *submitter = *it;
   Job *job = create_new_job (c, submitter);
   job->environment = m->version;
+  enqueue_job_request (job);
   log_info() << "NEW: " << job->id << " version=\""
              << job->environment << "\" " << m->filename
              << " " << ( m->lang == CompileJob::Lang_C ? "C" : "C++" ) << endl;
-  if ( !toanswer.empty() && toanswer.front()->server == submitter )
-    toanswer.front()->push( job );
-  else {
-    UnansweredList *newone = new UnansweredList();
-    newone->server = submitter;
-    newone->push( job );
-    toanswer.push( newone );
-  }
   notify_monitors (MonGetCSMsg (job->id, c->other_end->name, m));
   return true;
 }
@@ -277,12 +340,14 @@ server_speed (CS *cs)
              / (float) cs->cum_compiled.compile_time_user;
 }
 
-bool envs_match( CS* cs, const string &env )
+static bool
+envs_match( CS* cs, const string &env )
 {
   return find( cs->compiler_versions.begin(), cs->compiler_versions.end(), env ) != cs->compiler_versions.end();
 }
 
-bool can_install( CS*, const string & )
+static bool
+can_install( CS*, const string & )
 {
   return true; // TODO/XXX: uname call
 }
@@ -335,12 +400,15 @@ pick_server(Job *job)
         continue;
 
       if ( cs->last_compiled_jobs.size() == 0 )
-        {
-          /* Make all servers compile a job at least once, so we'll get an
-             idea about their speed.  */
-          best = cs;
-          break;
-        }
+	{
+	  /* Make all servers compile a job at least once, so we'll get an
+	     idea about their speed.  */
+	  if (envs_match (cs, environment))
+	    best = cs;
+	  else
+	    bestui = cs;
+	  break;
+	}
 
       if ( envs_match( cs, environment ) )
         {
@@ -376,16 +444,14 @@ empty_queue()
 {
   // trace() << "empty_queue " << toanswer.size() << " " << css.size() << endl;
 
-  if ( toanswer.empty() )
+  Job *job = get_job_request ();
+  if (!job)
     return false;
-
-  UnansweredList *first = toanswer.front();
-  Job *job = first->front();
 
   if (css.empty())
     {
       trace() << "no servers to handle\n";
-      toanswer.pop();
+      remove_job_request ();
       job->channel->send_msg( EndMsg() );
       notify_monitors (MonJobDoneMsg (JobDoneMsg( job->id,  255 )));
       return false;
@@ -398,12 +464,7 @@ empty_queue()
     return false;
   }
 
-  first->pop();
-  toanswer.pop();
-  if ( !first->empty() )
-    toanswer.push( first );
-  else
-    delete first;
+  remove_job_request ();
 
   job->state = Job::WAITINGFORCS;
   job->server = cs;
@@ -587,18 +648,23 @@ static bool
 try_login (MsgChannel *c, Msg *m)
 {
   bool ret = true;
+  CS *cs = static_cast<CS *>(c->other_end);
   switch (m->type)
     {
     case M_GET_CS:
+      cs->type = CS::CLIENT;
       ret = handle_cs_request (c, m);
       break;
     case M_LOGIN:
+      cs->type = CS::DAEMON;
       ret = handle_login (c, m);
       break;
     case M_MON_LOGIN:
+      cs->type = CS::MONITOR;
       ret = handle_mon_login (c, m);
       break;
     case M_JOB_LOCAL_BEGIN:
+      cs->type = CS::DAEMON;
       ret = handle_local_job(c, m);
       break;
     default:
@@ -608,7 +674,7 @@ try_login (MsgChannel *c, Msg *m)
     }
   delete m;
   if (ret)
-    static_cast<CS *>(c->other_end)->state = CS::LOGGEDIN;
+    cs->state = CS::LOGGEDIN;
   else
     {
       fd2chan.erase (c->fd);
@@ -620,64 +686,91 @@ try_login (MsgChannel *c, Msg *m)
 static bool
 handle_end (MsgChannel *c, Msg *)
 {
-  if (find (monitors.begin(), monitors.end(), c->other_end) != monitors.end())
+  CS *toremove = static_cast<CS *>(c->other_end);
+  if (toremove->type == CS::MONITOR)
     {
+      assert (find (monitors.begin(), monitors.end(), c->other_end) != monitors.end());
       monitors.remove (c->other_end);
       // trace() << "handle_end(moni) " << monitors.size() << endl;
     }
-  else
+  else if (toremove->type == CS::DAEMON)
     {
-      uint osize = css.size();
-      CS *toremove = static_cast<CS*>(c->other_end);
+      /* A daemon disconnected.  We must remove it from the css list,
+         and we have to delete all jobs scheduled on that daemon.
+	 There might be still clients connected running on the machine on which
+	 the daemon died.  We expect that the daemon dying makes the client
+	 disconnect soon too.  */
       css.remove (toremove);
 
-      if ( css.size() == osize )
-        for ( map<unsigned int, Job*>::iterator it = jobs.begin(); it != jobs.end(); ++it )
-          if ( it->second->channel == c && it->second->state == Job::PENDING )
-            {
-              trace() << "client died in pending mode\n";
-              // we're afraid
-              osize = 0;
-            }
+      /* Unfortunately the toanswer queues are also tagged based on the daemon,
+         so we need to clean them up also.  */
+      queue<UnansweredList*> newtoanswer;
+      while (!toanswer.empty())
+	{
+	  UnansweredList *l = toanswer.front();
+	  if (l->server != toremove)
+	    newtoanswer.push (l);
+	  else
+	    {
+	      while (!l->empty())
+		{
+		  trace() << "STOP FOR " << l->front()->id << endl;
+		  jobs.erase( l->front()->id );
+		  delete l->front();
+		  l->pop();
+		}
+	      delete l;
+	    }
+	  toanswer.pop();
+	}
+      toanswer = newtoanswer;
 
-      if ( osize != css.size() ) // the above may fail when it's a client ending
-        {
-          queue<UnansweredList*> newtoanswer;
-          while ( !toanswer.empty() )
-            {
-              UnansweredList *l = toanswer.front();
-              if ( l->server != toremove )
-                {
-                  newtoanswer.push( l );
-                }
-              else
-                {
-                  while ( !l->empty() )
-                    {
-                      trace() << "STOP FOR " << l->front()->id << endl;
-                      jobs.erase( l->front()->id );
-                      delete l->front();
-                      l->pop();
-                    }
-                  delete l;
-                }
-              toanswer.pop();
-            }
-
-          toanswer = newtoanswer;
-          // trace() << "handle_end " << css.size() << endl;
-
-          for ( map<unsigned int, Job*>::iterator it = jobs.begin(); it != jobs.end(); ++it )
-            {
-              if ( it->second->submitter == toremove || it->second->server == toremove || it->second->channel == c)
-                {
-                  trace() << "STOP FOR " << it->first << endl;
-                  delete it->second; // closes socket -> causes continuing
-                  jobs.erase( it );
-                }
-            }
-        }
+      map<unsigned int, Job*>::iterator it;
+      for (it = jobs.begin(); it != jobs.end(); ++it )
+	if (it->second->server == toremove)
+	  {
+	    trace() << "STOP FOR " << it->first << endl;
+	    delete it->second; // closes socket -> causes continuing
+	    jobs.erase( it );
+	  }
     }
+  else if (toremove->type == CS::CLIENT)
+    {
+      /* A client disconnected.  We must remove all its job requests
+         and jobs.  All job requests are also in the jobs list, so it's
+	 enough to traverse that one, and when finding a job to possibly
+	 remove it also from any request queues.
+	 XXX This is made particularly ugly due to using real queues.  */
+      for ( map<unsigned int, Job*>::iterator it = jobs.begin(); it != jobs.end(); ++it )
+	{
+	  if (it->second->channel == c)
+	    {
+	      Job *job = it->second;
+	      trace() << "STOP FOR " << it->first << endl;
+
+	      /* Remove this job from the request queue.  */
+	      queue<UnansweredList*> newtoanswer;
+	      while (!toanswer.empty())
+		{
+		  UnansweredList *l = toanswer.front();
+		  toanswer.pop();
+		  if (l->server == job->submitter
+		      && l->remove_job (job)
+		      && l->empty())
+		    delete l;
+		  else
+		    newtoanswer.push(l);
+		}
+
+	      toanswer = newtoanswer;
+	      
+	      jobs.erase( it );
+	      delete it->second; // closes socket -> causes continuing
+	    }
+	}
+    }
+  else
+    trace() << "remote end had UNKNOWN type?" << endl;
 
   fd2chan.erase (c->fd);
   delete c;
@@ -718,7 +811,7 @@ handle_activity (MsgChannel *c)
   return ret;
 }
 
-int
+static int
 open_broad_listener ()
 {
   int listen_fd;
@@ -745,7 +838,7 @@ open_broad_listener ()
   return listen_fd;
 }
 
-void
+static void
 usage(const char* reason = 0)
 {
   if (reason)
