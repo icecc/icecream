@@ -30,6 +30,9 @@
 #include <errno.h>
 #include <assert.h>
 
+#include <sys/types.h>
+#include <sys/stat.h>
+
 #include "client.h"
 
 using namespace std;
@@ -301,6 +304,10 @@ bool analyse_argv( const char * const *argv,
     } else {
         job.setInputFile( string() );
     }
+
+    struct stat st;
+    if ( !stat( ofile.c_str(), &st ) && !S_ISREG( st.st_mode ))
+        always_local = true;
 
     job.setFlags( args );
     job.setOutputFile( ofile );
