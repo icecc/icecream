@@ -39,6 +39,18 @@
 
 using namespace std;
 
+bool dcc_is_preprocessed(const string& sfile)
+{
+    if( sfile.size() < 3 )
+        return false;
+    int last = sfile.size() - 1;
+    if( sfile[last-1] == '.' && sfile[last] == 'i' )
+        return true; // .i
+    if( sfile[last-2] == '.' && sfile[last-1] == 'i' && sfile[last] == 'i' )
+        return true; // .ii
+    return false;
+}
+
 /**
  * If the input filename is a plain source file rather than a
  * preprocessed source file, then preprocess it to a temporary file
@@ -51,18 +63,38 @@ using namespace std;
  **/
 pid_t call_cpp(CompileJob &job, int fd)
 {
-#if 0
     if ( dcc_is_preprocessed( job.inputFile() ) ) {
         /* TODO: Perhaps also consider the option that says not to use cpp.
          * Would anyone do that? */
+#if 0
         trace() << "input is already preprocessed" << endl;
-
-        /* already preprocessed, great. */
-        /* TODO: write the file to the fd (fork cat?) */
-        assert(0);
-        return 0;
-    }
 #endif
+        /* already preprocessed, great. */
+        /* write the file to the fd (fork cat) */
+        pid_t pid = fork();
+        if (pid == -1) {
+            log_error() << "failed to fork: " << strerror(errno) << endl;
+            return -1; /* probably */
+        } else if (pid == 0) {
+            int ret = dcc_ignore_sigpipe(0);
+            if (ret)    /* set handler back to default */
+                exit(ret);
+    
+            char **argv = new char*[2+1];
+            argv[0] = strdup( "/bin/cat" );
+            argv[1] = strdup( job.inputFile().c_str() );
+            argv[2] = 0;
+
+            /* Ignore failure */
+            close(STDOUT_FILENO);
+            dup2(fd, STDOUT_FILENO);
+
+            execvp(argv[0], argv);
+            /* !! NEVER RETURN FROM HERE !! */
+            return 0;
+        } else
+            return pid;
+    }
 
     pid_t pid = fork();
     if (pid == -1) {
