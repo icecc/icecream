@@ -270,6 +270,8 @@ int main( int argc, char ** argv )
      * not.  */
     dcc_master_pid = getpid();
 
+    int count = 0;
+
     while (1) {
         int acc_fd;
         struct sockaddr cli_addr;
@@ -290,6 +292,8 @@ int main( int argc, char ** argv )
             handle_connection (c);
             delete c;
             delete client;
+            if ( ++count > 10 )
+                exit( 0 );
         }
     }
 }

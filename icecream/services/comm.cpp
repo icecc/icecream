@@ -450,6 +450,10 @@ FileChunkMsg::send_to_fd (int fd) const
   return ret;
 }
 
+FileChunkMsg::~FileChunkMsg() {
+    delete [] buffer;
+}
+
 bool
 CompileResultMsg::fill_from_fd (int fd)
 {

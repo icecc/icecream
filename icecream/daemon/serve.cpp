@@ -195,22 +195,28 @@ int handle_connection( MsgChannel *serv )
         }
 
         if ( msg->type == M_END ) {
+            delete msg;
             trace() << "end\n";
             break;
         }
 
         if ( msg->type != M_FILE_CHUNK ) {
+            delete msg;
             trace() << "file chunk\n";
             return EXIT_PROTOCOL_ERROR;
         }
 
         FileChunkMsg *fcmsg = dynamic_cast<FileChunkMsg*>( msg );
         if ( !fcmsg ) {
+            delete msg;
             log_error() << "FileChunkMsg\n";
             return EXIT_PROTOCOL_ERROR;
         }
-        if ( write( ti, fcmsg->buffer, fcmsg->len ) != ( ssize_t )fcmsg->len )
+        if ( write( ti, fcmsg->buffer, fcmsg->len ) != ( ssize_t )fcmsg->len ) {
+            delete msg;
             return EXIT_DISTCC_FAILED;
+        }
+        delete msg;
     }
     close( ti );
 
