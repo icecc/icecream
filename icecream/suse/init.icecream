@@ -53,7 +53,7 @@ case "$1" in
 	if test -n "$ICECREAM_SCHEDULER_HOST"; then
 	    scheduler="-s $ICECREAM_SCHEDULER_HOST"
 	fi
-	startproc -n $ICECREAM_NICE_LEVEL /usr/sbin/iceccd -d "$logfile" $nice $scheduler $netname
+	startproc /usr/sbin/iceccd -d "$logfile" $nice $scheduler $netname
 	rc_status -v
 	;;
     stop)
