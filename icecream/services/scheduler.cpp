@@ -110,6 +110,10 @@ public:
   CS (struct sockaddr *_addr, socklen_t _len)
     : Service(_addr, _len), load(1000), max_jobs(0), state(CONNECTED),
       type(UNKNOWN) {
+    hostid = 0;
+  }
+  void pick_new_id() {
+    assert( !hostid );
     hostid = ++hostid_counter;
   }
   list<JobStat> last_compiled_jobs;
@@ -596,6 +600,7 @@ handle_login (MsgChannel *c, Msg *_m)
   cs->max_jobs = m->max_kids;
   if ( m->nodename.length() )
     cs->nodename = m->nodename;
+  cs->pick_new_id();
   handle_monitor_stats( cs );
   css.push_back (cs);
 
@@ -1190,7 +1195,7 @@ main (int argc, char * argv[])
 
 	      CS *cs = new CS ((struct sockaddr*) &remote_addr, remote_len);
               cs->last_talk = time( 0 );
-	      // printf ("accepting from %s:%d\n", cs->name.c_str(), cs->port);
+	      trace() << "accepting from " << cs->name << ":" << cs->port << "\n";
 	      MsgChannel *c = cs->createChannel (remote_fd);
 	      fd2chan[c->fd] = c;
 	      if (!c->read_a_bit () || c->has_msg ())
