@@ -54,5 +54,9 @@ static inline std::ostream& trace() {
 }
 
 std::string get_backtrace();
+static inline void log_perror(const char *prefix) {
+    int tmp_errno = errno;
+    log_error() << prefix << " " << strerror( tmp_errno ) << std::endl;
+}
 
 #endif

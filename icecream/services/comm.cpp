@@ -474,7 +474,7 @@ Service::Service (const string &hostname, unsigned short p)
   struct hostent *host = gethostbyname (hostname.c_str());
   if (!host)
     {
-      log_error() << "Unknown host " << strerror(errno) << endl;
+      log_perror("Unknown host");
       close (remote_fd);
       return;
     }
@@ -484,14 +484,96 @@ Service::Service (const string &hostname, unsigned short p)
       close (remote_fd);
       return;
     }
+  fcntl(remote_fd, F_SETFL, O_NONBLOCK);
+
   remote_addr.sin_family = AF_INET;
   remote_addr.sin_port = htons (p);
   memcpy (&remote_addr.sin_addr.s_addr, host->h_addr_list[0], host->h_length);
-  if (connect (remote_fd, (struct sockaddr *) &remote_addr, sizeof (remote_addr)) < 0)
+  int status = connect (remote_fd, (struct sockaddr *) &remote_addr, sizeof (remote_addr) );
+
+  if ( ( status < 0 ) && ( errno == EINPROGRESS || errno == EAGAIN ) )
     {
-      close (remote_fd);
+      struct timeval select_timeout;
+      int ret;
+      int tries=0;
+
+      ret = 0;
+      while (ret <= 0) {
+        fd_set writefds;
+
+        trace() << "trying to connect\n";
+        /*
+        **  Protect against an infinite loop.
+        */
+        if (tries++ >= 100) {
+          return;
+        }
+
+        select_timeout.tv_sec = 0;
+        select_timeout.tv_usec = 100000;
+        FD_ZERO(&writefds);
+        FD_SET(remote_fd, &writefds);
+        ret = select(remote_fd + 1, NULL, &writefds, NULL, &select_timeout);
+
+        /*
+        **  If we suspend, then it is possible that select will be
+        **  interrupted.  Allow for this possibility. - JED
+        */
+        if ((ret == -1) && (errno == EINTR))
+          continue;
+
+        if ((ret < 0) && (errno != EALREADY)) {
+          status = ret;
+          break;
+        } else if (ret > 0) {
+          /*
+          **  Extra check here for connection success, if we try to
+          **  connect again, and get EISCONN, it means we have a
+          **  successful connection.  But don't check with SOCKS.
+          */
+          status = connect(remote_fd, (struct sockaddr*)&remote_addr,
+                           sizeof(remote_addr));
+          if ((status < 0) && (errno == EISCONN))
+            {
+              status = 0;
+            }
+
+          if (status && (errno == EALREADY)) /* new stuff LJM */
+            ret = 0; /* keep going */
+          else {
+            break;
+          }
+        }
+        else
+          {
+            status = connect(remote_fd, (struct sockaddr*)&remote_addr,
+                             sizeof(remote_addr));
+            if ((status < 0) &&
+                (errno != EALREADY
+                 && errno != EAGAIN )
+                && (errno != EISCONN)) {
+              break;
+            }
+          }
+      }
+    }
+  if (status < 0)
+    {
+      /*
+      **  The connect attempt failed or was interrupted,
+      **  so close up the socket.
+      */
+      trace() << "failed\n";
+      close(remote_fd);
       return;
     }
+  else {
+    /*
+    **  Make the socket blocking again on good connect.
+    */
+    fcntl(remote_fd, F_SETFL, 0);
+  }
+  trace() << "connected " << remote_fd << endl;
   len = sizeof (remote_addr);
   addr = (struct sockaddr *)malloc (len);
   memcpy (addr, &remote_addr, len);
