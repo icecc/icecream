@@ -190,8 +190,12 @@ bool analyse_argv( const char * const *argv,
                        || str_equal("-idirafter", a) ) {
                 args.append(a, Arg_Local);
                 /* skip next word, being option argument */
-                if (argv[i+1])
-                    args.append(  argv[++i], Arg_Local );
+                if (argv[i+1]) {
+		    ++i;
+		    if (str_startswith("-O", argv[i]))
+			 always_local = true;
+                    args.append(  argv[i], Arg_Local );
+		}
             } else if (str_startswith("-Wp,", a)
                  || str_startswith("-D", a)
                  || str_startswith("-U", a)
