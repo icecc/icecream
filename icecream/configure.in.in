@@ -152,3 +152,4 @@ dnl Checks for library functions
 AC_CHECK_FUNCS(memcmp memcpy memmove memset)
 dnl === END LZO
 
+KDE_CHECK_FINAL
