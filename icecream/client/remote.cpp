@@ -74,6 +74,8 @@ int build_remote(CompileJob &job, MsgChannel *scheduler )
         version_file = get;
     string version = version_file;
     string suff = ".tar.bz2";
+    off_t offset;
+    unsigned char buffer[100000]; // some random but huge number
     if ( version.size() > suff.size() && version.substr( version.size() - suff.size() ) == suff )
     {
         version = find_basename( version.substr( 0, version.size() - suff.size() ) );
@@ -100,7 +102,6 @@ int build_remote(CompileJob &job, MsgChannel *scheduler )
     job.setEnvironmentVersion( usecs->environment ); // hoping on the scheduler's wisdom
     // printf ("Have to use host %s:%d - Job ID: %d\n", hostname.c_str(), port, job.jobID() );
     delete usecs;
-    // if the scheduler ignores us, ignore it in return :/
 
     Service *serv = new Service (hostname, port);
     MsgChannel *cserver = serv->channel();
@@ -123,7 +124,6 @@ int build_remote(CompileJob &job, MsgChannel *scheduler )
             return build_local( job, scheduler );
         }
 
-        unsigned char buffer[100000];
         FILE *file = fopen( version_file.c_str(), "rb" );
         if ( !file )
             return build_local( job, scheduler );
@@ -132,7 +132,7 @@ int build_remote(CompileJob &job, MsgChannel *scheduler )
         if ( !cserver->send_msg( msg ) )
             return build_local( job, scheduler );
 
-        off_t offset = 0;
+        offset = 0;
 
         do {
             ssize_t bytes = fread(buffer + offset, 1, sizeof(buffer) - offset, file );
@@ -177,8 +177,7 @@ int build_remote(CompileJob &job, MsgChannel *scheduler )
         return build_local( job, scheduler );
     close(sockets[1]);
 
-    unsigned char buffer[100000]; // some random but huge number
-    off_t offset = 0;
+    offset = 0;
 
     do {
         ssize_t bytes = read(sockets[0], buffer + offset, sizeof(buffer) - offset );
