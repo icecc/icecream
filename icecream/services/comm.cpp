@@ -594,7 +594,7 @@ LoginMsg::fill_from_fd (int fd)
 {
   if (!Msg::fill_from_fd (fd))
     return false;
-  return true;
+  return readuint( fd, &port );
 }
 
 bool
@@ -602,7 +602,7 @@ LoginMsg::send_to_fd (int fd) const
 {
   if (!Msg::send_to_fd (fd))
     return false;
-  return true;
+  return writeuint( fd, port );
 }
 
 bool

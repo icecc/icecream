@@ -43,87 +43,6 @@
 
 using namespace std;
 
-int dcc_sockaddr_to_PATHstring(struct sockaddr *sa,
-                               char *p_buf)
-{
-    if (sa->sa_family == AF_INET) {
-        struct sockaddr_in *sain = (struct sockaddr_in *) sa;
-
-        snprintf(p_buf, PATH_MAX, "%s:%d", inet_ntoa(sain->sin_addr),
-                  ntohs(sain->sin_port));
-    } else if (sa->sa_family == AF_UNIX) {
-        /* NB: The word 'sun' is predefined on Solaris */
-        struct sockaddr_un *sa_un = (struct sockaddr_un *) sa;
-        snprintf(p_buf, PATH_MAX, "UNIX-DOMAIN %s", sa_un->sun_path);
-    } else {
-        snprintf(p_buf, PATH_MAX, "UNKNOWN-FAMILY %d", sa->sa_family);
-    }
-
-    return 0;
-}
-
-/**
- * Listen on a predetermined address (often the passive address).  The way in
- * which we get the address depends on the resolver API in use.
- **/
-static int dcc_listen_by_addr(int *listen_fd,
-                              struct sockaddr *sa,
-                              size_t salen)
-{
-    int one = 1;
-    int fd;
-
-    char sa_buf[PATH_MAX];
-
-    fd = socket(sa->sa_family, SOCK_STREAM, 0);
-    if (fd == -1) {
-	log_error() << "socket creation failed: " << strerror(errno) << endl;
-	return EXIT_BIND_FAILED;
-    }
-
-    setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, (char *) &one, sizeof(one));
-
-    dcc_sockaddr_to_PATHstring(sa, sa_buf);
-
-    /* now we've got a socket - we need to bind it */
-    if (bind(fd, sa, salen) == -1) {
-	log_error() << "bind of " << sa_buf << " failed: " << strerror(errno) << endl;
-	close(fd);
-	return EXIT_BIND_FAILED;
-    }
-
-    log_info() << "listening on " << sa_buf << endl;
-
-    if (listen(fd, 10)) {
-        log_error() << "listen failed: " << strerror(errno) << endl;
-        close(fd);
-        return EXIT_BIND_FAILED;
-    }
-
-    *listen_fd = fd;
-    return 0;
-
-}
-
-/* This version uses inet_aton */
-int dcc_socket_listen(int port, int *listen_fd)
-{
-    struct sockaddr_in sock;
-
-    if (port < 1 || port > 65535) {
-        /* htons() will truncate, not check */
-        log_error() << "port number out of range: " << port << endl;
-        return EXIT_BAD_ARGUMENTS;
-    }
-
-    memset((char *) &sock, 0, sizeof(sock));
-    sock.sin_port = htons(port);
-    sock.sin_family = PF_INET;
-    sock.sin_addr.s_addr = INADDR_ANY;
-
-    return dcc_listen_by_addr(listen_fd, (struct sockaddr *) &sock, sizeof sock);
-}
-
 int set_cloexec_flag (int desc, int value)
 {
     int oldflags = fcntl (desc, F_GETFD, 0);
@@ -180,6 +99,8 @@ void dcc_daemon_catch_signals(void)
 
 pid_t dcc_master_pid;
 
+MsgChannel *scheduler = 0;
+
 /**
  * Just log, remove pidfile, and exit.
  *
@@ -189,7 +110,8 @@ pid_t dcc_master_pid;
  **/
 static void dcc_daemon_terminate(int whichsig)
 {
-    int am_parent = getpid() == dcc_master_pid;
+    bool am_parent = ( getpid() == dcc_master_pid );
+    printf( "term %d %d %p\n", whichsig, am_parent, scheduler );
 
     if (am_parent) {
 #ifdef HAVE_STRSIGNAL
@@ -206,7 +128,10 @@ static void dcc_daemon_terminate(int whichsig)
     // dcc_cleanup_tempfiles();
 
     if (am_parent) {
-        // dcc_remove_pid();
+        if ( scheduler ) {
+            scheduler->send_msg( EndMsg() ); /// TODO: what happens if it's already in send_msg?
+            scheduler = 0;
+        }
 
         /* kill whole group */
         kill(0, whichsig);
@@ -215,16 +140,44 @@ static void dcc_daemon_terminate(int whichsig)
     raise(whichsig);
 }
 
-MsgChannel *scheduler = 0;
+
 
 int main( int /*argc*/, char ** /*argv*/ )
 {
-    int listen_fd;
-    int n_cpus;
-    int ret;
+    const int START_PORT = 10245;
 
-    if ((ret = dcc_socket_listen(10245, &listen_fd)) != 0)
-        return ret;
+    int listen_fd;
+    if ((listen_fd = socket (PF_INET, SOCK_STREAM, 0)) < 0) {
+        perror ("socket()");
+        return 1;
+    }
+
+    int optval = 1;
+    if (setsockopt (listen_fd, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(optval)) < 0) {
+        perror ("setsockopt()");
+        return 1;
+    }
+
+    struct sockaddr_in myaddr;
+    int port = START_PORT;
+    for ( ; port < START_PORT + 10; port++) {
+        myaddr.sin_family = AF_INET;
+        myaddr.sin_port = htons (port);
+        myaddr.sin_addr.s_addr = INADDR_ANY;
+        if (bind (listen_fd, (struct sockaddr *) &myaddr, sizeof (myaddr)) < 0) {
+            if (errno == EADDRINUSE && port < START_PORT + 9)
+                continue;
+            perror ("bind()");
+            return 1;
+        }
+        break;
+    }
+
+    if (listen (listen_fd, 20) < 0)
+    {
+      perror ("listen()");
+      return 1;
+    }
 
     scheduler = connect_scheduler ();
     if ( !scheduler ) {
@@ -232,10 +185,11 @@ int main( int /*argc*/, char ** /*argv*/ )
         return -1;
     }
 
-    scheduler->send_msg( LoginMsg() );
+    scheduler->send_msg( LoginMsg( port ) );
 
     set_cloexec_flag(listen_fd, 1);
 
+    int n_cpus;
     if (dcc_ncpus(&n_cpus) == 0)
         log_info() << n_cpus << " CPUs online on this server" << endl;
 
@@ -245,6 +199,8 @@ int main( int /*argc*/, char ** /*argv*/ )
     int dcc_max_kids = 2 + n_cpus;
 
     log_info() << "allowing up to " << dcc_max_kids << " active jobs\n";
+
+    int ret;
 
     /* Still create a new process group, even if not detached */
     trace() << "not detaching\n";
@@ -290,6 +246,12 @@ int main( int /*argc*/, char ** /*argv*/ )
             }
             if ( scheduler->send_msg( msg ) )
                 last_stat = time( 0 );
+            else {
+                log_error() << "lost connection to scheduler. Exiting\n";
+                delete scheduler;
+                scheduler = 0;
+                return 1; // TODO: try to get it back
+            }
         }
         if ( ret > 0 ) {
             cli_len = sizeof cli_addr;

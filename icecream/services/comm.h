@@ -209,7 +209,10 @@ public:
 
 class LoginMsg : public Msg {
 public:
-  LoginMsg () : Msg(M_LOGIN) {}
+  unsigned int port;
+  LoginMsg (unsigned int myport)
+      : Msg(M_LOGIN), port( myport ) {}
+  LoginMsg () : Msg(M_LOGIN), port( 0 ) {}
   virtual bool fill_from_fd (int fd);
   virtual bool send_to_fd (int fd) const;
 };

@@ -32,6 +32,7 @@ public:
 /* One compile server (receiver, compile daemon)  */
 class CS : public Service {
 public:
+  unsigned int remote_port;
   unsigned int id;
   double load;
   unsigned int jobs_done;
@@ -76,6 +77,7 @@ handle_cs_request (MsgChannel *c, Msg *_m)
   // XXX select a nice CS
   // For now: compile it yourself
   int i = random () % css.size();
+  trace() << "Picking " << i << " out of " << css.size() << endl;
   list<CS*>::iterator it;
   for (it = css.begin(); it != css.end(); ++it)
     //if (c->other_end->eq_ip (**it))
@@ -87,9 +89,10 @@ handle_cs_request (MsgChannel *c, Msg *_m)
       return 1;
     }
   CS *cs = *it;
+  trace() << "got CS " << cs << endl;
   if (!create_new_job (cs))
     return 1;
-  UseCSMsg m2(cs->name, 10245, new_job_id);
+  UseCSMsg m2(cs->name, cs->remote_port, new_job_id);
   EndMsg m3;
   if (!c->send_msg (m2)
       || !c->send_msg (m3))
@@ -104,6 +107,7 @@ handle_login (MsgChannel *c, Msg *_m)
   if (!m)
     return 1;
   CS *cs = static_cast<CS *>(c->other_end);
+  cs->remote_port = m->port;
   css.push_back (cs);
   fd2chan[c->fd] = c;
   return 0;
@@ -198,6 +202,8 @@ handle_end (MsgChannel *c, Msg *)
 {
   fd2chan.erase (c->fd);
   css.remove (static_cast<CS*>(c->other_end));
+  trace() << "handle_end " << css.size() << endl;
+
   delete c->other_end;
   delete c;
   return 0;

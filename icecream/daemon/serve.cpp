@@ -151,6 +151,8 @@ int handle_connection( MsgChannel *serv )
         if ( scheduler ) {
             UseSchedulerMsg m( scheduler->other_end->name, scheduler->other_end->port );
             serv->send_msg( m );
+        } else {
+            serv->send_msg( EndMsg() );
         }
         delete msg;
         return 0;
