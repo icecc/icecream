@@ -193,10 +193,7 @@ int main( int /*argc*/, char ** /*argv*/ )
     if (dcc_ncpus(&n_cpus) == 0)
         log_info() << n_cpus << " CPUs online on this server" << endl;
 
-    /* By default, allow one job per CPU, plus two for the pot.  The extra
-     * ones are started to allow for a bit of extra concurrency so that the
-     * machine is not idle waiting for disk or network IO. */
-    int max_kids = n_cpus + 2;
+    int max_kids = n_cpus + 1;
 
     log_info() << "allowing up to " << max_kids << " active jobs\n";
 
@@ -238,7 +235,7 @@ int main( int /*argc*/, char ** /*argv*/ )
         LoginMsg lmsg( port );
         lmsg.envs = environments;
         lmsg.max_kids = max_kids;
-        lmsg.max_load = n_cpus * 1500;
+        lmsg.max_load = n_cpus * 1800;
         scheduler->send_msg( lmsg );
 
         // TODO: clean up the mess from before

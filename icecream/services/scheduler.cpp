@@ -165,10 +165,14 @@ empty_queue()
 
       job->channel->send_msg (EndMsg()); // most likely won't work
       tochoose = true;
-      job->server->joblist.remove (job);
+      cs->joblist.remove (job);
       jobs.erase(job->id );
       delete job;
       return true;
+    }
+  else
+    {
+      cs->joblist.push_back( job );
     }
   return true;
 }
