@@ -1159,7 +1159,7 @@ LoginMsg::fill_from_channel (MsgChannel *c)
   else { // the older daemons are supposed to run on the same arch as the scheduler
     struct utsname buf;
     uname( &buf );
-    target = buf.machine;
+    host_platform = buf.machine;
   }
 }
 
