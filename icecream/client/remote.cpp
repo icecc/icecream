@@ -178,8 +178,8 @@ int build_remote(CompileJob &job, MsgChannel *scheduler )
     assert( !job.outputFile().empty() );
     
     if( status == 0 ) {
-        int obj_fd = open( job.outputFile().c_str(),
-                           O_CREAT|O_TRUNC|O_WRONLY|O_LARGEFILE, 0666 );
+        string tmp_file = job.outputFile() + "_icetmp";
+        int obj_fd = open( tmp_file.c_str(), O_CREAT|O_TRUNC|O_WRONLY|O_LARGEFILE, 0666 );
 
         if ( obj_fd == -1 ) {
             log_error() << "open failed\n";
@@ -199,7 +199,10 @@ int build_remote(CompileJob &job, MsgChannel *scheduler )
                 return EXIT_DISTCC_FAILED;
         }
 
-        close( obj_fd );
+        if( close( obj_fd ) == 0 )
+            rename( tmp_file.c_str(), job.outputFile().c_str());
+        else
+            unlink( tmp_file.c_str());
     }
     return status;
 }
