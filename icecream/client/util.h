@@ -26,7 +26,6 @@
 int argv_contains(char **argv, const char *s);
 int str_startswith(const char *head, const char *worm);
 char *dcc_gethostname(void);
-int dcc_getenv_bool(const char *name, int def_value);
 int set_cloexec_flag (int desc, int value);
 int dcc_ignore_sigpipe(int val);
 int dcc_remove_if_exists(const char *fname);

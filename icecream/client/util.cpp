@@ -99,28 +99,6 @@ char *dcc_gethostname(void)
     return myname;
 }
 
-
-/**
- * Look up a boolean environment option, which must be either "0" or
- * "1".  The default, if it's not set or is empty, is @p default.
- **/
-int dcc_getenv_bool(const char *name, int default_value)
-{
-    const char *e;
-
-    e = getenv(name);
-    if (!e || !*e)
-        return default_value;
-    if (!strcmp(e, "1"))
-        return 1;
-    else if (!strcmp(e, "0"))
-        return 0;
-    else
-        return default_value;
-}
-
-
-
 /**
  * Set the `FD_CLOEXEC' flag of DESC if VALUE is nonzero,
  * or clear the flag if VALUE is 0.
