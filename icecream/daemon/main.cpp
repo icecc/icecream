@@ -146,6 +146,8 @@ int main( int /*argc*/, char ** /*argv*/ )
 {
     const int START_PORT = 10245;
 
+    // daemon(0, 0);
+
     int listen_fd;
     if ((listen_fd = socket (PF_INET, SOCK_STREAM, 0)) < 0) {
         perror ("socket()");
@@ -206,7 +208,6 @@ int main( int /*argc*/, char ** /*argv*/ )
     trace() << "not detaching\n";
     if ((ret = dcc_new_pgrp()) != 0)
         return ret;
-    // dcc_save_pid(getpid());
 
     /* Don't catch signals until we've detached or created a process group. */
     dcc_daemon_catch_signals();

@@ -108,7 +108,7 @@ int work_it( CompileJob &j,
         argv[i++] = strdup( "-o" );
         argv[i++] = tmp_output;
         argv[i] = 0;
-        printf( "forking2 " );
+        printf( "forking " );
         for ( int index = 0; argv[index]; index++ )
             printf( "%s ", argv[index] );
         printf( "\n" );
