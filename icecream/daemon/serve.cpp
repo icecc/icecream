@@ -1,56 +1,3 @@
-/* -*- c-file-style: "java"; indent-tabs-mode: nil; fill-column: 78 -*-
- *
- * distcc -- A simple distributed compiler system
- *
- * Copyright (C) 2002, 2003 by Martin Pool <mbp@samba.org>
- *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License as
- * published by the Free Software Foundation; either version 2 of the
- * License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307
- * USA
- */
-
-                /* He who waits until circumstances completely favour *
-                 * his undertaking will never accomplish anything.    *
-                 *              -- Martin Luther                      */
-
-
-/**
- * @file
- *
- * Actually serve remote requests.  Called from daemon.c.
- *
- * @todo Make sure wait statuses are packed in a consistent format
- * (exit<<8 | signal).  Is there any platform that doesn't do this?
- *
- * @todo The server should catch signals, and terminate the compiler process
- * group before handling them.
- *
- * @todo It might be nice to detect that the client has dropped the
- * connection, and then kill the compiler immediately.  However, we probably
- * won't notice that until we try to do IO.  SIGPIPE won't help because it's
- * not triggered until we try to do IO.  I don't think it matters a lot,
- * though, because the client's not very likely to do that.  The main case is
- * probably somebody getting bored and interrupting compilation.
- *
- * What might help is to select() on the network socket while we're waiting
- * for the child to complete, allowing SIGCHLD to interrupt the select() when
- * the child completes.  However I'm not sure if it's really worth the trouble
- * of doing that just to handle a fairly marginal case.
- **/
-
-
-
 #include "config.h"
 
 #include <stdio.h>
@@ -80,9 +27,17 @@
 #include "logging.h"
 #include "serve.h"
 #include <sys/sendfile.h>
-// #include <scheduler.h>
+#include <exception>
 
 using namespace std;
+
+class myexception: public exception
+{
+    int code;
+public:
+    myexception( int _exitcode ) : exception(), code( _exitcode ) {}
+    int exitcode() const { return code; }
+};
 
 /**
  * Read a request, run the compiler, and send a response.
@@ -101,85 +56,101 @@ int handle_connection( CompileJob *job, MsgChannel *serv )
         exit ( EXIT_DISTCC_FAILED );
     }
 
-    const char *dot;
-    if (job->language() == CompileJob::Lang_C)
-        dot = ".i";
-    else if (job->language() == CompileJob::Lang_CXX)
-        dot = ".ii";
-    else
-        assert(0);
+    Msg *msg = 0; // The current read message
+    char tmp_input[PATH_MAX];
+    tmp_input[0] = 0;
+    int ti = 0; // the socket
+    unsigned int job_id = 0;
+    int obj_fd = 0; // the obj_fd
+    string obj_file;
+
+    try {
+        const char *dot;
+        if (job->language() == CompileJob::Lang_C)
+            dot = ".i";
+        else if (job->language() == CompileJob::Lang_CXX)
+            dot = ".ii";
+        else
+            assert(0);
 
     int ret;
-    char tmp_input[PATH_MAX];
     if ( ( ret = dcc_make_tmpnam("icecc", dot, tmp_input ) ) != 0 ) {
-        delete job;
-        exit ( ret );
+        log_error() << "can't create tmpfile " << strerror( errno ) << endl;
+        throw myexception( ret );
     }
 
-    int ti = open( tmp_input, O_CREAT|O_WRONLY|O_LARGEFILE );
+    ti = open( tmp_input, O_CREAT|O_WRONLY|O_LARGEFILE );
     if ( ti == -1 ) {
-        delete job;
-        log_error() << "open failed\n";
-        exit ( EXIT_DISTCC_FAILED );
+        log_error() << "open of " << tmp_input << " failed " << strerror( errno ) << endl;
+        throw myexception( EXIT_DISTCC_FAILED );
     }
+
 
     while ( 1 ) {
-        Msg *msg = serv->get_msg();
+        msg = serv->get_msg();
 
         if ( !msg ) {
-            delete job;
             log_error() << "no message while reading file chunk\n";
-            exit ( EXIT_PROTOCOL_ERROR );
+            throw myexception( EXIT_PROTOCOL_ERROR );
         }
 
         if ( msg->type == M_END ) {
             delete msg;
+            msg = 0;
             break;
         }
 
         if ( msg->type != M_FILE_CHUNK ) {
-            delete job;
-            delete msg;
-            exit ( EXIT_PROTOCOL_ERROR );
+            log_error() << "protocol error while looking for FILE_CHUNK\n";
+            throw myexception( EXIT_PROTOCOL_ERROR );
         }
 
         FileChunkMsg *fcmsg = dynamic_cast<FileChunkMsg*>( msg );
         if ( !fcmsg ) {
-            delete job;
-            delete msg;
-            log_error() << "FileChunkMsg\n";
-            exit( EXIT_PROTOCOL_ERROR );
+            log_error() << "FileChunkMsg not dynamic_castable\n";
+            throw myexception( EXIT_PROTOCOL_ERROR );
         }
-        if ( write( ti, fcmsg->buffer, fcmsg->len ) != ( ssize_t )fcmsg->len ) {
-            delete job;
-            delete msg;
-            exit( EXIT_DISTCC_FAILED );
+        ssize_t len = fcmsg->len;
+        off_t off = 0;
+        while ( len ) {
+            ssize_t bytes = write( ti, fcmsg->buffer + off, len );
+            if ( bytes == -1 ) {
+                log_error() << "write to " << tmp_input << " failed. " << strerror( errno ) << endl;
+                throw myexception( EXIT_DISTCC_FAILED );
+            }
+            len -= bytes;
+            off += bytes;
         }
 
         delete msg;
+        msg = 0;
     }
     close( ti );
+    ti = 0;
 
     CompileResultMsg rmsg;
 
-    string filename;
     ret = work_it( *job, tmp_input,
-                   rmsg.out, rmsg.err, rmsg.status, filename );
+                   rmsg.out, rmsg.err, rmsg.status, obj_file );
     unlink( tmp_input );
-    unsigned int job_id = job->jobID();
+    tmp_input[0] = 0; // unlinked
+
+    job_id = job->jobID();
     delete job;
+    job = 0;
 
     if ( ret )
-        exit ( ret );
+        throw myexception( ret );
 
     if ( !serv->send_msg( rmsg ) ) {
         log_info() << "write of result failed\n";
-        exit(  EXIT_DISTCC_FAILED );
+        throw myexception( EXIT_DISTCC_FAILED );
     }
 
-    int obj_fd = open( filename.c_str(), O_RDONLY|O_LARGEFILE );
+    obj_fd = open( obj_file.c_str(), O_RDONLY|O_LARGEFILE );
     if ( obj_fd == -1 ) {
         log_error() << "open failed\n";
+        throw myexception( EXIT_DISTCC_FAILED );
     }
 
     unsigned char buffer[100000];
@@ -190,16 +161,33 @@ int handle_connection( CompileJob *job, MsgChannel *serv )
         FileChunkMsg fcmsg( buffer, bytes );
         if ( !serv->send_msg( fcmsg ) ) {
             log_info() << "write of chunk failed" << endl;
-            exit( EXIT_DISTCC_FAILED );
+            throw myexception( EXIT_DISTCC_FAILED );
         }
     } while (1);
-    EndMsg emsg;
-    serv->send_msg( emsg );
 
-    scheduler->send_msg( JobDoneMsg( job_id ) );
+    throw myexception( 0 );
 
-    close( obj_fd );
-    unlink( filename.c_str() );
+    } catch ( myexception e )
+    {
+        delete msg;
+        delete job;
 
-    exit( 0 );
+        if ( *tmp_input )
+            unlink( tmp_input );
+
+        if ( ti )
+            close( ti );
+
+        serv->send_msg( EndMsg() );
+
+        if ( job_id && scheduler)
+            scheduler->send_msg( JobDoneMsg( job_id ) );
+
+        if ( obj_fd > 0)
+            close( obj_fd );
+
+        if ( !obj_file.empty() )
+            unlink( obj_file.c_str() );
+        exit( e.exitcode() );
+    }
 }

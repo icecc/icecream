@@ -215,9 +215,8 @@ int main( int /*argc*/, char ** /*argv*/ )
     dcc_master_pid = getpid();
 
     int current_kids = 0;
-    const int max_count = 0;
-    int count = 0;
-    time_t last_stat = 0;
+    const int max_count = 0; // DEBUG
+    int count = 0; // DEBUG
     typedef pair<CompileJob*, MsgChannel*> Compile_Request;
     queue<Compile_Request> requests;
 
@@ -230,6 +229,13 @@ int main( int /*argc*/, char ** /*argv*/ )
         }
 
         scheduler->send_msg( LoginMsg( port ) );
+        // TODO: clean up the mess from before
+        // for now I just hope schedulers don't go up
+        // and down that often
+        int current_kids = 0;
+        time_t last_stat = 0;
+        Compile_Request.clear();
+        requests.clear();
 
         while (1) {
             int acc_fd;
