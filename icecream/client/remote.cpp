@@ -221,7 +221,7 @@ static int build_remote_int(CompileJob &job, UseCSMsg *usecs, const string &envi
 
     try {
     MsgChannel *cserver = serv->channel();
-    if ( !cserver->protocol ) {
+    if ( !cserver || !cserver->protocol ) {
         log_warning() << "no server found behind given hostname " << hostname << ":" << port << endl;
         throw ( 2 );
     }
