@@ -164,6 +164,7 @@ public:
   time_t starttime;  // _local_ to the compiler server
   time_t start_on_scheduler;  // starttime local to scheduler
   string target_platform;
+  string filename;
   list<Job*> master_job_for;
   unsigned int arg_flags;
   string language; // for debugging
@@ -458,6 +459,7 @@ handle_cs_request (MsgChannel *c, Msg *_m)
       job->target_platform = m->target;
       job->arg_flags = m->arg_flags;
       job->language = ( m->lang == CompileJob::Lang_C ? "C" : "C++" );
+      job->filename = m->filename;
       enqueue_job_request (job);
       log_info() << "NEW: " << job->id << " versions=[";
       for ( Environments::const_iterator it = job->environments.begin(); it != job->environments.end(); ++it )
@@ -1039,17 +1041,38 @@ handle_line (MsgChannel *c, Msg *_m)
   TextMsg *m = dynamic_cast<TextMsg *>(_m);
   if (!m)
     return false;
+  char buffer[1000];
+  string line;
   if (m->text == "listcs")
     {
       for (list<CS*>::iterator it = css.begin(); it != css.end(); ++it)
 	{
 	  CS* cs= *it;
-	  string line;
-	  char buffer[1000];
 	  line = " " + cs->nodename + "(" + cs->name + ")";
 	  line += "[" + cs->host_platform + "] speed= ";
-	  sprintf (buffer, "%.2f max=%d", server_speed (cs), cs->max_jobs);
+	  sprintf (buffer, "%.2f jobs=%d/%d", server_speed (cs),
+	  	   cs->joblist.size(), cs->max_jobs);
 	  line = line + buffer;
+	  c->send_msg (TextMsg (line));
+	}
+    }
+  else if (m->text == "listjobs")
+    {
+      for (map<unsigned int, Job*>::const_iterator it = jobs.begin();
+	   it != jobs.end(); ++it)
+	{
+	  int id = it->first;
+	  Job *job = it->second;
+	  sprintf (buffer, "%d %s sub:%s on:%s ",
+	  	   id,
+		   job->submitter ? job->submitter->nodename.c_str() : "<>",
+		   job->server ? job->server->nodename.c_str() : "<unknown>",
+		   job->state == Job::PENDING ? "PEND"
+		     : job->state == Job::WAITINGFORCS ? "WAIT"
+		     : job->state == Job::COMPILING ? "COMP"
+		     : "Huh?");
+	  line = buffer;
+	  line = line + job->filename;
 	  c->send_msg (TextMsg (line));
 	}
     }
@@ -1065,6 +1088,7 @@ handle_line (MsgChannel *c, Msg *_m)
       txt += "'";
       c->send_msg (TextMsg (txt));
     }
+  c->send_msg (TextMsg (string ("done")));
   return true;
 }
 
