@@ -74,6 +74,11 @@ handle_cs_request (MsgChannel *c, Msg *_m)
   GetCSMsg *m = dynamic_cast<GetCSMsg *>(_m);
   if (!m)
     return 1;
+
+  if ( css.empty() ) {
+      c->send_msg( EndMsg() );
+      return 0;
+  }
   // XXX select a nice CS
   // For now: compile it yourself
   int i = random () % css.size();
@@ -93,9 +98,9 @@ handle_cs_request (MsgChannel *c, Msg *_m)
   if (!create_new_job (cs))
     return 1;
   UseCSMsg m2(cs->name, cs->remote_port, new_job_id);
-  EndMsg m3;
+
   if (!c->send_msg (m2)
-      || !c->send_msg (m3))
+      || !c->send_msg (EndMsg()))
     return 1;
   return 0;
 }
@@ -183,13 +188,11 @@ handle_new_connection (MsgChannel *c)
     {
     case M_GET_CS:
       ret = handle_cs_request (c, m);
-      delete c->other_end;
       delete c;
       break;
     case M_LOGIN: ret = handle_login (c, m); break;
     default:
       ret = 1;
-      delete c->other_end;
       delete c;
       break;
     }
@@ -204,7 +207,6 @@ handle_end (MsgChannel *c, Msg *)
   css.remove (static_cast<CS*>(c->other_end));
   trace() << "handle_end " << css.size() << endl;
 
-  delete c->other_end;
   delete c;
   return 0;
 }
@@ -344,8 +346,7 @@ main (int /*argc*/, char * /*argv*/ [])
 	    {
 	      CS *cs = new CS ((struct sockaddr*) &remote_addr, remote_len);
 	      printf ("accepting from %s:%d\n", cs->name.c_str(), cs->port);
-	      MsgChannel *c = new MsgChannel (remote_fd, cs);
-	      handle_new_connection (c);
+	      handle_new_connection ( cs->createChannel( remote_fd ));
 	    }
         }
       if (max_fd && FD_ISSET (broad_fd, &read_set))

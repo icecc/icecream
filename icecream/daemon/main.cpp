@@ -34,7 +34,7 @@
 #  include <resolv.h>
 #endif
 #include <netdb.h>
-
+#include <queue>
 #include "ncpus.h"
 #include "exitcode.h"
 #include "serve.h"
@@ -166,7 +166,8 @@ int main( int /*argc*/, char ** /*argv*/ )
         myaddr.sin_family = AF_INET;
         myaddr.sin_port = htons (port);
         myaddr.sin_addr.s_addr = INADDR_ANY;
-        if (bind (listen_fd, (struct sockaddr *) &myaddr, sizeof (myaddr)) < 0) {
+        if (bind (listen_fd, (struct sockaddr *) &myaddr,
+                  sizeof (myaddr)) < 0) {
             if (errno == EADDRINUSE && port < START_PORT + 9)
                 continue;
             perror ("bind()");
@@ -198,9 +199,9 @@ int main( int /*argc*/, char ** /*argv*/ )
     /* By default, allow one job per CPU, plus two for the pot.  The extra
      * ones are started to allow for a bit of extra concurrency so that the
      * machine is not idle waiting for disk or network IO. */
-    int dcc_max_kids = 2 + n_cpus;
+    int max_kids = 2 + n_cpus;
 
-    log_info() << "allowing up to " << dcc_max_kids << " active jobs\n";
+    log_info() << "allowing up to " << max_kids << " active jobs\n";
 
     int ret;
 
@@ -216,9 +217,12 @@ int main( int /*argc*/, char ** /*argv*/ )
      * not.  */
     dcc_master_pid = getpid();
 
+    int current_kids = 0;
     const int max_count = 0;
     int count = 0;
     time_t last_stat = 0;
+    typedef pair<CompileJob*, MsgChannel*> Compile_Request;
+    queue<Compile_Request> requests;
 
     while (1) {
         int acc_fd;
@@ -232,6 +236,25 @@ int main( int /*argc*/, char ** /*argv*/ )
         FD_SET (listen_fd, &listen_set);
         tv.tv_sec = 2;
         tv.tv_usec = 0;
+
+	log_info() << "requests " << requests.size() << " " << current_kids << " (" << max_kids << ")\n";
+        if ( !requests.empty() && current_kids < max_kids ) {
+            Compile_Request req = requests.front();
+            requests.pop();
+	    log_info() << "handle\n";
+            if ( handle_connection( req.first, req.second ) == 0) // forks away
+                current_kids++;
+            delete req.first;
+            delete req.second;
+        }
+        struct rusage ru;
+        int status;
+        pid_t child = wait3(&status, WNOHANG, &ru);
+        if ( child > 0 ) {
+	    log_info() << "one child got " << status << endl;
+            current_kids--;
+            continue;
+        }
 
         ret = select (listen_fd + 1, &listen_set, NULL, NULL, &tv);
         if ( time( 0 ) - last_stat >= 2 ) {
@@ -259,10 +282,29 @@ int main( int /*argc*/, char ** /*argv*/ )
                 return EXIT_CONNECT_FAILED;
             } else {
                 Service *client = new Service ((struct sockaddr*) &cli_addr, cli_len);
-                MsgChannel *c = new MsgChannel (acc_fd, client);
-                handle_connection (c);
-                delete c;
+                MsgChannel *c = client->createChannel( acc_fd );
+
+                Msg *msg = c->get_msg();
+                if ( !msg ) {
+                    log_error() << "no message?\n";
+                } else {
+                    if ( msg->type == M_GET_SCHEDULER ) {
+                        if ( scheduler ) {
+                            UseSchedulerMsg m( scheduler->other_end->name, scheduler->other_end->port );
+                            c->send_msg( m );
+                        } else {
+                            c->send_msg( EndMsg() );
+                        }
+                    } else if ( msg->type == M_COMPILE_FILE ) {
+                        CompileJob *job = dynamic_cast<CompileFileMsg*>( msg )->takeJob();
+                        requests.push( make_pair( job, c ));
+                        client = 0; // forget you saw him
+                    } else
+                        log_error() << "not compile\n";
+                    delete msg;
+                }
                 delete client;
+
                 if ( max_count && ++count > max_count ) {
                     cout << "I'm closing now. Hoping you used valgrind! :)\n";
                     exit( 0 );
@@ -270,7 +312,6 @@ int main( int /*argc*/, char ** /*argv*/ )
             }
         }
     }
-    delete scheduler->other_end;
     delete scheduler;
     scheduler = 0;
 }

@@ -3,10 +3,10 @@
 
 #include <string>
 
+class CompileJob;
 class MsgChannel;
-
 extern MsgChannel *scheduler;
 
-int handle_connection( MsgChannel *serv );
+int handle_connection( CompileJob *job, MsgChannel *serv );
 
 #endif

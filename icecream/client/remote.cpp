@@ -67,12 +67,10 @@ int build_remote(CompileJob &job )
     Msg *umsg = local_daemon->get_msg();
     if ( !umsg || umsg->type != M_USE_SCHEDULER ) {
         log_error() << "umsg != scheduler\n";
-        delete local_daemon;
         delete serv;
         return build_local( job );
     }
     UseSchedulerMsg *ucs = dynamic_cast<UseSchedulerMsg*>( umsg );
-    delete local_daemon;
     delete serv;
 
     // log_info() << "contacting scheduler " << ucs->hostname << ":" << ucs->port << endl;
@@ -109,14 +107,12 @@ int build_remote(CompileJob &job )
     EndMsg em;
     // if the scheduler ignores us, ignore it in return :/
     ( void )scheduler->send_msg (em);
-    delete scheduler;
     delete serv;
 
     serv = new Service (hostname, port);
     MsgChannel *cserver = serv->channel();
     if ( ! cserver ) {
         log_error() << "no server found behind given hostname " << hostname << ":" << port << endl;
-        delete cserver;
         delete serv;
         return build_local( job );
     }
@@ -124,7 +120,6 @@ int build_remote(CompileJob &job )
     CompileFileMsg compile_file( &job );
     if ( !cserver->send_msg( compile_file ) ) {
         log_info() << "write of job failed" << endl;
-        delete cserver;
         delete serv;
         return build_local( job );
     }

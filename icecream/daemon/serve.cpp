@@ -131,9 +131,14 @@ int client_write_message( int fd, enum ClientMsgType type, const string& str )
 /**
  * Read a request, run the compiler, and send a response.
  **/
-int handle_connection( MsgChannel *serv )
+int handle_connection( CompileJob *job, MsgChannel *serv )
 {
-    int ret;
+    pid_t pid = fork();
+    if ( pid == -1 )
+        return EXIT_DISTCC_FAILED;
+
+    if ( pid ) // parent
+        return 0;
 
     /* Ignore SIGPIPE; we consistently check error codes and will see the
      * EPIPE.  Note that it is set back to the default behaviour when spawning
@@ -141,35 +146,9 @@ int handle_connection( MsgChannel *serv )
      * from the compiler */
     dcc_ignore_sigpipe(1);
 
-    Msg *msg = serv->get_msg();
-    if ( !msg ) {
-        log_error() << "no message?\n";
-        return EXIT_PROTOCOL_ERROR;
-    }
-
-    if ( msg->type == M_GET_SCHEDULER ) {
-        if ( scheduler ) {
-            UseSchedulerMsg m( scheduler->other_end->name, scheduler->other_end->port );
-            serv->send_msg( m );
-        } else {
-            serv->send_msg( EndMsg() );
-        }
-        delete msg;
-        return 0;
-    }
-
-    if ( msg->type != M_COMPILE_FILE ) {
-        delete msg;
-        log_error() << "not compile\n";
-        return EXIT_PROTOCOL_ERROR;
-    }
-
-    CompileJob *job = dynamic_cast<CompileFileMsg*>( msg )->takeJob();
-    delete msg;
-
     if ( !scheduler || !scheduler->send_msg( JobBeginMsg( job->jobID() ) ) ) {
         log_error() << "can't reach scheduler to tell him about job start of " << job->jobID() << endl;
-        return EXIT_DISTCC_FAILED;
+        exit ( EXIT_DISTCC_FAILED );
     }
 
     const char *dot;
@@ -180,26 +159,27 @@ int handle_connection( MsgChannel *serv )
     else
         assert(0);
 
+    int ret;
     char tmp_input[PATH_MAX];
     if ( ( ret = dcc_make_tmpnam("icecc", dot, tmp_input ) ) != 0 ) {
         delete job;
-        return ret;
+        exit ( ret );
     }
 
     int ti = open( tmp_input, O_CREAT|O_WRONLY|O_LARGEFILE );
     if ( ti == -1 ) {
         delete job;
         log_error() << "open failed\n";
-        return EXIT_DISTCC_FAILED;
+        exit ( EXIT_DISTCC_FAILED );
     }
 
     while ( 1 ) {
-        msg = serv->get_msg();
+        Msg *msg = serv->get_msg();
 
         if ( !msg ) {
             delete job;
             log_error() << "no message while reading file chunk\n";
-            return EXIT_PROTOCOL_ERROR;
+            exit ( EXIT_PROTOCOL_ERROR );
         }
 
         if ( msg->type == M_END ) {
@@ -210,7 +190,7 @@ int handle_connection( MsgChannel *serv )
         if ( msg->type != M_FILE_CHUNK ) {
             delete job;
             delete msg;
-            return EXIT_PROTOCOL_ERROR;
+            exit ( EXIT_PROTOCOL_ERROR );
         }
 
         FileChunkMsg *fcmsg = dynamic_cast<FileChunkMsg*>( msg );
@@ -218,12 +198,12 @@ int handle_connection( MsgChannel *serv )
             delete job;
             delete msg;
             log_error() << "FileChunkMsg\n";
-            return EXIT_PROTOCOL_ERROR;
+            exit( EXIT_PROTOCOL_ERROR );
         }
         if ( write( ti, fcmsg->buffer, fcmsg->len ) != ( ssize_t )fcmsg->len ) {
             delete job;
             delete msg;
-            return EXIT_DISTCC_FAILED;
+            exit( EXIT_DISTCC_FAILED );
         }
 
         delete msg;
@@ -240,11 +220,11 @@ int handle_connection( MsgChannel *serv )
     delete job;
 
     if ( ret )
-        return ret;
+        exit ( ret );
 
     if ( !serv->send_msg( rmsg ) ) {
         log_info() << "write of result failed\n";
-        return EXIT_DISTCC_FAILED;
+        exit(  EXIT_DISTCC_FAILED );
     }
 
     int obj_fd = open( filename.c_str(), O_RDONLY|O_LARGEFILE );
@@ -260,7 +240,7 @@ int handle_connection( MsgChannel *serv )
         FileChunkMsg fcmsg( buffer, bytes );
         if ( !serv->send_msg( fcmsg ) ) {
             log_info() << "write of chunk failed" << endl;
-            return EXIT_DISTCC_FAILED;
+            exit( EXIT_DISTCC_FAILED );
         }
     } while (1);
     EndMsg emsg;
@@ -271,5 +251,5 @@ int handle_connection( MsgChannel *serv )
     close( obj_fd );
     unlink( filename.c_str() );
 
-    return 0;
+    exit( 0 );
 }

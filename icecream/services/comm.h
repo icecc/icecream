@@ -59,6 +59,7 @@ class MsgChannel;
 
 // an endpoint of a MsgChannel, i.e. most often a host
 class Service {
+  friend class MsgChannel;
   // deep copied
   struct sockaddr *addr;
   socklen_t len;
@@ -69,11 +70,13 @@ public:
   Service (struct sockaddr *, socklen_t);
   Service (const std::string &host, unsigned short p);
   MsgChannel *channel() const { return c; }
-  ~Service ();
+  MsgChannel *createChannel( int remote_fd );
   bool eq_ip (const Service &s);
+  virtual ~Service ();
 };
 
 class MsgChannel {
+  friend class Service;
 public:
   Service *other_end;
   // our filedesc
@@ -84,9 +87,12 @@ public:
   bool send_msg (const Msg &);
   // return last error (0 == no error)
   int error(void) {return 0;}
+  // be careful: it also deletes the service it belongs to
+  ~MsgChannel ();
+private:
   MsgChannel (int _fd);
   MsgChannel (int _fd, Service *serv);
-  ~MsgChannel ();
+
 };
 
 MsgChannel *connect_scheduler ();

@@ -253,7 +253,6 @@ bool analyse_argv( const char * const *argv,
                 string::size_type slash = ofile.find_last_of( '/' );
                 if ( slash != string::npos )
                     ofile = ofile.substr( slash + 1 );
-                cout << "ofile " << ofile << endl;
             }
         }
     } else

@@ -55,7 +55,6 @@ submit_job (MsgChannel *c, char *filename)
       return;
     }
   delete job;
-  delete c;
   delete serv;
 }
 
@@ -68,12 +67,11 @@ int main (int argc, char *argv[])
       return 1;
     }
   filename = argv[1];
-  
+
   MsgChannel *c = connect_scheduler ();
   if (!c)
     return 1;
   submit_job (c, filename);
-  delete c->other_end;
   delete c;
   return 0;
 }

@@ -14,7 +14,7 @@ using namespace std;
 
 class Client : public Service {
 public:
-  Client (struct sockaddr *addr, socklen_t len) : Service (addr, len) {}
+  Client (struct sockaddr *_addr, socklen_t _len) : Service (_addr, _len) {}
 };
 
 MsgChannel *sched_channel;
@@ -28,14 +28,13 @@ open_scheduler ()
       fprintf (stderr, "No scheduler running\n");
       exit (1);
     }
-  sched_channel->send_msg (LoginMsg());
 }
 
 static int
 handle_compile_file (MsgChannel * /*c*/, Msg *_m)
 {
   CompileFileMsg *m = dynamic_cast<CompileFileMsg *>(_m);
-  CompileJob *job = m->job;
+  CompileJob *job = m->takeJob();
   cout << "compiling Job " << job->jobID() << ":" << endl;
   const list<string> &l = job->remoteFlags();
   for (list<string>::const_iterator it = l.begin(); it != l.end(); ++it)
@@ -44,7 +43,6 @@ handle_compile_file (MsgChannel * /*c*/, Msg *_m)
   for (list<string>::const_iterator it = l2.begin(); it != l2.end(); ++it)
     cout << *it << " " << endl;
   delete job;
-  m->job = 0;
   return 0;
 }
 
@@ -85,7 +83,8 @@ int main (int , char *[])
       perror ("setsockopt()");
       return 1;
     }
-  for (int port = START_PORT; port < START_PORT + 10; port++)
+  int port = START_PORT;
+  for ( ; port < START_PORT + 10; port++)
     {
       myaddr.sin_family = AF_INET;
       myaddr.sin_port = htons (port);
@@ -105,6 +104,8 @@ int main (int , char *[])
       return 1;
     }
   open_scheduler ();
+  sched_channel->send_msg (LoginMsg( port ));
+
   while (1)
     {
       remote_len = sizeof (remote_addr);
@@ -114,12 +115,9 @@ int main (int , char *[])
 	  return 1;
 	}
       Client *client = new Client ((struct sockaddr*) &remote_addr, remote_len);
-      MsgChannel *c = new MsgChannel (remote_fd, client);
-      handle_connection (c);
-      delete c;
+      handle_connection (client->createChannel( remote_fd ));
       delete client;
     }
-  delete sched_channel->other_end;
   delete sched_channel;
   return 0;
 }

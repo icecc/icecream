@@ -9,7 +9,7 @@
 #include <errno.h>
 #include <string>
 #include <iostream>
-#include <cassert>
+#include <assert.h>
 
 #include "logging.h"
 #include "job.h"
@@ -205,13 +205,18 @@ Service::Service (const string &hostname, unsigned short p)
   memcpy (addr, &remote_addr, len);
   name = hostname;
   port = p;
-  c = new MsgChannel (remote_fd, this);
+  new MsgChannel (remote_fd, this); // sets c
 }
 
 Service::~Service ()
 {
   if (addr)
     free (addr);
+  if ( c ) {
+      assert( c->other_end == this );
+      c->other_end = 0;
+  }
+  delete c;
 }
 
 bool
@@ -227,16 +232,25 @@ Service::eq_ip (const Service &s)
 MsgChannel::MsgChannel (int _fd)
   : other_end(0), fd(_fd)
 {
+    abort(); // currently not tested
 }
 
 MsgChannel::MsgChannel (int _fd, Service *serv)
   : other_end(serv), fd(_fd)
 {
+    assert( !serv->c );
+    serv->c = this;
 }
 
 MsgChannel::~MsgChannel()
 {
   close (fd);
+  fd = 0;
+  if ( other_end ) {
+      assert( !other_end->c || other_end->c == this );
+      other_end->c = 0;
+  }
+  delete other_end;
 }
 
 Msg *
@@ -280,6 +294,17 @@ bool
 MsgChannel::send_msg (const Msg &m)
 {
   return m.send_to_fd (fd);
+}
+
+MsgChannel *Service::createChannel( int remote_fd )
+{
+    if ( c ) {
+        assert( remote_fd == c->fd );
+        return c;
+    }
+    new MsgChannel( remote_fd, this ); // sets c
+    assert( c );
+    return c;
 }
 
 MsgChannel *
