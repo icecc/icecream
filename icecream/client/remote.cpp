@@ -78,13 +78,13 @@ Environments parse_icecc_version(const string &target_platform )
         trace() << "platform '" << platform << "' '" << version << "'" << endl;
 
         if ( ::access( version.c_str(), R_OK ) ) {
-            log_error() << "$ICECC_VERSION has to point to an existing file to be installed\n";
+            log_error() << "$ICECC_VERSION has to point to an existing file to be installed " << version << endl;
             throw ( 3 );
         }
 
         struct stat st;
         if ( lstat( version.c_str(), &st ) || !S_ISREG( st.st_mode )) {
-            log_error() << "$ICECC_VERSION has to point to an existing file to be installed\n";
+            log_error() << "$ICECC_VERSION has to point to an existing file to be installed " << version << endl;
             throw ( 3 );
         }
 
