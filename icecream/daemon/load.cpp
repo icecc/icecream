@@ -208,6 +208,6 @@ bool fill_stats( StatsMsg &msg )
     msg.loadAvg10 = ( unsigned int )( avg[2] * 1000 );
 
     msg.freeMem = ( unsigned int )( MemFree / 1024.0 + 0.5 );
-    // trace() << "load cpu=" << realLoad << " mem=" << memory_fillgrade << " total=" << msg.load << " idle=" << msg.idleLoad << " user=" << msg.userLoad << " sys=" << msg.sysLoad << endl;
+    trace() << "load cpu=" << realLoad << " mem=" << memory_fillgrade << " total=" << msg.load << " idle=" << msg.idleLoad << " user=" << msg.userLoad << " sys=" << msg.sysLoad << endl;
     return true;
 }
