@@ -371,11 +371,12 @@ public:
 class MonStatsMsg : public StatsMsg {
 public:
   std::string host;
+  unsigned int max_kids;
   MonStatsMsg() : StatsMsg() {
     type = M_MON_STATS;
   }
-  MonStatsMsg( const std::string& name, const StatsMsg &m )
-    : StatsMsg(m), host( name )
+  MonStatsMsg( const std::string& name, unsigned int mk, const StatsMsg &m )
+    : StatsMsg(m), host( name ), max_kids( mk )
   {
     type = M_MON_STATS;
   }

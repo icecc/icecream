@@ -1099,12 +1099,14 @@ void
 MonStatsMsg::fill_from_channel (MsgChannel *c)
 {
   StatsMsg::fill_from_channel (c);
-  c->read_string (host);
+  c->read_string(host);
+  c->readuint32(max_kids);
 }
 
 void
 MonStatsMsg::send_to_channel (MsgChannel *c) const
 {
   StatsMsg::send_to_channel (c);
-  c->write_string (host);
+  c->write_string(host);
+  c->writeuint32(max_kids);
 }

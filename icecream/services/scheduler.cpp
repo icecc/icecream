@@ -478,7 +478,7 @@ handle_stats (MsgChannel * c, Msg * _m)
     if (( *it )->channel() == c)
       {
         ( *it )->load = m->load;
-        notify_monitors( MonStatsMsg( c->other_end->name, *m ) );
+        notify_monitors( MonStatsMsg( c->other_end->name, ( *it )->max_jobs, *m ) );
         return true;
       }
 
