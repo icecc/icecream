@@ -312,8 +312,10 @@ empty_queue()
 
   CS *cs = pick_server (job);
 
-  if (!cs)
+  if (!cs) {
+    trace() << "tried to pick a server for " << job->id << " and failed\n";
     return false;
+  }
 
   toanswer.pop();
   job->server = cs;
@@ -332,6 +334,7 @@ empty_queue()
     }
   else
     {
+      trace() << "put " << job->id << " in joblist of " << cs->name << endl;
       cs->joblist.push_back( job );
     }
   return true;
@@ -374,11 +377,18 @@ static bool
 handle_job_begin (MsgChannel *c, Msg *_m)
 {
   JobBeginMsg *m = dynamic_cast<JobBeginMsg *>(_m);
-  if (!m || jobs.find(m->job_id) == jobs.end())
+  if ( !m )
     return false;
-  //  trace() << "BEGIN: " << m->job_id << endl;
-  if (jobs[m->job_id]->server != c->other_end)
+
+  if (jobs.find(m->job_id) == jobs.end()) {
+    trace() << "handle_job_begin: no valid job id " << m->job_id << endl;
     return false;
+  }
+  trace() << "BEGIN: " << m->job_id << endl;
+  if (jobs[m->job_id]->server != c->other_end) {
+    trace() << "that job isn't handled by " << c->other_end->name << endl;
+    return false;
+  }
   jobs[m->job_id]->state = Job::COMPILING;
   jobs[m->job_id]->starttime = m->stime;
   jobs[m->job_id]->start_on_scheduler = time(0);
@@ -390,8 +400,14 @@ static bool
 handle_job_done (MsgChannel *c, Msg *_m)
 {
   JobDoneMsg *m = dynamic_cast<JobDoneMsg *>(_m);
-  if (!m || jobs.find(m->job_id) == jobs.end())
+  if ( !m )
     return false;
+
+  if (jobs.find(m->job_id) == jobs.end()) {
+    trace() << "job ID not present " << m->job_id << endl;
+    return false;
+  }
+
   if ( m->exitcode == 0 && m->in_uncompressed && m->out_uncompressed )
     trace() << "END " << m->job_id
             << " status=" << m->exitcode
@@ -422,6 +438,25 @@ handle_job_done (MsgChannel *c, Msg *_m)
   notify_monitors (MonJobDoneMsg (*m));
   jobs.erase (m->job_id);
   delete j;
+
+
+#ifndef NDEBUG
+  bool first = true;
+
+  for (map<unsigned int, Job *>::const_iterator it = jobs.begin();
+       it != jobs.end(); ++it)
+    {
+      int id = it->first;
+      Job *c = it->second;
+      trace() << "  undone: " << id << " " << c->state << endl;
+      if ( first && c->state == Job::PENDING ) {
+        trace() << "first job is pending! Something is fishy\n";
+        abort();
+      }
+      first = false;
+    }
+#endif
+
   return true;
 }
 

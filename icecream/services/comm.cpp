@@ -274,7 +274,7 @@ MsgChannel::readcompressed (unsigned char **uncompressed_buf,
       _clen = compressed_len;
       return;
     }
-	  
+
   *uncompressed_buf = new unsigned char[uncompressed_len];
   if (uncompressed_len && compressed_len)
     {
@@ -469,8 +469,10 @@ MsgChannel::wait_for_msg (void)
 {
   if (has_msg ())
     return true;
-  if (!read_a_bit ())
+  if (!read_a_bit ()) {
+    trace() << "!read_a_bit\n";
     return false;
+  }
   while (!has_msg ())
     {
       fd_set read_set;
@@ -479,12 +481,18 @@ MsgChannel::wait_for_msg (void)
       struct timeval tv;
       tv.tv_sec = 5 * 60;
       tv.tv_usec = 0;
-      if (select (fd + 1, &read_set, NULL, NULL, &tv) <= 0)
+      if (select (fd + 1, &read_set, NULL, NULL, &tv) <= 0) {
+        if ( errno == EINTR )
+          continue;
+        perror( "select" );
 	/* Either timeout or real error.  For this function also
 	   a timeout is an error.  */
         return false;
-      if (!read_a_bit ())
+      }
+      if (!read_a_bit ()) {
+        trace() << "!read_a_bit 2\n";
         return false;
+      }
     }
   return true;
 }
@@ -495,15 +503,21 @@ MsgChannel::get_msg(bool blocking)
   Msg *m;
   enum MsgType type;
   unsigned int t;
-  if (blocking && !wait_for_msg ())
+  if (blocking && !wait_for_msg () ) {
+    trace() << "blocking && !waiting_for_msg()\n";
     return 0;
+  }
   /* If we've seen the EOF, and we don't have a complete message,
      then we won't see it anymore.  Return that to the caller.
      Don't use has_msg() here, as it returns true for eof.  */
-  if (eof && instate != HAS_MSG)
+  if (eof && instate != HAS_MSG) {
+    trace() << "eof && !HAS_MSG\n";
     return 0;
-  if (!has_msg ())
+  }
+  if (!has_msg ()) {
+    trace() << "saw eof without msg! " << eof << " " << instate << endl;
     abort (); // XXX but what else?
+  }
   readuint32 (t);
   type = (enum MsgType) t;
   switch (type)
