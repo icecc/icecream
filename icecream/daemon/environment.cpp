@@ -72,10 +72,6 @@ list<string> available_environmnents(const string &basedir)
         closedir( envdir );
     }
 
-    cout << "vers ";
-    for ( list<string>::const_iterator it = envs.begin(); it != envs.end(); ++it )
-        cout << "'" << *it << "' ";
-    cout << endl;
     return envs;
 }
 
