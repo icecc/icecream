@@ -39,7 +39,7 @@ case "$1" in
             if test -n "$ICECREAM_SCHEDULER_LOG_FILE"; then
                 logfile="-l $ICECREAM_SCHEDULER_LOG_FILE"
             fi
-            startproc /usr/bin/scheduler -d $logfile $netname
+            startproc -u icecream /usr/bin/scheduler -d $logfile $netname
         fi
         logfile=""
         if test -n "$ICECREAM_LOG_FILE"; then
@@ -51,9 +51,13 @@ case "$1" in
 	fi
         scheduler=
 	if test -n "$ICECREAM_SCHEDULER_HOST"; then
-	    scheduler="-s $ICECREAM_SCHEDULER_HOST"
+	    scheduler="-s '$ICECREAM_SCHEDULER_HOST'"
 	fi
-	startproc /usr/sbin/iceccd -d "$logfile" $nice $scheduler $netname
+        maxjobs=
+        if test -n "$ICECREAM_MAX_JOBS"; then
+	    maxjobs="-m '$ICECREAM_MAX_JOBS'"
+        fi
+	startproc /usr/sbin/iceccd -d "$logfile" $nice $scheduler $netname -u icecream -b "$ICECREAM_BASEDIR" $maxjobs
 	rc_status -v
 	;;
     stop)

@@ -56,3 +56,24 @@ ICECREAM_NETNAME=""
 # of a firewall) you can specify it.
 #
 ICECREAM_SCHEDULER_HOST=""
+
+#
+## Type: string
+## Path: Applications/icecream
+## Defaut: ""
+## Type: integer
+# 
+# You can overwrite here the number of jobs to run in parallel. Per
+# default this depends on the number of (virtual) CPUs installed. 
+#
+ICECREAM_MAX_JOBS=""
+
+## Type: string
+## Path: Applications/icecream
+## Default: "/var/cache/icecream"
+#
+# This is the directory where the icecream daemon stores the environments
+# it compiles in. In a big network this can grow quite a bit, so use some
+# path if your /tmp is small - but the user icecream has to write to it.
+# 
+ICECREAM_BASEDIR="/var/cache/icecream"

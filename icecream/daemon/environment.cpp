@@ -122,26 +122,37 @@ bool cleanup_cache( const string &basedir, uid_t nobody_uid )
     // else
     setuid( nobody_uid );
 
-    if ( !::access( basedir.c_str(), W_OK ) ) { // it exists - removing
-        if ( ( basedir.substr( 0, 5 ) != "/tmp/" && basedir.substr( 0, 9 ) != "/var/tmp/" ) ||
-             basedir.find_first_of( "'\"" ) != string::npos )
-        {
-            log_error() << "the cache directory for icecream isn't below /tmp or /var/tmp and already exists - I won't remove it!\n";
+    if ( !::access( basedir.c_str(), W_OK ) ) { // it exists - removing content
+
+        if ( chdir( basedir.c_str() ) ) {
+            log_error() << "chdir" << strerror( errno ) << endl;
             ::exit( 1 );
         }
+
         char buffer[PATH_MAX];
-        snprintf( buffer, PATH_MAX, "rm -rf '%s'", basedir.c_str() );
-        if ( system( buffer ) ) {
-            perror( "rm -rf failed" );
-            ::exit( 1 );
+        DIR *dir = opendir( "." );
+        if ( !dir )
+            ::exit( 1 ); // very unlikely
+
+        struct dirent *subdir = readdir( dir );
+        while ( subdir ) {
+            if ( !strcmp( subdir->d_name, "." ) || !strcmp( subdir->d_name, ".." ) ) {
+                subdir = readdir( dir );
+                continue;
+            }
+            snprintf( buffer, PATH_MAX, "rm -rf '%s'", subdir->d_name );
+            if ( system( buffer ) ) {
+                log_error() << "rm -rf failed\n";
+                ::exit( 1 );
+            }
+            subdir = readdir( dir );
         }
+        closedir( dir );
     }
 
-    if ( mkdir( basedir.c_str(), 0755 ) ) {
+    if ( mkdir( basedir.c_str(), 0755 ) && errno != EEXIST ) {
         if ( errno == EPERM )
             log_error() << "cache directory can't be generated: " << basedir << endl;
-        else if ( errno == EEXIST )
-            log_error() << "cache directory already exists and can't be removed: " << basedir << endl;
         else
             perror( "Failed " );
         ::exit( 1 );
