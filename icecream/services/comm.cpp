@@ -320,13 +320,122 @@ MsgChannel *Service::createChannel( int remote_fd )
 #include <net/if.h>
 #include <sys/ioctl.h>
 
+/* Returns a filedesc. or a negative value for errors.  */
+static int
+open_send_broadcast (void)
+{
+  int ask_fd;
+  struct sockaddr_in remote_addr;
+  if ((ask_fd = socket (PF_INET, SOCK_DGRAM, 0)) < 0)
+    {
+      perror ("socket()");
+      return -1;
+    }
+
+  int optval = 1;
+  if (setsockopt (ask_fd, SOL_SOCKET, SO_BROADCAST, &optval, sizeof(optval)) < 0)
+    {
+      perror ("setsockopt()");
+      close (ask_fd);
+      return -1;
+    }
+
+  struct ifaddrs *addrs;
+  int ret = getifaddrs(&addrs);
+
+  if ( ret < 0 )
+    return ret;
+
+  char buf = 42;
+  for (struct ifaddrs *addr = addrs; addr != NULL; addr = addr->ifa_next)
+    {
+      /*
+       * See if this interface address is IPv4...
+       */
+
+      if (addr->ifa_addr == NULL || addr->ifa_addr->sa_family != AF_INET ||
+	  addr->ifa_netmask == NULL || addr->ifa_name == NULL)
+	continue;
+
+      if ( ntohl( ( ( struct sockaddr_in* ) addr->ifa_addr )->sin_addr.s_addr ) == 0x7f000001 )
+	{
+	  trace() << "ignoring localhost " << addr->ifa_name << endl;
+	  continue;
+	}
+
+      if ( ( addr->ifa_flags & IFF_POINTOPOINT ) || !( addr->ifa_flags & IFF_BROADCAST) )
+	{
+	  log_info() << "ignoring tunnels " << addr->ifa_name << endl;
+	  continue;
+	}
+
+      if ( addr->ifa_broadaddr )
+	{
+	  log_info() << "broadcast "
+		     << addr->ifa_name << " "
+		     << inet_ntoa( ( ( sockaddr_in* )addr->ifa_broadaddr )->sin_addr )
+		     << endl;
+
+	  remote_addr.sin_family = AF_INET;
+	  remote_addr.sin_port = htons (8765);
+	  remote_addr.sin_addr = ( ( sockaddr_in* )addr->ifa_broadaddr )->sin_addr ;
+
+	  if (sendto (ask_fd, &buf, 1, 0, (struct sockaddr*)&remote_addr,
+		    sizeof (remote_addr)) != 1)
+	    {
+	      perror ("sendto()");
+	    }
+	}
+    }
+  freeifaddrs (addrs);
+  return ask_fd;
+}
+
+#define BROAD_BUFLEN 16
+
+static bool
+get_broad_answer (int ask_fd, int timeout, char *buf2,
+		  struct sockaddr_in *remote_addr,
+		  socklen_t *remote_len)
+{
+  char buf = 42;
+  fd_set read_set;
+  FD_ZERO (&read_set);
+  FD_SET (ask_fd, &read_set);
+  struct timeval tv;
+  tv.tv_sec = timeout / 1000;
+  tv.tv_usec = 1000 * (timeout % 1000);
+  errno = 0;
+  if (select (ask_fd + 1, &read_set, NULL, NULL, &tv) <= 0)
+    {
+      /* Normally this is a timeout, i.e. no scheduler there.  */
+      if (errno)
+	perror ("waiting for scheduler");
+      return false;
+    }
+  *remote_len = sizeof (struct sockaddr_in);
+  if (recvfrom (ask_fd, buf2, BROAD_BUFLEN, 0, (struct sockaddr*) remote_addr,
+		remote_len) != BROAD_BUFLEN)
+    {
+      perror ("recvfrom()");
+      return false;
+    }
+  if (buf + 1 != buf2[0])
+    {
+      fprintf (stderr, "wrong answer\n");
+      return false;
+    }
+  buf2[BROAD_BUFLEN - 1] = 0;
+  return true;
+}
+
 MsgChannel *
-connect_scheduler (const string &_netname)
+connect_scheduler (const string &_netname, int timeout)
 {
   const char *get = getenv( "USE_SCHEDULER" );
   string hostname;
   unsigned int sport = 8765;
-  char buf2[16];
+  char buf2[BROAD_BUFLEN];
 
   string netname = _netname;
   if (netname.empty())
@@ -342,106 +451,27 @@ connect_scheduler (const string &_netname)
       int ask_fd;
       struct sockaddr_in remote_addr;
       socklen_t remote_len;
-      if ((ask_fd = socket (PF_INET, SOCK_DGRAM, 0)) < 0)
-        {
-          perror ("socket()");
-          return 0;
-        }
-
-      int optval = 1;
-      if (setsockopt (ask_fd, SOL_SOCKET, SO_BROADCAST, &optval, sizeof(optval)) < 0)
-        {
-          perror ("setsockopt()");
-          close (ask_fd);
-          return 0;
-        }
-
-      struct ifaddrs *addrs;
-      int ret = getifaddrs(&addrs);
-
-      if ( ret < 0 )
-        return 0;
-
-      char buf = 42;
-      for (struct ifaddrs *addr = addrs; addr != NULL; addr = addr->ifa_next)
-        {
-          /*
-           * See if this interface address is IPv4...
-           */
-
-          if (addr->ifa_addr == NULL || addr->ifa_addr->sa_family != AF_INET ||
-              addr->ifa_netmask == NULL || addr->ifa_name == NULL)
-            continue;
-
-          if ( ntohl( ( ( struct sockaddr_in* ) addr->ifa_addr )->sin_addr.s_addr ) == 0x7f000001 )
-            {
-              trace() << "ignoring localhost " << addr->ifa_name << endl;
-              continue;
-            }
-
-          if ( ( addr->ifa_flags & IFF_POINTOPOINT ) || !( addr->ifa_flags & IFF_BROADCAST) )
-            {
-              log_info() << "ignoring tunnels " << addr->ifa_name << endl;
-              continue;
-            }
-
-          if ( addr->ifa_broadaddr )
-            {
-              log_info() << "broadcast "
-                         << addr->ifa_name << " "
-                         << inet_ntoa( ( ( sockaddr_in* )addr->ifa_broadaddr )->sin_addr )
-                         << endl;
-
-              remote_addr.sin_family = AF_INET;
-              remote_addr.sin_port = htons (8765);
-              remote_addr.sin_addr = ( ( sockaddr_in* )addr->ifa_broadaddr )->sin_addr ;
-
-              if (sendto (ask_fd, &buf, 1, 0, (struct sockaddr*)&remote_addr,
-                        sizeof (remote_addr)) != 1)
-                {
-                  perror ("sendto()");
-                }
-            }
-        }
-      freeifaddrs (addrs);
-
       time_t time0 = time (0);
       bool found = false;
-      while (time (0) - time0 < 4)
+
+      ask_fd = open_send_broadcast ();
+
+      do
         {
-	  fd_set read_set;
-	  FD_ZERO (&read_set);
-	  FD_SET (ask_fd, &read_set);
-	  struct timeval tv;
-	  tv.tv_sec = 2;
-	  tv.tv_usec = 0;
-	  errno = 0;
-	  if (select (ask_fd + 1, &read_set, NULL, NULL, &tv) <= 0)
+	  bool first = true;
+	  /* Read/test all arriving packages.  */
+	  while (!found
+	  	 && get_broad_answer (ask_fd, first ? timeout : 0, buf2,
+	  			      &remote_addr, &remote_len))
 	    {
-	      /* Normally this is a timeout, i.e. no scheduler there.  */
-	      if (errno)
-		perror ("waiting for scheduler");
-	      continue;
+	      first = false;
+	      if (strcasecmp (netname.c_str(), buf2 + 1) == 0)
+	        found = true;
 	    }
-	  remote_len = sizeof (remote_addr);
-	  if (recvfrom (ask_fd, &buf2, sizeof (buf2), 0, (struct sockaddr*) &remote_addr,
-			&remote_len) != sizeof (buf2))
-	    {
-	      perror ("recvfrom()");
-	      continue;
-	    }
-	  if (buf + 1 != buf2[0])
-	    {
-	      fprintf (stderr, "wrong answer\n");
-	      continue;
-	    }
-	  buf2[sizeof (buf2) - 1] = 0;
-	  if (strcasecmp (netname.c_str(), buf2 + 1) == 0)
-	    {
-	      found = true;
-	      break;
-	    }
+	  if (found)
+	    break;
 	}
+      while (time (0) - time0 < (timeout / 1000));
       close (ask_fd);
       if (!found)
         return 0;
@@ -454,6 +484,33 @@ connect_scheduler (const string &_netname)
 	  netname.c_str());
   Service *sched = new Service (hostname, sport);
   return sched->channel();
+}
+
+list<string> get_netnames (int timeout)
+{
+  list<string> l;
+  int ask_fd;
+  struct sockaddr_in remote_addr;
+  socklen_t remote_len;
+  time_t time0 = time (0);
+
+  ask_fd = open_send_broadcast ();
+
+  do
+    {
+      char buf2[BROAD_BUFLEN];
+      bool first = true;
+      /* Read/test all arriving packages.  */
+      while (get_broad_answer (ask_fd, first ? timeout : 0, buf2,
+			       &remote_addr, &remote_len))
+	{
+	  first = false;
+	  l.push_back (buf2 + 1);
+	}
+    }
+  while (time (0) - time0 < (timeout / 1000));
+  close (ask_fd);
+  return l;
 }
 
 bool

@@ -102,7 +102,13 @@ private:
   MsgChannel (int _fd, Service *serv);
 };
 
-MsgChannel *connect_scheduler (const std::string &netname = std::string());
+/* Connect to a scheduler waiting max. TIMEOUT milliseconds.  */
+MsgChannel *connect_scheduler (const std::string &netname = std::string(),
+			       int timeout = 2000);
+
+/* Return a list of all reachable netnames.  We wait max. WAITTIME
+   milliseconds for answers.  */
+std::list<std::string> get_netnames (int waittime = 2000);
 
 class PingMsg : public Msg {
 public:
