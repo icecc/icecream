@@ -11,7 +11,8 @@
 
 #include "job.h"
 
-#define PROTOCOL_VERSION 4
+#define PROTOCOL_VERSION 5
+#define MIN_PROTOCOL_VERSION 5
 
 enum MsgType {
   // so far unknown
@@ -100,9 +101,6 @@ public:
   MsgChannel *createChannel( int remote_fd );
   bool eq_ip (const Service &s);
   virtual ~Service ();
-
-  static bool announce_protocol( int fd );
-  static bool check_protocol( int fd );
 };
 
 class MsgChannel {
@@ -111,6 +109,9 @@ public:
   Service *other_end;
   // our filedesc
   int fd;
+
+  // the minimum protocol version between me and him
+  int protocol;
   // NULL  <--> channel closed
   Msg *get_msg(bool blocking = true);
   // false <--> error (msg not send)
@@ -134,6 +135,9 @@ public:
   void readcompressed (unsigned char **buf, size_t &_uclen, size_t &_clen);
   void writecompressed (const unsigned char *in_buf,
 			size_t _in_len, size_t &_out_len);
+
+  bool announce_protocol();
+  bool check_protocol();
 
   // be careful: it also deletes the service it belongs to
   ~MsgChannel ();
@@ -191,9 +195,10 @@ public:
   std::string version;
   std::string filename;
   CompileJob::Language lang;
-  GetCSMsg () : Msg(M_GET_CS) {}
-  GetCSMsg (const std::string &v, const std::string &f, CompileJob::Language _lang)
-    : Msg(M_GET_CS), version(v), filename(f), lang(_lang) {}
+  unsigned int count; // the number of UseCS messages to answer with - usually 1
+  GetCSMsg () : Msg(M_GET_CS), count( 1 ) {}
+  GetCSMsg (const std::string &v, const std::string &f, CompileJob::Language _lang, unsigned int _count)
+    : Msg(M_GET_CS), version(v), filename(f), lang(_lang), count( _count ) {}
   virtual void fill_from_channel (MsgChannel * c);
   virtual void send_to_channel (MsgChannel * c) const;
 };
@@ -396,7 +401,7 @@ public:
     clientid = job_id = 0;
   }
   MonGetCSMsg( int jobid, int hostid, GetCSMsg *m )
-    : GetCSMsg( m->version, m->filename, m->lang ), job_id( jobid ), clientid( hostid )
+    : GetCSMsg( m->version, m->filename, m->lang, 1 ), job_id( jobid ), clientid( hostid )
   {
     type = M_MON_GET_CS;
   }

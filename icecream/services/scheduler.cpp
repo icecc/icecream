@@ -342,14 +342,19 @@ handle_cs_request (MsgChannel *c, Msg *_m)
      It will go away as soon as we sent him which server to use.
      Instead use the long-lasting connection to the daemon.  */
   CS *submitter = *it;
-  Job *job = create_new_job (c, submitter);
-  job->environment = m->version;
-  enqueue_job_request (job);
-  log_info() << "NEW: " << job->id << " version=\""
-             << job->environment << "\" " << m->filename
-             << " " << ( m->lang == CompileJob::Lang_C ? "C" : "C++" ) << endl;
-  notify_monitors (MonGetCSMsg (job->id, submitter->hostid, m));
+
+  for ( unsigned int i = 0; i < m->count; ++i )
+    {
+      Job *job = create_new_job (c, submitter);
+      job->environment = m->version;
+      enqueue_job_request (job);
+      log_info() << "NEW: " << job->id << " version=\""
+                 << job->environment << "\" " << m->filename
+                 << " " << ( m->lang == CompileJob::Lang_C ? "C" : "C++" ) << endl;
+      notify_monitors (MonGetCSMsg (job->id, submitter->hostid, m));
+    }
   return true;
+
 }
 
 static bool
@@ -1196,16 +1201,15 @@ main (int argc, char * argv[])
 	    }
 	  if (remote_fd >= 0)
 	    {
-              if ( !Service::check_protocol( remote_fd ) ) {
-                  log_warning() << inet_ntoa (((struct sockaddr_in *) &remote_addr)->sin_addr) << " uses different protocol (ours is " << PROTOCOL_VERSION << ")!\n";
-                  close( remote_fd );
-                  continue;
-              }
-
 	      CS *cs = new CS ((struct sockaddr*) &remote_addr, remote_len);
               cs->last_talk = time( 0 );
 	      trace() << "accepting from " << cs->name << ":" << cs->port << "\n";
 	      MsgChannel *c = cs->createChannel (remote_fd);
+              if ( !c ) // protocol mismatch
+                {
+                  delete cs;
+                  continue;
+                }
 	      fd2chan[c->fd] = c;
 	      if (!c->read_a_bit () || c->has_msg ())
 	        handle_activity (c);

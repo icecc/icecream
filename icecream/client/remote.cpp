@@ -64,21 +64,8 @@ string get_absfilename( const string &_file )
     return file;
 }
 
-static Service *get_server_for_job( CompileJob &job,  MsgChannel *scheduler, string &version_file, bool &got_env )
+static Service *get_server_for_job( CompileJob &job,  MsgChannel *scheduler, bool &got_env )
 {
-    string version = version_file;
-    string suff = ".tar.bz2";
-
-    if ( version.size() > suff.size() && version.substr( version.size() - suff.size() ) == suff )
-    {
-        version = find_basename( version.substr( 0, version.size() - suff.size() ) );
-    }
-
-    GetCSMsg getcs (version, get_absfilename( job.inputFile() ), job.language() );
-    if (!scheduler->send_msg (getcs)) {
-        log_error() << "asked for CS\n";
-        throw( 0 );
-    }
     Msg * umsg = scheduler->get_msg();
     if (!umsg || umsg->type != M_USE_CS)
     {
@@ -278,9 +265,27 @@ int build_remote(CompileJob &job, MsgChannel *scheduler )
         version_file = get;
 
     int torepeat = 1;
+
+    string version = version_file;
+    string suff = ".tar.bz2";
+
+    if ( version.size() > suff.size() && version.substr( version.size() - suff.size() ) == suff )
+    {
+        version = find_basename( version.substr( 0, version.size() - suff.size() ) );
+    }
+
+    GetCSMsg getcs (version, get_absfilename( job.inputFile() ), job.language(), torepeat );
+    if (!scheduler->send_msg (getcs)) {
+        log_error() << "asked for CS\n";
+        throw( 0 );
+    }
+
+    if ( scheduler->protocol < 5 )
+        torepeat = 1;
+
     if ( torepeat == 1 ) {
         bool got_env = false;
-        Service *serv = get_server_for_job( job, scheduler, version_file, got_env );
+        Service *serv = get_server_for_job( job, scheduler, got_env );
         return build_remote_int( job, serv, version_file, got_env, true );
     } else {
         pid_t first;
@@ -297,7 +302,7 @@ int build_remote(CompileJob &job, MsgChannel *scheduler )
                 jobs[i].setOutputFile( buffer );
             } else
                 sprintf( buffer, job.outputFile().c_str() );
-            servs[i] = get_server_for_job( jobs[i], scheduler, version_file, got_envs[i] );
+            servs[i] = get_server_for_job( jobs[i], scheduler, got_envs[i] );
         }
 
         for ( int i = 0; i < torepeat; i++ ) {

@@ -390,11 +390,6 @@ Service::Service (const string &hostname, unsigned short p)
       close (remote_fd);
       return;
     }
-  if ( !announce_protocol( remote_fd ) )
-    {
-      close( remote_fd );
-      return;
-    }
   len = sizeof (remote_addr);
   addr = (struct sockaddr *)malloc (len);
   memcpy (addr, &remote_addr, len);
@@ -402,6 +397,13 @@ Service::Service (const string &hostname, unsigned short p)
   port = p;
   last_talk = time( 0 );
   new MsgChannel (remote_fd, this); // sets c
+
+  if ( !c || !c->announce_protocol() )
+    {
+      close( remote_fd );
+      delete c;
+      c = 0;
+    }
 }
 
 Service::~Service ()
@@ -424,33 +426,6 @@ Service::eq_ip (const Service &s)
   s2 = (struct sockaddr_in *) s.addr;
   return (len == s.len
           && memcmp (&s1->sin_addr, &s2->sin_addr, sizeof (s1->sin_addr)) == 0);
-}
-
-bool
-Service::announce_protocol( int fd )
-{
-  char vers[4] = { PROTOCOL_VERSION, 0, 0, 0 };
-  if ( write( fd, vers, 4 ) != 4 )
-    return false;
-  if ( read( fd, vers, 1 ) != 1 ) // just a check
-    return false;
-  return vers[0] == 1;
-}
-
-bool
-Service::check_protocol( int fd )
-{
-  unsigned char vers[4];
-  if ( read( fd, vers, 4 ) != 4 ) {
-    perror( "read(acc_fd, 4)" );
-    return false;
-  } else {
-    bool ret = ( vers[0] == PROTOCOL_VERSION );
-    vers[0] = ret ? 1 : 0;
-    if ( write( fd, vers, 1 ) != 1 )
-      return false;
-    return ret;
-  }
 }
 
 MsgChannel::MsgChannel (int _fd)
@@ -494,6 +469,36 @@ MsgChannel::~MsgChannel()
     free (msgbuf);
   if (inbuf)
     free (inbuf);
+}
+
+bool
+MsgChannel::announce_protocol()
+{
+  unsigned char vers[4] = { PROTOCOL_VERSION, 0, 0, 0 };
+  if ( write( fd, vers, 4 ) != 4 )
+    return false;
+  if ( read( fd, vers, 4 ) != 4 ) // just a check
+    return false;
+  protocol = vers[0];
+  return protocol <= PROTOCOL_VERSION && protocol >= MIN_PROTOCOL_VERSION;
+}
+
+bool
+MsgChannel::check_protocol()
+{
+  unsigned char vers[4];
+  if ( read( fd, vers, 4 ) != 4 ) {
+    perror( "read(acc_fd, 4)" );
+    return false;
+  } else {
+    if ( vers[0] < MIN_PROTOCOL_VERSION )
+      vers[0] = 0;
+    else if ( vers[0] > PROTOCOL_VERSION )
+      vers[0] = PROTOCOL_VERSION; // our is smaller
+    if ( write( fd, vers, 4 ) != 4 )
+      return false;
+    return vers[0];
+  }
 }
 
 /* This waits indefinitely (well, 5 minutes) for some a complete
@@ -611,6 +616,11 @@ MsgChannel *Service::createChannel( int remote_fd )
     }
   new MsgChannel( remote_fd, this ); // sets c
   assert( channel() );
+
+  if ( !channel()->check_protocol( ) ) {
+    delete c;
+    c = 0;
+  }
   return channel();
 }
 
@@ -834,6 +844,10 @@ GetCSMsg::fill_from_channel (MsgChannel *c)
   c->read_string (version);
   c->read_string (filename);
   c->readuint32 (_lang);
+  if ( c->protocol > 4 )
+    c->readuint32( count );
+  else
+    count = 1;
   lang = static_cast<CompileJob::Language>( _lang );
 }
 
@@ -843,6 +857,8 @@ GetCSMsg::send_to_channel (MsgChannel *c) const
   Msg::send_to_channel (c);
   c->write_string (version);
   c->write_string (filename);
+  if ( c->protocol > 4 )
+    c->writeuint32( count );
   c->writeuint32 ((uint32_t) lang);
 }
 
