@@ -47,7 +47,7 @@ enum dcc_exitcode {
     EXIT_TRUNCATED                = 108,
     EXIT_PROTOCOL_ERROR           = 109,
     EXIT_COMPILER_MISSING         = 110, /**< Compiler executable not found */
-    EXIT_RECURSION                = 111, /**< distcc called itself */
+    EXIT_RECURSION                = 111, /**< icecc called itself */
     EXIT_SETUID_FAILED            = 112, /**< Failed to discard privileges */
     EXIT_ACCESS_DENIED            = 113, /**< Network access denied */
     EXIT_BUSY                     = 114, /**< In use by another process. */
