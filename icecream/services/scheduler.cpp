@@ -984,7 +984,7 @@ handle_job_done (MsgChannel *c, Msg *_m)
     {
       int id = it->first;
       Job *c = it->second;
-      if (new_job_id - id > 100)
+      if (new_job_id - id > 2000)
         trace() << "  undone: " << id << " state " << c->state << endl;
       first = false;
     }
