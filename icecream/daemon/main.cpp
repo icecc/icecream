@@ -147,14 +147,29 @@ void empty_func( int )
 {
 }
 
-int main( int /*argc*/, char ** /*argv*/ )
+int main( int argc, char ** argv )
 {
     list<string> environments = available_environmnents();
     chdir( "/" );
 
     const int START_PORT = 10245;
+    const char *netname = 0;
 
-    // daemon(0, 0);
+    for (int argi = 1; argi < argc; argi++)
+        if (argv[argi][0] == '-' && argv[argi][2] == 0) {
+            switch (argv[argi][1]) {
+	    case 'n':
+	        argi++;
+	        if (argi >= argc)
+	            log_warning() << "-n requires argument" << endl;
+	        else
+	            netname = strdup (argv[argi]);
+	        break;
+	    default:
+	        log_warning() << "Unknown argument " << argv[argi] << endl;
+	        break;
+	    }
+        }
 
     int listen_fd;
     if ((listen_fd = socket (PF_INET, SOCK_STREAM, 0)) < 0) {
@@ -243,7 +258,7 @@ int main( int /*argc*/, char ** /*argv*/ )
 
     while ( 1 ) {
         if ( !scheduler ) {
-            scheduler = connect_scheduler ();
+            scheduler = connect_scheduler (netname);
             if ( !scheduler ) {
                 log_error() << "no scheduler found. Sleeping.\n";
                 sleep( 1 );
