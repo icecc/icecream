@@ -43,6 +43,7 @@
 #include <comm.h>
 #include "load.h"
 #include "environment.h"
+#include "findmyself.h"
 
 using namespace std;
 
@@ -150,9 +151,8 @@ void empty_func( int )
 int main( int argc, char ** argv )
 {
     list<string> environments = available_environmnents();
-    chdir( "/" );
-
     const int START_PORT = 10245;
+
     const char *netname = 0;
 
     for (int argi = 1; argi < argc; argi++)
@@ -170,6 +170,18 @@ int main( int argc, char ** argv )
 	        break;
 	    }
         }
+
+    // important to do before chdir ;/
+    std::string binary_path = argv[0];
+    if ( !findmyself( binary_path ) ) {
+        log_error() << "can't find binary " << argv[0] << endl;
+        return 1;
+    }
+    trace() << "watching " << binary_path << endl;
+
+    chdir( "/" );
+
+    // daemon(0, 0);
 
     int listen_fd;
     if ((listen_fd = socket (PF_INET, SOCK_STREAM, 0)) < 0) {
