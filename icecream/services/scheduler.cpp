@@ -151,6 +151,8 @@ unsigned int CS::hostid_counter = 0;
 
 static map<int, MsgChannel *> fd2chan;
 
+time_t starttime;
+
 class Job {
 public:
   unsigned int id;
@@ -233,28 +235,17 @@ add_job_stats (Job *job, JobDoneMsg *msg)
 
   // the difference between the -O flags isn't as big as the one between -O0 and -O>=1
   // the numbers are actually for gcc 3.3 - but they are _very_ rough heurstics anyway)
-  if ( job->arg_flags & CompileJob::Flag_O || 
+  if ( job->arg_flags & CompileJob::Flag_O ||
        job->arg_flags & CompileJob::Flag_O2 ||
        job->arg_flags & CompileJob::Flag_Ol2)
-	st.osize = st.osize * 58 / 35; 
-
-  if ( job->arg_flags < 7000 )
-    trace() << "add_job_stats " << job->language << " "
-            << st.compile_time_user << " "
-            << ( job->arg_flags & CompileJob::Flag_g ? '1' : '0')
-            << ( job->arg_flags & CompileJob::Flag_g3 ? '1' : '0')
-            << ( job->arg_flags & CompileJob::Flag_O ? '1' : '0')
-            << ( job->arg_flags & CompileJob::Flag_O2 ? '1' : '0')
-            << ( job->arg_flags & CompileJob::Flag_Ol2 ? '1' : '0')
-            << " " << st.osize << " " << msg->in_uncompressed << " "
-            << job->server->nodename << endl ;
+	st.osize = st.osize * 58 / 35;
 
   /* Smooth out spikes by not allowing one job to add more than
      20% of the current speed.  */
   float this_speed = (float) st.osize / (float) st.compile_time_user;
   /* The current speed of the server, but without adjusting to the current
      job, hence no second argument.  */
-  float cur_speed = server_speed (job->server); 
+  float cur_speed = server_speed (job->server);
   if ((this_speed / 1.2) > cur_speed)
     st.osize = (long unsigned) (cur_speed * 1.2 * st.compile_time_user);
   else if ((this_speed * 1.2) < cur_speed)
@@ -282,6 +273,19 @@ add_job_stats (Job *job, JobDoneMsg *msg)
       cum_job_stats -= *all_job_stats.begin ();
       all_job_stats.pop_front ();
     }
+
+  if ( job->arg_flags < 7000 )
+    trace() << "add_job_stats " << job->language << " "
+            << ( time( 0 ) - starttime ) << " "
+            << st.compile_time_user << " "
+            << ( job->arg_flags & CompileJob::Flag_g ? '1' : '0')
+            << ( job->arg_flags & CompileJob::Flag_g3 ? '1' : '0')
+            << ( job->arg_flags & CompileJob::Flag_O ? '1' : '0')
+            << ( job->arg_flags & CompileJob::Flag_O2 ? '1' : '0')
+            << ( job->arg_flags & CompileJob::Flag_Ol2 ? '1' : '0')
+            << " " << st.osize << " " << msg->out_uncompressed << " "
+            << job->server->nodename << " " << server_speed( job->server ) << endl ;
+
 }
 
 static bool handle_end (MsgChannel *c, Msg *);
@@ -1381,6 +1385,8 @@ main (int argc, char * argv[])
       log_warning() << "signal(SIGPIPE, ignore) failed: " << strerror(errno) << endl;
       return 1;
     }
+
+  starttime = time( 0 );
 
   while (1)
     {
