@@ -46,7 +46,7 @@
 #include "comm.h"
 #include "logging.h"
 
-#define DEBUG_SCHEDULER 0
+#define DEBUG_SCHEDULER 1
 
 /* TODO:
    * leak check
@@ -570,7 +570,7 @@ pick_server(Job *job)
       CS *cs = *it;
       /* For now ignore overloaded servers.  */
       if (int( cs->joblist.size() ) >= cs->max_jobs || cs->load >= 1000) {
-#if DEBUG_SCHEDULER
+#if DEBUG_SCHEDULER > 0
         trace() << "overloaded " << cs->nodename << " " << cs->joblist.size() << "/" <<  cs->max_jobs << " jobs, load:" << cs->load << endl;
 #endif
         continue;
@@ -578,7 +578,7 @@ pick_server(Job *job)
 
       // incompatible architecture
       if ( !can_install( cs, job ) ) {
-#if DEBUG_SCHEDULER
+#if DEBUG_SCHEDULER > 1
         trace() << cs->nodename << " can't install " << job->id << endl;
 #endif
         continue;
@@ -591,7 +591,7 @@ pick_server(Job *job)
         continue;
       }
 
-#if DEBUG_SCHEDULER
+#if DEBUG_SCHEDULER > 1
       trace() << cs->nodename << " compiled " << cs->last_compiled_jobs.size() << " got now: " <<
         cs->joblist.size() << " speed: " << server_speed (cs) << " compile time " << cs->cum_compiled.compile_time_user << " produced code " << cs->cum_compiled.osize << endl;
 #endif
@@ -640,12 +640,12 @@ pick_server(Job *job)
     }
 
   if ( best ) {
-#if DEBUG_SCHEDULER
+#if DEBUG_SCHEDULER > 1
     trace() << "taking best installed " << best->nodename << " " <<  server_speed (best) << endl;
 #endif
     return best;
   }
-#if DEBUG_SCHEDULER
+#if DEBUG_SCHEDULER > 1
   if ( bestui )
     trace() << "taking best uninstalled " << bestui->nodename << " " <<  server_speed (bestui) << endl;
 #endif
@@ -907,15 +907,15 @@ handle_job_done (MsgChannel *c, Msg *_m)
   delete j;
 
 
-#ifdef DEBUG_SCHEDULER
+#if DEBUG_SCHEDULER > 0
   bool first = true;
 
-  for (map<unsigned int, Job *>::const_iterator it = jobs.begin();
+  fqor (map<unsigned int, Job *>::const_iterator it = jobs.begin();
        it != jobs.end(); ++it)
     {
       int id = it->first;
       Job *c = it->second;
-      trace() << "  undone: " << id << " " << c->state << endl;
+      trace() << "  undone: " << id << " state " << c->state << endl;
       if ( first && c->state == Job::PENDING ) {
         trace() << "first job is pending! Something is fishy\n";
         abort();
