@@ -399,7 +399,7 @@ int build_remote(CompileJob &job, MsgChannel *scheduler, const Environments &_en
     int torepeat = 1;
 
     // older compilers do not support the options we need to make it reproducable
-#if defined(__GNUC__) && (__GNUC__  >= 3)
+#if defined(__GNUC__) && (__GNUC__  >= 3) && (__GNUC_MINOR__ >= 3)
     if ( rand() % 1000 < permill)
         torepeat = 3;
 #endif
