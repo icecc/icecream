@@ -97,17 +97,18 @@ int build_remote(CompileJob &job, MsgChannel *scheduler )
     bool got_env = usecs->got_env;
     job.setJobID( job_id );
     job.setEnvironmentVersion( usecs->environment ); // hoping on the scheduler's wisdom
-    // printf ("Have to use host %s:%d - Job ID: %d\n", hostname.c_str(), port, job.jobID() );
+    trace() << "Have to use host " << hostname << ":" << port << " - Job ID: " << job.jobID() << " " << getpid() << "\n";
     delete usecs;
 
     Service *serv = new Service (hostname, port);
+    trace() << getpid() << " service is there " << serv->channel() << endl;
     MsgChannel *cserver = serv->channel();
     if ( ! cserver ) {
         log_error() << "no server found behind given hostname " << hostname << ":" << port << endl;
         throw ( 2 );
     }
 
-    // trace() << "got environment " << ( got_env ? "true" : "false" ) << endl;
+    trace() << "got environment " << ( got_env ? "true" : "false" ) << endl;
 
     if ( !got_env ) {
         if ( ::access( version_file.c_str(), R_OK ) ) {

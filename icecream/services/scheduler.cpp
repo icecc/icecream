@@ -397,7 +397,10 @@ pick_server(Job *job)
       for (it = css.begin(); it != css.end(); ++it)
         if (int( (*it)->joblist.size() ) < (*it)->max_jobs
 	    && (*it)->load < 1000 && can_install( *it, environment ) )
-          return *it;
+          {
+             trace() << "returning first " << ( *it )->name << endl;
+             return *it;
+          }
       return 0;
     }
 
@@ -422,29 +425,37 @@ pick_server(Job *job)
     {
       CS *cs = *it;
       /* For now ignore overloaded servers.  */
-      if (int( cs->joblist.size() ) >= cs->max_jobs || cs->load >= 1000)
+      if (int( cs->joblist.size() ) >= cs->max_jobs || cs->load >= 1000) {
+	trace() << "overloaded " << cs->name << " " << cs->joblist.size() << "/" <<  cs->max_jobs << " jobs, load:" << cs->load << endl;
         continue;
+      }
 
       // incompatible architecture
-      if ( !can_install( cs, environment ) )
+      if ( !can_install( cs, environment ) ) {
+	trace() << cs->name << "can't install " << environment << endl;
         continue;
+      }
 
-      if ( cs->last_compiled_jobs.size() == 0 )
+      /* Servers that are already compiling jobs but got no environments
+         are currently installing new environments - ignore so far */
+      if ( cs->joblist.size() != 0 && cs->compiler_versions.size() == 0 ) {
+        trace() << cs->name << " is currently installing\n";
+        continue;
+      }
+
+      if ( cs->last_compiled_jobs.size() == 0 && cs->joblist.size() == 0)
 	{
 	  /* Make all servers compile a job at least once, so we'll get an
 	     idea about their speed.  */
 	  if (envs_match (cs, environment))
 	    best = cs;
-	  else
+	  else // if there is one server that already got the environment and one that
+            // hasn't compiled at all, pick the one with environment first
 	    bestui = cs;
 	  break;
 	}
 
-      /* Servers that are already compiling jobs but got no environments
-         are currently installing new environments - ignore so far */
-      if ( cs->joblist.size() != 0 && cs->compiler_versions.size() == 0 )
-        break;
-
+      trace() << "server_speed " << cs->name << " " << server_speed (cs) << endl;
       if ( envs_match( cs, environment ) )
         {
           if ( !best )
@@ -477,8 +488,6 @@ pick_server(Job *job)
 static bool
 empty_queue()
 {
-  // trace() << "empty_queue " << toanswer.size() << " " << css.size() << endl;
-
   Job *job = get_job_request ();
   if (!job)
     return false;
@@ -499,7 +508,7 @@ empty_queue()
   CS *cs = pick_server (job);
 
   if (!cs) {
-    // trace() << "tried to pick a server for " << job->id << " and failed\n";
+    trace() << "tried to pick a server for " << job->id << " and failed\n";
     return false;
   }
 
@@ -676,7 +685,6 @@ handle_job_done (MsgChannel *c, Msg *_m)
 static bool
 handle_ping (MsgChannel * c, Msg * /*_m*/)
 {
-  trace() << "handle_ping\n";
   c->other_end->last_talk = time( 0 );
   CS *cs = dynamic_cast<CS*>( c->other_end );
   if ( cs && cs->max_jobs < 0 )
@@ -690,8 +698,6 @@ handle_stats (MsgChannel * c, Msg * _m)
   StatsMsg *m = dynamic_cast<StatsMsg *>(_m);
   if (!m)
     return false;
-
-  trace() << "handle_stats " << c->other_end->name << endl;
 
   c->other_end->last_talk = time( 0 );
   CS *cs = dynamic_cast<CS*>( c->other_end );
