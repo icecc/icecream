@@ -1,5 +1,9 @@
 * scheduler: FAT
-* deamon: install and use build root
+* daemon: install and use build root
    as user: 
       chown 0 lib/libc.so*
       PATH=$PWD/usr/bin LD_LIBRARY_PATH=$PWD/lib:$PWD/usr/lib:/lib usr/bin/gcc -B/tmp/test/usr/lib/gcc-lib/i586-suse-linux/3.3.1/ -c ~/test.ii
+* scheduler: tell registered monitors
+
+IDEAS:
+* provide a way to pass jobs through the scheduler for multihomed servers
