@@ -1,0 +1,87 @@
+#! /bin/sh
+# Copyright (c) 2003 SuSE Linux AG Nuernberg, Germany.
+#
+# Author: Stephan Kulow <http://www.suse.de/feedback>
+#
+# /etc/init.d/icecream
+#   and its symbolic  link
+# /usr/sbin/rcicecream
+#
+### BEGIN INIT INFO
+# Provides:          icecream
+# Required-Start:    
+# Required-Stop:
+# Default-Start:     3 5
+# Default-Stop:
+# Description:       distributed compiler daemon
+### END INIT INFO
+
+# Determine the base and follow a runlevel link name.
+base=${0##*/}
+link=${base#*[SK][0-9][0-9]}
+
+# Force execution if not called by a runlevel directory.
+test -x /usr/sbin/iceccd || exit 0
+
+. /etc/rc.status
+. /etc/sysconfig/icecream
+
+rc_reset
+case "$1" in
+    start)
+	echo -n "Starting Distributed Compiler Daemon"
+        netname=
+	if test -n "$ICECREAM_NETNAME"; then
+	    netname="-n $ICECREAM_NETNAME"
+	fi
+        if test "$ICECREAM_RUN_SCHEDULER" == "yes"; then
+            logfile=""
+            if test -n "$ICECREAM_SCHEDULER_LOG_FILE"; then
+                logfile="-l $ICECREAM_SCHEDULER_LOG_FILE"
+            fi
+            startproc /usr/bin/scheduler -d $logfile $netname
+        fi
+        logfile=""
+        if test -n "$ICECREAM_LOG_FILE"; then
+            logfile="-l $ICECREAM_LOG_FILE"
+        fi
+        nice= 
+	if test -n "$ICECREAM_NICE_LEVEL"; then
+	   nice="--nice $ICECREAM_NICE_LEVEL"
+	fi
+        scheduler=
+	if test -n "$ICECREAM_SCHEDULER_HOST"; then
+	    scheduler="-s $ICECREAM_SCHEDULER_HOST"
+	fi
+	startproc -n $ICECREAM_NICE_LEVEL /usr/sbin/iceccd -d "$logfile" $nice $scheduler $netname
+	rc_status -v
+	;;
+    stop)
+	echo -n "Shutting down Distributed Compiler Daemon"
+	killproc -TERM /usr/sbin/iceccd
+        if test "$ICECREAM_RUN_SCHEDULER" == "yes"; then
+            killproc -TERM /usr/bin/scheduler
+        fi
+	rc_status -v
+	;;
+    restart)
+	## If first returns OK call the second, if first or
+	## second command fails, set echo return value.
+	$0 stop; sleep 1  &&  $0 start
+	rc_status
+	;;
+    reload|force-reload)
+	$0 stop  &&  $0 start
+	rc_status
+	;;
+    status)
+	echo -n "Checking for Distributed Compiler Daemon: "
+	checkproc /usr/sbin/iceccd
+	rc_status -v
+	;;
+    *)
+	echo "Usage: $0 {start|stop|status|restart|reload}"
+	exit 1
+	;;
+esac
+rc_exit

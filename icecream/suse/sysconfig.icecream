@@ -1,0 +1,58 @@
+#
+## Type: integer(0:19)
+## Path: Applications/icecream
+## Description: Icecream settings
+## ServiceRestart: icecream
+## Default: 5
+#
+# Nice level of running compilers
+#
+ICECREAM_NICE_LEVEL="5"
+
+#
+## Type: string
+## Path: Applications/icecream
+## Defaut: /var/log/iceccd
+#
+# icecream daemon log file
+#
+ICECREAM_LOG_FILE=""
+
+#
+## Type: string
+## Path: Applications/icecream
+## Defaut: no
+#
+# Start also the scheduler?
+#
+ICECREAM_RUN_SCHEDULER="no"
+
+#
+## Type: string
+## Path: Applications/icecream
+## Defaut: /var/log/icecc_scheduler
+#
+# icecream scheduler log file
+#
+ICECREAM_SCHEDULER_LOG_FILE=""
+
+#
+## Type: string
+## Path: Applications/icecream
+## Defaut: ""
+#
+# Identification for the network the scheduler and daemon run on. 
+# You can have several distinct icecream networks in the same LAN
+# for whatever reason.
+#
+ICECREAM_NETNAME=""
+
+#
+## Type: string
+## Path: Applications/icecream
+## Defaut: ""
+#
+# If the daemon can't find the scheduler by broadcast (e.g. because 
+# of a firewall) you can specify it.
+#
+ICECREAM_SCHEDULER_HOST=""
