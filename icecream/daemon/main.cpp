@@ -213,14 +213,21 @@ int setup_listen_fd()
         return -1;
     }
 
-    struct sockaddr_in myaddr;
-    myaddr.sin_family = AF_INET;
-    myaddr.sin_port = htons (PORT);
-    myaddr.sin_addr.s_addr = INADDR_ANY;
-    if (bind (listen_fd, (struct sockaddr *) &myaddr,
-              sizeof (myaddr)) < 0) {
-        perror ("bind()");
-        return -1;
+    int count = 5;
+    while ( count ) {
+        struct sockaddr_in myaddr;
+        myaddr.sin_family = AF_INET;
+        myaddr.sin_port = htons (PORT);
+        myaddr.sin_addr.s_addr = INADDR_ANY;
+        if (bind (listen_fd, (struct sockaddr *) &myaddr,
+                  sizeof (myaddr)) < 0) {
+            perror ("bind()");
+            sleep( 2 );
+            if ( !--count )
+                return -1;
+            continue;
+        } else
+            break;
     }
 
     if (listen (listen_fd, 20) < 0)
@@ -473,6 +480,7 @@ int main( int argc, char ** argv )
     while ( 1 ) {
         if ( listen_fd > -1 ) {
             // as long as we have no scheduler, don't listen for clients
+            shutdown( listen_fd, SHUT_RDWR ); // Dirk's suggestion
             close( listen_fd );
             listen_fd = -1;
         }
