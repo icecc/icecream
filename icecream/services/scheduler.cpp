@@ -343,7 +343,7 @@ empty_queue()
   CS *cs = pick_server (job);
 
   if (!cs) {
-    trace() << "tried to pick a server for " << job->id << " and failed\n";
+    // trace() << "tried to pick a server for " << job->id << " and failed\n";
     return false;
   }
 
@@ -562,12 +562,12 @@ handle_end (MsgChannel *c, Msg *)
   if (find (monitors.begin(), monitors.end(), c->other_end) != monitors.end())
     {
       monitors.remove (c->other_end);
-      trace() << "handle_end(moni) " << monitors.size() << endl;
+      // trace() << "handle_end(moni) " << monitors.size() << endl;
     }
   else
     {
       css.remove (static_cast<CS*>(c->other_end));
-      trace() << "handle_end " << css.size() << endl;
+      // trace() << "handle_end " << css.size() << endl;
     }
 
   fd2chan.erase (c->fd);
