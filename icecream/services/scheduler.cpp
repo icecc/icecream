@@ -215,21 +215,26 @@ handle_job_done (MsgChannel *c, Msg *_m)
   JobDoneMsg *m = dynamic_cast<JobDoneMsg *>(_m);
   if (!m || jobs.find(m->job_id) == jobs.end())
     return 1;
-  trace() << "END " << m->job_id
-          << " status=" << m->exitcode
-          << " in=" << m->in_uncompressed
-          << "(" << int( m->in_compressed * 100 / m->in_uncompressed ) << "%)"
-          << " out=" << m->out_uncompressed
-          << "(" << int( m->out_compressed * 100 / m->out_uncompressed ) << "%)"
-          << " real=" << m->real_msec
-          << " user=" << m->user_msec
-          << " sys=" << m->sys_msec
-          << " rss=" << m->maxrss
-          << " idrss=" << m->idrss
-          << " pfaults=" << m->majflt
-          << " nswaps=" << m->nswap
-          << " server=" << c->other_end->name
-          << endl;
+  if ( m->exitcode == 0 && m->in_uncompressed && m->out_uncompressed )
+    trace() << "END " << m->job_id
+            << " status=" << m->exitcode
+            << " in=" << m->in_uncompressed
+            << "(" << int( m->in_compressed * 100 / m->in_uncompressed ) << "%)"
+            << " out=" << m->out_uncompressed
+            << "(" << int( m->out_compressed * 100 / m->out_uncompressed ) << "%)"
+            << " real=" << m->real_msec
+            << " user=" << m->user_msec
+            << " sys=" << m->sys_msec
+            << " rss=" << m->maxrss
+            << " idrss=" << m->idrss
+            << " pfaults=" << m->majflt
+            << " nswaps=" << m->nswap
+            << " server=" << c->other_end->name
+            << endl;
+  else
+    trace() << "END " << m->job_id
+            << " status=" << m->exitcode << endl;
+
   if (jobs[m->job_id]->server != c->other_end)
     return 1;
   tochoose = true;
