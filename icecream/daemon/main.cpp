@@ -78,6 +78,7 @@
 #include "environment.h"
 #include "findmyself.h"
 
+const int PORT = 10245;
 
 using namespace std;
 
@@ -198,9 +199,8 @@ void reannounce_environments(const string &envbasedir, const string &nodename)
     scheduler->send_msg( lmsg );
 }
 
-int setup_listen_fd(int &port)
+int setup_listen_fd()
 {
-    const int START_PORT = 10245;
     int listen_fd;
     if ((listen_fd = socket (PF_INET, SOCK_STREAM, 0)) < 0) {
         perror ("socket()");
@@ -214,19 +214,13 @@ int setup_listen_fd(int &port)
     }
 
     struct sockaddr_in myaddr;
-    port = START_PORT;
-    for ( ; port < START_PORT + 10; port++) {
-        myaddr.sin_family = AF_INET;
-        myaddr.sin_port = htons (port);
-        myaddr.sin_addr.s_addr = INADDR_ANY;
-        if (bind (listen_fd, (struct sockaddr *) &myaddr,
-                  sizeof (myaddr)) < 0) {
-            if (errno == EADDRINUSE && port < START_PORT + 9)
-                continue;
-            perror ("bind()");
-            return -1;
-        }
-        break;
+    myaddr.sin_family = AF_INET;
+    myaddr.sin_port = htons (PORT);
+    myaddr.sin_addr.s_addr = INADDR_ANY;
+    if (bind (listen_fd, (struct sockaddr *) &myaddr,
+              sizeof (myaddr)) < 0) {
+        perror ("bind()");
+        return -1;
     }
 
     if (listen (listen_fd, 20) < 0)
@@ -342,22 +336,22 @@ int main( int argc, char ** argv )
                 break;
             case 'u':
                 runasuser = true;
-                break;                
+                break;
             default:
                 usage();
         }
     }
+
+    if ( !logfile.length() && detach)
+        logfile = "/var/log/iceccd";
+
+    setup_debug( debug_level, logfile );
 
     if ((geteuid()!=0) && !runasuser)
     {
         log_error() << "Please run iceccd with root privileges" << endl;
         return 1;
     }
- 
-    if ( !logfile.length() && detach)
-        logfile = "/var/log/iceccd";
-
-    setup_debug( debug_level, logfile );
 
     log_info() << "will use nice level " << nice_level << endl;
 
@@ -477,13 +471,12 @@ int main( int argc, char ** argv )
             jobmap.clear();
         }
 
-        int port;
-        listen_fd = setup_listen_fd(port);
+        listen_fd = setup_listen_fd();
         if ( listen_fd == -1 ) // error
             return 1;
 
         trace() << "login as " << uname_buf.machine << endl;
-        LoginMsg lmsg( port, nodename, uname_buf.machine );
+        LoginMsg lmsg( PORT, nodename, uname_buf.machine );
         lmsg.envs = available_environmnents(envbasedir);
         lmsg.max_kids = max_kids;
         scheduler->send_msg( lmsg );
