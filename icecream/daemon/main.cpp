@@ -180,7 +180,7 @@ int main( int argc, char ** argv )
 {
     list<string> environments = available_environmnents();
     const int START_PORT = 10245;
-    int max_processes = 0;
+    int max_processes = -1;
 
     string netname;
     bool watch_binary = false;
@@ -284,7 +284,7 @@ int main( int argc, char ** argv )
 
     int max_kids;
     if ( max_processes < 0 )
-      max_kids = n_cpus * 2;
+      max_kids = n_cpus + 1;
     else
       max_kids = max_processes;
 
