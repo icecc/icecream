@@ -9,21 +9,7 @@ Release Critical:
    This would simplify some things and avoid the above bugs (and it would make it more
    convenient for users of /opt/gcc-cvs/bin too)
 * Improve Documentation (cschum)
-
-Dream Mode:
-* daemon: run without chroot rights (not sure it's worth it)
-      as we can't overwrite the ld-linux.so, we would need to call all binaries ourselves.
-      E.g. PATH=/ LD_LIBRARY_PATH=$PWD/lib:$PWD/usr/lib lib/ld-linux.so usr/bin/gcc -print-prog-name=cc1
-        parse that output and use it for -B
-      PATH=/ LD_LIBRARY_PATH=$PWD/lib:$PWD/usr/lib lib/ld-linux.so usr/bin/gcc -B $basepath -v test.ii -finvalid-opt
-        parse that output and use the command line used (remove -pipe from the options)
-      E.g.
-      lib/ld-linux.so $basepath/cc1plus -fpreprocessed test.ii -quiet -dumpbase test -auxbase test -version -o test.s
-      ... you figured here it's just too ugly to be worth it
-  - I tried on Matz's suggestion to put wrapper scripts in place, but g++ does an execve on cc1plus and so the system
-    shell (/bin/sh) is interpreted by the environment's ld-linux.so - causing the kind of problems we wanted to avoid.
-    There are two solutions to _that_ problem I guess: packaging /bin/sh too (ugly) or making the wrapper not scripts
-    but small binaries compiled on the client machine (ugly too)
+* remove the redudancy between Service/MsgChannel (matz)
 
 Random:
 * Option -iiface to specify the interface[s] to listen on for the scheduler, or
