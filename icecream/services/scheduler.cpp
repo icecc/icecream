@@ -34,6 +34,9 @@ public:
   time_t start_on_scheduler;  // starttime local to scheduler
   Job (MsgChannel *c, unsigned int _id) : id(_id), state( PENDING ), server( 0 ),
                                           channel( c ), starttime(0), start_on_scheduler(0) {}
+  ~Job() {
+    delete channel;
+  }
 };
 
 /* One compile server (receiver, compile daemon)  */
