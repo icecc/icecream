@@ -9,6 +9,8 @@ Release Critical:
    This would simplify some things and avoid the above bugs (and it would make it more
    convenient for users of /opt/gcc-cvs/bin too)
 * Improve Documentation (cschum)
+* I'm not sure but I think we need to lock the local host _before_ we fork off the notification
+  child. Otherwise the gantt view explodes :)
 
 Random:
 * Option -iiface to specify the interface[s] to listen on for the scheduler, or
