@@ -7,6 +7,11 @@
 #include <stdint.h>
 #endif
 
+#ifdef __FreeBSD__
+#include <sys/types.h>
+#include <sys/socket.h>
+#endif
+
 #include "job.h"
 
 #define PROTOCOL_VERSION 1
