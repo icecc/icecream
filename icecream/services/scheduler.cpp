@@ -757,6 +757,7 @@ handle_end (MsgChannel *c, Msg *m)
 	      {
 		trace() << "STOP FOR " << (*jit)->id << endl;
 		(*jit)->channel->send_msg( EndMsg() );
+                notify_monitors (MonJobDoneMsg (JobDoneMsg( ( *jit )->id,  255 )));
 		jobs.erase( (*jit)->id );
 		delete (*jit);
 	      }
@@ -773,6 +774,7 @@ handle_end (MsgChannel *c, Msg *m)
 	  {
 	    trace() << "STOP FOR " << mit->first << endl;
 	    mit->second->channel->send_msg( EndMsg() );
+            notify_monitors (MonJobDoneMsg (JobDoneMsg( mit->second->id,  255 )));
 	    delete mit->second;
 	    jobs.erase( mit );
 	  }
@@ -795,6 +797,7 @@ handle_end (MsgChannel *c, Msg *m)
 		{
 		  trace() << "STOP FOR " << it->first << endl;
 		  Job *job = it->second;
+                  notify_monitors (MonJobDoneMsg (JobDoneMsg( job->id,  255 )));
 
 		  /* Remove this job from the request queue.  */
 		  list<UnansweredList*>::iterator ait;
