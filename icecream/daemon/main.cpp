@@ -443,7 +443,7 @@ int main( int argc, char ** argv )
                 continue;
             }
 
-            if ( time( 0 ) - last_stat >= 3 ) {
+            if ( time( 0 ) - last_stat >= 10 ) {
                 StatsMsg msg;
                 if ( !fill_stats( msg ) )
                     break;

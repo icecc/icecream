@@ -194,7 +194,7 @@ bool fill_stats( StatsMsg &msg )
     msg.load = ( 700 * realLoad + 300 * memory_fillgrade ) / 1000;
     if ( memory_fillgrade > 600 )
         msg.load = 1000;
-    if ( realLoad > 950 )
+    if ( realLoad > 800 )
         msg.load = 1000;
     msg.niceLoad = load.niceLoad;
     msg.sysLoad = load.sysLoad;
@@ -208,6 +208,6 @@ bool fill_stats( StatsMsg &msg )
     msg.loadAvg10 = ( unsigned int )( avg[2] * 1000 );
 
     msg.freeMem = ( unsigned int )( MemFree / 1024.0 + 0.5 );
-//    trace() << "load cpu=" << netLoad << " mem=" << memory_fillgrade << " total=" << msg.load << endl;
+    // trace() << "load cpu=" << realLoad << " mem=" << memory_fillgrade << " total=" << msg.load << " idle=" << msg.idleLoad << " user=" << msg.userLoad << " sys=" << msg.sysLoad << endl;
     return true;
 }
