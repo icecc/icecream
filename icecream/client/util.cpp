@@ -31,6 +31,9 @@
 #include <signal.h>
 #include <time.h>
 
+#include <sys/types.h>
+#include <pwd.h>
+
 #include <sys/stat.h>
 #include <sys/file.h>
 
@@ -156,13 +159,16 @@ static bool dcc_open_lockfile(const string &fname, int &plockfd)
 
 bool dcc_lock_host(int &lock_fd)
 {
-    string fname;
-    if ( getenv( "HOME" ) )
-        fname = getenv( "HOME" );
-    if ( !fname.size() )
-        fname = "/tmp";
+    string fname = "/tmp/.icecream-";
+    struct passwd *pwd = getpwuid( getuid() );
+    if ( pwd )
+        fname += pwd->pw_name;
+    else {
+        char buffer[10];
+        sprintf( buffer, "%ld", ( long )getuid() );
+        fname += buffer;
+    }
 
-    fname += "/.icecream";
     if ( mkdir( fname.c_str(), 0700 ) && errno != EEXIST ) {
         log_perror( "mkdir" );
         return false;
