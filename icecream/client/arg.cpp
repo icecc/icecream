@@ -33,11 +33,8 @@
 
 #include <sys/stat.h>
 
-#include "distcc.h"
 #include "logging.h"
-#include "io.h"
 #include "util.h"
-#include "exitcode.h"
 #include "filename.h"
 #include "arg.h"
 

@@ -43,14 +43,9 @@
 
 #include "logging.h"
 
-#include "clinet.h"
-#include "cpp.h"
-#include "client_comm.h"
 #include "arg.h"
 #include "util.h"
-#include "exitcode.h"
 #include "filename.h"
-#include "distcc.h"
 #include "remote.h"
 #include "local.h"
 

@@ -35,14 +35,9 @@
 #include <assert.h>
 #include <errno.h>
 
-#include "distcc.h"
 #include "logging.h"
-#include "exitcode.h"
 #include "util.h"
-#include "tempfile.h"
 #include "cpp.h"
-#include "filename.h"
-#include "arg.h"
 
 using namespace std;
 

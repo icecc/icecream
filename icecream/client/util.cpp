@@ -40,8 +40,6 @@
 
 #include <sys/param.h>
 
-#include "distcc.h"
-#include "io.h"
 #include "util.h"
 #include "exitcode.h"
 #include "logging.h"
