@@ -291,7 +291,7 @@ int build_remote(CompileJob &job, MsgChannel *scheduler, int permill )
     if ( get )
         version_file = get;
 
-    srand( time( 0 ) );
+    srand( time( 0 ) + getpid() );
 
     int torepeat = 1;
     if ( rand() % 1000 < permill )
