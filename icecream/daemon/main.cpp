@@ -517,6 +517,7 @@ int main( int argc, char ** argv )
     typedef pair<CompileJob*, MsgChannel*> Compile_Request;
     queue<Compile_Request> requests;
     map<pid_t, JobDoneMsg*> jobmap;
+    // the pidmap maps the PID to the socket to the server child
     typedef map<pid_t, int> Pidmap;
     Pidmap pidmap;
 
@@ -705,8 +706,8 @@ int main( int argc, char ** argv )
             fd_set listen_set;
             struct timeval tv;
 
-            FD_ZERO (&listen_set);
-            FD_SET (listen_fd, &listen_set);
+            FD_ZERO( &listen_set );
+            FD_SET( listen_fd, &listen_set );
             int max_fd = listen_fd;
 
             for ( Pidmap::const_iterator it = pidmap.begin(); it != pidmap.end(); ++it ) {
@@ -723,6 +724,8 @@ int main( int argc, char ** argv )
             tv.tv_usec = 400000;
 
             ret = select (max_fd + 1, &listen_set, NULL, NULL, &tv);
+            if ( ret == -1 )
+                log_perror( "select" );
 
             if ( ret > 0 ) {
                 if ( FD_ISSET( scheduler->fd, &listen_set ) ) {

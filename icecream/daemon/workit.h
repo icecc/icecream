@@ -27,6 +27,7 @@
 
 int work_it( CompileJob &j, const std::string &infilename,
              std::string &str_out, std::string &str_err,
-             int &status, std::string &outfilename, unsigned long int mem_limit );
+             int &status, std::string &outfilename,
+             unsigned long int mem_limit, int client_fd );
 
 #endif

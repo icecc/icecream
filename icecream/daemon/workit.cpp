@@ -95,7 +95,7 @@ void theSigCHLDHandler( int )
 int work_it( CompileJob &j,
              const string& infilename,
              string &str_out, string &str_err,
-             int &status, string &outfilename, unsigned long int mem_limit )
+             int &status, string &outfilename, unsigned long int mem_limit, int client_fd )
 {
     str_out.erase(str_out.begin(), str_out.end());
     str_out.erase(str_out.begin(), str_out.end());
@@ -269,13 +269,18 @@ int work_it( CompileJob &j,
             FD_ZERO( &rfds );
             FD_SET( sock_out[0], &rfds );
             FD_SET( sock_err[0], &rfds );
+            FD_SET( client_fd, &rfds );
+
+            int max_fd = std::max( sock_out[0], sock_err[0] );
+            if ( client_fd > max_fd )
+                max_fd = client_fd;
 
             struct timeval tv;
             /* Wait up to five seconds. */
             tv.tv_sec = 5;
             tv.tv_usec = 0;
 
-            ret =  select( std::max( sock_out[0], sock_err[0] )+1, &rfds, 0, 0, &tv );
+            ret =  select( max_fd+1, &rfds, 0, 0, &tv );
             switch( ret )
             {
             case -1:
@@ -320,6 +325,12 @@ int work_it( CompileJob &j,
                         buffer[bytes] = 0;
                         str_err.append( buffer );
                     }
+                }
+                if ( FD_ISSET( client_fd, &rfds ) ) {
+                    str_err.append( "client cancelled\n" );
+                    close( client_fd );
+                    kill( pid, SIGTERM );
+                    return EXIT_CLIENT_KILLED;
                 }
             }
         }

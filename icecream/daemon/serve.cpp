@@ -214,7 +214,8 @@ int handle_connection( const string &basedir, CompileJob *job,
     CompileResultMsg rmsg;
 
     ret = work_it( *job, tmp_input,
-                   rmsg.out, rmsg.err, rmsg.status, obj_file, mem_limit );
+                   rmsg.out, rmsg.err, rmsg.status, obj_file, mem_limit, serv->fd );
+
     unlink( tmp_input );
     tmp_input[0] = 0; // unlinked
 
@@ -225,8 +226,13 @@ int handle_connection( const string &basedir, CompileJob *job,
     if ( ret ) {
         if ( ret == EXIT_OUT_OF_MEMORY ) { // we catch that as special case
             rmsg.was_out_of_memory = true;
-        } else
+        } else {
+            if ( ret == EXIT_CLIENT_KILLED ) {
+                delete serv;
+                serv = 0;
+            }
             throw myexception( ret );
+        }
     }
 
     if ( !serv->send_msg( rmsg ) ) {
@@ -279,7 +285,10 @@ int handle_connection( const string &basedir, CompileJob *job,
 
     } catch ( myexception e )
     {
-        serv->send_msg( EndMsg() );
+        if ( serv )
+            serv->send_msg( EndMsg() );
+        delete serv;
+        serv = 0;
 
         delete msg;
         delete job;
