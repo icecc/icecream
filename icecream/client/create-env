@@ -42,7 +42,7 @@ fi
 add_file /usr/bin/gcc
 add_file /usr/bin/g++
 add_file /usr/bin/as
-add_file `/usr/bin/gcc -print-prog-name=cc1
+add_file `/usr/bin/gcc -print-prog-name=cc1`
 add_file `/usr/bin/g++ -print-prog-name=cc1plus`
 add_file `/usr/bin/gcc -print-file-name=specs`
 
