@@ -130,7 +130,7 @@ public:
   Environments compiler_versions;  // Available compilers
   CS (struct sockaddr *_addr, socklen_t _len)
     : Service(_addr, _len), load(1000), max_jobs(0), state(CONNECTED),
-      type(UNKNOWN) {
+      type(UNKNOWN), chroot_possible(false) {
     hostid = 0;
     busy_installing = 0;
   }
@@ -144,6 +144,7 @@ public:
   JobStat cum_requested;
   enum {CONNECTED, LOGGEDIN} state;
   enum {UNKNOWN, CLIENT, DAEMON, MONITOR, LINE} type;
+  bool chroot_possible;
   static unsigned int hostid_counter;
 };
 
@@ -603,6 +604,7 @@ pick_server(Job *job)
         {
           trace() << "no job stats - looking at " << ( *it )->nodename << " load: " << (*it )->load << " can install: " << can_install( *it, job ) << endl;
           if (int( (*it)->joblist.size() ) < (*it)->max_jobs
+	      && (*it)->chroot_possible
               && (*it)->load < 1000 && can_install( *it, job ).size() )
             {
               trace() << "returning first " << ( *it )->nodename << endl;
@@ -654,6 +656,14 @@ pick_server(Job *job)
         trace() << cs->nodename << " is currently installing\n";
         continue;
       }
+
+      /* Don't use non-chroot-able daemons for remote jobs.  XXX */
+      if (!cs->chroot_possible)
+        {
+	  trace() << cs->nodename << " can't use chroot\n";
+	  continue;
+	}
+	 
 
 #if DEBUG_SCHEDULER > 1
       trace() << cs->nodename << " compiled " << cs->last_compiled_jobs.size() << " got now: " <<
@@ -849,6 +859,11 @@ handle_login (MsgChannel *c, Msg *_m)
   if (!m)
     return false;
 
+  /* If we don't allow non-chroot-able daemons in the farm,
+     discard them here.  */
+  if (!allow_run_as_user && !m->chroot_possible)
+    return false;
+
   CS *cs = static_cast<CS *>(c->other_end);
   cs->remote_port = m->port;
   cs->compiler_versions = m->envs;
@@ -858,6 +873,7 @@ handle_login (MsgChannel *c, Msg *_m)
   else
     cs->nodename = cs->name;
   cs->host_platform = m->host_platform;
+  cs->chroot_possible = m->chroot_possible;
   cs->pick_new_id();
   handle_monitor_stats( cs );
   css.push_back (cs);
