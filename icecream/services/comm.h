@@ -39,7 +39,7 @@
 
 #define IS_PROTOCOL_11( c ) ( c->protocol >= 11 )
 #define IS_PROTOCOL_12( c ) ( c->protocol >= 12 )
-#define IS_PROTOCOL_13( c ) ( c->protocol >= 12 )
+#define IS_PROTOCOL_13( c ) ( c->protocol >= 13 )
 
 enum MsgType {
   // so far unknown
