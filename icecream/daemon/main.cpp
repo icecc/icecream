@@ -166,6 +166,7 @@ int main( int argc, char ** argv )
 {
     list<string> environments = available_environmnents();
     const int START_PORT = 10245;
+    int max_processes = 0;
 
     string netname;
     bool watch_binary = false;
@@ -173,20 +174,32 @@ int main( int argc, char ** argv )
     for (int argi = 1; argi < argc; argi++)
         if (argv[argi][0] == '-' && argv[argi][2] == 0) {
             switch (argv[argi][1]) {
-	    case 'n':
-	        argi++;
-	        if (argi >= argc)
-	            log_warning() << "-n requires argument" << endl;
-	        else
-	            netname = argv[argi];
-	        break;
+            case 'n':
+                argi++;
+                if (argi >= argc)
+                    log_warning() << "-n requires argument" << endl;
+                else
+                    netname = argv[argi];
+                break;
+            case 'm':
+                argi++;
+                if (argi >= argc)
+                    log_warning() << "-m requires argument" << endl;
+                else
+                    max_processes = atoi(argv[argi]);
+
+                if (max_processes < 1) {
+                    log_warning() << "You must at allow least one process."
+                                  << " Assuming -m 1." << endl;
+                }
+                break;
             case 'w':
                 watch_binary = true;
                 break;
-	    default:
-	        log_warning() << "Unknown argument " << argv[argi] << endl;
-	        break;
-	    }
+            default:
+                log_warning() << "Unknown argument " << argv[argi] << endl;
+                break;
+            }
         }
 
     std::string binary_path = argv[0];
@@ -245,9 +258,13 @@ int main( int argc, char ** argv )
 
     int n_cpus;
     if (dcc_ncpus(&n_cpus) == 0)
-        log_info() << n_cpus << " CPUs online on this server" << endl;
+        log_info() << n_cpus << " CPU(s) online on this server" << endl;
 
-    int max_kids = n_cpus + 1;
+    int max_kids;
+    if ( max_processes == 0 )
+      max_kids = n_cpus * 2;
+    else
+      max_kids = max_processes;
 
     log_info() << "allowing up to " << max_kids << " active jobs\n";
 
