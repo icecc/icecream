@@ -132,6 +132,7 @@ bool analyse_argv( const char * const *argv,
                 seen_s = true;
             } else if (!strcmp(a, "-fprofile-arcs")
                        || !strcmp(a, "-ftest-coverage")
+                       || !strcmp( a, "-frepo" )
                        || !strcmp( a, "-fbranch-probabilities") ) {
 #if CLIENT_DEBUG
                 log_info() << "compiler will emit profile info; must be local" << endl;
