@@ -14,6 +14,8 @@
   icecc /opt/gcc-cvs/bin/g++ -c test.cpp (you would need to rely on $ICECC_VERSION then as
   the daemon can hardly know what compiler you used, but that should be ok)
 * put the $bindir in config.h, so that create-env can be called without $PATH
+* timeout smaller for writes
+* timeout for reading the protocol version
 
 Features for paranoid users (hi Chris):
   - bind the broadcast listener to fixed local port (8765) (otherwise not firewallable)
