@@ -45,7 +45,13 @@ enum MsgType {
   M_LOGIN,
 
   // CS --> S (periodic)
-  M_STATS
+  M_STATS,
+
+  // messages between monitor and scheduler
+  M_MON_LOGIN,
+  M_MON_GET_CS,
+  M_MON_JOB_BEGIN,
+  M_MON_JOB_END,
 };
 
 class Msg {
@@ -257,6 +263,26 @@ public:
   StatsMsg () : Msg(M_STATS) { load = 0; }
   virtual bool fill_from_fd (int fd);
   virtual bool send_to_fd (int fd) const;
+};
+
+class MonLoginMsg : public Msg {
+public:
+  MonLoginMsg() : Msg(M_MON_LOGIN) {}
+};
+
+class MonGetCSMsg : public Msg {
+public:
+  MonGetCSMsg() : Msg(M_MON_GET_CS) {}
+};
+
+class MonJobBeginMsg : public Msg {
+public:
+  MonJobBeginMsg() : Msg(M_MON_JOB_BEGIN) {}
+};
+
+class MonJobEndMsg : public Msg {
+public:
+  MonJobEndMsg() : Msg(M_MON_JOB_END) {}
 };
 
 #endif

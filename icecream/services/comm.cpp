@@ -280,6 +280,10 @@ MsgChannel::get_msg(void)
     case M_STATS: m = new StatsMsg; break;
     case M_GET_SCHEDULER: m = new GetSchedulerMsg; break;
     case M_USE_SCHEDULER: m = new UseSchedulerMsg; break;
+    case M_MON_LOGIN: m = new MonLoginMsg; break;
+    case M_MON_GET_CS: m = new MonGetCSMsg; break;
+    case M_MON_JOB_BEGIN: m = new MonJobBeginMsg; break;
+    case M_MON_JOB_END: m = new MonJobEndMsg; break;
     default:
       abort();
       return 0; break;

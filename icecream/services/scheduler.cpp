@@ -118,6 +118,8 @@ queue<Job*> toanswer;
 list<JobStat> all_job_stats;
 JobStat cum_job_stats;
 
+list<Service*> monitors;
+
 static void
 add_job_stats (Job *job, JobDoneMsg *msg)
 {
@@ -148,6 +150,22 @@ add_job_stats (Job *job, JobDoneMsg *msg)
     {
       cum_job_stats -= *all_job_stats.begin ();
       all_job_stats.pop_front ();
+    }
+}
+
+static bool handle_end (MsgChannel *c, Msg *);
+
+static void
+notify_monitors (const Msg &m)
+{
+  list<Service*>::iterator it;
+  for (it = monitors.begin(); it != monitors.end();)
+    {
+      MsgChannel *c = (*it)->channel();
+      ++it;
+      /* If we can't send it, don't be clever, simply close this monitor.  */
+      if (!c->send_msg (m))
+        handle_end (c, 0);
     }
 }
 
@@ -186,6 +204,7 @@ handle_cs_request (MsgChannel *c, Msg *_m)
              << job->environment << "\" " << m->filename
              << " " << ( m->lang == CompileJob::Lang_C ? "C" : "C++" ) << endl;
   toanswer.push( job );
+  notify_monitors (MonGetCSMsg ());
   return true;
 }
 
@@ -215,7 +234,7 @@ pick_server(Job *job)
     {
       for (it = css.begin(); it != css.end(); ++it)
         if ((*it)->joblist.size() < (*it)->max_jobs
-	    && (*it)->load <= 1000)
+	    && (*it)->load < 1000)
           return *it;
       return 0;
     }
@@ -238,7 +257,7 @@ pick_server(Job *job)
     {
       CS *cs = *it;
       /* For now ignore overloaded servers.  */
-      if (cs->joblist.size() >= cs->max_jobs || cs->load > 1000)
+      if (cs->joblist.size() >= cs->max_jobs || cs->load >= 1000)
         ;
       else if (!best)
 	best = cs;
@@ -326,6 +345,18 @@ handle_login (MsgChannel *c, Msg *_m)
 }
 
 static bool
+handle_mon_login (MsgChannel *c, Msg *_m)
+{
+  MonLoginMsg *m = dynamic_cast<MonLoginMsg *>(_m);
+  if (!m)
+    return false;
+  // This is really a CS*, but we don't need the full one here
+  Service *s = c->other_end;
+  monitors.push_back (s);
+  return true;
+}
+
+static bool
 handle_job_begin (MsgChannel *c, Msg *_m)
 {
   JobBeginMsg *m = dynamic_cast<JobBeginMsg *>(_m);
@@ -337,6 +368,7 @@ handle_job_begin (MsgChannel *c, Msg *_m)
   jobs[m->job_id]->state = Job::COMPILING;
   jobs[m->job_id]->starttime = m->stime;
   jobs[m->job_id]->start_on_scheduler = time(0);
+  notify_monitors (MonJobBeginMsg ());
   return true;
 }
 
@@ -371,6 +403,7 @@ handle_job_done (MsgChannel *c, Msg *_m)
   Job *j = jobs[m->job_id];
   j->server->joblist.remove (j);
   add_job_stats (j, m);
+  notify_monitors (MonJobEndMsg ());
   jobs.erase (m->job_id);
   delete j;
   return true;
@@ -423,6 +456,9 @@ handle_new_connection (MsgChannel *c)
     case M_LOGIN:
       ret = handle_login (c, m);
       break;
+    case M_MON_LOGIN:
+      ret = handle_mon_login (c, m);
+      break;
     default:
       abort();
       ret = false;
@@ -437,8 +473,16 @@ static bool
 handle_end (MsgChannel *c, Msg *)
 {
   fd2chan.erase (c->fd);
-  css.remove (static_cast<CS*>(c->other_end));
-  trace() << "handle_end " << css.size() << endl;
+  if (find (monitors.begin(), monitors.end(), c->other_end) != monitors.end())
+    {
+      monitors.remove (c->other_end);
+      trace() << "handle_end(moni) " << monitors.size() << endl;
+    }
+  else
+    {
+      css.remove (static_cast<CS*>(c->other_end));
+      trace() << "handle_end " << css.size() << endl;
+    }
 
   delete c;
   return true;
