@@ -224,7 +224,7 @@ static int build_remote_int(CompileJob &job, UseCSMsg *usecs, const string &envi
         // transfer env
         struct stat buf;
         if ( stat( version_file.c_str(), &buf ) ) {
-            perror( "stat" );
+            perror( "error stat'ing version file" );
             throw( 4 );
         }
 
