@@ -23,34 +23,8 @@ MsgChannel *sched_channel;
 static void
 open_scheduler ()
 {
-  int remote_fd;
-  struct sockaddr_in remote_addr;
-  if ((remote_fd = socket (PF_INET, SOCK_STREAM, 0)) < 0)
-    {
-      perror ("socket()");
-      exit (1);
-    }
-  struct hostent *host = gethostbyname ("localhost");
-  if (!host)
-    {
-      fprintf (stderr, "Unknown host\n");
-      exit (1);
-    }
-  if (host->h_length != 4)
-    {
-      fprintf (stderr, "Invalid address length\n");
-      exit (1);
-    }
-  remote_addr.sin_family = AF_INET;
-  remote_addr.sin_port = htons (8765);
-  memcpy (&remote_addr.sin_addr.s_addr, host->h_addr_list[0], host->h_length);
-  if (connect (remote_fd, (struct sockaddr *) &remote_addr, sizeof (remote_addr)) < 0)
-    {
-      perror ("connect()");
-      exit (1);
-    }
-  scheduler = new Service ((struct sockaddr*) &remote_addr, sizeof (remote_addr));
-  sched_channel = new MsgChannel (remote_fd, scheduler);
+  scheduler = new Service ("localhost", 8765);
+  sched_channel = scheduler->channel();
 }
 
 static int

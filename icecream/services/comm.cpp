@@ -1,12 +1,14 @@
 #include <sys/types.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include <netdb.h>
 #include <unistd.h>
 #include <errno.h>
 #include <string>
 #include "job.h"
 #include "comm.h"
 
+using namespace std;
 
 /* TODO
  * buffered in/output per MsgChannel
@@ -78,6 +80,7 @@ writeuint (int fd, unsigned int i)
 
 Service::Service (struct sockaddr *_a, socklen_t _l)
 {
+  c = 0;
   len = _l;
   if (len && _a)
     {
@@ -90,6 +93,47 @@ Service::Service (struct sockaddr *_a, socklen_t _l)
       addr = 0;
       name = "";
     }
+}
+
+Service::Service (const string &hostname, unsigned short port)
+{
+  int remote_fd;
+  struct sockaddr_in remote_addr;
+  c = 0;
+  addr = 0;
+  name = "";
+  if ((remote_fd = socket (PF_INET, SOCK_STREAM, 0)) < 0)
+    {
+      perror ("socket()");
+      return;
+    }
+  struct hostent *host = gethostbyname (hostname.c_str());
+  if (!host)
+    {
+      fprintf (stderr, "Unknown host\n");
+      close (remote_fd);
+      return;
+    }
+  if (host->h_length != 4)
+    {
+      fprintf (stderr, "Invalid address length\n");
+      close (remote_fd);
+      return;
+    }
+  remote_addr.sin_family = AF_INET;
+  remote_addr.sin_port = htons (port);
+  memcpy (&remote_addr.sin_addr.s_addr, host->h_addr_list[0], host->h_length);
+  if (connect (remote_fd, (struct sockaddr *) &remote_addr, sizeof (remote_addr)) < 0)
+    {
+      perror ("connect()");
+      close (remote_fd);
+      return;
+    }
+  len = sizeof (remote_addr);
+  addr = (struct sockaddr *)malloc (len);
+  memcpy (addr, &remote_addr, len);
+  name = hostname;
+  c = new MsgChannel (remote_fd, this);
 }
 
 Service::~Service ()
@@ -152,7 +196,7 @@ MsgChannel::send_msg (const Msg &m)
 }
 
 bool
-read_string (int fd, std::string &s)
+read_string (int fd, string &s)
 {
   char *buf;
   // len is including the (also saved) 0 Byte
@@ -172,7 +216,7 @@ read_string (int fd, std::string &s)
 }
 
 bool
-write_string (int fd, const std::string &s)
+write_string (int fd, const string &s)
 {
   unsigned int len = 1 + s.length();
   if (!writeuint (fd, len))
@@ -181,7 +225,7 @@ write_string (int fd, const std::string &s)
 }
 
 bool
-read_strlist (int fd, std::list<std::string> &l)
+read_strlist (int fd, list<string> &l)
 {
   unsigned int len;
   l.clear();
@@ -189,7 +233,7 @@ read_strlist (int fd, std::list<std::string> &l)
     return false;
   while (len--)
     {
-      std::string s;
+      string s;
       if (!read_string (fd, s))
         return false;
       l.push_back (s);
@@ -198,11 +242,11 @@ read_strlist (int fd, std::list<std::string> &l)
 }
 
 bool
-write_strlist (int fd, const std::list<std::string> &l)
+write_strlist (int fd, const list<string> &l)
 {
   if (!writeuint (fd, (unsigned int) l.size()))
     return false;
-  for (std::list<std::string>::const_iterator it = l.begin();
+  for (list<string>::const_iterator it = l.begin();
        it != l.end(); ++it )
     {
       if (!write_string (fd, *it))
@@ -271,7 +315,7 @@ CompileFileMsg::fill_from_fd (int fd)
   if (!Msg::fill_from_fd (fd))
     return false;
   unsigned int id, lang;
-  std::list<std::string> l1, l2;
+  list<string> l1, l2;
   if (!readuint (fd, &lang)
       || !readuint (fd, &id)
       || !read_strlist (fd, l1)

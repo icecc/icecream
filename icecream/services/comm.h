@@ -44,14 +44,19 @@ public:
   virtual bool send_to_fd (int fd) const;
 };
 
+class MsgChannel;
+
 // an endpoint of a MsgChannel, i.e. most often a host
 class Service {
   // deep copied
   struct sockaddr *addr;
   socklen_t len;
+  MsgChannel *c;
 public:
   std::string name; // ???
   Service (struct sockaddr *, socklen_t);
+  Service (const std::string &host, unsigned short port);
+  MsgChannel *channel() const { return c; }
   ~Service ();
 };
 
