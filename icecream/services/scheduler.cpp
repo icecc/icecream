@@ -1025,6 +1025,9 @@ handle_job_done (MsgChannel *c, Msg *_m)
 
 
 #if DEBUG_SCHEDULER > 0
+  if (new_job_id % 1000) // don't polute the log file in checking this for every job
+	return true;
+
   bool first = true;
 
   for (map<unsigned int, Job*>::const_iterator it = jobs.begin();
