@@ -609,7 +609,7 @@ MsgChannel::wait_for_msg (int timeout)
       if (select (fd + 1, &read_set, NULL, NULL, &tv) <= 0) {
         if ( errno == EINTR )
           continue;
-	log_error() << "wait_for_msg select: " << strerror(errno) << endl;
+	log_error() << "wait_for_msg select: " << strerror(errno) << " " << get_backtrace() << endl;
 	/* Either timeout or real error.  For this function also
 	   a timeout is an error.  */
         return false;

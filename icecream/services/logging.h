@@ -53,4 +53,6 @@ static inline std::ostream& trace() {
     return *logfile_trace;
 }
 
+std::string get_backtrace();
+
 #endif
