@@ -505,12 +505,13 @@ Service::Service (const string &hostname, unsigned short p)
         /*
         **  Protect against an infinite loop.
         */
-        if (tries++ >= 100) { // 10s
+        if (tries++ >= 5) { // 10s
+	  close(remote_fd);
           return;
         }
 
-        select_timeout.tv_sec = 0;
-        select_timeout.tv_usec = 100000;
+        select_timeout.tv_sec = 2;
+        select_timeout.tv_usec = 0;
         FD_ZERO(&writefds);
         FD_SET(remote_fd, &writefds);
         ret = select(remote_fd + 1, NULL, &writefds, NULL, &select_timeout);
