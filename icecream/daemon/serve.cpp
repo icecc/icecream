@@ -83,7 +83,7 @@ public:
 /**
  * Read a request, run the compiler, and send a response.
  **/
-int handle_connection( const string &basedir, CompileJob *job, MsgChannel *serv, int &out_fd )
+int handle_connection( const string &basedir, CompileJob *job, MsgChannel *serv, int &out_fd, unsigned int mem_limit )
 {
     int socket[2];
     if ( pipe( socket ) == -1)
@@ -211,7 +211,7 @@ int handle_connection( const string &basedir, CompileJob *job, MsgChannel *serv,
     CompileResultMsg rmsg;
 
     ret = work_it( *job, tmp_input,
-                   rmsg.out, rmsg.err, rmsg.status, obj_file );
+                   rmsg.out, rmsg.err, rmsg.status, obj_file, mem_limit );
     unlink( tmp_input );
     tmp_input[0] = 0; // unlinked
 
@@ -219,8 +219,12 @@ int handle_connection( const string &basedir, CompileJob *job, MsgChannel *serv,
     delete job;
     job = 0;
 
-    if ( ret )
-        throw myexception( ret );
+    if ( ret ) {
+        if ( ret == EXIT_OUT_OF_MEMORY ) { // we catch that as special case
+            rmsg.was_out_of_memory = true;
+        } else
+            throw myexception( ret );
+    }
 
     if ( !serv->send_msg( rmsg ) ) {
         log_info() << "write of result failed\n";

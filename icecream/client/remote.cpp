@@ -323,7 +323,12 @@ static int build_remote_int(CompileJob &job, UseCSMsg *usecs, const string &envi
     assert ( crmsg );
 
     int status = crmsg->status;
-    trace() << "crmsg->status " << status << endl;
+    trace() << "crmsg->status " << status << " " << crmsg->was_out_of_memory << endl;
+
+    if ( status && crmsg->was_out_of_memory ) {
+        log_info() << "the server ran out of memory, recompiling locally" << endl;
+        throw( 17 ); // recompile locally
+    }
 
     if ( output ) {
         fprintf( stdout, "%s", crmsg->out.c_str() );

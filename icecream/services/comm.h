@@ -37,7 +37,7 @@
 // if you increase the MIN_PROTOCOL_VERSION, comment out macros below and clean up the code
 #define MIN_PROTOCOL_VERSION 10
 
-#define IS_PROTOCOL_10( c ) ( c->protocol >= 10 )
+#define IS_PROTOCOL_11( c ) ( c->protocol >= 10 )
 
 enum MsgType {
   // so far unknown
@@ -302,8 +302,9 @@ public:
   int status;
   std::string out;
   std::string err;
+  bool was_out_of_memory;
 
-  CompileResultMsg () : Msg(M_COMPILE_RESULT) {}
+  CompileResultMsg () : Msg(M_COMPILE_RESULT), status( 0 ), was_out_of_memory( false ) {}
   virtual void fill_from_channel (MsgChannel * c);
   virtual void send_to_channel (MsgChannel * c) const;
 };

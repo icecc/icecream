@@ -101,8 +101,10 @@ static unsigned long int scan_one( const char* buff, const char *key )
   return val;
 }
 
-static unsigned int calculateMemLoad( const char* MemInfoBuf, unsigned long int &MemFree )
+static unsigned int calculateMemLoad( const char* MemInfoBuf, unsigned long int &NetMemFree )
 {
+    unsigned long int MemFree;
+
 #ifdef __FreeBSD__
     size_t len = sizeof (MemFree);
     if ((sysctlbyname("vm.stats.vm.v_free_count", &MemFree, &len, NULL, 0) == -1) || !len)
@@ -133,7 +135,7 @@ static unsigned int calculateMemLoad( const char* MemInfoBuf, unsigned long int 
     else
         Cached /= 2;
 
-    unsigned long int NetMemFree = MemFree + Cached + Buffers;
+    NetMemFree = MemFree + Cached + Buffers;
     if ( NetMemFree > 128 * 1024 )
         return 0;
     else
@@ -183,7 +185,7 @@ bool fill_stats( StatsMsg &msg )
     n = read( fd, StatBuf, sizeof( StatBuf ) -1 );
     close( fd );
     if ( n < 40 ) {
-        log_error() << "no enough date in /proc/meminfo?" << endl;
+        log_error() << "no enough data in /proc/meminfo?" << endl;
         return false;
     }
     StatBuf[n] = 0;

@@ -1039,6 +1039,12 @@ CompileResultMsg::fill_from_channel (MsgChannel *c)
   c->read_string (out);
   c->readuint32 (_status);
   status = _status;
+  uint32_t was = 0;
+  if ( IS_PROTOCOL_11( c ) )
+    c->readuint32( was );
+  else
+    was = 0;
+  was_out_of_memory = was;
 }
 
 void
@@ -1048,6 +1054,8 @@ CompileResultMsg::send_to_channel (MsgChannel *c) const
   c->write_string (err);
   c->write_string (out);
   c->writeuint32 (status);
+  if ( IS_PROTOCOL_11( c ) )
+    c->writeuint32( was_out_of_memory ? 1 : 0 );
 }
 
 void

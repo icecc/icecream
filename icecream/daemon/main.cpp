@@ -67,8 +67,7 @@
 
 #include <queue>
 #include <map>
-
-
+#include <algorithm>
 
 #include "ncpus.h"
 #include "exitcode.h"
@@ -255,6 +254,8 @@ int main( int argc, char ** argv )
     string nodename;
     string schedname;
 
+    int mem_limit = 100;
+
     while ( true ) {
         int option_index = 0;
         static const struct option long_options[] = {
@@ -427,7 +428,7 @@ int main( int argc, char ** argv )
     Pidmap pidmap;
 
     string native_environment;
-    if ( !setup_env_cache( envbasedir, native_environment ) )
+    if ( false && !setup_env_cache( envbasedir, native_environment ) )
         return 1;
 
     list<string> nl = get_netnames (200);
@@ -439,6 +440,8 @@ int main( int argc, char ** argv )
     int tosleep = 0;
 
     while ( 1 ) {
+        trace() << "starting " << listen_fd << endl;
+
         if ( listen_fd ) {
             // as long as we have no scheduler, don't listen for clients
             close( listen_fd );
@@ -451,6 +454,7 @@ int main( int argc, char ** argv )
         tosleep = 0;
 
         if ( !scheduler ) {
+            trace() << "connect_scheduler\n";
             scheduler = connect_scheduler (netname, 2000, schedname);
             if ( !scheduler ) {
                 log_warning() << "no scheduler found. Sleeping.\n";
@@ -462,6 +466,7 @@ int main( int argc, char ** argv )
 
         int port;
         listen_fd = setup_listen_fd(port);
+        trace() << "setup_listen_fd " << listen_fd << endl;
         if ( listen_fd == -1 ) // error
             return 1;
 
@@ -492,7 +497,8 @@ int main( int argc, char ** argv )
                 requests.pop();
                 CompileJob *job = req.first;
                 int sock;
-                pid_t pid = handle_connection( envbasedir, req.first, req.second, sock );
+                trace() << "mem_limit " << mem_limit << endl;
+                pid_t pid = handle_connection( envbasedir, req.first, req.second, sock, mem_limit );
                 if ( pid > 0) { // forks away
                     current_kids++;
                     if ( !scheduler || !scheduler->send_msg( JobBeginMsg( job->jobID() ) ) ) {
@@ -542,6 +548,8 @@ int main( int argc, char ** argv )
                 StatsMsg msg;
                 if ( !fill_stats( msg ) ) {
                     log_error() << "can't find out stats" << endl;
+                } else { // Matz got in the urin that not all CPUs are always feed
+                    mem_limit = std::max( msg.freeMem / std::max( max_kids, 4 ), 100U );
                 }
 
                 if ( scheduler->send_msg( msg ) )

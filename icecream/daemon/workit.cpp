@@ -33,6 +33,7 @@
 #include <unistd.h>
 #include <sys/fcntl.h>
 #include <sys/wait.h>
+#include <sys/user.h>
 
 #ifdef __FreeBSD__
 #include <signal.h>
@@ -61,7 +62,7 @@ void theSigCHLDHandler( int )
 int work_it( CompileJob &j,
              const string& infilename,
              string &str_out, string &str_err,
-             int &status, string &outfilename )
+             int &status, string &outfilename, unsigned int mem_limit )
 {
     str_out.erase(str_out.begin(), str_out.end());
     str_out.erase(str_out.begin(), str_out.end());
@@ -126,6 +127,15 @@ int work_it( CompileJob &j,
         fcntl(main_sock[1], F_SETFD, FD_CLOEXEC);
         setenv( "PATH", "usr/bin", 1 );
         setenv( "LD_LIBRARY_PATH", "usr/lib:lib", 1 );
+
+        struct rlimit rlim;
+        if ( getrlimit( RLIMIT_AS, &rlim ) )
+            perror( "getrlimit" );
+
+        rlim.rlim_cur = mem_limit*1024*1024;
+        rlim.rlim_max = mem_limit*1024*1024;
+        if ( setrlimit( RLIMIT_AS, &rlim ) )
+            perror( "setrlimit" );
 
         int argc = list.size();
         argc++; // the program
@@ -231,6 +241,16 @@ int work_it( CompileJob &j,
                         status = WEXITSTATUS( status );
                     else
                         status = 1;
+
+                    if ( status ) {
+                        unsigned long int mem_used = ( ru.ru_minflt + ru.ru_majflt ) * PAGE_SIZE / 1024;
+                        if ( mem_used * 100 > 85 * mem_limit * 1024 ) {
+                            trace() << "mem_limit " << mem_limit << " mem_used " << mem_used << endl;
+                            // the relation between ulimit and memory used is pretty thin ;(
+                            return EXIT_OUT_OF_MEMORY;
+                        }
+                    }
+
                     return 0;
                 }
                 break;
