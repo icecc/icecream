@@ -56,7 +56,7 @@ int work_it( CompileJob &j,
     fcntl( sock_out[1], F_SETFD, FD_CLOEXEC );
     fcntl( sock_err[1], F_SETFD, FD_CLOEXEC );
 
-    must_reap = true;
+    must_reap = false;
 
     /* Testing */
     struct sigaction act;
@@ -167,7 +167,7 @@ int work_it( CompileJob &j,
                 // fall through; should happen if tvp->tv_sec < 0
             case 0:
                 struct rusage ru;
-                if (wait4(pid, &status, must_reap ? 0 : WNOHANG, &ru) != 0) // error finishes, too
+                if (wait4(pid, &status, must_reap ? WUNTRACED : WNOHANG, &ru) != 0) // error finishes, too
                 {
                     printf( "has exited: %d %d\n", pid, status );
                     return 0;
