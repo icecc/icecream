@@ -240,6 +240,8 @@ handle_monitor_stats( CS *cs, StatsMsg *m = 0)
   char buffer[1000];
   sprintf( buffer, "Name:%s\n", cs->nodename.c_str() );
   msg += buffer;
+  sprintf( buffer, "IP:%s\n", cs->name.c_str() );
+  msg += buffer;
   sprintf( buffer, "MaxJobs:%d\n", cs->max_jobs );
   msg += buffer;
   if ( m ) {
