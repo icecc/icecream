@@ -63,7 +63,6 @@ int build_remote(CompileJob &job )
         log_error() << "failed to write get scheduler\n";
         return build_local( job );
     }
-    log_info() << "asked for scheduler\n";
 
     Msg *umsg = local_daemon->get_msg();
     if ( !umsg || umsg->type != M_USE_SCHEDULER ) {
@@ -76,7 +75,7 @@ int build_remote(CompileJob &job )
     delete local_daemon;
     delete serv;
 
-    log_info() << "contacting scheduler " << ucs->hostname << ":" << ucs->port << endl;
+    // log_info() << "contacting scheduler " << ucs->hostname << ":" << ucs->port << endl;
 
     serv = new Service( ucs->hostname, ucs->port );
     MsgChannel *scheduler = serv->channel();
@@ -105,8 +104,7 @@ int build_remote(CompileJob &job )
     string hostname = usecs->hostname;
     unsigned int port = usecs->port;
     job.setJobID( usecs->job_id );
-    printf ("Have to use host %s:%d\n", hostname.c_str(), port );
-    printf ("Job ID: %d\n", job.jobID());
+    printf ("Have to use host %s:%d - Job ID: %d\n", hostname.c_str(), port, job.jobID() );
     delete usecs;
     EndMsg em;
     // if the scheduler ignores us, ignore it in return :/
@@ -207,7 +205,5 @@ int build_remote(CompileJob &job )
     }
 
     close( obj_fd );
-
-    log_info() << "got status " << status << endl;
     return status;
 }

@@ -100,7 +100,9 @@ bool writecompressed( int fd, const unsigned char *in_buf, lzo_uint in_len )
         delete [] out_buf;
         return false;
     }
+#if 0
     printf( "compress %d bytes to %d bytes\n", in_len, out_len );
+#endif
     bool bret = ( writeuint( fd, in_len )
                   && writeuint( fd, out_len )
                   && writefull( fd, out_buf, out_len ) );
@@ -129,13 +131,16 @@ bool readcompressed( int fd, unsigned char **out_buf,lzo_uint *out_len )
         printf("internal error - decompression failed: %d\n", ret);
         bret = false;
     }
-    if ( bret ) {
-        printf( "decompressed %d bytes to %d bytes\n", in_len, *out_len );
-    } else {
+    if ( !bret ) {
         delete [] *out_buf;
         *out_buf = 0;
         *out_len = 0;
     }
+#if 0
+    else {
+        printf( "decompressed %d bytes to %d bytes\n", in_len, *out_len );
+    }
+#endif
     free( wrkmem );
     delete [] in_buf;
     return bret;

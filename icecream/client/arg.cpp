@@ -40,6 +40,7 @@
 
 using namespace std;
 
+#if 0
 static string concat_args( const CompileJob::ArgumentsList &list )
 {
     int len = list.size() - 1;
@@ -53,6 +54,7 @@ static string concat_args( const CompileJob::ArgumentsList &list )
     result += "\"";
     return result;
 }
+#endif
 
 bool analyse_argv( const char * const *argv,
                    CompileJob &job )
@@ -62,10 +64,12 @@ bool analyse_argv( const char * const *argv,
     CompileJob::ArgumentsList rest_args;
     string ofile;
 
+#if 0
     trace() << "scanning arguments ";
     for ( int index = 0; argv[index]; index++ )
         trace() << argv[index] << " ";
     trace() << endl;
+#endif
 
     bool always_local = false;
     bool seen_c = false;
@@ -98,7 +102,6 @@ bool analyse_argv( const char * const *argv,
                     It implies -E, so only the preprocessor is run,
                     not the compiler.  There would be no point trying
                     to distribute it even if we could. */
-                trace() << a << " implies -E (maybe) and must be local" << endl;
                 always_local = true;
                 local_args.push_back( a );
             } else if (str_startswith("-Wa,", a)) {
@@ -109,9 +112,6 @@ bool analyse_argv( const char * const *argv,
                  * comma-separated assembler options after -Wa, but looking
                  * for '=' should be safe. */
                 if (strchr(a, '=')) {
-                    trace() << a
-                            << " needs to write out assembly listings and must be local"
-                            << endl;
                     always_local = true;
                     local_args.push_back( a );
                 } else
@@ -261,12 +261,14 @@ bool analyse_argv( const char * const *argv,
     job.setRestFlags( rest_args );
     job.setOutputFile( ofile );
 
+#if 0
     trace() << "scanned result: local args=" << concat_args( local_args )
             << ", remote args=" << concat_args( remote_args )
             << ", rest=" << concat_args( rest_args )
             << ", local=" << always_local
             << ", lang=" << ( job.language() == CompileJob::Lang_CXX ? "C++" : "C" )
             << endl;
+#endif
 
     return always_local;
 }

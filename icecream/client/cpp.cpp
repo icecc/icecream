@@ -96,10 +96,12 @@ pid_t call_cpp(CompileJob &job, int fd)
         argv[i++] = strdup( job.inputFile().c_str() );
         argv[i++] = 0;
 
+#if 0
         printf( "forking " );
         for ( int index = 0; argv[index]; index++ )
             printf( "%s ", argv[index] );
         printf( "\n" );
+#endif
 
         /* Ignore failure */
         close(STDOUT_FILENO);
@@ -108,11 +110,8 @@ pid_t call_cpp(CompileJob &job, int fd)
         execvp(argv[0], argv);
         /* !! NEVER RETURN FROM HERE !! */
         return 0;
-    } else {
-        trace() << "child started as pid" << (int) pid << endl;
+    } else
         return pid;
-    }
-
 }
 
 
