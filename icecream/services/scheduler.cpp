@@ -1265,8 +1265,12 @@ handle_end (MsgChannel *c, Msg *m)
               if ( job->client_channel )
                 job->client_channel->send_msg( EndMsg() );
               notify_monitors (MonJobDoneMsg (JobDoneMsg( job->id,  255 )));
-              delete job;
+	      /* If this job is removed because the submitter is removed
+		 also remove the job from the servers joblist.  */
+	      if (job->server && job->server != toremove)
+		job->server->joblist.remove (job);
               jobs.erase( mit++ );
+              delete job;
             }
           else
             {
