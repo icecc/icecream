@@ -69,6 +69,11 @@ static void dcc_show_usage(void)
 "Options:\n"
 "   --help                     explain usage and exit\n"
 "   --version                  show version and exit\n"
+"Environment Variables:\n"
+"   ICECC_VERSION              use a specific icecc environment, see create-env\n"
+"   ICECC_REPEAT_RATE          the number of jobs out of 1000 that should be\n"
+"                              compiled on multiple hosts to ensure that they're\n"
+"                              producing the same output.  The default is 10.\n"
 "\n");
 }
 
@@ -204,7 +209,10 @@ int main(int argc, char **argv)
         ret = build_local( job, scheduler );
     else {
         try {
-            ret = build_remote( job, scheduler, envs, 200 ); // every 5th is compiled three times
+            // by default every 100th is compiled three times
+            const char *s = getenv( "ICECC_REPEAT_RATE" );
+            int rate = s ? atoi( s ) : 10;
+            ret = build_remote( job, scheduler, envs, rate );
         } catch ( int error ) {
             delete scheduler;
             return build_local( job, 0 );
