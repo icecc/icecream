@@ -7,6 +7,7 @@ icecc_SOURCES = arg.c climasq.c clinet.c clirpc.c cpp.c main.c implicit.c strip.
 all-local: icecc++
 
 icecc++: icecc
+	-rm -f icecc++
 	$(LN_S) icecc icecc++
 
 install-exec-local:
