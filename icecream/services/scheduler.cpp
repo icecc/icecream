@@ -106,7 +106,7 @@ map<int, MsgChannel *> fd2chan;
 class Job {
 public:
   unsigned int id;
-  enum {PENDING, COMPILING} state;
+  enum {PENDING, WAITINGFORCS, COMPILING} state;
   CS *server;  // on which server we build
   CS *submitter;  // who submitted us
   MsgChannel *channel;
@@ -369,6 +369,7 @@ empty_queue()
   else
     delete first;
 
+  job->state = Job::WAITINGFORCS;
   job->server = cs;
 
   UseCSMsg m2(job->environment, cs->name, cs->remote_port, job->id );
@@ -590,13 +591,22 @@ handle_end (MsgChannel *c, Msg *)
       uint osize = css.size();
       CS *toremove = static_cast<CS*>(c->other_end);
       css.remove (toremove);
+
+      if ( css.size() == osize )
+        for ( map<unsigned int, Job*>::iterator it = jobs.begin(); it != jobs.end(); ++it )
+          if ( it->second->channel == c && it->second->state == Job::PENDUGING )
+            {
+              trace() << "client died in pending mode\n";
+              // we're afraid
+              osize = 0;
+            }
+
       if ( osize != css.size() ) // the above may fail when it's a client ending
         {
           queue<UnansweredList*> newtoanswer;
           while ( !toanswer.empty() )
             {
               UnansweredList *l = toanswer.front();
-              trace() << "is " << l->server << " == " << c->other_end << endl;
               if ( l->server != toremove )
                 {
                   newtoanswer.push( l );
@@ -616,15 +626,16 @@ handle_end (MsgChannel *c, Msg *)
             }
 
           toanswer = newtoanswer;
-          trace() << "handle_end " << css.size() << endl;
+          // trace() << "handle_end " << css.size() << endl;
 
           for ( map<unsigned int, Job*>::iterator it = jobs.begin(); it != jobs.end(); ++it )
             {
-              if ( it->second->submitter == toremove || it->second->server == toremove ) {
-                trace() << "STOP FOR " << it->first << endl;
-                delete it->second; // closes socket -> causes continuing
-                jobs.erase( it );
-              }
+              if ( it->second->submitter == toremove || it->second->server == toremove || it->second->channel == c)
+                {
+                  trace() << "STOP FOR " << it->first << endl;
+                  delete it->second; // closes socket -> causes continuing
+                  jobs.erase( it );
+                }
             }
         }
     }
