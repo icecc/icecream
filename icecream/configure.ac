@@ -1,0 +1,123 @@
+# quite some macros are taken from distcc
+
+AC_PREREQ(2.53)
+AC_INIT(common/exec.c)
+AM_INIT_AUTOMAKE(icecream, "0.1")
+AC_CONFIG_HEADERS(config.h)
+AC_CANONICAL_HOST
+
+dnl Checks for programs
+AC_PROG_CC
+if test "$GCC" = yes 
+then
+    CFLAGS="-W -Wall -Wimplicit \
+-Wshadow -Wpointer-arith -Wcast-align -Wwrite-strings \
+-Waggregate-return -Wstrict-prototypes -Wmissing-prototypes \
+-Wnested-externs $CFLAGS"
+    CXXFLAGS="-W -Wall -Wimplicit \
+-Wshadow -Wpointer-arith -Wcast-align -Wwrite-strings \
+-Waggregate-return -Wstrict-prototypes -Wmissing-prototypes \
+-Wnested-externs $CXXFLAGS"
+    AC_MSG_NOTICE([Adding gcc options: $CFLAGS])
+fi
+
+AC_PROG_MAKE_SET
+AC_PROG_INSTALL
+AC_C_INLINE
+AC_PROG_LIBTOOL
+
+########################################################################
+### Checks for header files
+
+# Some of these are needed by popt (or other libraries included in the future).
+
+AC_CHECK_HEADERS([unistd.h stdint.h sys/types.h sys/sendfile.h sys/signal.h])
+AC_CHECK_HEADERS([ctype.h sys/resource.h sys/socket.h sys/select.h])
+AC_CHECK_HEADERS([netinet/in.h], [], [],
+[#if HAVE_SYS_TYPES_H
+# include <sys/types.h>
+#endif
+])
+AC_CHECK_HEADERS([arpa/nameser.h], [], [],
+[#if HAVE_SYS_TYPES_H
+# include <sys/types.h>
+#endif
+])
+AC_CHECK_HEADERS([resolv.h], [], [],
+[#if HAVE_SYS_TYPES_H
+# include <sys/types.h>
+#endif
+#if HAVE_NETINET_IN_H
+# include <netinet/in.h>
+#endif
+#if HAVE_ARPA_NAMESER_H
+# include <arpa/nameser.h>
+#endif
+])
+
+AC_CHECK_HEADERS([float.h mcheck.h alloca.h sys/mman.h])
+
+######################################################################
+dnl Checks for types
+
+AC_CHECK_TYPES([sa_family_t, socklen_t, in_port_t, in_addr_t], , ,
+	       [
+#if HAVE_SYS_TYPES_H
+# include <sys/types.h>
+#endif
+#if HAVE_SYS_SOCKET_H
+# include <sys/socket.h>
+#endif
+#if HAVE_NETINET_IN_H
+# include <netinet/in.h>
+#endif
+#if HAVE_ARPA_NAMESER_H
+# include <arpa/nameser.h>
+#endif
+])
+
+
+
+########################################################################
+### Checks for libraries.
+
+# The following test taken from the cvs sources via Samba:
+# If we can't find connect, try looking in -lsocket, -lnsl, and -linet.
+# The Irix 5 libc.so has connect and gethostbyname, but Irix 5 also has
+# libsocket.so which has a bad implementation of gethostbyname (it
+# only looks in /etc/hosts), so we only look for -lsocket if we need
+# it.
+AC_CHECK_FUNCS(connect)
+if test x"$ac_cv_func_connect" = x"no"; then
+    case "$LIBS" in
+    *-lnsl*) ;;
+    *) AC_CHECK_LIB(nsl_s, printf) ;;
+    esac
+    case "$LIBS" in
+    *-lnsl*) ;;
+    *) AC_CHECK_LIB(nsl, printf) ;;
+    esac
+    case "$LIBS" in
+    *-lsocket*) ;;
+    *) AC_CHECK_LIB(socket, connect) ;;
+    esac
+    case "$LIBS" in
+    *-linet*) ;;
+    *) AC_CHECK_LIB(inet, connect) ;;
+    esac
+    dnl We can't just call AC_CHECK_FUNCS(connect) here, because the value
+    dnl has been cached.
+    if test x"$ac_cv_lib_socket_connect" = x"yes" || 
+       test x"$ac_cv_lib_inet_connect" = x"yes"; then
+        # ac_cv_func_connect=yes
+        # don't!  it would cause AC_CHECK_FUNC to succeed next time configure is run
+        AC_DEFINE(HAVE_CONNECT,1,[Whether the system has connect()])
+    fi
+fi
+
+AC_CHECK_LIB(resolv, hstrerror, , , [-lnsl -lsocket])
+AC_CHECK_LIB(resolv, inet_aton, , , [-lnsl -lsocket])
+
+AC_CONFIG_FILES([Makefile common/Makefile])
+AC_OUTPUT
+
