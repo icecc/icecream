@@ -510,7 +510,8 @@ MsgChannel::MsgChannel (int _fd, Service *serv)
 
 MsgChannel::~MsgChannel()
 {
-  close (fd);
+  if (fd >= 0)
+    close (fd);
   fd = -1;
   if (other_end)
     {
