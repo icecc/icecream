@@ -106,7 +106,7 @@ int handle_connection( const string &basedir, CompileJob *job, MsgChannel *serv,
     tmp_input[0] = 0;
     int ti = 0; // the socket
     unsigned int job_id = 0;
-    int obj_fd = 0; // the obj_fd
+    int obj_fd = -1; // the obj_fd
     string obj_file;
 
     try {
@@ -203,7 +203,7 @@ int handle_connection( const string &basedir, CompileJob *job, MsgChannel *serv,
         msg = 0;
     }
     close( ti );
-    ti = 0;
+    ti = -1;
 
     struct timeval begintv;
     gettimeofday( &begintv, 0 );
@@ -284,16 +284,16 @@ int handle_connection( const string &basedir, CompileJob *job, MsgChannel *serv,
         if ( *tmp_input )
             unlink( tmp_input );
 
-        if ( ti )
+        if ( ti > -1 )
             close( ti );
 
-        if ( obj_fd > 0)
+        if ( obj_fd > -1)
             close( obj_fd );
 
         if ( !obj_file.empty() )
             unlink( obj_file.c_str() );
 
-        if ( out_fd )
+        if ( out_fd > -1)
             close( out_fd );
 
         exit( e.exitcode() );

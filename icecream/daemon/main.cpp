@@ -436,14 +436,14 @@ int main( int argc, char ** argv )
     for (list<string>::const_iterator it = nl.begin(); it != nl.end(); ++it)
       trace() << *it << endl;
 
-    int listen_fd = 0;
+    int listen_fd = -1;
     int tosleep = 0;
 
     while ( 1 ) {
-        if ( listen_fd ) {
+        if ( listen_fd > -1 ) {
             // as long as we have no scheduler, don't listen for clients
             close( listen_fd );
-            listen_fd = 0;
+            listen_fd = -1;
         }
 
         if ( tosleep )
@@ -493,7 +493,7 @@ int main( int argc, char ** argv )
                 Compile_Request req = requests.front();
                 requests.pop();
                 CompileJob *job = req.first;
-                int sock = 0;
+                int sock = -1;
                 pid_t pid = -1;
 
                 if ( job->environmentVersion() == "__client" ) {
@@ -518,7 +518,7 @@ int main( int argc, char ** argv )
                     }
                     jobmap[pid] = new JobDoneMsg;
                     jobmap[pid]->job_id = job->jobID();
-                    if ( sock )
+                    if ( sock > -1 )
                         pidmap[pid] = sock;
                 }
                 delete req.first;
