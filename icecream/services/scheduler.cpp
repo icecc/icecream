@@ -858,7 +858,7 @@ empty_queue()
       trace() << "put " << job->id << " in joblist of " << cs->nodename << endl;
       cs->joblist.push_back( job );
       if ( !gotit ) { // if we made the environment transfer, don't rely on the list
-        cs->compiler_versions.clear();
+	cs->compiler_versions.clear();
         cs->busy_installing = time(0);
       }
       string env;
@@ -1038,6 +1038,7 @@ handle_job_done (MsgChannel *c, Msg *_m)
   j->server->joblist.remove (j);
   add_job_stats (j, m);
   notify_monitors (MonJobDoneMsg (*m));
+  j->server->busy_installing = 0;
   jobs.erase (m->job_id);
   delete j;
 
@@ -1316,6 +1317,8 @@ handle_end (MsgChannel *c, Msg *m)
                 if ( ( *jit )->client_channel )
                   (*jit)->client_channel->send_msg( EndMsg() );
                 notify_monitors (MonJobDoneMsg (JobDoneMsg( ( *jit )->id,  255 )));
+		if ((*jit)->server)
+		  (*jit)->server->busy_installing = 0;
 		jobs.erase( (*jit)->id );
 		delete (*jit);
 	      }
@@ -1339,6 +1342,8 @@ handle_end (MsgChannel *c, Msg *m)
 		 also remove the job from the servers joblist.  */
 	      if (job->server && job->server != toremove)
 		job->server->joblist.remove (job);
+	      if (job->server)
+	        job->server->busy_installing = 0;
               jobs.erase( mit++ );
               delete job;
             }
@@ -1357,15 +1362,14 @@ handle_end (MsgChannel *c, Msg *m)
       map<unsigned int, Job*>::iterator it;
 
       /* A client disconnected.  */
-      if (!m )
+      if (!m)
         {
           if ( toremove->local_job_id )
             {
-                notify_monitors ( MonLocalJobDoneMsg( toremove->local_job_id ) );
+              notify_monitors (MonLocalJobDoneMsg (toremove->local_job_id));
             }
           else
             {
-
               /* If it's disconnected without END message something went wrong,
                  and we must remove all its job requests and jobs.  All job
                  requests are also in the jobs list, so it's enough to traverse
@@ -1378,7 +1382,7 @@ handle_end (MsgChannel *c, Msg *m)
                     {
                       trace() << "STOP FOR " << it->first << endl;
                       Job *job = it->second;
-                      notify_monitors (MonJobDoneMsg (JobDoneMsg( job->id,  255 )));
+                      notify_monitors (MonJobDoneMsg (JobDoneMsg (job->id, 255)));
 
                       /* Remove this job from the request queue.  */
                       list<UnansweredList*>::iterator ait;
@@ -1396,8 +1400,11 @@ handle_end (MsgChannel *c, Msg *m)
                             ++ait;
                         }
 
-                      if ( job->server )
-                        job->server->joblist.remove (job);
+                      if (job->server)
+		        {
+                          job->server->joblist.remove (job);
+		          job->server->busy_installing = 0;
+		        }
                       jobs.erase (it++);
                       delete job;
                     }
@@ -1409,16 +1416,14 @@ handle_end (MsgChannel *c, Msg *m)
       else
         {
           /* If it's disconnected _with_ END message we want to make sure
-             we don't want to send something through the channel when the job
-             done message arrives
-           */
+             we don't send something through the channel when the job
+             done message arrives.  */
           for (it = jobs.begin(); it != jobs.end(); ++it)
-	    {
-              if ( it->second->client_channel == c ) {
+            if (it->second->client_channel == c)
+	      {
                 it->second->client_channel = 0;
                 it->second->state = Job::WAITINGFORDONE;
               }
-            }
         }
     }
   else if (toremove->type == CS::LINE)
@@ -1749,8 +1754,8 @@ main (int argc, char * argv[])
 	  if (remote_fd >= 0)
 	    {
 	      CS *cs = new CS (remote_fd, (struct sockaddr*) &remote_addr, remote_len, true);
-              cs->last_talk = time( 0 );
-              if ( !cs->protocol ) // protocol mismatch
+              cs->last_talk = time (0);
+              if (!cs->protocol) // protocol mismatch
                 {
                   delete cs;
                   continue;
@@ -1814,3 +1819,6 @@ main (int argc, char * argv[])
   close (broad_fd);
   return 0;
 }
+/*
+vim:cinoptions={.5s,g0,p5,t0,(0,^-0.5s,n-0.5s:tw=78:cindent:sw=4:
+*/
