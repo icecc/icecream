@@ -254,7 +254,8 @@ int main( int /*argc*/, char ** /*argv*/ )
             socklen_t cli_len;
 
             if ( requests.size() + current_kids )
-                log_info() << "requests " << requests.size() << " " << current_kids << " (" << max_kids << ")\n";
+                log_info() << "requests " << requests.size() << " "
+                           << current_kids << " (" << max_kids << ")\n";
             if ( !requests.empty() && current_kids < max_kids ) {
                 Compile_Request req = requests.front();
                 requests.pop();
@@ -264,7 +265,8 @@ int main( int /*argc*/, char ** /*argv*/ )
                 if ( pid > 0) { // forks away
                     current_kids++;
                     if ( !scheduler || !scheduler->send_msg( JobBeginMsg( job->jobID() ) ) ) {
-                        log_error() << "can't reach scheduler to tell him about job start of " << job->jobID() << endl;
+                        log_error() << "can't reach scheduler to tell him about job start of "
+                                    << job->jobID() << endl;
                         delete scheduler;
                         scheduler = 0;
                         delete req.first;
@@ -284,6 +286,12 @@ int main( int /*argc*/, char ** /*argv*/ )
                 current_kids--;
                 JobDoneMsg *msg = jobmap[child];
                 jobmap.erase( child );
+                for ( Pidmap::iterator it = pidmap.begin(); it != pidmap.end(); ++it ) {
+                    if ( it->second == child ) {
+                        pidmap.erase( it );
+                        break;
+                    }
+                }
                 if ( msg && scheduler ) {
                     msg->exitcode = status;
                     msg->user_msec = ru.ru_utime.tv_sec * 1000 + ru.ru_utime.tv_usec % 1000;
@@ -292,9 +300,6 @@ int main( int /*argc*/, char ** /*argv*/ )
                     msg->idrss = ru.ru_idrss;
                     msg->majflt = ru.ru_majflt;
                     msg->nswap = ru.ru_nswap;
-                    log_info() << "one child got " << status << endl;
-                    log_info() << "user " << ru.ru_utime.tv_sec * 1000000 + ru.ru_utime.tv_usec << " "
-                               << "system " << ru.ru_stime.tv_sec * 1000000 + ru.ru_stime.tv_usec << " " << ru.ru_majflt << endl;
                     scheduler->send_msg( *msg );
                 }
                 delete msg;
@@ -353,7 +358,8 @@ int main( int /*argc*/, char ** /*argv*/ )
                         } else {
                             if ( msg->type == M_GET_SCHEDULER ) {
                                 if ( scheduler ) {
-                                    UseSchedulerMsg m( scheduler->other_end->name, scheduler->other_end->port );
+                                    UseSchedulerMsg m( scheduler->other_end->name,
+                                                       scheduler->other_end->port );
                                     c->send_msg( m );
                                 } else {
                                     c->send_msg( EndMsg() );
@@ -383,6 +389,9 @@ int main( int /*argc*/, char ** /*argv*/ )
                                 read( it->first, &msg->out_compressed, sizeof( unsigned int ) );
                                 read( it->first, &msg->out_uncompressed, sizeof( unsigned int ) );
                                 read( it->first, &msg->real_msec, sizeof( unsigned int ) );
+                                close( it->first );
+                                pidmap.erase( it );
+                                break;
                             }
                         }
                     }

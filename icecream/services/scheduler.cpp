@@ -132,10 +132,7 @@ empty_queue()
   trace() << "empty_queue " << toanswer.size() << " " << css.size() << endl;
 
   if ( toanswer.empty() )
-    {
-      trace() << "no channels\n";
-      return false;
-    }
+    return false;
 
   Job *job = toanswer.front();
 
@@ -149,7 +146,6 @@ empty_queue()
 
   string environment = job->environment;
   CS *cs = pick_server(environment);
-  trace() << "got CS " << cs << " " << environment << endl;
 
   if ( !cs )
     {
@@ -242,10 +238,6 @@ handle_stats (MsgChannel * c, Msg * _m)
   StatsMsg *m = dynamic_cast<StatsMsg *>(_m);
   if ( !m )
     return 1;
-  trace() << "handle stats: "
-          << m->load[0] << " "
-          << m->load[1] << " "
-          << m->load[2] << endl;
 
   for (list<CS*>::iterator it = css.begin(); it != css.end(); ++it)
     if ( ( *it )->channel() == c )
