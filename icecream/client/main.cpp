@@ -91,7 +91,7 @@ static void dcc_show_usage(void)
 static void dcc_client_signalled (int whichsig)
 {
 #ifdef HAVE_STRSIGNAL
-    log_info() << strsignal(whichsig) << endl;
+    log_info() << rs_program_name << ": " << strsignal(whichsig) << endl;
 #else
     log_info() << "terminated by signal " << whichsig << endl;
 #endif

@@ -694,7 +694,10 @@ LoginMsg::fill_from_fd (int fd)
 {
   if (!Msg::fill_from_fd (fd))
     return false;
-  return readuint( fd, &port );
+  return ( readuint( fd, &port )
+           && readuint( fd, &max_kids )
+           && readuint( fd, &max_load )
+           && read_strlist( fd, envs ) );
 }
 
 bool
@@ -702,7 +705,10 @@ LoginMsg::send_to_fd (int fd) const
 {
   if (!Msg::send_to_fd (fd))
     return false;
-  return writeuint( fd, port );
+  return ( writeuint( fd, port )
+           && writeuint( fd, max_kids )
+           && writeuint( fd, max_load )
+           && write_strlist( fd, envs ) );
 }
 
 bool

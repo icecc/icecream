@@ -152,7 +152,7 @@ int handle_connection( CompileJob *job, MsgChannel *serv )
             break;
         FileChunkMsg fcmsg( buffer, bytes );
         if ( !serv->send_msg( fcmsg ) ) {
-            log_info() << "write of chunk failed" << endl;
+            log_info() << "write of obj chunk failed " << bytes << endl;
             throw myexception( EXIT_DISTCC_FAILED );
         }
     } while (1);

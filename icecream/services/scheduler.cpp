@@ -52,11 +52,11 @@ public:
   unsigned int max_load;
   //  time_t uptime;  // time connected with scheduler
   list<Job*> joblist;
-    // list<string> compiler_versions;  // Available compilers
+  list<string> compiler_versions;  // Available compilers
     // enum {AVAILABLE, DISCONNECTED} state;
   CS (struct sockaddr *_addr, socklen_t _len) : Service (_addr, _len),
-                                                load( 1200 ), max_jobs( 3 ),
-                                                max_load( 6500 ) {}
+                                                load( 9000 ), max_jobs( 0 ),
+                                                max_load( 0 ) {}
 };
 
 // A subset of connected_hosts representing the compiler servers
@@ -181,6 +181,9 @@ handle_login (MsgChannel *c, Msg *_m)
     return 1;
   CS *cs = static_cast<CS *>(c->other_end);
   cs->remote_port = m->port;
+  cs->compiler_versions = m->envs;
+  cs->max_jobs = m->max_kids;
+  cs->max_load = m->max_load;
   css.push_back (cs);
   fd2chan[c->fd] = c;
   tochoose = true;

@@ -218,6 +218,9 @@ public:
 class LoginMsg : public Msg {
 public:
   unsigned int port;
+  std::list<std::string> envs;
+  unsigned int max_kids;
+  unsigned int max_load;
   LoginMsg (unsigned int myport)
       : Msg(M_LOGIN), port( myport ) {}
   LoginMsg () : Msg(M_LOGIN), port( 0 ) {}

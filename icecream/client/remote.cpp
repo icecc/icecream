@@ -157,7 +157,7 @@ int build_remote(CompileJob &job )
             if ( offset ) {
                 FileChunkMsg fcmsg( buffer, offset );
                 if ( !cserver->send_msg( fcmsg ) ) {
-                    log_info() << "write of chunk failed" << endl;
+                    log_info() << "write of source chunk failed " << offset << " " << bytes << endl;
                     close( sockets[0] );
                     kill( cpp_pid, SIGTERM );
                     return build_local( job );

@@ -41,6 +41,7 @@
 #include "serve.h"
 #include "logging.h"
 #include <comm.h>
+#include "environment.h"
 
 using namespace std;
 
@@ -145,14 +146,7 @@ static void dcc_daemon_terminate(int whichsig)
 
 int main( int /*argc*/, char ** /*argv*/ )
 {
-    while ( !scheduler ) {
-        scheduler = connect_scheduler ();
-        if ( !scheduler ) {
-            log_error() << "no scheduler found. Sleeping.\n";
-            sleep( 1 );
-        } else
-            break;
-    }
+    list<string> environments = available_environmnents();
 
     const int START_PORT = 10245;
 
@@ -240,7 +234,12 @@ int main( int /*argc*/, char ** /*argv*/ )
             }
         }
 
-        scheduler->send_msg( LoginMsg( port ) );
+        LoginMsg lmsg( port );
+        lmsg.envs = environments;
+        lmsg.max_kids = max_kids;
+        lmsg.max_load = n_cpus * 1500;
+        scheduler->send_msg( lmsg );
+
         // TODO: clean up the mess from before
         // for now I just hope schedulers don't go up
         // and down that often
@@ -254,14 +253,13 @@ int main( int /*argc*/, char ** /*argv*/ )
             struct sockaddr cli_addr;
             socklen_t cli_len;
 
-            log_info() << "requests " << requests.size() << " " << current_kids << " (" << max_kids << ")\n";
+            if ( requests.size() + current_kids )
+                log_info() << "requests " << requests.size() << " " << current_kids << " (" << max_kids << ")\n";
             if ( !requests.empty() && current_kids < max_kids ) {
                 Compile_Request req = requests.front();
                 requests.pop();
-                log_info() << "handle\n";
                 CompileJob *job = req.first;
                 pid_t pid = handle_connection( req.first, req.second );
-                trace() << "handled " << pid << endl;
                 if ( pid > 0) { // forks away
                     current_kids++;
                     if ( !scheduler || !scheduler->send_msg( JobBeginMsg( job->jobID() ) ) ) {
@@ -298,7 +296,7 @@ int main( int /*argc*/, char ** /*argv*/ )
                 if ( scheduler->send_msg( msg ) )
                     last_stat = time( 0 );
                 else {
-                    log_error() << "lost connection to scheduler. Exiting\n";
+                    log_error() << "lost connection to scheduler. Trying again.\n";
                     delete scheduler;
                     scheduler = 0;
                     break;
