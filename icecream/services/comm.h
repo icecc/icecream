@@ -33,12 +33,13 @@
 #include "job.h"
 
 // if you increase the PROTOCOL_VERSION, add a macro below and use that
-#define PROTOCOL_VERSION 7
+#define PROTOCOL_VERSION 8
 // if you increase the MIN_PROTOCOL_VERSION, remove macros below and clean up the code
 #define MIN_PROTOCOL_VERSION 5
 
 #define IS_PROTOCOL_6( c ) ( c->protocol >= 6 )
 #define IS_PROTOCOL_7( c ) ( c->protocol >= 7 )
+#define IS_PROTOCOL_8( c ) ( c->protocol >= 8 )
 
 enum MsgType {
   // so far unknown
@@ -200,6 +201,9 @@ MsgChannel *connect_scheduler (const std::string &netname = std::string(),
    milliseconds for answers.  */
 std::list<std::string> get_netnames (int waittime = 2000);
 
+// a list of pairs of host platform, filename
+typedef std::list<std::pair<std::string, std::string> > Environments;
+
 class PingMsg : public Msg {
 public:
   PingMsg () : Msg(M_PING) {}
@@ -217,14 +221,15 @@ public:
 
 class GetCSMsg : public Msg {
 public:
-  std::string version;
+  Environments versions;
   std::string filename;
   CompileJob::Language lang;
   unsigned int count; // the number of UseCS messages to answer with - usually 1
   std::string target;
   GetCSMsg () : Msg(M_GET_CS), count( 1 ) {}
-  GetCSMsg (const std::string &v, const std::string &f, CompileJob::Language _lang, unsigned int _count, std::string _target)
-    : Msg(M_GET_CS), version(v), filename(f), lang(_lang), count( _count ), target( _target ) {}
+  GetCSMsg (const Environments &envs, const std::string &f, CompileJob::Language _lang, unsigned int _count, std::string _target)
+    : Msg(M_GET_CS), versions( envs ), filename(f), lang(_lang), count( _count ), target( _target )
+  {}
   virtual void fill_from_channel (MsgChannel * c);
   virtual void send_to_channel (MsgChannel * c) const;
 };
@@ -255,9 +260,10 @@ class UseSchedulerMsg : public Msg {
 public:
   std::string hostname;
   unsigned int port;
+  std::string nativeVersion;
   UseSchedulerMsg () : Msg(M_USE_SCHEDULER), port( 0 ) {}
-  UseSchedulerMsg (std::string host, unsigned int p)
-      : Msg(M_USE_SCHEDULER), hostname (host), port (p) {}
+  UseSchedulerMsg (std::string host, unsigned int p, std::string _native)
+      : Msg(M_USE_SCHEDULER), hostname (host), port (p), nativeVersion( _native ) {}
   virtual void fill_from_channel (MsgChannel * c);
   virtual void send_to_channel (MsgChannel * c) const;
 };
@@ -430,7 +436,7 @@ public:
     clientid = job_id = 0;
   }
   MonGetCSMsg( int jobid, int hostid, GetCSMsg *m )
-    : GetCSMsg( m->version, m->filename, m->lang, 1, m->target ), job_id( jobid ), clientid( hostid )
+    : GetCSMsg( Environments(), m->filename, m->lang, 1, m->target ), job_id( jobid ), clientid( hostid )
   {
     type = M_MON_GET_CS;
   }

@@ -65,7 +65,7 @@ static bool extract_version( string &version )
     return true;
 }
 
-list<string> available_environmnents(const string &basedir)
+list<string> available_environmnents(const string &basedir, string &native_environments)
 {
     list<string> envs;
     string gcc_version = read_fromFILE( popen( "/usr/bin/gcc -v 2>&1", "r" ) );

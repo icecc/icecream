@@ -50,6 +50,67 @@
 
 using namespace std;
 
+Environments parse_icecc_version(const string &target_platform )
+{
+    Environments envs;
+
+    string icecc_version = getenv( "ICECC_VERSION");
+    assert( !icecc_version.empty() );
+
+    // free after the C++-Programming-HOWTO
+    string::size_type lastPos = icecc_version.find_first_not_of(',', 0);
+    string::size_type pos     = icecc_version.find_first_of(',', lastPos);
+
+    while (pos != string::npos || lastPos != string::npos)
+    {
+        string couple = icecc_version.substr(lastPos, pos - lastPos);
+        string platform = target_platform;
+        string version = couple;
+        string::size_type colon = couple.find( ':' );
+        if (  colon != string::npos ) {
+            platform = couple.substr( 0, colon );
+            version = couple.substr( colon + 1, couple.length() );
+        }
+
+        trace() << "platform '" << platform << "' '" << version << "'" << endl;
+
+        if ( ::access( version.c_str(), R_OK ) ) {
+            log_error() << "$ICECC_VERSION has to point to an existing file to be installed\n";
+            throw ( 3 );
+        }
+
+        envs.push_back(make_pair( platform, version ) ) ;
+
+        // Skip delimiters.  Note the "not_of"
+        lastPos = icecc_version.find_first_not_of(',', pos);
+        // Find next "non-delimiter"
+        pos = icecc_version.find_first_of(',', lastPos);
+    }
+
+    return envs;
+}
+
+Environments rip_out_paths( const Environments &envs, map<string, string> &version_map )
+{
+    version_map.clear();
+
+    string suff = ".tar.bz2";
+    Environments env2;
+
+    for ( Environments::const_iterator it = envs.begin(); it != envs.end(); ++it )
+    {
+        string versfile = it->second;
+        if ( versfile.size() > suff.size() && versfile.substr( versfile.size() - suff.size() ) == suff )
+        {
+            versfile = find_basename( versfile.substr( 0, versfile.size() - suff.size() ) );
+            version_map[versfile] = it->second;
+            env2.push_back( make_pair( it->first, versfile ) );
+        }
+    }
+    return env2;
+}
+
+
 string get_absfilename( const string &_file )
 {
     string file;
@@ -147,7 +208,7 @@ static int build_remote_int(CompileJob &job, UseCSMsg *usecs, const string &vers
     Service *serv = new Service (hostname, port);
 
     MsgChannel *cserver = serv->channel();
-    if ( !cserver || !cserver->protocol ) {
+    if ( !cserver->protocol ) {
         log_error() << "no server found behind given hostname " << hostname << ":" << port << endl;
         throw ( 2 );
     }
@@ -330,47 +391,32 @@ string md5_for_file( const string & file )
     return result;
 }
 
-int build_remote(CompileJob &job, MsgChannel *scheduler, int permill )
+int build_remote(CompileJob &job, MsgChannel *scheduler, const Environments &_envs, int permill )
 {
-    char *get = getenv( "ICECC_VERSION");
-    string version_file = "*";
-    if ( get )
-        version_file = get;
-
-    if ( ::access( version_file.c_str(), R_OK ) ) {
-        log_error() << "$ICECC_VERSION has to point to an existing file to be installed\n";
-        throw ( 3 );
-    }
-
     srand( time( 0 ) + getpid() );
 
     int torepeat = 1;
 
     // older compilers do not support the options we need to make it reproducable
 #if defined(__GNUC__) && (__GNUC__  >= 3)
-    if ( rand() % 1000 < permill && version_file != "*")
+    if ( rand() % 1000 < permill)
         torepeat = 3;
 #endif
 
     trace() << job.inputFile() << " compiled " << torepeat << " times on " << job.targetPlatform() << "\n";
 
-    string version = version_file;
-    string suff = ".tar.bz2";
-
-    if ( version.size() > suff.size() && version.substr( version.size() - suff.size() ) == suff )
-    {
-        version = find_basename( version.substr( 0, version.size() - suff.size() ) );
-    }
+    map<string, string> version_map;
+    Environments envs = rip_out_paths( _envs, version_map );
 
     if ( torepeat == 1 ) {
-        GetCSMsg getcs (version, get_absfilename( job.inputFile() ), job.language(), torepeat, job.targetPlatform() );
+        GetCSMsg getcs (envs, get_absfilename( job.inputFile() ), job.language(), torepeat, job.targetPlatform() );
         if (!scheduler->send_msg (getcs)) {
             log_error() << "asked for CS\n";
             throw( 0 );
         }
 
         UseCSMsg *usecs = get_server( scheduler );
-        int ret = build_remote_int( job, usecs, version_file, 0, true );
+        int ret = build_remote_int( job, usecs, version_map[usecs->environment], 0, true );
         delete usecs;
         return ret;
     } else {
@@ -395,7 +441,7 @@ int build_remote(CompileJob &job, MsgChannel *scheduler, int permill )
         sprintf( rand_seed, "-frandom-seed=%d", rand() );
         job.appendFlag( rand_seed, Arg_Remote );
 
-        GetCSMsg getcs (version, get_absfilename( job.inputFile() ), job.language(), torepeat, job.targetPlatform() );
+        GetCSMsg getcs (envs, get_absfilename( job.inputFile() ), job.language(), torepeat, job.targetPlatform() );
         if (!scheduler->send_msg (getcs)) {
             log_error() << "asked for CS\n";
             throw( 0 );
@@ -421,7 +467,7 @@ int build_remote(CompileJob &job, MsgChannel *scheduler, int permill )
             if ( !pid ) {
                 int ret = 42;
                 try {
-                    ret = build_remote_int( jobs[i], umsgs[i], version_file, preproc, i == 0 );
+                    ret = build_remote_int( jobs[i], umsgs[i], version_map[umsgs[i]->environment], preproc, i == 0 );
                 } catch ( int error ) {
                     log_info() << "build_remote_int failed and has thrown " << error << endl;
                     if ( i == 0 ) { // ignore for misc jobs

@@ -23,6 +23,7 @@
 #define _CLIENT_H_
 
 #include <job.h>
+#include <comm.h>
 
 #include "exitcode.h"
 #include "logging.h"
@@ -44,10 +45,12 @@ pid_t call_cpp (CompileJob &job, int fd);
 int build_local (CompileJob& job, MsgChannel *scheduler);
 
 /* In remote.cpp - permill is the probability it will be compiled three times */
-int build_remote (CompileJob &job, MsgChannel *scheduler, int permill);
+int build_remote (CompileJob &job, MsgChannel *scheduler, const Environments &envs, int permill);
 
 /* safeguard.cpp */
 void dcc_increment_safeguard(void);
 int dcc_recursion_safeguard(void);
+
+Environments parse_icecc_version( const std::string &target );
 
 #endif

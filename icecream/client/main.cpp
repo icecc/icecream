@@ -171,6 +171,23 @@ int main(int argc, char **argv)
     UseSchedulerMsg *ucs = dynamic_cast<UseSchedulerMsg*>( umsg );
     delete serv;
 
+    Environments envs;
+    if ( getenv( "ICECC_VERSION" ) ) // if set, use it, otherwise take default
+        envs = parse_icecc_version( job.targetPlatform() );
+    else {
+        string native = ucs->nativeVersion;
+        if ( native.empty() ) {
+            log_warning() << "$ICECC_VERSION has to point to an existing file to be installed - as the local daemon didn't know any we try local." << endl
+                          << "Hint: you need /usr/bin/gcc _and_ /usr/bin/g++." << endl;
+            delete ucs;
+            return build_local( job, 0 );
+        }
+        envs.push_back(make_pair( job.targetPlatform(), native ) );
+    }
+
+    for ( Environments::const_iterator it = envs.begin(); it != envs.end(); ++it )
+        trace() << "env: " << it->first << " '" << it->second << "'" << endl;
+
     trace() << "contacting scheduler " << ucs->hostname << ":" << ucs->port << endl;
 
     serv = new Service( ucs->hostname, ucs->port );
@@ -187,7 +204,7 @@ int main(int argc, char **argv)
         ret = build_local( job, scheduler );
     else {
         try {
-            ret = build_remote( job, scheduler, 200 ); // every 5th is compiled three times
+            ret = build_remote( job, scheduler, envs, 200 ); // every 5th is compiled three times
         } catch ( int error ) {
             delete scheduler;
             return build_local( job, 0 );

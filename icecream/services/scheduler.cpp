@@ -370,8 +370,16 @@ handle_cs_request (MsgChannel *c, Msg *_m)
   for ( unsigned int i = 0; i < m->count; ++i )
     {
       Job *job = create_new_job (c, submitter);
-      job->environment = m->version;
+#warning MATZ: FASS!
+      job->environment = "";
       job->target_platform = m->target;
+      for ( Environments::const_iterator it = m->versions.begin(); it != m->versions.end(); ++it )
+        {
+          if ( it->first == m->target ) {
+            job->environment = it->second;
+            break;
+          }
+        }
       enqueue_job_request (job);
       log_info() << "NEW: " << job->id << " version=\""
                  << job->environment << "\"(" << m->target << ") " << m->filename

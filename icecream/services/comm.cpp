@@ -888,13 +888,31 @@ void
 GetCSMsg::fill_from_channel (MsgChannel *c)
 {
   Msg::fill_from_channel (c);
-  unsigned int _lang;
-  c->read_string (version);
+  string version;
+  if ( IS_PROTOCOL_8( c ) ) {
+    versions.clear();
+    unsigned int count;
+    c->readuint32( count );
+    for ( unsigned int i = 0; i < count; i++ ) {
+      string plat;
+      string vers;
+      c->read_string( plat );
+      c->read_string( vers );
+      versions.push_back( make_pair( plat, vers ) );
+    }
+  } else {
+    c->read_string (version);
+  }
   c->read_string (filename);
+  unsigned int _lang;
   c->readuint32 (_lang);
   c->readuint32( count );
-  if ( IS_PROTOCOL_7( c ) )
+  if ( IS_PROTOCOL_7( c ) ) {
     c->read_string( target );
+    if ( !IS_PROTOCOL_8( c ) ) {
+      versions.push_back( make_pair( target, version ) );
+    }
+  }
   else { // the older clients are supposed to run on the same arch as the scheduler
     struct utsname buf;
     uname( &buf );
@@ -908,7 +926,30 @@ void
 GetCSMsg::send_to_channel (MsgChannel *c) const
 {
   Msg::send_to_channel (c);
-  c->write_string (version);
+  if ( IS_PROTOCOL_8( c ) )
+    {
+      c->writeuint32( versions.size() );
+      for ( Environments::const_iterator it = versions.begin(); it != versions.end(); ++it )
+        {
+          c->write_string( it->first );
+          c->write_string( it->second );
+        }
+    }
+  else
+    {
+      string version = "";
+      for ( Environments::const_iterator it = versions.begin(); it != versions.end(); ++it )
+        {
+          if ( it->first == target )
+            {
+              version = it->second;
+              break;
+            }
+        }
+      if ( version.empty() )
+        log_error() << "update your daemon when you update your client." << endl;
+      c->write_string ( version );
+  }
   c->write_string (filename);
   c->writeuint32 ((uint32_t) lang);
   c->writeuint32( count );
@@ -1223,6 +1264,10 @@ UseSchedulerMsg::fill_from_channel (MsgChannel *c)
   Msg::fill_from_channel (c);
   c->readuint32 (port);
   c->read_string (hostname);
+  if ( IS_PROTOCOL_8( c ) )
+    c->read_string( nativeVersion );
+  else
+    nativeVersion = "";
 }
 
 void
@@ -1231,6 +1276,8 @@ UseSchedulerMsg::send_to_channel (MsgChannel *c) const
   Msg::send_to_channel (c);
   c->writeuint32 (port);
   c->write_string (hostname);
+  if ( IS_PROTOCOL_8( c ) )
+    c->write_string( nativeVersion );
 }
 
 void

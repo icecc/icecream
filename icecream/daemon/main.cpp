@@ -195,7 +195,8 @@ void usage(const char* reason = 0)
 void reannounce_environments(const string &envbasedir, const string &nodename)
 {
     LoginMsg lmsg( 0, nodename, "");
-    lmsg.envs = available_environmnents(envbasedir);
+    string dummy;
+    lmsg.envs = available_environmnents(envbasedir, dummy);
     scheduler->send_msg( lmsg );
 }
 
@@ -437,6 +438,7 @@ int main( int argc, char ** argv )
       trace() << *it << endl;
 
     int listen_fd = 0;
+    string native_environment;
 
     while ( 1 ) {
         if ( listen_fd ) {
@@ -462,7 +464,7 @@ int main( int argc, char ** argv )
 
         trace() << "login as " << uname_buf.machine << endl;
         LoginMsg lmsg( port, nodename, uname_buf.machine );
-        lmsg.envs = available_environmnents(envbasedir);
+        lmsg.envs = available_environmnents(envbasedir, native_environment);
         lmsg.max_kids = max_kids;
         scheduler->send_msg( lmsg );
 
@@ -631,7 +633,8 @@ int main( int argc, char ** argv )
                             if ( msg->type == M_GET_SCHEDULER ) {
                                 if ( scheduler ) {
                                     UseSchedulerMsg m( scheduler->other_end->name,
-                                                       scheduler->other_end->port );
+                                                       scheduler->other_end->port,
+                                                       native_environment );
                                     c->send_msg( m );
                                 } else {
                                     c->send_msg( EndMsg() );
