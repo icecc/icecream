@@ -2,4 +2,6 @@
   to use for the daemon.
 * Don't explicitly forbid tunnels because it could be useful for things like
   vmware
-
+* compile the first job locally without preprocessing if the machine is quick (coolo)
+* keep better track of currently installing daemons (matz)
+* try to find a way to not fork bomb proprocessors
