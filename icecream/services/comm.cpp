@@ -489,8 +489,9 @@ Service::Service (const string &hostname, unsigned short p)
   remote_addr.sin_family = AF_INET;
   remote_addr.sin_port = htons (p);
   memcpy (&remote_addr.sin_addr.s_addr, host->h_addr_list[0], host->h_length);
-  int status = connect (remote_fd, (struct sockaddr *) &remote_addr, sizeof (remote_addr) );
 
+  // code majorly derived from lynx's http connect (GPL)
+  int status = connect (remote_fd, (struct sockaddr *) &remote_addr, sizeof (remote_addr) );
   if ( ( status < 0 ) && ( errno == EINPROGRESS || errno == EAGAIN ) )
     {
       struct timeval select_timeout;
