@@ -323,7 +323,7 @@ connect_scheduler ()
   string hostname;
   unsigned int sport = 8765;
   char buf2[16];
-  char *netname;
+  const char *netname;
 
   if (get)
     {
