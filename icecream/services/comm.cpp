@@ -421,19 +421,19 @@ Service::Service (const string &hostname, unsigned short p)
   name = "";
   if ((remote_fd = socket (PF_INET, SOCK_STREAM, 0)) < 0)
     {
-      perror ("socket()");
+      log_error() << "socket() " << strerror(errno) << endl;
       return;
     }
   struct hostent *host = gethostbyname (hostname.c_str());
   if (!host)
     {
-      fprintf (stderr, "Unknown host\n");
+      log_error() << "Unknown host " << strerror(errno) << endl;
       close (remote_fd);
       return;
     }
   if (host->h_length != 4)
     {
-      fprintf (stderr, "Invalid address length\n");
+      log_error() << "Invalid address length" << endl;
       close (remote_fd);
       return;
     }
@@ -505,7 +505,7 @@ MsgChannel::MsgChannel (int _fd, Service *serv)
 
   if ( protocol ) // otherwise the socket might be dead
     if (fcntl (fd, F_SETFL, O_NONBLOCK) < 0)
-      perror ("fcntl()"); // XXX
+      log_error() << "MsgChannel fcntl() " << strerror(errno) << endl;
 }
 
 MsgChannel::~MsgChannel()
@@ -609,7 +609,7 @@ MsgChannel::wait_for_msg (int timeout)
       if (select (fd + 1, &read_set, NULL, NULL, &tv) <= 0) {
         if ( errno == EINTR )
           continue;
-        perror( "select" );
+	log_error() << "wait_for_msg select: " << strerror(errno) << endl;
 	/* Either timeout or real error.  For this function also
 	   a timeout is an error.  */
         return false;
@@ -718,14 +718,14 @@ open_send_broadcast (void)
   struct sockaddr_in remote_addr;
   if ((ask_fd = socket (PF_INET, SOCK_DGRAM, 0)) < 0)
     {
-      perror ("socket()");
+      log_error() << "open_send_broadcast socket " << strerror(errno) << endl;
       return -1;
     }
 
   int optval = 1;
   if (setsockopt (ask_fd, SOL_SOCKET, SO_BROADCAST, &optval, sizeof(optval)) < 0)
     {
-      perror ("setsockopt()");
+      log_error() << "open_send_broadcast setsockopt " << strerror(errno) << endl;
       close (ask_fd);
       return -1;
     }
@@ -773,7 +773,7 @@ open_send_broadcast (void)
 	  if (sendto (ask_fd, &buf, 1, 0, (struct sockaddr*)&remote_addr,
 		    sizeof (remote_addr)) != 1)
 	    {
-	      perror ("sendto()");
+	      log_error() << "open_send_broadcast sendto " << strerror(errno) << endl;
 	    }
 	}
     }
@@ -800,14 +800,14 @@ get_broad_answer (int ask_fd, int timeout, char *buf2,
     {
       /* Normally this is a timeout, i.e. no scheduler there.  */
       if (errno)
-	perror ("waiting for scheduler");
+	log_error() << "waiting for scheduler " << strerror(errno) << endl;
       return false;
     }
   *remote_len = sizeof (struct sockaddr_in);
   if (recvfrom (ask_fd, buf2, BROAD_BUFLEN, 0, (struct sockaddr*) remote_addr,
 		remote_len) != BROAD_BUFLEN)
     {
-      perror ("recvfrom()");
+      log_error() << "get_broad_answer recvfrom() " << strerror(errno) << endl;
       return false;
     }
   if (buf + 1 != buf2[0])
