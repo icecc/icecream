@@ -106,6 +106,36 @@ static void list_target_dirs( const string &current_target, const string &target
     closedir( envdir );
 }
 
+bool cleanup_cache( const string &basedir )
+{
+    if ( !::access( basedir.c_str(), W_OK ) ) { // it exists - removing
+        if ( ( basedir.substr( 0, 5 ) != "/tmp/" && basedir.substr( 0, 9 ) != "/var/tmp/" ) ||
+             basedir.find_first_of( "'\"" ) != string::npos )
+        {
+            log_error() << "the cache directory for icecream isn't below /tmp or /var/tmp and already exists - I won't remove it!\n";
+            return false;
+        }
+        char buffer[PATH_MAX];
+        snprintf( buffer, PATH_MAX, "rm -rf '%s'", basedir.c_str() );
+        if ( system( buffer ) ) {
+            perror( "rm -rf failed" );
+            return false;
+        }
+    }
+
+    if ( mkdir( basedir.c_str(), 0755 ) ) {
+        if ( errno == EPERM )
+            log_error() << "cache directory can't be generated: " << basedir << endl;
+        else if ( errno == EEXIST )
+            log_error() << "cache directory already exists and can't be removed: " << basedir << endl;
+        else
+            perror( "Failed " );
+        return false;
+    }
+
+    return true;
+}
+
 Environments available_environmnents(const string &basedir)
 {
     assert( !::access( basedir.c_str(), W_OK ) );
@@ -135,32 +165,7 @@ Environments available_environmnents(const string &basedir)
 
 bool setup_env_cache(const string &basedir, string &native_environment)
 {
-    if ( !::access( basedir.c_str(), W_OK ) ) { // it exists - removing
-        if ( ( basedir.substr( 0, 5 ) != "/tmp/" && basedir.substr( 0, 9 ) != "/var/tmp/" ) ||
-             basedir.find_first_of( "'\"" ) != string::npos )
-        {
-            log_error() << "the cache directory for icecream isn't below /tmp or /var/tmp and already exists - I won't remove it!\n";
-            return false;
-        }
-        char buffer[PATH_MAX];
-        snprintf( buffer, PATH_MAX, "rm -rf '%s'", basedir.c_str() );
-        if ( system( buffer ) ) {
-            perror( "rm -rf failed" );
-            return false;
-        }
-    }
-
-    if ( mkdir( basedir.c_str(), 0755 ) ) {
-        if ( errno == EPERM )
-            log_error() << "cache directory can't be generated: " << basedir << endl;
-        else if ( errno == EEXIST )
-            log_error() << "cache directory already exists and can't be removed: " << basedir << endl;
-        else
-            perror( "Failed " );
-        return false;
-    }
-
-    native_environment.erase(native_environment.begin(), native_environment.end());
+    native_environment = "";
 
     if ( !::access( "/usr/bin/gcc", X_OK ) && !::access( "/usr/bin/g++", X_OK ) ) {
         string nativedir = basedir + "/native/";

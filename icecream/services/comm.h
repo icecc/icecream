@@ -33,13 +33,14 @@
 #include "job.h"
 
 // if you increase the PROTOCOL_VERSION, add a macro below and use that
-#define PROTOCOL_VERSION 16
+#define PROTOCOL_VERSION 17
 // if you increase the MIN_PROTOCOL_VERSION, comment out macros below and clean up the code
 #define MIN_PROTOCOL_VERSION 14
 
 #define IS_PROTOCOL_14( c ) ( c->protocol >= 14 )
 #define IS_PROTOCOL_15( c ) ( c->protocol >= 15 )
 #define IS_PROTOCOL_16( c ) ( c->protocol >= 16 )
+#define IS_PROTOCOL_17( c ) ( c->protocol >= 17 )
 
 enum MsgType {
   // so far unknown
@@ -254,7 +255,9 @@ public:
 
 class GetSchedulerMsg : public Msg {
 public:
-  GetSchedulerMsg () : Msg(M_GET_SCHEDULER) { }
+  unsigned int wants_native;
+  GetSchedulerMsg (bool _wants_native = false) : Msg(M_GET_SCHEDULER),
+                                                 wants_native( _wants_native ) { }
   virtual void fill_from_channel (MsgChannel * c);
   virtual void send_to_channel (MsgChannel * c) const;
 };

@@ -162,12 +162,13 @@ int main(int argc, char **argv)
         log_warning() << "no local daemon found\n";
         return build_local( job, 0 );
     }
-    if ( !local_daemon->send_msg( GetSchedulerMsg() ) ) {
+    if ( !local_daemon->send_msg( GetSchedulerMsg( getenv( "ICECC_VERSION" ) == 0 ) ) ) {
         log_error() << "failed to write get scheduler\n";
         return build_local( job, 0 );
     }
 
-    Msg *umsg = local_daemon->get_msg();
+    // the timeout is high because it creates the native version
+    Msg *umsg = local_daemon->get_msg(4 * 60);
     if ( !umsg || umsg->type != M_USE_SCHEDULER ) {
         log_error() << "umsg != scheduler\n";
         delete serv;

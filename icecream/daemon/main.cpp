@@ -354,7 +354,6 @@ int main( int argc, char ** argv )
     if ( !nodename.length() )
         nodename = uname_buf.nodename;
 
-
     std::string binary_path = argv[0];
     time_t binary_on_startup = 0;
     if ( watch_binary ) {
@@ -428,7 +427,7 @@ int main( int argc, char ** argv )
     Pidmap pidmap;
 
     string native_environment;
-    if ( !setup_env_cache( envbasedir, native_environment ) )
+    if ( !cleanup_cache( envbasedir ) )
         return 1;
 
     list<string> nl = get_netnames (200);
@@ -686,6 +685,12 @@ int main( int argc, char ** argv )
                             if ( msg->type == M_GET_SCHEDULER ) {
                                 GetSchedulerMsg *gsm = dynamic_cast<GetSchedulerMsg*>( msg );
                                 if ( scheduler && gsm ) {
+                                    if ( gsm->wants_native && !native_environment.length() )
+                                        if ( !setup_env_cache( envbasedir, native_environment ) ) {
+                                            c->send_msg( EndMsg() );
+                                            delete scheduler;
+                                            return 1;
+                                        }
                                     UseSchedulerMsg m( scheduler->other_end->name,
                                                        scheduler->other_end->port,
                                                        native_environment );

@@ -1241,12 +1241,18 @@ void
 GetSchedulerMsg::fill_from_channel (MsgChannel *c)
 {
   Msg::fill_from_channel (c);
+  if ( IS_PROTOCOL_17( c ) )
+    c->readuint32( wants_native );
+  else
+    wants_native = true;
 }
 
 void
 GetSchedulerMsg::send_to_channel (MsgChannel *c) const
 {
   Msg::send_to_channel (c);
+  if ( IS_PROTOCOL_17( c ) )
+    c->writeuint32( wants_native );
 }
 
 void
