@@ -156,7 +156,7 @@ static UseCSMsg *get_server( MsgChannel *scheduler )
     Msg * umsg = scheduler->get_msg();
     if (!umsg || umsg->type != M_USE_CS)
     {
-        log_error() << "replied not with use_cs " << ( umsg ? ( char )umsg->type : '0' )  << endl;
+        log_warning() << "replied not with use_cs " << ( umsg ? ( char )umsg->type : '0' )  << endl;
         delete umsg;
         throw( 1 );
     }
@@ -210,7 +210,7 @@ static int build_remote_int(CompileJob &job, UseCSMsg *usecs, const string &envi
 
     MsgChannel *cserver = serv->channel();
     if ( !cserver->protocol ) {
-        log_error() << "no server found behind given hostname " << hostname << ":" << port << endl;
+        log_warning() << "no server found behind given hostname " << hostname << ":" << port << endl;
         throw ( 2 );
     }
 
@@ -412,7 +412,7 @@ int build_remote(CompileJob &job, MsgChannel *scheduler, const Environments &_en
     if ( torepeat == 1 ) {
         GetCSMsg getcs (envs, get_absfilename( job.inputFile() ), job.language(), torepeat, job.targetPlatform() );
         if (!scheduler->send_msg (getcs)) {
-            log_error() << "asked for CS\n";
+            log_warning() << "asked for CS\n";
             throw( 0 );
         }
 
@@ -444,7 +444,7 @@ int build_remote(CompileJob &job, MsgChannel *scheduler, const Environments &_en
 
         GetCSMsg getcs (envs, get_absfilename( job.inputFile() ), job.language(), torepeat, job.targetPlatform() );
         if (!scheduler->send_msg (getcs)) {
-            log_error() << "asked for CS\n";
+            log_warning() << "asked for CS\n";
             throw( 0 );
         }
 
