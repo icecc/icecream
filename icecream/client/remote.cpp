@@ -364,9 +364,11 @@ int build_remote(CompileJob &job, MsgChannel *scheduler, int permill )
             return WEXITSTATUS( status );
         }
 
+#if defined(__GNUC__) && (__GNUC__  >= 3)
         char rand_seed[400]; // "designed to be oversized" (Levi's)
         sprintf( rand_seed, "-frandom-seed=%d", rand() );
         job.appendFlag( rand_seed, Arg_Remote );
+#endif
 
         GetCSMsg getcs (version, get_absfilename( job.inputFile() ), job.language(), torepeat );
         if (!scheduler->send_msg (getcs)) {
