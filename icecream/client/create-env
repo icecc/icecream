@@ -55,7 +55,7 @@ md5=`md5sum $target_files | sed -e 's/ .*$//' | md5sum | sed -e 's/ .*$//'` || {
   exit 2
 }
 echo "creating $md5.tar.bz2"
-tar -czhf "$md5".tar.bz2 $target_files || {
+tar -cjhf "$md5".tar.bz2 $target_files || {
   echo "Couldn't create archive"
   exit 3
 }
