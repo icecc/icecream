@@ -345,9 +345,15 @@ static int build_remote_int(CompileJob &job, UseCSMsg *usecs, const string &envi
         throw( 17 ); // recompile locally
     }
 
-    if ( output ) {
+    if ( output )
+    {
         fprintf( stdout, "%s", crmsg->out.c_str() );
         fprintf( stderr, "%s", crmsg->err.c_str() );
+
+        if ( status && ( crmsg->err.length() || crmsg->out.length() ) )
+        {
+            fprintf( stderr, "ICECREAM[%d]: Compiled on %s\n", getpid(), hostname.c_str() );
+        }
     }
     delete crmsg;
 
@@ -435,7 +441,7 @@ string md5_for_file( const string & file )
     return result;
 }
 
-static int
+static bool
 maybe_build_local (MsgChannel *scheduler, UseCSMsg *usecs, CompileJob &job,
 		   int &ret)
 {
@@ -483,10 +489,10 @@ maybe_build_local (MsgChannel *scheduler, UseCSMsg *usecs, CompileJob &job,
             else
                 cserver->send_msg( EndMsg() );
 	    delete cserver;
-	    return 1;
+	    return true;
 	}
     }
-    return 0;
+    return false;
 }
 
 int build_remote(CompileJob &job, MsgChannel *scheduler, const Environments &_envs, int permill )
