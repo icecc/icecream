@@ -601,6 +601,29 @@ pick_server(Job *job)
   trace() << "pick_server " << job->id << " " << job->target_platform << endl;
 #endif
 
+#if DEBUG_SCHEDULER > 0
+  /* consistency checking for now */
+  for (list<CS*>::iterator it = css.begin(); it != css.end(); ++it)
+    {
+      CS* cs= *it;
+      for ( list<Job*>::const_iterator it2 = cs->joblist.begin(); it2 != cs->joblist.end(); ++it2 )
+        {
+          Job *job = *it2;
+          assert( jobs.find( job->id ) != jobs.end() );
+        }
+    }
+  for (map<unsigned int, Job*>::const_iterator it = jobs.begin();
+       it != jobs.end(); ++it)
+    {
+      Job *j = it->second;
+
+      CS *cs = j->server;
+      assert( j->state != j->COMPILING ||
+              find( cs->joblist.begin(),
+                    cs->joblist.end(), j ) != cs->joblist.end() );
+    }
+#endif
+
   /* If we have no statistics simply use the first server which is usable.  */
   if (!all_job_stats.size ())
     {
