@@ -1010,6 +1010,7 @@ usage(const char* reason = 0)
        << "  -p, --port <port>\n"
        << "  -h, --help\n"
        << "  -l, --log-file <file>\n"
+       << "  --no-detach\n"
        << endl;
 
   exit(1);

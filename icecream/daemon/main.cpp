@@ -173,7 +173,7 @@ void usage(const char* reason = 0)
   if (reason)
      cerr << reason << endl;
 
-  cerr << "usage: iceccd [-n <netname>] [-m <max_processes>] [-w] " << endl;
+  cerr << "usage: iceccd [-n <netname>] [-m <max_processes>] [-w] [--no-detach]" << endl;
   exit(1);
 }
 
