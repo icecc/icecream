@@ -146,9 +146,15 @@ handle_ping (MsgChannel * /*c*/, Msg * /*_m*/)
 }
 
 static int
-handle_stats (MsgChannel * /*c*/, Msg * /*_m*/)
+handle_stats (MsgChannel * /*c*/, Msg * _m)
 {
-  trace() << "handle_stats\n";
+  StatsMsg *m = dynamic_cast<StatsMsg *>(_m);
+  if ( !m )
+    return 1;
+  trace() << "handle stats: "
+          << m->load[0] << " "
+          << m->load[1] << " "
+          << m->load[2] << endl;
   return 0;
 }
 
