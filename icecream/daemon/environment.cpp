@@ -3,6 +3,7 @@
 #include <logging.h>
 #include <errno.h>
 #include <dirent.h>
+#include <unistd.h>
 
 using namespace std;
 
