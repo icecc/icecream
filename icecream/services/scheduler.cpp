@@ -638,6 +638,15 @@ prune_clients ()
         continue;
       }
     }
+    if ((random() % 400) == 0)
+      { // R.I.P.
+        trace() << "FORCED removing " << ( *it )->name << endl;
+	CS *old = *it;
+	++it;
+	handle_end (old->channel(), 0);
+        continue;
+      }
+
     ++it;
   }
 }
@@ -667,8 +676,18 @@ empty_queue()
   CS *cs = pick_server (job);
 
   if (!cs) {
-    trace() << "tried to pick a server for " << job->id << " and failed\n";
-    return false;
+    trace() << "tried to pick a server for " << job->id;
+    /* Ignore the load on the submitter itself if no other host could
+       be found.  We only obey to its max job number.  */
+    cs = job->submitter;
+    if (! (int( cs->joblist.size() ) < cs->max_jobs
+           /* This should be trivially true.  */
+           && can_install (cs, job)))
+      {
+        trace() << " and failed\n";
+        return false;
+      }
+    trace () << " and had to use submitter\n";
   }
 
   remove_job_request ();
@@ -1019,7 +1038,11 @@ handle_end (MsgChannel *c, Msg *m)
       trace() << "remove client\n";
 
       /* A client disconnected.  */
-      if (!m)
+      if (!m
+	  /* Older clients sometimes send an END when still some jobs 
+	     from it are active (only happens with multiple jobs per compile).
+	     So we have to also run cleanups for those clients.  */
+	  || c->protocol <= 10)
         {
 	  /* If it's disconnected without END message something went wrong,
 	     and we must remove all its job requests and jobs.  All job
