@@ -2,7 +2,7 @@
 all:
 	if test -d ../../admin; then \
 		rm -rf admin ;\
-		cp -a ../../admin . ;\
+		cp -pRL ../../admin . ;\
 	fi
 
 	if ! test -d admin; then \
