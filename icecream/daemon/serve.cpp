@@ -202,7 +202,7 @@ int run_job(int in_fd,
     }
 
     find_flags( argv, j );
-    work_it( j );
+    work_it( j, preproc, preproc_length );
 
     return ret;
 }

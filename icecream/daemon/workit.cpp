@@ -1,13 +1,21 @@
 #include "workit.h"
 #include "tempfile.h"
+#include "assert.h"
+#include "exitcode.h"
 
-int work_it( CompileJob &j )
+int work_it( CompileJob &j, const char *preproc, size_t preproc_length )
 {
     CompileJob::ArgumentsList list = j.compileFlags();
     int ret;
 
      // teambuilder needs faking
-    const char *dot = ".c";
+    const char *dot;
+    if (j.language() == CompileJob::Lang_C)
+        dot = ".c";
+    else if (j.language() == CompileJob::Lang_CXX)
+        dot = ".cpp";
+    else
+        assert(0);
     list.push_back( "-fpreprocessing" );
 
     // if using gcc: dot = dcc_preproc_exten( dot );
@@ -19,9 +27,54 @@ int work_it( CompileJob &j )
         return ret;
 
     FILE *ti = fopen( tmp_input, "wt" );
-    // TODO! fwrite( preproc, 1, preproc_length, ti );
+    fwrite( preproc, 1, preproc_length, ti );
     fclose( ti );
 
+    int sock_err[2];
+    int sock_out[2];
+
+    pipe( sock_err );
+    pipe( sock_out );
+
+    pid_t pid = fork();
+    if ( pid == -1 )
+        return EXIT_OUT_OF_MEMORY;
+    else if ( pid == 0 ) {
+
+        int argc = list.size();
+        argc++; // the program
+        argc += 4; // -c file.i -o file.o
+        const char **argv = new const char*[argc + 1];
+        if (j.language() == CompileJob::Lang_C)
+            argv[0] = "/opt/teambuilder/bin/gcc";
+        else if (j.language() == CompileJob::Lang_CXX)
+            argv[0] = "/opt/teambuilder/bin/g++";
+        else
+            assert(0);
+        int i = 1;
+        for ( CompileJob::ArgumentsList::const_iterator it = list.begin();
+              it != list.end(); ++it) {
+            argv[i++] = it->c_str();
+        }
+        argv[i++] = "-c";
+        argv[i++] = tmp_input;
+        argv[i++] = "-o";
+        argv[i++] = tmp_output;
+        argv[i] = 0;
+        printf( "forking " );
+        for ( int index = 0; argv[index]; index++ )
+            printf( "%s ", argv[index] );
+        printf( "\n" );
+
+        close( STDOUT_FILENO );
+        dup2( sock_out[0], STDOUT_FILENO );
+        close( STDERR_FILENO );
+        dup2( sock_err[0], STDERR_FILENO );
+
+        execvp( argv[0], const_cast<char *const*>( argv ) ); // no return
+        exit( 255 );
+    } else {
+    }
 #if 0
     if ((compile_ret = dcc_spawn_child(argv, &cc_pid,
                                        "/dev/null", out_fname, err_fname))

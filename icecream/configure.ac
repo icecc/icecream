@@ -8,6 +8,7 @@ AC_CANONICAL_HOST
 
 dnl Checks for programs
 AC_PROG_CC
+AC_PROG_CXX
 if test "$GCC" = yes 
 then
  CFLAGS="-g $CFLAGS"
