@@ -95,7 +95,7 @@ void theSigCHLDHandler( int )
 int work_it( CompileJob &j,
              const string& infilename,
              string &str_out, string &str_err,
-             int &status, string &outfilename, unsigned int mem_limit )
+             int &status, string &outfilename, unsigned long int mem_limit )
 {
     str_out.erase(str_out.begin(), str_out.end());
     str_out.erase(str_out.begin(), str_out.end());
