@@ -209,11 +209,15 @@ static int build_remote_int(CompileJob &job, UseCSMsg *usecs, const string &envi
     job.setEnvironmentVersion( environment ); // hoping on the scheduler's wisdom
     trace() << "Have to use host " << hostname << ":" << port << " - Job ID: " << job.jobID() << " - environment: " << usecs->host_platform << "\n";
 
+    int status = 255;
+
     Service *serv = new Service (hostname, port);
 
+    try {
     MsgChannel *cserver = serv->channel();
     if ( !cserver->protocol ) {
         log_warning() << "no server found behind given hostname " << hostname << ":" << port << endl;
+        delete serv;
         throw ( 2 );
     }
 
@@ -269,7 +273,6 @@ static int build_remote_int(CompileJob &job, UseCSMsg *usecs, const string &envi
     CompileFileMsg compile_file( &job );
     if ( !cserver->send_msg( compile_file ) ) {
         log_info() << "write of job failed" << endl;
-        delete serv;
         throw( 9 );
     }
 
@@ -294,7 +297,6 @@ static int build_remote_int(CompileJob &job, UseCSMsg *usecs, const string &envi
             throw ( error );
         }
 
-        int status = 255;
         waitpid( cpp_pid, &status, 0);
 
         if ( status ) { // failure
@@ -319,8 +321,10 @@ static int build_remote_int(CompileJob &job, UseCSMsg *usecs, const string &envi
     if ( !msg )
         throw( 14 );
 
-    if ( msg->type != M_COMPILE_RESULT )
+    if ( msg->type != M_COMPILE_RESULT ) {
+        delete msg;
         throw( 13 );
+    }
 
     CompileResultMsg *crmsg = dynamic_cast<CompileResultMsg*>( msg );
     assert ( crmsg );
@@ -329,6 +333,7 @@ static int build_remote_int(CompileJob &job, UseCSMsg *usecs, const string &envi
     trace() << "crmsg->status " << status << " " << crmsg->was_out_of_memory << endl;
 
     if ( status && crmsg->was_out_of_memory ) {
+        delete crmsg;
         log_info() << "the server ran out of memory, recompiling locally" << endl;
         throw( 17 ); // recompile locally
     }
@@ -337,6 +342,7 @@ static int build_remote_int(CompileJob &job, UseCSMsg *usecs, const string &envi
         fprintf( stdout, "%s", crmsg->out.c_str() );
         fprintf( stderr, "%s", crmsg->err.c_str() );
     }
+    delete crmsg;
 
     assert( !job.outputFile().empty() );
 
@@ -349,24 +355,41 @@ static int build_remote_int(CompileJob &job, UseCSMsg *usecs, const string &envi
             return EXIT_DISTCC_FAILED;
         }
 
+        msg = 0;
         while ( 1 ) {
+            delete msg;
+
             msg = cserver->get_msg();
             if ( msg->type == M_END )
                 break;
 
-            if ( msg->type != M_FILE_CHUNK )
+            if ( msg->type != M_FILE_CHUNK ) {
+                unlink( tmp_file.c_str());
+                delete msg;
                 return EXIT_PROTOCOL_ERROR;
+            }
 
             FileChunkMsg *fcmsg = dynamic_cast<FileChunkMsg*>( msg );
-            if ( write( obj_fd, fcmsg->buffer, fcmsg->len ) != ( ssize_t )fcmsg->len )
+            if ( write( obj_fd, fcmsg->buffer, fcmsg->len ) != ( ssize_t )fcmsg->len ) {
+                unlink( tmp_file.c_str());
+                delete msg;
                 return EXIT_DISTCC_FAILED;
+            }
         }
 
+        delete msg;
         if( close( obj_fd ) == 0 )
             rename( tmp_file.c_str(), job.outputFile().c_str());
         else
             unlink( tmp_file.c_str());
     }
+
+    } catch ( int x ) {
+        delete serv;
+        serv = 0;
+        throw( x );
+    }
+    delete serv;
     return status;
 }
 
@@ -444,6 +467,7 @@ int build_remote(CompileJob &job, MsgChannel *scheduler, const Environments &_en
                 if ( !cserver->send_msg( compile_file ) ) {
                     log_info() << "write of job failed" << endl;
                     delete serv;
+                    serv = 0;
                     throw( 9 );
                 }
                 ret = build_local( job, ( MsgChannel* )1 ); // I'm too lazy to introduce a third parameter
