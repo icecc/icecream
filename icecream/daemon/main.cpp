@@ -4,6 +4,10 @@
  * GPL...
  */
 
+#ifndef _GNU_SOURCE
+// getopt_long
+#define _GNU_SOURCE 1
+#endif
 #include "config.h"
 
 #include <stdio.h>
@@ -13,6 +17,7 @@
 #include <fcntl.h>
 #include <errno.h>
 #include <netdb.h>
+#include <getopt.h>
 
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -162,6 +167,15 @@ void empty_func( int )
 {
 }
 
+void usage(const char* reason = 0)
+{
+  if (reason)
+     cerr << reason << endl;
+
+  cerr << "usage: iceccd [-n <netname>] [-m <max_processes>] [-w] " << endl;
+  exit(1);
+}
+
 int main( int argc, char ** argv )
 {
     list<string> environments = available_environmnents();
@@ -171,22 +185,31 @@ int main( int argc, char ** argv )
     string netname;
     bool watch_binary = false;
 
-    for (int argi = 1; argi < argc; argi++)
-        if (argv[argi][0] == '-' && argv[argi][2] == 0) {
-            switch (argv[argi][1]) {
+    while ( true ) {
+        int option_index = 0;
+        static const struct option long_options[] = {
+            { "netname", 1, NULL, 'n' },
+            { "max-processes", 1, NULL, 'm' },
+            { "watch", 0, NULL, 'w' },
+            { "help", 0, NULL, 'h' },
+            { 0, 0, 0, 0 }
+        };
+
+        const int c = getopt_long( argc, argv, "n:m:w:h", long_options, &option_index );
+        if ( c == -1 ) break; // eoo
+
+        switch ( c ) {
             case 'n':
-                argi++;
-                if (argi >= argc)
-                    log_warning() << "-n requires argument" << endl;
+                if ( optarg && *optarg )
+                    netname = optarg;
                 else
-                    netname = argv[argi];
+                    usage("Error: -n requires argument");
                 break;
             case 'm':
-                argi++;
-                if (argi >= argc)
-                    log_warning() << "-m requires argument" << endl;
+                if ( optarg && *optarg )
+                    max_processes = atoi(optarg);
                 else
-                    max_processes = atoi(argv[argi]);
+                    usage("Error: -m requires argument");
 
                 if (max_processes < 1) {
                     log_warning() << "You must at allow least one process."
@@ -197,10 +220,9 @@ int main( int argc, char ** argv )
                 watch_binary = true;
                 break;
             default:
-                log_warning() << "Unknown argument " << argv[argi] << endl;
-                break;
-            }
+                usage();
         }
+    }
 
     std::string binary_path = argv[0];
     time_t binary_on_startup = 0;
