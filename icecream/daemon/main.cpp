@@ -225,6 +225,15 @@ int main( int , char ** )
     if ((ret = dcc_socket_listen(10245, &listen_fd)) != 0)
         return ret;
 
+    Service *scheduler = new Service( "localhost", 8765 );
+    MsgChannel *channel = scheduler->channel();
+    if ( !channel ) {
+        log_error() << "no scheduler found\n";
+        return -1;
+    }
+
+    channel->send_msg( LoginMsg() );
+
     set_cloexec_flag(listen_fd, 1);
 
     if (dcc_ncpus(&n_cpus) == 0)
