@@ -67,7 +67,9 @@ enum MsgType {
   M_MON_JOB_DONE,
   M_MON_LOCAL_JOB_BEGIN,
   M_MON_LOCAL_JOB_DONE,
-  M_MON_STATS
+  M_MON_STATS,
+
+  M_TRANFER_ENV
 };
 
 class MsgChannel;
@@ -195,9 +197,10 @@ public:
   std::string hostname;
   unsigned int port;
   std::string environment;
+  unsigned int got_env;
   UseCSMsg () : Msg(M_USE_CS) {}
-  UseCSMsg (std::string env, std::string host, unsigned int p, unsigned int id)
-    : Msg(M_USE_CS), job_id(id), hostname (host), port (p), environment( env ) {}
+  UseCSMsg (std::string env, std::string host, unsigned int p, unsigned int id, bool gotit)
+    : Msg(M_USE_CS), job_id(id), hostname (host), port (p), environment( env ), got_env( gotit ) {}
   virtual void fill_from_channel (MsgChannel * c);
   virtual void send_to_channel (MsgChannel * c) const;
 };
@@ -441,6 +444,21 @@ public:
     : StatsMsg(m), host( name ), max_kids( mk )
   {
     type = M_MON_STATS;
+  }
+  virtual void fill_from_channel (MsgChannel * c);
+  virtual void send_to_channel (MsgChannel * c) const;
+};
+
+class EnvTransferMsg : public FileChunkMsg {
+public:
+  std::string name;
+  EnvTransferMsg() : FileChunkMsg() {
+    type = M_TRANFER_ENV;
+  }
+  EnvTransferMsg( const std::string &_name, unsigned char *_buffer, size_t _len)
+    : FileChunkMsg( _buffer, _len ), name( _name )
+  {
+     type = M_TRANFER_ENV;
   }
   virtual void fill_from_channel (MsgChannel * c);
   virtual void send_to_channel (MsgChannel * c) const;

@@ -164,7 +164,7 @@ bool collect_env( )
         return false;
 
     char buffer[] = "/var/tmp/icecream_env_XXXXXX";
-    if ( !mktemp( buffer ) ) {
+    if ( !mkstemp( buffer ) ) {
         perror( "mkstemp" );
         return false;
     }

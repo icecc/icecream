@@ -62,10 +62,10 @@ string get_absfilename( const string &_file )
 
 int build_remote(CompileJob &job, MsgChannel *scheduler )
 {
-    const char *get = getenv( "ICECC_VERSION");
-    if ( !get )
-        get = "*";
-    string version = get;
+    string version_file = getenv( "ICECC_VERSION");
+    if ( !version_file.size() )
+        version_file = "*";
+    string version = version_file;
     string suff = ".tar.bz2";
     if ( version.size() > suff.size() && version.substr( version.size() - suff.size() ) == suff )
     {
@@ -101,6 +101,27 @@ int build_remote(CompileJob &job, MsgChannel *scheduler )
     if ( ! cserver ) {
         log_error() << "no server found behind given hostname " << hostname << ":" << port << endl;
         return build_local( job, scheduler );
+    }
+
+    if ( !usecs->got_env ) {
+        if ( ::access( version_file.c_str(), R_OK ) ) {
+            log_error() << "$ICECC_VERSION has to point to an existing file to be installed\n";
+            return build_local( job, scheduler );
+        }
+        // transfer env
+        struct stat buf;
+        if ( stat( version_file.c_str(), &buf ) ) {
+            perror( "stat" );
+            return build_local( job, scheduler );
+        }
+
+        unsigned char *buffer = new unsigned char[buf.st_size];
+        FILE *file = fopen( version_file.c_str(), "rb" );
+        fread( buffer, buf.st_size, 1, file ); // assume it works
+        EnvTransferMsg msg( job.environmentVersion(), buffer, buf.st_size );
+        cserver->send_msg( msg );
+        delete [] buffer;
+        fclose( file );
     }
 
     CompileFileMsg compile_file( &job );
@@ -176,7 +197,7 @@ int build_remote(CompileJob &job, MsgChannel *scheduler )
     fprintf( stderr, "%s", crmsg->err.c_str() );
 
     assert( !job.outputFile().empty() );
-    
+
     if( status == 0 ) {
         string tmp_file = job.outputFile() + "_icetmp";
         int obj_fd = open( tmp_file.c_str(), O_CREAT|O_TRUNC|O_WRONLY|O_LARGEFILE, 0666 );

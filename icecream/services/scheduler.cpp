@@ -277,13 +277,22 @@ server_speed (CS *cs)
              / (float) cs->cum_compiled.compile_time_user;
 }
 
+bool envs_match( CS* cs, const string &env )
+{
+  return find( cs->compiler_versions.begin(), cs->compiler_versions.end(), env ) != cs->compiler_versions.end();
+}
+
+bool can_install( CS*, const string & )
+{
+  return true; // TODO/XXX: uname call
+}
+
 static CS *
 pick_server(Job *job)
 {
+  /// XXX: if the environment contains *, pick the most often installed
   string environment = job->environment;
   assert( !environment.empty() );
-  if ( environment == "*" )
-    environment = "gcc33"; // TODO: logic
 
   list<CS*>::iterator it;
 
@@ -292,7 +301,7 @@ pick_server(Job *job)
     {
       for (it = css.begin(); it != css.end(); ++it)
         if ((*it)->joblist.size() < (*it)->max_jobs
-	    && (*it)->load < 1000)
+	    && (*it)->load < 1000 && envs_match( *it, environment ))
           return *it;
       return 0;
     }
@@ -311,28 +320,55 @@ pick_server(Job *job)
       guess = cum_job_stats / all_job_stats.size();
     }
   CS *best = 0;
+  // best uninstalled
+  CS *bestui = 0;
+
   for (it = css.begin(); it != css.end(); ++it)
     {
       CS *cs = *it;
       /* For now ignore overloaded servers.  */
       if (cs->joblist.size() >= cs->max_jobs || cs->load >= 1000)
-        ;
-      else if (!best)
-	best = cs;
-      else if (cs->last_compiled_jobs.size() == 0)
-	best = cs;
-      /* Search the server with the earliest projected time to compile
-         the job.  (XXX currently this is equivalent to the fastest one)  */
-      else if (best->last_compiled_jobs.size() != 0
-               && server_speed (best) < server_speed (cs))
-	best = cs;
-      /* Make all servers compile a job at least once, so we'll get an
-         idea about their speed.  */
-      if (best && best->last_compiled_jobs.size() == 0)
-        break;
+        continue;
+
+      // incompatible architecture
+      if ( !can_install( cs, environment ) )
+        continue;
+
+      if ( cs->last_compiled_jobs.size() == 0 )
+        {
+          /* Make all servers compile a job at least once, so we'll get an
+             idea about their speed.  */
+          best = cs;
+          break;
+        }
+
+      if ( envs_match( cs, environment ) )
+        {
+          if ( !best )
+            best = cs;
+          /* Search the server with the earliest projected time to compile
+             the job.  (XXX currently this is equivalent to the fastest one)  */
+          else
+            if (best->last_compiled_jobs.size() != 0
+                && server_speed (best) < server_speed (cs))
+              best = cs;
+        }
+      else
+        {
+          if ( !bestui )
+            bestui = cs;
+          /* Search the server with the earliest projected time to compile
+             the job.  (XXX currently this is equivalent to the fastest one)  */
+          else
+            if (bestui->last_compiled_jobs.size() != 0
+                && server_speed (bestui) < server_speed (cs))
+              bestui = cs;
+        }
     }
 
-  return best;
+  if ( best )
+    return best;
+  return bestui;
 }
 
 static bool
@@ -372,7 +408,7 @@ empty_queue()
   job->state = Job::WAITINGFORCS;
   job->server = cs;
 
-  UseCSMsg m2(job->environment, cs->name, cs->remote_port, job->id );
+  UseCSMsg m2(job->environment, cs->name, cs->remote_port, job->id, envs_match( cs, job->environment ) );
 
   if (!job->channel->send_msg (m2))
     {
@@ -718,7 +754,7 @@ usage(const char* reason = 0)
        << "  -p, --port <port>\n"
        << "  -h, --help\n"
        << endl;
-  
+
   exit(1);
 }
 

@@ -548,9 +548,7 @@ MsgChannel::get_msg(bool blocking)
     case M_JOB_LOCAL_DONE: m = new JobLocalDoneMsg; break;
     case M_MON_LOCAL_JOB_BEGIN: m = new MonLocalJobBeginMsg; break;
     case M_MON_LOCAL_JOB_DONE: m = new MonLocalJobDoneMsg; break;
-    default:
-      log_error() << "unknown message type" << t << endl;
-      return 0; break;
+    case M_TRANFER_ENV: m = new EnvTransferMsg; break;
     }
   m->fill_from_channel (this);
   instate = NEED_LEN;
@@ -819,6 +817,7 @@ UseCSMsg::fill_from_channel (MsgChannel *c)
   c->readuint32 (port);
   c->read_string (hostname);
   c->read_string (environment);
+  c->readuint32( got_env );
 }
 
 void
@@ -829,6 +828,7 @@ UseCSMsg::send_to_channel (MsgChannel *c) const
   c->writeuint32 (port);
   c->write_string (hostname);
   c->write_string (environment);
+  c->writeuint32( got_env );
 }
 
 void
@@ -1175,4 +1175,18 @@ MonStatsMsg::send_to_channel (MsgChannel *c) const
   StatsMsg::send_to_channel (c);
   c->write_string(host);
   c->writeuint32(max_kids);
+}
+
+void
+EnvTransferMsg::fill_from_channel (MsgChannel *c)
+{
+  EnvTransferMsg::fill_from_channel (c);
+  c->read_string(name);
+}
+
+void
+EnvTransferMsg::send_to_channel (MsgChannel *c) const
+{
+  EnvTransferMsg::send_to_channel (c);
+  c->write_string(name);
 }
