@@ -191,7 +191,10 @@ int work_it( CompileJob &j,
                     close( sock_err[1] );
                     close( sock_out[0] );
                     close( sock_out[1] );
-                    status = WEXITSTATUS( status );
+                    if ( WIFEXITED( status ) )
+                        status = WEXITSTATUS( status );
+                    else
+                        status = 1;
                     return 0;
                 }
                 break;
