@@ -45,13 +45,13 @@ int dcc_recursion_safeguard(void)
     char *env = getenv(dcc_safeguard_name);
 
     if (env) {
-        trace() << "safeguard: " << env << endl;
+        //trace() << "safeguard: " << env << endl;
         if (!(dcc_safeguard_level = atoi(env)))
             dcc_safeguard_level = 1;
     }
     else
         dcc_safeguard_level = 0;
-    trace() << "safeguard level=" << dcc_safeguard_level << endl;
+    //trace() << "safeguard level=" << dcc_safeguard_level << endl;
 
     return dcc_safeguard_level;
 }
@@ -61,7 +61,7 @@ void dcc_increment_safeguard(void)
 {
     if (dcc_safeguard_level > 0)
         dcc_safeguard_set[sizeof dcc_safeguard_set-2] = dcc_safeguard_level+'1';
-    trace() << "setting safeguard: " << dcc_safeguard_set << endl;
+    //trace() << "setting safeguard: " << dcc_safeguard_set << endl;
     if ((putenv(strdup(dcc_safeguard_set)) == -1)) {
         log_error() << "putenv failed" << endl;
     }
