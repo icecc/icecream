@@ -1,7 +1,10 @@
 /* -*- c-file-style: "java"; indent-tabs-mode: nil -*-
  *
- * icecc -- A simple distributed compiler system derived from distcc
+ * icecc -- A simple distributed compiler system 
  *
+ * Copyright (C) 2003, 2004 by the Icecream Authors
+ *
+ * based on distcc
  * Copyright (C) 2002, 2003 by Martin Pool <mbp@samba.org>
  *
  * This program is free software; you can redistribute it and/or
