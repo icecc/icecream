@@ -1082,6 +1082,46 @@ handle_timeout (MsgChannel * c, Msg * /*_m*/)
   return false;
 }
 
+static void
+dump_job (MsgChannel *c, Job *job)
+{
+  char buffer[1000];
+  string line;
+  snprintf (buffer, sizeof (buffer), "%d %s sub:%s on:%s ",
+	   job->id,
+	   job->state == Job::PENDING ? "PEND"
+	     : job->state == Job::WAITINGFORCS ? "WAIT"
+	     : job->state == Job::COMPILING ? "COMP"
+	     : "Huh?",
+	   job->submitter ? job->submitter->nodename.c_str() : "<>",
+	   job->server ? job->server->nodename.c_str() : "<unknown>");
+  buffer[sizeof (buffer) - 1] = 0;
+  line = buffer;
+  line = line + job->filename;
+  c->send_msg (TextMsg (line));
+}
+
+/* Splits the string S between characters in SET and add them to list L.  */
+static void
+split_string (const string &s, const char *set, list<string> &l)
+{
+  string::size_type end = 0;
+  while (end != string::npos)
+    {
+      string::size_type start = s.find_first_not_of (set, end);
+      if (start == string::npos)
+        break;
+      end = s.find_first_of (set, start);
+      /* Do we really need to check end here or is the subtraction
+         defined on every platform correctly (with GCC it's ensured,
+	 that (npos - start) is the rest of the string).  */
+      if (end != string::npos)
+        l.push_back (s.substr (start, end - start));
+      else
+        l.push_back (s.substr (start));
+    }
+}
+
 static bool
 handle_line (MsgChannel *c, Msg *_m)
 {
@@ -1090,7 +1130,17 @@ handle_line (MsgChannel *c, Msg *_m)
     return false;
   char buffer[1000];
   string line;
-  if (m->text == "listcs")
+  list<string> l;
+  split_string (m->text, " \t\n", l);
+  string cmd;
+  if (l.empty())
+    cmd = "";
+  else
+    {
+      cmd = l.front();
+      l.pop_front();
+    }
+  if (cmd == "listcs")
     {
       for (list<CS*>::iterator it = css.begin(); it != css.end(); ++it)
 	{
@@ -1101,55 +1151,49 @@ handle_line (MsgChannel *c, Msg *_m)
 	  sprintf (buffer, "%.2f jobs=%d/%d load=%d", server_speed (cs),
 	  	   cs->joblist.size(), cs->max_jobs, cs->load);
 	  line += buffer;
-          if ( cs->busy_installing )
+          if (cs->busy_installing)
             {
               sprintf( buffer, " busy installing since %ld s",  time(0) - cs->busy_installing );
               line += buffer;
             }
 	  c->send_msg (TextMsg (line));
           for ( list<Job*>::const_iterator it2 = cs->joblist.begin(); it2 != cs->joblist.end(); ++it2 )
-            {
-              Job *job = *it2;
-              snprintf (buffer, sizeof (buffer), "   %d %s sub:%s on:%s ",
-                        job->id,
-                        job->state == Job::PENDING ? "PEND"
-                        : job->state == Job::WAITINGFORCS ? "WAIT"
-                        : job->state == Job::COMPILING ? "COMP"
-                        : "Huh?",
-                        job->submitter ? job->submitter->nodename.c_str() : "<>",
-                        job->server ? job->server->nodename.c_str() : "<unknown>");
-              buffer[sizeof (buffer) - 1] = 0;
-              line = buffer;
-              line = line + job->filename;
-              c->send_msg (TextMsg (line));
-            }
+	    dump_job (c, *it2);
 	}
     }
-  else if (m->text == "listjobs")
+  else if (cmd == "listjobs")
     {
       for (map<unsigned int, Job*>::const_iterator it = jobs.begin();
 	   it != jobs.end(); ++it)
-	{
-	  int id = it->first;
-	  Job *job = it->second;
-	  snprintf (buffer, sizeof (buffer), "%d %s sub:%s on:%s ",
-	  	   id,
-		   job->state == Job::PENDING ? "PEND"
-		     : job->state == Job::WAITINGFORCS ? "WAIT"
-		     : job->state == Job::COMPILING ? "COMP"
-		     : "Huh?",
-		   job->submitter ? job->submitter->nodename.c_str() : "<>",
-		   job->server ? job->server->nodename.c_str() : "<unknown>");
-	  buffer[sizeof (buffer) - 1] = 0;
-	  line = buffer;
-	  line = line + job->filename;
-	  c->send_msg (TextMsg (line));
-	}
+	dump_job (c, it->second);
     }
-  else if (m->text == "quit")
+  else if (cmd == "quit")
     {
       handle_end (c, m);
       return false;
+    }
+  else if (cmd == "removecs")
+    {
+      if (l.empty())
+        c->send_msg (TextMsg (string ("Sure.  But which hosts?")));
+      else
+        for (list<string>::const_iterator si = l.begin(); si != l.end(); ++si)
+	  for (list<CS*>::iterator it = css.begin(); it != css.end(); ++it)
+	    if ((*it)->nodename == *si || (*it)->name == *si)
+	      {
+                c->send_msg (TextMsg (string ("removing host ") + *si));
+		handle_end ((*it)->channel(), 0);
+		break;
+	      }
+    }
+  else if (cmd == "crashme")
+    {
+      *(int *)0 = 42;  // ;-)
+    }
+  else if (cmd == "help")
+    {
+      c->send_msg (TextMsg (
+        "listcs\nlistjobs\nremovecs\nhelp\nquit"));
     }
   else
     {
