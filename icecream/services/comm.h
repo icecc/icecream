@@ -161,10 +161,11 @@ class FileChunkMsg : public Msg {
 public:
   unsigned char* buffer;
   size_t len;
+  bool del_buf;
 
   FileChunkMsg (unsigned char *_buffer, size_t _len)
-      : Msg(M_FILE_CHUNK), buffer( _buffer ), len( _len ) {}
-  FileChunkMsg() : Msg( M_FILE_CHUNK ), buffer( 0 ), len( 0 ) {}
+      : Msg(M_FILE_CHUNK), buffer( _buffer ), len( _len ), del_buf(false) {}
+  FileChunkMsg() : Msg( M_FILE_CHUNK ), buffer( 0 ), len( 0 ), del_buf(true) {}
   ~FileChunkMsg();
   virtual bool fill_from_fd (int fd);
   virtual bool send_to_fd (int fd) const;

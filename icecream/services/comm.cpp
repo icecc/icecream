@@ -473,8 +473,10 @@ CompileFileMsg::send_to_fd (int fd) const
 bool
 FileChunkMsg::fill_from_fd (int fd)
 {
-  delete [] buffer;
+  if (del_buf)
+    delete [] buffer;
   buffer = 0;
+  del_buf = true;
 
   if (!Msg::fill_from_fd (fd))
     return false;
@@ -496,7 +498,9 @@ FileChunkMsg::send_to_fd (int fd) const
   return ret;
 }
 
-FileChunkMsg::~FileChunkMsg() {
+FileChunkMsg::~FileChunkMsg()
+{
+  if (del_buf)
     delete [] buffer;
 }
 
