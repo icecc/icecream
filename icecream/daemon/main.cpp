@@ -436,6 +436,7 @@ int main( int argc, char ** argv )
                 sleep( 1 );
                 continue;
             }
+            jobmap.clear();
         }
 
         int port;
@@ -492,8 +493,9 @@ int main( int argc, char ** argv )
             int status;
             pid_t child = wait3(&status, WNOHANG, &ru);
             if ( child > 0 ) {
-                current_kids--;
                 JobDoneMsg *msg = jobmap[child];
+                if ( msg )
+                    current_kids--;
                 jobmap.erase( child );
                 for ( Pidmap::iterator it = pidmap.begin(); it != pidmap.end(); ++it ) {
                     if ( it->second == child ) {
