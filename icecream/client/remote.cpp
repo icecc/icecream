@@ -331,7 +331,7 @@ static int build_remote_int(CompileJob &job, UseCSMsg *usecs, const string &envi
     CompileResultMsg *crmsg = dynamic_cast<CompileResultMsg*>( msg );
     assert ( crmsg );
 
-    int status = crmsg->status;
+    status = crmsg->status;
     trace() << "crmsg->status " << status << " " << crmsg->was_out_of_memory << endl;
 
     if ( status && crmsg->was_out_of_memory ) {
