@@ -16,7 +16,7 @@ ICECREAM_NICE_LEVEL="5"
 #
 # icecream daemon log file
 #
-ICECREAM_LOG_FILE=""
+ICECREAM_LOG_FILE="/var/log/iceccd"
 
 #
 ## Type: string
@@ -34,7 +34,7 @@ ICECREAM_RUN_SCHEDULER="no"
 #
 # icecream scheduler log file
 #
-ICECREAM_SCHEDULER_LOG_FILE=""
+ICECREAM_SCHEDULER_LOG_FILE="/var/log/icecc_scheduler"
 
 #
 ## Type: string

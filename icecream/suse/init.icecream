@@ -36,9 +36,12 @@ case "$1" in
 	fi
         if test "$ICECREAM_RUN_SCHEDULER" == "yes"; then
             logfile=""
-            if test -n "$ICECREAM_SCHEDULER_LOG_FILE"; then
-                logfile="-l $ICECREAM_SCHEDULER_LOG_FILE"
+            if test -z "$ICECREAM_SCHEDULER_LOG_FILE"; then
+		ICECREAM_SCHEDULER_LOG_FILE="/var/log/icecc_scheduler"
             fi
+            logfile="-l $ICECREAM_SCHEDULER_LOG_FILE"
+	    : > $ICECREAM_SCHEDULER_LOG_FILE
+	    chown icecream:icecream $ICECREAM_SCHEDULER_LOG_FILE
             startproc -u icecream /usr/bin/scheduler -d $logfile $netname
         fi
         logfile=""
