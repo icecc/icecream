@@ -10,6 +10,5 @@ make install
 WARNING: Make sure you specify a prefix, otherwise icecream
 might override your gcc installation!
 
-Please have a look at wiki.kde.org, the docu is maintained there
-for the time being:
-http://wiki.kde.org/tiki-index.php?page=icecream
+Please have a look at http://wiki.kde.org/icecream - the docu 
+is maintained there for the time being
