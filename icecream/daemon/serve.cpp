@@ -72,6 +72,8 @@
 
 #include "exitcode.h"
 #include "client_comm.h"
+#include "arg.h"
+#include "tempfile.h"
 
 /**
  * Ignore or unignore SIGPIPE.
@@ -170,7 +172,6 @@ int run_job(int in_fd,
     int status;
     char *temp_i, *temp_o, *err_fname, *out_fname;
     int ret, compile_ret;
-    char *orig_input, *orig_output;
     pid_t cc_pid;
 
     /* Ignore SIGPIPE; we consistently check error codes and will see the
@@ -231,12 +232,26 @@ int run_job(int in_fd,
             preproc = (char* )realloc(preproc, preproc_bufsize);
             preproc_bufsize *= 2;
         }
-        if ( read( in_fd, preproc + preproc_length, m.length ) != m.length )
+        if ( read( in_fd, preproc + preproc_length, m.length ) != ( ssize_t )m.length )
             return EXIT_PROTOCOL_ERROR;
         preproc_length += m.length;
     }
 
-    printf( "got it %d\n", preproc_length );
+    const char *orig_input;
+    const char *orig_output;
+
+    find_in_and_out(argv, &orig_input, &orig_output);
+
+    const char *dot = strrchr(orig_input, '.');
+    if (dot && dot[1] == '\0')
+        dot = NULL;
+
+    dot = dcc_preproc_exten( dot );
+    char tmpname[PATH_MAX];
+    if ( ( ret = dcc_make_tmpnam("icecc_", dot, tmpname ) ) != 0 )
+        return ret;
+
+    printf( "tmpname %s\n", tmpname );
 
 #if 0
     if ((ret = dcc_check_compiler_masq(argv[0])))
