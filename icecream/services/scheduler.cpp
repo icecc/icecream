@@ -150,6 +150,7 @@ public:
 unsigned int CS::hostid_counter = 0;
 
 static map<int, MsgChannel *> fd2chan;
+static bool allow_run_as_user = false;
 
 time_t starttime;
 
@@ -847,6 +848,7 @@ handle_login (MsgChannel *c, Msg *_m)
   LoginMsg *m = dynamic_cast<LoginMsg *>(_m);
   if (!m)
     return false;
+
   CS *cs = static_cast<CS *>(c->other_end);
   cs->remote_port = m->port;
   cs->compiler_versions = m->envs;
@@ -1397,6 +1399,7 @@ usage(const char* reason = 0)
        << "  -h, --help\n"
        << "  -l, --log-file <file>\n"
        << "  -d, --daemonize\n"
+       << "  -u, --allow-run-as-user\n"
        << "  -v[v[v]]]\n"
        << endl;
 
@@ -1423,6 +1426,7 @@ main (int argc, char * argv[])
       { "port", 0, NULL, 'p' },
       { "daemonize", 0, NULL, 'd'},
       { "log-file", 1, NULL, 'l'},
+      { "allow-run-as-user", 1, NULL, 'u' },
       { 0, 0, 0, 0 }
     };
 
@@ -1469,6 +1473,11 @@ main (int argc, char * argv[])
       else
         usage("Error: -p requires argument");
       break;
+
+    case 'u':
+      allow_run_as_user = true;
+      break;
+
     default:
       usage();
     }
