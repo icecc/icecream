@@ -223,14 +223,21 @@ add_job_stats (Job *job, JobDoneMsg *msg)
   st.compile_time_real = msg->real_msec;
   st.compile_time_user = msg->user_msec;
 
-  trace() << "add_job_stats " << job->language << " "
-          << ( job->arg_flags & CompileJob::Flag_g ? '1' : '0')
-          << ( job->arg_flags & CompileJob::Flag_g3 ? '1' : '0')
-          << ( job->arg_flags & CompileJob::Flag_O ? '1' : '0')
-          << ( job->arg_flags & CompileJob::Flag_O2 ? '1' : '0')
-          << ( job->arg_flags & CompileJob::Flag_Ol2 ? '1' : '0')
-          << " " << st.osize << " " << msg->in_uncompressed << " "
-          << st.compile_time_user << " " << job->server->nodename <<  endl ;
+  if ( job->arg_flags & CompileJob::Flag_g )
+    st.osize = st.osize * 10 / 36; // average over 1900 jobs: faktor 3.6 in osize
+  else if ( job->arg_flags & CompileJob::Flag_g3 )
+    st.osize = st.osize * 10 / 45; // average over way less jobs: factor 1.25 over -g
+
+  if ( job->arg_flags < 7000 )
+    trace() << "add_job_stats " << job->language << " "
+            << st.compile_time_user << " "
+            << ( job->arg_flags & CompileJob::Flag_g ? '1' : '0')
+            << ( job->arg_flags & CompileJob::Flag_g3 ? '1' : '0')
+            << ( job->arg_flags & CompileJob::Flag_O ? '1' : '0')
+            << ( job->arg_flags & CompileJob::Flag_O2 ? '1' : '0')
+            << ( job->arg_flags & CompileJob::Flag_Ol2 ? '1' : '0')
+            << " " << st.osize << " " << msg->in_uncompressed << " "
+            << job->server->nodename << endl ;
 
   st.compile_time_sys = msg->sys_msec;
   job->server->last_compiled_jobs.push_back (st);
@@ -551,7 +558,9 @@ pick_server(Job *job)
 {
   list<CS*>::iterator it;
 
+#if DEBUG_SCHEDULER > 1
   trace() << "pick_server " << job->id << " " << job->target_platform << endl;
+#endif
 
   /* If we have no statistics simply use the first server which is usable.  */
   if (!all_job_stats.size ())
@@ -591,7 +600,7 @@ pick_server(Job *job)
       CS *cs = *it;
       /* For now ignore overloaded servers.  */
       if (int( cs->joblist.size() ) >= cs->max_jobs || cs->load >= 1000) {
-#if DEBUG_SCHEDULER > 0
+#if DEBUG_SCHEDULER > 1
         trace() << "overloaded " << cs->nodename << " " << cs->joblist.size() << "/" <<  cs->max_jobs << " jobs, load:" << cs->load << endl;
 #endif
         continue;
@@ -936,7 +945,8 @@ handle_job_done (MsgChannel *c, Msg *_m)
     {
       int id = it->first;
       Job *c = it->second;
-      trace() << "  undone: " << id << " state " << c->state << endl;
+      if ( new_job_id - id > 100 )
+        trace() << "  undone: " << id << " state " << c->state << endl;
       if ( first && c->state == Job::PENDING ) {
         trace() << "first job is pending! Something is fishy\n";
         abort();

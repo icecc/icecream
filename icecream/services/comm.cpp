@@ -927,7 +927,7 @@ GetCSMsg::fill_from_channel (MsgChannel *c)
   if ( IS_PROTOCOL_15( c ) )
     c->readuint32( arg_flags );
   else
-    arg_flags = 0;
+    arg_flags = 7000; // something _really_ large
 }
 
 void
