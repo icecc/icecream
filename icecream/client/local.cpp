@@ -42,6 +42,9 @@ string find_compiler( const string &compiler )
     if ( compiler.at( 0 ) == '/' )
         return compiler;
 
+    if ( getenv( "ICECC_VERSION" ) == 0 )
+        return "/usr/bin/" + compiler;
+
     string path = ::getenv( "PATH" );
     string::size_type begin = 0;
     string::size_type end = 0;
