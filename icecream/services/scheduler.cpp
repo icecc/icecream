@@ -378,7 +378,7 @@ empty_queue()
       trace() << "failed to deliver job " << job->id << endl;
       job->channel->send_msg (EndMsg()); // most likely won't work
       cs->joblist.remove (job);
-      jobs.erase(job->id );
+      jobs.erase( job->id );
       notify_monitors (MonJobDoneMsg (JobDoneMsg( job->id, 255 )));
       delete job;
       return true;
@@ -587,8 +587,46 @@ handle_end (MsgChannel *c, Msg *)
     }
   else
     {
-      css.remove (static_cast<CS*>(c->other_end));
-      // trace() << "handle_end " << css.size() << endl;
+      uint osize = css.size();
+      CS *toremove = static_cast<CS*>(c->other_end);
+      css.remove (toremove);
+      if ( osize != css.size() ) // the above may fail when it's a client ending
+        {
+          queue<UnansweredList*> newtoanswer;
+          while ( !toanswer.empty() )
+            {
+              UnansweredList *l = toanswer.front();
+              trace() << "is " << l->server << " == " << c->other_end << endl;
+              if ( l->server != toremove )
+                {
+                  newtoanswer.push( l );
+                }
+              else
+                {
+                  while ( !l->empty() )
+                    {
+                      trace() << "STOP FOR " << l->front()->id << endl;
+                      jobs.erase( l->front()->id );
+                      delete l->front();
+                      l->pop();
+                    }
+                  delete l;
+                }
+              toanswer.pop();
+            }
+
+          toanswer = newtoanswer;
+          trace() << "handle_end " << css.size() << endl;
+
+          for ( map<unsigned int, Job*>::iterator it = jobs.begin(); it != jobs.end(); ++it )
+            {
+              if ( it->second->submitter == toremove || it->second->server == toremove ) {
+                trace() << "STOP FOR " << it->first << endl;
+                delete it->second; // closes socket -> causes continuing
+                jobs.erase( it );
+              }
+            }
+        }
     }
 
   fd2chan.erase (c->fd);
@@ -750,7 +788,7 @@ main (int argc, char * argv[])
       fd_set read_set;
       int max_fd = 0;
       FD_ZERO (&read_set);
-      if (toanswer.size() < 100)
+      if (toanswer.size() < 100) // TODO: this is rather pointless as toanswer is now a queue of queues
         { // don't let us overrun
           max_fd = listen_fd;
           FD_SET (listen_fd, &read_set);
