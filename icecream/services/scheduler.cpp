@@ -729,15 +729,19 @@ try_login (MsgChannel *c, Msg *m)
 static bool
 handle_end (MsgChannel *c, Msg *m)
 {
+  trace() << "Handle_end " << c << m << endl;
+
   CS *toremove = static_cast<CS *>(c->other_end);
   if (toremove->type == CS::MONITOR)
     {
       assert (find (monitors.begin(), monitors.end(), c->other_end) != monitors.end());
       monitors.remove (c->other_end);
-      // trace() << "handle_end(moni) " << monitors.size() << endl;
+      trace() << "handle_end(moni) " << monitors.size() << endl;
     }
   else if (toremove->type == CS::DAEMON)
     {
+      trace() << "remove daemon\n";
+
       /* A daemon disconnected.  We must remove it from the css list,
          and we have to delete all jobs scheduled on that daemon.
 	 There might be still clients connected running on the machine on which
@@ -781,6 +785,8 @@ handle_end (MsgChannel *c, Msg *m)
     }
   else if (toremove->type == CS::CLIENT)
     {
+      trace() << "remove client\n";
+
       /* A client disconnected.  */
       if (!m)
         {
