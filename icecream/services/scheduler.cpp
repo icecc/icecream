@@ -1446,7 +1446,7 @@ main (int argc, char * argv[])
       { 0, 0, 0, 0 }
     };
 
-    const int c = getopt_long( argc, argv, "n:p:hl:vd", long_options, &option_index );
+    const int c = getopt_long( argc, argv, "n:p:hl:vdu", long_options, &option_index );
     if ( c == -1 ) break; // eoo
 
     switch ( c ) {
