@@ -16,7 +16,7 @@
 
 using namespace std;
 
-bool must_reap = false;
+volatile bool must_reap = false;
 
 void theSigCHLDHandler( int )
 {
