@@ -34,6 +34,15 @@ extern std::ostream *logfile_trace;
 
 void setup_debug(int level, const std::string &logfile = "");
 
+inline std::ostream & output_date( std::ostream &os )
+{
+    time_t t = time( 0 );
+    char *buf = ctime( &t );
+    buf[strlen( buf )-1] = 0;
+    os << "[" << buf << "] ";
+    return os;
+}
+
 static inline std::ostream& log_info() {
     assert( logfile_info );
     return *logfile_info;
@@ -41,12 +50,12 @@ static inline std::ostream& log_info() {
 
 static inline std::ostream& log_warning() {
     assert( logfile_warning );
-    return *logfile_warning;
+    return output_date( *logfile_warning );
 }
 
 static inline std::ostream& log_error() {
     assert( logfile_error );
-    return *logfile_error;
+    return output_date( *logfile_error );
 }
 
 static inline std::ostream& trace() {

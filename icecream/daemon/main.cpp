@@ -658,6 +658,8 @@ int main( int argc, char ** argv )
                 JobDoneMsg *msg = jobmap[child];
                 if ( msg )
                     current_kids--;
+                else
+                    log_error() << "catched child pid " << child << " not in my map\n";
                 jobmap.erase( child );
                 Pidmap::iterator pid_it = pidmap.find( child );
                 if ( pid_it != pidmap.end() ) {
