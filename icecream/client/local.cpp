@@ -58,6 +58,13 @@ string find_compiler( const string &compiler )
     return string();
 }
 
+static volatile int user_break_signal = 0;
+void handle_user_break( int sig )
+{
+    user_break_signal = sig;
+    signal( sig, handle_user_break );
+}
+
 /**
  * Invoke a compiler locally.  This is, obviously, the alternative to
  * dcc_compile_remote().
@@ -112,6 +119,12 @@ int build_local(CompileJob &job, MsgChannel *scheduler)
         child = fork();
 
     if ( child ) {
+        // setup interrupt signals, so that the JobLocalBeginMsg will
+        // have a matching JobLocalDoneMsg
+        void (*old_sigint)(int) = signal( SIGINT, handle_user_break );
+        void (*old_sigterm)(int) = signal( SIGTERM, handle_user_break );
+        void (*old_sigquit)(int) = signal( SIGQUIT, handle_user_break );
+        void (*old_sighup)(int) = signal( SIGHUP, handle_user_break );
         scheduler->send_msg( JobLocalBeginMsg() );
         Msg * umsg = scheduler->get_msg();
         uint job_id = 0;
@@ -124,10 +137,16 @@ int build_local(CompileJob &job, MsgChannel *scheduler)
             job_id = dynamic_cast<JobLocalId*>( umsg )->job_id;
 
         int status;
-        wait( &status );
-        status = WEXITSTATUS(status);
+        if( wait( &status ) > 0 )
+            status = WEXITSTATUS(status);
         if ( scheduler )
             scheduler->send_msg( JobLocalDoneMsg( job_id, status ) );
+        signal( SIGINT, old_sigint );
+        signal( SIGTERM, old_sigterm );
+        signal( SIGQUIT, old_sigquit );
+        signal( SIGHUP, old_sighup );
+        if( user_break_signal )
+            raise( user_break_signal );
         return status;
     } else {
         return execv( argv[0], argv ); // if it returns at all
