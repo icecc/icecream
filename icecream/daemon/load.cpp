@@ -167,9 +167,9 @@ bool fill_stats( StatsMsg &msg )
 
     double avg[3];
     getloadavg( avg, 3 );
-    msg.loadAvg1 = ( unsigned int )avg[0] * 1000;
-    msg.loadAvg5 = ( unsigned int )avg[1] * 1000;
-    msg.loadAvg10 = ( unsigned int )avg[2] * 1000;
+    msg.loadAvg1 = ( unsigned int )( avg[0] * 1000 );
+    msg.loadAvg5 = ( unsigned int )( avg[1] * 1000 );
+    msg.loadAvg10 = ( unsigned int )( avg[2] * 1000 );
 
     msg.freeMem = ( unsigned int )( MemFree / 1024.0 + 0.5 );
 //    trace() << "load cpu=" << netLoad << " mem=" << memory_fillgrade << " total=" << msg.load << endl;

@@ -52,6 +52,7 @@ enum MsgType {
   M_MON_GET_CS,
   M_MON_JOB_BEGIN,
   M_MON_JOB_DONE,
+  M_MON_STATS
 };
 
 class Msg {
@@ -326,6 +327,21 @@ public:
   {
     type = M_MON_JOB_DONE;
   }
+};
+
+class MonStatsMsg : public StatsMsg {
+public:
+  std::string host;
+  MonStatsMsg() : StatsMsg() {
+    type = M_MON_STATS;
+  }
+  MonStatsMsg( const std::string& name, const StatsMsg &m )
+    : StatsMsg(m), host( name )
+  {
+    type = M_MON_STATS;
+  }
+  virtual bool fill_from_fd (int fd);
+  virtual bool send_to_fd (int fd) const;
 };
 
 #endif

@@ -284,7 +284,9 @@ MsgChannel::get_msg(void)
     case M_MON_GET_CS: m = new MonGetCSMsg; break;
     case M_MON_JOB_BEGIN: m = new MonJobBeginMsg; break;
     case M_MON_JOB_DONE: m = new MonJobDoneMsg; break;
+    case M_MON_STATS: m = new MonStatsMsg; break;
     default:
+      log_error() << "unknown message type\n";
       abort();
       return 0; break;
     }
@@ -941,4 +943,20 @@ MonJobBeginMsg::send_to_fd (int fd) const
   return writeuint( fd, job_id )
     && writeuint( fd, stime )
     && write_string( fd, host );
+}
+
+bool
+MonStatsMsg::fill_from_fd(int fd)
+{
+  if ( !StatsMsg::fill_from_fd( fd ) )
+    return false;
+  return read_string( fd, host );
+}
+
+bool
+MonStatsMsg::send_to_fd(int fd) const
+{
+  if ( !StatsMsg::send_to_fd( fd ) )
+    return false;
+  return write_string( fd, host );
 }
