@@ -204,13 +204,13 @@ int setup_listen_fd()
 {
     int listen_fd;
     if ((listen_fd = socket (PF_INET, SOCK_STREAM, 0)) < 0) {
-        perror ("socket()");
+        log_perror ("socket()");
         return -1;
     }
 
     int optval = 1;
     if (setsockopt (listen_fd, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(optval)) < 0) {
-        perror ("setsockopt()");
+        log_perror ("setsockopt()");
         return -1;
     }
 
@@ -222,7 +222,7 @@ int setup_listen_fd()
         myaddr.sin_addr.s_addr = INADDR_ANY;
         if (bind (listen_fd, (struct sockaddr *) &myaddr,
                   sizeof (myaddr)) < 0) {
-            perror ("bind()");
+            log_perror ("bind()");
             sleep( 2 );
             if ( !--count )
                 return -1;
@@ -233,7 +233,7 @@ int setup_listen_fd()
 
     if (listen (listen_fd, 20) < 0)
     {
-      perror ("listen()");
+      log_perror ("listen()");
       return -1;
     }
 
@@ -401,7 +401,7 @@ int main( int argc, char ** argv )
 
     struct utsname uname_buf;
     if ( uname( &uname_buf ) ) {
-        perror( "uname call failed" );
+        log_perror( "uname call failed" );
         return 1;
     }
 
@@ -711,7 +711,7 @@ int main( int argc, char ** argv )
                     cli_len = sizeof cli_addr;
                     acc_fd = accept(listen_fd, &cli_addr, &cli_len);
                     if (acc_fd == -1 && errno != EINTR) {
-                        log_error() << "accept failed: " << strerror(errno) << endl;
+                        log_perror("accept failed:");
                         return EXIT_CONNECT_FAILED;
                     } else {
                         Service *client = new Service ((struct sockaddr*) &cli_addr, cli_len);

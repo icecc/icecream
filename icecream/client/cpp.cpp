@@ -65,7 +65,7 @@ pid_t call_cpp(CompileJob &job, int fdwrite, int fdread)
 {
     pid_t pid = fork();
     if (pid == -1) {
-        log_error() << "failed to fork: " << strerror(errno) << endl;
+        log_perror("failed to fork:");
         return -1; /* probably */
     } else if (pid != 0) {
 	/* Parent.  Close the write fd.  */

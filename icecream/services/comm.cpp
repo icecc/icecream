@@ -468,7 +468,7 @@ Service::Service (const string &hostname, unsigned short p)
   name = "";
   if ((remote_fd = socket (PF_INET, SOCK_STREAM, 0)) < 0)
     {
-      log_error() << "socket() " << strerror(errno) << endl;
+      log_perror("socket()");
       return;
     }
   struct hostent *host = gethostbyname (hostname.c_str());
@@ -634,7 +634,7 @@ MsgChannel::MsgChannel (int _fd, Service *serv, bool text)
 
   if ( protocol ) // otherwise the socket might be dead
     if (fcntl (fd, F_SETFL, O_NONBLOCK) < 0)
-      log_error() << "MsgChannel fcntl() " << strerror(errno) << endl;
+      log_perror("MsgChannel fcntl()");
 }
 
 MsgChannel::~MsgChannel()
@@ -881,14 +881,14 @@ open_send_broadcast (void)
   struct sockaddr_in remote_addr;
   if ((ask_fd = socket (PF_INET, SOCK_DGRAM, 0)) < 0)
     {
-      log_error() << "open_send_broadcast socket " << strerror(errno) << endl;
+      log_perror("open_send_broadcast socket");
       return -1;
     }
 
   int optval = 1;
   if (setsockopt (ask_fd, SOL_SOCKET, SO_BROADCAST, &optval, sizeof(optval)) < 0)
     {
-      log_error() << "open_send_broadcast setsockopt " << strerror(errno) << endl;
+      log_perror("open_send_broadcast setsockopt");
       close (ask_fd);
       return -1;
     }
@@ -936,7 +936,7 @@ open_send_broadcast (void)
 	  if (sendto (ask_fd, &buf, 1, 0, (struct sockaddr*)&remote_addr,
 		    sizeof (remote_addr)) != 1)
 	    {
-	      log_error() << "open_send_broadcast sendto " << strerror(errno) << endl;
+	      log_perror("open_send_broadcast sendto");
 	    }
 	}
     }
@@ -963,14 +963,14 @@ get_broad_answer (int ask_fd, int timeout, char *buf2,
     {
       /* Normally this is a timeout, i.e. no scheduler there.  */
       if (errno)
-	log_error() << "waiting for scheduler " << strerror(errno) << endl;
+	log_perror("waiting for scheduler");
       return false;
     }
   *remote_len = sizeof (struct sockaddr_in);
   if (recvfrom (ask_fd, buf2, BROAD_BUFLEN, 0, (struct sockaddr*) remote_addr,
 		remote_len) != BROAD_BUFLEN)
     {
-      log_error() << "get_broad_answer recvfrom() " << strerror(errno) << endl;
+      log_perror("get_broad_answer recvfrom()");
       return false;
     }
   if (buf + 1 != buf2[0])

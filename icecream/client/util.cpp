@@ -127,7 +127,7 @@ bool dcc_unlock(int lock_fd)
 {
     /* All our current locks can just be closed */
     if (close(lock_fd)) {
-        log_error() << "close failed: " << strerror(errno) << endl;
+        log_perror("close failed:");
         return false;
     }
     return true;
@@ -162,7 +162,7 @@ bool dcc_lock_host(int &lock_fd)
 
     fname += "/.icecream";
     if ( mkdir( fname.c_str(), 0700 ) && errno != EEXIST ) {
-        perror( "mkdir" );
+        log_perror( "mkdir" );
         return false;
     }
 

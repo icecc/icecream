@@ -173,12 +173,12 @@ int work_it( CompileJob &j,
 
         struct rlimit rlim;
         if ( getrlimit( RLIMIT_AS, &rlim ) )
-            perror( "getrlimit" );
+            log_perror( "getrlimit" );
 
         rlim.rlim_cur = mem_limit*1024*1024;
         rlim.rlim_max = mem_limit*1024*1024;
         if ( setrlimit( RLIMIT_AS, &rlim ) )
-            perror( "setrlimit" );
+            log_perror( "setrlimit" );
 
         int argc = list.size();
         argc++; // the program

@@ -24,6 +24,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "findmyself.h"
+#include <logging.h>
 
 using namespace std;
 
@@ -79,7 +80,7 @@ bool findmyself( string &arg )
 	    strncat(path, "/", PATH_MAX);
 	    strncat(path, arg.c_str(), PATH_MAX);
 	  } else {
-	    perror("getpwd");
+	    log_perror("getpwd");
 	    return false;
 	  }
       }

@@ -154,7 +154,7 @@ bool cleanup_cache( const string &basedir, uid_t nobody_uid )
         if ( errno == EPERM )
             log_error() << "cache directory can't be generated: " << basedir << endl;
         else
-            perror( "Failed " );
+            log_perror( "Failed " );
         ::exit( 1 );
     }
 
@@ -215,7 +215,7 @@ bool setup_env_cache(const string &basedir, string &native_environment, uid_t no
         if ( !mkdir ( nativedir.c_str(), 0755 ) )
         {
             if ( chdir( nativedir.c_str() ) ) {
-                perror( "chdir" );
+                log_perror( "chdir" );
                 rmdir( nativedir.c_str() );
                 goto error;
             }
@@ -328,18 +328,18 @@ bool install_environment( const std::string &basename, const std::string &target
     assert( !::access( basename.c_str(), W_OK ) );
 
     if ( mkdir( dirname.c_str(), 0755 ) && errno != EEXIST ) {
-        perror( "mkdir target" );
+        log_perror( "mkdir target" );
         ::exit( 1 );
     }
 
     dirname = dirname + "/" + name;
     if ( mkdir( dirname.c_str(), 0755 ) ) {
-        perror( "mkdir name" );
+        log_perror( "mkdir name" );
         ::exit( 1 );
     }
 
     if ( chdir( dirname.c_str() ) ) {
-        perror( "chdir" );
+        log_perror( "chdir" );
         ::exit( 1 );
     }
 

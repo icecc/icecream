@@ -236,7 +236,7 @@ static int build_remote_int(CompileJob &job, UseCSMsg *usecs, const string &envi
         // transfer env
         struct stat buf;
         if ( stat( version_file.c_str(), &buf ) ) {
-            perror( "error stat'ing version file" );
+            log_perror( "error stat'ing version file" );
             throw( 4 );
         }
 
@@ -613,7 +613,7 @@ int build_remote(CompileJob &job, MsgChannel *scheduler, const Environments &_en
         for ( int i = 0; i < torepeat; i++ ) {
             pid_t pid = wait( &status );
             if ( pid < 0 ) {
-                perror( "wait failed" );
+                log_perror( "wait failed" );
                 status = -1;
             } else {
                 if ( WIFSIGNALED( status ) )

@@ -1441,13 +1441,13 @@ open_broad_listener ()
   struct sockaddr_in myaddr;
   if ((listen_fd = socket (PF_INET, SOCK_DGRAM, 0)) < 0)
     {
-      perror ("socket()");
+      log_perror ("socket()");
       return -1;
     }
   int optval = 1;
   if (setsockopt (listen_fd, SOL_SOCKET, SO_BROADCAST, &optval, sizeof(optval)) < 0)
     {
-      perror ("setsockopt()");
+      log_perror ("setsockopt()");
       return -1;
     }
   myaddr.sin_family = AF_INET;
@@ -1455,7 +1455,7 @@ open_broad_listener ()
   myaddr.sin_addr.s_addr = INADDR_ANY;
   if (bind (listen_fd, (struct sockaddr *) &myaddr, sizeof (myaddr)) < 0)
     {
-      perror ("bind()");
+      log_perror ("bind()");
       return -1;
     }
   return listen_fd;
@@ -1468,13 +1468,13 @@ open_tcp_listener (short port)
   struct sockaddr_in myaddr;
   if ((fd = socket (PF_INET, SOCK_STREAM, 0)) < 0)
     {
-      perror ("socket()");
+      log_perror ("socket()");
       return -1;
     }
   int optval = 1;
   if (setsockopt (fd, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(optval)) < 0)
     {
-      perror ("setsockopt()");
+      log_perror ("setsockopt()");
       return -1;
     }
   /* Although we select() on fd we need O_NONBLOCK, due to
@@ -1482,7 +1482,7 @@ open_tcp_listener (short port)
      there was some activity.  */
   if (fcntl (fd, F_SETFL, O_NONBLOCK) < 0)
     {
-      perror ("fcntl()");
+      log_perror ("fcntl()");
       return -1;
     }
   myaddr.sin_family = AF_INET;
@@ -1490,12 +1490,12 @@ open_tcp_listener (short port)
   myaddr.sin_addr.s_addr = INADDR_ANY;
   if (bind (fd, (struct sockaddr *) &myaddr, sizeof (myaddr)) < 0)
     {
-      perror ("bind()");
+      log_perror ("bind()");
       return -1;
     }
   if (listen (fd, 20) < 0)
     {
-      perror ("listen()");
+      log_perror ("listen()");
       return -1;
     }
   return fd;
@@ -1666,7 +1666,7 @@ main (int argc, char * argv[])
         continue;
       if (max_fd < 0)
         {
-	  perror ("select()");
+	  log_perror ("select()");
 	  return 1;
 	}
       if (FD_ISSET (listen_fd, &read_set))
@@ -1678,7 +1678,7 @@ main (int argc, char * argv[])
                               &remote_len );
 	  if (remote_fd < 0 && errno != EAGAIN && errno != EINTR)
 	    {
-	      perror ("accept()");
+	      log_perror ("accept()");
 	      return 1;
 	    }
 	  if (remote_fd >= 0)
@@ -1706,7 +1706,7 @@ main (int argc, char * argv[])
                               &remote_len );
 	  if (remote_fd < 0 && errno != EAGAIN && errno != EINTR)
 	    {
-	      perror ("accept()");
+	      log_perror ("accept()");
 	      /* Don't quit the scheduler just because a debugger couldn't
 	         connect.  */
 	    }
@@ -1736,7 +1736,7 @@ main (int argc, char * argv[])
 			&broad_len) != 1)
 	    {
 	      int err = errno;
-	      perror ("recvfrom()");
+	      log_perror ("recvfrom()");
 	      /* Some linux 2.6 kernels can return from select with
 	         data available, and then return from read() with EAGAIN
 		 even on a blocking socket (breaking POSIX).  Happens
@@ -1756,7 +1756,7 @@ main (int argc, char * argv[])
 	      if (sendto (broad_fd, buf, sizeof (buf), 0,
 	      		  (struct sockaddr*)&broad_addr, broad_len) != sizeof (buf))
 		{
-		  perror ("sendto()");
+		  log_perror ("sendto()");
 		}
 	    }
 	}

@@ -127,7 +127,7 @@ int handle_connection( const string &basedir, CompileJob *job,
             }
             else
                 if ( chdir( dirname.c_str() ) ) {
-                    perror( "chdir" );
+                    log_perror( "chdir" );
                 } else {
                     trace() << "chdir to " << dirname << endl;
                 }

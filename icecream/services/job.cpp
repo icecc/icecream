@@ -64,7 +64,7 @@ void CompileJob::__setTargetPlatform()
 {
     struct utsname buf;
     if ( uname(&buf) ) {
-        perror( "uname failed" );
+        log_perror( "uname failed" );
         return;
     } else
         m_target_platform = buf.machine;
