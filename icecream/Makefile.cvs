@@ -1,8 +1,8 @@
 
 all:
-	if test -d ../admin; then \
+	if test -d ../../admin; then \
 		rm -rf admin ;\
-		cp -a ../admin . ;\
+		cp -a ../../admin . ;\
 	fi
 
 	if ! test -d admin; then \
