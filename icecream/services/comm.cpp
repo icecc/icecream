@@ -705,7 +705,7 @@ MsgChannel::wait_for_protocol ()
       tv.tv_usec = 0;
       if (select (fd + 1, &set, NULL, NULL, &tv) <= 0)
 	return false;
-      if (!read_a_bit ())
+      if (!read_a_bit () || eof )
 	return false;
     }
   return true;
