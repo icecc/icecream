@@ -118,6 +118,15 @@ fi
 AC_CHECK_LIB(resolv, hstrerror, , , [-lnsl -lsocket])
 AC_CHECK_LIB(resolv, inet_aton, , , [-lnsl -lsocket])
 
-AC_CONFIG_FILES([Makefile common/Makefile])
+AC_CHECK_FUNCS([sendfile setsid flock lockf hstrerror strerror setuid setreuid])
+AC_CHECK_FUNCS([getuid geteuid mcheck wait4 wait3 waitpid setgroups getcwd])
+AC_CHECK_FUNCS([snprintf vsnprintf vasprintf asprintf getcwd getwd])
+AC_CHECK_FUNCS([getrusage strsignal gettimeofday])
+AC_CHECK_FUNCS([getaddrinfo getnameinfo inet_ntop inet_ntoa])
+AC_CHECK_FUNCS([strndup mmap strlcpy])
+
+AC_CHECK_DECLS([snprintf, vsnprintf, vasprintf, asprintf, strndup])
+
+AC_CONFIG_FILES([Makefile common/Makefile client/Makefile])
 AC_OUTPUT
 
