@@ -317,8 +317,6 @@ int run_job(int in_fd,
         preproc_length += m.length;
     }
 
-    printf( "pre %s\n", preproc );
-
     /* NOW WE'VE GOT ALL DATA AND SHOULD DISTRIBUTE */
     const char *orig_input;
     const char *orig_output;
