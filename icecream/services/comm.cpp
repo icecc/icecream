@@ -1,5 +1,8 @@
+#include <sys/types.h>
+#include <netinet/in.h>
 #include <unistd.h>
 #include <errno.h>
+#include <string>
 #include "comm.h"
 
 /* TODO
@@ -12,11 +15,12 @@
     + saving errno somewhere (in MsgChannel class)
  */   
 bool
-readfull (int fd, char *buf, size_t count)
+readfull (int fd, void *_buf, size_t count)
 {
+  char *buf = (char*)_buf;
   while (count)
     {
-      size_t ret = read (fd, buf, count);
+      ssize_t ret = read (fd, buf, count);
       if (ret < 0 && (errno == EINTR || errno == EAGAIN))
 	continue;
       // EOF or some error
@@ -31,11 +35,12 @@ readfull (int fd, char *buf, size_t count)
 }
 
 bool
-writefull (int fd, const char *buf, size_t count)
+writefull (int fd, const void *_buf, size_t count)
 {
+  const char *buf = (const char*)_buf;
   while (count)
     {
-      size_t ret = write (fd, buf, count);
+      ssize_t ret = write (fd, buf, count);
       if (ret < 0 && (errno == EINTR || errno == EAGAIN))
 	continue;
       // XXX handle EPIPE ?
@@ -66,6 +71,33 @@ writeuint (int fd, unsigned int i)
 {
   i = htonl (i);
   return writefull (fd, &i, 4);
+}
+
+Service::Service (struct sockaddr *_a, socklen_t _l)
+  : addr(_a), len(_l)
+{
+  name = ""; // XXX
+}
+
+MsgChannel::MsgChannel (int _fd)
+  : other_end(0), fd(_fd)
+{
+  struct sockaddr_in addr;
+  socklen_t len = sizeof (addr);
+  if (getsockname (fd, (struct sockaddr *)&addr, &len) < 0)
+    {
+      len = 0;
+    }
+}
+
+MsgChannel::MsgChannel (int _fd, Service *serv)
+  : other_end(serv), fd(_fd)
+{
+}
+
+MsgChannel::~MsgChannel()
+{
+  close (fd);
 }
 
 Msg *
@@ -108,8 +140,8 @@ MsgChannel::send_msg (const Msg &m)
   return m.send_to_fd (fd);
 }
 
-char *
-read_string (int fd)
+bool
+read_string (int fd, std::string &s)
 {
   char *buf;
   // len is including the (also saved) 0 Byte
@@ -119,32 +151,34 @@ read_string (int fd)
   buf = new char[len];
   if (!readfull (fd, buf, len))
     {
+      s = "";
       delete [] buf;
-      return 0;
+      return false;
     }
-  return buf;
+  s = buf;
+  delete [] buf;
+  return true;
 }
 
 bool
-write_string (const char *s)
+write_string (int fd, const std::string &s)
 {
-  if (!s)
-    s = "";
-  if (!writefull (fd, 1 + strlen (s)))
+  unsigned int len = 1 + s.length();
+  if (!writeuint (fd, len))
     return false;
-  return writefull (fd, s, len);
+  return writefull (fd, s.data(), len);
 }
 
 bool
-Msg::fill_from_fd (int fd)
+Msg::fill_from_fd (int)
 {
   return true;
 }
 
 bool
-Msg::send_to_fd (int fd)
+Msg::send_to_fd (int fd) const
 {
-  return writefull (fd, (unsigned int) type);
+  return writeuint (fd, (unsigned int) type);
 }
 
 bool
@@ -156,7 +190,7 @@ CompileReqMsg::fill_from_fd (int fd)
 }
 
 bool
-CompileReqMsg::send_to_fd (int fd)
+CompileReqMsg::send_to_fd (int fd) const
 {
   if (!Msg::send_to_fd (fd))
     return false;
@@ -172,7 +206,7 @@ CompileDoneMsg::fill_from_fd (int fd)
 }
 
 bool
-CompileDoneMsg::send_to_fd (int fd)
+CompileDoneMsg::send_to_fd (int fd) const
 {
   if (!Msg::send_to_fd (fd))
     return false;
@@ -184,21 +218,21 @@ GetCSMsg::fill_from_fd (int fd)
 {
   if (!Msg::fill_from_fd (fd))
     return false;
-  if ((version = read_string (fd)) == 0
-      || (filename = read_string (fd)) == 0
+  if (!read_string (fd, version)
+      || !read_string (fd, filename)
       || !readuint (fd, &filesize))
     return false;
   return true;
 }
 
 bool
-GetCSMsg::send_to_fd (int fd)
+GetCSMsg::send_to_fd (int fd) const
 {
   if (!Msg::send_to_fd (fd))
     return false;
-  if (!write_string (version)
-      || !write_string (filename)
-      || !writefull (fd, filesize))
+  if (!write_string (fd, version)
+      || !write_string (fd, filename)
+      || !writeuint (fd, filesize))
     return false;
   return true;
 }
@@ -209,15 +243,15 @@ UseCSMsg::fill_from_fd (int fd)
   if (!Msg::fill_from_fd (fd))
     return false;
   return (readuint (fd, &job_id)
-          && (hostname = read_string (fd)) != 0)
+          && read_string (fd, hostname));
 }
 
 bool
-UseCSMsg::send_to_fd (int fd)
+UseCSMsg::send_to_fd (int fd) const
 {
   if (!Msg::send_to_fd (fd))
     return false;
-  return (writeuint (fd, jobid)
+  return (writeuint (fd, job_id)
           && write_string (fd, hostname));
 }
 
@@ -230,7 +264,7 @@ CompileFileMsg::fill_from_fd (int fd)
 }
 
 bool
-CompileFileMsg::send_to_fd (int fd)
+CompileFileMsg::send_to_fd (int fd) const
 {
   if (!Msg::send_to_fd (fd))
     return false;
@@ -246,7 +280,7 @@ FileChunkMsg::fill_from_fd (int fd)
 }
 
 bool
-FileChunkMsg::send_to_fd (int fd)
+FileChunkMsg::send_to_fd (int fd) const
 {
   if (!Msg::send_to_fd (fd))
     return false;
@@ -262,7 +296,7 @@ CompileResultMsg::fill_from_fd (int fd)
 }
 
 bool
-CompileResultMsg::send_to_fd (int fd)
+CompileResultMsg::send_to_fd (int fd) const
 {
   if (!Msg::send_to_fd (fd))
     return false;
@@ -274,15 +308,17 @@ JobBeginMsg::fill_from_fd (int fd)
 {
   if (!Msg::fill_from_fd (fd))
     return false;
-  return readuint (fd, &job_id);
+  return readuint (fd, &job_id)
+  	 && readuint (fd, &stime);
 }
 
 bool
-JobBeginMsg::send_to_fd (int fd)
+JobBeginMsg::send_to_fd (int fd) const
 {
   if (!Msg::send_to_fd (fd))
     return false;
-  return writeuint (fd, job_id);
+  return writeuint (fd, job_id)
+  	 && writeuint (fd, stime);
 }
 
 bool
@@ -294,7 +330,7 @@ JobDoneMsg::fill_from_fd (int fd)
 }
 
 bool
-JobDoneMsg::send_to_fd (int fd)
+JobDoneMsg::send_to_fd (int fd) const
 {
   if (!Msg::send_to_fd (fd))
     return false;
@@ -310,7 +346,7 @@ StatsMsg::fill_from_fd (int fd)
 }
 
 bool
-StatsMsg::send_to_fd (int fd)
+StatsMsg::send_to_fd (int fd) const
 {
   if (!Msg::send_to_fd (fd))
     return false;

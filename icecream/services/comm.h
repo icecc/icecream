@@ -31,22 +31,26 @@ enum MsgType {
 };
 
 class Msg {
-  enum MsgType type;
 public:
+  enum MsgType type;
   Msg (enum MsgType t) : type(t) {}
   virtual ~Msg () {}
   virtual bool fill_from_fd (int fd);
-  virtual bool send_to_fd (int fd);
+  virtual bool send_to_fd (int fd) const;
 };
 
 // an endpoint of a MsgChannel, i.e. most often a host
 class Service {
   struct sockaddr *addr;
-  const std::string name; // ???
+  socklen_t len;
+public:
+  std::string name; // ???
+  Service (struct sockaddr *, socklen_t);
 };
 
 class MsgChannel {
-  Service &other_end;
+public:
+  Service *other_end;
   // our filedesc
   int fd;
   // NULL  <--> channel closed
@@ -54,7 +58,10 @@ class MsgChannel {
   // false <--> error (msg not send)
   bool send_msg (const Msg &);
   // return last error (0 == no error)
-  int error(void);
+  int error(void) {return 0;}
+  MsgChannel (int _fd);
+  MsgChannel (int _fd, Service *serv);
+  ~MsgChannel ();
 };
 
 class PingMsg : public Msg {
@@ -71,7 +78,7 @@ class CompileReqMsg : public Msg {
 public:
   CompileReqMsg () : Msg(M_COMPILE_REQ) {}
   virtual bool fill_from_fd (int fd);
-  virtual bool send_to_fd (int fd);
+  virtual bool send_to_fd (int fd) const;
 };
 
 class TimeoutMsg : public Msg {
@@ -88,58 +95,59 @@ class CompileDoneMsg : public Msg {
 public:
   CompileDoneMsg () : Msg(M_COMPILE_DONE) {}
   virtual bool fill_from_fd (int fd);
-  virtual bool send_to_fd (int fd);
+  virtual bool send_to_fd (int fd) const;
 };
 
 class GetCSMsg : public Msg {
-  const std::string version;
-  const std::string filename;
-  unsigned long filesize;
+  std::string version;
+  std::string filename;
+  unsigned int filesize;
 public:
   GetCSMsg () : Msg(M_GET_CS) {}
   virtual bool fill_from_fd (int fd);
-  virtual bool send_to_fd (int fd);
+  virtual bool send_to_fd (int fd) const;
 };
 
 class UseCSMsg : public Msg {
   unsigned int job_id;
-  const std::string hostname;
+  std::string hostname;
 public:
   UseCSMsg () : Msg(M_USE_CS) {}
   UseCSMsg (Service &s, unsigned int id) : Msg(M_USE_CS), job_id(id),
     hostname (s.name) {}
   virtual bool fill_from_fd (int fd);
-  virtual bool send_to_fd (int fd);
+  virtual bool send_to_fd (int fd) const;
 };
 
 class CompileFileMsg : public Msg {
 public:
   CompileFileMsg () : Msg(M_COMPILE_FILE) {}
   virtual bool fill_from_fd (int fd);
-  virtual bool send_to_fd (int fd);
+  virtual bool send_to_fd (int fd) const;
 };
 
 class FileChunkMsg : public Msg {
 public:
   FileChunkMsg () : Msg(M_FILE_CHUNK) {}
   virtual bool fill_from_fd (int fd);
-  virtual bool send_to_fd (int fd);
+  virtual bool send_to_fd (int fd) const;
 };
 
 class CompileResultMsg : public Msg {
 public:
   CompileResultMsg () : Msg(M_COMPILE_RESULT) {}
   virtual bool fill_from_fd (int fd);
-  virtual bool send_to_fd (int fd);
+  virtual bool send_to_fd (int fd) const;
 };
 
 class JobBeginMsg : public Msg {
 public:
   unsigned int job_id;
+  unsigned int stime;
   JobBeginMsg () : Msg(M_JOB_BEGIN) {}
-  JobBeginMsg (unsigned int i) : Msg(M_JOB_BEGIN), job_id(i) {}
+  JobBeginMsg (unsigned int i) : Msg(M_JOB_BEGIN), job_id(i), stime(time(0)) {}
   virtual bool fill_from_fd (int fd);
-  virtual bool send_to_fd (int fd);
+  virtual bool send_to_fd (int fd) const;
 };
 
 class JobDoneMsg : public Msg {
@@ -148,12 +156,12 @@ public:
   JobDoneMsg () : Msg(M_JOB_DONE) {}
   JobDoneMsg (unsigned int i) : Msg(M_JOB_DONE), job_id(i) {}
   virtual bool fill_from_fd (int fd);
-  virtual bool send_to_fd (int fd);
+  virtual bool send_to_fd (int fd) const;
 };
 
 class StatsMsg : public Msg {
 public:
   StatsMsg () : Msg(M_STATS) {}
   virtual bool fill_from_fd (int fd);
-  virtual bool send_to_fd (int fd);
+  virtual bool send_to_fd (int fd) const;
 };
