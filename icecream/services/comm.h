@@ -41,11 +41,13 @@ public:
 
 // an endpoint of a MsgChannel, i.e. most often a host
 class Service {
+  // deep copied
   struct sockaddr *addr;
   socklen_t len;
 public:
   std::string name; // ???
   Service (struct sockaddr *, socklen_t);
+  ~Service ();
 };
 
 class MsgChannel {
@@ -104,14 +106,16 @@ class GetCSMsg : public Msg {
   unsigned int filesize;
 public:
   GetCSMsg () : Msg(M_GET_CS) {}
+  GetCSMsg (const std::string &v, const std::string &f, unsigned int fs)
+    : version(v), filename(f), filesize(fs) {}
   virtual bool fill_from_fd (int fd);
   virtual bool send_to_fd (int fd) const;
 };
 
 class UseCSMsg : public Msg {
+public:
   unsigned int job_id;
   std::string hostname;
-public:
   UseCSMsg () : Msg(M_USE_CS) {}
   UseCSMsg (Service &s, unsigned int id) : Msg(M_USE_CS), job_id(id),
     hostname (s.name) {}

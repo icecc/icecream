@@ -74,20 +74,30 @@ writeuint (int fd, unsigned int i)
 }
 
 Service::Service (struct sockaddr *_a, socklen_t _l)
-  : addr(_a), len(_l)
 {
-  name = ""; // XXX
+  len = _l;
+  if (len && _a)
+    {
+      addr = (struct sockaddr *)malloc (len);
+      memcpy (addr, _a, len);
+      name = inet_ntoa (addr);
+    }
+  else
+    {
+      addr = 0;
+      name = "";
+    }
+}
+
+Service::~Service ()
+{
+  if (addr)
+    free (addr);
 }
 
 MsgChannel::MsgChannel (int _fd)
   : other_end(0), fd(_fd)
 {
-  struct sockaddr_in addr;
-  socklen_t len = sizeof (addr);
-  if (getsockname (fd, (struct sockaddr *)&addr, &len) < 0)
-    {
-      len = 0;
-    }
 }
 
 MsgChannel::MsgChannel (int _fd, Service *serv)
@@ -125,6 +135,7 @@ MsgChannel::get_msg(void)
   case M_JOB_BEGIN: m = new JobBeginMsg; break;
   case M_JOB_DONE: m = new JobDoneMsg; break;
   case M_STATS: m = new StatsMsg; break;
+  default: return 0; break;
   }
   if (!m->fill_from_fd (fd))
     {

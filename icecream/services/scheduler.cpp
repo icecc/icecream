@@ -40,7 +40,7 @@ public:
   mutable list<Job*> joblist;
   list<string> compiler_versions;  // Available compilers
   enum {AVAILABLE, DISCONNECTED} state;
-  CS () : Service (NULL, 0) {}
+  CS (struct sockaddr *addr, socklen_t len) : Service (addr, len) {}
 };
 
 // A subset of connected_hosts representing the compiler servers
@@ -185,8 +185,11 @@ main (int /*argc*/, char * /*argv*/ [])
       perror ("accept()");
       return 1;
     }
-  MsgChannel *c = new MsgChannel (remote_fd);
+  CS *cs = new CS ((struct sockaddr*) &remote_addr, remote_len);
+  css.push_back (cs);
+  MsgChannel *c = new MsgChannel (remote_fd, cs);
   handle_connection (c);
   delete c;
+  delete cs;
   return 0;
 }
