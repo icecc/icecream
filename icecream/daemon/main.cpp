@@ -278,6 +278,11 @@ int main( int argc, char ** argv )
     typedef map<int, pid_t> Pidmap;
     Pidmap pidmap;
 
+    list<string> nl = get_netnames (200);
+    cout << "Netnames:" << endl;
+    for (list<string>::const_iterator it = nl.begin(); it != nl.end(); ++it)
+      cout << *it << endl;
+
     while ( 1 ) {
         if ( !scheduler ) {
             scheduler = connect_scheduler (netname);
