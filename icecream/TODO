@@ -11,4 +11,8 @@
 * daemon/client: register the system compiler with <uname>-<gcc version> and if a client compiles
   without ICECC_VERSION, let the daemon package the environment. This way, the user doesn't
   need to setup anything
+* Option -iiface to specify the interface[s] to listen on for the scheduler, or
+  to use for the daemon.
+* Don't explicitly forbid tunnels because it could be useful for things like
+  vmware
 
