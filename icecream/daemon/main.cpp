@@ -248,7 +248,6 @@ int main( int argc, char **argv )
     /* This is called in the master daemon, whether that is detached or
      * not.  */
     dcc_master_pid = getpid();
-    int count = 0;
 
     while (1) {
         int acc_fd;
@@ -274,16 +273,11 @@ int main( int argc, char **argv )
             if ( ( ret = run_job(acc_fd, acc_fd) ) != 0 )
                 return ret; // return is most likely not the best :/
 
-	    count++;
-
             // dcc_cleanup_tempfiles();
             if (close(acc_fd) != 0) {
                 log_error() << "failed to close fd " << acc_fd << ": " << strerror(errno) << endl;
                 return EXIT_IO_ERROR;
             }
-
-	    if (count > 3)
-		break;
         }
     }
 }

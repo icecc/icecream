@@ -161,7 +161,6 @@ int work_it( CompileJob &j,
             tv.tv_usec = 0;
 
             ret =  select( std::max( sock_out[0], sock_err[0] )+1, &rfds, 0, 0, &tv );
-            printf( "selected %d %d\n", ret, errno );
             switch( ret )
             {
             case -1:

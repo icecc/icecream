@@ -168,13 +168,13 @@ int run_job(int in_fd,
     if ( ( ret = dcc_make_tmpnam("icecc", dot, tmp_input ) ) != 0 )
         return ret;
 
-    int ti = open( tmp_input, O_CREAT|O_EXCL|O_WRONLY|O_LARGEFILE );
+    int ti = open( tmp_input, O_CREAT|O_WRONLY|O_LARGEFILE );
     if ( ti == -1 ) {
         log_error() << "open failed\n";
         return EXIT_DISTCC_FAILED;
     }
 
-    char buffer[4096];
+    char buffer[15000];
 
     while ( 1 ) {
         ret = client_read_message( in_fd, &m );

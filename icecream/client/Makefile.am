@@ -16,6 +16,7 @@ icecc++: icecc
 
 install-exec-local:
 	$(mkinstalldirs) $(DESTDIR)$(bindir)
+	rm -f $(DESTDIR)$(bindir)/icecc++
 	$(LN_S) icecc $(DESTDIR)$(bindir)/icecc++
 
 uninstall-local:
