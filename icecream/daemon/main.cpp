@@ -751,7 +751,6 @@ int main( int argc, char ** argv )
                                     read( it->second, &msg->majflt, sizeof( unsigned int ) );
                                     read( it->second, &msg->nswap, sizeof( unsigned int ) );
                                 }
-                                trace() << "read " << msg->out_uncompressed << " user " << msg->user_msec << endl;
                                 close( it->second );
                                 pidmap.erase( it );
                                 break;

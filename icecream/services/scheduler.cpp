@@ -47,7 +47,7 @@
 #include "logging.h"
 #include "job.h"
 
-#define DEBUG_SCHEDULER 2
+#define DEBUG_SCHEDULER 1
 
 /* TODO:
    * leak check
