@@ -68,6 +68,7 @@ ICECREAM_SCHEDULER_HOST=""
 #
 ICECREAM_MAX_JOBS=""
 
+#
 ## Type: string
 ## Path: Applications/icecream
 ## Default: "/var/cache/icecream"
