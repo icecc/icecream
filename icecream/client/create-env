@@ -50,7 +50,7 @@ add_file ()
 
 case "`uname -m`" in
   ppc64) LD_ASSUME_KERNEL=2.4.21  ;;
-      *) LD_ASSUME_KERNEL=2.4.20  ;;
+      *) LD_ASSUME_KERNEL=2.4.19  ;;
 esac
 export LD_ASSUME_KERNEL
 
