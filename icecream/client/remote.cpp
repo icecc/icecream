@@ -156,7 +156,7 @@ string get_absfilename( const string &_file )
 
 static UseCSMsg *get_server( MsgChannel *scheduler )
 {
-    Msg * umsg = scheduler->get_msg();
+    Msg * umsg = scheduler->get_msg(4 * 60);
     if (!umsg || umsg->type != M_USE_CS)
     {
         log_warning() << "replied not with use_cs " << ( umsg ? ( char )umsg->type : '0' )  << endl;
