@@ -159,7 +159,7 @@ public:
   CS *server;  // on which server we build
   CS *submitter;  // who submitted us
   MsgChannel *channel;
-  string environment;
+  Environments environments;
   time_t starttime;  // _local_ to the compiler server
   time_t start_on_scheduler;  // starttime local to scheduler
   string target_platform;
@@ -370,20 +370,13 @@ handle_cs_request (MsgChannel *c, Msg *_m)
   for ( unsigned int i = 0; i < m->count; ++i )
     {
       Job *job = create_new_job (c, submitter);
-#warning MATZ: FASS!
-      job->environment = "";
+      job->environments = m->versions;
       job->target_platform = m->target;
-      for ( Environments::const_iterator it = m->versions.begin(); it != m->versions.end(); ++it )
-        {
-          if ( it->first == m->target ) {
-            job->environment = it->second;
-            break;
-          }
-        }
       enqueue_job_request (job);
-      log_info() << "NEW: " << job->id << " version=\""
-                 << job->environment << "\"(" << m->target << ") " << m->filename
-                 << " " << ( m->lang == CompileJob::Lang_C ? "C" : "C++" ) << endl;
+      log_info() << "NEW: " << job->id << " versions=[";
+      for ( Environments::const_iterator it = job->environments.begin(); it != job->environments.end(); ++it )
+        log_info() << it->second << "(" << it->first << "), ";
+      log_info() << "] " << m->filename << " " << ( m->lang == CompileJob::Lang_C ? "C" : "C++" ) << endl;
       notify_monitors (MonGetCSMsg (job->id, submitter->hostid, m));
     }
   return true;
@@ -437,8 +430,12 @@ envs_match( CS* cs, const Job *job )
 {
   for ( Environments::const_iterator it = cs->compiler_versions.begin(); it != cs->compiler_versions.end(); ++it )
     {
-      if ( it->first == job->target_platform && it->second == job->environment )
-        return true;
+      if ( it->first == job->target_platform )
+        {
+          for ( Environments::const_iterator it2 = job->environments.begin(); it2 != job->environments.end(); ++it2 )
+            if ( it->second == it2->second && it2->first == cs->host_platform )
+              return true;
+        }
     }
   return false;
 }
@@ -451,7 +448,12 @@ can_install( CS* cs, const Job *job )
     return false;
   // XXX: instead of doing string compares all the time we should keep an array of platforms and compare indices
   // there we could also put i386/i486/i586/i686 in one index (at least upwards?)
-  return cs->host_platform == job->target_platform;
+  for ( Environments::const_iterator it = job->environments.begin(); it != job->environments.end(); ++it )
+    {
+      if ( it->first == cs->host_platform )
+        return true;
+    }
+  return false;
 }
 
 static CS *
@@ -471,7 +473,9 @@ pick_server(Job *job)
         ( *it )->max_jobs *= -1; // better not give it
       } else { // R.I.P.
         trace() << "removing " << ( *it )->name << endl;
+        CS* old = *it;
         it = css.erase( it );
+        delete old;
         continue;
       }
     }
@@ -522,7 +526,7 @@ pick_server(Job *job)
 
       // incompatible architecture
       if ( !can_install( cs, job ) ) {
-	trace() << cs->name << " can't install " << job->environment << endl;
+	// trace() << cs->name << " can't install " << job->environment << endl;
         continue;
       }
 
@@ -608,7 +612,7 @@ empty_queue()
   job->server = cs;
 
   bool gotit = envs_match( cs, job );
-  UseCSMsg m2(job->environment, cs->name, cs->remote_port, job->id, gotit );
+  UseCSMsg m2(cs->host_platform, cs->name, cs->remote_port, job->id, gotit );
 
   if (!job->channel->send_msg (m2))
     {

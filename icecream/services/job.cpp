@@ -59,7 +59,7 @@ list<string> CompileJob::allFlags() const
     return args;
 }
 
-void CompileJob::setTargetPlatform()
+void CompileJob::__setTargetPlatform()
 {
     struct utsname buf;
     if ( uname(&buf) ) {

@@ -90,7 +90,7 @@ Environments parse_icecc_version(const string &target_platform )
     return envs;
 }
 
-Environments rip_out_paths( const Environments &envs, map<string, string> &version_map )
+Environments rip_out_paths( const Environments &envs, map<string, string> &version_map, map<string, string> &versionfile_map )
 {
     version_map.clear();
 
@@ -102,8 +102,9 @@ Environments rip_out_paths( const Environments &envs, map<string, string> &versi
         string versfile = it->second;
         if ( versfile.size() > suff.size() && versfile.substr( versfile.size() - suff.size() ) == suff )
         {
+            versionfile_map[it->first] = it->second;
             versfile = find_basename( versfile.substr( 0, versfile.size() - suff.size() ) );
-            version_map[versfile] = it->second;
+            version_map[it->first] = versfile;
             env2.push_back( make_pair( it->first, versfile ) );
         }
     }
@@ -194,7 +195,7 @@ static void write_server_cpp(int cpp_fd, MsgChannel *cserver)
 }
 
 
-static int build_remote_int(CompileJob &job, UseCSMsg *usecs, const string &version_file,
+static int build_remote_int(CompileJob &job, UseCSMsg *usecs, const string &environment, const string &version_file,
                             const char *preproc_file, bool output )
 {
     string hostname = usecs->hostname;
@@ -202,8 +203,8 @@ static int build_remote_int(CompileJob &job, UseCSMsg *usecs, const string &vers
     int job_id = usecs->job_id;
     bool got_env = usecs->got_env;
     job.setJobID( job_id );
-    job.setEnvironmentVersion( usecs->environment ); // hoping on the scheduler's wisdom
-    trace() << "Have to use host " << hostname << ":" << port << " - Job ID: " << job.jobID() << " " << "\n";
+    job.setEnvironmentVersion( environment ); // hoping on the scheduler's wisdom
+    trace() << "Have to use host " << hostname << ":" << port << " - Job ID: " << job.jobID() << " - environment: " << usecs->host_platform << "\n";
 
     Service *serv = new Service (hostname, port);
 
@@ -405,8 +406,8 @@ int build_remote(CompileJob &job, MsgChannel *scheduler, const Environments &_en
 
     trace() << job.inputFile() << " compiled " << torepeat << " times on " << job.targetPlatform() << "\n";
 
-    map<string, string> version_map;
-    Environments envs = rip_out_paths( _envs, version_map );
+    map<string, string> versionfile_map, version_map;
+    Environments envs = rip_out_paths( _envs, version_map, versionfile_map );
 
     if ( torepeat == 1 ) {
         GetCSMsg getcs (envs, get_absfilename( job.inputFile() ), job.language(), torepeat, job.targetPlatform() );
@@ -416,7 +417,7 @@ int build_remote(CompileJob &job, MsgChannel *scheduler, const Environments &_en
         }
 
         UseCSMsg *usecs = get_server( scheduler );
-        int ret = build_remote_int( job, usecs, version_map[usecs->environment], 0, true );
+        int ret = build_remote_int( job, usecs, version_map[usecs->host_platform], versionfile_map[usecs->host_platform], 0, true );
         delete usecs;
         return ret;
     } else {
@@ -467,7 +468,8 @@ int build_remote(CompileJob &job, MsgChannel *scheduler, const Environments &_en
             if ( !pid ) {
                 int ret = 42;
                 try {
-                    ret = build_remote_int( jobs[i], umsgs[i], version_map[umsgs[i]->environment], preproc, i == 0 );
+                    ret = build_remote_int( jobs[i], umsgs[i],  version_map[umsgs[i]->host_platform],
+                                            versionfile_map[umsgs[i]->host_platform], preproc, i == 0 );
                 } catch ( int error ) {
                     log_info() << "build_remote_int failed and has thrown " << error << endl;
                     if ( i == 0 ) { // ignore for misc jobs

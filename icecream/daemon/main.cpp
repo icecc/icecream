@@ -650,6 +650,7 @@ int main( int argc, char ** argv )
                                 if ( target.empty() )
                                     target =  uname_buf.machine;
                                 if (!install_environment( envbasedir, emsg->target, emsg->name, c )) {
+                                    trace() << "install environment failed" << endl;
                                     c->send_msg(EndMsg()); // shut up, we had an error
                                     reannounce_environments(envbasedir, nodename);
 				} else {

@@ -38,7 +38,7 @@ class CompileJob {
 public:
     typedef enum {Lang_C, Lang_CXX, Lang_OBJC} Language;
 
-    CompileJob() : m_id( 0 ) { setTargetPlatform(); }
+    CompileJob() : m_id( 0 ) { __setTargetPlatform(); }
 
     void setLanguage( Language lg ) {
         m_language = lg;
@@ -107,10 +107,13 @@ public:
     }
 
     std::string targetPlatform() const { return m_target_platform; }
+    void setTargetPlatform( const std::string &_target ) {
+        m_target_platform = _target;
+    }
 
 private:
     std::list<std::string> flags( Argument_Type argumentType ) const;
-    void setTargetPlatform();
+    void __setTargetPlatform();
 
     unsigned int m_id;
     Language m_language;

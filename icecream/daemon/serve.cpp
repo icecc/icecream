@@ -113,8 +113,10 @@ int handle_connection( const string &basedir, CompileJob *job, MsgChannel *serv,
         if ( job->environmentVersion().size() ) {
 	    log_info() << "should use " << job->environmentVersion() << "(" << job->targetPlatform() << ") " << job->jobID() << endl;
             string dirname = basedir + "/target=" + job->targetPlatform() + "/" + job->environmentVersion();
-            if ( ::access( string( dirname + "/usr/bin/gcc" ).c_str(), X_OK ) )
+            if ( ::access( string( dirname + "/usr/bin/gcc" ).c_str(), X_OK ) ) {
+                log_error() << "I don't have that environment\n";
                 throw myexception( EXIT_DISTCC_FAILED ); // the scheduler didn't listen to us!
+            }
 
             if ( getuid() == 0 ) {
                 chdir( dirname.c_str() ); // without the chdir, the chroot will escape the jail right away

@@ -33,14 +33,9 @@
 #include "job.h"
 
 // if you increase the PROTOCOL_VERSION, add a macro below and use that
-#define PROTOCOL_VERSION 9
+#define PROTOCOL_VERSION 10
 // if you increase the MIN_PROTOCOL_VERSION, remove macros below and clean up the code
-#define MIN_PROTOCOL_VERSION 5
-
-#define IS_PROTOCOL_6( c ) ( c->protocol >= 6 )
-#define IS_PROTOCOL_7( c ) ( c->protocol >= 7 )
-#define IS_PROTOCOL_8( c ) ( c->protocol >= 8 )
-#define IS_PROTOCOL_9( c ) ( c->protocol >= 9 )
+#define MIN_PROTOCOL_VERSION 10
 
 enum MsgType {
   // so far unknown
@@ -242,11 +237,11 @@ public:
   unsigned int job_id;
   std::string hostname;
   unsigned int port;
-  std::string environment;
+  std::string host_platform;
   unsigned int got_env;
   UseCSMsg () : Msg(M_USE_CS) {}
-  UseCSMsg (std::string env, std::string host, unsigned int p, unsigned int id, bool gotit)
-    : Msg(M_USE_CS), job_id(id), hostname (host), port (p), environment( env ), got_env( gotit ) {}
+  UseCSMsg (std::string platform, std::string host, unsigned int p, unsigned int id, bool gotit)
+    : Msg(M_USE_CS), job_id(id), hostname (host), port (p), host_platform( platform ), got_env( gotit ) {}
   virtual void fill_from_channel (MsgChannel * c);
   virtual void send_to_channel (MsgChannel * c) const;
 };

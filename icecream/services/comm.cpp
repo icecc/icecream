@@ -916,28 +916,12 @@ void
 GetCSMsg::fill_from_channel (MsgChannel *c)
 {
   Msg::fill_from_channel (c);
-  string version;
-  if ( IS_PROTOCOL_8( c ) ) {
-    c->read_environments( versions );
-  } else {
-    c->read_string (version);
-  }
+  c->read_environments( versions );
   c->read_string (filename);
   unsigned int _lang;
   c->readuint32 (_lang);
   c->readuint32( count );
-  if ( IS_PROTOCOL_7( c ) ) {
-    c->read_string( target );
-    if ( !IS_PROTOCOL_8( c ) ) {
-      versions.push_back( make_pair( target, version ) );
-    }
-  }
-  else { // the older clients are supposed to run on the same arch as the scheduler
-    struct utsname buf;
-    uname( &buf );
-    target = buf.machine;
-  }
-
+  c->read_string( target );
   lang = static_cast<CompileJob::Language>( _lang );
 }
 
@@ -945,30 +929,11 @@ void
 GetCSMsg::send_to_channel (MsgChannel *c) const
 {
   Msg::send_to_channel (c);
-  if ( IS_PROTOCOL_8( c ) )
-    {
-      c->write_environments( versions );
-    }
-  else
-    {
-      string version = "";
-      for ( Environments::const_iterator it = versions.begin(); it != versions.end(); ++it )
-        {
-          if ( it->first == target )
-            {
-              version = it->second;
-              break;
-            }
-        }
-      if ( version.empty() )
-        log_error() << "update your daemon when you update your client." << endl;
-      c->write_string ( version );
-  }
+  c->write_environments( versions );
   c->write_string (filename);
   c->writeuint32 ((uint32_t) lang);
   c->writeuint32( count );
-  if ( IS_PROTOCOL_7( c ) )
-    c->write_string( target );
+  c->write_string( target );
 }
 
 void
@@ -978,7 +943,7 @@ UseCSMsg::fill_from_channel (MsgChannel *c)
   c->readuint32 (job_id);
   c->readuint32 (port);
   c->read_string (hostname);
-  c->read_string (environment);
+  c->read_string (host_platform);
   c->readuint32( got_env );
 }
 
@@ -989,7 +954,7 @@ UseCSMsg::send_to_channel (MsgChannel *c) const
   c->writeuint32 (job_id);
   c->writeuint32 (port);
   c->write_string (hostname);
-  c->write_string (environment);
+  c->write_string (host_platform);
   c->writeuint32( got_env );
 }
 
@@ -1014,6 +979,10 @@ CompileFileMsg::fill_from_channel (MsgChannel *c)
     l.append( *it, Arg_Rest );
   job->setFlags (l);
   job->setEnvironmentVersion (version);
+
+  string target;
+  c->read_string( target );
+  job->setTargetPlatform( target );
 }
 
 void
@@ -1025,6 +994,7 @@ CompileFileMsg::send_to_channel (MsgChannel *c) const
   c->write_strlist (job->remoteFlags());
   c->write_strlist (job->restFlags());
   c->write_string (job->environmentVersion());
+  c->write_string( job->targetPlatform() );
 }
 
 CompileJob *
@@ -1100,16 +1070,14 @@ void JobLocalBeginMsg::fill_from_channel( MsgChannel *c )
 {
   Msg::fill_from_channel(c);
   c->readuint32(stime);
-  if ( IS_PROTOCOL_6( c ) )
-    c->read_string( outfile );
+  c->read_string( outfile );
 }
 
 void JobLocalBeginMsg::send_to_channel( MsgChannel *c ) const
 {
   Msg::send_to_channel( c );
   c->writeuint32(stime);
-  if ( IS_PROTOCOL_6( c ) )
-    c->write_string( outfile );
+  c->write_string( outfile );
 }
 
 JobLocalDoneMsg::JobLocalDoneMsg (int id, int exit)
@@ -1207,25 +1175,9 @@ LoginMsg::fill_from_channel (MsgChannel *c)
   Msg::fill_from_channel (c);
   c->readuint32 (port);
   c->readuint32 (max_kids);
-  list<string> oldenvs;
-  if ( IS_PROTOCOL_9( c ) ) {
-    c->read_environments( envs );
-  } else {
-    c->read_strlist (oldenvs);
-  }
+  c->read_environments( envs );
   c->read_string( nodename );
-  if ( IS_PROTOCOL_7( c ) )
-    c->read_string( host_platform );
-  else { // the older daemons are supposed to run on the same arch as the scheduler
-    struct utsname buf;
-    uname( &buf );
-    host_platform = buf.machine;
-  }
-  if ( !IS_PROTOCOL_9( c ) ) {
-    envs.clear();
-    for ( list<string>::const_iterator it = oldenvs.begin(); it != oldenvs.end(); ++it )
-      envs.push_back( make_pair( host_platform, *it ) );
-  }
+  c->read_string( host_platform );
 }
 
 void
@@ -1234,21 +1186,9 @@ LoginMsg::send_to_channel (MsgChannel *c) const
   Msg::send_to_channel (c);
   c->writeuint32 (port);
   c->writeuint32 (max_kids);
-  if ( IS_PROTOCOL_9( c ) ) {
-    c->write_environments( envs );
-  } else {
-    list<string> oldenvs;
-    for ( Environments::const_iterator it = envs.begin(); it != envs.end(); ++it )
-      {
-        if ( it->first == host_platform )
-          oldenvs.push_back( it->second );
-      }
-    c->write_strlist (oldenvs);
-  }
-
+  c->write_environments( envs );
   c->write_string( nodename );
-  if ( IS_PROTOCOL_7( c ) )
-    c->write_string( host_platform );
+  c->write_string( host_platform );
 }
 
 void
@@ -1299,10 +1239,7 @@ UseSchedulerMsg::fill_from_channel (MsgChannel *c)
   Msg::fill_from_channel (c);
   c->readuint32 (port);
   c->read_string (hostname);
-  if ( IS_PROTOCOL_8( c ) )
-    c->read_string( nativeVersion );
-  else
-    nativeVersion = "";
+  c->read_string( nativeVersion );
 }
 
 void
@@ -1311,8 +1248,7 @@ UseSchedulerMsg::send_to_channel (MsgChannel *c) const
   Msg::send_to_channel (c);
   c->writeuint32 (port);
   c->write_string (hostname);
-  if ( IS_PROTOCOL_8( c ) )
-    c->write_string( nativeVersion );
+  c->write_string( nativeVersion );
 }
 
 void
@@ -1320,8 +1256,7 @@ EnvTransferMsg::fill_from_channel (MsgChannel *c)
 {
   Msg::fill_from_channel (c);
   c->read_string(name);
-  if ( IS_PROTOCOL_9( c ) )
-    c->read_string( target );
+  c->read_string( target );
 }
 
 void
@@ -1329,8 +1264,7 @@ EnvTransferMsg::send_to_channel (MsgChannel *c) const
 {
   Msg::send_to_channel (c);
   c->write_string(name);
-  if ( IS_PROTOCOL_9( c ) )
-    c->write_string( target );
+  c->write_string( target );
 }
 
 void
@@ -1373,10 +1307,7 @@ void MonLocalJobBeginMsg::fill_from_channel (MsgChannel * c)
   c->readuint32 (hostid );
   c->readuint32( job_id );
   c->readuint32( stime );
-  if ( IS_PROTOCOL_6( c ) )
-    c->read_string( file );
-  else
-    file = "";
+  c->read_string( file );
 }
 
 void MonLocalJobBeginMsg::send_to_channel (MsgChannel * c) const
@@ -1385,8 +1316,7 @@ void MonLocalJobBeginMsg::send_to_channel (MsgChannel * c) const
   c->writeuint32( hostid );
   c->writeuint32( job_id );
   c->writeuint32( stime );
-  if ( IS_PROTOCOL_6( c ) )
-    c->write_string( file );
+  c->write_string( file );
 }
 
 void
