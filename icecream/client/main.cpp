@@ -336,6 +336,7 @@ int main(int argc, char **argv)
     else
         ret = build_remote( job, scheduler );
 
+    scheduler->send_msg (EndMsg());
     delete scheduler;
     return ret;
 }

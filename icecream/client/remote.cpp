@@ -100,11 +100,8 @@ int build_remote(CompileJob &job, MsgChannel *scheduler )
     MsgChannel *cserver = serv->channel();
     if ( ! cserver ) {
         log_error() << "no server found behind given hostname " << hostname << ":" << port << endl;
-	scheduler->send_msg ( EndMsg() );
         return build_local( job, scheduler );
     }
-
-    scheduler->send_msg ( EndMsg() );
 
     trace() << "got environment " << ( got_env ? "true" : "false" ) << endl;
 

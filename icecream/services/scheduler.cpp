@@ -317,15 +317,13 @@ handle_local_job (MsgChannel *c, Msg *_m)
 }
 
 static bool
-handle_local_job_end (MsgChannel *c, Msg *_m)
+handle_local_job_end (MsgChannel *, Msg *_m)
 {
   JobLocalDoneMsg *m = dynamic_cast<JobLocalDoneMsg *>(_m);
   if (!m)
     return false;
 
   notify_monitors ( MonLocalJobDoneMsg( *m ) );
-  fd2chan.erase (c->fd);
-  delete c;
   return true;
 }
 
@@ -663,10 +661,6 @@ try_login (MsgChannel *c, Msg *m)
       cs->type = CS::MONITOR;
       ret = handle_mon_login (c, m);
       break;
-    case M_JOB_LOCAL_BEGIN:
-      cs->type = CS::DAEMON;
-      ret = handle_local_job(c, m);
-      break;
     default:
       log_info() << "Invalid first message" << endl;
       ret = false;
@@ -777,6 +771,7 @@ handle_end (MsgChannel *c, Msg *)
   return true;
 }
 
+/* Returns TRUE if C was not closed.  */
 static bool
 handle_activity (MsgChannel *c)
 {
@@ -798,9 +793,10 @@ handle_activity (MsgChannel *c)
     case M_JOB_DONE: ret = handle_job_done (c, m); break;
     case M_PING: ret = handle_ping (c, m); break;
     case M_STATS: ret = handle_stats (c, m); break;
-    case M_END: ret = handle_end (c, m); break;
+    case M_END: handle_end (c, m); ret = false; break;
     case M_TIMEOUT: ret = handle_timeout (c, m); break;
-    case M_JOB_LOCAL_DONE: ret = handle_local_job_end( c, m ); break;
+    case M_JOB_LOCAL_BEGIN: ret = handle_local_job (c, m); break;
+    case M_JOB_LOCAL_DONE: ret = handle_local_job_end (c, m); break;
     default:
       log_info() << "Invalid message type arrived " << ( char )m->type << endl;
       handle_end (c, m);
