@@ -1015,7 +1015,8 @@ usage(const char* reason = 0)
        << "  -p, --port <port>\n"
        << "  -h, --help\n"
        << "  -l, --log-file <file>\n"
-       << "  --no-detach\n"
+       << "  -d, --daemonize\n"
+       << "  -v[v[v]]]\n"
        << endl;
 
   exit(1);
@@ -1029,7 +1030,7 @@ main (int argc, char * argv[])
   struct sockaddr_in myaddr, remote_addr;
   socklen_t remote_len;
   char *netname = (char*)"ICECREAM";
-  bool detach = true;
+  bool detach = false;
   int debug_level = Error;
   string logfile;
 
@@ -1039,23 +1040,22 @@ main (int argc, char * argv[])
       { "netname", 1, NULL, 'n' },
       { "help", 0, NULL, 'h' },
       { "port", 0, NULL, 'p' },
-      { "no-detach", 0, NULL, 0},
+      { "daemonize", 0, NULL, 'd'},
       { "log-file", 1, NULL, 'l'},
       { 0, 0, 0, 0 }
     };
 
-    const int c = getopt_long( argc, argv, "n:p:hl:v", long_options, &option_index );
+    const int c = getopt_long( argc, argv, "n:p:hl:vd", long_options, &option_index );
     if ( c == -1 ) break; // eoo
 
     switch ( c ) {
     case 0:
       {
-        string optname = long_options[option_index].name;
-        if ( optname == "no-detach" )
-          {
-            detach = false;
-          }
+        ( void ) long_options[option_index].name;
       }
+      break;
+    case 'd':
+      detach = true;
       break;
     case 'l':
       if ( optarg && *optarg )

@@ -173,7 +173,7 @@ void usage(const char* reason = 0)
   if (reason)
      cerr << reason << endl;
 
-  cerr << "usage: iceccd [-n <netname>] [-m <max_processes>] [-w] [--no-detach] [-s <schedulerhost>]" << endl;
+  cerr << "usage: iceccd [-n <netname>] [-m <max_processes>] [-w] [--daemonize] [-l logfile] [-s <schedulerhost>] [-v[v[v]]]" << endl;
   exit(1);
 }
 
@@ -235,7 +235,7 @@ int main( int argc, char ** argv )
     string envbasedir = "/tmp/icecc-envs"; // TODO: getopt :/
     int debug_level = Error;
     string logfile;
-    bool detach = true;
+    bool detach = false;
     nice_level = 5; // defined in serve.h
     string nodename;
     string schedname;
@@ -247,7 +247,7 @@ int main( int argc, char ** argv )
             { "max-processes", 1, NULL, 'm' },
             { "watch", 0, NULL, 'w' },
             { "help", 0, NULL, 'h' },
-            { "no-detach", 0, NULL, 0},
+            { "daemonize", 0, NULL, 'd'},
             { "log-file", 1, NULL, 'l'},
             { "nice", 1, NULL, 0},
             { "name", 1, NULL, 'n'},
@@ -255,16 +255,14 @@ int main( int argc, char ** argv )
             { 0, 0, 0, 0 }
         };
 
-        const int c = getopt_long( argc, argv, "n:m:l:s:whv", long_options, &option_index );
+        const int c = getopt_long( argc, argv, "n:m:l:s:whvd", long_options, &option_index );
         if ( c == -1 ) break; // eoo
 
         switch ( c ) {
            case 0:
                {
                    string optname = long_options[option_index].name;
-                   if ( optname == "no-detach" ) {
-                       detach = false;
-                   } else if ( optname == "nice" ) {
+                   if ( optname == "nice" ) {
                        if ( optarg && *optarg ) {
                            errno = 0;
                            int tnice = atoi( optarg );
@@ -280,6 +278,9 @@ int main( int argc, char ** argv )
                    }
                }
                break;
+            case 'd':
+                detach = true;
+                break;
             case 'l':
                 if ( optarg && *optarg )
                     logfile = optarg;
