@@ -232,8 +232,9 @@ int main( int argc, char ** argv )
     string netname;
     bool watch_binary = false;
     string envbasedir = "/tmp/icecc-envs"; // TODO: getopt :/
-    int debug_level = Warning|Error|Info;
-    string logfile = "/var/log/iceccd";
+    int debug_level = Error;
+    string logfile;
+    bool detach = true;
 
     while ( true ) {
         int option_index = 0;
@@ -242,13 +243,38 @@ int main( int argc, char ** argv )
             { "max-processes", 1, NULL, 'm' },
             { "watch", 0, NULL, 'w' },
             { "help", 0, NULL, 'h' },
+            { "no-detach", 0, NULL, 0},
+            { "log-file", 1, NULL, 'l'},
             { 0, 0, 0, 0 }
         };
 
-        const int c = getopt_long( argc, argv, "n:m:wh", long_options, &option_index );
+        const int c = getopt_long( argc, argv, "n:m:l:whv", long_options, &option_index );
         if ( c == -1 ) break; // eoo
 
         switch ( c ) {
+           case 0:
+               {
+                   string optname = long_options[option_index].name;
+                   if ( optname == "no-detach" ) {
+                       detach = false;
+                   }
+               }
+               break;
+            case 'l':
+                if ( optarg && *optarg )
+                    logfile = optarg;
+                else
+                    usage( "Error: -l requires argument" );
+                break;
+            case 'v':
+                if ( debug_level & Warning )
+                    if ( debug_level & Info ) // for second call
+                        debug_level |= Debug;
+                    else
+                        debug_level |= Info;
+                else
+                    debug_level |= Warning;
+                break;
             case 'n':
                 if ( optarg && *optarg )
                     netname = optarg;
@@ -274,6 +300,9 @@ int main( int argc, char ** argv )
         }
     }
 
+    if ( !logfile.size() && detach)
+        logfile = "/var/log/distccd";
+
     setup_debug( debug_level, logfile );
 
     std::string binary_path = argv[0];
@@ -292,7 +321,8 @@ int main( int argc, char ** argv )
 
     chdir( "/" );
 
-    daemon(0, 0);
+    if ( detach )
+        daemon(0, 0);
 
     int n_cpus;
     if (dcc_ncpus(&n_cpus) == 0)
@@ -348,9 +378,9 @@ int main( int argc, char ** argv )
     Pidmap pidmap;
 
     list<string> nl = get_netnames (200);
-    cout << "Netnames:" << endl;
+    trace() << "Netnames:" << endl;
     for (list<string>::const_iterator it = nl.begin(); it != nl.end(); ++it)
-      cout << *it << endl;
+      trace() << *it << endl;
 
     int listen_fd = 0;
 
@@ -364,7 +394,7 @@ int main( int argc, char ** argv )
         if ( !scheduler ) {
             scheduler = connect_scheduler (netname);
             if ( !scheduler ) {
-                log_error() << "no scheduler found. Sleeping.\n";
+                log_warning() << "no scheduler found. Sleeping.\n";
                 sleep( 1 );
                 continue;
             }
@@ -405,7 +435,7 @@ int main( int argc, char ** argv )
                 if ( pid > 0) { // forks away
                     current_kids++;
                     if ( !scheduler || !scheduler->send_msg( JobBeginMsg( job->jobID() ) ) ) {
-                        log_error() << "can't reach scheduler to tell him about job start of "
+                        log_warning() << "can't reach scheduler to tell him about job start of "
                                     << job->jobID() << endl;
                         delete scheduler;
                         scheduler = 0;

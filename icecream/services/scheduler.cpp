@@ -925,8 +925,9 @@ main (int argc, char * argv[])
   struct sockaddr_in myaddr, remote_addr;
   socklen_t remote_len;
   char *netname = (char*)"ICECREAM";
-  int debug_level = Error|Warning|Info|Debug;
-  string logfile = "/var/log/icecc_scheduler";
+  bool detach = true;
+  int debug_level = Error;
+  string logfile;
 
   while ( true ) {
     int option_index = 0;
@@ -934,36 +935,66 @@ main (int argc, char * argv[])
       { "netname", 1, NULL, 'n' },
       { "help", 0, NULL, 'h' },
       { "port", 0, NULL, 'p' },
+      { "no-detach", 0, NULL, 0},
+      { "log-file", 1, NULL, 'l'},
       { 0, 0, 0, 0 }
     };
 
-    const int c = getopt_long( argc, argv, "n:p:h", long_options, &option_index );
+    const int c = getopt_long( argc, argv, "n:p:hl:v", long_options, &option_index );
     if ( c == -1 ) break; // eoo
 
     switch ( c ) {
-      case 'n':
-        if ( optarg && *optarg )
-          netname = optarg;
-        else
-          usage("Error: -n requires argument");
-       break;
-      case 'p':
-         if ( optarg && *optarg )
-         {
-           port = 0; port = atoi( optarg );
-           if ( 0 == port )
-             usage("Error: Invalid port specified");
-         }
-        else
-           usage("Error: -p requires argument");
+    case 0:
+      {
+        string optname = long_options[option_index].name;
+        if ( optname == "no-detach" )
+          {
+            detach = false;
+          }
+      }
       break;
-     default:
-        usage();
+    case 'l':
+      if ( optarg && *optarg )
+        logfile = optarg;
+      else
+        usage( "Error: -l requires argument" );
+      break;
+    case 'v':
+      if ( debug_level & Warning )
+        if ( debug_level & Info ) // for second call
+                        debug_level |= Debug;
+        else
+          debug_level |= Info;
+      else
+        debug_level |= Warning;
+      break;
+    case 'n':
+      if ( optarg && *optarg )
+        netname = optarg;
+      else
+        usage("Error: -n requires argument");
+      break;
+    case 'p':
+      if ( optarg && *optarg )
+        {
+          port = 0; port = atoi( optarg );
+          if ( 0 == port )
+            usage("Error: Invalid port specified");
+         }
+      else
+        usage("Error: -p requires argument");
+      break;
+    default:
+      usage();
     }
   }
 
+  if ( !logfile.size() && detach )
+    logfile = "/var/log/icecc_scheduler";
+
   setup_debug( debug_level, logfile );
-  daemon( 0, 0 );
+  if ( detach )
+    daemon( 0, 0 );
 
   if ((listen_fd = socket (PF_INET, SOCK_STREAM, 0)) < 0)
     {
