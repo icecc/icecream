@@ -76,6 +76,12 @@ int work_it( CompileJob &j,
 
     pid_t pid = fork();
     if ( pid == -1 ) {
+        close( sock_err[0] );
+        close( sock_err[1] );
+        close( main_sock[0] );
+        close( main_sock[1] );
+        close( sock_out[0] );
+        close( sock_out[1] );
         unlink( tmp_output );
         return EXIT_OUT_OF_MEMORY;
     } else if ( pid == 0 ) {
@@ -135,6 +141,11 @@ int work_it( CompileJob &j,
                 status = resultByte;
                 // exec() failed
                 close(main_sock[0]);
+                close( sock_err[0] );
+                close( sock_err[1] );
+                close( sock_out[0] );
+                close( sock_out[1] );
+
                 waitpid(pid, 0, 0);
                 unlink( tmp_output );
                 return EXIT_COMPILER_MISSING; // most likely cause
@@ -169,7 +180,10 @@ int work_it( CompileJob &j,
                 struct rusage ru;
                 if (wait4(pid, &status, must_reap ? WUNTRACED : WNOHANG, &ru) != 0) // error finishes, too
                 {
-                    printf( "has exited: %d %d\n", pid, status );
+                    close( sock_err[0] );
+                    close( sock_err[1] );
+                    close( sock_out[0] );
+                    close( sock_out[1] );
                     return 0;
                 }
                 break;

@@ -226,8 +226,6 @@ int main( int /*argc*/, char ** /*argv*/ )
         fd_set listen_set;
         struct timeval tv;
 
-        log_info() << "waiting to accept connection\n";
-
         FD_ZERO (&listen_set);
         FD_SET (listen_fd, &listen_set);
         FD_SET (listen_fd, &listen_set);
@@ -240,9 +238,6 @@ int main( int /*argc*/, char ** /*argv*/ )
             if (getloadavg (msg.load, 3) == -1) {
                 log_error() << "getloadavg failed: " << strerror( errno ) << endl;
                 msg.load[0] = msg.load[1] = msg.load[2] = 0;
-            } else {
-                printf ("Load average: %.2f, %.2f, %.2f\n",
-                        msg.load[0], msg.load[1], msg.load[2]);
             }
             if ( scheduler->send_msg( msg ) )
                 last_stat = time( 0 );
