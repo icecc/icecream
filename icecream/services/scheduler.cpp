@@ -453,30 +453,31 @@ envs_match( CS* cs, const Job *job )
 static bool
 platforms_compatible( const string &target, const string &platform )
 {
+  if ( target == platform )
+    return true;
+
   static multimap<string, string> platform_map;
 
   if (platform_map.empty())
     {
-      platform_map.insert( pair<string, string>( "i386", "i486" ) );
-      platform_map.insert( pair<string, string>( "i386", "i586" ) );
-      platform_map.insert( pair<string, string>( "i386", "i686" ) );
-      platform_map.insert( pair<string, string>( "i386", "x86_64" ) );
+      platform_map.insert( make_pair( "i386", "i486" ) );
+      platform_map.insert( make_pair( "i386", "i586" ) );
+      platform_map.insert( make_pair( "i386", "i686" ) );
+      platform_map.insert( make_pair( "i386", "x86_64" ) );
 
-      platform_map.insert( pair<string, string>( "i486", "i586" ) );
-      platform_map.insert( pair<string, string>( "i486", "i686" ) );
-      platform_map.insert( pair<string, string>( "i486", "x86_64" ) );
+      platform_map.insert( make_pair( "i486", "i586" ) );
+      platform_map.insert( make_pair( "i486", "i686" ) );
+      platform_map.insert( make_pair( "i486", "x86_64" ) );
 
-      platform_map.insert( pair<string, string>( "i586", "i686" ) );
-      platform_map.insert( pair<string, string>( "i586", "x86_64" ) );
+      platform_map.insert( make_pair( "i586", "i686" ) );
+      platform_map.insert( make_pair( "i586", "x86_64" ) );
 
-      platform_map.insert( pair<string, string>( "i686", "x86_64" ) );
+      platform_map.insert( make_pair( "i686", "x86_64" ) );
     }
 
-  if ( target == platform )
-    return true;
-
+  multimap<string, string>::const_iterator end = platform_map.upper_bound( target );
   for ( multimap<string, string>::const_iterator it = platform_map.lower_bound( target );
-        it != platform_map.upper_bound( target );
+        it != end;
         ++it )
     {
       if ( it->second == platform )
