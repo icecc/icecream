@@ -728,9 +728,13 @@ get_broad_answer (int ask_fd, int timeout, char *buf2,
 }
 
 MsgChannel *
-connect_scheduler (const string &_netname, int timeout)
+connect_scheduler (const string &_netname, int timeout, const string &schedname)
 {
-  const char *get = getenv( "USE_SCHEDULER" );
+  const char *get = 0;
+  if (schedname.empty())
+    get = getenv( "USE_SCHEDULER" );
+  else
+    get = schedname.c_str();
   string hostname;
   unsigned int sport = 8765;
   char buf2[BROAD_BUFLEN];

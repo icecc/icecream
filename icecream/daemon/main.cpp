@@ -173,7 +173,7 @@ void usage(const char* reason = 0)
   if (reason)
      cerr << reason << endl;
 
-  cerr << "usage: iceccd [-n <netname>] [-m <max_processes>] [-w] [--no-detach]" << endl;
+  cerr << "usage: iceccd [-n <netname>] [-m <max_processes>] [-w] [--no-detach] [-s <schedulerhost>]" << endl;
   exit(1);
 }
 
@@ -238,6 +238,7 @@ int main( int argc, char ** argv )
     bool detach = true;
     nice_level = 5; // defined in serve.h
     string nodename;
+    string schedname;
 
     while ( true ) {
         int option_index = 0;
@@ -250,10 +251,11 @@ int main( int argc, char ** argv )
             { "log-file", 1, NULL, 'l'},
             { "nice", 1, NULL, 0},
             { "name", 1, NULL, 'n'},
+            { "scheduler-host", 1, NULL, 's' },
             { 0, 0, 0, 0 }
         };
 
-        const int c = getopt_long( argc, argv, "n:m:l:whv", long_options, &option_index );
+        const int c = getopt_long( argc, argv, "n:m:l:s:whv", long_options, &option_index );
         if ( c == -1 ) break; // eoo
 
         switch ( c ) {
@@ -312,6 +314,12 @@ int main( int argc, char ** argv )
                 break;
             case 'w':
                 watch_binary = true;
+                break;
+            case 's':
+                if ( optarg && *optarg )
+                    schedname = optarg;
+                else
+                    usage("Error: -s requires hostname argument");
                 break;
             default:
                 usage();
@@ -421,7 +429,7 @@ int main( int argc, char ** argv )
         }
 
         if ( !scheduler ) {
-            scheduler = connect_scheduler (netname);
+            scheduler = connect_scheduler (netname, 2000, schedname);
             if ( !scheduler ) {
                 log_warning() << "no scheduler found. Sleeping.\n";
                 sleep( 1 );

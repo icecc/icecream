@@ -160,9 +160,12 @@ private:
   bool eof;
 };
 
-/* Connect to a scheduler waiting max. TIMEOUT milliseconds.  */
+/* Connect to a scheduler waiting max. TIMEOUT milliseconds.
+ * schedname can be the hostname of a box running a scheduler, to avoid
+ * broadcasting. */
 MsgChannel *connect_scheduler (const std::string &netname = std::string(),
-			       int timeout = 2000);
+			       int timeout = 2000,
+			       const std::string &schedname = std::string());
 
 /* Return a list of all reachable netnames.  We wait max. WAITTIME
    milliseconds for answers.  */
