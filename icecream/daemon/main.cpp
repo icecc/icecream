@@ -183,9 +183,50 @@ void reannounce_environments(const string &envbasedir)
     scheduler->send_msg( lmsg );
 }
 
-int main( int argc, char ** argv )
+int setup_listen_fd(int &port)
 {
     const int START_PORT = 10245;
+    int listen_fd;
+    if ((listen_fd = socket (PF_INET, SOCK_STREAM, 0)) < 0) {
+        perror ("socket()");
+        return -1;
+    }
+
+    int optval = 1;
+    if (setsockopt (listen_fd, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(optval)) < 0) {
+        perror ("setsockopt()");
+        return -1;
+    }
+
+    struct sockaddr_in myaddr;
+    port = START_PORT;
+    for ( ; port < START_PORT + 10; port++) {
+        myaddr.sin_family = AF_INET;
+        myaddr.sin_port = htons (port);
+        myaddr.sin_addr.s_addr = INADDR_ANY;
+        if (bind (listen_fd, (struct sockaddr *) &myaddr,
+                  sizeof (myaddr)) < 0) {
+            if (errno == EADDRINUSE && port < START_PORT + 9)
+                continue;
+            perror ("bind()");
+            return -1;
+        }
+        break;
+    }
+
+    if (listen (listen_fd, 20) < 0)
+    {
+      perror ("listen()");
+      return -1;
+    }
+
+    set_cloexec_flag(listen_fd, 1);
+
+    return listen_fd;
+}
+
+int main( int argc, char ** argv )
+{
     int max_processes = -1;
 
     string netname;
@@ -249,42 +290,6 @@ int main( int argc, char ** argv )
 
     // daemon(0, 0);
 
-    int listen_fd;
-    if ((listen_fd = socket (PF_INET, SOCK_STREAM, 0)) < 0) {
-        perror ("socket()");
-        return 1;
-    }
-
-    int optval = 1;
-    if (setsockopt (listen_fd, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(optval)) < 0) {
-        perror ("setsockopt()");
-        return 1;
-    }
-
-    struct sockaddr_in myaddr;
-    int port = START_PORT;
-    for ( ; port < START_PORT + 10; port++) {
-        myaddr.sin_family = AF_INET;
-        myaddr.sin_port = htons (port);
-        myaddr.sin_addr.s_addr = INADDR_ANY;
-        if (bind (listen_fd, (struct sockaddr *) &myaddr,
-                  sizeof (myaddr)) < 0) {
-            if (errno == EADDRINUSE && port < START_PORT + 9)
-                continue;
-            perror ("bind()");
-            return 1;
-        }
-        break;
-    }
-
-    if (listen (listen_fd, 20) < 0)
-    {
-      perror ("listen()");
-      return 1;
-    }
-
-    set_cloexec_flag(listen_fd, 1);
-
     int n_cpus;
     if (dcc_ncpus(&n_cpus) == 0)
         log_info() << n_cpus << " CPU(s) online on this server" << endl;
@@ -343,7 +348,15 @@ int main( int argc, char ** argv )
     for (list<string>::const_iterator it = nl.begin(); it != nl.end(); ++it)
       cout << *it << endl;
 
+    int listen_fd = 0;
+
     while ( 1 ) {
+        if ( listen_fd ) {
+            // as long as we have no scheduler, don't listen for clients
+            close( listen_fd );
+            listen_fd = 0;
+        }
+
         if ( !scheduler ) {
             scheduler = connect_scheduler (netname);
             if ( !scheduler ) {
@@ -352,6 +365,11 @@ int main( int argc, char ** argv )
                 continue;
             }
         }
+
+        int port;
+        listen_fd = setup_listen_fd(port);
+        if ( listen_fd == -1 ) // error
+            return 1;
 
         LoginMsg lmsg( port );
         lmsg.envs = available_environmnents(envbasedir);
