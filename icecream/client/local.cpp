@@ -41,6 +41,25 @@ extern const char * rs_program_name;
 
 #define CLIENT_DEBUG 0
 
+/*
+ * Get the name of the compiler depedant on the
+ * language of the job and the environment
+ * variable set. This is useful for native cross-compilers.
+ * (arm-linux-gcc for example)
+ */
+string get_compiler_name( const CompileJob &job ) {
+    string compiler_name = "gcc";
+
+    if ( getenv( "ICECC_CC" ) != 0 )
+        compiler_name = getenv( "ICECC_CC" );
+
+    if ( job.language() == CompileJob::Lang_CXX )
+        compiler_name = getenv( "ICECC_CXX" ) != 0 ?
+                        getenv( "ICECC_CXX" ) : "g++";
+
+    return compiler_name;
+}
+
 string find_compiler( const string &compiler )
 {
     if ( compiler.at( 0 ) == '/' )
@@ -117,9 +136,7 @@ int build_local(CompileJob &job, struct rusage *used)
 {
     list<string> arguments;
 
-    string compiler_name = "gcc";
-    if ( job.language() == CompileJob::Lang_CXX )
-        compiler_name = "g++";
+    string compiler_name = get_compiler_name( job );
     compiler_name = find_compiler( compiler_name );
 
     if ( compiler_name.empty() )

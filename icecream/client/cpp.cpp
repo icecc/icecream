@@ -95,12 +95,7 @@ pid_t call_cpp(CompileJob &job, int fdwrite, int fdread)
 	    argc++; // the program
 	    argc += 2; // -E file.i
 	    argv = new char*[argc + 1];
-	    if (job.language() == CompileJob::Lang_C)
-		argv[0] = strdup( find_compiler( "gcc" ).c_str() );
-	    else if (job.language() == CompileJob::Lang_CXX)
-		argv[0] = strdup( find_compiler( "g++" ).c_str() );
-	    else
-		assert(0);
+   	    argv[0] = strdup( find_compiler( get_compiler_name(job) ).c_str() );
 	    int i = 1;
 	    for ( list<string>::const_iterator it = flags.begin();
 		  it != flags.end(); ++it) {
