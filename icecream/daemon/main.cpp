@@ -273,7 +273,7 @@ bool maybe_stats(bool force = false) {
         myniceload += niceLoad * diff_stat;
         myidleload += idleLoad * diff_stat;
 
-        unsigned int realLoad = 1000 - myidleload / diff_sent;
+        unsigned int realLoad = diff_sent ? ( 1000 - myidleload / diff_sent ) : 1000;
         msg.load = ( 700 * realLoad + 300 * memory_fillgrade ) / 1000;
         if ( memory_fillgrade > 600 )
             msg.load = 1000;
@@ -302,6 +302,24 @@ bool maybe_stats(bool force = false) {
     }
 
     return true;
+}
+
+void fill_msg(int fd, JobDoneMsg *msg)
+{
+    read( fd, &msg->in_compressed, sizeof( unsigned int ) );
+    read( fd, &msg->in_uncompressed, sizeof( unsigned int ) );
+    read( fd, &msg->out_compressed, sizeof( unsigned int ) );
+    read( fd, &msg->out_uncompressed, sizeof( unsigned int ) );
+    read( fd, &msg->real_msec, sizeof( unsigned int ) );
+    if ( msg->out_uncompressed && !msg->in_uncompressed ) { // this is typical for client jobs
+        unsigned int job_id;
+        read( fd, &job_id, sizeof( unsigned int ) );
+        if ( job_id != msg->job_id )
+            log_error() << "the job ids for the client job do not match: " << job_id << " " << msg->job_id << endl;
+        read( fd, &msg->user_msec, sizeof( unsigned int ) );
+        read( fd, &msg->sys_msec, sizeof( unsigned int ) );
+        read( fd, &msg->pfaults, sizeof( unsigned int ) );
+    }
 }
 
 int main( int argc, char ** argv )
@@ -602,8 +620,8 @@ int main( int argc, char ** argv )
                     sock = sockets[0];
                     // if the client compiles, we fork off right away
                     pid = fork();
-                    if ( pid == 0 ) {
-
+                    if ( pid == 0 )
+                    {
                         close( sockets[0] );
                         Msg *msg = req.second->get_msg(12 * 60); // wait forever
                         if ( !msg )
@@ -659,6 +677,7 @@ int main( int argc, char ** argv )
                 jobmap.erase( child );
                 Pidmap::iterator pid_it = pidmap.find( child );
                 if ( pid_it != pidmap.end() ) {
+                    fill_msg( pid_it->second, msg );
                     close( pid_it->second );
                     pidmap.erase( pid_it );
                 }
@@ -800,21 +819,9 @@ int main( int argc, char ** argv )
                     for ( Pidmap::iterator it = pidmap.begin(); it != pidmap.end(); ++it ) {
                         if ( FD_ISSET( it->second, &listen_set ) ) {
                             JobDoneMsg *msg = jobmap[it->first];
-                            if ( msg ) {
-                                read( it->second, &msg->in_compressed, sizeof( unsigned int ) );
-                                read( it->second, &msg->in_uncompressed, sizeof( unsigned int ) );
-                                read( it->second, &msg->out_compressed, sizeof( unsigned int ) );
-                                read( it->second, &msg->out_uncompressed, sizeof( unsigned int ) );
-                                read( it->second, &msg->real_msec, sizeof( unsigned int ) );
-                                if ( msg->out_uncompressed && !msg->in_uncompressed ) { // this is typical for client jobs
-                                    unsigned int job_id;
-                                    read( it->second, &job_id, sizeof( unsigned int ) );
-                                    if ( job_id != msg->job_id )
-                                        log_error() << "the job ids for the client job do not match: " << job_id << " " << msg->job_id << endl;
-                                    read( it->second, &msg->user_msec, sizeof( unsigned int ) );
-                                    read( it->second, &msg->sys_msec, sizeof( unsigned int ) );
-                                    read( it->second, &msg->pfaults, sizeof( unsigned int ) );
-                                }
+                            if ( msg )
+                            {
+                                fill_msg( it->second, msg );
                                 close( it->second );
                                 pidmap.erase( it );
                                 break;
