@@ -42,6 +42,16 @@ fi
 add_file /usr/bin/gcc
 add_file /usr/bin/g++
 add_file /usr/bin/as
+
+# Perhaps we are on Gentoo.  They provide a wrapper for GCC.
+if test -x /usr/bin/gcc-config; then
+  gccpath=`/usr/bin/gcc-config -B`
+  if test -d "$gccpath" && test -x "$gccpath/gcc"; then
+    add_file "$gccpath/gcc"
+    add_file "$gccpath/g++"
+  fi
+fi
+
 add_file `/usr/bin/gcc -print-prog-name=cc1`
 add_file `/usr/bin/g++ -print-prog-name=cc1plus`
 add_file `/usr/bin/gcc -print-file-name=specs`
