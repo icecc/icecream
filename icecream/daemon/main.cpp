@@ -38,6 +38,9 @@
 #include "ncpus.h"
 #include "exitcode.h"
 #include "serve.h"
+#include "logging.h"
+
+using namespace std;
 
 int dcc_sockaddr_to_PATHstring(struct sockaddr *sa,
                                char *p_buf)
@@ -68,11 +71,12 @@ static int dcc_listen_by_addr(int *listen_fd,
 {
     int one = 1;
     int fd;
+
     char sa_buf[PATH_MAX];
 
     fd = socket(sa->sa_family, SOCK_STREAM, 0);
     if (fd == -1) {
-	rs_log_error("socket creation failed: %s\n", strerror(errno));
+	log_error() << "socket creation failed: " << strerror(errno) << endl;
 	return EXIT_BIND_FAILED;
     }
 
@@ -82,15 +86,15 @@ static int dcc_listen_by_addr(int *listen_fd,
 
     /* now we've got a socket - we need to bind it */
     if (bind(fd, sa, salen) == -1) {
-	rs_log_error("bind of %s failed: %s\n", sa_buf, strerror(errno));
+	log_error() << "bind of " << sa_buf << " failed: " << strerror(errno) << endl;
 	close(fd);
 	return EXIT_BIND_FAILED;
     }
 
-    rs_log_info("listening on %s\n", sa_buf);
+    log_info() << "listening on " << sa_buf << endl;
 
     if (listen(fd, 10)) {
-        rs_log_error("listen failed: %s\n", strerror(errno));
+        log_error() << "listen failed: " << strerror(errno) << endl;
         close(fd);
         return EXIT_BIND_FAILED;
     }
@@ -107,7 +111,7 @@ int dcc_socket_listen(int port, int *listen_fd)
 
     if (port < 1 || port > 65535) {
         /* htons() will truncate, not check */
-        rs_log_error("port number out of range: %d\n", port);
+        log_error() << "port number out of range: " << port << endl;
         return EXIT_BAD_ARGUMENTS;
     }
 
@@ -143,15 +147,15 @@ int dcc_new_pgrp(void)
     /* Does everyone have getpgrp()?  It's in POSIX.1.  We used to call
      * getpgid(0), but that is not available on BSD/OS. */
     if (getpgrp() == getpid()) {
-        rs_trace("already a process group leader\n");
+        trace() << "already a process group leader\n";
         return 0;
     }
 
     if (setpgid(0, 0) == 0) {
-        rs_trace("entered process group\n");
+        trace() << "entered process group\n";
         return 0;
     } else {
-        rs_trace("setpgid(0, 0) failed: %s\n", strerror(errno));
+        trace() << "setpgid(0, 0) failed: " << strerror(errno) << endl;
         return EXIT_DISTCC_FAILED;
     }
 }
@@ -188,9 +192,9 @@ static void dcc_daemon_terminate(int whichsig)
 
     if (am_parent) {
 #ifdef HAVE_STRSIGNAL
-        rs_log_info("%s\n", strsignal(whichsig));
+        log_info() << strsignal(whichsig) << endl;
 #else
-        rs_log_info("terminated by signal %d\n", whichsig);
+        log_info() << "terminated by signal " << whichsig << endl;
 #endif
     }
 
@@ -223,17 +227,17 @@ int main( int argc, char **argv )
     set_cloexec_flag(listen_fd, 1);
 
     if (dcc_ncpus(&n_cpus) == 0)
-        rs_log_info("%d CPU%s online on this server\n", n_cpus, n_cpus == 1 ? "" : "s");
+        log_info() << n_cpus << " CPUs online on this server" << endl;
 
     /* By default, allow one job per CPU, plus two for the pot.  The extra
      * ones are started to allow for a bit of extra concurrency so that the
      * machine is not idle waiting for disk or network IO. */
     int dcc_max_kids = 2 + n_cpus;
 
-    rs_log_info("allowing up to %d active jobs\n", dcc_max_kids);
+    log_info() << "allowing up to " << dcc_max_kids << " active jobs\n";
 
     /* Still create a new process group, even if not detached */
-    rs_trace("not detaching\n");
+    trace() << "not detaching\n";
     if ((ret = dcc_new_pgrp()) != 0)
         return ret;
     // dcc_save_pid(getpid());
@@ -244,20 +248,21 @@ int main( int argc, char **argv )
     /* This is called in the master daemon, whether that is detached or
      * not.  */
     dcc_master_pid = getpid();
+    int count = 0;
 
     while (1) {
         int acc_fd;
         struct sockaddr cli_addr;
         socklen_t cli_len;
 
-        rs_log_info("waiting to accept connection\n");
+        log_info() << "waiting to accept connection\n";
 
         cli_len = sizeof cli_addr;
         acc_fd = accept(listen_fd, &cli_addr, &cli_len);
         if (acc_fd == -1 && errno == EINTR) {
             ;
         }  else if (acc_fd == -1) {
-            rs_log_error("accept failed: %s\n", strerror(errno));
+            log_error() << "accept failed: " << strerror(errno) << endl;
             return EXIT_CONNECT_FAILED;
         } else {
 
@@ -269,11 +274,16 @@ int main( int argc, char **argv )
             if ( ( ret = run_job(acc_fd, acc_fd) ) != 0 )
                 return ret; // return is most likely not the best :/
 
+	    count++;
+
             // dcc_cleanup_tempfiles();
             if (close(acc_fd) != 0) {
-                rs_log_error("failed to close fd%d: %s\n", acc_fd, strerror(errno));
+                log_error() << "failed to close fd " << acc_fd << ": " << strerror(errno) << endl;
                 return EXIT_IO_ERROR;
             }
+
+	    if (count > 3)
+		break;
         }
     }
 }

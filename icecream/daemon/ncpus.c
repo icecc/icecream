@@ -138,8 +138,6 @@ int dcc_ncpus(int *ncpus)
 #endif
     
     if (*ncpus == -1) {
-        rs_log_error("sysconf(_SC_NPROCESSORS_ONLN) failed: %s",
-                     strerror(errno));
         *ncpus = 1;
         return EXIT_DISTCC_FAILED;
     } else if (*ncpus == 0) {

@@ -23,36 +23,22 @@ void theSigCHLDHandler( int )
     must_reap = true;
 }
 
-int work_it( CompileJob &j, const char *preproc, size_t preproc_length, string &str_out, string &str_err,
+int work_it( CompileJob &j,
+             const string& infilename,
+             string &str_out, string &str_err,
              int &status, string &outfilename )
 {
     str_out.clear();
     str_out.clear();
 
-    CompileJob::ArgumentsList list = j.compileFlags();
+    CompileJob::ArgumentsList list = j.remoteFlags();
+    appendList( list, j.restFlags() );
     int ret;
 
-     // teambuilder needs faking
-    const char *dot;
-    if (j.language() == CompileJob::Lang_C)
-        dot = ".c";
-    else if (j.language() == CompileJob::Lang_CXX)
-        dot = ".cpp";
-    else
-        assert(0);
-    list.push_back( "-fpreprocessed" );
-
-    char tmp_input[PATH_MAX];
-    if ( ( ret = dcc_make_tmpnam("icecc", dot, tmp_input ) ) != 0 )
-        return ret;
     char tmp_output[PATH_MAX];
     if ( ( ret = dcc_make_tmpnam("icecc", ".o", tmp_output ) ) != 0 )
         return ret;
     outfilename = tmp_output;
-
-    FILE *ti = fopen( tmp_input, "wt" );
-    fwrite( preproc, 1, preproc_length, ti );
-    fclose( ti );
 
     int sock_err[2];
     int sock_out[2];
@@ -81,12 +67,7 @@ int work_it( CompileJob &j, const char *preproc, size_t preproc_length, string &
     sigaction( SIGPIPE, &act, 0L );
 
     act.sa_handler = theSigCHLDHandler;
-    act.sa_flags = SA_NOCLDSTOP;
-    // CC: take care of SunOS which automatically restarts interrupted system
-    // calls (and thus does not have SA_RESTART)
-#ifdef SA_RESTART
-    act.sa_flags |= SA_RESTART;
-#endif
+    act.sa_flags = SA_NOCLDSTOP | SA_RESTART;
     sigaction( SIGCHLD, &act, 0 );
 
     sigaddset( &act.sa_mask, SIGCHLD );
@@ -95,36 +76,33 @@ int work_it( CompileJob &j, const char *preproc, size_t preproc_length, string &
 
     pid_t pid = fork();
     if ( pid == -1 ) {
-        unlink( tmp_input );
         unlink( tmp_output );
         return EXIT_OUT_OF_MEMORY;
-    }
-    else if ( pid == 0 ) {
+    } else if ( pid == 0 ) {
 
         close( main_sock[0] );
         fcntl(main_sock[1], F_SETFD, FD_CLOEXEC);
 
         int argc = list.size();
         argc++; // the program
-        argc += 4; // -c file.i -o file.o
-        const char **argv = new const char*[argc + 1];
+        argc += 4; // file.i -o file.o
+        char **argv = new char*[argc + 1];
         if (j.language() == CompileJob::Lang_C)
-            argv[0] = "/opt/teambuilder/bin/gcc";
+            argv[0] = strdup( "/opt/teambuilder/bin/gcc" );
         else if (j.language() == CompileJob::Lang_CXX)
-            argv[0] = "/opt/teambuilder/bin/g++";
+            argv[0] = strdup( "/opt/teambuilder/bin/g++" );
         else
             assert(0);
         int i = 1;
         for ( CompileJob::ArgumentsList::const_iterator it = list.begin();
               it != list.end(); ++it) {
-            argv[i++] = it->c_str();
+            argv[i++] = strdup( it->c_str() );
         }
-        argv[i++] = "-c";
-        argv[i++] = tmp_input;
-        argv[i++] = "-o";
+        argv[i++] = strdup( infilename.c_str() );
+        argv[i++] = strdup( "-o" );
         argv[i++] = tmp_output;
         argv[i] = 0;
-        printf( "forking " );
+        printf( "forking2 " );
         for ( int index = 0; argv[index]; index++ )
             printf( "%s ", argv[index] );
         printf( "\n" );
@@ -158,7 +136,6 @@ int work_it( CompileJob &j, const char *preproc, size_t preproc_length, string &
                 // exec() failed
                 close(main_sock[0]);
                 waitpid(pid, 0, 0);
-                unlink( tmp_input );
                 unlink( tmp_output );
                 return EXIT_COMPILER_MISSING; // most likely cause
             }
@@ -184,14 +161,19 @@ int work_it( CompileJob &j, const char *preproc, size_t preproc_length, string &
             tv.tv_usec = 0;
 
             ret =  select( std::max( sock_out[0], sock_err[0] )+1, &rfds, 0, 0, &tv );
+            printf( "selected %d %d\n", ret, errno );
             switch( ret )
             {
             case -1:
-                if( errno == EINTR )
-                    break;
                 // fall through; should happen if tvp->tv_sec < 0
             case 0:
-                continue;
+                struct rusage ru;
+                if (wait4(pid, &status, must_reap ? 0 : WNOHANG, &ru) != 0) // error finishes, too
+                {
+                    printf( "has exited: %d %d\n", pid, status );
+                    return 0;
+                }
+                break;
             default:
                 if ( FD_ISSET(sock_out[0], &rfds) ) {
                     ssize_t bytes = read( sock_out[0], buffer, 4096 );
@@ -206,13 +188,6 @@ int work_it( CompileJob &j, const char *preproc, size_t preproc_length, string &
                         buffer[bytes] = 0;
                         str_err.append( buffer );
                     }
-                }
-                struct rusage ru;
-                if (wait4(pid, &status, must_reap ? 0 : WNOHANG, &ru) != 0) // error finishes, too
-                {
-                    printf( "has exited: %d %d\n", pid, status );
-                    unlink( tmp_input );
-                    return 0;
                 }
             }
         }

@@ -100,13 +100,11 @@ int dcc_make_tmpnam(const char *prefix,
         fd = open(name_ret, O_WRONLY | O_CREAT | O_EXCL, 0600);
         if (fd == -1) {
             /* try again */
-            rs_trace("failed to create %s: %s\n", name_ret, strerror(errno));
             random_bits += 7777; /* fairly prime */
             continue;
         }
         
         if (close(fd) == -1) {  /* huh? */
-            rs_log_warning("failed to close %s: %s\n", name_ret, strerror(errno));
             return EXIT_IO_ERROR;
         }
         

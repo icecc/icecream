@@ -58,15 +58,12 @@ static string concat_args( const CompileJob::ArgumentsList &list )
 }
 
 bool analyse_argv( const char * const *argv,
-                   CompileJob::ArgumentsList &local_args,
-                   CompileJob::ArgumentsList &remote_args,
-                   CompileJob::ArgumentsList &rest_args,
-                   string &ofile )
+                   CompileJob &job )
 {
-    ofile.clear();
-    local_args.clear();
-    remote_args.clear();
-    rest_args.clear();
+    CompileJob::ArgumentsList local_args;
+    CompileJob::ArgumentsList remote_args;
+    CompileJob::ArgumentsList rest_args;
+    string ofile;
 
     trace() << "scanning arguments ";
     for ( int index = 0; argv[index]; index++ )
@@ -95,7 +92,7 @@ bool analyse_argv( const char * const *argv,
             } else if (!strcmp(a, "-MF") || !strcmp(a, "-MT") ||
                        !strcmp(a, "-MQ")) {
                 local_args.push_back( a );
-                local_args.push_back( argv[i++] );
+                local_args.push_back( argv[++i] );
                 /* as above but with extra argument */
             } else if (a[1] == 'M') {
                 /* -M(anything else) causes the preprocessor to
@@ -164,7 +161,6 @@ bool analyse_argv( const char * const *argv,
                 if (argv[i+1])
                     local_args.push_back( argv[++i] );
             } else if (str_startswith("-Wp,", a)
-                 || str_startswith("-Wl,", a)
                  || str_startswith("-D", a)
                  || str_startswith("-U", a)
                  || str_startswith("-I", a)
@@ -186,10 +182,6 @@ bool analyse_argv( const char * const *argv,
         }
     }
 
-    /* TODO: ccache has the heuristic of ignoring arguments that are not
-     * extant files when looking for the input file; that's possibly
-     * worthwile.  Of course we can't do that on the server. */
-
     if (!seen_c && !seen_s)
         always_local = true;
     else if ( seen_s ) {
@@ -208,9 +200,76 @@ bool analyse_argv( const char * const *argv,
         always_local = true;
     }
 
+    string compiler_name = find_basename(rest_args.front());
+    rest_args.pop_front(); // away!
+
+    job.setLanguage( CompileJob::Lang_C );
+    if ( ( compiler_name.size() > 2 &&
+         compiler_name.substr( compiler_name.size() - 2 ) == "++" ) || compiler_name == "CC" )
+        job.setLanguage( CompileJob::Lang_CXX );
+
+    job.setRemoteFlags( remote_args );
+    job.setLocalFlags( local_args );
+
+    if ( seen_c || seen_s ) {
+        /* TODO: ccache has the heuristic of ignoring arguments that are not
+         * extant files when looking for the input file; that's possibly
+         * worthwile.  Of course we can't do that on the server. */
+        string ifile;
+        for ( CompileJob::ArgumentsList::iterator it = rest_args.begin();
+              it != rest_args.end(); ) {
+            if ( it->at( 0 ) == '-' )
+                ++it;
+            else if ( ifile.empty() ) {
+                job.setInputFile( *it );
+                ifile = *it;
+                it = rest_args.erase( it );
+            } else {
+                log_info() << "found another non option on command line. Two input files? " << *it << endl;
+                abort();
+                ++it;
+            }
+        }
+
+        if ( ifile.find( '.' ) != string::npos ) {
+            string::size_type dot_index = ifile.find_last_of( '.' );
+            string ext = ifile.substr( dot_index + 1 );
+
+            if (ext == "i" || ext == "c") {
+                if ( job.language() != CompileJob::Lang_C )
+                    log_info() << "switching to C for " << ifile << endl;
+                job.setLanguage( CompileJob::Lang_C );
+            } else if (ext == "c" || ext == "cc"
+                       || ext == "cpp" || ext == "cxx"
+                       || ext == "cp" || ext == "c++"
+                       || ext == "C" || ext == "ii") {
+                if ( job.language() != CompileJob::Lang_CXX )
+                    log_info() << "switching to C++ for " << ifile << endl;
+                job.setLanguage( CompileJob::Lang_CXX );
+            } else if(ext == "mi" || ext == "m"
+                      || ext == "mii" || ext == "mm"
+                      || ext == "M" )
+                job.setLanguage( CompileJob::Lang_OBJC );
+
+            if ( ofile.empty() ) {
+                ofile = ifile.substr( 0, dot_index ) + ".o";
+                string::size_type slash = ofile.find_last_of( '/' );
+                if ( slash != string::npos )
+                    ofile = ofile.substr( slash + 1 );
+                cout << "ofile " << ofile << endl;
+            }
+        }
+    } else
+        assert( always_local );
+    job.setRestFlags( rest_args );
+    job.setOutputFile( ofile );
+
     trace() << "scanned result: local args=" << concat_args( local_args )
             << ", remote args=" << concat_args( remote_args )
-            << ", rest=" << concat_args( rest_args ) << " local=" << always_local << endl;
+            << ", rest=" << concat_args( rest_args )
+            << ", local=" << always_local
+            << ", lang=" << ( job.language() == CompileJob::Lang_CXX ? "C++" : "C" )
+            << endl;
+
     return always_local;
 }
-

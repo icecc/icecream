@@ -39,8 +39,6 @@
 #include "logging.h"
 #include "exitcode.h"
 #include "util.h"
-#include "implicit.h"
-#include "exec.h"
 #include "tempfile.h"
 #include "cpp.h"
 #include "filename.h"
@@ -58,19 +56,11 @@ using namespace std;
  * allows us to overlap opening the TCP socket, which probably doesn't
  * use many cycles, with running the preprocessor.
  **/
-int dcc_cpp_maybe(char **argv, char *input_fname, int fd, pid_t *cpp_pid)
+pid_t call_cpp(CompileJob &job, int fd)
 {
-#warning TODO
+	printf("call_cpp\n");
 #if 0
-    char **cpp_argv;
-    int ret;
-    char *input_exten;
-    const char *output_exten;
-    pid_t pid;
-
-    *cpp_pid = 0;
-
-    if (dcc_is_preprocessed(input_fname)) {
+    if ( dcc_is_preprocessed( job.inputFile() ) ) {
         /* TODO: Perhaps also consider the option that says not to use cpp.
          * Would anyone do that? */
         trace() << "input is already preprocessed" << endl;
@@ -80,50 +70,58 @@ int dcc_cpp_maybe(char **argv, char *input_fname, int fd, pid_t *cpp_pid)
         assert(0);
         return 0;
     }
-
-    input_exten = dcc_find_extension(input_fname);
-    output_exten = dcc_preproc_exten(input_exten);
+#endif
 
     /* COOLO    if ((ret = dcc_make_tmpnam("distcc", output_exten, cpp_fname)))
         return ret; */
 
-    /* We strip the -o option and allow cpp to write to stdout, which is
-     * caught in a file.  Sun cc doesn't understand -E -o, and gcc screws up
-     * -MD -E -o.
-     *
-     * There is still a problem here with -MD -E -o, gcc writes dependencies
-     * to a file determined by the source filename.  We could fix it by
-     * generating a -MF option, but that would break compilation with older
-     * versions of gcc.  This is only a problem for people who have the source
-     * and objects in different directories, and who don't specify -MF.  They
-     * can fix it by specifying -MF.  */
-
-    if ((ret = dcc_strip_dasho(argv, &cpp_argv))
-        || (ret = dcc_set_action_opt(cpp_argv, "-E")))
-        return ret;
-
-    pid = fork();
+    pid_t pid = fork();
     if (pid == -1) {
         log_error() << "failed to fork: " << strerror(errno) << endl;
-        return EXIT_OUT_OF_MEMORY; /* probably */
+        return -1; /* probably */
     } else if (pid == 0) {
-        if ((ret = dcc_ignore_sigpipe(0)))    /* set handler back to default */
+        int ret = dcc_ignore_sigpipe(0);
+        if (ret)    /* set handler back to default */
             exit(ret);
 
+        CompileJob::ArgumentsList list = job.localFlags();
+        appendList( list, job.restFlags() );
+        int argc = list.size();
+        argc++; // the program
+        argc += 2; // -E file.i
+        char **argv = new char*[argc + 1];
+        if (job.language() == CompileJob::Lang_C)
+            argv[0] = strdup( "/opt/teambuilder/bin/gcc" );
+        else if (job.language() == CompileJob::Lang_CXX)
+            argv[0] = strdup( "/opt/teambuilder/bin/g++" );
+        else
+            assert(0);
+        int i = 1;
+        for ( CompileJob::ArgumentsList::const_iterator it = list.begin();
+              it != list.end(); ++it) {
+            argv[i++] = strdup( it->c_str() );
+        }
+        argv[i++] = strdup( "-E" );
+        argv[i++] = strdup( job.inputFile().c_str() );
+        argv[i++] = 0;
+
+        printf( "forking " );
+        for ( int index = 0; argv[index]; index++ )
+            printf( "%s ", argv[index] );
+        printf( "\n" );
+
         /* Ignore failure */
-        dcc_increment_safeguard();
         close(STDOUT_FILENO);
         dup2(fd, STDOUT_FILENO);
 
-        dcc_execvp(cpp_argv);
+        execvp(argv[0], argv);
         /* !! NEVER RETURN FROM HERE !! */
         return 0;
     } else {
-        *cpp_pid = pid;
         trace() << "child started as pid" << (int) pid << endl;
-        return 0;
+        return pid;
     }
-#endif
+
 }
 
 

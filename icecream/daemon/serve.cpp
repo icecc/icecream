@@ -61,6 +61,7 @@
 #include <fcntl.h>
 #include <errno.h>
 #include <signal.h>
+#include <cassert>
 
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -76,6 +77,7 @@
 #include "client_comm.h"
 #include "tempfile.h"
 #include "workit.h"
+#include "logging.h"
 #include <sys/sendfile.h>
 // #include <scheduler.h>
 
@@ -92,9 +94,8 @@ using namespace std;
 int dcc_ignore_sigpipe(int val)
 {
     if (signal(SIGPIPE, val ? SIG_IGN : SIG_DFL) == SIG_ERR) {
-        rs_log_warning("signal(SIGPIPE, %s) failed: %s",
-                       val ? "ignore" : "default",
-                       strerror(errno));
+        log_warning() << "signal(SIGPIPE, " << ( val ? "ignore" : "default" ) << ") failed: "
+                      << strerror(errno) << endl;
         return EXIT_DISTCC_FAILED;
     }
     return 0;
@@ -146,37 +147,34 @@ int run_job(int in_fd,
         close( out_fd );
         return EXIT_PROTOCOL_ERROR;
     }
-
-    ret = client_read_message( in_fd, &m );
-    if ( ret )
-        return ret;
-
-    if ( m.type != C_ARGC )
+    CompileJob job;
+    if ( !read_job( in_fd, job ) )
         return EXIT_PROTOCOL_ERROR;
 
-    int argc = m.length;
-    printf( "argc = %d\n", argc );
-    char **argv = new char*[argc +1 ];
-    for ( int i = 0; i < argc; i++ ) {
-        ret = client_read_message( in_fd, &m );
-        if ( ret )
-            return ret;
-        if ( m.type != C_ARGV )
-            return EXIT_PROTOCOL_ERROR;
-        argv[i] = new char[m.length + 1];
-        read( in_fd, argv[i], m.length );
-        argv[i][m.length] = 0;
-        printf( "argv[%d] = '%s'\n", i, argv[i] );
+    // teambuilder needs faking
+    const char *dot;
+    if (job.language() == CompileJob::Lang_C)
+        dot = ".c";
+    else if (job.language() == CompileJob::Lang_CXX)
+        dot = ".cpp";
+    else
+        assert(0);
+    CompileJob::ArgumentsList list= job.restFlags();
+    list.push_back( "-fpreprocessed" );
+    job.setRestFlags( list );
+    // end faking
+
+    char tmp_input[PATH_MAX];
+    if ( ( ret = dcc_make_tmpnam("icecc", dot, tmp_input ) ) != 0 )
+        return ret;
+
+    int ti = open( tmp_input, O_CREAT|O_EXCL|O_WRONLY|O_LARGEFILE );
+    if ( ti == -1 ) {
+        log_error() << "open failed\n";
+        return EXIT_DISTCC_FAILED;
     }
-    argv[argc] = 0;
 
-    // TODO: PROF data if available
-
-    size_t preproc_length = 0;
-    size_t preproc_bufsize = 8192;
-
-    // TODO: leaks on every return
-    char *preproc = ( char* )malloc( preproc_bufsize );
+    char buffer[4096];
 
     while ( 1 ) {
         ret = client_read_message( in_fd, &m );
@@ -188,88 +186,63 @@ int run_job(int in_fd,
 
         if ( m.type != C_PREPROC )
             return EXIT_PROTOCOL_ERROR;
-        if ( preproc_length + m.length > preproc_bufsize ) {
-            preproc_bufsize *= 2;
-            preproc = (char* )realloc(preproc, preproc_bufsize);
-        }
-        if ( read( in_fd, preproc + preproc_length, m.length ) != ( ssize_t )m.length )
+        assert( m.length < sizeof( buffer ) );
+        if ( read( in_fd, buffer, m.length ) != ( ssize_t )m.length )
             return EXIT_PROTOCOL_ERROR;
-        preproc_length += m.length;
+        if ( write( ti, buffer, m.length ) != ( ssize_t )m.length )
+            return EXIT_DISTCC_FAILED;
     }
+    close( ti );
 
-    CompileJob j;
-    std::string bn = dcc_find_basename( argv[0] );
-    if ( bn == "gcc" || bn == "cc" )
-        j.setLanguage( CompileJob::Lang_C );
-    else if ( bn == "g++" || bn == "c++" )
-        j.setLanguage( CompileJob::Lang_CXX );
-    else if ( bn == "objc" )
-        j.setLanguage( CompileJob::Lang_OBJC );
-    else if ( bn == "as" )
-        j.setLanguage( CompileJob::Lang_ASM );
-    else {
-        printf( "Not a known compiler: %s\n", bn.c_str() );
-        return EXIT_PROTOCOL_ERROR;
-    }
-
-    /*    find_flags( argv, j );
-
-    Scheduler_Stub scheduler = Scheduler::findScheduler();
-    if ( scheduler.isNull() ) {
-        // TODO: goto run_local
-        printf( "No Scheduler found\n" );
-        return -1;
-    }
-    Server_Stub server = scheduler.findServer( j ); // sets job-ID
-    if ( server.isNull() ) {
-        // TODO: goto run_local
-        printf( "No Server found\n" );
-        return -1;
-    }
-    */
     int status;
     string str_out;
     string str_err;
     string filename;
-    // TODO ret = server.work_it( j, preproc, preproc_length, str_out, str_err, status, filename );
+    ret = work_it( job, tmp_input,
+                   str_out, str_err, status, filename );
+    unlink( tmp_input );
+
     if ( ret )
         return ret;
 
     if ((ret = client_write_message( out_fd, C_STATUS, status)) != 0) {
-        rs_log_info("write of status failed\n");
+        log_info() << "write of status failed\n";
         return ret;
     }
 
     if ( ( ret = client_write_message( out_fd, C_STDOUT, str_out ) ) != 0 ) {
-        rs_log_info("write of stdout failed\n");
+        log_info() << "write of stdout failed\n";
         return ret;
     }
 
     if ( ( ret = client_write_message( out_fd, C_STDERR, str_err ) ) != 0 ) {
-        rs_log_info("write of stderr failed\n");
+        log_info() << "write of stderr failed\n";
         return ret;
     }
+    cout << "wrote all stream data\n";
 
     struct stat s;
     if (stat(filename.c_str(), &s) != 0) {
-        rs_log_info( "where's the file? %s\n", strerror( errno ) );
+        log_info() <<  "where's the file? " << strerror( errno ) << endl;
         return errno;
     }
 
     int obj_fd = open( filename.c_str(), O_RDONLY|O_LARGEFILE );
     if ( obj_fd == -1 ) {
-        rs_log_error( "open failed\n" );
+        log_error() << "open failed\n";
     }
     if ( ( ret = client_write_message( out_fd, C_OBJ, s.st_size ) ) != 0 ) {
-        rs_log_info("write of filesize failed\n");
+        log_info() << "write of filesize failed\n";
         return ret;
     }
     off_t t = 0;
     ssize_t res = sendfile( out_fd, obj_fd, &t, s.st_size );
     if ( res != s.st_size ) {
-        rs_log_info( "sendfile failed\n" );
+        log_info() << "sendfile failed\n";
         return ret;
     }
+    close( obj_fd );
+    unlink( filename.c_str() );
 
     return 0;
 }

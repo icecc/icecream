@@ -1,4 +1,4 @@
 
-SUBDIRS = client daemon
+SUBDIRS = services client daemon
 AUTOMAKE_OPTIONS = foreign 1.6
 
