@@ -1080,7 +1080,7 @@ handle_line (MsgChannel *c, Msg *_m)
 	  line += buffer;
           if ( cs->busy_installing )
             {
-              sprintf( buffer, "busy installing since %ld s",  time(0) - cs->busy_installing );
+              sprintf( buffer, " busy installing since %ld s",  time(0) - cs->busy_installing );
               line += buffer;
             }
 	  c->send_msg (TextMsg (line));
