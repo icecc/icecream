@@ -6,3 +6,8 @@
 * If someone calls a amd64 client on a host that runs a ia32 daemon and there are
   no other amd64 daemons in the farm, he will get no answer, but a timeout from
   scheduler (quite a corner case, but neat)
+* daemon: install and use build root
+   as user: (not sure it's worth it)
+      chown 0 lib/libc.so*
+      PATH=$PWD/usr/bin LD_LIBRARY_PATH=$PWD/lib:$PWD/usr/lib:/lib usr/bin/gcc -B/tmp/test/usr/lib/gcc-lib/i586-suse-linux/3.3.1/ -c ~/test.ii
+
