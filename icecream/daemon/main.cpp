@@ -34,8 +34,21 @@
 #  include <resolv.h>
 #endif
 #include <netdb.h>
+
+#ifdef __FreeBSD__
+#include <signal.h> // for kill(2)
+#include <sys/time.h>
+#include <sys/resource.h>
+#define RUSAGE_SELF (0)
+#define RUSAGE_CHILDREN (-1)
+#endif
+
+
 #include <queue>
 #include <map>
+
+
+
 #include "ncpus.h"
 #include "exitcode.h"
 #include "serve.h"
@@ -44,6 +57,7 @@
 #include "load.h"
 #include "environment.h"
 #include "findmyself.h"
+
 
 using namespace std;
 

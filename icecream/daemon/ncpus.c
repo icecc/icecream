@@ -99,6 +99,13 @@ char_varying(66) module_name;
 #include <sys/types.h>
 #include <sys/param.h>
 #include <sys/sysctl.h>
+
+#ifdef __FreeBSD__
+#undef HAVE_RS_LOG_ERROR
+#else
+#define HAVE_RS_LOG_ERROR
+#endif
+
 int dcc_ncpus(int *ncpus)
 {
     int mib[2];
@@ -108,8 +115,13 @@ int dcc_ncpus(int *ncpus)
     if (sysctl(mib, 2, ncpus, &len, NULL, 0) == 0)
         return 0;
     else {
+#ifdef have_rs_log_error
         rs_log_error("sysctl(CTL_HW:HW_NCPU) failed: %s",
                      strerror(errno));
+#else
+	fprintf(stderr,"sysctl(CTL_HW:HW_NCPU) failed: %s",
+			strerror(errno));
+#endif
         *ncpus = 1;
         return EXIT_DISTCC_FAILED;
     }
