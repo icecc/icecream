@@ -261,30 +261,54 @@ int main( int /*argc*/, char ** /*argv*/ )
 
     const int max_count = 0;
     int count = 0;
+    time_t last_stat = 0;
 
     while (1) {
         int acc_fd;
         struct sockaddr cli_addr;
         socklen_t cli_len;
+        fd_set listen_set;
+        struct timeval tv;
 
         log_info() << "waiting to accept connection\n";
 
-        cli_len = sizeof cli_addr;
-        acc_fd = accept(listen_fd, &cli_addr, &cli_len);
-        if (acc_fd == -1 && errno == EINTR) {
-            ;
-        }  else if (acc_fd == -1) {
-            log_error() << "accept failed: " << strerror(errno) << endl;
-            return EXIT_CONNECT_FAILED;
-        } else {
-            Service *client = new Service ((struct sockaddr*) &cli_addr, cli_len);
-            MsgChannel *c = new MsgChannel (acc_fd, client);
-            handle_connection (c);
-            delete c;
-            delete client;
-            if ( max_count && ++count > max_count ) {
-                cout << "I'm closing now. Hoping you used valgrind! :)\n";
-                exit( 0 );
+        FD_ZERO (&listen_set);
+        FD_SET (listen_fd, &listen_set);
+        FD_SET (listen_fd, &listen_set);
+        tv.tv_sec = 2;
+        tv.tv_usec = 0;
+
+        ret = select (listen_fd + 1, &listen_set, NULL, NULL, &tv);
+        if ( time( 0 ) - last_stat >= 2 ) {
+            StatsMsg msg;
+            if (getloadavg (msg.load, 3) == -1) {
+                log_error() << "getloadavg failed: " << strerror( errno ) << endl;
+                msg.load[0] = msg.load[1] = msg.load[2] = 0;
+            } else {
+                printf ("Load average: %.2f, %.2f, %.2f\n",
+                        msg.load[0], msg.load[1], msg.load[2]);
+            }
+            if ( scheduler->send_msg( msg ) )
+                last_stat = time( 0 );
+        }
+        if ( ret > 0 ) {
+            cli_len = sizeof cli_addr;
+            acc_fd = accept(listen_fd, &cli_addr, &cli_len);
+            if (acc_fd == -1 && errno == EINTR) {
+                ;
+            }  else if (acc_fd == -1) {
+                log_error() << "accept failed: " << strerror(errno) << endl;
+                return EXIT_CONNECT_FAILED;
+            } else {
+                Service *client = new Service ((struct sockaddr*) &cli_addr, cli_len);
+                MsgChannel *c = new MsgChannel (acc_fd, client);
+                handle_connection (c);
+                delete c;
+                delete client;
+                if ( max_count && ++count > max_count ) {
+                    cout << "I'm closing now. Hoping you used valgrind! :)\n";
+                    exit( 0 );
+                }
             }
         }
     }

@@ -216,7 +216,8 @@ public:
 
 class StatsMsg : public Msg {
 public:
-  StatsMsg () : Msg(M_STATS) {}
+  double load[3];
+  StatsMsg () : Msg(M_STATS) { load[0] = load[1] = load[2] = 0; }
   virtual bool fill_from_fd (int fd);
   virtual bool send_to_fd (int fd) const;
 };
