@@ -508,6 +508,10 @@ int build_remote(CompileJob &job, MsgChannel *scheduler, const Environments &_en
 
     map<string, string> versionfile_map, version_map;
     Environments envs = rip_out_paths( _envs, version_map, versionfile_map );
+    if (!envs.size()) {
+	log_error() << "$ICECC_VERSION needs to point to .tar.bz2 files\n";
+	throw(22);
+    }
 
     if ( torepeat == 1 ) {
         string fake_filename;
