@@ -18,6 +18,7 @@
     Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 */
 
+#include <config.h>
 #include <iostream>
 #include "logging.h"
 #include <fstream>
@@ -63,10 +64,6 @@ void setup_debug(int level, const string &filename)
     else
         logfile_error = &logfile_null;
 }
-
-#ifndef __FreeBSD__
-#define HAVE_BACKTRACE
-#endif
 
 #ifdef HAVE_BACKTRACE
 #include <execinfo.h>
