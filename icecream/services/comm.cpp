@@ -186,7 +186,7 @@ MsgChannel::flush_writebuf (bool blocking)
 	      FD_ZERO (&write_set);
 	      FD_SET (fd, &write_set);
 	      struct timeval tv;
-	      tv.tv_sec = 5 * 60;
+	      tv.tv_sec = 10;
 	      tv.tv_usec = 0;
 	      if (select (fd + 1, NULL, &write_set, NULL, &tv) > 0)
 	        continue;
@@ -527,6 +527,15 @@ MsgChannel::~MsgChannel()
 
 static bool read_vers( int fd, unsigned char *vers )
 {
+  fd_set set;
+  FD_ZERO (&set);
+  FD_SET (fd, &set);
+  struct timeval tv;
+  tv.tv_sec = 5;
+  tv.tv_usec = 0;
+  if (select (fd + 1, &set, NULL, NULL, &tv) <= 0)
+    return false;
+
   if ( read( fd, vers, 4 ) == 4 )
     return true;
 
@@ -538,6 +547,15 @@ static bool read_vers( int fd, unsigned char *vers )
 
 static bool write_vers( int fd, const unsigned char *vers )
 {
+  fd_set set;
+  FD_ZERO (&set);
+  FD_SET (fd, &set);
+  struct timeval tv;
+  tv.tv_sec = 5;
+  tv.tv_usec = 0;
+  if (select (fd + 1, NULL, &set, NULL, &tv) <= 0)
+    return false;
+
   if ( write( fd, vers, 4 ) == 4 )
     return true;
 
