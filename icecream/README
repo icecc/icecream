@@ -55,8 +55,25 @@ transfered to the daemons where your compile jobs run and installed to a chroot
 environment for executing the compile jobs in the environment fitting to the
 environment of the client. This requires that the icecream deamon runs as root.
 
+How to combine icecream with ccache
+===================================
+
+The easiest way to use ccache with icecream is putting the symlink masquerades
+into /opt/icream/bin and putting small wrapper scripts in /opt/ccache/bin
+
+cat /opt/ccache/bin/g++:
+#! /bin/sh
+
+export CCACHE_PATH=/opt/icecream/bin
+export PATH=/opt/icecream/bin:/usr/bin:$PATH
+ccache g++ "$@"
+
+Then you can replace /opt/icecream/bin with /opt/ccache/bin in your $PATH
+and all icecream calls will go through ccache (and Qt will compile in 62s :)
+
 Debug output
 ============
 
 You can use the environment variable ICECC_DEBUG to control if icecream gives
 debug output or not. Set it to "debug" to get debug output.
+
