@@ -79,7 +79,39 @@ static UseCSMsg *get_server( MsgChannel *scheduler )
     return usecs;
 }
 
-static int build_remote_int(CompileJob &job, UseCSMsg *usecs, const string &version_file, bool output )
+static void write_server_cpp(int cpp_fd, MsgChannel *cserver)
+{
+    unsigned char buffer[100000]; // some random but huge number
+    off_t offset = 0;
+
+    do
+    {
+        ssize_t bytes = read(cpp_fd, buffer + offset, sizeof(buffer) - offset );
+        offset += bytes;
+        if (!bytes || offset == sizeof( buffer ) )
+        {
+            if ( offset )
+            {
+                FileChunkMsg fcmsg( buffer, offset );
+                if ( !cserver->send_msg( fcmsg ) )
+                {
+                    log_info() << "write of source chunk failed " << offset << " " << bytes << endl;
+                    close( cpp_fd );
+                    throw( 11 );
+                }
+                offset = 0;
+            }
+            if ( !bytes )
+                break;
+        }
+    } while ( 1 );
+
+    close( cpp_fd );
+}
+
+
+static int build_remote_int(CompileJob &job, UseCSMsg *usecs, const string &version_file,
+                            const char *preproc_file, bool output )
 {
     string hostname = usecs->hostname;
     unsigned int port = usecs->port;
@@ -157,48 +189,41 @@ static int build_remote_int(CompileJob &job, UseCSMsg *usecs, const string &vers
         throw( 9 );
     }
 
-    int sockets[2];
-    if (pipe(sockets)) {
-        /* for all possible cases, this is something severe */
-        exit(errno);
-    }
-
-    pid_t cpp_pid = call_cpp(job, sockets[1] );
-    if ( cpp_pid == -1 )
-        throw( 10 );
-    close(sockets[1]);
-
     offset = 0;
 
-    do {
-        ssize_t bytes = read(sockets[0], buffer + offset, sizeof(buffer) - offset );
-        offset += bytes;
-        if (!bytes || offset == sizeof( buffer ) ) {
-            if ( offset ) {
-                FileChunkMsg fcmsg( buffer, offset );
-                if ( !cserver->send_msg( fcmsg ) ) {
-                    log_info() << "write of source chunk failed " << offset << " " << bytes << endl;
-                    close( sockets[0] );
-                    kill( cpp_pid, SIGTERM );
-                    throw( 11 );
-                }
-                offset = 0;
-            }
-            if ( !bytes )
-                break;
+    if ( !preproc_file ) {
+        int sockets[2];
+        if (pipe(sockets)) {
+            /* for all possible cases, this is something severe */
+            exit(errno);
         }
-    } while (1);
 
-    int status = 255;
-    waitpid( cpp_pid, &status, 0);
+        pid_t cpp_pid = call_cpp(job, sockets[1] );
+        if ( cpp_pid == -1 )
+            throw( 10 );
+        close(sockets[1]);
 
-    if ( status ) { // failure
+        try {
+            write_server_cpp( sockets[0], cserver );
+        } catch ( int error ) {
+            kill( cpp_pid, SIGTERM );
+            throw ( error );
+        }
 
-        // cserver->send_msg( CancelJob( job_id ) );
-        delete cserver;
-        cserver = 0;
+        int status = 255;
+        waitpid( cpp_pid, &status, 0);
 
-        return WEXITSTATUS( status );
+        if ( status ) { // failure
+            delete cserver;
+            cserver = 0;
+            return WEXITSTATUS( status );
+        }
+    } else {
+        int cpp_fd = open( preproc_file, O_RDONLY );
+        if ( cpp_fd < 0 )
+            throw ( 11 );
+
+        write_server_cpp( cpp_fd, cserver );
     }
 
     if ( !cserver->send_msg( EndMsg() ) ) {
@@ -216,7 +241,9 @@ static int build_remote_int(CompileJob &job, UseCSMsg *usecs, const string &vers
     CompileResultMsg *crmsg = dynamic_cast<CompileResultMsg*>( msg );
     assert ( crmsg );
 
-    status = crmsg->status;
+    int status = crmsg->status;
+    trace() << "crmsg->status " << status << endl;
+
     if ( output ) {
         fprintf( stdout, "%s", crmsg->out.c_str() );
         fprintf( stderr, "%s", crmsg->err.c_str() );
@@ -316,10 +343,26 @@ int build_remote(CompileJob &job, MsgChannel *scheduler, int permill )
 
     if ( torepeat == 1 ) {
         UseCSMsg *usecs = get_server( scheduler );
-        int ret = build_remote_int( job, usecs, version_file, true );
+        int ret = build_remote_int( job, usecs, version_file, 0, true );
         delete usecs;
         return ret;
     } else {
+        char preproc[PATH_MAX];
+        dcc_make_tmpnam( "icecc", ".ix", preproc, 0 );
+        int cpp_fd = open(preproc, O_WRONLY );
+        pid_t cpp_pid = call_cpp(job, cpp_fd );
+        if ( cpp_pid == -1 ) {
+            ::unlink( preproc );
+            throw( 10 );
+        }
+        int status = 255;
+        close( cpp_fd ); // the child has it
+        waitpid( cpp_pid, &status, 0);
+        if ( status ) { // failure
+            ::unlink( preproc );
+            return WEXITSTATUS( status );
+        }
+
         map<pid_t, int> jobmap;
         CompileJob *jobs = new CompileJob[torepeat];
         UseCSMsg **umsgs = new UseCSMsg*[torepeat];
@@ -338,10 +381,11 @@ int build_remote(CompileJob &job, MsgChannel *scheduler, int permill )
 
             pid_t pid = fork();
             if ( !pid ) {
-                int ret = -1;
+                int ret = 42;
                 try {
-                    ret = build_remote_int( jobs[i], umsgs[i], version_file, i == 0 );
+                    ret = build_remote_int( jobs[i], umsgs[i], version_file, preproc, i == 0 );
                 } catch ( int error ) {
+                    log_info() << "build_remote_int failed and has thrown " << error << endl;
                     if ( i == 0 ) { // ignore for misc jobs
                         trace() << "build first job locally" << endl;
                         ret = build_local( jobs[i], 0 );
@@ -353,8 +397,9 @@ int build_remote(CompileJob &job, MsgChannel *scheduler, int permill )
                 jobmap[pid] = i;
             }
         }
-        int status;
         int *exit_codes = new int[torepeat];
+	for ( int i = 0; i < torepeat; i++ ) // init
+		exit_codes[i] = 42;
 
         for ( int i = 0; i < torepeat; i++ ) {
             pid_t pid = wait( &status );
@@ -362,7 +407,7 @@ int build_remote(CompileJob &job, MsgChannel *scheduler, int permill )
                 perror( "wait failed" );
                 status = -1;
             } else {
-                exit_codes[jobmap[pid]] = status;
+                exit_codes[jobmap[pid]] = WEXITSTATUS( status );
             }
         }
 
@@ -370,9 +415,13 @@ int build_remote(CompileJob &job, MsgChannel *scheduler, int permill )
 
         for ( int i = 1; i < torepeat; i++ ) {
             if ( !exit_codes[0] ) { // if the first failed, we fail anyway
+		if ( exit_codes[i] == 42 ) // they are free to fail for misc reasons
+			continue;
+
                 if ( exit_codes[i] ) {
                     log_error() << umsgs[i]->hostname << " compiled with exit code " << exit_codes[i]
                                 << " and " << umsgs[0]->hostname << " compiled with exit code " << exit_codes[0] << " - aborting!\n";
+		    ::unlink( jobs[0].outputFile().c_str());
                     exit_codes[0] = -1; // overwrite
                     break;
                 }
@@ -380,8 +429,10 @@ int build_remote(CompileJob &job, MsgChannel *scheduler, int permill )
                 string other_md5 = md5_for_file( jobs[i].outputFile() );
 
                 if ( other_md5 != first_md5 ) {
-                    log_error() << umsgs[i]->hostname << " compiled with md5 sum " << other_md5 << "(" << jobs[i].outputFile() << ")"
+                    log_error() << umsgs[i]->hostname << " compiled " << jobs[0].outputFile() << " with md5 sum " << other_md5 << "(" << jobs[i].outputFile() << ")"
                                 << " and " << umsgs[0]->hostname << " compiled with md5 sum " << first_md5 << " - aborting!\n";
+		    rename( jobs[0].outputFile().c_str(), ( jobs[0].outputFile() + ".caught" ).c_str() );
+                    rename( preproc, ( string( preproc ) + ".caught" ).c_str() );
                     exit_codes[0] = -1; // overwrite
                     break;
                 }
@@ -391,6 +442,8 @@ int build_remote(CompileJob &job, MsgChannel *scheduler, int permill )
             delete umsgs[i];
         }
         delete umsgs[0];
+
+        ::unlink( preproc );
 
         int ret = exit_codes[0];
 
