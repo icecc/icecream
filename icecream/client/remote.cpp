@@ -317,7 +317,7 @@ static int build_remote_int(CompileJob &job, UseCSMsg *usecs, const string &envi
         throw( 12 );
     }
 
-    Msg *msg = cserver->get_msg();
+    Msg *msg = cserver->get_msg( 12 * 60 );
     if ( !msg )
         throw( 14 );
 

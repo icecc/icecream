@@ -500,7 +500,7 @@ int main( int argc, char ** argv )
                     // if the client compiles, we fork off right away
                     pid = fork();
                     if ( pid == 0 ) {
-                        Msg *msg = req.second->get_msg();
+                        Msg *msg = req.second->get_msg(12 * 60); // wait forever
                         ::exit( !msg || msg->type != M_END ); // signal parent
                     }
                 } else
