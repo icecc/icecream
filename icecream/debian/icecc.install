@@ -1,5 +1,5 @@
+debian/tmp/usr/bin/create-env
 debian/tmp/usr/bin/icecc
-debian/tmp/usr/bin/icecc-create-env
 debian/tmp/usr/lib/icecc/bin/g++
 debian/tmp/usr/lib/icecc/bin/gcc
 debian/tmp/usr/sbin/icecc-scheduler
