@@ -77,7 +77,7 @@
 #include "tempfile.h"
 #include "workit.h"
 #include <sys/sendfile.h>
-#include <scheduler.h>
+// #include <scheduler.h>
 
 using namespace std;
 
