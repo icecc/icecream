@@ -336,6 +336,10 @@ server_speed (CS *cs, Job *job)
       if ( cs->last_compiled_jobs.size() < 7 )
           f *= ( -0.5 * cs->last_compiled_jobs.size() + 4.5 );
 
+      // we only care for the load if we're about to add a job to it
+      if (job) 
+          f *= (1000 - cs->load) / 1000;
+
       return f;
     }
 }
