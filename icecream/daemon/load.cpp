@@ -24,6 +24,8 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 
+using namespace std;
+
 typedef struct
 {
   /* A CPU can be loaded with user processes, reniced processes and
@@ -78,7 +80,7 @@ bool fill_stats( StatsMsg &msg )
     if ( ( fd = open( "/proc/stat", O_RDONLY ) ) < 0 ) {
         log_error() << "Cannot open file \'/proc/stat\'!\n"
             "The kernel needs to be compiled with support\n"
-            "forks /proc filesystem enabled!\n" ;
+            "forks /proc filesystem enabled!" << endl;
         return false;
     }
 
