@@ -1072,11 +1072,32 @@ handle_line (MsgChannel *c, Msg *_m)
 	  CS* cs= *it;
 	  sprintf (buffer, " (%s:%d) ", cs->name.c_str(), cs->remote_port);
 	  line = " " + cs->nodename + buffer;
-	  line += "[" + cs->host_platform + "] speed= ";
+	  line += "[" + cs->host_platform + "] speed=";
 	  sprintf (buffer, "%.2f jobs=%d/%d load=%d", server_speed (cs),
 	  	   cs->joblist.size(), cs->max_jobs, cs->load);
-	  line = line + buffer;
+	  line += buffer;
+          if ( cs->busy_installing )
+            {
+              sprintf( buffer, "busy installing since %ld s",  time(0) - cs->busy_installing );
+              line += buffer;
+            }
 	  c->send_msg (TextMsg (line));
+          for ( list<Job*>::const_iterator it = cs->joblist.begin(); it != cs->joblist.end(); ++it )
+            {
+              Job *job = *it;
+              snprintf (buffer, sizeof (buffer), "   %d %s sub:%s on:%s ",
+                        job->id,
+                        job->state == Job::PENDING ? "PEND"
+                        : job->state == Job::WAITINGFORCS ? "WAIT"
+                        : job->state == Job::COMPILING ? "COMP"
+                        : "Huh?",
+                        job->submitter ? job->submitter->nodename.c_str() : "<>",
+                        job->server ? job->server->nodename.c_str() : "<unknown>");
+              buffer[sizeof (buffer) - 1] = 0;
+              line = buffer;
+              line = line + job->filename;
+              c->send_msg (TextMsg (line));
+            }
 	}
     }
   else if (m->text == "listjobs")
