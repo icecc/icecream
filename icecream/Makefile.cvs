@@ -10,6 +10,6 @@ all:
 		exit ;\
 	fi
 		
+	rm -f configure.in.in
 	ln -s configure.in.cvs configure.in.in
-
 	$(MAKE) -f admin/Makefile.common cvs
