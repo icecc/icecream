@@ -3,3 +3,6 @@
 * Don't explicitly forbid tunnels because it could be useful for things like
   vmware
 * keep better track of currently installing daemons (matz)
+* If someone calls a amd64 client on a host that runs a ia32 daemon and there are
+  no other amd64 daemons in the farm, he will get no answer, but a timeout from
+  scheduler (quite a corner case, but neat)
