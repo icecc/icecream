@@ -543,6 +543,11 @@ MsgChannel::get_msg(bool blocking)
     case M_MON_JOB_BEGIN: m = new MonJobBeginMsg; break;
     case M_MON_JOB_DONE: m = new MonJobDoneMsg; break;
     case M_MON_STATS: m = new MonStatsMsg; break;
+    case M_JOB_LOCAL_BEGIN: m = new JobLocalBeginMsg; break;
+    case M_JOB_LOCAL_ID: m = new JobLocalId; break;
+    case M_JOB_LOCAL_DONE: m = new JobLocalDoneMsg; break;
+    case M_MON_LOCAL_JOB_BEGIN: m = new MonLocalJobBeginMsg; break;
+    case M_MON_LOCAL_JOB_DONE: m = new MonLocalJobDoneMsg; break;
     default:
       log_error() << "unknown message type" << t << endl;
       return 0; break;
@@ -929,6 +934,51 @@ JobBeginMsg::send_to_channel (MsgChannel *c) const
   c->writeuint32 (stime);
 }
 
+void JobLocalBeginMsg::fill_from_channel( MsgChannel *c )
+{
+  Msg::fill_from_channel(c);
+  c->readuint32(stime);
+}
+
+void JobLocalBeginMsg::send_to_channel( MsgChannel *c ) const
+{
+  Msg::send_to_channel( c );
+  c->writeuint32(stime);
+}
+
+JobLocalDoneMsg::JobLocalDoneMsg (int id, int exit)
+  : Msg(M_JOB_LOCAL_DONE), exitcode( exit ), job_id( id )
+{
+}
+
+void JobLocalDoneMsg::fill_from_channel( MsgChannel *c )
+{
+  Msg::fill_from_channel(c);
+  unsigned int error = 255;
+  c->readuint32(error);
+  c->readuint32(job_id);
+  exitcode = ( int )error;
+}
+
+void JobLocalDoneMsg::send_to_channel( MsgChannel *c ) const
+{
+  Msg::send_to_channel( c );
+  c->writeuint32(( int )exitcode);
+  c->writeuint32(job_id);
+}
+
+void JobLocalId::fill_from_channel( MsgChannel *c )
+{
+  Msg::fill_from_channel(c);
+  c->readuint32(job_id);
+}
+
+void JobLocalId::send_to_channel( MsgChannel *c ) const
+{
+  Msg::send_to_channel( c );
+  c->writeuint32(job_id);
+}
+
 JobDoneMsg::JobDoneMsg (int id, int exit)
   : Msg(M_JOB_DONE),  exitcode( exit ), job_id( id )
 {
@@ -939,7 +989,6 @@ JobDoneMsg::JobDoneMsg (int id, int exit)
   idrss = 0;
   majflt = 0;
   nswap = 0;
-  exitcode = 0;
   in_compressed = 0;
   in_uncompressed = 0;
   out_compressed = 0;
@@ -1094,6 +1143,22 @@ MonJobBeginMsg::send_to_channel (MsgChannel *c) const
   c->writeuint32 (job_id);
   c->writeuint32 (stime);
   c->write_string (host);
+}
+
+void MonLocalJobBeginMsg::fill_from_channel (MsgChannel * c)
+{
+  Msg::fill_from_channel(c);
+  c->read_string(host);
+  c->readuint32( job_id );
+  c->readuint32( stime );
+}
+
+void MonLocalJobBeginMsg::send_to_channel (MsgChannel * c) const
+{
+  Msg::send_to_channel(c);
+  c->write_string( host );
+  c->writeuint32( job_id );
+  c->writeuint32( stime );
 }
 
 void

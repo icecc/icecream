@@ -44,6 +44,11 @@ enum MsgType {
   M_JOB_BEGIN,
   M_JOB_DONE,
 
+  // C --> S
+  M_JOB_LOCAL_BEGIN,
+  M_JOB_LOCAL_ID,
+  M_JOB_LOCAL_DONE,
+
   // CS --> S, first message sent
   M_LOGIN,
 
@@ -55,6 +60,8 @@ enum MsgType {
   M_MON_GET_CS,
   M_MON_JOB_BEGIN,
   M_MON_JOB_DONE,
+  M_MON_LOCAL_JOB_BEGIN,
+  M_MON_LOCAL_JOB_DONE,
   M_MON_STATS
 };
 
@@ -282,6 +289,32 @@ public:
   virtual void send_to_channel (MsgChannel * c) const;
 };
 
+class JobLocalBeginMsg : public Msg {
+public:
+  unsigned int stime;
+  JobLocalBeginMsg() : Msg( M_JOB_LOCAL_BEGIN ), stime(time(0)) {}
+  virtual void fill_from_channel (MsgChannel * c);
+  virtual void send_to_channel (MsgChannel * c) const;
+};
+
+class JobLocalId : public Msg {
+public:
+  unsigned int job_id;
+  JobLocalId() : Msg( M_JOB_LOCAL_ID ), job_id(0) {}
+  JobLocalId( unsigned int j ) : Msg( M_JOB_LOCAL_ID ), job_id( j ) {}
+  virtual void fill_from_channel (MsgChannel * c);
+  virtual void send_to_channel (MsgChannel * c) const;
+};
+
+class JobLocalDoneMsg : public Msg {
+public:
+  int exitcode;            /* exit code */
+  unsigned int job_id;
+  JobLocalDoneMsg (int job_id = 0, int exitcode = -1);
+  virtual void fill_from_channel (MsgChannel * c);
+  virtual void send_to_channel (MsgChannel * c) const;
+};
+
 class LoginMsg : public Msg {
 public:
   unsigned int port;
@@ -365,6 +398,30 @@ public:
     : JobDoneMsg(m)
   {
     type = M_MON_JOB_DONE;
+  }
+};
+
+class MonLocalJobBeginMsg : public Msg {
+public:
+  unsigned int job_id;
+  unsigned int stime;
+  std::string host;
+  MonLocalJobBeginMsg() : Msg(M_MON_LOCAL_JOB_BEGIN) {}
+  MonLocalJobBeginMsg( unsigned int id, unsigned int time, std::string name )
+    : Msg( M_MON_LOCAL_JOB_BEGIN ), job_id( id ), stime( time ), host( name ) {}
+  virtual void fill_from_channel (MsgChannel * c);
+  virtual void send_to_channel (MsgChannel * c) const;
+};
+
+class MonLocalJobDoneMsg : public JobLocalDoneMsg {
+public:
+  MonLocalJobDoneMsg() : JobLocalDoneMsg() {
+    type = M_MON_LOCAL_JOB_DONE;
+  }
+  MonLocalJobDoneMsg( const JobLocalDoneMsg &m )
+    : JobLocalDoneMsg(m)
+  {
+    type = M_MON_LOCAL_JOB_DONE;
   }
 };
 

@@ -49,6 +49,7 @@
 #include "remote.h"
 #include "local.h"
 
+#include <comm.h>
 #include <job.h>
 
 /* Name of this program, for trace.c */
@@ -141,8 +142,43 @@ int main(int argc, char **argv)
     CompileJob job;
     bool local = analyse_argv( argv, job );
 
+    Service *serv = new Service ("localhost", 10245);
+    MsgChannel *local_daemon = serv->channel();
+    if ( ! local_daemon ) {
+        log_error() << "no local daemon found\n";
+        return build_local( job, 0 );
+    }
+    if ( !local_daemon->send_msg( GetSchedulerMsg() ) ) {
+        log_error() << "failed to write get scheduler\n";
+        return build_local( job, 0 );
+    }
+
+    Msg *umsg = local_daemon->get_msg();
+    if ( !umsg || umsg->type != M_USE_SCHEDULER ) {
+        log_error() << "umsg != scheduler\n";
+        delete serv;
+        return build_local( job, 0 );
+    }
+    UseSchedulerMsg *ucs = dynamic_cast<UseSchedulerMsg*>( umsg );
+    delete serv;
+
+    // log_info() << "contacting scheduler " << ucs->hostname << ":" << ucs->port << endl;
+
+    serv = new Service( ucs->hostname, ucs->port );
+    MsgChannel *scheduler = serv->channel();
+    if ( ! scheduler ) {
+        log_error() << "no scheduler found at " << ucs->hostname << ":" << ucs->port << endl;
+        delete serv;
+        return build_local( job, 0 );
+    }
+    delete ucs;
+
+    int ret;
     if ( local )
-        return build_local( job );
+        ret = build_local( job, scheduler );
     else
-        return build_remote( job );
+        ret = build_remote( job, scheduler );
+
+    delete scheduler;
+    return ret;
 }

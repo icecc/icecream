@@ -222,6 +222,36 @@ handle_cs_request (MsgChannel *c, Msg *_m)
   return true;
 }
 
+static bool
+handle_local_job (MsgChannel *c, Msg *_m)
+{
+  JobLocalBeginMsg *m = dynamic_cast<JobLocalBeginMsg *>(_m);
+  if (!m)
+    return false;
+
+  ++new_job_id;
+  if ( !c->send_msg( JobLocalId( new_job_id ) ) )
+    return false;
+
+  notify_monitors (MonLocalJobBeginMsg( new_job_id, m->stime, c->other_end->name ) );
+  return true;
+}
+
+static bool
+handle_local_job_end (MsgChannel *c, Msg *_m)
+{
+  JobLocalDoneMsg *m = dynamic_cast<JobLocalDoneMsg *>(_m);
+  trace() << "handle_local_job_end " << m << endl;
+  if (!m)
+    return false;
+
+  trace() << "handle_local_job_end\n";
+  notify_monitors ( MonLocalJobDoneMsg( *m ) );
+  fd2chan.erase (c->fd);
+  delete c;
+  return true;
+}
+
 static float
 server_speed (CS *cs)
 {
@@ -507,6 +537,9 @@ try_login (MsgChannel *c, Msg *m)
     case M_MON_LOGIN:
       ret = handle_mon_login (c, m);
       break;
+    case M_JOB_LOCAL_BEGIN:
+      ret = handle_local_job(c, m);
+      break;
     default:
       log_info() << "Invalid first message" << endl;
       ret = false;
@@ -565,8 +598,9 @@ handle_activity (MsgChannel *c)
     case M_STATS: ret = handle_stats (c, m); break;
     case M_END: ret = handle_end (c, m); break;
     case M_TIMEOUT: ret = handle_timeout (c, m); break;
+    case M_JOB_LOCAL_DONE: ret = handle_local_job_end( c, m ); break;
     default:
-      log_info() << "Invalid message type arrived." << endl;
+      log_info() << "Invalid message type arrived " << ( char )m->type << endl;
       handle_end (c, m);
       ret = false;
       break;

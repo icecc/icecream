@@ -53,38 +53,8 @@ string get_absfilename( const string &_file )
     return file;
 }
 
-int build_remote(CompileJob &job )
+int build_remote(CompileJob &job, MsgChannel *scheduler )
 {
-    Service *serv = new Service ("localhost", 10245);
-    MsgChannel *local_daemon = serv->channel();
-    if ( ! local_daemon ) {
-        log_error() << "no local daemon found\n";
-        return build_local( job );
-    }
-    if ( !local_daemon->send_msg( GetSchedulerMsg() ) ) {
-        log_error() << "failed to write get scheduler\n";
-        return build_local( job );
-    }
-
-    Msg *umsg = local_daemon->get_msg();
-    if ( !umsg || umsg->type != M_USE_SCHEDULER ) {
-        log_error() << "umsg != scheduler\n";
-        delete serv;
-        return build_local( job );
-    }
-    UseSchedulerMsg *ucs = dynamic_cast<UseSchedulerMsg*>( umsg );
-    delete serv;
-
-    // log_info() << "contacting scheduler " << ucs->hostname << ":" << ucs->port << endl;
-
-    serv = new Service( ucs->hostname, ucs->port );
-    MsgChannel *scheduler = serv->channel();
-    if ( ! scheduler ) {
-        log_error() << "no scheduler found at " << ucs->hostname << ":" << ucs->port << endl;
-        return build_local( job );
-    }
-    delete ucs;
-
     const char *get = getenv( "ICECC_VERSION");
     if ( !get )
         get = "*";
@@ -98,16 +68,14 @@ int build_remote(CompileJob &job )
     GetCSMsg getcs (version, get_absfilename( job.inputFile() ), job.language() );
     if (!scheduler->send_msg (getcs)) {
         log_error() << "asked for CS\n";
-        delete serv;
-        return build_local( job );
+        return build_local( job, scheduler );
     }
-    umsg = scheduler->get_msg();
+    Msg * umsg = scheduler->get_msg();
     if (!umsg || umsg->type != M_USE_CS)
     {
         log_error() << "replied not with use_cs " << ( umsg ? ( char )umsg->type : '0' )  << endl;
         delete umsg;
-        delete serv;
-        return build_local( job );
+        return build_local( job, scheduler );
     }
     UseCSMsg *usecs = dynamic_cast<UseCSMsg *>(umsg);
     string hostname = usecs->hostname;
@@ -120,21 +88,19 @@ int build_remote(CompileJob &job )
     EndMsg em;
     // if the scheduler ignores us, ignore it in return :/
     ( void )scheduler->send_msg (em);
-    delete serv;
 
-    serv = new Service (hostname, port);
+    Service *serv = new Service (hostname, port);
     MsgChannel *cserver = serv->channel();
     if ( ! cserver ) {
         log_error() << "no server found behind given hostname " << hostname << ":" << port << endl;
-        delete serv;
-        return build_local( job );
+        return build_local( job, scheduler );
     }
 
     CompileFileMsg compile_file( &job );
     if ( !cserver->send_msg( compile_file ) ) {
         log_info() << "write of job failed" << endl;
         delete serv;
-        return build_local( job );
+        return build_local( job, scheduler );
     }
 
     int sockets[2];
@@ -145,7 +111,7 @@ int build_remote(CompileJob &job )
 
     pid_t cpp_pid = call_cpp(job, sockets[1] );
     if ( cpp_pid == -1 )
-        return build_local( job );
+        return build_local( job, scheduler );
     close(sockets[1]);
 
     unsigned char buffer[100000]; // some random but huge number
@@ -161,7 +127,7 @@ int build_remote(CompileJob &job )
                     log_info() << "write of source chunk failed " << offset << " " << bytes << endl;
                     close( sockets[0] );
                     kill( cpp_pid, SIGTERM );
-                    return build_local( job );
+                    return build_local( job, scheduler );
                 }
                 offset = 0;
             }
@@ -185,12 +151,12 @@ int build_remote(CompileJob &job )
     EndMsg emsg;
     if ( !cserver->send_msg( emsg ) ) {
         log_info() << "write of end failed" << endl;
-        return build_local( job );
+        return build_local( job, scheduler );
     }
 
     Msg *msg = cserver->get_msg();
     if ( !msg )
-        return build_local( job );
+        return build_local( job, scheduler );
 
     if ( msg->type != M_COMPILE_RESULT )
         return EXIT_PROTOCOL_ERROR;

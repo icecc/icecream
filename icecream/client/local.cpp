@@ -7,6 +7,8 @@
 #include <errno.h>
 #include "logging.h"
 #include "filename.h"
+#include <comm.h>
+#include <sys/wait.h>
 
 using namespace std;
 
@@ -72,7 +74,7 @@ string find_compiler( const string &compiler )
  *
  * This is called with a lock on localhost already held.
  **/
-int build_local(CompileJob &job)
+int build_local(CompileJob &job, MsgChannel *scheduler)
 {
     std::list<string> arguments;
 
@@ -104,5 +106,30 @@ int build_local(CompileJob &job)
         trace() << argv[i] << " ";
     trace() << endl;
 #endif
-    return execv( argv[0], argv ); // if it returns at all
+    pid_t child = 0;
+
+    if ( scheduler )
+        child = fork();
+
+    if ( child ) {
+        scheduler->send_msg( JobLocalBeginMsg() );
+        Msg * umsg = scheduler->get_msg();
+        uint job_id = 0;
+        if (!umsg || umsg->type != M_JOB_LOCAL_ID)
+        {
+            log_error() << "replied not with local job id " << ( umsg ? ( char )umsg->type : '0' )  << endl;
+            delete umsg;
+            scheduler = 0;
+        } else
+            job_id = dynamic_cast<JobLocalId*>( umsg )->job_id;
+
+        int status;
+        wait( &status );
+        status = WEXITSTATUS(status);
+        if ( scheduler )
+            scheduler->send_msg( JobLocalDoneMsg( job_id, status ) );
+        return status;
+    } else {
+        return execv( argv[0], argv ); // if it returns at all
+    }
 }
