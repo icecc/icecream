@@ -87,8 +87,8 @@ handle_cs_request (MsgChannel *c, Msg *_m)
 
   list<CS*>::iterator it;
   for (it = css.begin(); it != css.end(); ++it)
-      if (c->other_end->eq_ip (**it))
-          break;
+    if (c->other_end->eq_ip (**it))
+      break;
   if (it == css.end())
     {
       fprintf (stderr, "Asking host not connected\n");
@@ -150,17 +150,18 @@ empty_queue()
     return true;
   UseCSMsg m2(cs->name, cs->remote_port, new_job_id);
 
-  if (!c->send_msg (m2)) {
-    trace() << "failed to deliver job " << new_job_id << endl;
+  if (!c->send_msg (m2))
+    {
+      trace() << "failed to deliver job " << new_job_id << endl;
 
-    c->send_msg (EndMsg()); // most likely won't work
-    tochoose = true;
-    Job *j = jobs[new_job_id];
-    j->server->joblist.remove (j);
-    jobs.erase (new_job_id);
-    delete j;
-    return true;
-  }
+      c->send_msg (EndMsg()); // most likely won't work
+      tochoose = true;
+      Job *j = jobs[new_job_id];
+      j->server->joblist.remove (j);
+      jobs.erase (new_job_id);
+      delete j;
+      return true;
+    }
   return true;
 }
 
