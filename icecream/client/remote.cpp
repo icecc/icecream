@@ -20,6 +20,8 @@
 
 #include <comm.h>
 #include "client.h"
+#include "tempfile.h"
+#include "md5.h"
 
 #ifndef O_LARGEFILE
 #define O_LARGEFILE 0
@@ -64,7 +66,7 @@ string get_absfilename( const string &_file )
     return file;
 }
 
-static Service *get_server_for_job( CompileJob &job,  MsgChannel *scheduler, bool &got_env )
+static UseCSMsg *get_server( MsgChannel *scheduler )
 {
     Msg * umsg = scheduler->get_msg();
     if (!umsg || umsg->type != M_USE_CS)
@@ -74,31 +76,26 @@ static Service *get_server_for_job( CompileJob &job,  MsgChannel *scheduler, boo
         throw( 1 );
     }
     UseCSMsg *usecs = dynamic_cast<UseCSMsg *>(umsg);
+    return usecs;
+}
+
+static int build_remote_int(CompileJob &job, UseCSMsg *usecs, const string &version_file, bool output )
+{
     string hostname = usecs->hostname;
     unsigned int port = usecs->port;
     int job_id = usecs->job_id;
-    got_env = usecs->got_env;
+    bool got_env = usecs->got_env;
     job.setJobID( job_id );
     job.setEnvironmentVersion( usecs->environment ); // hoping on the scheduler's wisdom
-    trace() << "Have to use host " << hostname << ":" << port << " - Job ID: " << job.jobID() << " " << getpid() << "\n";
-    delete usecs;
+    trace() << "Have to use host " << hostname << ":" << port << " - Job ID: " << job.jobID() << " " << "\n";
 
     Service *serv = new Service (hostname, port);
 
-    trace() << getpid() << " service is there " << serv->channel() << endl;
     MsgChannel *cserver = serv->channel();
-    if ( ! cserver ) {
+    if ( !cserver || !cserver->protocol ) {
         log_warning() << "no server found behind given hostname " << hostname << ":" << port << endl;
         throw ( 2 );
     }
-
-    return serv;
-}
-
-static int build_remote_int(CompileJob &job, Service *serv, const string &version_file,
-                            bool got_env, bool output )
-{
-    MsgChannel *cserver = serv->channel();
 
     unsigned char buffer[100000]; // some random but huge number
 
@@ -257,6 +254,36 @@ static int build_remote_int(CompileJob &job, Service *serv, const string &versio
     return status;
 }
 
+string md5_for_file( const string & file )
+{
+    md5_state_t state;
+    string result;
+
+    md5_init(&state);
+    FILE *f = fopen( file.c_str(), "rb" );
+    if ( !f )
+        return result;
+
+    md5_byte_t buffer[40000];
+
+    while ( true ) {
+        size_t size = fread(buffer, 1, 40000, f);
+        if ( !size )
+            break;
+        md5_append(&state, buffer, size );
+    }
+
+    md5_byte_t digest[16];
+    md5_finish(&state, digest);
+
+    char digest_cache[33];
+    for (int di = 0; di < 16; ++di)
+        sprintf(digest_cache + di * 2, "%02x", digest[di]);
+    digest_cache[32] = 0;
+    result = digest_cache;
+    return result;
+}
+
 int build_remote(CompileJob &job, MsgChannel *scheduler )
 {
     char *get = getenv( "ICECC_VERSION");
@@ -284,25 +311,26 @@ int build_remote(CompileJob &job, MsgChannel *scheduler )
         torepeat = 1;
 
     if ( torepeat == 1 ) {
-        bool got_env = false;
-        Service *serv = get_server_for_job( job, scheduler, got_env );
-        return build_remote_int( job, serv, version_file, got_env, true );
+        UseCSMsg *usecs = get_server( scheduler );
+        int ret = build_remote_int( job, usecs, version_file, true );
+        delete usecs;
+        return ret;
     } else {
-        pid_t first;
         map<pid_t, int> jobmap;
-        Service **servs = new Service*[torepeat];
         CompileJob *jobs = new CompileJob[torepeat];
-        bool *got_envs = new bool[torepeat];
+        UseCSMsg **umsgs = new UseCSMsg*[torepeat];
 
         for ( int i = 0; i < torepeat; i++ ) {
             jobs[i] = job;
             char buffer[PATH_MAX];
             if ( i ) {
-                sprintf( buffer,  "/tmp/icecream_file_%02d", i );
+                dcc_make_tmpnam( "icecc", ".o", buffer, 0 );
                 jobs[i].setOutputFile( buffer );
             } else
                 sprintf( buffer, job.outputFile().c_str() );
-            servs[i] = get_server_for_job( jobs[i], scheduler, got_envs[i] );
+
+            umsgs[i] = get_server( scheduler );
+            trace() << "got_server_for_job " << umsgs[i]->hostname << endl;
         }
 
         for ( int i = 0; i < torepeat; i++ ) {
@@ -310,34 +338,65 @@ int build_remote(CompileJob &job, MsgChannel *scheduler )
             if ( !pid ) {
                 int ret = -1;
                 try {
-                    ret = build_remote_int( jobs[i], servs[i], version_file, got_envs[i], i == 0 );
+                    ret = build_remote_int( jobs[i], umsgs[i], version_file, i == 0 );
                 } catch ( int error ) {
-                    delete scheduler;
-                    scheduler = 0;
-                    ret = build_local( jobs[i], 0 );
+                    if ( i == 0 ) { // ignore for misc jobs
+                        trace() << "build first job locally" << endl;
+                        ret = build_local( jobs[i], 0 );
+                    }
                 }
                 ::exit( ret );
                 return 0; // doesn't matter
             } else {
-                if ( !i )
-                    first = pid;
                 jobmap[pid] = i;
             }
         }
         int status;
-        int exit_code = -1;
+        int *exit_codes = new int[torepeat];
+
         for ( int i = 0; i < torepeat; i++ ) {
             pid_t pid = wait( &status );
             if ( pid < 0 ) {
                 perror( "wait failed" );
                 status = -1;
             } else {
-                if ( pid == first )
-                    exit_code = status;
-                printf( "file %s compiled with %d\n", jobs[jobmap[pid]].outputFile().c_str(), status );
+                exit_codes[jobmap[pid]] = status;
+                trace() << "status " << jobmap[pid] << " " << status << endl;
             }
         }
 
-        return exit_code;
+        string first_md5 = md5_for_file( jobs[0].outputFile() );
+
+        for ( int i = 1; i < torepeat; i++ ) {
+            if ( !exit_codes[0] ) { // if the first failed, we fail anyway
+                if ( exit_codes[i] ) {
+                    log_error() << umsgs[i]->hostname << " compiled with exit code " << exit_codes[i]
+                                << " and " << umsgs[0]->hostname << " compiled with exit code " << exit_codes[0] << " - aborting!\n";
+                    exit_codes[0] = -1; // overwrite
+                    break;
+                }
+
+                string other_md5 = md5_for_file( jobs[i].outputFile() );
+
+                if ( other_md5 != first_md5 ) {
+                    log_error() << umsgs[i]->hostname << " compiled with md5 sum " << other_md5 << "(" << jobs[i].outputFile() << ")"
+                                << " and " << umsgs[0]->hostname << " compiled with md5 sum " << first_md5 << " - aborting!\n";
+                    exit_codes[0] = -1; // overwrite
+                    break;
+                }
+            }
+
+            ::unlink( jobs[i].outputFile().c_str() );
+            delete umsgs[i];
+        }
+        delete umsgs[0];
+
+        int ret = exit_codes[0];
+
+        delete [] umsgs;
+        delete [] jobs;
+        delete [] exit_codes;
+
+        return ret;
     }
 }

@@ -123,7 +123,7 @@ int handle_connection( const string &basedir, CompileJob *job, MsgChannel *serv,
             assert(0);
 
     int ret;
-    if ( ( ret = dcc_make_tmpnam("icecc", dot, tmp_input ) ) != 0 ) {
+    if ( ( ret = dcc_make_tmpnam("icecc", dot, tmp_input, 1 ) ) != 0 ) {
         log_error() << "can't create tmpfile " << strerror( errno ) << endl;
         throw myexception( ret );
     }

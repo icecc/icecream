@@ -50,7 +50,7 @@ int work_it( CompileJob &j,
     int ret;
 
     char tmp_output[PATH_MAX];
-    if ( ( ret = dcc_make_tmpnam("icecc", ".o", tmp_output ) ) != 0 )
+    if ( ( ret = dcc_make_tmpnam("icecc", ".o", tmp_output, 1 ) ) != 0 )
         return ret;
 
     outfilename = tmp_output;

@@ -2,7 +2,7 @@ INCLUDES = -I$(srcdir)/../services
 
 bin_PROGRAMS = icecc
 bin_SCRIPTS = create-env
-icecc_SOURCES = main.cpp arg.cpp cpp.cpp local.cpp remote.cpp util.cpp
+icecc_SOURCES = main.cpp arg.cpp cpp.cpp local.cpp remote.cpp util.cpp md5.c
 icecc_LDADD = ../services/libcommon.la
 
 CLEANFILES = icecc++

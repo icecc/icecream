@@ -62,7 +62,7 @@
  **/
 int dcc_make_tmpnam(const char *prefix,
                     const char *suffix,
-                    char *name_ret)
+                    char *name_ret, int relative)
 {
     unsigned long random_bits;
     int fd;
@@ -86,7 +86,7 @@ int dcc_make_tmpnam(const char *prefix,
 
     do {
         if (snprintf(name_ret, PATH_MAX, "%s/%s_%08lx%s",
-                      _PATH_TMP + 1,
+                     _PATH_TMP + ( relative ? 1 : 0),
                       prefix,
                       random_bits & 0xffffffffUL,
                       suffix) == -1)
