@@ -215,8 +215,10 @@ static void dcc_daemon_terminate(int whichsig)
     raise(whichsig);
 }
 
+string *scheduler_host = 0;
+unsigned int scheduler_port = 8765;
 
-int main( int , char ** )
+int main( int argc, char ** argv )
 {
     int listen_fd;
     int n_cpus;
@@ -225,7 +227,16 @@ int main( int , char ** )
     if ((ret = dcc_socket_listen(10245, &listen_fd)) != 0)
         return ret;
 
-    Service *scheduler = new Service( "localhost", 8765 );
+    string host = "localhost";
+
+    if ( argc > 1 )
+        host = argv[1];
+
+    if ( argc > 2 )
+        scheduler_port = atoi( argv[2] );
+
+    scheduler_host = new string( host );
+    Service *scheduler = new Service( host, scheduler_port );
     MsgChannel *channel = scheduler->channel();
     if ( !channel ) {
         log_error() << "no scheduler found\n";

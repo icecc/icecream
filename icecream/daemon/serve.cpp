@@ -79,6 +79,7 @@
 #include "tempfile.h"
 #include "workit.h"
 #include "logging.h"
+#include "serve.h"
 #include <sys/sendfile.h>
 // #include <scheduler.h>
 
@@ -141,8 +142,21 @@ int handle_connection( MsgChannel *serv )
     dcc_ignore_sigpipe(1);
 
     Msg *msg = serv->get_msg();
-    if ( !msg || msg->type != M_COMPILE_FILE )
+    if ( !msg ) {
+        log_error() << "no message?\n";
         return EXIT_PROTOCOL_ERROR;
+    }
+
+    if ( msg->type == M_GET_SCHEDULER ) {
+        UseSchedulerMsg m( *scheduler_host, scheduler_port );
+        serv->send_msg( m );
+        return 0;
+    }
+
+    if ( msg->type != M_COMPILE_FILE ) {
+        log_error() << "not compile\n";
+        return EXIT_PROTOCOL_ERROR;
+    }
 
     CompileJob *job = dynamic_cast<CompileFileMsg*>( msg )->job;
     delete msg;

@@ -196,7 +196,11 @@ MsgChannel::get_msg(void)
   case M_JOB_DONE: m = new JobDoneMsg; break;
   case M_LOGIN: m = new LoginMsg; break;
   case M_STATS: m = new StatsMsg; break;
-  default: return 0; break;
+  case M_GET_SCHEDULER: m = new GetSchedulerMsg; break;
+  case M_USE_SCHEDULER: m = new UseSchedulerMsg; break;
+  default:
+      abort();
+      return 0; break;
   }
   if (!m->fill_from_fd (fd))
     {
@@ -484,4 +488,40 @@ StatsMsg::send_to_fd (int fd) const
     return false;
   abort();
   return true;
+}
+
+bool
+GetSchedulerMsg::fill_from_fd (int fd)
+{
+  if (!Msg::fill_from_fd (fd))
+    return false;
+  return true;
+}
+
+bool
+GetSchedulerMsg::send_to_fd (int fd) const
+{
+  if (!Msg::send_to_fd (fd))
+    return false;
+  return true;
+}
+
+bool
+UseSchedulerMsg::fill_from_fd (int fd)
+{
+  if (!Msg::fill_from_fd (fd))
+    return false;
+  bool ret = ( readuint (fd, &port)
+               && read_string (fd, hostname));
+  port = 10245;
+  return ret;
+}
+
+bool
+UseSchedulerMsg::send_to_fd (int fd) const
+{
+  if (!Msg::send_to_fd (fd))
+    return false;
+  return ( writeuint (fd, port)
+           && write_string (fd, hostname));
 }

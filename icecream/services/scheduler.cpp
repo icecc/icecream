@@ -44,7 +44,7 @@ public:
   mutable list<Job*> joblist;
   list<string> compiler_versions;  // Available compilers
   enum {AVAILABLE, DISCONNECTED} state;
-  CS (struct sockaddr *addr, socklen_t len) : Service (addr, len) {}
+  CS (struct sockaddr *_addr, socklen_t _len) : Service (_addr, _len) {}
 };
 
 // A subset of connected_hosts representing the compiler servers

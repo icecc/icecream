@@ -18,6 +18,11 @@ enum MsgType {
   // Fake message used in message reading loops (A<->A)
   M_TIMEOUT,
 
+  // C --> CS
+  M_GET_SCHEDULER,
+  // CS -> C
+  M_USE_SCHEDULER,
+
   // C --> S
   M_GET_CS,
   // S --> C
@@ -119,6 +124,25 @@ public:
   UseCSMsg () : Msg(M_USE_CS) {}
   UseCSMsg (Service &s, unsigned int id) : Msg(M_USE_CS), job_id(id),
     hostname (s.name), port (s.port) {}
+  virtual bool fill_from_fd (int fd);
+  virtual bool send_to_fd (int fd) const;
+};
+
+
+class GetSchedulerMsg : public Msg {
+public:
+  GetSchedulerMsg () : Msg(M_GET_SCHEDULER) {}
+  virtual bool fill_from_fd (int fd);
+  virtual bool send_to_fd (int fd) const;
+};
+
+class UseSchedulerMsg : public Msg {
+public:
+  std::string hostname;
+  unsigned int port;
+  UseSchedulerMsg () : Msg(M_USE_SCHEDULER) {}
+  UseSchedulerMsg (std::string host, unsigned int p)
+      : Msg(M_USE_SCHEDULER), hostname (host), port (p) {}
   virtual bool fill_from_fd (int fd);
   virtual bool send_to_fd (int fd) const;
 };

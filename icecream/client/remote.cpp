@@ -52,12 +52,34 @@ string get_absfilename( const string &_file )
 
 int build_remote(CompileJob &job )
 {
-    Service *serv = new Service ("localhost", 8765);
-    MsgChannel *scheduler = serv->channel();
-    if ( ! scheduler ) {
-        log_error() << "no scheduler found\n";
+    Service *serv = new Service ("localhost", 10245);
+    MsgChannel *local_daemon = serv->channel();
+    if ( ! local_daemon ) {
+        log_error() << "no local daemon found\n";
         return build_local( job );
     }
+    if ( !local_daemon->send_msg( GetSchedulerMsg() ) ) {
+        log_error() << "failed to write get scheduler\n";
+        return build_local( job );
+    }
+    Msg *umsg = local_daemon->get_msg();
+    if ( !umsg || umsg->type != M_USE_SCHEDULER ) {
+        log_error() << "umsg != scheduler\n";
+        delete local_daemon;
+        delete serv;
+        return build_local( job );
+    }
+    UseSchedulerMsg *ucs = dynamic_cast<UseSchedulerMsg*>( umsg );
+    delete local_daemon;
+    delete serv;
+
+    serv = new Service( ucs->hostname, ucs->port );
+    MsgChannel *scheduler = serv->channel();
+    if ( ! scheduler ) {
+        log_error() << "no scheduler found at " << ucs->hostname << ":" << ucs->port << endl;
+        return build_local( job );
+    }
+    delete ucs;
 
     // TODO: getenv("ICECC_VERSION")
     GetCSMsg getcs ("gcc33", get_absfilename( job.inputFile() ), job.language() );
@@ -65,7 +87,7 @@ int build_remote(CompileJob &job )
         delete serv;
         return build_local( job );
     }
-    Msg *umsg = scheduler->get_msg();
+    umsg = scheduler->get_msg();
     if (!umsg || umsg->type != M_USE_CS)
     {
        delete umsg;
