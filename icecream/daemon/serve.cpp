@@ -74,10 +74,10 @@
 
 #include "exitcode.h"
 #include "client_comm.h"
-#include "arg.h"
 #include "tempfile.h"
 #include "workit.h"
 #include <sys/sendfile.h>
+#include <scheduler.h>
 
 using namespace std;
 
@@ -212,13 +212,26 @@ int run_job(int in_fd,
         return EXIT_PROTOCOL_ERROR;
     }
 
-    find_flags( argv, j );
+    /*    find_flags( argv, j );
 
+    Scheduler_Stub scheduler = Scheduler::findScheduler();
+    if ( scheduler.isNull() ) {
+        // TODO: goto run_local
+        printf( "No Scheduler found\n" );
+        return -1;
+    }
+    Server_Stub server = scheduler.findServer( j ); // sets job-ID
+    if ( server.isNull() ) {
+        // TODO: goto run_local
+        printf( "No Server found\n" );
+        return -1;
+    }
+    */
     int status;
     string str_out;
     string str_err;
     string filename;
-    ret = work_it( j, preproc, preproc_length, str_out, str_err, status, filename );
+    // TODO ret = server.work_it( j, preproc, preproc_length, str_out, str_err, status, filename );
     if ( ret )
         return ret;
 

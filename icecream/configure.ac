@@ -1,7 +1,7 @@
 # quite some macros are taken from distcc
 
 AC_PREREQ(2.53)
-AC_INIT(common/exec.c)
+AC_INIT(client/main.cpp)
 AM_INIT_AUTOMAKE(icecream, "0.1")
 AC_CONFIG_HEADERS(config.h)
 AC_CANONICAL_HOST
@@ -130,6 +130,6 @@ AC_CHECK_FUNCS([strndup mmap strlcpy])
 
 AC_CHECK_DECLS([snprintf, vsnprintf, vasprintf, asprintf, strndup])
 
-AC_CONFIG_FILES([Makefile common/Makefile client/Makefile daemon/Makefile services/Makefile])
+AC_CONFIG_FILES([Makefile client/Makefile daemon/Makefile services/Makefile])
 AC_OUTPUT
 

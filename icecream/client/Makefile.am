@@ -1,8 +1,11 @@
-INCLUDES = -I$(srcdir)/../common -I$(srcdir)/../services
+INCLUDES = -I$(srcdir)/../services
 
 bin_PROGRAMS = icecc
-icecc_LDADD = ../common/libcommon.la
-icecc_SOURCES = arg.c climasq.c clinet.c clirpc.c cpp.c main.c implicit.c strip.c
+icecc_SOURCES = main.cpp arg.cpp argutil.cpp climasq.cpp clinet.cpp \
+	cpp.cpp exec.cpp filename.cpp implicit.cpp netutil.cpp io.cpp \
+	safeguard.cpp sendfile.cpp strip.cpp tempfile.cpp timeval.cpp util.cpp
+
+CLEANFILES = icecc++
 
 all-local: icecc++
 
