@@ -16,6 +16,7 @@
 #include <unistd.h>
 #include <stdio.h>
 #include <errno.h>
+#include <map>
 
 #include <comm.h>
 #include "client.h"
@@ -63,16 +64,11 @@ string get_absfilename( const string &_file )
     return file;
 }
 
-int build_remote(CompileJob &job, MsgChannel *scheduler )
+static Service *get_server_for_job( CompileJob &job,  MsgChannel *scheduler, string &version_file, bool &got_env )
 {
-    char *get = getenv( "ICECC_VERSION");
-    string version_file = "*";
-    if ( get )
-        version_file = get;
     string version = version_file;
     string suff = ".tar.bz2";
-    off_t offset;
-    unsigned char buffer[100000]; // some random but huge number
+
     if ( version.size() > suff.size() && version.substr( version.size() - suff.size() ) == suff )
     {
         version = find_basename( version.substr( 0, version.size() - suff.size() ) );
@@ -94,13 +90,14 @@ int build_remote(CompileJob &job, MsgChannel *scheduler )
     string hostname = usecs->hostname;
     unsigned int port = usecs->port;
     int job_id = usecs->job_id;
-    bool got_env = usecs->got_env;
+    got_env = usecs->got_env;
     job.setJobID( job_id );
     job.setEnvironmentVersion( usecs->environment ); // hoping on the scheduler's wisdom
     trace() << "Have to use host " << hostname << ":" << port << " - Job ID: " << job.jobID() << " " << getpid() << "\n";
     delete usecs;
 
     Service *serv = new Service (hostname, port);
+
     trace() << getpid() << " service is there " << serv->channel() << endl;
     MsgChannel *cserver = serv->channel();
     if ( ! cserver ) {
@@ -108,7 +105,19 @@ int build_remote(CompileJob &job, MsgChannel *scheduler )
         throw ( 2 );
     }
 
+    return serv;
+}
+
+static int build_remote_int(CompileJob &job, Service *serv, const string &version_file,
+                            bool got_env, bool output )
+{
+    MsgChannel *cserver = serv->channel();
+
+    unsigned char buffer[100000]; // some random but huge number
+
     trace() << "got environment " << ( got_env ? "true" : "false" ) << endl;
+
+    off_t offset = 0;
 
     if ( !got_env ) {
         if ( ::access( version_file.c_str(), R_OK ) ) {
@@ -224,8 +233,10 @@ int build_remote(CompileJob &job, MsgChannel *scheduler )
     assert ( crmsg );
 
     status = crmsg->status;
-    fprintf( stdout, "%s", crmsg->out.c_str() );
-    fprintf( stderr, "%s", crmsg->err.c_str() );
+    if ( output ) {
+        fprintf( stdout, "%s", crmsg->out.c_str() );
+        fprintf( stderr, "%s", crmsg->err.c_str() );
+    }
 
     assert( !job.outputFile().empty() );
 
@@ -257,4 +268,71 @@ int build_remote(CompileJob &job, MsgChannel *scheduler )
             unlink( tmp_file.c_str());
     }
     return status;
+}
+
+int build_remote(CompileJob &job, MsgChannel *scheduler )
+{
+    char *get = getenv( "ICECC_VERSION");
+    string version_file = "*";
+    if ( get )
+        version_file = get;
+
+    int torepeat = 1;
+    if ( torepeat == 1 ) {
+        bool got_env = false;
+        Service *serv = get_server_for_job( job, scheduler, version_file, got_env );
+        return build_remote_int( job, serv, version_file, got_env, true );
+    } else {
+        pid_t first;
+        map<pid_t, int> jobmap;
+        Service **servs = new Service*[torepeat];
+        CompileJob *jobs = new CompileJob[torepeat];
+        bool *got_envs = new bool[torepeat];
+
+        for ( int i = 0; i < torepeat; i++ ) {
+            jobs[i] = job;
+            char buffer[PATH_MAX];
+            if ( i ) {
+                sprintf( buffer,  "/tmp/icecream_file_%02d", i );
+                jobs[i].setOutputFile( buffer );
+            } else
+                sprintf( buffer, job.outputFile().c_str() );
+            servs[i] = get_server_for_job( jobs[i], scheduler, version_file, got_envs[i] );
+        }
+
+        for ( int i = 0; i < torepeat; i++ ) {
+            pid_t pid = fork();
+            if ( !pid ) {
+                int ret = -1;
+                try {
+                    ret = build_remote_int( jobs[i], servs[i], version_file, got_envs[i], i == 0 );
+                } catch ( int error ) {
+                    delete scheduler;
+                    scheduler = 0;
+                    ret = build_local( jobs[i], 0 );
+                }
+                ::exit( ret );
+                return 0; // doesn't matter
+            } else {
+                if ( !i )
+                    first = pid;
+                jobmap[pid] = i;
+            }
+        }
+        int status;
+        int exit_code = -1;
+        for ( int i = 0; i < torepeat; i++ ) {
+            pid_t pid = wait( &status );
+            if ( pid < 0 ) {
+                perror( "wait failed" );
+                status = -1;
+            } else {
+                if ( pid == first )
+                    exit_code = status;
+                printf( "file %s compiled with %d\n", jobs[jobmap[pid]].outputFile().c_str(), status );
+            }
+        }
+
+        return exit_code;
+    }
 }

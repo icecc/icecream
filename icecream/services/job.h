@@ -66,6 +66,26 @@ public:
         return m_id;
     }
 
+    CompileJob( const CompileJob &rhs ) {
+        m_id = rhs.m_id;
+        m_language = rhs.m_language;
+        m_environment_version = rhs.m_environment_version;
+        m_flags = rhs.m_flags;
+        m_input_file = rhs.m_input_file;
+        m_output_file = rhs.m_output_file;
+    }
+
+    CompileJob &operator=( const CompileJob &rhs ) {
+        m_id = rhs.m_id;
+        m_language = rhs.m_language;
+        m_environment_version = rhs.m_environment_version;
+        m_flags = rhs.m_flags;
+        m_input_file = rhs.m_input_file;
+        m_output_file = rhs.m_output_file;
+
+        return *this;
+    }
+
 private:
     std::list<std::string> flags( Argument_Type argumentType ) const;
 
