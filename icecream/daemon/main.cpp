@@ -534,9 +534,12 @@ int main( int argc, char ** argv )
             if ( ret > 0 ) {
                 if ( FD_ISSET( scheduler->fd, &listen_set ) ) {
                     Msg *msg = scheduler->get_msg();
-                    if ( !msg )
+                    if ( !msg ) {
                         log_error() << "no message from scheduler\n";
-                    else {
+                        delete scheduler;
+                        scheduler = 0;
+                        break;
+                     } else {
                         if ( msg->type == M_PING ) {
                             StatsMsg smsg;
                             if ( !fill_stats( smsg ) )
