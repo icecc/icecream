@@ -39,12 +39,12 @@ if test -z "`type -p gcc`"; then
   exit 1
 fi
 
-add_file `type -p gcc`
-add_file `type -p g++`
-add_file `type -p as`
-add_file `gcc -print-prog-name=cc1`
-add_file `g++ -print-prog-name=cc1plus`
-add_file `gcc -print-file-name=specs`
+add_file /usr/bin/gcc
+add_file /usr/bin/g++
+add_file /usr/bin/as
+add_file `/usr/bin/gcc -print-prog-name=cc1
+add_file `/usr/bin/g++ -print-prog-name=cc1plus`
+add_file `/usr/bin/gcc -print-file-name=specs`
 
 # now sort the files in order to make the md5sums independent
 # of ordering
