@@ -445,7 +445,7 @@ Service::check_protocol( int fd )
     perror( "read(acc_fd, 4)" );
     return false;
   } else {
-    bool ret = ( vers[0] != PROTOCOL_VERSION );
+    bool ret = ( vers[0] == PROTOCOL_VERSION );
     vers[0] = ret ? 1 : 0;
     if ( write( fd, vers, 1 ) != 1 )
       return false;

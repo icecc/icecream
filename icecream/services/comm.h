@@ -11,7 +11,7 @@
 
 #include "job.h"
 
-#define PROTOCOL_VERSION 2
+#define PROTOCOL_VERSION 3
 
 enum MsgType {
   // so far unknown
