@@ -240,16 +240,21 @@ add_job_stats (Job *job, JobDoneMsg *msg)
        job->arg_flags & CompileJob::Flag_Ol2)
 	st.osize = st.osize * 58 / 35;
 
-  /* Smooth out spikes by not allowing one job to add more than
-     20% of the current speed.  */
-  float this_speed = (float) st.osize / (float) st.compile_time_user;
-  /* The current speed of the server, but without adjusting to the current
-     job, hence no second argument.  */
-  float cur_speed = server_speed (job->server);
-  if ((this_speed / 1.2) > cur_speed && cur_speed)
-    st.osize = (long unsigned) (cur_speed * 1.2 * st.compile_time_user);
-  else if ((this_speed * 1.2) < cur_speed)
-    st.osize = (long unsigned) (cur_speed / 1.2 * st.compile_time_user);
+  if ( job->server->last_compiled_jobs.size() >= 7)
+    {
+    /* Smooth out spikes by not allowing one job to add more than
+       20% of the current speed.  */
+    float this_speed = (float) st.osize / (float) st.compile_time_user;
+    /* The current speed of the server, but without adjusting to the current
+       job, hence no second argument.  */
+    float cur_speed = (float)job->server->cum_compiled.osize
+                      / (float)job->server->cum_compiled.compile_time_user;
+
+    if ((this_speed / 1.2) > cur_speed)
+      st.osize = (long unsigned) (cur_speed * 1.2 * st.compile_time_user);
+    else if ((this_speed * 1.2) < cur_speed)
+      st.osize = (long unsigned) (cur_speed / 1.2 * st.compile_time_user);
+  }
 
   job->server->last_compiled_jobs.push_back (st);
   job->server->cum_compiled += st;
@@ -284,7 +289,9 @@ add_job_stats (Job *job, JobDoneMsg *msg)
             << ( job->arg_flags & CompileJob::Flag_O2 ? '1' : '0')
             << ( job->arg_flags & CompileJob::Flag_Ol2 ? '1' : '0')
             << " " << st.osize << " " << msg->out_uncompressed << " "
-            << job->server->nodename << " " << server_speed( job->server ) << endl ;
+            << job->server->nodename << " " 
+            << float(msg->out_uncompressed) / st.compile_time_user << " " 
+            << server_speed( job->server ) << endl ;
 
 }
 
