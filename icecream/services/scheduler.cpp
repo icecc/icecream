@@ -745,8 +745,8 @@ handle_end (MsgChannel *c, Msg *)
 	{
 	  if (it->second->channel == c)
 	    {
-	      Job *job = it->second;
 	      trace() << "STOP FOR " << it->first << endl;
+	      Job *job = it->second;
 
 	      /* Remove this job from the request queue.  */
 	      queue<UnansweredList*> newtoanswer;
@@ -761,11 +761,11 @@ handle_end (MsgChannel *c, Msg *)
 		  else
 		    newtoanswer.push(l);
 		}
-
 	      toanswer = newtoanswer;
-	      
-	      jobs.erase( it );
-	      delete it->second; // closes socket -> causes continuing
+
+	      job->server->joblist.remove (job);
+	      jobs.erase (it);
+	      delete job; // closes socket -> causes continuing
 	    }
 	}
     }
