@@ -143,7 +143,9 @@ static void dcc_daemon_terminate(int whichsig)
     raise(whichsig);
 }
 
-
+void empty_func( int )
+{
+}
 
 int main( int /*argc*/, char ** /*argv*/ )
 {
@@ -212,6 +214,20 @@ int main( int /*argc*/, char ** /*argv*/ )
         log_warning() << "signal(SIGPIPE, ignore) failed: " << strerror(errno) << endl;
         exit( EXIT_DISTCC_FAILED );
     }
+
+    /* Setup the SIGCHLD handler.  Make sure we mark it as not restarting
+       some syscalls.  The loop below depends on the fact, that select
+       returns when a SIGCHLD arrives.  */
+    struct sigaction act;
+    sigemptyset( &act.sa_mask );
+
+    act.sa_handler = empty_func;
+    act.sa_flags = SA_NOCLDSTOP;
+    sigaction( SIGCHLD, &act, 0 );
+
+    sigaddset( &act.sa_mask, SIGCHLD );
+    // Make sure we don't block this signal. gdb tends to do that :-(
+    sigprocmask( SIG_UNBLOCK, &act.sa_mask, 0 );
 
     /* This is called in the master daemon, whether that is detached or
      * not.  */
