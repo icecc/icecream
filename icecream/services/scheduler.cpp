@@ -158,7 +158,7 @@ time_t starttime;
 class Job {
 public:
   unsigned int id;
-  enum {PENDING, WAITINGFORCS, COMPILING} state;
+  enum {PENDING, WAITINGFORCS, COMPILING, WAITINGFORDONE} state;
   CS *server;  // on which server we build
   CS *submitter;  // who submitted us
   MsgChannel *client_channel;
@@ -1099,6 +1099,7 @@ dump_job (Job *job)
 	   job->state == Job::PENDING ? "PEND"
 	     : job->state == Job::WAITINGFORCS ? "WAIT"
 	     : job->state == Job::COMPILING ? "COMP"
+             : job->state == Job::WAITINGFORDONE ? "DONE"
 	     : "Huh?",
 	   job->submitter ? job->submitter->nodename.c_str() : "<>",
 	   job->server ? job->server->nodename.c_str() : "<unknown>");
@@ -1392,8 +1393,10 @@ handle_end (MsgChannel *c, Msg *m)
            */
           for (it = jobs.begin(); it != jobs.end(); ++it)
 	    {
-              if ( it->second->client_channel == c )
+              if ( it->second->client_channel == c ) {
                 it->second->client_channel = 0;
+                it->second->state = Job::WAITINGFORDONE;
+              }
             }
         }
     }
