@@ -204,14 +204,12 @@ int handle_connection( MsgChannel *serv )
 
         if ( msg->type == M_END ) {
             delete msg;
-            trace() << "end\n";
             break;
         }
 
         if ( msg->type != M_FILE_CHUNK ) {
             delete job;
             delete msg;
-            trace() << "file chunk\n";
             return EXIT_PROTOCOL_ERROR;
         }
 
