@@ -75,9 +75,11 @@ handle_cs_request (MsgChannel *c, Msg *_m)
     return 1;
   // XXX select a nice CS
   // For now: compile it yourself
+  int i = random () % css.size();
   list<CS*>::iterator it;
   for (it = css.begin(); it != css.end(); ++it)
-    if (c->other_end->eq_ip (**it))
+    //if (c->other_end->eq_ip (**it))
+    if (i-- == 0)
       break;
   if (it == css.end())
     {
