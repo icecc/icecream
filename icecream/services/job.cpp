@@ -22,6 +22,7 @@
 #include "logging.h"
 #include "exitcode.h"
 #include <sys/utsname.h>
+#include <stdio.h>
 
 using namespace std;
 

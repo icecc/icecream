@@ -155,7 +155,7 @@ bool setup_env_cache(const string &basedir, string &native_environment)
         return false;
     }
 
-    native_environment.clear();
+    native_environment.erase(native_environment.begin(), native_environment.end());
 
     if ( !::access( "/usr/bin/gcc", X_OK ) && !::access( "/usr/bin/g++", X_OK ) ) {
         string nativedir = basedir + "/native/";
