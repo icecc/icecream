@@ -919,8 +919,15 @@ main (int argc, char * argv[])
 	  if (recvfrom (broad_fd, buf, 1, 0, (struct sockaddr*) &broad_addr,
 			&broad_len) != 1)
 	    {
+	      int err = errno;
 	      perror ("recvfrom()");
-	      // return -1;
+	      /* Some linux 2.6 kernels can return from select with
+	         data available, and then return from read() with EAGAIN
+		 even on a blocking socket (breaking POSIX).  Happens
+		 when the arriving packet has a wrong checksum.  So
+		 we ignore EAGAIN here, but still abort for all other errors. */
+	      if (err != EAGAIN)
+	        return -1;
 	    }
 	  else
 	    {
