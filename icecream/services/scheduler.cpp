@@ -505,25 +505,6 @@ handle_local_job_end (MsgChannel *, Msg *_m)
   return true;
 }
 
-
-static bool
-envs_match( CS* cs, const Job *job )
-{
-  if ( job->submitter == cs)
-    return true; // it will compile itself
-
-  for ( Environments::const_iterator it = cs->compiler_versions.begin(); it != cs->compiler_versions.end(); ++it )
-    {
-      if ( it->first == job->target_platform )
-        {
-          for ( Environments::const_iterator it2 = job->environments.begin(); it2 != job->environments.end(); ++it2 )
-            if ( it->second == it2->second && it2->first == cs->host_platform )
-              return true;
-        }
-    }
-  return false;
-}
-
 static bool
 platforms_compatible( const string &target, const string &platform )
 {
@@ -539,19 +520,19 @@ platforms_compatible( const string &target, const string &platform )
       platform_map.insert( make_pair( string( "i386" ), string( "i486" ) ) );
       platform_map.insert( make_pair( string( "i386" ), string( "i586" ) ) );
       platform_map.insert( make_pair( string( "i386" ), string( "i686" ) ) );
-      // platform_map.insert( make_pair( string( "i386", string( "x86_64" ) );
+      platform_map.insert( make_pair( string( "i386" ), string( "x86_64" ) ) );
 
       platform_map.insert( make_pair( string( "i486" ), string( "i586" ) ) );
       platform_map.insert( make_pair( string( "i486" ), string( "i686" ) ) );
-      // platform_map.insert( make_pair( string( "i486" ), string( "x86_64" ) ) );
+      platform_map.insert( make_pair( string( "i486" ), string( "x86_64" ) ) );
 
       platform_map.insert( make_pair( string( "i586" ), string( "i686" ) ) );
-      // platform_map.insert( make_pair( string( "i586" ), string( "x86_64" ) ) );
+      platform_map.insert( make_pair( string( "i586" ), string( "x86_64" ) ) );
 
-      //  platform_map.insert( make_pair( string( "i686" ), string( "x86_64" ) ) );
+      platform_map.insert( make_pair( string( "i686" ), string( "x86_64" ) ) );
 
-//      platform_map.insert( make_pair( string( "ppc" ), string( "ppc64" ) ) );
- //     platform_map.insert( make_pair( string( "s390" ), string( "s390x" ) ) );
+      platform_map.insert( make_pair( string( "ppc" ), string( "ppc64" ) ) );
+      platform_map.insert( make_pair( string( "s390" ), string( "s390x" ) ) );
     }
 
   multimap<string, string>::const_iterator end = platform_map.upper_bound( target );
@@ -567,20 +548,40 @@ platforms_compatible( const string &target, const string &platform )
 }
 
 static bool
+envs_match( CS* cs, const Job *job )
+{
+  if ( job->submitter == cs)
+    return true; // it will compile itself
+
+  for ( Environments::const_iterator it = cs->compiler_versions.begin(); it != cs->compiler_versions.end(); ++it )
+    {
+      if ( platforms_compatible( it->first, job->target_platform ) )
+        {
+          for ( Environments::const_iterator it2 = job->environments.begin(); it2 != job->environments.end(); ++it2 )
+            {
+              if ( it->second == it2->second && platforms_compatible( it2->first, cs->host_platform ) )
+                return true;
+            }
+        }
+    }
+  return false;
+}
+
+static string
 can_install( CS* cs, const Job *job )
 {
   // trace() << "can_install host: '" << cs->host_platform << "' target: '" << job->target_platform << "'" << endl;
   if ( cs->busy_installing ) {
     trace() << cs->nodename << " is busy installing since " << time(0) - cs->busy_installing << " seconds." << endl;
-    return false;
+    return string();
   }
 
   for ( Environments::const_iterator it = job->environments.begin(); it != job->environments.end(); ++it )
     {
       if ( platforms_compatible( it->first, cs->host_platform ) )
-        return true;
+        return it->first;
     }
-  return false;
+  return string();
 }
 
 static CS *
@@ -599,7 +600,7 @@ pick_server(Job *job)
         {
           trace() << "no job stats - looking at " << ( *it )->nodename << " load: " << (*it )->load << " can install: " << can_install( *it, job ) << endl;
           if (int( (*it)->joblist.size() ) < (*it)->max_jobs
-              && (*it)->load < 1000 && can_install( *it, job ) )
+              && (*it)->load < 1000 && can_install( *it, job ).size() )
             {
               trace() << "returning first " << ( *it )->nodename << endl;
               return *it;
@@ -637,7 +638,7 @@ pick_server(Job *job)
       }
 
       // incompatible architecture
-      if ( !can_install( cs, job ) ) {
+      if ( !can_install( cs, job ).size() ) {
 #if DEBUG_SCHEDULER > 1
         trace() << cs->nodename << " can't install " << job->id << endl;
 #endif
@@ -780,7 +781,7 @@ empty_queue()
     cs = job->submitter;
     if (! (int( cs->joblist.size() ) < cs->max_jobs
            /* This should be trivially true.  */
-           && can_install (cs, job)))
+           && can_install (cs, job).size()))
       {
         trace() << " and failed\n";
         return false;
@@ -794,7 +795,7 @@ empty_queue()
   job->server = cs;
 
   bool gotit = envs_match( cs, job );
-  UseCSMsg m2(cs->host_platform, cs->name, cs->remote_port, job->id, gotit );
+  UseCSMsg m2(can_install( cs, job ), cs->name, cs->remote_port, job->id, gotit );
 
   if (!job->client_channel || !job->client_channel->send_msg (m2))
     {
