@@ -519,7 +519,7 @@ int main( int argc, char ** argv )
                     jobmap[pid] = new JobDoneMsg;
                     jobmap[pid]->job_id = job->jobID();
                     if ( sock )
-                        pidmap[pid] = 0;
+                        pidmap[pid] = sock;
                 }
                 delete req.first;
                 delete req.second;
