@@ -234,6 +234,31 @@ int setup_listen_fd()
     return listen_fd;
 }
 
+time_t last_stat = 0;
+int mem_limit = 100;
+int max_kids = 0;
+
+bool maybe_stats() {
+    if ( time( 0 ) - last_stat >= 1 ) {
+        trace() << "sending stats\n";
+
+        StatsMsg msg;
+        if ( !fill_stats( msg ) ) {
+            log_error() << "can't find out stats" << endl;
+        } else { // Matz got in the urin that not all CPUs are always feed
+            mem_limit = std::max( msg.freeMem / std::max( max_kids, 4 ), 100U );
+        }
+
+        if ( scheduler->send_msg( msg ) )
+            last_stat = time( 0 );
+        else {
+            return false;
+        }
+
+    }
+    return true;
+}
+
 int main( int argc, char ** argv )
 {
     int max_processes = -1;
@@ -248,8 +273,6 @@ int main( int argc, char ** argv )
     string nodename;
     string schedname;
     bool runasuser = false;
-
-    int mem_limit = 100;
 
     while ( true ) {
         int option_index = 0;
@@ -387,7 +410,6 @@ int main( int argc, char ** argv )
     if (dcc_ncpus(&n_cpus) == 0)
         log_info() << n_cpus << " CPU(s) online on this server" << endl;
 
-    int max_kids;
     if ( max_processes < 0 )
       max_kids = n_cpus;
     else
@@ -485,7 +507,7 @@ int main( int argc, char ** argv )
         // for now I just hope schedulers don't go up
         // and down that often
         int current_kids = 0;
-        time_t last_stat = 0;
+
         while ( !requests.empty() )
             requests.pop();
 
@@ -591,41 +613,32 @@ int main( int argc, char ** argv )
                 continue;
             }
 
-            if ( time( 0 ) - last_stat >= 7 ) {
-                StatsMsg msg;
-                if ( !fill_stats( msg ) ) {
-                    log_error() << "can't find out stats" << endl;
-                } else { // Matz got in the urin that not all CPUs are always feed
-                    mem_limit = std::max( msg.freeMem / std::max( max_kids, 4 ), 100U );
-                }
-
-                if ( scheduler->send_msg( msg ) )
-                    last_stat = time( 0 );
-                else {
-                    log_error() << "lost connection to scheduler. Trying again.\n";
-                    delete scheduler;
-                    scheduler = 0;
-                    tosleep = 2;
-                    break;
-                }
-                if ( watch_binary ) {
-                    struct stat st;
-                    ::stat( binary_path.c_str(), &st );
-                    if ( binary_on_startup != st.st_mtime ) {
-                        log_info() << "binary changed. Going to restart it" << endl;
-                        char **new_argv = new char *[netname.empty() ? 3 : 5];
-                        int argi = 0;
-                        new_argv[argi++] = strdup( binary_path.c_str() );
-                        new_argv[argi++] = strdup( "-w" );
-                        if ( !netname.empty() ) {
-                            new_argv[argi++] = strdup( "-n" );
-                            new_argv[argi++] = strdup( netname.c_str() );
-                        }
-                        new_argv[argi++] = 0;
-                        execv( binary_path.c_str(), new_argv );
+            if (  time( 0 ) - last_stat >= 10 && watch_binary ) {
+                struct stat st;
+                ::stat( binary_path.c_str(), &st );
+                if ( binary_on_startup != st.st_mtime ) {
+                    log_info() << "binary changed. Going to restart it" << endl;
+                    char **new_argv = new char *[netname.empty() ? 3 : 5];
+                    int argi = 0;
+                    new_argv[argi++] = strdup( binary_path.c_str() );
+                    new_argv[argi++] = strdup( "-w" );
+                    if ( !netname.empty() ) {
+                        new_argv[argi++] = strdup( "-n" );
+                        new_argv[argi++] = strdup( netname.c_str() );
                     }
+                    new_argv[argi++] = 0;
+                    execv( binary_path.c_str(), new_argv );
                 }
             }
+
+            if ( !maybe_stats() ) {
+                log_error() << "lost connection to scheduler. Trying again.\n";
+                delete scheduler;
+                scheduler = 0;
+                tosleep = 2;
+                break;
+            }
+
 
             fd_set listen_set;
             struct timeval tv;

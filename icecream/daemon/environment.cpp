@@ -31,6 +31,8 @@
 
 using namespace std;
 
+extern bool maybe_stats();
+
 #if 0
 static string read_fromFILE( FILE *f )
 {
@@ -259,6 +261,7 @@ bool install_environment( const std::string &basename, const std::string &target
             error = true;
             break;
         }
+        maybe_stats();
         trace() << "got env share: " << fmsg->len << endl;
         int ret = fwrite( fmsg->buffer, fmsg->len, 1, pipe );
         if ( ret != 1 ) {
@@ -267,6 +270,8 @@ bool install_environment( const std::string &basename, const std::string &target
             break;
         }
     } while ( true );
+
+    maybe_stats();
 
     delete msg;
     chdir( pwd );
