@@ -501,7 +501,7 @@ MsgChannel::wait_for_msg (void)
 Msg *
 MsgChannel::get_msg(bool blocking)
 {
-  Msg *m;
+  Msg *m = 0;
   enum MsgType type;
   unsigned int t;
   if (blocking && !wait_for_msg () ) {
