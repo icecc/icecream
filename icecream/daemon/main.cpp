@@ -238,7 +238,6 @@ int main( int /*argc*/, char ** /*argv*/ )
         LoginMsg lmsg( port );
         lmsg.envs = environments;
         lmsg.max_kids = max_kids;
-        lmsg.max_load = n_cpus * 1800;
         scheduler->send_msg( lmsg );
 
         // TODO: clean up the mess from before
