@@ -1,7 +1,9 @@
+#include "config.h"
 #include <job.h>
 #include "local.h"
 #include "exitcode.h"
 #include "logging.h"
+#include "filename.h"
 #include "cpp.h"
 #include <cassert>
 #include <comm.h>
@@ -82,8 +84,18 @@ int build_remote(CompileJob &job )
     }
     delete ucs;
 
-    // TODO: getenv("ICECC_VERSION")
-    GetCSMsg getcs ("gcc33", get_absfilename( job.inputFile() ), job.language() );
+    const char *get = getenv( "ICECC_VERSION");
+    if ( !get )
+        get = "*";
+    string version = get;
+    string suff = ".tar.bz2";
+    if ( version.size() > suff.size() && version.substr( version.size() - suff.size() ) == suff )
+    {
+        version = find_basename( version.substr( 0, version.size() - suff.size() ) );
+    }
+
+    log_info() << "requesting version " << version << endl;
+    GetCSMsg getcs (version, get_absfilename( job.inputFile() ), job.language() );
     if (!scheduler->send_msg (getcs)) {
         log_error() << "asked for CS\n";
         delete serv;
@@ -101,6 +113,7 @@ int build_remote(CompileJob &job )
     string hostname = usecs->hostname;
     unsigned int port = usecs->port;
     job.setJobID( usecs->job_id );
+    job.setEnvironmentVersion( usecs->environment ); // hoping on the scheduler's wisdom
     printf ("Have to use host %s:%d - Job ID: %d\n", hostname.c_str(), port, job.jobID() );
     delete usecs;
     EndMsg em;

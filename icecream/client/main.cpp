@@ -119,12 +119,12 @@ static void dcc_client_catch_signals(void)
  * Performs basic setup and checks for distcc arguments, and then kicks of
  * dcc_build_somewhere().
  **/
-int main(int , char **argv)
+int main(int argc, char **argv)
 {
     dcc_client_catch_signals();
     string compiler_name = argv[0];
 
-    if ( find_basename( compiler_name ) == rs_program_name) {
+    if ( argc == 1 && find_basename( compiler_name ) == rs_program_name) {
         dcc_show_usage();
         return 0;
     }

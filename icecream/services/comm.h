@@ -1,3 +1,5 @@
+/*  -*- mode: C++; c-file-style: "gnu"; fill-column: 78 -*- */
+
 #ifndef _COMM_H
 #define _COMM_H
 
@@ -112,10 +114,10 @@ public:
 };
 
 class GetCSMsg : public Msg {
+public:
   std::string version;
   std::string filename;
   CompileJob::Language lang;
-public:
   GetCSMsg () : Msg(M_GET_CS) {}
   GetCSMsg (const std::string &v, const std::string &f, CompileJob::Language _lang)
     : Msg(M_GET_CS), version(v), filename(f), lang(_lang) {}
@@ -128,9 +130,10 @@ public:
   unsigned int job_id;
   std::string hostname;
   unsigned int port;
+  std::string environment;
   UseCSMsg () : Msg(M_USE_CS) {}
-  UseCSMsg (std::string name, unsigned int p, unsigned int id) : Msg(M_USE_CS), job_id(id),
-    hostname (name), port (p) {}
+  UseCSMsg (std::string env, std::string host, unsigned int p, unsigned int id)
+    : Msg(M_USE_CS), job_id(id), hostname (host), port (p), environment( env ) {}
   virtual bool fill_from_fd (int fd);
   virtual bool send_to_fd (int fd) const;
 };
@@ -147,7 +150,7 @@ class UseSchedulerMsg : public Msg {
 public:
   std::string hostname;
   unsigned int port;
-  UseSchedulerMsg () : Msg(M_USE_SCHEDULER) {}
+  UseSchedulerMsg () : Msg(M_USE_SCHEDULER), port( 0 ) {}
   UseSchedulerMsg (std::string host, unsigned int p)
       : Msg(M_USE_SCHEDULER), hostname (host), port (p) {}
   virtual bool fill_from_fd (int fd);

@@ -28,10 +28,12 @@ public:
   unsigned int id;
   enum {PENDING, COMPILING} state;
   CS *server;
+  MsgChannel *channel;
+  string environment;
   time_t starttime;  // _local_ to the compiler server
   time_t start_on_scheduler;  // starttime local to scheduler
-  Job (CS *cs, unsigned int _id) : id(_id), state( PENDING ), server( cs ),
-    starttime(0), start_on_scheduler(0) {}
+  Job (MsgChannel *c, unsigned int _id) : id(_id), state( PENDING ), server( 0 ),
+                                          channel( c ), starttime(0), start_on_scheduler(0) {}
 };
 
 /* One compile server (receiver, compile daemon)  */
@@ -62,20 +64,19 @@ list<CS*> css;
 unsigned int new_job_id;
 map<unsigned int, Job*> jobs;
 map<int, MsgChannel *> fd2chan;
-queue<MsgChannel*> toanswer;
+queue<Job*> toanswer;
 bool tochoose = true;
 
-static bool
-create_new_job (CS *cs)
+static Job *
+create_new_job (MsgChannel *channel)
 {
   ++new_job_id;
   trace() << "create_new_job " << new_job_id << endl;
   assert (jobs.find(new_job_id) == jobs.end());
 
-  Job *job = new Job (cs, new_job_id);
+  Job *job = new Job (channel, new_job_id);
   jobs[new_job_id] = job;
-  cs->joblist.push_back (job);
-  return true;
+  return job;
 }
 
 static int
@@ -96,12 +97,20 @@ handle_cs_request (MsgChannel *c, Msg *_m)
       return 0;
     }
 
-  toanswer.push( c );
+  Job *job = create_new_job ( c );
+  job->environment = m->version;
+  log_info() << "env " << job->environment << endl;
+  toanswer.push( job );
   return 0;
 }
 
-CS *pick_server()
+CS *
+pick_server(string &environment)
 {
+  assert( !environment.empty() );
+  if ( environment == "*" )
+    environment = "gcc33"; // TODO: logic
+
   int i = random() % css.size();
   list<CS*>::iterator it;
   for (it = css.begin(); it != css.end(); ++it)
@@ -125,18 +134,19 @@ empty_queue()
       return false;
     }
 
-  MsgChannel *c = toanswer.front();
+  Job *job = toanswer.front();
 
   if ( css.empty() )
     {
       trace() << "no servers to handle\n";
       toanswer.pop();
-      c->send_msg( EndMsg() );
+      job->channel->send_msg( EndMsg() );
       return false;
     }
 
-  CS *cs = pick_server();
-  trace() << "got CS " << cs << endl;
+  string environment = job->environment;
+  CS *cs = pick_server(environment);
+  trace() << "got CS " << cs << " " << environment << endl;
 
   if ( !cs )
     {
@@ -145,21 +155,19 @@ empty_queue()
     }
 
   toanswer.pop();
+  job->server = cs;
 
-  if ( ! create_new_job ( cs ) )
-    return true;
-  UseCSMsg m2(cs->name, cs->remote_port, new_job_id);
+  UseCSMsg m2(environment, cs->name, cs->remote_port, job->id );
 
-  if (!c->send_msg (m2))
+  if (!job->channel->send_msg (m2))
     {
-      trace() << "failed to deliver job " << new_job_id << endl;
+      trace() << "failed to deliver job " << job->id << endl;
 
-      c->send_msg (EndMsg()); // most likely won't work
+      job->channel->send_msg (EndMsg()); // most likely won't work
       tochoose = true;
-      Job *j = jobs[new_job_id];
-      j->server->joblist.remove (j);
-      jobs.erase (new_job_id);
-      delete j;
+      job->server->joblist.remove (job);
+      jobs.erase(job->id );
+      delete job;
       return true;
     }
   return true;
@@ -421,9 +429,10 @@ main (int /*argc*/, char * /*argv*/ [])
         {
 	  max_fd--;
 	  remote_len = sizeof (remote_addr);
-	  if ((remote_fd = accept (listen_fd, (struct sockaddr *) &remote_addr,
-                                   &remote_len)) < 0
-	      && errno != EAGAIN && errno != EINTR)
+          remote_fd = accept (listen_fd,
+                              (struct sockaddr *) &remote_addr,
+                              &remote_len );
+	  if (remote_fd < 0 && errno != EAGAIN && errno != EINTR)
 	    {
 	      perror ("accept()");
 	      return 1;

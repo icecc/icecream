@@ -375,16 +375,16 @@ connect_scheduler ()
               continue;
             }
 
-          if ( addr->ifa_dstaddr )
+          if ( addr->ifa_broadaddr )
             {
               log_info() << "broadcast "
                          << addr->ifa_name << " "
-                         << inet_ntoa( ( ( sockaddr_in* )addr->ifa_dstaddr )->sin_addr )
+                         << inet_ntoa( ( ( sockaddr_in* )addr->ifa_broadaddr )->sin_addr )
                          << endl;
 
               remote_addr.sin_family = AF_INET;
               remote_addr.sin_port = htons (8765);
-              remote_addr.sin_addr = ( ( sockaddr_in* )addr->ifa_dstaddr )->sin_addr ;
+              remote_addr.sin_addr = ( ( sockaddr_in* )addr->ifa_broadaddr )->sin_addr ;
 
               if (sendto (ask_fd, &buf, 1, 0, (struct sockaddr*)&remote_addr,
                         sizeof (remote_addr)) != 1)
@@ -541,7 +541,8 @@ UseCSMsg::fill_from_fd (int fd)
     return false;
   bool ret = (readuint (fd, &job_id)
               && readuint (fd, &port)
-              && read_string (fd, hostname));
+              && read_string (fd, hostname)
+              && read_string( fd, environment ) );
   return ret;
 }
 
@@ -552,7 +553,8 @@ UseCSMsg::send_to_fd (int fd) const
     return false;
   return (writeuint (fd, job_id)
   	  && writeuint (fd, port)
-          && write_string (fd, hostname));
+          && write_string (fd, hostname)
+          && write_string( fd, environment ) );
 }
 
 bool
@@ -562,15 +564,18 @@ CompileFileMsg::fill_from_fd (int fd)
     return false;
   unsigned int id, lang;
   list<string> l1, l2;
+  string version;
   if (!readuint (fd, &lang)
       || !readuint (fd, &id)
       || !read_strlist (fd, l1)
-      || !read_strlist (fd, l2))
+      || !read_strlist (fd, l2)
+      || !read_string( fd, version ) )
     return false;
   job->setLanguage ((CompileJob::Language) lang);
   job->setJobID (id);
   job->setRemoteFlags (l1);
   job->setRestFlags (l2);
+  job->setEnvironmentVersion( version );
   return true;
 }
 
@@ -582,7 +587,8 @@ CompileFileMsg::send_to_fd (int fd) const
   return (writeuint (fd, (unsigned int) job->language())
   	  && writeuint (fd, job->jobID())
   	  && write_strlist (fd, job->remoteFlags())
-          && write_strlist (fd, job->restFlags()));
+          && write_strlist (fd, job->restFlags())
+          && write_string( fd, job->environmentVersion() ) );
 }
 
 CompileJob *CompileFileMsg::takeJob() {

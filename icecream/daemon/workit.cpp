@@ -1,8 +1,9 @@
+#include "config.h"
 #include "workit.h"
 #include "tempfile.h"
 #include "assert.h"
 #include "exitcode.h"
-
+#include "logging.h"
 #include <sys/select.h>
 
 /* According to earlier standards */
@@ -35,6 +36,7 @@ int work_it( CompileJob &j,
     appendList( list, j.restFlags() );
     int ret;
 
+    log_info() << "should use " << j.environmentVersion() << endl;
     char tmp_output[PATH_MAX];
     if ( ( ret = dcc_make_tmpnam("icecc", ".o", tmp_output ) ) != 0 )
         return ret;
