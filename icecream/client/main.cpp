@@ -201,29 +201,35 @@ int main(int argc, char **argv)
     Environments envs;
 
     if ( !local ) {
-        if ( getenv( "ICECC_VERSION" ) ) // if set, use it, otherwise take default
-            envs = parse_icecc_version( job.targetPlatform() );
-        else {
-            string native = ucs->nativeVersion;
-            if ( native.empty() ) {
-                log_warning() << "$ICECC_VERSION has to point to an existing file to be installed - as the local daemon didn't know any we try local." << endl
-                              << "Hint: you need /usr/bin/gcc _and_ /usr/bin/g++." << endl;
-                delete ucs;
-                delete local_daemon;
-                return build_local( job );
+        if ( getenv( "ICECC_VERSION" ) ) { // if set, use it, otherwise take default
+            try {
+                envs = parse_icecc_version( job.targetPlatform() );
+            } catch ( int x ) {
+                // we just build locally
             }
-            envs.push_back(make_pair( job.targetPlatform(), native ) );
+        } else {
+            string native = ucs->nativeVersion;
+            if ( native.empty() || ::access( native.c_str(), R_OK ) ) {
+                log_warning() << "$ICECC_VERSION has to point to an existing file to be installed - as the local daemon didn't know any we try local." << endl;
+            } else
+                envs.push_back(make_pair( job.targetPlatform(), native ) );
         }
     }
 
+    bool error = ( envs.size() == 0 );
     for ( Environments::const_iterator it = envs.begin(); it != envs.end(); ++it ) {
         trace() << "env: " << it->first << " '" << it->second << "'" << endl;
         if ( ::access( it->second.c_str(), R_OK ) ) {
             log_error() << "can't read environment " << it->second << endl;
-            delete local_daemon;
-            delete ucs;
-            return local || build_local( job );
+            error = true;
+            break;
         }
+    }
+
+    if ( error ) {
+        delete local_daemon;
+        delete ucs;
+        return local || build_local( job );
     }
 
     trace() << "contacting scheduler " << ucs->hostname << ":" << ucs->port << endl;

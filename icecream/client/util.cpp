@@ -156,7 +156,9 @@ static bool dcc_open_lockfile(const string &fname, int &plockfd)
 
 bool dcc_lock_host(int &lock_fd)
 {
-    string fname = getenv( "HOME" );
+    string fname;
+    if ( getenv( "HOME" ) )
+        fname = getenv( "HOME" );
     if ( !fname.size() )
         fname = "/tmp";
 
