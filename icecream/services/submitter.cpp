@@ -24,8 +24,9 @@ submit_job (MsgChannel *c, char *filename, unsigned int fsize)
    }
   UseCSMsg *m2 = dynamic_cast<UseCSMsg *>(_m2);
   string hostname = m2->hostname;
+  unsigned short port = m2->port;
   unsigned int jobid = m2->job_id;
-  printf ("Have to use host %s\n", m2->hostname.c_str());
+  printf ("Have to use host %s:%d\n", m2->hostname.c_str(), port);
   printf ("Job ID: %d\n", m2->job_id);
   delete m2;
   _m2 = c->get_msg ();
@@ -37,7 +38,7 @@ submit_job (MsgChannel *c, char *filename, unsigned int fsize)
   EndMsg em;
   if (!c->send_msg (em))
     return;
-  Service *serv = new Service (hostname, 10245);
+  Service *serv = new Service (hostname, port);
   MsgChannel *receiver_c = serv->channel();
   if (!receiver_c)
     return;

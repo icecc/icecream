@@ -53,9 +53,10 @@ class Service {
   socklen_t len;
   MsgChannel *c;
 public:
-  std::string name; // ???
+  std::string name;
+  unsigned short port;
   Service (struct sockaddr *, socklen_t);
-  Service (const std::string &host, unsigned short port);
+  Service (const std::string &host, unsigned short p);
   MsgChannel *channel() const { return c; }
   ~Service ();
 };
@@ -107,9 +108,10 @@ class UseCSMsg : public Msg {
 public:
   unsigned int job_id;
   std::string hostname;
+  unsigned int port;
   UseCSMsg () : Msg(M_USE_CS) {}
   UseCSMsg (Service &s, unsigned int id) : Msg(M_USE_CS), job_id(id),
-    hostname (s.name) {}
+    hostname (s.name), port (s.port) {}
   virtual bool fill_from_fd (int fd);
   virtual bool send_to_fd (int fd) const;
 };

@@ -1,6 +1,7 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <sys/select.h>
 #include <time.h>
 #include <string>
 #include <list>
@@ -47,6 +48,7 @@ public:
 list<CS*> css;
 unsigned int new_job_id;
 map<unsigned int, Job*> jobs;
+map<int, MsgChannel *> fd2chan;
 
 static bool
 create_new_job (CS *cs)
@@ -158,16 +160,16 @@ handle_connection (MsgChannel *c)
 int
 main (int /*argc*/, char * /*argv*/ [])
 {
-  int fd, remote_fd;
+  int listen_fd, remote_fd;
   struct sockaddr_in myaddr, remote_addr;
   socklen_t remote_len;
-  if ((fd = socket (PF_INET, SOCK_STREAM, 0)) < 0)
+  if ((listen_fd = socket (PF_INET, SOCK_STREAM, 0)) < 0)
     {
       perror ("socket()");
       return 1;
     }
   int optval = 1;
-  if (setsockopt (fd, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(optval)) < 0)
+  if (setsockopt (listen_fd, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(optval)) < 0)
     {
       perror ("setsockopt()");
       return 1;
@@ -175,12 +177,12 @@ main (int /*argc*/, char * /*argv*/ [])
   myaddr.sin_family = AF_INET;
   myaddr.sin_port = htons (8765);
   myaddr.sin_addr.s_addr = INADDR_ANY;
-  if (bind (fd, (struct sockaddr *) &myaddr, sizeof (myaddr)) < 0)
+  if (bind (listen_fd, (struct sockaddr *) &myaddr, sizeof (myaddr)) < 0)
     {
       perror ("bind()");
       return 1;
     }
-  if (listen (fd, 20) < 0)
+  if (listen (listen_fd, 20) < 0)
     {
       perror ("listen()");
       return 1;
@@ -188,12 +190,13 @@ main (int /*argc*/, char * /*argv*/ [])
   while (1)
     {
       remote_len = sizeof (remote_addr);
-      if ((remote_fd = accept (fd, (struct sockaddr *) &remote_addr, &remote_len)) < 0)
+      if ((remote_fd = accept (listen_fd, (struct sockaddr *) &remote_addr, &remote_len)) < 0)
 	{
 	  perror ("accept()");
 	  return 1;
 	}
       CS *cs = new CS ((struct sockaddr*) &remote_addr, remote_len);
+      printf ("accepting from %s:%d\n", cs->name.c_str(), cs->port);
       css.push_back (cs);
       MsgChannel *c = new MsgChannel (remote_fd, cs);
       handle_connection (c);

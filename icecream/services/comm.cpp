@@ -87,20 +87,23 @@ Service::Service (struct sockaddr *_a, socklen_t _l)
       addr = (struct sockaddr *)malloc (len);
       memcpy (addr, _a, len);
       name = inet_ntoa (((struct sockaddr_in *) addr)->sin_addr);
+      port = ntohs (((struct sockaddr_in *)addr)->sin_port);
     }
   else
     {
       addr = 0;
       name = "";
+      port = 0;
     }
 }
 
-Service::Service (const string &hostname, unsigned short port)
+Service::Service (const string &hostname, unsigned short p)
 {
   int remote_fd;
   struct sockaddr_in remote_addr;
   c = 0;
   addr = 0;
+  port = 0;
   name = "";
   if ((remote_fd = socket (PF_INET, SOCK_STREAM, 0)) < 0)
     {
@@ -121,7 +124,7 @@ Service::Service (const string &hostname, unsigned short port)
       return;
     }
   remote_addr.sin_family = AF_INET;
-  remote_addr.sin_port = htons (port);
+  remote_addr.sin_port = htons (p);
   memcpy (&remote_addr.sin_addr.s_addr, host->h_addr_list[0], host->h_length);
   if (connect (remote_fd, (struct sockaddr *) &remote_addr, sizeof (remote_addr)) < 0)
     {
@@ -133,6 +136,7 @@ Service::Service (const string &hostname, unsigned short port)
   addr = (struct sockaddr *)malloc (len);
   memcpy (addr, &remote_addr, len);
   name = hostname;
+  port = p;
   c = new MsgChannel (remote_fd, this);
 }
 
@@ -296,8 +300,11 @@ UseCSMsg::fill_from_fd (int fd)
 {
   if (!Msg::fill_from_fd (fd))
     return false;
-  return (readuint (fd, &job_id)
+  bool ret = (readuint (fd, &job_id)
+  	  && readuint (fd, &port)
           && read_string (fd, hostname));
+  port = 10245;
+  return ret;
 }
 
 bool
@@ -306,6 +313,7 @@ UseCSMsg::send_to_fd (int fd) const
   if (!Msg::send_to_fd (fd))
     return false;
   return (writeuint (fd, job_id)
+  	  && writeuint (fd, port)
           && write_string (fd, hostname));
 }
 
