@@ -516,6 +516,7 @@ MsgChannel::get_msg(bool blocking)
   }
   if (!has_msg ()) {
     trace() << "saw eof without msg! " << eof << " " << instate << endl;
+    return 0;
     abort (); // XXX but what else?
   }
   readuint32 (t);

@@ -440,7 +440,7 @@ handle_job_done (MsgChannel *c, Msg *_m)
   delete j;
 
 
-#ifndef NDEBUG
+#ifdef DEBUG_SCHEDULER
   bool first = true;
 
   for (map<unsigned int, Job *>::const_iterator it = jobs.begin();
