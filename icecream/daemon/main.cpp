@@ -225,7 +225,7 @@ int main( int /*argc*/, char ** /*argv*/ )
         scheduler = connect_scheduler ();
         if ( !scheduler ) {
             log_error() << "no scheduler found. Sleeping.\n";
-            sleep( 5 );
+            sleep( 1 );
             continue;
         }
 

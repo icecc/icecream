@@ -382,7 +382,7 @@ connect_scheduler ()
     FD_ZERO (&read_set);
     FD_SET (ask_fd, &read_set);
     struct timeval tv;
-    tv.tv_sec = 5;
+    tv.tv_sec = 2;
     tv.tv_usec = 0;
     errno = 0;
     if (select (ask_fd + 1, &read_set, NULL, NULL, &tv) <= 0)
