@@ -64,7 +64,9 @@ void setup_debug(int level, const string &filename)
         logfile_error = &logfile_null;
 }
 
+#ifndef __FreeBSD__
 #define HAVE_BACKTRACE
+#endif
 
 #ifdef HAVE_BACKTRACE
 #include <execinfo.h>

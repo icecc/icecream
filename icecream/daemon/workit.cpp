@@ -28,6 +28,10 @@
 #include <sys/select.h>
 #include <algorithm>
 
+#ifdef __FreeBSD__
+#include <sys/param.h>
+#endif
+
 /* According to earlier standards */
 #include <sys/time.h>
 #include <sys/types.h>

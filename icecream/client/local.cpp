@@ -28,6 +28,10 @@
 #include <string.h>
 #include <errno.h>
 
+#ifdef __FreeBSD__
+#include <signal.h>
+#endif
+
 #include <comm.h>
 #include "client.h"
 

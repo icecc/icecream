@@ -28,6 +28,10 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+#ifdef __FreeBSD__
+#include <signal.h>
+#endif
+
 #include "comm.h"
 
 using namespace std;

@@ -24,7 +24,9 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #ifdef __FreeBSD__
-#  include <dkstat.h>
+#include <sys/resource.h>
+#include <sys/sysctl.h>
+#include <devstat.h>
 #endif
 
 using namespace std;
@@ -57,14 +59,35 @@ struct CPULoadInfo
 static void updateCPULoad( const char* line, CPULoadInfo* load )
 {
   unsigned long totalTicks;
-#ifdef __FreeBSD__
-  unsigned long currUserTicks = cp_time[ CP_USER ];
-  unsigned long currSysTicks = cp_time[ CP_SYS ];
-  unsigned long currNiceTicks = cp_time[ CP_NICE ];
-  unsigned long currIdleTicks = cp_time[ CP_IDLE ];
-#else
   unsigned long currUserTicks, currSysTicks, currNiceTicks, currIdleTicks;
 
+#ifdef __FreeBSD__
+  static int mibs[4] = { 0,0,0,0 };
+  static size_t mibsize = 4;
+  unsigned long ticks[CPUSTATES];
+  size_t mibdatasize = sizeof(ticks);
+
+  if (mibs[0]==0) {
+      if (sysctlnametomib("kern.cp_time",mibs,&mibsize) < 0) {
+          load->userTicks = load->sysTicks = load->niceTicks = load->idleTicks = 0;
+          load->userLoad = load->sysLoad = load->niceLoad = load->idleLoad = 0;
+          mibs[0]=0;
+          return;
+      }
+  }
+  if (sysctl(mibs,mibsize,&ticks,&mibdatasize,NULL,0) < 0) {
+      load->userTicks = load->sysTicks = load->niceTicks = load->idleTicks = 0;
+      load->userLoad = load->sysLoad = load->niceLoad = load->idleLoad = 0;
+      return;
+  } else {
+      currUserTicks = ticks[CP_USER];
+      currNiceTicks = ticks[CP_NICE];
+      currSysTicks = ticks[CP_SYS];
+      currIdleTicks = ticks[CP_IDLE];
+  }
+  (void)(line);
+
+#else
   sscanf( line, "%*s %lu %lu %lu %lu", &currUserTicks, &currNiceTicks,
           &currSysTicks, &currIdleTicks );
 #endif
@@ -119,6 +142,7 @@ static unsigned int calculateMemLoad( const char* MemInfoBuf, unsigned long int 
     len = sizeof (Cached);
     if ((sysctlbyname("vm.stats.vm.v_cache_count", &Cached, &len, NULL, 0) == -1) || !len)
             Cached = 0; /* Doesn't work under FreeBSD v2.2.x */
+    (void)(MemInfoBuf);
 #else
     MemFree = scan_one( MemInfoBuf, "MemFree" );
     unsigned long int Buffers = scan_one( MemInfoBuf, "Buffers" );
@@ -177,7 +201,7 @@ bool fill_stats( unsigned long &myniceload, unsigned long &myidleload, unsigned 
         unsigned long int MemFree = 0;
 
 #ifdef __FreeBSD__
-        memory_fillgrade = calucateMemLoad( 0, MemFree );
+        memory_fillgrade = calculateMemLoad( 0, MemFree );
 #else
         if ( ( fd = open( "/proc/meminfo", O_RDONLY ) ) < 0 ) {
             log_error() << "Cannot open file \'/proc/meminfo\'!\n"
