@@ -1,4 +1,4 @@
-INCLUDES = -I$(srcdir)/../common
+INCLUDES = -I$(srcdir)/../common -I$(srcdir)/../services
 
 bin_PROGRAMS = icecc
 icecc_LDADD = ../common/libcommon.la
@@ -8,7 +8,7 @@ all-local: icecc++
 
 icecc++: icecc
 	$(LN_S) icecc icecc++
-	
+
 install-exec-local:
 	$(mkinstalldirs) $(DESTDIR)$(bindir)
 	$(LN_S) icecc $(DESTDIR)$(bindir)/icecc++

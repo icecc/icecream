@@ -179,6 +179,7 @@ int run_job(int in_fd,
      * from the compiler */
     dcc_ignore_sigpipe(1);
 
+#if 0
     if ((ret = dcc_r_request_header(in_fd, &protover))
         || (ret = dcc_r_argv(in_fd, &argv))
         || (ret = dcc_scan_args(argv, &orig_input, &orig_output, &argv)))
@@ -228,6 +229,7 @@ int run_job(int in_fd,
     out_cleanup:
     // dcc_remove_log_to_file();
     // dcc_cleanup_tempfiles();
+#endif
 
     return ret;
 }
