@@ -344,7 +344,7 @@ int build_remote(CompileJob &job, MsgChannel *scheduler, int permill )
     srand( time( 0 ) + getpid() );
 
     int torepeat = 1;
-    if ( rand() % 1000 < permill )
+    if ( rand() % 1000 < permill && version_file != "*")
         torepeat = 3;
     trace() << job.inputFile() << " compiled " << torepeat << " times\n";
 
