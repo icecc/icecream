@@ -41,7 +41,6 @@
 #include <sys/param.h>
 
 #include "distcc.h"
-#include "logging.h"
 #include "io.h"
 #include "util.h"
 #include "exitcode.h"
