@@ -1,4 +1,4 @@
-INCLUDES = -I $(top_srcdir)/minilzo
+INCLUDES = -I $(top_srcdir)/icecream/icecream/minilzo
 
 noinst_LTLIBRARIES = libcommon.la
 
