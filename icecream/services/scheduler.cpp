@@ -74,7 +74,6 @@ static Job *
 create_new_job (MsgChannel *channel)
 {
   ++new_job_id;
-  trace() << "create_new_job " << new_job_id << endl;
   assert (jobs.find(new_job_id) == jobs.end());
 
   Job *job = new Job (channel, new_job_id);
@@ -102,7 +101,9 @@ handle_cs_request (MsgChannel *c, Msg *_m)
 
   Job *job = create_new_job ( c );
   job->environment = m->version;
-  log_info() << "env " << job->environment << endl;
+  log_info() << "NEW: " << job->id << " version=\""
+             << job->environment << "\" " << m->filename
+             << " " << ( m->lang == CompileJob::Lang_C ? "C" : "C++" ) << endl;
   toanswer.push( job );
   return 0;
 }
@@ -129,7 +130,7 @@ pick_server(string &environment)
 static bool
 empty_queue()
 {
-  trace() << "empty_queue " << toanswer.size() << " " << css.size() << endl;
+  //  trace() << "empty_queue " << toanswer.size() << " " << css.size() << endl;
 
   if ( toanswer.empty() )
     return false;
@@ -199,7 +200,7 @@ handle_job_begin (MsgChannel *c, Msg *_m)
   JobBeginMsg *m = dynamic_cast<JobBeginMsg *>(_m);
   if (!m || jobs.find(m->job_id) == jobs.end())
     return 1;
-  trace() << "job begin " << m->job_id << endl;
+  //  trace() << "BEGIN: " << m->job_id << endl;
   if (jobs[m->job_id]->server != c->other_end)
     return 1;
   jobs[m->job_id]->state = Job::COMPILING;
@@ -214,7 +215,21 @@ handle_job_done (MsgChannel *c, Msg *_m)
   JobDoneMsg *m = dynamic_cast<JobDoneMsg *>(_m);
   if (!m || jobs.find(m->job_id) == jobs.end())
     return 1;
-  trace() << "job ended " << m->job_id << endl;
+  trace() << "END " << m->job_id
+          << " status=" << m->exitcode
+          << " in=" << m->in_uncompressed
+          << "(" << int( m->in_compressed * 100 / m->in_uncompressed ) << "%)"
+          << " out=" << m->out_uncompressed
+          << "(" << int( m->out_compressed * 100 / m->out_uncompressed ) << "%)"
+          << " real=" << m->real_msec
+          << " user=" << m->user_msec
+          << " sys=" << m->sys_msec
+          << " rss=" << m->maxrss
+          << " idrss=" << m->idrss
+          << " pfaults=" << m->majflt
+          << " nswaps=" << m->nswap
+          << " server=" << c->other_end->name
+          << endl;
   if (jobs[m->job_id]->server != c->other_end)
     return 1;
   tochoose = true;
@@ -442,7 +457,7 @@ main (int /*argc*/, char * /*argv*/ [])
 	  if (remote_fd >= 0)
 	    {
 	      CS *cs = new CS ((struct sockaddr*) &remote_addr, remote_len);
-	      printf ("accepting from %s:%d\n", cs->name.c_str(), cs->port);
+	      // printf ("accepting from %s:%d\n", cs->name.c_str(), cs->port);
 	      handle_new_connection ( cs->createChannel( remote_fd ));
 	    }
         }
@@ -480,8 +495,8 @@ main (int /*argc*/, char * /*argv*/ [])
 	   if (FD_ISSET (i, &read_set))
 	     {
 	       MsgChannel *c = it->second;
-	       printf ("message from %s:%d (%d)\n", c->other_end->name.c_str(),
-	               c->other_end->port, i);
+               /*	       printf ("message from %s:%d (%d)\n", c->other_end->name.c_str(),
+                               c->other_end->port, i); */
 	       handle_activity (c);
 	       max_fd--;
 	     }

@@ -678,11 +678,18 @@ JobBeginMsg::send_to_fd (int fd) const
 
 JobDoneMsg::JobDoneMsg () : Msg(M_JOB_DONE),  exitcode( -1 ), job_id( 0 )
 {
-}
-
-JobDoneMsg::JobDoneMsg (unsigned int i)
-  : Msg(M_JOB_DONE), exitcode( -1 ), job_id(i)
-{
+  real_msec = 0;
+  user_msec = 0;
+  sys_msec = 0;
+  maxrss = 0;
+  idrss = 0;
+  majflt = 0;
+  nswap = 0;
+  exitcode = 0;
+  in_compressed = 0;
+  in_uncompressed = 0;
+  out_compressed = 0;
+  out_uncompressed = 0;
 }
 
 bool

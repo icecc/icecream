@@ -273,7 +273,8 @@ int main( int /*argc*/, char ** /*argv*/ )
                         delete req.second;
                         break;
                     }
-                    jobmap[pid] = new JobDoneMsg( job->jobID() );
+                    jobmap[pid] = new JobDoneMsg;
+                    jobmap[pid]->job_id = job->jobID();
                     pidmap[sock] = pid;
                 }
                 delete req.first;
@@ -294,8 +295,8 @@ int main( int /*argc*/, char ** /*argv*/ )
                 }
                 if ( msg && scheduler ) {
                     msg->exitcode = status;
-                    msg->user_msec = ru.ru_utime.tv_sec * 1000 + ru.ru_utime.tv_usec % 1000;
-                    msg->sys_msec = ru.ru_stime.tv_sec * 1000 + ru.ru_stime.tv_usec % 1000;
+                    msg->user_msec = ru.ru_utime.tv_sec * 1000 + ru.ru_utime.tv_usec / 1000;
+                    msg->sys_msec = ru.ru_stime.tv_sec * 1000 + ru.ru_stime.tv_usec / 1000;
                     msg->maxrss = ru.ru_maxrss;
                     msg->idrss = ru.ru_idrss;
                     msg->majflt = ru.ru_majflt;

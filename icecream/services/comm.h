@@ -226,7 +226,6 @@ public:
 
   unsigned int job_id;
   JobDoneMsg ();
-  JobDoneMsg (unsigned int i);
   virtual bool fill_from_fd (int fd);
   virtual bool send_to_fd (int fd) const;
 };
