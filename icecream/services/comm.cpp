@@ -396,14 +396,7 @@ Service::Service (const string &hostname, unsigned short p)
   name = hostname;
   port = p;
   last_talk = time( 0 );
-  new MsgChannel (remote_fd, this); // sets c
-
-  if ( !c || !c->announce_protocol() )
-    {
-      close( remote_fd );
-      delete c;
-      c = 0;
-    }
+  createChannel( remote_fd );
 }
 
 Service::~Service ()
@@ -451,6 +444,11 @@ MsgChannel::MsgChannel (int _fd, Service *serv)
   intogo = 0;
   instate = NEED_LEN;
   eof = false;
+
+  if ( !check_protocol( ) ) {
+    protocol = 0; // unusable
+  }
+
   if (fcntl (fd, F_SETFL, O_NONBLOCK) < 0)
     perror ("fcntl()"); // XXX
 }
@@ -472,33 +470,43 @@ MsgChannel::~MsgChannel()
 }
 
 bool
-MsgChannel::announce_protocol()
-{
-  unsigned char vers[4] = { PROTOCOL_VERSION, 0, 0, 0 };
-  if ( write( fd, vers, 4 ) != 4 )
-    return false;
-  if ( read( fd, vers, 4 ) != 4 ) // just a check
-    return false;
-  protocol = vers[0];
-  return protocol <= PROTOCOL_VERSION && protocol >= MIN_PROTOCOL_VERSION;
-}
-
-bool
 MsgChannel::check_protocol()
 {
-  unsigned char vers[4];
-  if ( read( fd, vers, 4 ) != 4 ) {
-    perror( "read(acc_fd, 4)" );
+  protocol = PROTOCOL_VERSION;
+  unsigned char vers[4] = { PROTOCOL_VERSION, 0, 0, 0 };
+  trace() << "writing protocol " << PROTOCOL_VERSION << endl;
+  if ( write( fd, vers, 4 ) != 4 )
     return false;
-  } else {
-    if ( vers[0] < MIN_PROTOCOL_VERSION )
-      vers[0] = 0;
-    else if ( vers[0] > PROTOCOL_VERSION )
-      vers[0] = PROTOCOL_VERSION; // our is smaller
-    if ( write( fd, vers, 4 ) != 4 )
-      return false;
-    return vers[0];
+  if ( read( fd, vers, 4 ) != 4 ) // just the other side's
+    return false;
+  trace() << "writing protocol " << PROTOCOL_VERSION << endl;
+  if ( vers[0] < MIN_PROTOCOL_VERSION )
+    vers[0] = 0;
+  else if ( vers[0] > PROTOCOL_VERSION )
+    vers[0] = PROTOCOL_VERSION; // our is smaller
+  protocol = vers[0];
+
+  trace() << "write protocol version " << ( int )vers[0] << endl;
+  if ( write( fd, vers, 4 ) != 4 )
+    return false;
+
+  if ( !protocol ) {
+    close( fd );
+    return false;
   }
+
+  trace() << "read protocol " << ( int )vers[0] << endl;
+  if ( read( fd, vers, 4 ) != 4 ) // just the other side's again
+    return false;
+
+  if ( vers[0] != protocol ) { // mach sauce!
+    protocol = 0;
+    close( fd );
+    return false;
+  }
+
+  trace() << "protocol is fine for me: " << protocol << endl;
+  return true;
 }
 
 /* This waits indefinitely (well, 5 minutes) for some a complete
@@ -617,10 +625,11 @@ MsgChannel *Service::createChannel( int remote_fd )
   new MsgChannel( remote_fd, this ); // sets c
   assert( channel() );
 
-  if ( !channel()->check_protocol( ) ) {
+  if ( !channel()->protocol ) {
     delete c;
     c = 0;
   }
+
   return channel();
 }
 

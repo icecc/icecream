@@ -136,8 +136,7 @@ public:
   void writecompressed (const unsigned char *in_buf,
 			size_t _in_len, size_t &_out_len);
 
-  bool announce_protocol();
-  bool check_protocol();
+  bool check_protocol( );
 
   // be careful: it also deletes the service it belongs to
   ~MsgChannel ();
