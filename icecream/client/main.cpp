@@ -1,6 +1,6 @@
 /* -*- c-file-style: "java"; indent-tabs-mode: nil -*-
  *
- * distcc -- A simple distributed compiler system
+ * icecc -- A simple distributed compiler system derived from distcc
  *
  * Copyright (C) 2002, 2003 by Martin Pool <mbp@samba.org>
  *
@@ -63,7 +63,7 @@ using namespace std;
  * Entry point for the distcc client.
  *
  * There are three methods of use for distcc: explicit (distcc gcc -c
- * foo.c), implicit (distcc -c foo.c) and masqueraded (gcc -c foo.c,
+ * foo.c), implicit (icecc -c foo.c) and masqueraded (gcc -c foo.c,
  * where gcc is really a link to distcc).
  *
  * Detecting these is relatively easy by examining the first one or
@@ -78,8 +78,8 @@ static void dcc_show_usage(void)
 {
     printf(
 "Usage:\n"
-"   distcc [COMPILER] [compile options] -o OBJECT -c SOURCE\n"
-"   distcc --help\n"
+"   icecc [COMPILER] [compile options] -o OBJECT -c SOURCE\n"
+"   icecc --help\n"
 "\n"
 "Options:\n"
 "   COMPILER                   defaults to \"cc\"\n"
