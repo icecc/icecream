@@ -86,7 +86,7 @@ int dcc_make_tmpnam(const char *prefix,
 
     do {
         if (snprintf(name_ret, PATH_MAX, "%s/%s_%08lx%s",
-                      _PATH_TMP,
+                      _PATH_TMP + 1,
                       prefix,
                       random_bits & 0xffffffffUL,
                       suffix) == -1)
@@ -114,35 +114,4 @@ int dcc_make_tmpnam(const char *prefix,
     return 0;
 }
 
-/**
- * If you preprocessed a file with extension @p e, what would you get?
- *
- * @param e original extension (e.g. ".c")
- *
- * @returns preprocessed extension, (e.g. ".i"), or NULL if
- * unrecognized.
- **/
-const char * dcc_preproc_exten(const char *e)
-{
-    if (e[0] != '.')
-        return NULL;
-    e++;
-    if (!strcmp(e, "i") || !strcmp(e, "c")) {
-        return ".i";
-    } else if (!strcmp(e, "c") || !strcmp(e, "cc")
-               || !strcmp(e, "cpp") || !strcmp(e, "cxx")
-               || !strcmp(e, "cp") || !strcmp(e, "c++")
-               || !strcmp(e, "C") || !strcmp(e, "ii")) {
-        return ".ii";
-    } else if(!strcmp(e,"mi") || !strcmp(e, "m")) {
-        return ".mi";
-    } else if(!strcmp(e,"mii") || !strcmp(e,"mm")
-                || !strcmp(e,"M")) {
-        return ".mii";
-    } else if (!strcasecmp(e, "s")) {
-        return ".s";
-    } else {
-        return NULL;
-    }
-}
 

@@ -57,6 +57,17 @@ int handle_connection( CompileJob *job, MsgChannel *serv )
     string obj_file;
 
     try {
+        log_info() << "should use " << job->environmentVersion() << endl;
+        string basedir = "/tmp/icecc-envs/";
+        if ( !access( string( basedir + job->environmentVersion() + "/usr/bin/gcc" ).c_str(), X_OK ) ) {
+            if ( getuid() == 0 )
+                chroot( string( basedir + job->environmentVersion() ).c_str() );
+            else
+                chdir( string( basedir + job->environmentVersion() ).c_str() );
+        }
+        else
+            chdir( "/" );
+
         const char *dot;
         if (job->language() == CompileJob::Lang_C)
             dot = ".i";

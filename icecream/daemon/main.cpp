@@ -147,6 +147,7 @@ static void dcc_daemon_terminate(int whichsig)
 int main( int /*argc*/, char ** /*argv*/ )
 {
     list<string> environments = available_environmnents();
+    chdir( "/" );
 
     const int START_PORT = 10245;
 

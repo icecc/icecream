@@ -36,10 +36,10 @@ int work_it( CompileJob &j,
     appendList( list, j.restFlags() );
     int ret;
 
-    log_info() << "should use " << j.environmentVersion() << endl;
     char tmp_output[PATH_MAX];
     if ( ( ret = dcc_make_tmpnam("icecc", ".o", tmp_output ) ) != 0 )
         return ret;
+
     outfilename = tmp_output;
 
     int sock_err[2];
@@ -90,17 +90,22 @@ int work_it( CompileJob &j,
 
         close( main_sock[0] );
         fcntl(main_sock[1], F_SETFD, FD_CLOEXEC);
+        setenv( "PATH", "usr/bin", 1 );
+        setenv( "LD_LIBRARY_PATH", "usr/lib:lib", 1 );
 
         int argc = list.size();
         argc++; // the program
         argc += 4; // file.i -o file.o
         char **argv = new char*[argc + 1];
         if (j.language() == CompileJob::Lang_C)
-            argv[0] = strdup( "/usr/bin/gcc" );
+            argv[0] = strdup( "usr/bin/gcc" );
         else if (j.language() == CompileJob::Lang_CXX)
-            argv[0] = strdup( "/usr/bin/g++" );
+            argv[0] = strdup( "usr/bin/g++" );
         else
             assert(0);
+
+        //TODOlist.push_back( "-Busr/lib/gcc-lib/i586-suse-linux/3.3.1/" );
+
         int i = 1;
         for ( CompileJob::ArgumentsList::const_iterator it = list.begin();
               it != list.end(); ++it) {
