@@ -822,7 +822,8 @@ MonGetCSMsg::fill_from_fd (int fd)
 {
   if (!GetCSMsg::fill_from_fd (fd))
     return false;
-  return readuint( fd, job_id );
+  return readuint( fd, job_id )
+    && read_string( fd, client );
 }
 
 bool
@@ -830,7 +831,8 @@ MonGetCSMsg::send_to_fd (int fd) const
 {
   if (!GetCSMsg::send_to_fd (fd))
     return false;
-  return writeuint( fd, job_id );
+  return writeuint( fd, job_id )
+    && write_string( fd, client );
 }
 
 bool

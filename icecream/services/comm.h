@@ -273,12 +273,14 @@ public:
 class MonGetCSMsg : public GetCSMsg {
 public:
   unsigned int job_id;
+  std::string client;
+
   MonGetCSMsg() : GetCSMsg() { // overwrite
     type = M_MON_GET_CS;
     job_id = 0;
   }
-  MonGetCSMsg( int id, GetCSMsg *m )
-    : GetCSMsg( m->version, m->filename, m->lang ), job_id( id )
+  MonGetCSMsg( int id, std::string host, GetCSMsg *m )
+    : GetCSMsg( m->version, m->filename, m->lang ), job_id( id ), client( host )
   {
     type = M_MON_GET_CS;
   }
