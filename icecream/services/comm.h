@@ -33,7 +33,7 @@
 #include "job.h"
 
 // if you increase the PROTOCOL_VERSION, add a macro below and use that
-#define PROTOCOL_VERSION 17
+#define PROTOCOL_VERSION 18
 // if you increase the MIN_PROTOCOL_VERSION, comment out macros below and clean up the code
 #define MIN_PROTOCOL_VERSION 14
 
@@ -41,6 +41,7 @@
 #define IS_PROTOCOL_15( c ) ( c->protocol >= 15 )
 #define IS_PROTOCOL_16( c ) ( c->protocol >= 16 )
 #define IS_PROTOCOL_17( c ) ( c->protocol >= 17 )
+#define IS_PROTOCOL_18( c ) ( c->protocol >= 18 )
 
 enum MsgType {
   // so far unknown
@@ -387,11 +388,12 @@ public:
   unsigned int port;
   Environments envs;
   unsigned int max_kids;
+  bool         chroot_possible;
   std::string nodename;
   std::string host_platform;
-  LoginMsg (unsigned int myport, const std::string &_nodename, const std::string _host_platform)
-      : Msg(M_LOGIN), port( myport ), nodename( _nodename ), host_platform( _host_platform ) {}
+  LoginMsg (unsigned int myport, const std::string &_nodename, const std::string _host_platform);
   LoginMsg () : Msg(M_LOGIN), port( 0 ) {}
+
   virtual void fill_from_channel (MsgChannel * c);
   virtual void send_to_channel (MsgChannel * c) const;
 };

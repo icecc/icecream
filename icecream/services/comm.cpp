@@ -773,7 +773,7 @@ MsgChannel::send_msg (const Msg &m, bool blocking)
       m.send_to_channel (this);
       uint32_t len = htonl (msgtogo - msgtogo_old - 4);
       memcpy (msgbuf + msgtogo_old, &len, 4);
-    }    
+    }
   return flush_writebuf (blocking);
 }
 
@@ -1271,6 +1271,13 @@ JobDoneMsg::send_to_channel (MsgChannel *c) const
   c->writeuint32 (out_uncompressed);
 }
 
+LoginMsg::LoginMsg(unsigned int myport, const std::string &_nodename, const std::string _host_platform)
+      : Msg(M_LOGIN), port( myport ), chroot_possible( false ), nodename( _nodename ), host_platform( _host_platform )
+{
+  // check if we're root
+  chroot_possible = ( geteuid() == 0 );
+}
+
 void
 LoginMsg::fill_from_channel (MsgChannel *c)
 {
@@ -1280,6 +1287,10 @@ LoginMsg::fill_from_channel (MsgChannel *c)
   c->read_environments( envs );
   c->read_string( nodename );
   c->read_string( host_platform );
+  unsigned int net_chroot_possible = 0;
+  if ( IS_PROTOCOL_18( c ) )
+    c->readuint32 (net_chroot_possible);
+  chroot_possible = net_chroot_possible != 0;
 }
 
 void
@@ -1291,6 +1302,8 @@ LoginMsg::send_to_channel (MsgChannel *c) const
   c->write_environments( envs );
   c->write_string( nodename );
   c->write_string( host_platform );
+  if ( IS_PROTOCOL_18( c ) )
+    c->writeuint32( chroot_possible );
 }
 
 void
