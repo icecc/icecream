@@ -274,6 +274,52 @@ MsgChannel::send_msg (const Msg &m)
   return m.send_to_fd (fd);
 }
 
+MsgChannel *
+connect_scheduler ()
+{
+  int ask_fd;
+  struct sockaddr_in remote_addr;
+  socklen_t remote_len;
+  if ((ask_fd = socket (PF_INET, SOCK_DGRAM, 0)) < 0)
+    {
+      perror ("socket()");
+      return 0;
+    }
+  int optval = 1;
+  if (setsockopt (ask_fd, SOL_SOCKET, SO_BROADCAST, &optval, sizeof(optval)) < 0)
+    {
+      perror ("setsockopt()");
+      return 0;
+    }
+  remote_addr.sin_family = AF_INET;
+  remote_addr.sin_port = htons (8765);
+  remote_addr.sin_addr.s_addr = INADDR_BROADCAST;
+  char buf = 42, buf2;
+  if (sendto (ask_fd, &buf, 1, 0, (struct sockaddr*)&remote_addr,
+  	      sizeof (remote_addr)) != 1)
+    {
+      perror ("sendto()");
+      return 0;
+    }
+  remote_len = sizeof (remote_addr);
+  if (recvfrom (ask_fd, &buf2, 1, 0, (struct sockaddr*) &remote_addr,
+		&remote_len) != 1)
+    {
+      perror ("recvfrom()");
+      return 0;
+    }
+  if (buf + 1 != buf2)
+    {
+      fprintf (stderr, "wrong answer\n");
+      return 0;
+    }
+  string sname = inet_ntoa (remote_addr.sin_addr);
+  unsigned short sport = ntohs (remote_addr.sin_port);
+  printf ("scheduler is on %s:%d\n", sname.c_str(), sport);
+  Service *sched = new Service (sname, sport);
+  return sched->channel();
+}
+
 bool
 read_string (int fd, string &s)
 {

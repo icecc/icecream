@@ -17,14 +17,12 @@ public:
   Client (struct sockaddr *addr, socklen_t len) : Service (addr, len) {}
 };
 
-Service *scheduler;
 MsgChannel *sched_channel;
 
 static void
 open_scheduler ()
 {
-  scheduler = new Service ("localhost", 8765);
-  sched_channel = scheduler->channel();
+  sched_channel = connect_scheduler ();
   if (!sched_channel)
     {
       fprintf (stderr, "No scheduler running\n");
@@ -34,7 +32,7 @@ open_scheduler ()
 }
 
 static int
-handle_compile_file (MsgChannel *c, Msg *_m)
+handle_compile_file (MsgChannel * /*c*/, Msg *_m)
 {
   CompileFileMsg *m = dynamic_cast<CompileFileMsg *>(_m);
   CompileJob *job = m->job;
@@ -121,7 +119,7 @@ int main (int , char *[])
       delete c;
       delete client;
     }
+  delete sched_channel->other_end;
   delete sched_channel;
-  delete scheduler;
   return 0;
 }

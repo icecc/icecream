@@ -1,6 +1,7 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <arpa/inet.h>
 #include <sys/select.h>
 #include <unistd.h>
 #include <errno.h>
@@ -215,9 +216,36 @@ handle_activity (MsgChannel *c)
 }
 
 int
+open_broad_listener ()
+{
+  int listen_fd;
+  struct sockaddr_in myaddr;
+  if ((listen_fd = socket (PF_INET, SOCK_DGRAM, 0)) < 0)
+    {
+      perror ("socket()");
+      return -1;
+    }
+  int optval = 1;
+  if (setsockopt (listen_fd, SOL_SOCKET, SO_BROADCAST, &optval, sizeof(optval)) < 0)
+    {
+      perror ("setsockopt()");
+      return -1;
+    }
+  myaddr.sin_family = AF_INET;
+  myaddr.sin_port = htons (8765);
+  myaddr.sin_addr.s_addr = INADDR_BROADCAST;
+  if (bind (listen_fd, (struct sockaddr *) &myaddr, sizeof (myaddr)) < 0)
+    {
+      perror ("bind()");
+      return -1;
+    }
+  return listen_fd;
+}
+
+int
 main (int /*argc*/, char * /*argv*/ [])
 {
-  int listen_fd, remote_fd;
+  int listen_fd, remote_fd, broad_fd;
   struct sockaddr_in myaddr, remote_addr;
   socklen_t remote_len;
   if ((listen_fd = socket (PF_INET, SOCK_STREAM, 0)) < 0)
@@ -252,6 +280,11 @@ main (int /*argc*/, char * /*argv*/ [])
       perror ("listen()");
       return 1;
     }
+  broad_fd = open_broad_listener ();
+  if (broad_fd < 0)
+    {
+      return 1;
+    }
   while (1)
     {
       fd_set read_set;
@@ -259,6 +292,9 @@ main (int /*argc*/, char * /*argv*/ [])
       FD_ZERO (&read_set);
       max_fd = listen_fd;
       FD_SET (listen_fd, &read_set);
+      if (broad_fd > max_fd)
+        max_fd = broad_fd;
+      FD_SET (broad_fd, &read_set);
       for (map<int, MsgChannel *>::const_iterator it = fd2chan.begin();
            it != fd2chan.end(); ++it)
 	 {
@@ -293,6 +329,30 @@ main (int /*argc*/, char * /*argv*/ [])
 	      handle_new_connection (c);
 	    }
         }
+      if (max_fd && FD_ISSET (broad_fd, &read_set))
+        {
+	  max_fd--;
+	  char buf;
+	  struct sockaddr_in broad_addr;
+	  socklen_t broad_len = sizeof (broad_addr);
+	  if (recvfrom (broad_fd, &buf, 1, 0, (struct sockaddr*) &broad_addr,
+			&broad_len) != 1)
+	    {
+	      perror ("recvfrom()");
+	      return -1;
+	    }
+	  else
+	    {
+	      printf ("broadcast from %s:%d\n", inet_ntoa (broad_addr.sin_addr),
+		      ntohs (broad_addr.sin_port));
+	      buf++;
+	      if (sendto (broad_fd, &buf, 1, 0, (struct sockaddr*)&broad_addr,
+		          broad_len) != 1)
+		{
+		  perror ("sendto()");
+		}
+	    }
+	}
       for (map<int, MsgChannel *>::const_iterator it = fd2chan.begin();
            max_fd && it != fd2chan.end(); ++it)
 	 {
@@ -307,5 +367,6 @@ main (int /*argc*/, char * /*argv*/ [])
 	     }
 	 }
     }
+  close (broad_fd);
   return 0;
 }

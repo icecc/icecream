@@ -69,12 +69,11 @@ int main (int argc, char *argv[])
     }
   filename = argv[1];
   
-  Service *serv = new Service ("localhost", 8765);
-  MsgChannel *c = serv->channel();
+  MsgChannel *c = connect_scheduler ();
   if (!c)
     return 1;
   submit_job (c, filename);
+  delete c->other_end;
   delete c;
-  delete serv;
   return 0;
 }

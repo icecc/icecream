@@ -89,6 +89,8 @@ public:
   ~MsgChannel ();
 };
 
+MsgChannel *connect_scheduler ();
+
 class PingMsg : public Msg {
 public:
   PingMsg () : Msg(M_PING) {}

@@ -148,7 +148,7 @@ int handle_connection( MsgChannel *serv )
     }
 
     if ( msg->type == M_GET_SCHEDULER ) {
-        UseSchedulerMsg m( *scheduler_host, scheduler_port );
+        UseSchedulerMsg m( scheduler_host, scheduler_port );
         serv->send_msg( m );
         delete msg;
         return 0;
