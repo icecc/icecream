@@ -58,7 +58,6 @@ using namespace std;
  **/
 pid_t call_cpp(CompileJob &job, int fd)
 {
-	printf("call_cpp\n");
 #if 0
     if ( dcc_is_preprocessed( job.inputFile() ) ) {
         /* TODO: Perhaps also consider the option that says not to use cpp.
@@ -71,9 +70,6 @@ pid_t call_cpp(CompileJob &job, int fd)
         return 0;
     }
 #endif
-
-    /* COOLO    if ((ret = dcc_make_tmpnam("distcc", output_exten, cpp_fname)))
-        return ret; */
 
     pid_t pid = fork();
     if (pid == -1) {
