@@ -243,7 +243,12 @@ bool install_environment( const std::string &basename, const std::string &target
     Msg *msg = 0;
     do {
         delete msg;
-        msg = c->get_msg();
+        msg = c->get_msg(30);
+	if (!msg) {
+            error = true;
+	    break;
+	}
+
         if ( msg->type == M_END ) {
             trace() << "end\n";
             break;
