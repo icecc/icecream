@@ -487,7 +487,7 @@ pick_server(Job *job)
       CS *cs = *it;
       /* For now ignore overloaded servers.  */
       if (int( cs->joblist.size() ) >= cs->max_jobs || cs->load >= 1000) {
-	trace() << "overloaded " << cs->name << " " << cs->joblist.size() << "/" <<  cs->max_jobs << " jobs, load:" << cs->load << endl;
+	// trace() << "overloaded " << cs->name << " " << cs->joblist.size() << "/" <<  cs->max_jobs << " jobs, load:" << cs->load << endl;
         continue;
       }
 
@@ -516,7 +516,7 @@ pick_server(Job *job)
 	  break;
 	}
 
-      trace() << "server_speed " << cs->name << " " << server_speed (cs) << endl;
+      // trace() << "server_speed " << cs->name << " " << server_speed (cs) << endl;
       if ( envs_match( cs, environment ) )
         {
           if ( !best )
