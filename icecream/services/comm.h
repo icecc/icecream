@@ -11,7 +11,7 @@
 
 #include "job.h"
 
-#define PROTOCOL_VERSION 3
+#define PROTOCOL_VERSION 4
 
 enum MsgType {
   // so far unknown
@@ -332,8 +332,9 @@ public:
   unsigned int port;
   std::list<std::string> envs;
   unsigned int max_kids;
-  LoginMsg (unsigned int myport)
-      : Msg(M_LOGIN), port( myport ) {}
+  std::string nodename;
+  LoginMsg (unsigned int myport, const std::string &_nodename)
+      : Msg(M_LOGIN), port( myport ), nodename( _nodename ) {}
   LoginMsg () : Msg(M_LOGIN), port( 0 ) {}
   virtual void fill_from_channel (MsgChannel * c);
   virtual void send_to_channel (MsgChannel * c) const;
@@ -366,6 +367,17 @@ public:
   virtual void send_to_channel (MsgChannel * c) const;
 };
 
+class EnvTransferMsg : public Msg {
+public:
+  std::string name;
+  EnvTransferMsg() : Msg( M_TRANFER_ENV ) {
+  }
+  EnvTransferMsg( const std::string &_name )
+    : Msg( M_TRANFER_ENV ), name( _name ) {}
+  virtual void fill_from_channel (MsgChannel * c);
+  virtual void send_to_channel (MsgChannel * c) const;
+};
+
 class MonLoginMsg : public Msg {
 public:
   MonLoginMsg() : Msg(M_MON_LOGIN) {}
@@ -374,14 +386,14 @@ public:
 class MonGetCSMsg : public GetCSMsg {
 public:
   unsigned int job_id;
-  std::string client;
+  unsigned int clientid;
 
   MonGetCSMsg() : GetCSMsg() { // overwrite
     type = M_MON_GET_CS;
-    job_id = 0;
+    clientid = job_id = 0;
   }
-  MonGetCSMsg( int id, std::string host, GetCSMsg *m )
-    : GetCSMsg( m->version, m->filename, m->lang ), job_id( id ), client( host )
+  MonGetCSMsg( int jobid, int hostid, GetCSMsg *m )
+    : GetCSMsg( m->version, m->filename, m->lang ), job_id( jobid ), clientid( hostid )
   {
     type = M_MON_GET_CS;
   }
@@ -393,10 +405,10 @@ class MonJobBeginMsg : public Msg {
 public:
   unsigned int job_id;
   unsigned int stime;
-  std::string host;
+  unsigned int hostid;
   MonJobBeginMsg() : Msg(M_MON_JOB_BEGIN) {}
-  MonJobBeginMsg( unsigned int id, unsigned int time, std::string name )
-    : Msg( M_MON_JOB_BEGIN ), job_id( id ), stime( time ), host( name ) {}
+  MonJobBeginMsg( unsigned int id, unsigned int time, int _hostid )
+    : Msg( M_MON_JOB_BEGIN ), job_id( id ), stime( time ), hostid( _hostid ) {}
   virtual void fill_from_channel (MsgChannel * c);
   virtual void send_to_channel (MsgChannel * c) const;
 };
@@ -417,10 +429,10 @@ class MonLocalJobBeginMsg : public Msg {
 public:
   unsigned int job_id;
   unsigned int stime;
-  std::string host;
+  unsigned int hostid;
   MonLocalJobBeginMsg() : Msg(M_MON_LOCAL_JOB_BEGIN) {}
-  MonLocalJobBeginMsg( unsigned int id, unsigned int time, std::string name )
-    : Msg( M_MON_LOCAL_JOB_BEGIN ), job_id( id ), stime( time ), host( name ) {}
+  MonLocalJobBeginMsg( unsigned int id, unsigned int time, int _hostid )
+    : Msg( M_MON_LOCAL_JOB_BEGIN ), job_id( id ), stime( time ), hostid( _hostid ) {}
   virtual void fill_from_channel (MsgChannel * c);
   virtual void send_to_channel (MsgChannel * c) const;
 };
@@ -437,29 +449,15 @@ public:
   }
 };
 
-class MonStatsMsg : public StatsMsg {
+class MonStatsMsg : public Msg {
 public:
-  std::string host;
-  unsigned int max_kids;
-  MonStatsMsg() : StatsMsg() {
-    type = M_MON_STATS;
-  }
-  MonStatsMsg( const std::string& name, unsigned int mk, const StatsMsg &m )
-    : StatsMsg(m), host( name ), max_kids( mk )
+  unsigned int hostid;
+  std::string statmsg;
+  MonStatsMsg() : Msg( M_MON_STATS ) {}
+  MonStatsMsg( int id, const std::string &_statmsg )
+    : Msg( M_MON_STATS ), hostid( id ), statmsg( _statmsg )
   {
-    type = M_MON_STATS;
   }
-  virtual void fill_from_channel (MsgChannel * c);
-  virtual void send_to_channel (MsgChannel * c) const;
-};
-
-class EnvTransferMsg : public Msg {
-public:
-  std::string name;
-  EnvTransferMsg() : Msg( M_TRANFER_ENV ) {
-  }
-  EnvTransferMsg( const std::string &_name )
-    : Msg( M_TRANFER_ENV ), name( _name ) {}
   virtual void fill_from_channel (MsgChannel * c);
   virtual void send_to_channel (MsgChannel * c) const;
 };

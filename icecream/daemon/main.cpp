@@ -28,6 +28,7 @@
 
 #include <netinet/in.h>
 #include <netinet/tcp.h>
+#include <sys/utsname.h>
 
 #ifdef HAVE_ARPA_NAMESER_H
 #  include <arpa/nameser.h>
@@ -176,9 +177,9 @@ void usage(const char* reason = 0)
   exit(1);
 }
 
-void reannounce_environments(const string &envbasedir)
+void reannounce_environments(const string &envbasedir, const string &nodename)
 {
-    LoginMsg lmsg( 0 );
+    LoginMsg lmsg( 0, nodename );
     lmsg.envs = available_environmnents(envbasedir);
     scheduler->send_msg( lmsg );
 }
@@ -236,6 +237,7 @@ int main( int argc, char ** argv )
     string logfile;
     bool detach = true;
     nice_level = 5; // defined in serve.h
+    string nodename;
 
     while ( true ) {
         int option_index = 0;
@@ -247,6 +249,7 @@ int main( int argc, char ** argv )
             { "no-detach", 0, NULL, 0},
             { "log-file", 1, NULL, 'l'},
             { "nice", 1, NULL, 0},
+            { "name", 1, NULL, 'n'},
             { 0, 0, 0, 0 }
         };
 
@@ -265,7 +268,13 @@ int main( int argc, char ** argv )
                            int tnice = atoi( optarg );
                            if ( !errno )
                                nice_level = tnice;
-                       }
+                       } else
+                           usage("Error: --nice requires argument");
+                   } else if ( optname == "name" ) {
+                       if ( optarg && *optarg )
+                           nodename = optarg;
+                       else
+                           usage("Error: --name requires argument");
                    }
                }
                break;
@@ -309,12 +318,21 @@ int main( int argc, char ** argv )
         }
     }
 
-    if ( !logfile.size() && detach)
+    if ( !logfile.length() && detach)
         logfile = "/var/log/iceccd";
 
     setup_debug( debug_level, logfile );
 
     log_info() << "will use nice level " << nice_level << endl;
+
+    if ( !nodename.length() ) {
+        struct utsname ubuf;
+        if ( !uname( &ubuf ) ) {
+            nodename = ubuf.nodename;
+        } else
+            nodename = "localhost"; // making something up :/
+    }
+
 
     std::string binary_path = argv[0];
     time_t binary_on_startup = 0;
@@ -416,7 +434,7 @@ int main( int argc, char ** argv )
         if ( listen_fd == -1 ) // error
             return 1;
 
-        LoginMsg lmsg( port );
+        LoginMsg lmsg( port, nodename );
         lmsg.envs = available_environmnents(envbasedir);
         lmsg.max_kids = max_kids;
         scheduler->send_msg( lmsg );
@@ -599,9 +617,9 @@ int main( int argc, char ** argv )
                                 EnvTransferMsg *emsg = dynamic_cast<EnvTransferMsg*>( msg );
                                 if (!install_environment( envbasedir, emsg->name, c )) {
                                     c->send_msg(EndMsg()); // shut up, we had an error
-                                    reannounce_environments(envbasedir);
+                                    reannounce_environments(envbasedir, nodename);
 				} else {
-                                    reannounce_environments(envbasedir); // do that before the file compiles
+                                    reannounce_environments(envbasedir, nodename); // do that before the file compiles
                                     delete msg;
                                     msg = c->get_msg();
                                     if ( msg->type == M_COMPILE_FILE ) { // we sure hope so

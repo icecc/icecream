@@ -1075,6 +1075,7 @@ LoginMsg::fill_from_channel (MsgChannel *c)
   c->readuint32 (port);
   c->readuint32 (max_kids);
   c->read_strlist (envs);
+  c->read_string( nodename );
 }
 
 void
@@ -1084,6 +1085,7 @@ LoginMsg::send_to_channel (MsgChannel *c) const
   c->writeuint32 (port);
   c->writeuint32 (max_kids);
   c->write_strlist (envs);
+  c->write_string( nodename );
 }
 
 void
@@ -1145,72 +1147,6 @@ UseSchedulerMsg::send_to_channel (MsgChannel *c) const
 }
 
 void
-MonGetCSMsg::fill_from_channel (MsgChannel *c)
-{
-  GetCSMsg::fill_from_channel (c);
-  c->readuint32 (job_id);
-  c->read_string (client);
-}
-
-void
-MonGetCSMsg::send_to_channel (MsgChannel *c) const
-{
-  GetCSMsg::send_to_channel (c);
-  c->writeuint32 (job_id);
-  c->write_string (client);
-}
-
-void
-MonJobBeginMsg::fill_from_channel (MsgChannel *c)
-{
-  Msg::fill_from_channel (c);
-  c->readuint32 (job_id);
-  c->readuint32 (stime);
-  c->read_string (host);
-}
-
-void
-MonJobBeginMsg::send_to_channel (MsgChannel *c) const
-{
-  Msg::send_to_channel (c);
-  c->writeuint32 (job_id);
-  c->writeuint32 (stime);
-  c->write_string (host);
-}
-
-void MonLocalJobBeginMsg::fill_from_channel (MsgChannel * c)
-{
-  Msg::fill_from_channel(c);
-  c->read_string(host);
-  c->readuint32( job_id );
-  c->readuint32( stime );
-}
-
-void MonLocalJobBeginMsg::send_to_channel (MsgChannel * c) const
-{
-  Msg::send_to_channel(c);
-  c->write_string( host );
-  c->writeuint32( job_id );
-  c->writeuint32( stime );
-}
-
-void
-MonStatsMsg::fill_from_channel (MsgChannel *c)
-{
-  StatsMsg::fill_from_channel (c);
-  c->read_string(host);
-  c->readuint32(max_kids);
-}
-
-void
-MonStatsMsg::send_to_channel (MsgChannel *c) const
-{
-  StatsMsg::send_to_channel (c);
-  c->write_string(host);
-  c->writeuint32(max_kids);
-}
-
-void
 EnvTransferMsg::fill_from_channel (MsgChannel *c)
 {
   Msg::fill_from_channel (c);
@@ -1223,3 +1159,70 @@ EnvTransferMsg::send_to_channel (MsgChannel *c) const
   Msg::send_to_channel (c);
   c->write_string(name);
 }
+
+void
+MonGetCSMsg::fill_from_channel (MsgChannel *c)
+{
+  GetCSMsg::fill_from_channel (c);
+  c->readuint32 (job_id);
+  c->readuint32 (clientid);
+}
+
+void
+MonGetCSMsg::send_to_channel (MsgChannel *c) const
+{
+  GetCSMsg::send_to_channel (c);
+  c->writeuint32 (job_id);
+  c->writeuint32 (clientid);
+}
+
+void
+MonJobBeginMsg::fill_from_channel (MsgChannel *c)
+{
+  Msg::fill_from_channel (c);
+  c->readuint32 (job_id);
+  c->readuint32 (stime);
+  c->readuint32 (hostid);
+}
+
+void
+MonJobBeginMsg::send_to_channel (MsgChannel *c) const
+{
+  Msg::send_to_channel (c);
+  c->writeuint32 (job_id);
+  c->writeuint32 (stime);
+  c->writeuint32 (hostid);
+}
+
+void MonLocalJobBeginMsg::fill_from_channel (MsgChannel * c)
+{
+  Msg::fill_from_channel(c);
+  c->readuint32 (hostid );
+  c->readuint32( job_id );
+  c->readuint32( stime );
+}
+
+void MonLocalJobBeginMsg::send_to_channel (MsgChannel * c) const
+{
+  Msg::send_to_channel(c);
+  c->writeuint32( hostid );
+  c->writeuint32( job_id );
+  c->writeuint32( stime );
+}
+
+void
+MonStatsMsg::fill_from_channel (MsgChannel *c)
+{
+  Msg::fill_from_channel (c);
+  c->readuint32( hostid );
+  c->read_string( statmsg );
+}
+
+void
+MonStatsMsg::send_to_channel (MsgChannel *c) const
+{
+  Msg::send_to_channel (c);
+  c->writeuint32(hostid);
+  c->write_string(statmsg);
+}
+

@@ -95,7 +95,8 @@ class CS : public Service {
 public:
   /* The listener port, on which it takes compile requests.  */
   unsigned int remote_port;
-  unsigned int id;
+  unsigned int hostid;
+  string nodename;
 
     // unsigned int jobs_done;
     //  unsigned long long rcvd_kb, sent_kb;
@@ -223,6 +224,41 @@ notify_monitors (const Msg &m)
     }
 }
 
+static void
+handle_monitor_stats( CS *cs, StatsMsg *m = 0)
+{
+  string msg;
+  char buffer[1000];
+  sprintf( buffer, "Name:%s\n", cs->nodename.c_str() );
+  msg += buffer;
+  sprintf( buffer, "MaxJobs:%d\n", cs->max_jobs );
+  msg += buffer;
+  if ( m ) {
+    sprintf( buffer, "Load:%d\n", m->load );
+    msg += buffer;
+    sprintf( buffer, "NiceLoad:%d\n", m->niceLoad );
+    msg += buffer;
+    sprintf( buffer, "SysLoad:%d\n", m->sysLoad );
+    msg += buffer;
+    sprintf( buffer, "UserLoad:%d\n", m->userLoad );
+    msg += buffer;
+    sprintf( buffer, "IdleLoad:%d\n", m->idleLoad );
+    msg += buffer;
+    sprintf( buffer, "LoadAvg1:%d\n", m->loadAvg1 );
+    msg += buffer;
+    sprintf( buffer, "LoadAvg5:%d\n", m->loadAvg5 );
+    msg += buffer;
+    sprintf( buffer, "LoadAvg10:%d\n", m->loadAvg10 );
+    msg += buffer;
+    sprintf( buffer, "FreeMem:%d\n", m->freeMem );
+    msg += buffer;
+  } else {
+    sprintf( buffer, "Load:%d\n", cs->load );
+    msg += buffer;
+  }
+  notify_monitors( MonStatsMsg( cs->hostid, msg ) );
+}
+
 static Job *
 create_new_job (MsgChannel *channel, CS *submitter)
 {
@@ -301,7 +337,7 @@ handle_cs_request (MsgChannel *c, Msg *_m)
   log_info() << "NEW: " << job->id << " version=\""
              << job->environment << "\" " << m->filename
              << " " << ( m->lang == CompileJob::Lang_C ? "C" : "C++" ) << endl;
-  notify_monitors (MonGetCSMsg (job->id, c->other_end->name, m));
+  notify_monitors (MonGetCSMsg (job->id, submitter->hostid, m));
   return true;
 }
 
@@ -316,7 +352,9 @@ handle_local_job (MsgChannel *c, Msg *_m)
   if ( !c->send_msg( JobLocalId( new_job_id ) ) )
     return false;
 
-  notify_monitors (MonLocalJobBeginMsg( new_job_id, m->stime, c->other_end->name ) );
+  CS *cs = dynamic_cast<CS*>( c->other_end );
+  if ( cs )
+    notify_monitors (MonLocalJobBeginMsg( new_job_id, m->stime, cs->hostid ) );
   return true;
 }
 
@@ -551,6 +589,9 @@ handle_login (MsgChannel *c, Msg *_m)
   cs->remote_port = m->port;
   cs->compiler_versions = m->envs;
   cs->max_jobs = m->max_kids;
+  if ( m->nodename.length() )
+    cs->nodename = m->nodename;
+  handle_monitor_stats( cs );
   css.push_back (cs);
 
   trace() << cs->name << ": [";
@@ -590,6 +631,8 @@ handle_mon_login (MsgChannel *c, Msg *_m)
   // This is really a CS*, but we don't need the full one here
   Service *s = c->other_end;
   monitors.push_back (s);
+  for (list<CS*>::iterator it = css.begin(); it != css.end(); ++it)
+    handle_monitor_stats( *it );
   return true;
 }
 
@@ -612,7 +655,8 @@ handle_job_begin (MsgChannel *c, Msg *_m)
   jobs[m->job_id]->state = Job::COMPILING;
   jobs[m->job_id]->starttime = m->stime;
   jobs[m->job_id]->start_on_scheduler = time(0);
-  notify_monitors (MonJobBeginMsg (m->job_id, m->stime, c->other_end->name));
+  CS *cs = dynamic_cast<CS*>( c->other_end );
+  notify_monitors (MonJobBeginMsg (m->job_id, m->stime, cs->hostid));
   return true;
 }
 
@@ -708,7 +752,7 @@ handle_stats (MsgChannel * c, Msg * _m)
     if (( *it )->channel() == c)
       {
         ( *it )->load = m->load;
-        notify_monitors( MonStatsMsg( c->other_end->name, ( *it )->max_jobs, *m ) );
+        handle_monitor_stats( *it, m );
         return true;
       }
 
