@@ -1,10 +1,13 @@
-* scheduler: FAT
 * daemon: install and use build root
    as user: 
       chown 0 lib/libc.so*
       PATH=$PWD/usr/bin LD_LIBRARY_PATH=$PWD/lib:$PWD/usr/lib:/lib usr/bin/gcc -B/tmp/test/usr/lib/gcc-lib/i586-suse-linux/3.3.1/ -c ~/test.ii
-* scheduler: tell registered monitors
 * client: if the is interrupted, remove the job from the CS
+* if the client is cancelled, there might be jobs that reside in the joblist
+  even though the daemon never heared of them - timeout!
+* Netname to have DEBUG and REAL (Matz)
+* watch the binary and restart the daemon (Coolo)
+* easier monitor views
 
 IDEAS:
 * provide a way to pass jobs through the scheduler for multihomed servers
