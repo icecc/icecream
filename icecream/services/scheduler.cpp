@@ -1110,7 +1110,7 @@ handle_end (MsgChannel *c, Msg *m)
 	    list<Job*>::iterator jit;
 	    for (jit = l->l.begin(); jit != l->l.end(); ++jit)
 	      {
-		trace() << "STOP FOR " << (*jit)->id << endl;
+		trace() << "STOP (DAEMON) FOR " << (*jit)->id << endl;
 		(*jit)->channel->send_msg( EndMsg() );
                 notify_monitors (MonJobDoneMsg (JobDoneMsg( ( *jit )->id,  255 )));
 		jobs.erase( (*jit)->id );
@@ -1127,7 +1127,7 @@ handle_end (MsgChannel *c, Msg *m)
 	if (mit->second->server == toremove
 	    || mit->second->submitter == toremove)
 	  {
-	    trace() << "STOP FOR " << mit->first << endl;
+	    trace() << "STOP (DAEMON2) FOR " << mit->first << endl;
 	    mit->second->channel->send_msg( EndMsg() );
             notify_monitors (MonJobDoneMsg (JobDoneMsg( mit->second->id,  255 )));
 	    delete mit->second;
