@@ -142,18 +142,25 @@ int build_remote(CompileJob &job )
         return build_local( job );
     close(sockets[1]);
 
-    unsigned char buffer[50000]; // some random but huge number
+    unsigned char buffer[100000]; // some random but huge number
+    off_t offset = 0;
 
     do {
-        ssize_t bytes = read(sockets[0], buffer, sizeof(buffer) );
-        if (!bytes)
-            break;
-        FileChunkMsg fcmsg( buffer, bytes );
-        if ( !cserver->send_msg( fcmsg ) ) {
-            log_info() << "write of chunk failed" << endl;
-            close( sockets[0] );
-            kill( cpp_pid, SIGTERM );
-            return build_local( job );
+        ssize_t bytes = read(sockets[0], buffer + offset, sizeof(buffer) - offset );
+        offset += bytes;
+        if (!bytes || offset == sizeof( buffer ) ) {
+            if ( offset ) {
+                FileChunkMsg fcmsg( buffer, offset );
+                if ( !cserver->send_msg( fcmsg ) ) {
+                    log_info() << "write of chunk failed" << endl;
+                    close( sockets[0] );
+                    kill( cpp_pid, SIGTERM );
+                    return build_local( job );
+                }
+                offset = 0;
+            }
+            if ( !bytes )
+                break;
         }
     } while (1);
 

@@ -236,7 +236,7 @@ int handle_connection( MsgChannel *serv )
         log_error() << "open failed\n";
     }
 
-    unsigned char buffer[50000];
+    unsigned char buffer[100000];
     do {
         ssize_t bytes = read(obj_fd, buffer, sizeof(buffer));
         if (!bytes)
