@@ -310,6 +310,13 @@ MsgChannel *Service::createChannel( int remote_fd )
 MsgChannel *
 connect_scheduler ()
 {
+    const char *get = getenv( "USE_SCHEDULER" );
+    string hostname;
+    unsigned int sport = 8765;
+
+    if (get) {
+	hostname = get;
+    } else {
   int ask_fd;
   struct sockaddr_in remote_addr;
   socklen_t remote_len;
@@ -364,10 +371,12 @@ connect_scheduler ()
       fprintf (stderr, "wrong answer\n");
       return 0;
     }
-  string sname = inet_ntoa (remote_addr.sin_addr);
-  unsigned short sport = ntohs (remote_addr.sin_port);
-  printf ("scheduler is on %s:%d\n", sname.c_str(), sport);
-  Service *sched = new Service (sname, sport);
+  hostname = inet_ntoa (remote_addr.sin_addr);
+  sport = ntohs( remote_addr.sin_port );
+  }
+
+  printf ("scheduler is on %s:%d\n", hostname.c_str(), sport);
+  Service *sched = new Service (hostname, sport);
   return sched->channel();
 }
 
@@ -432,14 +441,16 @@ write_strlist (int fd, const list<string> &l)
 }
 
 bool
-Msg::fill_from_fd (int)
+Msg::fill_from_fd (int fd)
 {
+    assert( fd != 0 );
   return true;
 }
 
 bool
 Msg::send_to_fd (int fd) const
 {
+    assert( fd != 0 );
   return writeuint (fd, (unsigned int) type);
 }
 

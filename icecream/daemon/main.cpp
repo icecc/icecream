@@ -199,7 +199,7 @@ int main( int /*argc*/, char ** /*argv*/ )
     /* By default, allow one job per CPU, plus two for the pot.  The extra
      * ones are started to allow for a bit of extra concurrency so that the
      * machine is not idle waiting for disk or network IO. */
-    int max_kids = n_cpus; // + 2;
+    int max_kids = n_cpus + 2;
 
     log_info() << "allowing up to " << max_kids << " active jobs\n";
 

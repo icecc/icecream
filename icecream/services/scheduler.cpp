@@ -27,7 +27,7 @@ public:
   CS *server;
   time_t starttime;  // _local_ to the compiler server
   time_t start_on_scheduler;  // starttime local to scheduler
-  Job (unsigned int _id) : id(_id), state( PENDING ), server( 0 ),
+  Job (CS *cs, unsigned int _id) : id(_id), state( PENDING ), server( cs ),
     starttime(0), start_on_scheduler(0) {}
 };
 
@@ -64,9 +64,10 @@ static bool
 create_new_job (CS *cs)
 {
   ++new_job_id;
+  trace() << "create_new_job " << new_job_id << endl;
   assert (jobs.find(new_job_id) == jobs.end());
 
-  Job *job = new Job (new_job_id);
+  Job *job = new Job (cs, new_job_id);
   jobs[new_job_id] = job;
   cs->joblist.push_back (job);
   return true;
@@ -108,14 +109,14 @@ CS *pick_server()
     return cs;
 }
 
-static int
+static bool
 empty_queue()
 {
-    trace() << "empty_queue\n";
+    trace() << "empty_queue " << toanswer.size() << " " << css.size() << endl;
 
     if ( toanswer.empty() ) {
         trace() << "no channels\n";
-        return 0;
+        return false;
     }
 
     MsgChannel *c = toanswer.front();
@@ -124,24 +125,26 @@ empty_queue()
         trace() << "no servers to handle\n";
         toanswer.pop();
         c->send_msg( EndMsg() );
-        return 0;
+        return false;
     }
 
     CS *cs = pick_server();
+    trace() << "got CS " << cs << endl;
+
     if ( !cs ) {
         tochoose = false;
-        return 0;
+        return false;
     }
 
-    trace() << "got CS " << cs << endl;
+    toanswer.pop();
+
     if ( ! create_new_job ( cs ) )
-        return 1;
+        return true;
     UseCSMsg m2(cs->name, cs->remote_port, new_job_id);
 
-    if (!c->send_msg (m2)
-        || !c->send_msg (EndMsg()))
-        return 1;
-    return 0;
+    if (!c->send_msg (m2))
+        c->send_msg (EndMsg());
+    return true;
 }
 
 static int
@@ -237,10 +240,10 @@ handle_new_connection (MsgChannel *c)
     {
     case M_GET_CS:
       ret = handle_cs_request (c, m);
-      delete c;
       break;
     case M_LOGIN: ret = handle_login (c, m); break;
     default:
+        abort();
       ret = 1;
       delete c;
       break;
@@ -279,7 +282,9 @@ handle_activity (MsgChannel *c)
     case M_STATS: ret = handle_stats (c, m); break;
     case M_END: ret = handle_end (c, m); break;
     case M_TIMEOUT: ret = handle_timeout (c, m); break;
-    default: ret = 1; break;
+    default: ret = 1;
+        abort();
+        break;
     }
   delete m;
   return ret;
@@ -357,13 +362,16 @@ main (int /*argc*/, char * /*argv*/ [])
     }
   while (1)
     {
-        empty_queue();
+      while (empty_queue()) 
+	continue;
 
       fd_set read_set;
-      int max_fd;
+      int max_fd = 0;
       FD_ZERO (&read_set);
-      max_fd = listen_fd;
-      FD_SET (listen_fd, &read_set);
+      if (toanswer.size() < 100) { // don't let us overrun
+        max_fd = listen_fd;
+        FD_SET (listen_fd, &read_set);
+      } 
       if (broad_fd > max_fd)
         max_fd = broad_fd;
       FD_SET (broad_fd, &read_set);
