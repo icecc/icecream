@@ -151,7 +151,12 @@ bool setup_env_cache(const string &basedir, string &native_environment)
     }
 
     if ( mkdir( basedir.c_str(), 0755 ) ) {
-        perror( "mkdir basedir" );
+        if ( errno == EPERM )
+            log_error() << "cache directory can't be generated: " << basedir << endl;
+        else if ( errno == EEXIST )
+            log_error() << "cache directory already exists and can't be removed: " << basedir << endl;
+        else
+            perror( "Failed " );
         return false;
     }
 
