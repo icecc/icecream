@@ -1041,10 +1041,7 @@ CompileResultMsg::fill_from_channel (MsgChannel *c)
   c->readuint32 (_status);
   status = _status;
   uint32_t was = 0;
-  if ( IS_PROTOCOL_11( c ) )
-    c->readuint32( was );
-  else
-    was = 0;
+  c->readuint32( was );
   was_out_of_memory = was;
 }
 
@@ -1055,8 +1052,7 @@ CompileResultMsg::send_to_channel (MsgChannel *c) const
   c->write_string (err);
   c->write_string (out);
   c->writeuint32 (status);
-  if ( IS_PROTOCOL_11( c ) )
-    c->writeuint32( was_out_of_memory ? 1 : 0 );
+  c->writeuint32( was_out_of_memory ? 1 : 0 );
 }
 
 void
@@ -1080,10 +1076,6 @@ void JobLocalBeginMsg::fill_from_channel( MsgChannel *c )
   Msg::fill_from_channel(c);
   c->readuint32(stime);
   c->read_string( outfile );
-  if ( IS_PROTOCOL_12( c ) )
-    c->readuint32( build_yourself );
-  else
-    build_yourself = 0;
 }
 
 void JobLocalBeginMsg::send_to_channel( MsgChannel *c ) const
@@ -1091,7 +1083,6 @@ void JobLocalBeginMsg::send_to_channel( MsgChannel *c ) const
   Msg::send_to_channel( c );
   c->writeuint32(stime);
   c->write_string( outfile );
-  c->writeuint32( build_yourself );
 }
 
 JobLocalDoneMsg::JobLocalDoneMsg (int id, int exit)
@@ -1239,17 +1230,12 @@ void
 GetSchedulerMsg::fill_from_channel (MsgChannel *c)
 {
   Msg::fill_from_channel (c);
-  unsigned int local_job;
-  if ( IS_PROTOCOL_12( c ) && !IS_PROTOCOL_13( c ))
-    c->readuint32( local_job );
 }
 
 void
 GetSchedulerMsg::send_to_channel (MsgChannel *c) const
 {
   Msg::send_to_channel (c);
-  if ( IS_PROTOCOL_12( c ) && !IS_PROTOCOL_13( c ))
-    c->writeuint32( 0 ); // I hope no one uses that protocol
 }
 
 void
@@ -1259,9 +1245,6 @@ UseSchedulerMsg::fill_from_channel (MsgChannel *c)
   c->readuint32 (port);
   c->read_string (hostname);
   c->read_string( nativeVersion );
-  unsigned int build_yourself;
-  if ( IS_PROTOCOL_12( c ) &&  !IS_PROTOCOL_13( c ))
-    c->readuint32( build_yourself );
 }
 
 void
@@ -1271,8 +1254,6 @@ UseSchedulerMsg::send_to_channel (MsgChannel *c) const
   c->writeuint32 (port);
   c->write_string (hostname);
   c->write_string( nativeVersion );
-  if ( IS_PROTOCOL_12( c ) && !IS_PROTOCOL_13( c ))
-    c->writeuint32( 0 );
 }
 
 void

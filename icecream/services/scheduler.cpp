@@ -115,7 +115,7 @@ public:
   unsigned int remote_port;
   unsigned int hostid;
   string nodename;
-  bool busy_installing;
+  time_t busy_installing;
   string host_platform;
 
     // unsigned int jobs_done;
@@ -131,7 +131,7 @@ public:
     : Service(_addr, _len), load(1000), max_jobs(0), state(CONNECTED),
       type(UNKNOWN) {
     hostid = 0;
-    busy_installing = false;
+    busy_installing = 0;
   }
   void pick_new_id() {
     assert( !hostid );
@@ -456,6 +456,9 @@ handle_local_job_end (MsgChannel *, Msg *_m)
 static bool
 envs_match( CS* cs, const Job *job )
 {
+  if ( job->submitter == cs)
+    return true; // it will compile itself
+
   for ( Environments::const_iterator it = cs->compiler_versions.begin(); it != cs->compiler_versions.end(); ++it )
     {
       if ( it->first == job->target_platform )
@@ -514,8 +517,10 @@ static bool
 can_install( CS* cs, const Job *job )
 {
   // trace() << "can_install host: '" << cs->host_platform << "' target: '" << job->target_platform << "'" << endl;
-  if ( cs->busy_installing )
+  if ( cs->busy_installing ) {
+    trace() << cs->nodename << " is busy installing since " << time(0) - cs->busy_installing << " seconds." << endl;
     return false;
+  }
 
   for ( Environments::const_iterator it = job->environments.begin(); it != job->environments.end(); ++it )
     {
@@ -749,7 +754,7 @@ empty_queue()
       cs->joblist.push_back( job );
       if ( !gotit ) { // if we made the environment transfer, don't rely on the list
         cs->compiler_versions.clear();
-        cs->busy_installing = true;
+        cs->busy_installing = time(0);
       }
       string env;
       if ( !job->master_job_for.empty() )
@@ -814,7 +819,7 @@ handle_relogin (MsgChannel *c, Msg *_m)
 
   CS *cs = static_cast<CS *>(c->other_end);
   cs->compiler_versions = m->envs;
-  cs->busy_installing = false;
+  cs->busy_installing = 0;
 
   trace() << cs->nodename << "(" << cs->host_platform << "): [";
   for (Environments::const_iterator it = m->envs.begin();
@@ -1072,11 +1077,7 @@ handle_end (MsgChannel *c, Msg *m)
       trace() << "remove client\n";
 
       /* A client disconnected.  */
-      if (!m
-	  /* Older clients sometimes send an END when still some jobs
-	     from it are active (only happens with multiple jobs per compile).
-	     So we have to also run cleanups for those clients.  */
-	  || !IS_PROTOCOL_11(c))
+      if (!m )
         {
 	  /* If it's disconnected without END message something went wrong,
 	     and we must remove all its job requests and jobs.  All job

@@ -33,13 +33,11 @@
 #include "job.h"
 
 // if you increase the PROTOCOL_VERSION, add a macro below and use that
-#define PROTOCOL_VERSION 13
+#define PROTOCOL_VERSION 14
 // if you increase the MIN_PROTOCOL_VERSION, comment out macros below and clean up the code
-#define MIN_PROTOCOL_VERSION 10
+#define MIN_PROTOCOL_VERSION 14
 
-#define IS_PROTOCOL_11( c ) ( c->protocol >= 11 )
-#define IS_PROTOCOL_12( c ) ( c->protocol >= 12 )
-#define IS_PROTOCOL_13( c ) ( c->protocol >= 13 )
+#define IS_PROTOCOL_14( c ) ( c->protocol >= 14 )
 
 enum MsgType {
   // so far unknown
@@ -348,11 +346,8 @@ class JobLocalBeginMsg : public Msg {
 public:
   std::string outfile;
   unsigned int stime;
-  unsigned build_yourself;
-  JobLocalBeginMsg(const std::string &file = "",
-                   bool _build_yourself = false) : Msg( M_JOB_LOCAL_BEGIN ),
-                                                   outfile( file ), stime(time(0)),
-                                                   build_yourself( _build_yourself ) {}
+  JobLocalBeginMsg(const std::string &file = "") : Msg( M_JOB_LOCAL_BEGIN ),
+                                                   outfile( file ), stime(time(0)) {}
   virtual void fill_from_channel (MsgChannel * c);
   virtual void send_to_channel (MsgChannel * c) const;
 };
