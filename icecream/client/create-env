@@ -117,4 +117,4 @@ tar -cjhf "$mydir/$md5".tar.bz2 $target_files || {
   exit 3
 }
 cd ..
-rm -r $tempdir
+rm -rf $tempdir
