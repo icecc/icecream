@@ -686,7 +686,8 @@ JobBeginMsg::send_to_fd (int fd) const
   	 && writeuint (fd, stime);
 }
 
-JobDoneMsg::JobDoneMsg () : Msg(M_JOB_DONE),  exitcode( -1 ), job_id( 0 )
+JobDoneMsg::JobDoneMsg (int id, int exit)
+  : Msg(M_JOB_DONE),  exitcode( exit ), job_id( id )
 {
   real_msec = 0;
   user_msec = 0;
@@ -707,7 +708,7 @@ JobDoneMsg::fill_from_fd (int fd)
 {
   if (!Msg::fill_from_fd (fd))
     return false;
-  unsigned int _exitcode;
+  unsigned int _exitcode = 255;
   bool ret = readuint (fd, job_id)
     && readuint( fd, _exitcode )
     && readuint( fd, real_msec )
@@ -721,7 +722,7 @@ JobDoneMsg::fill_from_fd (int fd)
     && readuint( fd, in_uncompressed )
     && readuint( fd, out_compressed )
     && readuint( fd, out_uncompressed );
-  exitcode = _exitcode;
+  exitcode = ( int )_exitcode;
   return ret;
 }
 
@@ -731,7 +732,7 @@ JobDoneMsg::send_to_fd (int fd) const
   if (!Msg::send_to_fd (fd))
     return false;
   return writeuint (fd, job_id)
-    && writeuint( fd, exitcode )
+    && writeuint( fd, ( unsigned int )exitcode )
     && writeuint( fd, real_msec )
     && writeuint( fd, user_msec )
     && writeuint( fd, sys_msec )

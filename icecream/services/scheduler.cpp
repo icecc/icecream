@@ -280,7 +280,7 @@ pick_server(Job *job)
 static bool
 empty_queue()
 {
-  //  trace() << "empty_queue " << toanswer.size() << " " << css.size() << endl;
+  // trace() << "empty_queue " << toanswer.size() << " " << css.size() << endl;
 
   if ( toanswer.empty() )
     return false;
@@ -292,6 +292,7 @@ empty_queue()
       trace() << "no servers to handle\n";
       toanswer.pop();
       job->channel->send_msg( EndMsg() );
+      notify_monitors (MonJobDoneMsg (JobDoneMsg( job->id,  255 )));
       return false;
     }
 
@@ -308,10 +309,10 @@ empty_queue()
   if (!job->channel->send_msg (m2))
     {
       trace() << "failed to deliver job " << job->id << endl;
-
       job->channel->send_msg (EndMsg()); // most likely won't work
       cs->joblist.remove (job);
       jobs.erase(job->id );
+      notify_monitors (MonJobDoneMsg (JobDoneMsg( job->id, 255 )));
       delete job;
       return true;
     }
@@ -398,12 +399,14 @@ handle_job_done (MsgChannel *c, Msg *_m)
     trace() << "END " << m->job_id
             << " status=" << m->exitcode << endl;
 
-  if (jobs[m->job_id]->server != c->other_end)
+  if (jobs[m->job_id]->server != c->other_end) {
+    log_info() << "the server isn't the same for job " << m->job_id << endl;
     return false;
+  }
   Job *j = jobs[m->job_id];
   j->server->joblist.remove (j);
   add_job_stats (j, m);
-  notify_monitors (MonJobDoneMsg (m));
+  notify_monitors (MonJobDoneMsg (*m));
   jobs.erase (m->job_id);
   delete j;
   return true;

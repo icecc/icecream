@@ -231,7 +231,7 @@ public:
   unsigned int out_uncompressed;
 
   unsigned int job_id;
-  JobDoneMsg ();
+  JobDoneMsg (int job_id = 0, int exitcode = -1);
   virtual bool fill_from_fd (int fd);
   virtual bool send_to_fd (int fd) const;
 };
@@ -305,8 +305,9 @@ public:
   MonJobDoneMsg() : JobDoneMsg() {
     type = M_MON_JOB_DONE;
   }
-  MonJobDoneMsg( JobDoneMsg *m ) {
-    JobDoneMsg::operator=( *m );
+  MonJobDoneMsg( const JobDoneMsg &m )
+    : JobDoneMsg(m)
+  {
     type = M_MON_JOB_DONE;
   }
 };
