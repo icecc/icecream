@@ -1,5 +1,6 @@
 #include <sys/types.h>
 #include <netinet/in.h>
+#include <arpa/inet.h>
 #include <unistd.h>
 #include <errno.h>
 #include <string>
@@ -80,7 +81,7 @@ Service::Service (struct sockaddr *_a, socklen_t _l)
     {
       addr = (struct sockaddr *)malloc (len);
       memcpy (addr, _a, len);
-      name = inet_ntoa (addr);
+      name = inet_ntoa (((struct sockaddr_in *) addr)->sin_addr);
     }
   else
     {

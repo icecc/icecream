@@ -166,6 +166,12 @@ main (int /*argc*/, char * /*argv*/ [])
       perror ("socket()");
       return 1;
     }
+  int optval = 1;
+  if (setsockopt (fd, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(optval)) < 0)
+    {
+      perror ("setsockopt()");
+      return 1;
+    }
   myaddr.sin_family = AF_INET;
   myaddr.sin_port = htons (8765);
   myaddr.sin_addr.s_addr = INADDR_ANY;
@@ -179,17 +185,20 @@ main (int /*argc*/, char * /*argv*/ [])
       perror ("listen()");
       return 1;
     }
-  remote_len = sizeof (remote_addr);
-  if ((remote_fd = accept (fd, (struct sockaddr *) &remote_addr, &remote_len)) < 0)
+  while (1)
     {
-      perror ("accept()");
-      return 1;
+      remote_len = sizeof (remote_addr);
+      if ((remote_fd = accept (fd, (struct sockaddr *) &remote_addr, &remote_len)) < 0)
+	{
+	  perror ("accept()");
+	  return 1;
+	}
+      CS *cs = new CS ((struct sockaddr*) &remote_addr, remote_len);
+      css.push_back (cs);
+      MsgChannel *c = new MsgChannel (remote_fd, cs);
+      handle_connection (c);
+      delete c;
+      delete cs;
     }
-  CS *cs = new CS ((struct sockaddr*) &remote_addr, remote_len);
-  css.push_back (cs);
-  MsgChannel *c = new MsgChannel (remote_fd, cs);
-  handle_connection (c);
-  delete c;
-  delete cs;
   return 0;
 }

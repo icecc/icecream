@@ -79,6 +79,6 @@ int main (int argc, char *argv[])
   MsgChannel *c = new MsgChannel (remote_fd, serv);
   submit_job (c, filename, fsize);
   delete c;
-  delete cs;
+  delete serv;
   return 0;
 }

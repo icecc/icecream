@@ -107,7 +107,7 @@ class GetCSMsg : public Msg {
 public:
   GetCSMsg () : Msg(M_GET_CS) {}
   GetCSMsg (const std::string &v, const std::string &f, unsigned int fs)
-    : version(v), filename(f), filesize(fs) {}
+    : Msg(M_GET_CS), version(v), filename(f), filesize(fs) {}
   virtual bool fill_from_fd (int fd);
   virtual bool send_to_fd (int fd) const;
 };
