@@ -241,11 +241,9 @@ static bool
 handle_local_job_end (MsgChannel *c, Msg *_m)
 {
   JobLocalDoneMsg *m = dynamic_cast<JobLocalDoneMsg *>(_m);
-  trace() << "handle_local_job_end " << m << endl;
   if (!m)
     return false;
 
-  trace() << "handle_local_job_end\n";
   notify_monitors ( MonLocalJobDoneMsg( *m ) );
   fd2chan.erase (c->fd);
   delete c;
