@@ -1513,7 +1513,7 @@ usage(const char* reason = 0)
        << "  -h, --help\n"
        << "  -l, --log-file <file>\n"
        << "  -d, --daemonize\n"
-       << "  -u, --allow-run-as-user\n"
+       << "  -r, --allow-run-as-user\n"
        << "  -v[v[v]]]\n"
        << endl;
 
@@ -1544,7 +1544,7 @@ main (int argc, char * argv[])
       { 0, 0, 0, 0 }
     };
 
-    const int c = getopt_long( argc, argv, "n:p:hl:vdu", long_options, &option_index );
+    const int c = getopt_long( argc, argv, "n:p:hl:vdr", long_options, &option_index );
     if ( c == -1 ) break; // eoo
 
     switch ( c ) {
@@ -1588,7 +1588,7 @@ main (int argc, char * argv[])
         usage("Error: -p requires argument");
       break;
 
-    case 'u':
+    case 'r':
       allow_run_as_user = true;
       break;
 
