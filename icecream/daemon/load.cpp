@@ -108,7 +108,7 @@ static unsigned int calculateMemLoad( const char* MemInfoBuf, unsigned long int 
         Cached /= 2;
 
     unsigned long int NetMemFree = MemFree + Cached + Buffers;
-    if ( NetMemFree > 128 * 1014 )
+    if ( NetMemFree > 128 * 1024 )
         return 0;
     else
         return 1000 - ( NetMemFree * 1000 / ( 128 * 1024 ) );
