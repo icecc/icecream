@@ -258,6 +258,17 @@ notify_monitors (const Msg &m)
     }
 }
 
+static float
+server_speed (CS *cs)
+{
+  if (cs->last_compiled_jobs.size() == 0
+      || cs->cum_compiled.compile_time_user == 0)
+    return 0;
+  else
+    return (float)cs->cum_compiled.osize
+             / (float) cs->cum_compiled.compile_time_user;
+}
+
 static void
 handle_monitor_stats( CS *cs, StatsMsg *m = 0)
 {
@@ -270,6 +281,8 @@ handle_monitor_stats( CS *cs, StatsMsg *m = 0)
   sprintf( buffer, "MaxJobs:%d\n", cs->max_jobs );
   msg += buffer;
   sprintf( buffer, "Platform:%s\n", cs->host_platform.c_str() );
+  msg += buffer;
+  sprintf( buffer, "Speed:%f\n", server_speed( cs ) );
   msg += buffer;
   if ( m ) {
     sprintf( buffer, "Load:%d\n", m->load );
@@ -424,16 +437,6 @@ handle_local_job_end (MsgChannel *, Msg *_m)
   return true;
 }
 
-static float
-server_speed (CS *cs)
-{
-  if (cs->last_compiled_jobs.size() == 0
-      || cs->cum_compiled.compile_time_user == 0)
-    return 0;
-  else
-    return (float)cs->cum_compiled.osize
-             / (float) cs->cum_compiled.compile_time_user;
-}
 
 static bool
 envs_match( CS* cs, const Job *job )
@@ -1039,7 +1042,7 @@ handle_end (MsgChannel *c, Msg *m)
 
       /* A client disconnected.  */
       if (!m
-	  /* Older clients sometimes send an END when still some jobs 
+	  /* Older clients sometimes send an END when still some jobs
 	     from it are active (only happens with multiple jobs per compile).
 	     So we have to also run cleanups for those clients.  */
 	  || c->protocol <= 10)
