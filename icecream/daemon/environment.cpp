@@ -311,6 +311,8 @@ bool install_environment( const std::string &basename, const std::string &target
             if ( waitpid( pid, &status, 0) != pid )
                 status = 1;
             dirname = dirname + "/" + name;
+            mkdir( ( dirname + "/var" ).c_str(), 0755 );
+            chown( ( dirname + "/var" ).c_str(), nobody_uid, 0 );
             mkdir( ( dirname + "/var/tmp" ).c_str(), 0755 );
             chown( ( dirname + "/var/tmp" ).c_str(), nobody_uid, 0 );
             mkdir( ( dirname + "/tmp" ).c_str(), 0755 );
