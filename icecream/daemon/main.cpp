@@ -41,6 +41,7 @@
 #include "serve.h"
 #include "logging.h"
 #include <comm.h>
+#include "load.h"
 #include "environment.h"
 
 using namespace std;
@@ -307,12 +308,11 @@ int main( int /*argc*/, char ** /*argv*/ )
                 continue;
             }
 
-            if ( time( 0 ) - last_stat >= 2 ) {
+            if ( time( 0 ) - last_stat >= 3 ) {
                 StatsMsg msg;
-                if (getloadavg (msg.load, 3) == -1) {
-                    log_error() << "getloadavg failed: " << strerror( errno ) << endl;
-                    msg.load[0] = msg.load[1] = msg.load[2] = 0;
-                }
+                if ( !fill_stats( msg ) )
+                    break;
+
                 if ( scheduler->send_msg( msg ) )
                     last_stat = time( 0 );
                 else {
@@ -344,9 +344,7 @@ int main( int /*argc*/, char ** /*argv*/ )
                 if ( FD_ISSET( listen_fd, &listen_set ) ) {
                     cli_len = sizeof cli_addr;
                     acc_fd = accept(listen_fd, &cli_addr, &cli_len);
-                    if (acc_fd == -1 && errno == EINTR) {
-                        ;
-                    }  else if (acc_fd == -1) {
+                    if (acc_fd == -1 && errno != EINTR) {
                         log_error() << "accept failed: " << strerror(errno) << endl;
                         return EXIT_CONNECT_FAILED;
                     } else {

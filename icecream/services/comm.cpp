@@ -769,14 +769,7 @@ StatsMsg::fill_from_fd (int fd)
   if (!Msg::fill_from_fd (fd))
     return false;
 
-  unsigned int f[3];
-  if ( !readuint( fd, f[0] )
-       || !readuint( fd, f[1] )
-       || !readuint( fd, f[2] ) )
-      return false;
-  for ( int i = 0; i < 3; i++ )
-      load[i] = double( f[i] ) / 1000;
-  return true;
+  return readuint( fd, load );
 }
 
 bool
@@ -784,9 +777,7 @@ StatsMsg::send_to_fd (int fd) const
 {
   if (!Msg::send_to_fd (fd))
     return false;
-  return ( writeuint( fd, static_cast<unsigned int>( load[0] * 1000 ) )
-           && writeuint( fd, static_cast<unsigned int>( load[1] * 1000 ) )
-           && writeuint( fd, static_cast<unsigned int>( load[1] * 1000 ) ) );
+  return writeuint( fd, load );
 }
 
 bool

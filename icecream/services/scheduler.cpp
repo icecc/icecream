@@ -265,7 +265,7 @@ handle_stats (MsgChannel * c, Msg * _m)
   for (list<CS*>::iterator it = css.begin(); it != css.end(); ++it)
     if ( ( *it )->channel() == c )
       {
-        ( *it )->load = ( unsigned int )( m->load[0] * 1000 );
+        ( *it )->load = m->load;
         tochoose = true;
         return true;
       }

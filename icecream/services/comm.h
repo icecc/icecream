@@ -245,8 +245,17 @@ public:
 
 class StatsMsg : public Msg {
 public:
-  double load[3];
-  StatsMsg () : Msg(M_STATS) { load[0] = load[1] = load[2] = 0; }
+  /**
+   * For now the only load measure we have is the
+   * load from 0-1000.
+   * This is defined to be a daemon defined value
+   * on how busy the machine is. The higher the load
+   * is, the slower a given job will compile (preferably
+   * linear scale). Load of 1000 means to not schedule
+   * another job under no circumstances.
+   */
+  unsigned int load;
+  StatsMsg () : Msg(M_STATS) { load = 0; }
   virtual bool fill_from_fd (int fd);
   virtual bool send_to_fd (int fd) const;
 };
