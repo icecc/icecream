@@ -891,6 +891,8 @@ handle_login (MsgChannel *c, Msg *_m)
   if (!allow_run_as_user && !m->chroot_possible)
     return false;
 
+  trace() << "login " << m->nodename << " protocol version: " << c->protocol << endl;
+
   CS *cs = static_cast<CS *>(c->other_end);
   cs->remote_port = m->port;
   cs->compiler_versions = m->envs;
@@ -904,8 +906,6 @@ handle_login (MsgChannel *c, Msg *_m)
   cs->pick_new_id();
   handle_monitor_stats( cs );
   css.push_back (cs);
-
-  trace() << "login " << cs->nodename << " protocol version: " << c->protocol << endl;
 
 #if 0
   trace() << cs->nodename << ": [";
@@ -1685,7 +1685,7 @@ main (int argc, char * argv[])
 	    {
 	      CS *cs = new CS ((struct sockaddr*) &remote_addr, remote_len);
               cs->last_talk = time( 0 );
-	      trace() << "accepting from " << cs->name << ":" << cs->port << "\n";
+	      //trace() << "accepting from " << cs->name << ":" << cs->port << "\n";
 	      MsgChannel *c = cs->createChannel (remote_fd);
               if ( !c->protocol ) // protocol mismatch
                 {
