@@ -115,7 +115,7 @@ bool cleanup_cache( const string &basedir, uid_t nobody_uid )
     if ( pid )
     {
         int status = 0;
-        if ( wait( &status ) != pid )
+        if ( waitpid( pid, &status, 0 ) != pid )
             status = 1;
         return status == 0;
     }
@@ -197,7 +197,7 @@ bool setup_env_cache(const string &basedir, string &native_environment, uid_t no
     if ( pid )
     {
         int status = 0;
-        if ( wait( &status ) != pid )
+        if ( waitpid( pid, &status, 0 ) != pid )
             status = 1;
         if ( !status )
         {
@@ -308,7 +308,7 @@ bool install_environment( const std::string &basename, const std::string &target
             status = 1;
         } else {
 
-            if ( wait( &status ) != pid )
+            if ( waitpid( pid, &status, 0) != pid )
                 status = 1;
             dirname = dirname + "/" + name;
             mkdir( ( dirname + "/var/tmp" ).c_str(), 0755 );
