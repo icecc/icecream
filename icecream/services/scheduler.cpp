@@ -920,7 +920,7 @@ main (int argc, char * argv[])
 			&broad_len) != 1)
 	    {
 	      perror ("recvfrom()");
-	      return -1;
+	      // return -1;
 	    }
 	  else
 	    {
