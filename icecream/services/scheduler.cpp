@@ -361,9 +361,12 @@ handle_local_job (MsgChannel *c, Msg *_m)
   if ( !c->send_msg( JobLocalId( new_job_id ) ) )
     return false;
 
-  CS *cs = dynamic_cast<CS*>( c->other_end );
-  if ( cs )
-    notify_monitors (MonLocalJobBeginMsg( new_job_id, m->stime, cs->hostid ) );
+  list<CS*>::iterator it;
+  for (it = css.begin(); it != css.end(); ++it)
+    if (c->other_end->eq_ip (**it))
+      break;
+  if ( it != css.end() )
+    notify_monitors (MonLocalJobBeginMsg( new_job_id, m->stime, ( *it )->hostid ) );
   return true;
 }
 
