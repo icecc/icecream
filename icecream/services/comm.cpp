@@ -294,11 +294,11 @@ MsgChannel::readcompressed (unsigned char **uncompressed_buf,
 	  *uncompressed_buf = 0;
 	  uncompressed_len = 0;
         }
-      /* Read over everything used, _also_ if there was some error.
-         If we couldn't decode it now, it won't get better in the future,
-	 so just ignore this hunk.  */
-      intogo += compressed_len;
     }
+  /* Read over everything used, _also_ if there was some error.
+     If we couldn't decode it now, it won't get better in the future,
+     so just ignore this hunk.  */
+  intogo += compressed_len;
   _uclen = uncompressed_len;
   _clen = compressed_len;
 }
