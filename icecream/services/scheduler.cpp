@@ -812,7 +812,8 @@ handle_end (MsgChannel *c, Msg *m)
 			++ait;
 		    }
 
-		  job->server->joblist.remove (job);
+		  if ( job->server )
+		      job->server->joblist.remove (job);
 		  jobs.erase (it);
 		  delete job;
 		}
