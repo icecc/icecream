@@ -768,7 +768,8 @@ handle_end (MsgChannel *c, Msg *m)
 
       map<unsigned int, Job*>::iterator mit;
       for (mit = jobs.begin(); mit != jobs.end(); ++mit )
-	if (mit->second->server == toremove)
+	if (mit->second->server == toremove
+	    || mit->second->submitter == toremove)
 	  {
 	    trace() << "STOP FOR " << mit->first << endl;
 	    mit->second->channel->send_msg( EndMsg() );
