@@ -469,14 +469,36 @@ MsgChannel::~MsgChannel()
     free (inbuf);
 }
 
+static bool read_vers( int fd, unsigned char *vers )
+{
+  if ( read( fd, vers, 4 ) == 4 )
+    return true;
+
+  if ( errno == EINTR )
+    return read_vers( fd, vers );
+
+  return false;
+}
+
+static bool write_vers( int fd, const unsigned char *vers )
+{
+  if ( write( fd, vers, 4 ) == 4 )
+    return true;
+
+  if ( errno == EINTR )
+    return write_vers( fd, vers );
+
+  return false;
+}
+
 bool
 MsgChannel::check_protocol()
 {
   protocol = PROTOCOL_VERSION;
   unsigned char vers[4] = { PROTOCOL_VERSION, 0, 0, 0 };
-  if ( write( fd, vers, 4 ) != 4 )
+  if ( !write_vers( fd, vers ) )
     return false;
-  if ( read( fd, vers, 4 ) != 4 ) // just the other side's
+  if ( !read_vers( fd, vers ) ) // just the other side's
     return false;
   if ( vers[0] < MIN_PROTOCOL_VERSION )
     vers[0] = 0;
@@ -484,7 +506,7 @@ MsgChannel::check_protocol()
     vers[0] = PROTOCOL_VERSION; // our is smaller
   protocol = vers[0];
 
-  if ( write( fd, vers, 4 ) != 4 ) {
+  if ( !write_vers( fd, vers ) ) {
     close( fd );
     fd = -1;
     return false;
@@ -496,7 +518,7 @@ MsgChannel::check_protocol()
     return false;
   }
 
-  if ( read( fd, vers, 4 ) != 4 ) // just the other side's again
+  if ( !read_vers( fd, vers ) ) // just the other side's again
     return false;
 
   if ( vers[0] != protocol ) { // mach sauce!
