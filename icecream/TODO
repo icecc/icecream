@@ -1,4 +1,3 @@
-* cross compiling
 * Option -iiface to specify the interface[s] to listen on for the scheduler, or
   to use for the daemon.
 * Don't explicitly forbid tunnels because it could be useful for things like
