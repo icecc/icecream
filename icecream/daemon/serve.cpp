@@ -49,6 +49,8 @@
 
 using namespace std;
 
+int nice_level = 5;
+
 class myexception: public exception
 {
     int code;
@@ -76,7 +78,7 @@ int handle_connection( const string &basedir, CompileJob *job, MsgChannel *serv,
     close( socket[0] );
     out_fd = socket[1];
 
-    nice( 5 );
+    nice( nice_level );
 
     Msg *msg = 0; // The current read message
     char tmp_input[PATH_MAX];

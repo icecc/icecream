@@ -235,6 +235,7 @@ int main( int argc, char ** argv )
     int debug_level = Error;
     string logfile;
     bool detach = true;
+    nice_level = 5; // defined in serve.h
 
     while ( true ) {
         int option_index = 0;
@@ -245,6 +246,7 @@ int main( int argc, char ** argv )
             { "help", 0, NULL, 'h' },
             { "no-detach", 0, NULL, 0},
             { "log-file", 1, NULL, 'l'},
+            { "nice", 1, NULL, 0},
             { 0, 0, 0, 0 }
         };
 
@@ -257,6 +259,13 @@ int main( int argc, char ** argv )
                    string optname = long_options[option_index].name;
                    if ( optname == "no-detach" ) {
                        detach = false;
+                   } else if ( optname == "nice" ) {
+                       if ( optarg && *optarg ) {
+                           errno = 0;
+                           int tnice = atoi( optarg );
+                           if ( !errno )
+                               nice_level = tnice;
+                       }
                    }
                }
                break;
@@ -304,6 +313,8 @@ int main( int argc, char ** argv )
         logfile = "/var/log/iceccd";
 
     setup_debug( debug_level, logfile );
+
+    log_info() << "will use nice level " << nice_level << endl;
 
     std::string binary_path = argv[0];
     time_t binary_on_startup = 0;

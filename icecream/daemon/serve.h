@@ -6,6 +6,8 @@
 class CompileJob;
 class MsgChannel;
 
+extern int nice_level;
+
 int handle_connection( const std::string &basedir, CompileJob *job, MsgChannel *serv, int & out_fd );
 
 #endif
