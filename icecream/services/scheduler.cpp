@@ -451,16 +451,51 @@ envs_match( CS* cs, const Job *job )
 }
 
 static bool
+platforms_compatible( const string &target, const string &platform )
+{
+  static multimap<string, string> platform_map;
+
+  if (platform_map.empty())
+    {
+      platform_map.insert( pair<string, string>( "i386", "i486" ) );
+      platform_map.insert( pair<string, string>( "i386", "i586" ) );
+      platform_map.insert( pair<string, string>( "i386", "i686" ) );
+      platform_map.insert( pair<string, string>( "i386", "x86_64" ) );
+
+      platform_map.insert( pair<string, string>( "i486", "i586" ) );
+      platform_map.insert( pair<string, string>( "i486", "i686" ) );
+      platform_map.insert( pair<string, string>( "i486", "x86_64" ) );
+
+      platform_map.insert( pair<string, string>( "i586", "i686" ) );
+      platform_map.insert( pair<string, string>( "i586", "x86_64" ) );
+
+      platform_map.insert( pair<string, string>( "i686", "x86_64" ) );
+    }
+
+  if ( target == platform )
+    return true;
+
+  for ( multimap<string, string>::const_iterator it = platform_map.lower_bound( target );
+        it != platform_map.upper_bound( target );
+        ++it )
+    {
+      if ( it->second == platform )
+        return true;
+    }
+
+  return false;
+}
+
+static bool
 can_install( CS* cs, const Job *job )
 {
   // trace() << "can_install host: '" << cs->host_platform << "' target: '" << job->target_platform << "'" << endl;
   if ( cs->busy_installing )
     return false;
-  // XXX: instead of doing string compares all the time we should keep an array of platforms and compare indices
-  // there we could also put i386/i486/i586/i686 in one index (at least upwards?)
+  
   for ( Environments::const_iterator it = job->environments.begin(); it != job->environments.end(); ++it )
     {
-      if ( it->first == cs->host_platform )
+      if ( platforms_compatible( it->first, cs->host_platform ) )
         return true;
     }
   return false;
