@@ -430,7 +430,11 @@ bool
 Service::announce_protocol( int fd )
 {
   char vers[4] = { PROTOCOL_VERSION, 0, 0, 0 };
-  return ( write( fd, vers, 4 ) == 4 );
+  if ( write( fd, vers, 4 ) != 4 )
+    return false;
+  if ( read( fd, vers, 1 ) != 1 ) // just a check
+    return false;
+  return vers[0] == 1;
 }
 
 bool
@@ -441,7 +445,11 @@ Service::check_protocol( int fd )
     perror( "read(acc_fd, 4)" );
     return false;
   } else {
-    return ( vers[0] == PROTOCOL_VERSION );
+    bool ret = ( vers[0] != PROTOCOL_VERSION );
+    vers[0] = ret ? 1 : 0;
+    if ( write( fd, vers, 1 ) != 1 )
+      return false;
+    return ret;
   }
 }
 
