@@ -1063,14 +1063,15 @@ handle_line (MsgChannel *c, Msg *_m)
 	{
 	  int id = it->first;
 	  Job *job = it->second;
-	  sprintf (buffer, "%d %s sub:%s on:%s ",
+	  snprintf (buffer, sizeof (buffer), "%d %s sub:%s on:%s ",
 	  	   id,
-		   job->submitter ? job->submitter->nodename.c_str() : "<>",
-		   job->server ? job->server->nodename.c_str() : "<unknown>",
 		   job->state == Job::PENDING ? "PEND"
 		     : job->state == Job::WAITINGFORCS ? "WAIT"
 		     : job->state == Job::COMPILING ? "COMP"
-		     : "Huh?");
+		     : "Huh?",
+		   job->submitter ? job->submitter->nodename.c_str() : "<>",
+		   job->server ? job->server->nodename.c_str() : "<unknown>");
+	  buffer[sizeof (buffer) - 1] = 0;
 	  line = buffer;
 	  line = line + job->filename;
 	  c->send_msg (TextMsg (line));
