@@ -322,11 +322,6 @@ int main( int argc, char ** argv )
                     max_processes = atoi(optarg);
                 else
                     usage("Error: -m requires argument");
-
-                if (max_processes < 1) {
-                    cerr << "You must at allow least one process."
-                         << " Assuming -m 1." << endl;
-                }
                 break;
             case 'w':
                 watch_binary = true;
