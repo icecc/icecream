@@ -88,8 +88,8 @@ build-arch-stamp: configure-stamp
 
 	# generate manpages
 	#for i in debian/man/*.sgml; do \
-		docbook-to-man $$i > `dirname $$i`/`basename $$i .sgml`.1 ;\
-	done
+	#	docbook-to-man $$i > `dirname $$i`/`basename $$i .sgml`.1 ;\
+	#done
 
 	touch build-arch-stamp
 
@@ -97,11 +97,11 @@ build-indep: build-indep-stamp
 build-indep-stamp: configure-stamp
 	dh_testdir
 
-	cd $(objdir) && \
-	$(MAKE)
+	#cd $(objdir) && \
+	#$(MAKE)
 
 	#cd $(objdir) && \
-	$(MAKE) apidox
+	#$(MAKE) apidox
 
 	touch build-indep-stamp
 
@@ -143,9 +143,9 @@ clean:
 		$(MAKE) distclean; \
 	fi
 
-#	if test -d CVS; then \
-		$(MAKE) -f admin/Makefile.common cvs-clean ;\
-	fi
+	#if test -d CVS; then \
+	#	$(MAKE) -f admin/Makefile.common cvs-clean ;\
+	#fi
 
 	dh_clean
 
@@ -222,5 +222,5 @@ binary-indep: build-indep install-indep
 binary-arch: build-arch install-arch
 	$(MAKE) -f debian/rules DH_OPTIONS=-s binary-common
 
-binary: binary-arch binary-indep
+binary: binary-arch
 .PHONY: build clean binary-indep binary-arch binary install install-indep install-arch configure
