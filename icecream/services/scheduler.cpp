@@ -308,7 +308,7 @@ open_broad_listener ()
     }
   myaddr.sin_family = AF_INET;
   myaddr.sin_port = htons (8765);
-  myaddr.sin_addr.s_addr = INADDR_BROADCAST;
+  myaddr.sin_addr.s_addr = INADDR_ANY;
   if (bind (listen_fd, (struct sockaddr *) &myaddr, sizeof (myaddr)) < 0)
     {
       perror ("bind()");
