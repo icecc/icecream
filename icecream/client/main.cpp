@@ -160,10 +160,12 @@ int main(int argc, char **argv)
     MsgChannel *local_daemon = serv->channel();
     if ( ! local_daemon || !local_daemon->protocol ) {
         log_warning() << "no local daemon found\n";
+        delete serv;
         return build_local( job, 0 );
     }
     if ( !local_daemon->send_msg( GetSchedulerMsg( getenv( "ICECC_VERSION" ) == 0 ) ) ) {
         log_error() << "failed to write get scheduler\n";
+        delete serv;
         return build_local( job, 0 );
     }
 
