@@ -706,6 +706,10 @@ try_login (MsgChannel *c, Msg *m)
       cs->type = CS::MONITOR;
       ret = handle_mon_login (c, m);
       break;
+    case M_JOB_LOCAL_BEGIN:
+      cs->type = CS::CLIENT;
+      ret = handle_local_job (c, m);
+      break;
     default:
       log_info() << "Invalid first message" << endl;
       ret = false;
