@@ -19,6 +19,13 @@
 #include "comm.h"
 #include "logging.h"
 
+/* TODO:
+   * leak check
+   * are all filedescs closed when done?
+   * simplify livetime of the various structures (Jobs/Channels/CSs know
+     of each other and sometimes take over ownership)
+ */
+
 using namespace std;
 
 struct JobStat {
@@ -79,14 +86,16 @@ public:
   //  time_t uptime;  // time connected with scheduler
   list<Job*> joblist;
   list<string> compiler_versions;  // Available compilers
-    // enum {AVAILABLE, DISCONNECTED} state;
-  CS (struct sockaddr *_addr, socklen_t _len) : Service (_addr, _len),
-                                                load( 1000 ), max_jobs( 0 ) {}
+  CS (struct sockaddr *_addr, socklen_t _len)
+    : Service (_addr, _len), load(1000), max_jobs(0), state(CONNECTED) {}
   list<JobStat> last_compiled_jobs;
   list<JobStat> last_requested_jobs;
   JobStat cum_compiled;  // cumulated
   JobStat cum_requested;
+  enum {CONNECTED, LOGGEDIN} state;
 };
+
+map<int, MsgChannel *> fd2chan;
 
 class Job {
 public:
@@ -98,13 +107,15 @@ public:
   string environment;
   time_t starttime;  // _local_ to the compiler server
   time_t start_on_scheduler;  // starttime local to scheduler
-  Job (MsgChannel *c, unsigned int _id)
+  Job (MsgChannel *c, unsigned int _id, CS *subm)
      : id(_id), state(PENDING), server(0),
-       submitter(static_cast<CS*>(c->other_end)),
+       submitter(subm),
        channel(c), starttime(0), start_on_scheduler(0) {}
   ~Job()
   {
-    delete channel;
+   // XXX is this really deleted on all other paths?
+/*    fd2chan.erase (channel->fd);
+    delete channel;*/
   }
 };
 
@@ -112,7 +123,6 @@ public:
 list<CS*> css;
 unsigned int new_job_id;
 map<unsigned int, Job*> jobs;
-map<int, MsgChannel *> fd2chan;
 queue<Job*> toanswer;
 
 list<JobStat> all_job_stats;
@@ -170,12 +180,12 @@ notify_monitors (const Msg &m)
 }
 
 static Job *
-create_new_job (MsgChannel *channel)
+create_new_job (MsgChannel *channel, CS *submitter)
 {
   ++new_job_id;
   assert (jobs.find(new_job_id) == jobs.end());
 
-  Job *job = new Job (channel, new_job_id);
+  Job *job = new Job (channel, new_job_id, submitter);
   jobs[new_job_id] = job;
   return job;
 }
@@ -198,7 +208,11 @@ handle_cs_request (MsgChannel *c, Msg *_m)
       return false;
     }
 
-  Job *job = create_new_job ( c );
+  /* Don't use the CS from the channel on which the request came in.
+     It will go away as soon as we sent him which server to use.
+     Instead use the long-lasting connection to the daemon.  */
+  CS *submitter = *it;
+  Job *job = create_new_job (c, submitter);
   job->environment = m->version;
   log_info() << "NEW: " << job->id << " version=\""
              << job->environment << "\" " << m->filename
@@ -334,7 +348,6 @@ handle_login (MsgChannel *c, Msg *_m)
   cs->compiler_versions = m->envs;
   cs->max_jobs = m->max_kids;
   css.push_back (cs);
-  fd2chan[c->fd] = c;
 
   trace() << cs->name << ": [";
   for (list<string>::const_iterator it = m->envs.begin();
@@ -445,12 +458,8 @@ handle_timeout (MsgChannel * /*c*/, Msg * /*_m*/)
 
 // return false if some error occured, leaves C open.  */
 static bool
-handle_new_connection (MsgChannel *c)
+try_login (MsgChannel *c, Msg *m)
 {
-  Msg *m = c->get_msg ();
-  if (!m)
-    return false;
-
   bool ret = true;
   switch (m->type)
     {
@@ -464,19 +473,24 @@ handle_new_connection (MsgChannel *c)
       ret = handle_mon_login (c, m);
       break;
     default:
-      abort();
+      log_info() << "Invalid first message" << endl;
       ret = false;
-      delete c;
       break;
     }
   delete m;
+  if (ret)
+    static_cast<CS *>(c->other_end)->state = CS::LOGGEDIN;
+  else
+    {
+      fd2chan.erase (c->fd);
+      delete c;
+    }
   return ret;
 }
 
 static bool
 handle_end (MsgChannel *c, Msg *)
 {
-  fd2chan.erase (c->fd);
   if (find (monitors.begin(), monitors.end(), c->other_end) != monitors.end())
     {
       monitors.remove (c->other_end);
@@ -488,6 +502,7 @@ handle_end (MsgChannel *c, Msg *)
       trace() << "handle_end " << css.size() << endl;
     }
 
+  fd2chan.erase (c->fd);
   delete c;
   return true;
 }
@@ -497,12 +512,16 @@ handle_activity (MsgChannel *c)
 {
   Msg *m;
   bool ret = true;
-  m = c->get_msg ();
+  m = c->get_msg (false);
   if (!m)
     {
       handle_end (c, m);
       return false;
     }
+  /* First we need to login.  */
+  if (static_cast<CS *>(c->other_end)->state == CS::CONNECTED)
+    return try_login (c, m);
+
   switch (m->type)
     {
     case M_JOB_BEGIN: ret = handle_job_begin (c, m); break;
@@ -512,8 +531,9 @@ handle_activity (MsgChannel *c)
     case M_END: ret = handle_end (c, m); break;
     case M_TIMEOUT: ret = handle_timeout (c, m); break;
     default:
+      log_info() << "Invalid message type arrived." << endl;
+      handle_end (c, m);
       ret = false;
-      abort();
       break;
     }
   delete m;
@@ -638,15 +658,23 @@ main (int argc, char * argv[])
         max_fd = broad_fd;
       FD_SET (broad_fd, &read_set);
       for (map<int, MsgChannel *>::const_iterator it = fd2chan.begin();
-           it != fd2chan.end(); ++it)
+           it != fd2chan.end();)
 	 {
-	   MsgChannel *c = it->second;
-	   while (c->has_msg ())
-	     handle_activity (c);
 	   int i = it->first;
-	   if (i > max_fd)
-	     max_fd = i;
-	   FD_SET (i, &read_set);
+	   MsgChannel *c = it->second;
+	   bool ok = true;
+	   ++it;
+	   /* handle_activity() can delete c and make the iterator
+	      invalid.  */
+	   while (ok && c->has_msg ())
+	     if (!handle_activity (c))
+	       ok = false;
+	   if (ok)
+	     {
+	       if (i > max_fd)
+	         max_fd = i;
+	       FD_SET (i, &read_set);
+	     }
 	 }
       max_fd = select (max_fd + 1, &read_set, NULL, NULL, NULL);
       if (max_fd < 0 && errno == EINTR)
@@ -672,8 +700,10 @@ main (int argc, char * argv[])
 	    {
 	      CS *cs = new CS ((struct sockaddr*) &remote_addr, remote_len);
 	      // printf ("accepting from %s:%d\n", cs->name.c_str(), cs->port);
-	      if (!handle_new_connection ( cs->createChannel( remote_fd )))
-		delete cs;
+	      MsgChannel *c = cs->createChannel (remote_fd);
+	      fd2chan[c->fd] = c;
+	      if (!c->read_a_bit () || c->has_msg ())
+	        handle_activity (c);
 	    }
         }
       if (max_fd && FD_ISSET (broad_fd, &read_set))
@@ -704,15 +734,18 @@ main (int argc, char * argv[])
 	    }
 	}
       for (map<int, MsgChannel *>::const_iterator it = fd2chan.begin();
-           max_fd && it != fd2chan.end(); ++it)
+           max_fd && it != fd2chan.end();)
 	 {
 	   int i = it->first;
+	   MsgChannel *c = it->second;
+	   /* handle_activity can delete the channel from the fd2chan list,
+	      hence advance the iterator right now, so it doesn't become
+	      invalid.  */
+	   ++it;
 	   if (FD_ISSET (i, &read_set))
 	     {
-	       MsgChannel *c = it->second;
-               /*	       printf ("message from %s:%d (%d)\n", c->other_end->name.c_str(),
-                               c->other_end->port, i); */
-	       handle_activity (c);
+	       if (!c->read_a_bit () || c->has_msg ())
+	         handle_activity (c);
 	       max_fd--;
 	     }
 	 }
