@@ -1,6 +1,6 @@
 Release Critical:
 * keep better track of currently installing daemons (matz)
-* bind the broadcast listener to fixed local port (8765) (otherwise not firewallable)
+* bind the broadcast listener to fixed local port (8765) (otherwise not firewallable) (matz)
 * chmod TMPDIR/native, as otherwise set umask prevent it from being readable by the client
    I'm wondering if it doesn't make sense to leave the daemon out of the game and let the
    client package the environment - it could either cache it in /tmp and leave a note in
@@ -11,6 +11,7 @@ Release Critical:
 * Improve Documentation (cschum)
 * I'm not sure but I think we need to lock the local host _before_ we fork off the notification
   child. Otherwise the gantt view explodes :)
+* make the protocol version an uint32, not a hand-build array.
 
 Random:
 * Option -iiface to specify the interface[s] to listen on for the scheduler, or
