@@ -85,9 +85,9 @@ ICECC_BASEDIR="/var/cache/icecc"
 #
 # Start also the scheduler?
 #
-# START_ICECC_SCHEDULER="no"
+# START_ICECC_SCHEDULER="false"
 
-START_ICECC_SCHEDULER="no"
+START_ICECC_SCHEDULER="false"
 
 #
 # icecc scheduler log file
@@ -111,16 +111,13 @@ EOF
 
 		ICECC_USER=icecc
 
-		# First time installation only.  Upgrades skip this.
-		if [ "$2" = "" ]; then
-			echo Creating $ICECC_USER user...
-			# Create user
-			id $ICECC_USER > /dev/null 2>&1 ||
-			adduser --quiet --system --ingroup nogroup \
-			--home / --no-create-home $ICECC_USER
+		# Create user
+		id $ICECC_USER > /dev/null 2>&1 ||
+		( echo Creating $ICECC_USER user... ;
+		adduser --quiet --system --ingroup nogroup \
+		--home / --no-create-home $ICECC_USER )
 
-			chown $ICECC_USER /var/cache/icecc
-		fi
+		chown $ICECC_USER /var/cache/icecc
 
 		db_stop
 		;;
