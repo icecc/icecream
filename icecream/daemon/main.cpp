@@ -283,7 +283,7 @@ int main( int argc, char ** argv )
         log_info() << n_cpus << " CPU(s) online on this server" << endl;
 
     int max_kids;
-    if ( max_processes == 0 )
+    if ( max_processes < 0 )
       max_kids = n_cpus * 2;
     else
       max_kids = max_processes;
