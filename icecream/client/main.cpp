@@ -162,7 +162,7 @@ int main(int argc, char **argv)
         log_warning() << "no local daemon found\n";
         return build_local( job, 0 );
     }
-    if ( !local_daemon->send_msg( GetSchedulerMsg(local) ) ) {
+    if ( !local_daemon->send_msg( GetSchedulerMsg() ) ) {
         log_error() << "failed to write get scheduler\n";
         return build_local( job, 0 );
     }
@@ -176,61 +176,51 @@ int main(int argc, char **argv)
     UseSchedulerMsg *ucs = dynamic_cast<UseSchedulerMsg*>( umsg );
     Environments envs;
 
-    if ( !ucs || !ucs->build_yourself ) {
-        delete local_daemon;
-        local_daemon = 0;
-
-
-        if ( getenv( "ICECC_VERSION" ) ) // if set, use it, otherwise take default
-            envs = parse_icecc_version( job.targetPlatform() );
-        else {
-            string native = ucs->nativeVersion;
-            if ( native.empty() ) {
-                log_warning() << "$ICECC_VERSION has to point to an existing file to be installed - as the local daemon didn't know any we try local." << endl
-                              << "Hint: you need /usr/bin/gcc _and_ /usr/bin/g++." << endl;
-                delete ucs;
-                delete local_daemon;
-                return build_local( job, 0 );
-            }
-            envs.push_back(make_pair( job.targetPlatform(), native ) );
+    if ( getenv( "ICECC_VERSION" ) ) // if set, use it, otherwise take default
+        envs = parse_icecc_version( job.targetPlatform() );
+    else {
+        string native = ucs->nativeVersion;
+        if ( native.empty() ) {
+            log_warning() << "$ICECC_VERSION has to point to an existing file to be installed - as the local daemon didn't know any we try local." << endl
+                          << "Hint: you need /usr/bin/gcc _and_ /usr/bin/g++." << endl;
+            delete ucs;
+            delete local_daemon;
+            return build_local( job, 0 );
         }
-
-        for ( Environments::const_iterator it = envs.begin(); it != envs.end(); ++it )
-            trace() << "env: " << it->first << " '" << it->second << "'" << endl;
+        envs.push_back(make_pair( job.targetPlatform(), native ) );
     }
+
+    for ( Environments::const_iterator it = envs.begin(); it != envs.end(); ++it )
+        trace() << "env: " << it->first << " '" << it->second << "'" << endl;
 
     trace() << "contacting scheduler " << ucs->hostname << ":" << ucs->port << endl;
 
+    delete local_daemon;
+
     serv = new Service( ucs->hostname, ucs->port );
     MsgChannel *scheduler = serv->channel();
+    delete ucs;
     if ( ! scheduler ) {
         log_error() << "no scheduler found at " << ucs->hostname << ":" << ucs->port << endl;
-        delete local_daemon;
         delete serv;
-        delete ucs;
         return build_local( job, 0 );
     }
 
     int ret;
-    if ( local || ucs->build_yourself ) {
-        ret = build_local( job, scheduler, ucs->build_yourself );
-        if ( local_daemon )
-            local_daemon->send_msg( EndMsg() );
-    }
-    else {
+    if ( local ) {
+        ret = build_local( job, scheduler );
+    }  else {
         try {
             // by default every 100th is compiled three times
             const char *s = getenv( "ICECC_REPEAT_RATE" );
-            int rate = s ? atoi( s ) : 10;
-            ret = build_remote( job, scheduler, envs, rate );
+            int rate = s ? atoi( s ) : 0;
+            ret = build_remote( job, scheduler, envs, rate);
         } catch ( int error ) {
-            delete ucs;
             delete scheduler;
             return build_local( job, 0 );
         }
     }
     scheduler->send_msg (EndMsg());
-    delete ucs;
     delete scheduler;
     return ret;
 }

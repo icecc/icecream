@@ -26,6 +26,7 @@
 #include <sys/stat.h>
 #include <sys/wait.h>
 
+
 #ifdef __FreeBSD__
 // Grmbl  Why is this needed?  We don't use readv/writev
 #include <sys/uio.h>
@@ -38,6 +39,8 @@
 #include <stdio.h>
 #include <errno.h>
 #include <map>
+#include <netinet/in.h>
+#include <arpa/inet.h>
 
 #include <comm.h>
 #include "client.h"
@@ -422,7 +425,27 @@ int build_remote(CompileJob &job, MsgChannel *scheduler, const Environments &_en
         }
 
         UseCSMsg *usecs = get_server( scheduler );
-        int ret = build_remote_int( job, usecs, version_map[usecs->host_platform], versionfile_map[usecs->host_platform], 0, true );
+        sockaddr_in name;
+        socklen_t len = sizeof(name);
+        int ret = getsockname(scheduler->fd, (struct sockaddr*)&name, &len);
+        if ( !ret ) {
+            if ( usecs->hostname == inet_ntoa( name.sin_addr ) ) {
+                trace() << "building myself, but telling localhost\n";
+                unsigned int port = usecs->port;
+                int job_id = usecs->job_id;
+                job.setJobID( job_id );
+                job.setEnvironmentVersion( "__client" );
+                delete usecs;
+                Service *serv = new Service("localhost", port);
+                MsgChannel *cserver = serv->channel();
+                if ( !cserver->protocol ) // very unlikely as we talked before with him
+                    throw ( 2 );
+
+                ret = build_local( job, scheduler );
+                return ret;
+            }
+        }
+        ret = build_remote_int( job, usecs, version_map[usecs->host_platform], versionfile_map[usecs->host_platform], 0, true );
         delete usecs;
         return ret;
     } else {

@@ -1238,18 +1238,17 @@ void
 GetSchedulerMsg::fill_from_channel (MsgChannel *c)
 {
   Msg::fill_from_channel (c);
-  if ( IS_PROTOCOL_12( c ) )
+  unsigned int local_job;
+  if ( IS_PROTOCOL_12( c ) && !IS_PROTOCOL_13( c ))
     c->readuint32( local_job );
-  else
-    local_job = 1; // this what was the default before
 }
 
 void
 GetSchedulerMsg::send_to_channel (MsgChannel *c) const
 {
   Msg::send_to_channel (c);
-  if ( IS_PROTOCOL_12( c ) )
-    c->writeuint32( local_job );
+  if ( IS_PROTOCOL_12( c ) && !IS_PROTOCOL_13( c ))
+    c->writeuint32( 0 ); // I hope no one uses that protocol
 }
 
 void
@@ -1259,10 +1258,9 @@ UseSchedulerMsg::fill_from_channel (MsgChannel *c)
   c->readuint32 (port);
   c->read_string (hostname);
   c->read_string( nativeVersion );
-  if ( IS_PROTOCOL_12( c ) )
+  unsigned int build_yourself;
+  if ( IS_PROTOCOL_12( c ) &&  !IS_PROTOCOL_13( c ))
     c->readuint32( build_yourself );
-  else
-    build_yourself = 0;
 }
 
 void
@@ -1272,8 +1270,8 @@ UseSchedulerMsg::send_to_channel (MsgChannel *c) const
   c->writeuint32 (port);
   c->write_string (hostname);
   c->write_string( nativeVersion );
-  if ( IS_PROTOCOL_12( c ) )
-    c->writeuint32( build_yourself );
+  if ( IS_PROTOCOL_12( c ) && !IS_PROTOCOL_13( c ))
+    c->writeuint32( 0 );
 }
 
 void

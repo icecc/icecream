@@ -255,7 +255,6 @@ int main( int argc, char ** argv )
     string schedname;
 
     int mem_limit = 100;
-    int load_limit = 1000;
 
     while ( true ) {
         int option_index = 0;
@@ -497,9 +496,19 @@ int main( int argc, char ** argv )
                 Compile_Request req = requests.front();
                 requests.pop();
                 CompileJob *job = req.first;
-                int sock;
-                trace() << "mem_limit " << mem_limit << endl;
-                pid_t pid = handle_connection( envbasedir, req.first, req.second, sock, mem_limit );
+                int sock = 0;
+                pid_t pid = -1;
+
+                if ( job->environmentVersion() == "__client" ) {
+                    // if the client compiles, we fork off right away
+                    pid = fork();
+                    if ( pid == 0 ) {
+                        Msg *msg = req.second->get_msg();
+                        ::exit( msg && msg->type == M_END ); // signal parent
+                    }
+                } else
+                    pid = handle_connection( envbasedir, req.first, req.second, sock, mem_limit );
+
                 if ( pid > 0) { // forks away
                     current_kids++;
                     if ( !scheduler || !scheduler->send_msg( JobBeginMsg( job->jobID() ) ) ) {
@@ -531,7 +540,7 @@ int main( int argc, char ** argv )
                         break;
                     }
                 }
-                if ( msg && scheduler && msg->job_id != ( unsigned int ) -1 ) {
+                if ( msg && scheduler ) {
                     msg->exitcode = status;
                     msg->user_msec = ru.ru_utime.tv_sec * 1000 + ru.ru_utime.tv_usec / 1000;
                     msg->sys_msec = ru.ru_stime.tv_sec * 1000 + ru.ru_stime.tv_usec / 1000;
@@ -551,7 +560,6 @@ int main( int argc, char ** argv )
                     log_error() << "can't find out stats" << endl;
                 } else { // Matz got in the urin that not all CPUs are always feed
                     mem_limit = std::max( msg.freeMem / std::max( max_kids, 4 ), 100U );
-                    load_limit = msg.load;
                 }
 
                 if ( scheduler->send_msg( msg ) )
@@ -649,30 +657,10 @@ int main( int argc, char ** argv )
                             if ( msg->type == M_GET_SCHEDULER ) {
                                 GetSchedulerMsg *gsm = dynamic_cast<GetSchedulerMsg*>( msg );
                                 if ( scheduler && gsm ) {
-                                    bool build_yourself = false;
-                                    if ( !gsm->local_job ) {
-                                        if ( load_limit < 800 && current_kids < max_kids )
-                                        {
-                                            build_yourself = true;
-                                        }
-                                    }
-                                    trace() << "build_yourself? " << gsm->local_job << " " << load_limit << " " << current_kids << " " << build_yourself << endl;
-
                                     UseSchedulerMsg m( scheduler->other_end->name,
                                                        scheduler->other_end->port,
-                                                       native_environment, build_yourself );
+                                                       native_environment );
                                     c->send_msg( m );
-                                    pid_t pid = fork();
-                                    if ( pid == 0 ) {
-                                        Msg *msg = c->get_msg();
-                                        ::exit( msg && msg->type == M_END ); // signal parent
-                                    } else {
-                                        current_kids++;
-                                        jobmap[pid] = new JobDoneMsg;
-                                        jobmap[pid]->job_id = ( unsigned int )-1;
-                                        client = 0; // TO MATZ: what happens if we close the fd here and leave open in the child?
-                                    }
-
                                 } else {
                                     c->send_msg( EndMsg() );
                                 }
