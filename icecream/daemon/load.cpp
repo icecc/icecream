@@ -68,8 +68,7 @@ static void updateCPULoad( const char* line, CPULoadInfo* load )
     load->userLoad = ( 1000 * ( currUserTicks - load->userTicks ) ) / totalTicks;
     load->sysLoad = ( 1000 * ( currSysTicks - load->sysTicks ) ) / totalTicks;
     load->niceLoad = ( 1000 * ( currNiceTicks - load->niceTicks ) ) / totalTicks;
-    // We want to ignore our own load (or better all nice load)
-    load->idleLoad = ( 1000 - ( load->userLoad + load->sysLoad ) );
+    load->idleLoad = ( 1000 - ( load->userLoad + load->sysLoad + load->niceLoad) );
     if ( load->idleLoad < 0 )
         load->idleLoad = 0;
   } else
@@ -92,9 +91,9 @@ static unsigned long int scan_one( const char* buff, const char *key )
   return val;
 }
 
-static unsigned int calculateMemLoad( const char* MemInfoBuf )
+static unsigned int calculateMemLoad( const char* MemInfoBuf, unsigned long int &MemFree )
 {
-    unsigned long int MemFree = scan_one( MemInfoBuf, "MemFree" );
+    MemFree = scan_one( MemInfoBuf, "MemFree" );
     unsigned long int Buffers = scan_one( MemInfoBuf, "Buffers" );
     unsigned long int Cached = scan_one( MemInfoBuf, "Cached" );
 
@@ -108,11 +107,11 @@ static unsigned int calculateMemLoad( const char* MemInfoBuf )
     else
         Cached /= 2;
 
-    MemFree += Cached + Buffers;
-    if ( MemFree > 128 * 1014 )
+    unsigned long int NetMemFree = MemFree + Cached + Buffers;
+    if ( NetMemFree > 128 * 1014 )
         return 0;
     else
-        return 1000 - ( MemFree * 1000 / ( 128 * 1024 ) );
+        return 1000 - ( NetMemFree * 1000 / ( 128 * 1024 ) );
 }
 
 bool fill_stats( StatsMsg &msg )
@@ -152,13 +151,27 @@ bool fill_stats( StatsMsg &msg )
         return false;
     }
     StatBuf[n] = 0;
-    unsigned int memory_fillgrade = calculateMemLoad( StatBuf );
+    unsigned long int MemFree = 0;
+    unsigned int memory_fillgrade = calculateMemLoad( StatBuf, MemFree );
 
-    msg.load = ( 700 * ( 1000 - load.idleLoad ) + 300 * memory_fillgrade ) / 1000;
+    unsigned int realLoad = 1000 - load.idleLoad - load.niceLoad;
+    msg.load = ( 700 * realLoad + 300 * memory_fillgrade ) / 1000;
     if ( memory_fillgrade > 600 )
         msg.load = 1000;
-    if ( load.idleLoad < 50 )
+    if ( realLoad > 950 )
         msg.load = 1000;
-    trace() << "load cpu=" << 1000 - load.idleLoad << " mem=" << memory_fillgrade << " total=" << msg.load << endl;
+    msg.niceLoad = load.niceLoad;
+    msg.sysLoad = load.sysLoad;
+    msg.userLoad = load.userLoad;
+    msg.idleLoad = load.idleLoad;
+
+    double avg[3];
+    getloadavg( avg, 3 );
+    msg.loadAvg1 = ( unsigned int )avg[0] * 1000;
+    msg.loadAvg5 = ( unsigned int )avg[1] * 1000;
+    msg.loadAvg10 = ( unsigned int )avg[2] * 1000;
+
+    msg.freeMem = ( unsigned int )( MemFree / 1024.0 + 0.5 );
+//    trace() << "load cpu=" << netLoad << " mem=" << memory_fillgrade << " total=" << msg.load << endl;
     return true;
 }

@@ -3,10 +3,10 @@
       chown 0 lib/libc.so*
       PATH=$PWD/usr/bin LD_LIBRARY_PATH=$PWD/lib:$PWD/usr/lib:/lib usr/bin/gcc -B/tmp/test/usr/lib/gcc-lib/i586-suse-linux/3.3.1/ -c ~/test.ii
 * client: if the is interrupted, remove the job from the CS
-* if the client is cancelled, there might be jobs that reside in the joblist
+* server: if the client is cancelled, there might be jobs that reside in the joblist
   even though the daemon never heared of them - timeout!
-* easier monitor views
-* let the client have run the job on two different servers for every 10th or 100th job
+* monitor: easier monitor views
+* client: let the client have run the job on two different servers for every 10th or 100th job
 
 IDEAS:
 * provide a way to pass jobs through the scheduler for multihomed servers

@@ -266,6 +266,16 @@ public:
    * another job under no circumstances.
    */
   unsigned int load;
+
+  unsigned int niceLoad;
+  unsigned int sysLoad;
+  unsigned int userLoad;
+  unsigned int idleLoad;
+  unsigned int loadAvg1;
+  unsigned int loadAvg5;
+  unsigned int loadAvg10;
+  unsigned int freeMem;
+
   StatsMsg () : Msg(M_STATS) { load = 0; }
   virtual bool fill_from_fd (int fd);
   virtual bool send_to_fd (int fd) const;
