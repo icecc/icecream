@@ -269,6 +269,8 @@ handle_monitor_stats( CS *cs, StatsMsg *m = 0)
   msg += buffer;
   sprintf( buffer, "MaxJobs:%d\n", cs->max_jobs );
   msg += buffer;
+  sprintf( buffer, "Platform:%s\n", cs->host_platform.c_str() );
+  msg += buffer;
   if ( m ) {
     sprintf( buffer, "Load:%d\n", m->load );
     msg += buffer;
@@ -483,6 +485,7 @@ pick_server(Job *job)
         trace() << "removing " << ( *it )->name << endl;
         CS* old = *it;
         it = css.erase( it );
+        fd2chan.erase( old->channel()->fd );
         delete old;
         continue;
       }
