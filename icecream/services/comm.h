@@ -3,6 +3,7 @@
 #ifndef _COMM_H
 #define _COMM_H
 
+#include <stdint.h>
 #include "job.h"
 
 #define PROTOCOL_VERSION 1
@@ -57,16 +58,16 @@ enum MsgType {
   M_MON_STATS
 };
 
+class MsgChannel;
+
 class Msg {
 public:
   enum MsgType type;
   Msg (enum MsgType t) : type(t) {}
   virtual ~Msg () {}
-  virtual bool fill_from_fd (int fd);
-  virtual bool send_to_fd (int fd) const;
+  virtual void fill_from_channel (MsgChannel * c);
+  virtual void send_to_channel (MsgChannel * c) const;
 };
-
-class MsgChannel;
 
 // an endpoint of a MsgChannel, i.e. most often a host
 class Service {
@@ -93,16 +94,52 @@ public:
   // our filedesc
   int fd;
   // NULL  <--> channel closed
-  Msg *get_msg(void);
+  Msg *get_msg(bool blocking = true);
   // false <--> error (msg not send)
-  bool send_msg (const Msg &);
+  bool send_msg (const Msg &, bool blocking = true);
   // return last error (0 == no error)
   int error(void) {return 0;}
+  bool has_msg (void) const { return instate == HAS_MSG; }
+  bool need_write (void) const { return msgtogo != 0; }
+  bool read_a_bit (void);
+  bool write_a_bit (void) {
+    return need_write () ? flush_writebuf (false) : true;
+  }
+  bool at_eof (void) const { return eof; }
+
+  void readuint32 (uint32_t &buf);
+  void writeuint32 (uint32_t u);
+  void read_string (std::string &s);
+  void write_string (const std::string &s);
+  void read_strlist (std::list<std::string> &l);
+  void write_strlist (const std::list<std::string> &l);
+  void readcompressed (unsigned char **buf, size_t &_uclen, size_t &_clen);
+  void writecompressed (const unsigned char *in_buf,
+			size_t _in_len, size_t &_out_len);
+
   // be careful: it also deletes the service it belongs to
   ~MsgChannel ();
 private:
   MsgChannel (int _fd);
   MsgChannel (int _fd, Service *serv);
+  // returns false if there was an error sending something
+  bool flush_writebuf (bool blocking);
+  void writefull (const void *_buf, size_t count);
+  void update_state (void);
+  void chop_input (void);
+  void chop_output (void);
+  bool wait_for_msg (void);
+  char *msgbuf;
+  size_t msgbuflen;
+  size_t msgofs;
+  size_t msgtogo;
+  char *inbuf;
+  size_t inbuflen;
+  size_t inofs;
+  size_t intogo;
+  enum {NEED_LEN, FILL_BUF, HAS_MSG} instate;
+  uint32_t inmsglen;
+  bool eof;
 };
 
 /* Connect to a scheduler waiting max. TIMEOUT milliseconds.  */
@@ -136,8 +173,8 @@ public:
   GetCSMsg () : Msg(M_GET_CS) {}
   GetCSMsg (const std::string &v, const std::string &f, CompileJob::Language _lang)
     : Msg(M_GET_CS), version(v), filename(f), lang(_lang) {}
-  virtual bool fill_from_fd (int fd);
-  virtual bool send_to_fd (int fd) const;
+  virtual void fill_from_channel (MsgChannel * c);
+  virtual void send_to_channel (MsgChannel * c) const;
 };
 
 class UseCSMsg : public Msg {
@@ -149,16 +186,16 @@ public:
   UseCSMsg () : Msg(M_USE_CS) {}
   UseCSMsg (std::string env, std::string host, unsigned int p, unsigned int id)
     : Msg(M_USE_CS), job_id(id), hostname (host), port (p), environment( env ) {}
-  virtual bool fill_from_fd (int fd);
-  virtual bool send_to_fd (int fd) const;
+  virtual void fill_from_channel (MsgChannel * c);
+  virtual void send_to_channel (MsgChannel * c) const;
 };
 
 
 class GetSchedulerMsg : public Msg {
 public:
   GetSchedulerMsg () : Msg(M_GET_SCHEDULER) {}
-  virtual bool fill_from_fd (int fd);
-  virtual bool send_to_fd (int fd) const;
+  virtual void fill_from_channel (MsgChannel * c);
+  virtual void send_to_channel (MsgChannel * c) const;
 };
 
 class UseSchedulerMsg : public Msg {
@@ -168,8 +205,8 @@ public:
   UseSchedulerMsg () : Msg(M_USE_SCHEDULER), port( 0 ) {}
   UseSchedulerMsg (std::string host, unsigned int p)
       : Msg(M_USE_SCHEDULER), hostname (host), port (p) {}
-  virtual bool fill_from_fd (int fd);
-  virtual bool send_to_fd (int fd) const;
+  virtual void fill_from_channel (MsgChannel * c);
+  virtual void send_to_channel (MsgChannel * c) const;
 };
 
 class CompileFileMsg : public Msg {
@@ -177,8 +214,8 @@ public:
   CompileFileMsg (CompileJob *j, bool delete_job = false)
       : Msg(M_COMPILE_FILE), deleteit( delete_job ), job( j ) {}
   ~CompileFileMsg() { if ( deleteit ) delete job; }
-  virtual bool fill_from_fd (int fd);
-  virtual bool send_to_fd (int fd) const;
+  virtual void fill_from_channel (MsgChannel * c);
+  virtual void send_to_channel (MsgChannel * c) const;
   CompileJob *takeJob();
 
 private:
@@ -197,8 +234,8 @@ public:
       : Msg(M_FILE_CHUNK), buffer( _buffer ), len( _len ), del_buf(false) {}
   FileChunkMsg() : Msg( M_FILE_CHUNK ), buffer( 0 ), len( 0 ), del_buf(true) {}
   ~FileChunkMsg();
-  virtual bool fill_from_fd (int fd);
-  virtual bool send_to_fd (int fd) const;
+  virtual void fill_from_channel (MsgChannel * c);
+  virtual void send_to_channel (MsgChannel * c) const;
 };
 
 class CompileResultMsg : public Msg {
@@ -208,8 +245,8 @@ public:
   std::string err;
 
   CompileResultMsg () : Msg(M_COMPILE_RESULT) {}
-  virtual bool fill_from_fd (int fd);
-  virtual bool send_to_fd (int fd) const;
+  virtual void fill_from_channel (MsgChannel * c);
+  virtual void send_to_channel (MsgChannel * c) const;
 };
 
 class JobBeginMsg : public Msg {
@@ -218,8 +255,8 @@ public:
   unsigned int stime;
   JobBeginMsg () : Msg(M_JOB_BEGIN) {}
   JobBeginMsg (unsigned int j) : Msg(M_JOB_BEGIN), job_id(j), stime(time(0)) {}
-  virtual bool fill_from_fd (int fd);
-  virtual bool send_to_fd (int fd) const;
+  virtual void fill_from_channel (MsgChannel * c);
+  virtual void send_to_channel (MsgChannel * c) const;
 };
 
 class JobDoneMsg : public Msg {
@@ -241,8 +278,8 @@ public:
 
   unsigned int job_id;
   JobDoneMsg (int job_id = 0, int exitcode = -1);
-  virtual bool fill_from_fd (int fd);
-  virtual bool send_to_fd (int fd) const;
+  virtual void fill_from_channel (MsgChannel * c);
+  virtual void send_to_channel (MsgChannel * c) const;
 };
 
 class LoginMsg : public Msg {
@@ -253,8 +290,8 @@ public:
   LoginMsg (unsigned int myport)
       : Msg(M_LOGIN), port( myport ) {}
   LoginMsg () : Msg(M_LOGIN), port( 0 ) {}
-  virtual bool fill_from_fd (int fd);
-  virtual bool send_to_fd (int fd) const;
+  virtual void fill_from_channel (MsgChannel * c);
+  virtual void send_to_channel (MsgChannel * c) const;
 };
 
 class StatsMsg : public Msg {
@@ -280,8 +317,8 @@ public:
   unsigned int freeMem;
 
   StatsMsg () : Msg(M_STATS) { load = 0; }
-  virtual bool fill_from_fd (int fd);
-  virtual bool send_to_fd (int fd) const;
+  virtual void fill_from_channel (MsgChannel * c);
+  virtual void send_to_channel (MsgChannel * c) const;
 };
 
 class MonLoginMsg : public Msg {
@@ -303,8 +340,8 @@ public:
   {
     type = M_MON_GET_CS;
   }
-  virtual bool fill_from_fd (int fd);
-  virtual bool send_to_fd (int fd) const;
+  virtual void fill_from_channel (MsgChannel * c);
+  virtual void send_to_channel (MsgChannel * c) const;
 };
 
 class MonJobBeginMsg : public Msg {
@@ -315,8 +352,8 @@ public:
   MonJobBeginMsg() : Msg(M_MON_JOB_BEGIN) {}
   MonJobBeginMsg( unsigned int id, unsigned int time, std::string name )
     : Msg( M_MON_JOB_BEGIN ), job_id( id ), stime( time ), host( name ) {}
-  virtual bool fill_from_fd (int fd);
-  virtual bool send_to_fd (int fd) const;
+  virtual void fill_from_channel (MsgChannel * c);
+  virtual void send_to_channel (MsgChannel * c) const;
 };
 
 class MonJobDoneMsg : public JobDoneMsg {
@@ -342,8 +379,8 @@ public:
   {
     type = M_MON_STATS;
   }
-  virtual bool fill_from_fd (int fd);
-  virtual bool send_to_fd (int fd) const;
+  virtual void fill_from_channel (MsgChannel * c);
+  virtual void send_to_channel (MsgChannel * c) const;
 };
 
 #endif

@@ -640,6 +640,9 @@ main (int argc, char * argv[])
       for (map<int, MsgChannel *>::const_iterator it = fd2chan.begin();
            it != fd2chan.end(); ++it)
 	 {
+	   MsgChannel *c = it->second;
+	   while (c->has_msg ())
+	     handle_activity (c);
 	   int i = it->first;
 	   if (i > max_fd)
 	     max_fd = i;

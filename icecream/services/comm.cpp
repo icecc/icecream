@@ -6,12 +6,14 @@
 #include <arpa/inet.h>
 #include <sys/select.h>
 #include <errno.h>
+#include <fcntl.h>
 #include <netdb.h>
 #include <unistd.h>
 #include <errno.h>
 #include <string>
 #include <iostream>
 #include <assert.h>
+#include <minilzo.h>
 
 #include "logging.h"
 #include "job.h"
@@ -27,122 +29,292 @@ using namespace std;
     + write* unbuffered / or per message buffer (flush in send_msg)
  * think about error handling
     + saving errno somewhere (in MsgChannel class)
+ * handle unknown messages (implement a UnknownMsg holding the content
+    of the whole data packet?)
  */
+
+/* Tries to fill the inbuf completely.  */
 bool
-readfull (int fd, void *_buf, size_t count)
+MsgChannel::read_a_bit (void)
 {
-  char *buf = (char*)_buf;
+  chop_input ();
+  size_t count = inbuflen - inofs;
+  if (count < 128)
+    {
+      inbuflen = (inbuflen + 128 + 127) & ~(size_t)127;
+      inbuf = (char *) realloc (inbuf, inbuflen);
+      count = inbuflen - inofs;
+    }
+  char *buf = inbuf + inofs;
+  bool error = false;
   while (count)
     {
       ssize_t ret = read (fd, buf, count);
-      if (ret < 0 && (errno == EINTR || errno == EAGAIN))
-	continue;
-      // EOF or some error
-      if (ret <= 0)
-	break;
-      count -= ret;
-      buf += ret;
+      if (ret > 0)
+        {
+          count -= ret;
+          buf += ret;
+	}
+      else if (ret < 0 && errno == EINTR)
+        continue;
+      else if (ret < 0)
+        {
+          // EOF or some error
+          if (errno != EAGAIN)
+	    error = true;
+	}
+      else if (ret == 0)
+	eof = true;
+      break;
     }
-  if (count)
-    return false;
-  return true;
+  inofs = buf - inbuf;
+  update_state ();
+  return !error;
 }
 
-bool
-writefull (int fd, const void *_buf, size_t count)
+void
+MsgChannel::update_state (void)
 {
-  const char *buf = (const char*)_buf;
-  while (count)
+  switch (instate)
     {
-      ssize_t ret = write (fd, buf, count);
-      if (ret < 0 && (errno == EINTR || errno == EAGAIN))
-	continue;
-      // XXX handle EPIPE ?
-      // EOF or some error
+    case NEED_LEN:
+      if (inofs - intogo >= 4)
+        {
+	  readuint32 (inmsglen);
+	  if (inbuflen - intogo < inmsglen)
+	    {
+	      inbuflen = (inmsglen + intogo + 127) & ~(size_t)127;
+	      inbuf = (char *) realloc (inbuf, inbuflen);
+	    }
+          instate = FILL_BUF;
+          /* FALLTHROUGH */
+	}
+      else
+        break;
+    case FILL_BUF:
+      if (inofs - intogo >= inmsglen)
+        instate = HAS_MSG;
+        /* FALLTHROUGH */
+      else
+        break;
+    case HAS_MSG:
+      /* handled elsewere */
+      break;
+    }
+}
+
+void
+MsgChannel::chop_input (void)
+{
+  /* Make buffer smaller, if there's much already read in front
+     of it, or it is cheap to do.  */
+  if (intogo > 8192
+      || inofs - intogo <= 16)
+    {
+      if (inofs - intogo != 0)
+        memmove (inbuf, inbuf + intogo, inofs - intogo);
+      inofs -= intogo;
+      intogo = 0;
+    }
+}
+
+void
+MsgChannel::chop_output (void)
+{
+  if (msgofs > 8192
+      || msgtogo <= 16)
+    {
+      if (msgtogo)
+        memmove (msgbuf, msgbuf + msgofs, msgtogo);
+      msgofs = 0;
+    }
+}
+
+void
+MsgChannel::writefull (const void *_buf, size_t count)
+{
+  if (msgtogo + count >= msgbuflen)
+    {
+      /* Realloc to a multiple of 128.  */
+      msgbuflen = (msgtogo + count + 127) & ~(size_t)127;
+      msgbuf = (char *) realloc (msgbuf, msgbuflen);
+    }
+  memcpy (msgbuf + msgtogo, _buf, count);
+  msgtogo += count;
+}
+
+bool
+MsgChannel::flush_writebuf (bool blocking)
+{
+  const char *buf = msgbuf + msgofs;
+  bool error = false;
+  while (msgtogo)
+    {
+      ssize_t ret = write (fd, buf, msgtogo);
       if (ret <= 0)
-	break;
-      count -= ret;
+        {
+	  if (errno == EINTR)
+	    continue;
+	  // XXX handle EPIPE ?
+	  // EOF or some error
+	  if (ret == 0 || blocking || errno != EAGAIN)
+	    error = true;
+	  break;
+	}
+      msgtogo -= ret;
       buf += ret;
     }
-  if (count)
-    return false;
-  return true;
+  msgofs = buf - msgbuf;
+  chop_output ();
+  return !error;
 }
 
-bool
-readuint (int fd, unsigned int &buf)
+void
+MsgChannel::readuint32 (uint32_t &buf)
 {
-  unsigned int b;
-  buf = 0;
-  if (!readfull (fd, &b, 4))
-    return false;
-  buf = ntohl (b);
-  return true;
+  if (inofs >= intogo + 4)
+    {
+      buf = *(uint32_t *)(inbuf + intogo);
+      intogo += 4;
+      buf = ntohl (buf);
+    }
+  else
+    buf = 0;
 }
 
-bool
-writeuint (int fd, unsigned int i)
+void
+MsgChannel::writeuint32 (uint32_t i)
 {
   i = htonl (i);
-  return writefull (fd, &i, 4);
+  writefull (&i, 4);
 }
 
-#include <minilzo.h>
-
-bool writecompressed( int fd, const unsigned char *in_buf, lzo_uint in_len, lzo_uint &out_len )
+void
+MsgChannel::read_string (string &s)
 {
-  out_len = in_len + in_len / 64 + 16 + 3;
-  lzo_byte *out_buf = new lzo_byte[out_len];
-  lzo_voidp wrkmem = ( lzo_voidp )malloc(LZO1X_MEM_COMPRESS);
-  int ret = lzo1x_1_compress( in_buf, in_len, out_buf, &out_len, wrkmem );
-  if ( ret != LZO_E_OK)
+  char *buf;
+  // len is including the (also saved) 0 Byte
+  uint32_t len;
+  readuint32 (len);
+  if (!len || inofs < intogo + len)
+    s = "";
+  else
     {
-      /* this should NEVER happen */
-      printf("internal error - compression failed: %d\n", ret);
-      free( wrkmem );
-      delete [] out_buf;
-      return false;
+      buf = inbuf + intogo;
+      intogo += len;
+      s = buf;
     }
-#if 0
-  printf( "compress %d bytes to %d bytes\n", in_len, out_len );
-#endif
-  bool bret = ( writeuint( fd, in_len )
-                && writeuint( fd, out_len )
-                && writefull( fd, out_buf, out_len ) );
-
-  free( wrkmem );
-  delete [] out_buf;
-  return bret;
 }
 
-bool readcompressed( int fd, unsigned char **uncompressed_buf, lzo_uint &uncompressed_len, lzo_uint &compressed_len )
+void
+MsgChannel::write_string (const string &s)
 {
-  if ( !readuint( fd, uncompressed_len ) )
-    return false;
-  if ( !readuint( fd, compressed_len ) )
-    return false;
-  *uncompressed_buf = new unsigned char[uncompressed_len];
-  unsigned char *compressed_buf = new unsigned char[compressed_len];
-  lzo_voidp wrkmem = ( lzo_voidp )malloc(LZO1X_MEM_COMPRESS);
-  bool bret = readfull( fd, compressed_buf, compressed_len );
-  int ret = LZO_E_OK;
-  if ( bret )
-    ret = lzo1x_decompress( compressed_buf, compressed_len, *uncompressed_buf, &uncompressed_len, wrkmem );
-  if ( ret !=  LZO_E_OK)
+  uint32_t len = 1 + s.length();
+  writeuint32 (len);
+  writefull (s.c_str(), len);
+}
+
+void
+MsgChannel::read_strlist (list<string> &l)
+{
+  uint32_t len;
+  l.clear();
+  readuint32 (len);
+  while (len--)
     {
-      /* this should NEVER happen */
-      printf("internal error - decompression failed: %d\n", ret);
-      bret = false;
-  }
-  if ( !bret )
+      string s;
+      read_string (s);
+      l.push_back (s);
+    }
+}
+
+void
+MsgChannel::write_strlist (const list<string> &l)
+{
+  writeuint32 ((uint32_t) l.size());
+  for (list<string>::const_iterator it = l.begin();
+       it != l.end(); ++it )
+    write_string (*it);
+}
+
+void
+MsgChannel::readcompressed (unsigned char **uncompressed_buf,
+			    size_t &_uclen, size_t &_clen)
+{
+  lzo_uint uncompressed_len;
+  lzo_uint compressed_len;
+  readuint32 (uncompressed_len);
+  readuint32 (compressed_len);
+  /* If there was some input, but nothing compressed, or we don't have
+     everything to uncompress, there was an error.  */
+  if ((uncompressed_len && !compressed_len)
+      || inofs < intogo + compressed_len)
     {
-      delete [] *uncompressed_buf;
       *uncompressed_buf = 0;
       uncompressed_len = 0;
+      _uclen = uncompressed_len;
+      _clen = compressed_len;
+      return;
     }
-  free( wrkmem );
-  delete [] compressed_buf;
-  return bret;
+	  
+  *uncompressed_buf = new unsigned char[uncompressed_len];
+  if (uncompressed_len && compressed_len)
+    {
+      const lzo_byte *compressed_buf = (lzo_byte *) (inbuf + intogo);
+      lzo_voidp wrkmem = (lzo_voidp) malloc (LZO1X_MEM_COMPRESS);
+      int ret = lzo1x_decompress (compressed_buf, compressed_len,
+			      *uncompressed_buf, &uncompressed_len, wrkmem);
+      free (wrkmem);
+      if (ret != LZO_E_OK)
+        {
+          /* This should NEVER happen.
+	     Remove the buffer, and indicate there is nothing in it,
+	     but don't reset the compressed_len, so our caller know,
+	     that there actually was something read in.  */
+          printf("internal error - decompression failed: %d\n", ret);
+	  delete [] *uncompressed_buf;
+	  *uncompressed_buf = 0;
+	  uncompressed_len = 0;
+        }
+      /* Read over everything used, _also_ if there was some error.
+         If we couldn't decode it now, it won't get better in the future,
+	 so just ignore this hunk.  */
+      intogo += compressed_len;
+    }
+  _uclen = uncompressed_len;
+  _clen = compressed_len;
+}
+
+void
+MsgChannel::writecompressed (const unsigned char *in_buf,
+			     size_t _in_len, size_t &_out_len)
+{
+  lzo_uint in_len = _in_len;
+  lzo_uint out_len = _out_len;
+  out_len = in_len + in_len / 64 + 16 + 3;
+  writeuint32 (in_len);
+  size_t msgtogo_old = msgtogo;
+  writeuint32 (0); // will be out_len
+  if (msgtogo + out_len >= msgbuflen)
+    {
+      /* Realloc to a multiple of 128.  */
+      msgbuflen = (msgtogo + out_len + 127) & ~(size_t)127;
+      msgbuf = (char *) realloc (msgbuf, msgbuflen);
+    }
+  lzo_byte *out_buf = (lzo_byte *) (msgbuf + msgtogo);
+  lzo_voidp wrkmem = (lzo_voidp) malloc (LZO1X_MEM_COMPRESS);
+  int ret = lzo1x_1_compress (in_buf, in_len, out_buf, &out_len, wrkmem);
+  free (wrkmem);
+  if (ret != LZO_E_OK)
+    {
+      /* this should NEVER happen */
+      printf ("internal error - compression failed: %d\n", ret);
+      out_len = 0;
+    }
+  uint32_t _olen = htonl (out_len);
+  memcpy (msgbuf + msgtogo_old, &_olen, 4);
+  msgtogo += out_len;
+  _out_len = out_len;
 }
 
 Service::Service (struct sockaddr *_a, socklen_t _l)
@@ -230,38 +402,90 @@ Service::eq_ip (const Service &s)
 }
 
 MsgChannel::MsgChannel (int _fd)
-  : other_end(0), fd(_fd)
+  : other_end(0), fd(_fd), msgbuf(0), msgbuflen(0), msgofs(0), msgtogo(0),
+    inbuf(0), inbuflen(0), inofs(0), intogo(0), instate(NEED_LEN), eof(false)
 {
-    abort(); // currently not tested
+  abort (); // currently not tested
 }
 
 MsgChannel::MsgChannel (int _fd, Service *serv)
   : other_end(serv), fd(_fd)
 {
-    assert( !serv->c );
-    serv->c = this;
+  assert (!serv->c);
+  serv->c = this;
+  // not using new/delete because of the need of realloc()
+  msgbuf = (char *) malloc (128);
+  msgbuflen = 128;
+  msgofs = 0;
+  msgtogo = 0;
+  inbuf = (char *) malloc (128);
+  inbuflen = 128;
+  inofs = 0;
+  intogo = 0;
+  instate = NEED_LEN;
+  eof = false;
+  if (fcntl (fd, F_SETFL, O_NONBLOCK) < 0)
+    perror ("fcntl()"); // XXX
 }
 
 MsgChannel::~MsgChannel()
 {
   close (fd);
   fd = 0;
-  if ( other_end )
+  if (other_end)
     {
       assert( !other_end->c || other_end->c == this );
       other_end->c = 0;
     }
   delete other_end;
+  if (msgbuf)
+    free (msgbuf);
+  if (inbuf)
+    free (inbuf);
+}
+
+/* This waits indefinitely (well, 5 minutes) for some a complete
+   message to arrive.  Returns false if there was some error.  */
+bool
+MsgChannel::wait_for_msg (void)
+{
+  if (has_msg ())
+    return true;
+  if (!read_a_bit ())
+    return false;
+  while (!has_msg ())
+    {
+      fd_set read_set;
+      FD_ZERO (&read_set);
+      FD_SET (fd, &read_set);
+      struct timeval tv;
+      tv.tv_sec = 5 * 60;
+      tv.tv_usec = 0;
+      if (select (fd + 1, &read_set, NULL, NULL, &tv) <= 0)
+	/* Either timeout or real error.  For this function also
+	   a timeout is an error.  */
+        return false;
+      if (!read_a_bit ())
+        return false;
+    }
+  return true;
 }
 
 Msg *
-MsgChannel::get_msg(void)
+MsgChannel::get_msg(bool blocking)
 {
   Msg *m;
   enum MsgType type;
   unsigned int t;
-  if (!readuint (fd, t))
+  if (blocking && !wait_for_msg ())
     return 0;
+  /* If we've seen the EOF, and we don't have a complete message,
+     then we won't see it anymore.  Return that to the caller.  */
+  if (eof && !has_msg ())
+    return 0;
+  if (!has_msg ())
+    abort (); // XXX but what else?
+  readuint32 (t);
   type = (enum MsgType) t;
   switch (type)
     {
@@ -286,27 +510,30 @@ MsgChannel::get_msg(void)
     case M_MON_JOB_DONE: m = new MonJobDoneMsg; break;
     case M_MON_STATS: m = new MonStatsMsg; break;
     default:
-      log_error() << "unknown message type\n";
-      abort();
+      log_error() << "unknown message type" << t << endl;
       return 0; break;
     }
-  if (!m->fill_from_fd (fd))
-    {
-      delete m;
-      return 0;
-    }
+  m->fill_from_channel (this);
+  instate = NEED_LEN;
+  update_state ();
   return m;
 }
 
 bool
-MsgChannel::send_msg (const Msg &m)
+MsgChannel::send_msg (const Msg &m, bool blocking)
 {
-  return m.send_to_fd (fd);
+  chop_output ();
+  size_t msgtogo_old = msgtogo;
+  writeuint32 (0);  // filled out later with the overall len
+  m.send_to_channel (this);
+  uint32_t len = htonl (msgtogo - msgtogo_old - 4);
+  memcpy (msgbuf + msgtogo_old, &len, 4);
+  return flush_writebuf (blocking);
 }
 
 MsgChannel *Service::createChannel( int remote_fd )
 {
-  if ( channel() )
+  if (channel())
     {
       assert( remote_fd == c->fd );
       return channel();
@@ -316,8 +543,6 @@ MsgChannel *Service::createChannel( int remote_fd )
   return channel();
 }
 
-#include <sys/types.h>
-#include <sys/socket.h>
 #include <ifaddrs.h>
 #include <net/if.h>
 #include <sys/ioctl.h>
@@ -488,7 +713,8 @@ connect_scheduler (const string &_netname, int timeout)
   return sched->channel();
 }
 
-list<string> get_netnames (int timeout)
+list<string>
+get_netnames (int timeout)
 {
   list<string> l;
   int ask_fd;
@@ -515,206 +741,116 @@ list<string> get_netnames (int timeout)
   return l;
 }
 
-bool
-read_string (int fd, string &s)
+void
+Msg::fill_from_channel (MsgChannel *)
 {
-  char *buf;
-  // len is including the (also saved) 0 Byte
-  unsigned int len;
-  if (!readuint (fd, len))
-    return false;
-  buf = new char[len];
-  if (!readfull (fd, buf, len))
-    {
-      s = "";
-      delete [] buf;
-      return false;
-    }
-  s = buf;
-  delete [] buf;
-  return true;
 }
 
-bool
-write_string (int fd, const string &s)
+void
+Msg::send_to_channel (MsgChannel *c) const
 {
-  unsigned int len = 1 + s.length();
-  if (!writeuint (fd, len))
-    return false;
-  return writefull (fd, s.c_str(), len);
+  c->writeuint32 ((uint32_t) type);
 }
 
-bool
-read_strlist (int fd, list<string> &l)
+void
+GetCSMsg::fill_from_channel (MsgChannel *c)
 {
-  unsigned int len;
-  l.clear();
-  if (!readuint (fd, len))
-    return false;
-  while (len--)
-    {
-      string s;
-      if (!read_string (fd, s))
-        return false;
-      l.push_back (s);
-    }
-  return true;
-}
-
-bool
-write_strlist (int fd, const list<string> &l)
-{
-  if (!writeuint (fd, (unsigned int) l.size()))
-    return false;
-  for (list<string>::const_iterator it = l.begin();
-       it != l.end(); ++it )
-    {
-      if (!write_string (fd, *it))
-        return false;
-    }
-  return true;
-}
-
-bool
-Msg::fill_from_fd (int fd)
-{
-  assert( fd != 0 );
-  return true;
-}
-
-bool
-Msg::send_to_fd (int fd) const
-{
-  assert( fd != 0 );
-  return writeuint (fd, (unsigned int) type);
-}
-
-bool
-GetCSMsg::fill_from_fd (int fd)
-{
-  if (!Msg::fill_from_fd (fd))
-    return false;
+  Msg::fill_from_channel (c);
   unsigned int _lang;
-  if (!read_string (fd, version)
-      || !read_string (fd, filename)
-      || !readuint (fd, _lang))
-    return false;
+  c->read_string (version);
+  c->read_string (filename);
+  c->readuint32 (_lang);
   lang = static_cast<CompileJob::Language>( _lang );
-  return true;
 }
 
-bool
-GetCSMsg::send_to_fd (int fd) const
+void
+GetCSMsg::send_to_channel (MsgChannel *c) const
 {
-  if (!Msg::send_to_fd (fd))
-    return false;
-  unsigned int _lang = lang;
-  if (!write_string (fd, version)
-      || !write_string (fd, filename)
-      || !writeuint (fd, _lang))
-    return false;
-  return true;
+  Msg::send_to_channel (c);
+  c->write_string (version);
+  c->write_string (filename);
+  c->writeuint32 ((uint32_t) lang);
 }
 
-bool
-UseCSMsg::fill_from_fd (int fd)
+void
+UseCSMsg::fill_from_channel (MsgChannel *c)
 {
-  if (!Msg::fill_from_fd (fd))
-    return false;
-  bool ret = (readuint (fd, job_id)
-              && readuint (fd, port)
-              && read_string (fd, hostname)
-              && read_string( fd, environment ) );
-  return ret;
+  Msg::fill_from_channel (c);
+  c->readuint32 (job_id);
+  c->readuint32 (port);
+  c->read_string (hostname);
+  c->read_string (environment);
 }
 
-bool
-UseCSMsg::send_to_fd (int fd) const
+void
+UseCSMsg::send_to_channel (MsgChannel *c) const
 {
-  if (!Msg::send_to_fd (fd))
-    return false;
-  return (writeuint (fd, job_id)
-  	  && writeuint (fd, port)
-          && write_string (fd, hostname)
-          && write_string( fd, environment ) );
+  Msg::send_to_channel (c);
+  c->writeuint32 (job_id);
+  c->writeuint32 (port);
+  c->write_string (hostname);
+  c->write_string (environment);
 }
 
-bool
-CompileFileMsg::fill_from_fd (int fd)
+void
+CompileFileMsg::fill_from_channel (MsgChannel *c)
 {
-  if (!Msg::fill_from_fd (fd))
-    return false;
+  Msg::fill_from_channel (c);
   unsigned int id, lang;
   list<string> _l1, _l2;
   string version;
-  if (!readuint (fd, lang)
-      || !readuint (fd, id)
-      || !read_strlist (fd, _l1)
-      || !read_strlist (fd, _l2)
-      || !read_string( fd, version ) )
-    return false;
+  c->readuint32 (lang);
+  c->readuint32 (id);
+  c->read_strlist (_l1);
+  c->read_strlist (_l2);
+  c->read_string (version);
   job->setLanguage ((CompileJob::Language) lang);
   job->setJobID (id);
   ArgumentsList l;
-  for ( list<string>::const_iterator it = _l1.begin();
-        it != _l1.end(); ++it )
+  for (list<string>::const_iterator it = _l1.begin(); it != _l1.end(); ++it)
     l.append( *it, Arg_Remote );
-  for ( list<string>::const_iterator it = _l2.begin();
-        it != _l2.end(); ++it )
+  for (list<string>::const_iterator it = _l2.begin(); it != _l2.end(); ++it)
     l.append( *it, Arg_Rest );
-  job->setFlags(l);
-  job->setEnvironmentVersion( version );
-  return true;
+  job->setFlags (l);
+  job->setEnvironmentVersion (version);
 }
 
-bool
-CompileFileMsg::send_to_fd (int fd) const
+void
+CompileFileMsg::send_to_channel (MsgChannel *c) const
 {
-  if (!Msg::send_to_fd (fd))
-    return false;
-  return (writeuint (fd, (unsigned int) job->language())
-  	  && writeuint (fd, job->jobID())
-  	  && write_strlist (fd, job->remoteFlags())
-          && write_strlist (fd, job->restFlags() )
-          && write_string( fd, job->environmentVersion() ) );
+  Msg::send_to_channel (c);
+  c->writeuint32 ((uint32_t) job->language());
+  c->writeuint32 (job->jobID());
+  c->write_strlist (job->remoteFlags());
+  c->write_strlist (job->restFlags());
+  c->write_string (job->environmentVersion());
 }
 
-CompileJob *CompileFileMsg::takeJob() {
-    assert( deleteit );
-    deleteit = false;
-    return job;
+CompileJob *
+CompileFileMsg::takeJob()
+{
+  assert (deleteit);
+  deleteit = false;
+  return job;
 }
 
-bool
-FileChunkMsg::fill_from_fd (int fd)
+void
+FileChunkMsg::fill_from_channel (MsgChannel *c)
 {
   if (del_buf)
     delete [] buffer;
   buffer = 0;
   del_buf = true;
 
-  if (!Msg::fill_from_fd (fd))
-    return false;
-  lzo_uint _len = 0;
-  lzo_uint _compressed = 0;
-  if ( !readcompressed( fd, &buffer, _len, _compressed ) )
-      return false;
-
-  len = _len;
-  compressed = _compressed;
-
-  return true;
+  Msg::fill_from_channel (c);
+  c->readcompressed (&buffer, len, compressed);
 }
 
-bool
-FileChunkMsg::send_to_fd (int fd) const
+void
+FileChunkMsg::send_to_channel (MsgChannel *c) const
 {
-  if (!Msg::send_to_fd (fd))
-    return false;
-  lzo_uint _compressed;
-  bool ret = writecompressed( fd, buffer, len, _compressed );
-  compressed = _compressed;
-  return ret;
+  Msg::send_to_channel (c);
+  c->writecompressed (buffer, len, compressed);
 }
 
 FileChunkMsg::~FileChunkMsg()
@@ -723,46 +859,40 @@ FileChunkMsg::~FileChunkMsg()
     delete [] buffer;
 }
 
-bool
-CompileResultMsg::fill_from_fd (int fd)
+void
+CompileResultMsg::fill_from_channel (MsgChannel *c)
 {
-  if (!Msg::fill_from_fd (fd))
-    return false;
-  unsigned int _status = 0;
-  if ( !read_string( fd, err )
-       || !read_string( fd, out )
-       || !readuint( fd, _status ) )
-      return false;
+  Msg::fill_from_channel (c);
+  uint32_t _status = 0;
+  c->read_string (err);
+  c->read_string (out);
+  c->readuint32 (_status);
   status = _status;
-  return true;
 }
 
-bool
-CompileResultMsg::send_to_fd (int fd) const
+void
+CompileResultMsg::send_to_channel (MsgChannel *c) const
 {
-  if (!Msg::send_to_fd (fd))
-    return false;
-  return ( write_string( fd, err )
-           && write_string( fd, out )
-           && writeuint( fd, status ) );
+  Msg::send_to_channel (c);
+  c->write_string (err);
+  c->write_string (out);
+  c->writeuint32 (status);
 }
 
-bool
-JobBeginMsg::fill_from_fd (int fd)
+void
+JobBeginMsg::fill_from_channel (MsgChannel *c)
 {
-  if (!Msg::fill_from_fd (fd))
-    return false;
-  return readuint (fd, job_id)
-  	 && readuint (fd, stime);
+  Msg::fill_from_channel (c);
+  c->readuint32 (job_id);
+  c->readuint32 (stime);
 }
 
-bool
-JobBeginMsg::send_to_fd (int fd) const
+void
+JobBeginMsg::send_to_channel (MsgChannel *c) const
 {
-  if (!Msg::send_to_fd (fd))
-    return false;
-  return writeuint (fd, job_id)
-  	 && writeuint (fd, stime);
+  Msg::send_to_channel (c);
+  c->writeuint32 (job_id);
+  c->writeuint32 (stime);
 }
 
 JobDoneMsg::JobDoneMsg (int id, int exit)
@@ -782,187 +912,166 @@ JobDoneMsg::JobDoneMsg (int id, int exit)
   out_uncompressed = 0;
 }
 
-bool
-JobDoneMsg::fill_from_fd (int fd)
+void
+JobDoneMsg::fill_from_channel (MsgChannel *c)
 {
-  if (!Msg::fill_from_fd (fd))
-    return false;
-  unsigned int _exitcode = 255;
-  bool ret = readuint (fd, job_id)
-    && readuint( fd, _exitcode )
-    && readuint( fd, real_msec )
-    && readuint( fd, user_msec )
-    && readuint( fd, sys_msec )
-    && readuint( fd, maxrss )
-    && readuint( fd, idrss )
-    && readuint( fd, majflt )
-    && readuint( fd, nswap )
-    && readuint( fd, in_compressed )
-    && readuint( fd, in_uncompressed )
-    && readuint( fd, out_compressed )
-    && readuint( fd, out_uncompressed );
-  exitcode = ( int )_exitcode;
-  return ret;
+  Msg::fill_from_channel (c);
+  uint32_t _exitcode = 255;
+  c->readuint32 (job_id);
+  c->readuint32 (_exitcode);
+  c->readuint32 (real_msec);
+  c->readuint32 (user_msec);
+  c->readuint32 (sys_msec);
+  c->readuint32 (maxrss);
+  c->readuint32 (idrss);
+  c->readuint32 (majflt);
+  c->readuint32 (nswap);
+  c->readuint32 (in_compressed);
+  c->readuint32 (in_uncompressed);
+  c->readuint32 (out_compressed);
+  c->readuint32 (out_uncompressed);
+  exitcode = (int) _exitcode;
 }
 
-bool
-JobDoneMsg::send_to_fd (int fd) const
+void
+JobDoneMsg::send_to_channel (MsgChannel *c) const
 {
-  if (!Msg::send_to_fd (fd))
-    return false;
-  return writeuint (fd, job_id)
-    && writeuint( fd, ( unsigned int )exitcode )
-    && writeuint( fd, real_msec )
-    && writeuint( fd, user_msec )
-    && writeuint( fd, sys_msec )
-    && writeuint( fd, maxrss )
-    && writeuint( fd, idrss )
-    && writeuint( fd, majflt )
-    && writeuint( fd, nswap )
-    && writeuint( fd, in_compressed )
-    && writeuint( fd, in_uncompressed )
-    && writeuint( fd, out_compressed )
-    && writeuint( fd, out_uncompressed );
+  Msg::send_to_channel (c);
+  c->writeuint32 (job_id);
+  c->writeuint32 ((uint32_t) exitcode);
+  c->writeuint32 (real_msec);
+  c->writeuint32 (user_msec);
+  c->writeuint32 (sys_msec);
+  c->writeuint32 (maxrss);
+  c->writeuint32 (idrss);
+  c->writeuint32 (majflt);
+  c->writeuint32 (nswap);
+  c->writeuint32 (in_compressed);
+  c->writeuint32 (in_uncompressed);
+  c->writeuint32 (out_compressed);
+  c->writeuint32 (out_uncompressed);
 }
 
-bool
-LoginMsg::fill_from_fd (int fd)
+void
+LoginMsg::fill_from_channel (MsgChannel *c)
 {
-  if (!Msg::fill_from_fd (fd))
-    return false;
-  return ( readuint( fd, port )
-           && readuint( fd, max_kids )
-           && read_strlist( fd, envs ) );
+  Msg::fill_from_channel (c);
+  c->readuint32 (port);
+  c->readuint32 (max_kids);
+  c->read_strlist (envs);
 }
 
-bool
-LoginMsg::send_to_fd (int fd) const
+void
+LoginMsg::send_to_channel (MsgChannel *c) const
 {
-  if (!Msg::send_to_fd (fd))
-    return false;
-  return ( writeuint( fd, port )
-           && writeuint( fd, max_kids )
-           && write_strlist( fd, envs ) );
+  Msg::send_to_channel (c);
+  c->writeuint32 (port);
+  c->writeuint32 (max_kids);
+  c->write_strlist (envs);
 }
 
-bool
-StatsMsg::fill_from_fd (int fd)
+void
+StatsMsg::fill_from_channel (MsgChannel *c)
 {
-  if (!Msg::fill_from_fd (fd))
-    return false;
-
-  return readuint (fd, load)
-  	 && readuint (fd, niceLoad)
-  	 && readuint (fd, sysLoad)
-  	 && readuint (fd, userLoad)
-  	 && readuint (fd, idleLoad)
-  	 && readuint (fd, loadAvg1)
-  	 && readuint (fd, loadAvg5)
-  	 && readuint (fd, loadAvg10)
-  	 && readuint (fd, freeMem);
+  Msg::fill_from_channel (c);
+  c->readuint32 (load);
+  c->readuint32 (niceLoad);
+  c->readuint32 (sysLoad);
+  c->readuint32 (userLoad);
+  c->readuint32 (idleLoad);
+  c->readuint32 (loadAvg1);
+  c->readuint32 (loadAvg5);
+  c->readuint32 (loadAvg10);
+  c->readuint32 (freeMem);
 }
 
-bool
-StatsMsg::send_to_fd (int fd) const
+void
+StatsMsg::send_to_channel (MsgChannel *c) const
 {
-  if (!Msg::send_to_fd (fd))
-    return false;
-  return writeuint( fd, load )
-  	 && writeuint (fd, niceLoad)
-  	 && writeuint (fd, sysLoad)
-  	 && writeuint (fd, userLoad)
-  	 && writeuint (fd, idleLoad)
-  	 && writeuint (fd, loadAvg1)
-  	 && writeuint (fd, loadAvg5)
-  	 && writeuint (fd, loadAvg10)
-  	 && writeuint (fd, freeMem);
+  Msg::send_to_channel (c);
+  c->writeuint32 (load);
+  c->writeuint32 (niceLoad);
+  c->writeuint32 (sysLoad);
+  c->writeuint32 (userLoad);
+  c->writeuint32 (idleLoad);
+  c->writeuint32 (loadAvg1);
+  c->writeuint32 (loadAvg5);
+  c->writeuint32 (loadAvg10);
+  c->writeuint32 (freeMem);
 }
 
-bool
-GetSchedulerMsg::fill_from_fd (int fd)
+void
+GetSchedulerMsg::fill_from_channel (MsgChannel *c)
 {
-  if (!Msg::fill_from_fd (fd))
-    return false;
-  return true;
+  Msg::fill_from_channel (c);
 }
 
-bool
-GetSchedulerMsg::send_to_fd (int fd) const
+void
+GetSchedulerMsg::send_to_channel (MsgChannel *c) const
 {
-  if (!Msg::send_to_fd (fd))
-    return false;
-  return true;
+  Msg::send_to_channel (c);
 }
 
-bool
-UseSchedulerMsg::fill_from_fd (int fd)
+void
+UseSchedulerMsg::fill_from_channel (MsgChannel *c)
 {
-  if (!Msg::fill_from_fd (fd))
-    return false;
-  bool ret = ( readuint (fd, port)
-               && read_string (fd, hostname));
-  return ret;
+  Msg::fill_from_channel (c);
+  c->readuint32 (port);
+  c->read_string (hostname);
 }
 
-bool
-UseSchedulerMsg::send_to_fd (int fd) const
+void
+UseSchedulerMsg::send_to_channel (MsgChannel *c) const
 {
-  if (!Msg::send_to_fd (fd))
-    return false;
-  return ( writeuint (fd, port)
-           && write_string (fd, hostname));
+  Msg::send_to_channel (c);
+  c->writeuint32 (port);
+  c->write_string (hostname);
 }
 
-bool
-MonGetCSMsg::fill_from_fd (int fd)
+void
+MonGetCSMsg::fill_from_channel (MsgChannel *c)
 {
-  if (!GetCSMsg::fill_from_fd (fd))
-    return false;
-  return readuint( fd, job_id )
-    && read_string( fd, client );
+  GetCSMsg::fill_from_channel (c);
+  c->readuint32 (job_id);
+  c->read_string (client);
 }
 
-bool
-MonGetCSMsg::send_to_fd (int fd) const
+void
+MonGetCSMsg::send_to_channel (MsgChannel *c) const
 {
-  if (!GetCSMsg::send_to_fd (fd))
-    return false;
-  return writeuint( fd, job_id )
-    && write_string( fd, client );
+  GetCSMsg::send_to_channel (c);
+  c->writeuint32 (job_id);
+  c->write_string (client);
 }
 
-bool
-MonJobBeginMsg::fill_from_fd (int fd)
+void
+MonJobBeginMsg::fill_from_channel (MsgChannel *c)
 {
-  if (!Msg::fill_from_fd (fd))
-    return false;
-  return readuint( fd, job_id )
-    && readuint( fd, stime )
-    && read_string( fd, host );
+  Msg::fill_from_channel (c);
+  c->readuint32 (job_id);
+  c->readuint32 (stime);
+  c->read_string (host);
 }
 
-bool
-MonJobBeginMsg::send_to_fd (int fd) const
+void
+MonJobBeginMsg::send_to_channel (MsgChannel *c) const
 {
-  if (!Msg::send_to_fd (fd))
-    return false;
-  return writeuint( fd, job_id )
-    && writeuint( fd, stime )
-    && write_string( fd, host );
+  Msg::send_to_channel (c);
+  c->writeuint32 (job_id);
+  c->writeuint32 (stime);
+  c->write_string (host);
 }
 
-bool
-MonStatsMsg::fill_from_fd(int fd)
+void
+MonStatsMsg::fill_from_channel (MsgChannel *c)
 {
-  if ( !StatsMsg::fill_from_fd( fd ) )
-    return false;
-  return read_string( fd, host );
+  StatsMsg::fill_from_channel (c);
+  c->read_string (host);
 }
 
-bool
-MonStatsMsg::send_to_fd(int fd) const
+void
+MonStatsMsg::send_to_channel (MsgChannel *c) const
 {
-  if ( !StatsMsg::send_to_fd( fd ) )
-    return false;
-  return write_string( fd, host );
+  StatsMsg::send_to_channel (c);
+  c->write_string (host);
 }
