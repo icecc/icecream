@@ -163,6 +163,7 @@ public:
   time_t starttime;  // _local_ to the compiler server
   time_t start_on_scheduler;  // starttime local to scheduler
   string target_platform;
+  list<Job*> master_job_for;
   Job (MsgChannel *c, unsigned int _id, CS *subm)
      : id(_id), state(PENDING), server(0),
        submitter(subm),
@@ -367,6 +368,8 @@ handle_cs_request (MsgChannel *c, Msg *_m)
      Instead use the long-lasting connection to the daemon.  */
   CS *submitter = *it;
 
+  Job *master_job = 0;
+
   for ( unsigned int i = 0; i < m->count; ++i )
     {
       Job *job = create_new_job (c, submitter);
@@ -378,6 +381,11 @@ handle_cs_request (MsgChannel *c, Msg *_m)
         log_info() << it->second << "(" << it->first << "), ";
       log_info() << "] " << m->filename << " " << ( m->lang == CompileJob::Lang_C ? "C" : "C++" ) << endl;
       notify_monitors (MonGetCSMsg (job->id, submitter->hostid, m));
+      if ( !master_job )
+        master_job = job;
+      else {
+        master_job->master_job_for.push_back( job );
+      }
     }
   return true;
 
@@ -631,6 +639,26 @@ empty_queue()
         cs->compiler_versions.clear();
         cs->busy_installing = true;
       }
+      string env;
+      if ( !job->master_job_for.empty() )
+        {
+          for ( Environments::const_iterator it = job->environments.begin(); it != job->environments.end(); ++it )
+            {
+              if ( it->first == cs->host_platform )
+                {
+                  env = it->second;
+                  break;
+                }
+            }
+        }
+      if ( !env.empty() )
+        {
+          for ( list<Job*>::iterator it = job->master_job_for.begin(); it != job->master_job_for.end(); ++it )
+            { // remove all other environments
+              ( *it )->environments.clear();
+              ( *it )->environments.push_back( make_pair( cs->host_platform, env ) );
+            }
+        }
     }
   return true;
 }
