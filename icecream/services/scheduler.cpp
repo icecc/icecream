@@ -534,16 +534,16 @@ platforms_compatible( const string &target, const string &platform )
       platform_map.insert( make_pair( string( "i386" ), string( "i486" ) ) );
       platform_map.insert( make_pair( string( "i386" ), string( "i586" ) ) );
       platform_map.insert( make_pair( string( "i386" ), string( "i686" ) ) );
-      // platform_map.insert( make_pair( string( "i386" ), string( "x86_64" ) ) );
+      platform_map.insert( make_pair( string( "i386" ), string( "x86_64" ) ) );
 
       platform_map.insert( make_pair( string( "i486" ), string( "i586" ) ) );
       platform_map.insert( make_pair( string( "i486" ), string( "i686" ) ) );
-     // platform_map.insert( make_pair( string( "i486" ), string( "x86_64" ) ) );
+      platform_map.insert( make_pair( string( "i486" ), string( "x86_64" ) ) );
 
       platform_map.insert( make_pair( string( "i586" ), string( "i686" ) ) );
-//      platform_map.insert( make_pair( string( "i586" ), string( "x86_64" ) ) );
+      platform_map.insert( make_pair( string( "i586" ), string( "x86_64" ) ) );
 
- //     platform_map.insert( make_pair( string( "i686" ), string( "x86_64" ) ) );
+      platform_map.insert( make_pair( string( "i686" ), string( "x86_64" ) ) );
 
       platform_map.insert( make_pair( string( "ppc" ), string( "ppc64" ) ) );
       platform_map.insert( make_pair( string( "s390" ), string( "s390x" ) ) );
