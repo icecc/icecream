@@ -51,7 +51,7 @@ enum MsgType {
   M_MON_LOGIN,
   M_MON_GET_CS,
   M_MON_JOB_BEGIN,
-  M_MON_JOB_END,
+  M_MON_JOB_DONE,
 };
 
 class Msg {
@@ -298,9 +298,15 @@ public:
   virtual bool send_to_fd (int fd) const;
 };
 
-class MonJobEndMsg : public Msg {
+class MonJobDoneMsg : public JobDoneMsg {
 public:
-  MonJobEndMsg() : Msg(M_MON_JOB_END) {}
+  MonJobDoneMsg() : JobDoneMsg() {
+    type = M_MON_JOB_DONE;
+  }
+  MonJobDoneMsg( JobDoneMsg *m ) {
+    JobDoneMsg::operator=( *m );
+    type = M_MON_JOB_DONE;
+  }
 };
 
 #endif

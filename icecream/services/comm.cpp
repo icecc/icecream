@@ -283,7 +283,7 @@ MsgChannel::get_msg(void)
     case M_MON_LOGIN: m = new MonLoginMsg; break;
     case M_MON_GET_CS: m = new MonGetCSMsg; break;
     case M_MON_JOB_BEGIN: m = new MonJobBeginMsg; break;
-    case M_MON_JOB_END: m = new MonJobEndMsg; break;
+    case M_MON_JOB_DONE: m = new MonJobDoneMsg; break;
     default:
       abort();
       return 0; break;

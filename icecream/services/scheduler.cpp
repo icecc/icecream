@@ -403,7 +403,7 @@ handle_job_done (MsgChannel *c, Msg *_m)
   Job *j = jobs[m->job_id];
   j->server->joblist.remove (j);
   add_job_stats (j, m);
-  notify_monitors (MonJobEndMsg ());
+  notify_monitors (MonJobDoneMsg (m));
   jobs.erase (m->job_id);
   delete j;
   return true;
