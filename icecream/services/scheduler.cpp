@@ -204,7 +204,7 @@ handle_cs_request (MsgChannel *c, Msg *_m)
              << job->environment << "\" " << m->filename
              << " " << ( m->lang == CompileJob::Lang_C ? "C" : "C++" ) << endl;
   toanswer.push( job );
-  notify_monitors (MonGetCSMsg ());
+  notify_monitors (MonGetCSMsg (job->id, m));
   return true;
 }
 

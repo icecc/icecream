@@ -270,9 +270,20 @@ public:
   MonLoginMsg() : Msg(M_MON_LOGIN) {}
 };
 
-class MonGetCSMsg : public Msg {
+class MonGetCSMsg : public GetCSMsg {
 public:
-  MonGetCSMsg() : Msg(M_MON_GET_CS) {}
+  unsigned int job_id;
+  MonGetCSMsg() : GetCSMsg() { // overwrite
+    type = M_MON_GET_CS;
+    job_id = 0;
+  }
+  MonGetCSMsg( int id, GetCSMsg *m )
+    : GetCSMsg( m->version, m->filename, m->lang ), job_id( id )
+  {
+    type = M_MON_GET_CS;
+  }
+  virtual bool fill_from_fd (int fd);
+  virtual bool send_to_fd (int fd) const;
 };
 
 class MonJobBeginMsg : public Msg {

@@ -816,3 +816,19 @@ UseSchedulerMsg::send_to_fd (int fd) const
   return ( writeuint (fd, port)
            && write_string (fd, hostname));
 }
+
+bool
+MonGetCSMsg::fill_from_fd (int fd)
+{
+  if (!GetCSMsg::fill_from_fd (fd))
+    return false;
+  return readuint( fd, job_id );
+}
+
+bool
+MonGetCSMsg::send_to_fd (int fd) const
+{
+  if (!GetCSMsg::send_to_fd (fd))
+    return false;
+  return writeuint( fd, job_id );
+}
