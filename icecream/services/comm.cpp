@@ -501,11 +501,10 @@ Service::Service (const string &hostname, unsigned short p)
       while (ret <= 0) {
         fd_set writefds;
 
-        trace() << "trying to connect\n";
         /*
         **  Protect against an infinite loop.
         */
-        if (tries++ >= 100) {
+        if (tries++ >= 100) { // 10s
           return;
         }
 
@@ -563,7 +562,6 @@ Service::Service (const string &hostname, unsigned short p)
       **  The connect attempt failed or was interrupted,
       **  so close up the socket.
       */
-      trace() << "failed\n";
       close(remote_fd);
       return;
     }
@@ -573,7 +571,6 @@ Service::Service (const string &hostname, unsigned short p)
     */
     fcntl(remote_fd, F_SETFL, 0);
   }
-  trace() << "connected " << remote_fd << endl;
   len = sizeof (remote_addr);
   addr = (struct sockaddr *)malloc (len);
   memcpy (addr, &remote_addr, len);
