@@ -288,8 +288,8 @@ add_job_stats (Job *job, JobDoneMsg *msg)
             << ( job->arg_flags & CompileJob::Flag_O2 ? '1' : '0')
             << ( job->arg_flags & CompileJob::Flag_Ol2 ? '1' : '0')
             << " " << st.osize << " " << msg->out_uncompressed << " "
-            << job->server->nodename << " " 
-            << float(msg->out_uncompressed) / st.compile_time_user << " " 
+            << job->server->nodename << " "
+            << float(msg->out_uncompressed) / st.compile_time_user << " "
             << server_speed( job->server ) << endl ;
 
 }
@@ -725,7 +725,8 @@ prune_clients ()
       if ( ( *it )->max_jobs > 0 ) {
         trace() << "send ping " << ( *it )->nodename << endl;
         ( *it )->channel()->send_msg( PingMsg() );
-        ( *it )->max_jobs *= -1; // better not give it
+        ( *it )->max_jobs *= -1; // better not give it away
+        ( *it )->last_talk = time( 0 ); // now wait another 15s
       } else { // R.I.P.
         trace() << "removing " << ( *it )->nodename << endl;
 	CS *old = *it;
@@ -1122,7 +1123,7 @@ handle_end (MsgChannel *c, Msg *m)
 	  ++it;
 
       map<unsigned int, Job*>::iterator mit;
-      for (mit = jobs.begin(); mit != jobs.end(); ++mit )
+      for (mit = jobs.begin(); mit != jobs.end(); )
 	if (mit->second->server == toremove
 	    || mit->second->submitter == toremove)
 	  {
@@ -1130,8 +1131,12 @@ handle_end (MsgChannel *c, Msg *m)
 	    mit->second->channel->send_msg( EndMsg() );
             notify_monitors (MonJobDoneMsg (JobDoneMsg( mit->second->id,  255 )));
 	    delete mit->second;
-	    jobs.erase( mit );
+	    jobs.erase( mit++ );
 	  }
+        else
+          {
+            ++mit;
+          }
     }
   else if (toremove->type == CS::CLIENT)
     {
@@ -1147,7 +1152,7 @@ handle_end (MsgChannel *c, Msg *m)
 	     from any request queues.
 	     XXX This is made particularly ugly due to using real queues.  */
 	  map<unsigned int, Job*>::iterator it;
-	  for (it = jobs.begin(); it != jobs.end(); ++it)
+	  for (it = jobs.begin(); it != jobs.end();)
 	    {
 	      if (it->second->channel == c)
 		{
@@ -1173,9 +1178,11 @@ handle_end (MsgChannel *c, Msg *m)
 
 		  if ( job->server )
 		      job->server->joblist.remove (job);
-		  jobs.erase (it);
+		  jobs.erase (it++);
 		  delete job;
 		}
+              else
+                ++it;
 	    }
 	}
     }
