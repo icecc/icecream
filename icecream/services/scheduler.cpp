@@ -368,7 +368,7 @@ handle_job_begin (MsgChannel *c, Msg *_m)
   jobs[m->job_id]->state = Job::COMPILING;
   jobs[m->job_id]->starttime = m->stime;
   jobs[m->job_id]->start_on_scheduler = time(0);
-  notify_monitors (MonJobBeginMsg ());
+  notify_monitors (MonJobBeginMsg (m->job_id, m->stime, c->other_end->name));
   return true;
 }
 

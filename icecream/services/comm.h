@@ -288,7 +288,14 @@ public:
 
 class MonJobBeginMsg : public Msg {
 public:
+  unsigned int job_id;
+  unsigned int stime;
+  std::string host;
   MonJobBeginMsg() : Msg(M_MON_JOB_BEGIN) {}
+  MonJobBeginMsg( unsigned int id, unsigned int time, std::string name )
+    : Msg( M_MON_JOB_BEGIN ), job_id( id ), stime( time ), host( name ) {}
+  virtual bool fill_from_fd (int fd);
+  virtual bool send_to_fd (int fd) const;
 };
 
 class MonJobEndMsg : public Msg {
