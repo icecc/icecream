@@ -1045,7 +1045,7 @@ handle_end (MsgChannel *c, Msg *m)
 	  /* Older clients sometimes send an END when still some jobs
 	     from it are active (only happens with multiple jobs per compile).
 	     So we have to also run cleanups for those clients.  */
-	  || IS_PROTOCOL_11(c))
+	  || !IS_PROTOCOL_11(c))
         {
 	  /* If it's disconnected without END message something went wrong,
 	     and we must remove all its job requests and jobs.  All job

@@ -37,7 +37,7 @@
 // if you increase the MIN_PROTOCOL_VERSION, comment out macros below and clean up the code
 #define MIN_PROTOCOL_VERSION 10
 
-#define IS_PROTOCOL_11( c ) ( c->protocol >= 10 )
+#define IS_PROTOCOL_11( c ) ( c->protocol >= 11 )
 
 enum MsgType {
   // so far unknown
