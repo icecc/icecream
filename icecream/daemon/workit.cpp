@@ -191,6 +191,7 @@ int work_it( CompileJob &j,
                     close( sock_err[1] );
                     close( sock_out[0] );
                     close( sock_out[1] );
+                    status = WEXITSTATUS( status );
                     return 0;
                 }
                 break;
