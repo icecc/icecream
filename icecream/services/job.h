@@ -76,7 +76,7 @@ private:
     std::string m_input_file, m_output_file;
 };
 
-void appendList( std::list<std::string> &list,
+inline void appendList( std::list<std::string> &list,
                  const std::list<std::string> &toadd )
 {
     // Cannot splice since toadd is a reference-to-const

@@ -1,6 +1,6 @@
 /* -*- c-file-style: "java"; indent-tabs-mode: nil -*-
  *
- * icecc -- A simple distributed compiler system 
+ * icecc -- A simple distributed compiler system
  *
  * Copyright (C) 2003, 2004 by the Icecream Authors
  *
@@ -43,7 +43,7 @@
 #include <errno.h>
 #include <signal.h>
 #include <cassert>
-
+#include <sys/time.h>
 #include <comm.h>
 
 #include "client.h"
@@ -53,34 +53,159 @@ const char * rs_program_name = "icecc";
 
 using namespace std;
 
-/**
- * @file
- *
- * Entry point for the distcc client.
- *
- * There are three methods of use for distcc: explicit (distcc gcc -c
- * foo.c), implicit (icecc -c foo.c) and masqueraded (gcc -c foo.c,
- * where gcc is really a link to distcc).
- *
- * Detecting these is relatively easy by examining the first one or
- * two words of the command.  We also need to make sure that when we
- * go to run the compiler, we run the one intended by the user.
- *
- * In particular, for masqueraded mode, we want to make sure that we
- * don't invoke distcc recursively.
- **/
+// possibly platform specific
+string split_out_file( const string &line )
+{
+    assert( line.find( '\n' ) == string::npos );
+
+    string::size_type pos = line.find( "=>" );
+    if ( pos == string::npos )
+        return "";
+    pos += 2;
+    while ( isspace( line[pos] ) )
+        pos++;
+    string raw = line.substr( pos );
+    pos = raw.find( ' ' );
+    if ( pos != string::npos )
+        raw = raw.substr( 0, pos );
+    if ( raw[0] != '/' )
+        return "";
+    return raw;
+}
+
+list<string> split_ldd_output( string &out )
+{
+    list<string> res;
+    string::size_type pos = 0;
+    do {
+        string::size_type opos = pos;
+        pos = out.find( '\n', pos + 1);
+        if ( pos == string::npos ) {
+            res.push_back( split_out_file( out.substr( opos + 1) ) );
+            break;
+        }
+        res.push_back( split_out_file( out.substr( opos + 1,
+                                                   pos - opos - 1 ) ) );
+    } while ( true );
+    return res;
+}
+
+bool collect_file( const string &dirname, const string &file )
+{
+    if ( !::access( ( dirname + "/" + file ).c_str(), R_OK ) ) // already in there
+        return true;
+
+    trace() << "package " << file << endl;
+    // even if the client runs on a higher version, we will not risk something
+    setenv( "LD_ASSUME_KERNEL", "2.4.0", 1 );
+    char buffer[PATH_MAX];
+    sprintf( buffer, "/usr/bin/ldd '%s' 2>&1", file.c_str() );
+    FILE *pipe = popen( buffer, "r" );
+    if ( !pipe ) {
+        perror( "popen" );
+        return false;
+    }
+
+    string output;
+    do {
+        size_t res = fread( buffer, 1,  PATH_MAX - 1, pipe );
+        buffer[res] = 0;
+        output += buffer;
+        if ( res < PATH_MAX - 1 )
+            break;
+    } while ( true );
+    pclose(pipe);
+    list<string> files = split_ldd_output( output );
+    for ( list<string>::const_iterator it = files.begin();
+          it != files.end(); ++it ) {
+        if ( !collect_file( dirname, *it ) )
+            return false;
+    }
+    string fdir = file.substr( 0, file.rfind( '/' ) + 1 );
+    for ( string::size_type pos = 0; pos != string::npos; pos = fdir.find( '/', pos + 1 ) ) {
+        string dir = dirname + "/" + fdir.substr( 0, pos );
+        if ( ::access( dir.c_str(), R_OK ) ) {
+            sprintf( buffer, "mkdir '%s'", dir.c_str() );
+            system( buffer );
+        }
+    }
+    sprintf( buffer,  "cp -p '%s' '%s/%s'", file.c_str(), dirname.c_str(), file.c_str() );
+    system( buffer );
+
+    struct timeval ts;
+    ts.tv_sec = 0;
+    ts.tv_usec = 0;
+    sprintf( buffer, "%s/%s", dirname.c_str(), fdir.c_str() );
+    utimes( buffer, &ts );
+
+    utimes( buffer, &ts );
+    fdir = file.substr( 0, file.rfind( '/' ) + 1 );
+    for ( string::size_type pos = 0; pos != string::npos; pos = fdir.find( '/', pos + 1 ) ) {
+        string dir = dirname + "/" + fdir.substr( 0, pos );
+        utimes( dir.c_str(), &ts );
+    }
+    return true;
+}
+
+bool collect_env( )
+{
+    char dirname[] = "/var/tmp/icecream_env_XXXXXX";
+    if ( !mkdtemp( dirname ) ) {
+        perror( "mkdtemp /var/tmp/icecream_env_XXXXXX" );
+        return -1;
+    }
+
+    // collect_file( dirname, "/bin/bash" ); // for testing chroot
+    if ( !collect_file( dirname, "/usr/bin/g++" ) )
+        return false;
+    if ( !collect_file( dirname, "/usr/bin/gcc" ) )
+        return false;
+    if ( !collect_file( dirname, "/usr/bin/as" ) )
+        return false;
+
+    char buffer[] = "/var/tmp/icecream_env_XXXXXX";
+    if ( !mktemp( buffer ) ) {
+        perror( "mkstemp" );
+        return false;
+    }
+
+    char system_buf[PATH_MAX * 2];
+    sprintf( system_buf, "cd '%s' && tar cjpf '%s' .", dirname, buffer );
+
+    if ( system( system_buf ) ) {
+        printf( "called: %s\n", system_buf );
+        return false;
+    }
+    sprintf( system_buf, "rm -r '%s'", dirname );
+    if ( system( system_buf ) ) {
+        printf( "called: %s\n", system_buf );
+        return false;
+    }
+    sprintf( system_buf, "md5sum '%s'", buffer);
+    FILE *pipe = popen( system_buf, "r" );
+    size_t res = fread( system_buf, 1, PATH_MAX, pipe );
+    pclose( pipe );
+    system_buf[res] = 0;
+    string md5sum = system_buf;
+    md5sum = md5sum.substr( 0, md5sum.find( ' ' ) );
+    sprintf( system_buf, "mv '%s' '%s.tar.bz2'", buffer, md5sum.c_str() );
+    if ( system( system_buf ) )
+        return false;
+    printf( "created %s.tar.bz2\n", md5sum.c_str() );
+    return true;
+}
 
 static void dcc_show_usage(void)
 {
     printf(
 "Usage:\n"
-"   icecc [COMPILER] [compile options] -o OBJECT -c SOURCE\n"
+"   icecc [compile options] -o OBJECT -c SOURCE\n"
 "   icecc --help\n"
 "\n"
 "Options:\n"
-"   COMPILER                   defaults to \"cc\"\n"
 "   --help                     explain usage and exit\n"
 "   --version                  show version and exit\n"
+"   --create-env               will create an environment tar ball\n"
 "\n");
 }
 
@@ -124,6 +249,25 @@ int main(int argc, char **argv)
     if ( argc == 1 && find_basename( compiler_name ) == rs_program_name) {
         dcc_show_usage();
         return 0;
+    }
+
+    if ( argc == 2 ) { // check for known arguments
+        string arg = argv[1];
+        if ( arg == "--help" ) {
+            dcc_show_usage();
+            return 0;
+        }
+        if ( arg == "--version" ) {
+            printf( "ICECREAM 0.1\n" );
+            return 0;
+        }
+        if ( arg == "--create-env" ) {
+
+            if ( collect_env( ) )
+                return 0;
+            else
+                return -1;
+        }
     }
 
     /* Ignore SIGPIPE; we consistently check error codes and will
