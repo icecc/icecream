@@ -23,6 +23,7 @@ add_file ()
     name="$2"
   fi
   test -z "$name" && return
+  path=$(readlink -f $path)
   toadd="$name=$path"
   if test "$name" = "$path"; then
     toadd=$path
@@ -60,14 +61,6 @@ if test -x /usr/bin/gcc-config; then
   fi
 fi
 
-if test -L /usr/bin/gcc; then
-  added_gcc=`readlink -f /usr/bin/gcc`
-fi
-
-if test -L /usr/bin/g++; then
-  added_gxx=`readlink -f /usr/bin/g++`
-fi
-
 add_file $added_gcc /usr/bin/gcc 
 add_file $added_gxx /usr/bin/g++
 add_file /usr/bin/as
@@ -97,13 +90,14 @@ done
 # now sort the files in order to make the md5sums independent
 # of ordering
 target_files=`for i in $new_target_files; do echo $i; done | sort`
-#echo "adding files $target_files"
-md5=`for i in $tmpdir/$target_files; do md5sum $i; done | sed -e 's/ .*$//' | md5sum | sed -e 's/ .*$//'` || {
+md5=`for i in $target_files; do md5sum $tmpdir/$i; done | sed -e 's/ .*$//' | md5sum | sed -e 's/ .*$//'` || {
   echo "Couldn't compute MD5 sum."
   exit 2
 }
 echo "creating $md5.tar.bz2"
-tar -C $tempdir -cjhf "$md5".tar.bz2 $target_files || {
+mydir=`pwd`
+cd $tempdir
+tar -cjhf "$mydir/$md5".tar.bz2 $target_files || {
   echo "Couldn't create archive"
   exit 3
 }
