@@ -600,8 +600,10 @@ int main( int argc, char ** argv )
                     } else {
                         Service *client = new Service ((struct sockaddr*) &cli_addr, cli_len);
                         MsgChannel *c = client->createChannel( acc_fd );
-                        if ( !c ) // protocol mismatch
+                        if ( !c->protocol ) { // protocol mismatch
+                            delete client;
                             continue;
+                        }
 
                         Msg *msg = c->get_msg();
                         if ( !msg ) {

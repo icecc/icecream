@@ -1205,7 +1205,7 @@ main (int argc, char * argv[])
               cs->last_talk = time( 0 );
 	      trace() << "accepting from " << cs->name << ":" << cs->port << "\n";
 	      MsgChannel *c = cs->createChannel (remote_fd);
-              if ( !c ) // protocol mismatch
+              if ( !c->protocol ) // protocol mismatch
                 {
                   delete cs;
                   continue;

@@ -445,18 +445,18 @@ MsgChannel::MsgChannel (int _fd, Service *serv)
   instate = NEED_LEN;
   eof = false;
 
-  if ( !check_protocol( ) ) {
+  if ( !check_protocol( ) )
     protocol = 0; // unusable
-  }
 
-  if (fcntl (fd, F_SETFL, O_NONBLOCK) < 0)
-    perror ("fcntl()"); // XXX
+  if ( protocol ) // otherwise the socket might be dead
+    if (fcntl (fd, F_SETFL, O_NONBLOCK) < 0)
+      perror ("fcntl()"); // XXX
 }
 
 MsgChannel::~MsgChannel()
 {
   close (fd);
-  fd = 0;
+  fd = -1;
   if (other_end)
     {
       assert( !other_end->c || other_end->c == this );
@@ -479,7 +479,7 @@ MsgChannel::check_protocol()
     return false;
   if ( read( fd, vers, 4 ) != 4 ) // just the other side's
     return false;
-  trace() << "writing protocol " << PROTOCOL_VERSION << endl;
+  trace() << "read protocol " << ( int )vers[0] << endl;
   if ( vers[0] < MIN_PROTOCOL_VERSION )
     vers[0] = 0;
   else if ( vers[0] > PROTOCOL_VERSION )
@@ -487,11 +487,15 @@ MsgChannel::check_protocol()
   protocol = vers[0];
 
   trace() << "write protocol version " << ( int )vers[0] << endl;
-  if ( write( fd, vers, 4 ) != 4 )
+  if ( write( fd, vers, 4 ) != 4 ) {
+    close( fd );
+    fd = -1;
     return false;
+  }
 
   if ( !protocol ) {
     close( fd );
+    fd = -1;
     return false;
   }
 
@@ -502,6 +506,7 @@ MsgChannel::check_protocol()
   if ( vers[0] != protocol ) { // mach sauce!
     protocol = 0;
     close( fd );
+    fd = -1;
     return false;
   }
 
@@ -624,11 +629,6 @@ MsgChannel *Service::createChannel( int remote_fd )
     }
   new MsgChannel( remote_fd, this ); // sets c
   assert( channel() );
-
-  if ( !channel()->protocol ) {
-    delete c;
-    c = 0;
-  }
 
   return channel();
 }
