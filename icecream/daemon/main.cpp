@@ -424,7 +424,7 @@ int main( int argc, char ** argv )
     typedef pair<CompileJob*, MsgChannel*> Compile_Request;
     queue<Compile_Request> requests;
     map<pid_t, JobDoneMsg*> jobmap;
-    typedef map<int, pid_t> Pidmap;
+    typedef map<pid_t, int> Pidmap;
     Pidmap pidmap;
 
     string native_environment;
@@ -518,7 +518,8 @@ int main( int argc, char ** argv )
                     }
                     jobmap[pid] = new JobDoneMsg;
                     jobmap[pid]->job_id = job->jobID();
-                    pidmap[sock] = pid;
+                    if ( sock )
+                        pidmap[pid] = 0;
                 }
                 delete req.first;
                 delete req.second;
@@ -531,12 +532,7 @@ int main( int argc, char ** argv )
                 if ( msg )
                     current_kids--;
                 jobmap.erase( child );
-                for ( Pidmap::iterator it = pidmap.begin(); it != pidmap.end(); ++it ) {
-                    if ( it->second == child ) {
-                        pidmap.erase( it );
-                        break;
-                    }
-                }
+                pidmap.erase( child );
                 if ( msg && scheduler ) {
                     msg->exitcode = status;
                     msg->user_msec = ru.ru_utime.tv_sec * 1000 + ru.ru_utime.tv_usec / 1000;
@@ -595,9 +591,9 @@ int main( int argc, char ** argv )
             int max_fd = listen_fd;
 
             for ( Pidmap::const_iterator it = pidmap.begin(); it != pidmap.end(); ++it ) {
-                FD_SET( it->first, &listen_set );
-                if ( max_fd < it->first )
-                    max_fd = it->first;
+                FD_SET( it->second, &listen_set );
+                if ( max_fd < it->second )
+                    max_fd = it->second;
             }
 
             FD_SET( scheduler->fd, &listen_set );
@@ -699,15 +695,15 @@ int main( int argc, char ** argv )
                     }
                 } else {
                     for ( Pidmap::iterator it = pidmap.begin(); it != pidmap.end(); ++it ) {
-                        if ( FD_ISSET( it->first, &listen_set ) ) {
-                            JobDoneMsg *msg = jobmap[it->second];
+                        if ( FD_ISSET( it->second, &listen_set ) ) {
+                            JobDoneMsg *msg = jobmap[it->first];
                             if ( msg ) {
-                                read( it->first, &msg->in_compressed, sizeof( unsigned int ) );
-                                read( it->first, &msg->in_uncompressed, sizeof( unsigned int ) );
-                                read( it->first, &msg->out_compressed, sizeof( unsigned int ) );
-                                read( it->first, &msg->out_uncompressed, sizeof( unsigned int ) );
-                                read( it->first, &msg->real_msec, sizeof( unsigned int ) );
-                                close( it->first );
+                                read( it->second, &msg->in_compressed, sizeof( unsigned int ) );
+                                read( it->second, &msg->in_uncompressed, sizeof( unsigned int ) );
+                                read( it->second, &msg->out_compressed, sizeof( unsigned int ) );
+                                read( it->second, &msg->out_uncompressed, sizeof( unsigned int ) );
+                                read( it->second, &msg->real_msec, sizeof( unsigned int ) );
+                                close( it->second );
                                 pidmap.erase( it );
                                 break;
                             }
