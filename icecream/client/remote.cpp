@@ -82,6 +82,12 @@ Environments parse_icecc_version(const string &target_platform )
             throw ( 3 );
         }
 
+        struct stat st;
+        if ( lstat( version.c_str(), &st ) || !S_ISREG( st.st_mode )) {
+            log_error() << "$ICECC_VERSION has to point to an existing file to be installed\n";
+            throw ( 3 );
+        }
+
         envs.push_back(make_pair( platform, version ) ) ;
 
         // Skip delimiters.  Note the "not_of"
