@@ -122,8 +122,8 @@ public:
   std::string hostname;
   unsigned int port;
   UseCSMsg () : Msg(M_USE_CS) {}
-  UseCSMsg (Service &s, unsigned int id) : Msg(M_USE_CS), job_id(id),
-    hostname (s.name), port (s.port) {}
+  UseCSMsg (std::string name, unsigned int p, unsigned int id) : Msg(M_USE_CS), job_id(id),
+    hostname (name), port (p) {}
   virtual bool fill_from_fd (int fd);
   virtual bool send_to_fd (int fd) const;
 };

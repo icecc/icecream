@@ -153,6 +153,8 @@ int handle_connection( MsgChannel *serv )
         return 0;
     }
 
+    cout << "type " << ( char )msg->type << endl;
+
     if ( msg->type != M_COMPILE_FILE ) {
         log_error() << "not compile\n";
         return EXIT_PROTOCOL_ERROR;

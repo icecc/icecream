@@ -85,7 +85,7 @@ handle_cs_request (MsgChannel *c, Msg *_m)
   CS *cs = *it;
   if (!create_new_job (cs))
     return 1;
-  UseCSMsg m2(*cs, new_job_id);
+  UseCSMsg m2(cs->name, 10245, new_job_id);
   EndMsg m3;
   if (!c->send_msg (m2)
       || !c->send_msg (m3))

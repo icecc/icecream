@@ -62,6 +62,8 @@ int build_remote(CompileJob &job )
         log_error() << "failed to write get scheduler\n";
         return build_local( job );
     }
+    log_info() << "asked for scheduler\n";
+
     Msg *umsg = local_daemon->get_msg();
     if ( !umsg || umsg->type != M_USE_SCHEDULER ) {
         log_error() << "umsg != scheduler\n";
@@ -72,6 +74,8 @@ int build_remote(CompileJob &job )
     UseSchedulerMsg *ucs = dynamic_cast<UseSchedulerMsg*>( umsg );
     delete local_daemon;
     delete serv;
+
+    log_info() << "contacting scheduler " << ucs->hostname << ":" << ucs->port << endl;
 
     serv = new Service( ucs->hostname, ucs->port );
     MsgChannel *scheduler = serv->channel();
@@ -84,15 +88,17 @@ int build_remote(CompileJob &job )
     // TODO: getenv("ICECC_VERSION")
     GetCSMsg getcs ("gcc33", get_absfilename( job.inputFile() ), job.language() );
     if (!scheduler->send_msg (getcs)) {
+        log_error() << "asked for CS\n";
         delete serv;
         return build_local( job );
     }
     umsg = scheduler->get_msg();
     if (!umsg || umsg->type != M_USE_CS)
     {
-       delete umsg;
-       delete serv;
-       return build_local( job );
+        log_error() << "replied not with use_cs " << ( umsg ? ( char )umsg->type : '0' )  << endl;
+        delete umsg;
+        delete serv;
+        return build_local( job );
     }
     UseCSMsg *usecs = dynamic_cast<UseCSMsg *>(umsg);
     string hostname = usecs->hostname;

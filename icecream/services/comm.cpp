@@ -324,7 +324,6 @@ UseCSMsg::fill_from_fd (int fd)
   bool ret = (readuint (fd, &job_id)
   	  && readuint (fd, &port)
           && read_string (fd, hostname));
-  port = 10245;
   return ret;
 }
 
@@ -514,7 +513,6 @@ UseSchedulerMsg::fill_from_fd (int fd)
     return false;
   bool ret = ( readuint (fd, &port)
                && read_string (fd, hostname));
-  port = 10245;
   return ret;
 }
 
