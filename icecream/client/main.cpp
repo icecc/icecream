@@ -207,12 +207,14 @@ int main(int argc, char **argv)
 
     serv = new Service( ucs->hostname, ucs->port );
     MsgChannel *scheduler = serv->channel();
-    delete ucs;
     if ( ! scheduler ) {
         log_error() << "no scheduler found at " << ucs->hostname << ":" << ucs->port << endl;
         delete serv;
+	delete ucs;
         return build_local( job, 0 );
     }
+
+    delete ucs;
 
     int ret;
     if ( local ) {
