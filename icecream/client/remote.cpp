@@ -29,7 +29,7 @@ string get_absfilename( const string &_file )
         getwd(buffer);
 #endif
         buffer[PATH_MAX - 1] = 0;
-        file = buffer + '/' + _file;
+        file = string( buffer ) + '/' + _file;
     } else {
         file = _file;
     }
@@ -94,7 +94,6 @@ int build_remote(CompileJob &job )
         version = find_basename( version.substr( 0, version.size() - suff.size() ) );
     }
 
-    log_info() << "requesting version " << version << endl;
     GetCSMsg getcs (version, get_absfilename( job.inputFile() ), job.language() );
     if (!scheduler->send_msg (getcs)) {
         log_error() << "asked for CS\n";
