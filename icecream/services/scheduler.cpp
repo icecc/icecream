@@ -306,7 +306,7 @@ notify_monitors (const Msg &m)
   for (it = monitors.begin(); it != monitors.end();)
     {
       MsgChannel *c = (*it)->channel();
-      ++it;
+      ++it; // handle_end removes it from monitors, so don't be clever
       /* If we can't send it, don't be clever, simply close this monitor.  */
       if (!c->send_msg (m))
         handle_end (c, 0);
@@ -924,6 +924,8 @@ handle_mon_login (MsgChannel *c, Msg *_m)
   monitors.push_back (s);
   for (list<CS*>::iterator it = css.begin(); it != css.end(); ++it)
     handle_monitor_stats( *it );
+
+  fd2chan.erase( c->fd ); // no expected data from them
   return true;
 }
 
