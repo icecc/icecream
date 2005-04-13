@@ -74,6 +74,36 @@ static bool extract_version( string &version )
 }
 #endif
 
+static size_t sumup_dir( const string &dir )
+{
+    size_t res = 0;
+    DIR *envdir = opendir( dir.c_str() );
+    if ( !envdir )
+        return res;
+
+    struct stat st;
+    string tdir = dir + "/";
+
+    for ( struct dirent *ent = readdir(envdir); ent; ent = readdir( envdir ) )
+    {
+        if ( !strcmp( ent->d_name, "." ) || !strcmp( ent->d_name, ".." ) )
+            continue;
+
+        if ( stat( ( tdir + ent->d_name ).c_str(), &st ) ) {
+            perror( "stat" );
+            continue;
+        }
+
+        if ( S_ISDIR( st.st_mode ) )
+            res += sumup_dir( tdir + ent->d_name );
+        else if ( S_ISREG( st.st_mode ) )
+            res += st.st_size;
+        // else ignore
+    }
+    closedir( envdir );
+    return res;
+}
+
 static string list_native_environment( const string &nativedir )
 {
     assert( nativedir.at( nativedir.length() - 1 ) == '/' );
@@ -192,7 +222,7 @@ Environments available_environmnents(const string &basedir)
     return envs;
 }
 
-bool setup_env_cache(const string &basedir, string &native_environment, uid_t nobody_uid)
+size_t setup_env_cache(const string &basedir, string &native_environment, uid_t nobody_uid)
 {
     native_environment = "";
     string nativedir = basedir + "/native/";
@@ -210,7 +240,11 @@ bool setup_env_cache(const string &basedir, string &native_environment, uid_t no
                 status = 1;
         }
         trace() << "native_environment " << native_environment << endl;
-        return status == 0;
+        if ( status )
+            return 0;
+        else {
+            return sumup_dir( nativedir );
+        }
     }
     // else
     setuid( nobody_uid );
@@ -238,26 +272,26 @@ error:
     exit( 1 );
 }
 
-bool install_environment( const std::string &basename, const std::string &target,
+size_t install_environment( const std::string &basename, const std::string &target,
                           const std::string &name, MsgChannel *c, uid_t nobody_uid )
 {
     if ( !name.size() || name[0] == '.' ) {
         log_error() << "illegal name for environment " << name << endl;
-        return false;
+        return 0;
     }
 
     for ( string::size_type i = 0; i < name.size(); ++i ) {
         if ( isascii( name[i] ) && !isspace( name[i]) && name[i] != '/' && isprint( name[i] ) )
             continue;
         log_error() << "illegal char '" << name[i] << "' - rejecting environment " << name << endl;
-        return false;
+        return 0;
     }
 
     string dirname = basename + "/target=" + target;
 
     int fds[2];
     if ( pipe( fds ) )
-        return false;
+        return 0;
 
     pid_t pid = fork();
     if ( pid )
@@ -323,7 +357,11 @@ bool install_environment( const std::string &basename, const std::string &target
             chown( ( dirname + "/tmp" ).c_str(), nobody_uid, 0 );
         }
 
-        return status == 0;
+        if ( status ) {
+            return 0;
+        } else {
+            return sumup_dir( dirname );
+        }
     }
     // else
     setuid( nobody_uid );
@@ -360,4 +398,38 @@ bool install_environment( const std::string &basename, const std::string &target
     argv[3] = 0;
     execv( argv[0], argv );
     ::exit( 1 ); // if tar fails
+}
+
+size_t remove_environment( const string &basename, const string &env, uid_t nobody_uid )
+{
+    string::size_type pos = env.find_first_of( '/' );
+    if ( pos == string::npos ) // nonsense
+        return 0;
+
+    string target = env.substr( 0, pos );
+    string name = env.substr( pos + 1 );
+    string dirname = basename + "/target=" + target;
+    trace() << "removing " << dirname << "/" << name << endl;
+
+    size_t res = sumup_dir( dirname );
+
+    pid_t pid = fork();
+    if ( pid )
+    {
+        int status = 0;
+        if ( waitpid( pid, &status, 0 ) != pid )
+            status = 1;
+        return res;
+    }
+    // else
+    setuid( nobody_uid );
+
+    char buffer[PATH_MAX];
+    snprintf( buffer, PATH_MAX, "rm -rf '%s'", dirname.c_str() );
+    if ( system( buffer ) ) {
+        log_error() << "rm -rf failed\n";
+        ::exit( 1 );
+    }
+
+    ::exit( 0 );
 }

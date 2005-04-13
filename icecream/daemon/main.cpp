@@ -190,7 +190,7 @@ void usage(const char* reason = 0)
   if (reason)
      cerr << reason << endl;
 
-  cerr << "usage: iceccd [-n <netname>] [-m <max_processes>] [-w] [-d|--daemonize] [-l logfile] [-s <schedulerhost>] [-v[v[v]]] [-r|--run-as-user] [-b <env-basedir>] [-u|--nobody-uid <nobody_uid>]" << endl;
+  cerr << "usage: iceccd [-n <netname>] [-m <max_processes>] [-w] [-d|--daemonize] [-l logfile] [-s <schedulerhost>] [-v[v[v]]] [-r|--run-as-user] [-b <env-basedir>] [-u|--nobody-uid <nobody_uid>] [--cache-limit <MB>]" << endl;
   exit(1);
 }
 
@@ -251,6 +251,8 @@ int max_kids = 0;
 int current_kids = 0;
 unsigned long myniceload = 0;
 unsigned long myidleload = 0;
+
+size_t cache_size_limit = 100 * 1024 * 1024;
 
 bool maybe_stats(bool force = false) {
     struct timeval now;
@@ -356,6 +358,7 @@ int main( int argc, char ** argv )
             { "run-as-user", 1, NULL, 'r' },
             { "env-basedir", 1, NULL, 'b' },
             { "nobody-uid", 1, NULL, 'u'},
+            { "cache-limit", 1, NULL, 0},
             { 0, 0, 0, 0 }
         };
 
@@ -379,7 +382,17 @@ int main( int argc, char ** argv )
                            nodename = optarg;
                        else
                            usage("Error: --name requires argument");
+                   } else if ( optname == "cache-limit" ) {
+                       if ( optarg && *optarg ) {
+                           errno = 0;
+                           int mb = atoi( optarg );
+                           if ( !errno )
+                               cache_size_limit = mb * 1024 * 1024;
+                       }
+                       else
+                           usage("Error: --cache-limit requires argument");
                    }
+
                }
                break;
             case 'd':
@@ -522,6 +535,8 @@ int main( int argc, char ** argv )
     typedef map<pid_t, int> Pidmap;
     Pidmap pidmap;
 
+    size_t cache_size = 0;
+    map<string, time_t> envs_last_use;
     string native_environment;
     if ( !cleanup_cache( envbasedir, nobody_uid ) )
         return 1;
@@ -645,8 +660,10 @@ int main( int argc, char ** argv )
                         ::exit( jdmsg->exitcode );
                     } else
                         close( sockets[1] );
-                } else
+                } else {
+                    envs_last_use[job->targetPlatform() + "/" + job->environmentVersion()] = time( NULL );
                     pid = handle_connection( envbasedir, req.first, req.second, sock, mem_limit, nobody_uid );
+                }
 
                 if ( pid > 0) { // forks away
                     current_kids++;
@@ -769,12 +786,16 @@ int main( int argc, char ** argv )
                             if ( msg->type == M_GET_SCHEDULER ) {
                                 GetSchedulerMsg *gsm = dynamic_cast<GetSchedulerMsg*>( msg );
                                 if ( scheduler && gsm ) {
-                                    if ( gsm->wants_native && !native_environment.length() )
-                                        if ( !setup_env_cache( envbasedir, native_environment, nobody_uid ) ) {
+                                    if ( gsm->wants_native && !native_environment.length() ) {
+                                        size_t installed_size = setup_env_cache( envbasedir, native_environment, nobody_uid );
+                                        // we only clean out cache on next target install
+                                        cache_size += installed_size;
+                                        if ( ! installed_size ) {
                                             c->send_msg( EndMsg() );
                                             delete scheduler;
                                             return 1;
                                         }
+                                    }
                                     UseSchedulerMsg m( scheduler->name,
                                                        scheduler->port,
                                                        native_environment );
@@ -791,11 +812,36 @@ int main( int argc, char ** argv )
                                 string target = emsg->target;
                                 if ( target.empty() )
                                     target =  uname_buf.machine;
-                                if (!install_environment( envbasedir, emsg->target, emsg->name, c, nobody_uid )) {
+                                size_t installed_size = install_environment( envbasedir, emsg->target, emsg->name, c, nobody_uid );
+                                if (!installed_size) {
                                     trace() << "install environment failed" << endl;
                                     c->send_msg(EndMsg()); // shut up, we had an error
                                     reannounce_environments(envbasedir, nodename);
 				} else {
+                                    cache_size += installed_size;
+                                    string current = emsg->target + "/" + emsg->name;
+                                    envs_last_use[current] = time( NULL );
+                                    trace() << "installed " << emsg->name << " size: " << installed_size
+                                            << " all: " << cache_size << endl;
+
+                                    while ( cache_size > cache_size_limit ) {
+                                        string oldest;
+                                        // I don't dare to use (time_t)-1
+                                        time_t oldest_time = time( NULL ) + 90000;
+                                        for ( map<string, time_t>::const_iterator it = envs_last_use.begin();
+                                              it != envs_last_use.end(); ++it ) {
+                                            trace() << "das ist jetzt so: " << it->first << " " << it->second << " " << oldest_time << endl;
+                                            if ( it->second < oldest_time ) {
+                                                oldest_time = it->second;
+                                                oldest = it->first;
+                                            }
+                                        }
+                                        if ( oldest.empty() || oldest == current )
+                                            break;
+                                        cache_size -= min( remove_environment( envbasedir, oldest, nobody_uid ), cache_size );
+                                        envs_last_use.erase( oldest );
+                                    }
+
                                     reannounce_environments(envbasedir, nodename); // do that before the file compiles
                                     delete msg;
                                     msg = c->get_msg();
