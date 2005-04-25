@@ -1,0 +1,161 @@
+<?xml version="1.0" ?>
+<!-- vim:set ts=4 noet syntax=xml: -->
+<!DOCTYPE refentry PUBLIC "-//KDE//DTD DocBook XML V4.2-Based Variant V1.1//EN" "dtd/kdex.dtd" [
+<!ENTITY % English "INCLUDE">
+]>
+
+<refentry lang="&language;">
+<refentryinfo>
+	<title>Icecream User's Manual</title>
+	<author>
+          <personname>
+            <firstname>Cornelius</firstname>
+            <surname>Schumacher</surname>
+          </personname>
+        </author>
+	<date>April 21th, 2005</date>
+	<productname>Icecream</productname>
+</refentryinfo>
+
+<refmeta>
+	<refentrytitle>Icecream</refentrytitle>
+	<manvolnum>1</manvolnum>
+</refmeta>
+
+<refnamediv>
+	<refname>scheduler</refname>
+	<refpurpose>Icecream scheduler</refpurpose>
+</refnamediv>
+
+<refsynopsisdiv>
+<cmdsynopsis>
+<command>scheduler</command>
+<group>
+  <arg choice="opt">
+    <option>-n</option>
+  </arg>
+  <arg choice="opt">
+    <option>--netname</option>
+  </arg>
+  <replaceable> name</replaceable>
+</group>
+<group>
+  <arg choice="opt">
+    <option>-p</option>
+  </arg>
+  <arg choice="opt">
+    <option>--port</option>
+  </arg>
+  <replaceable> port</replaceable>
+</group>
+<group>
+  <arg choice="opt">
+    <option>-h</option>
+  </arg>
+  <arg choice="opt">
+    <option>--help</option>
+  </arg>
+</group>
+<group>
+  <arg choice="opt">
+    <option>-l</option>
+  </arg>
+  <arg choice="opt">
+    <option>--log-file</option>
+  </arg>
+  <replaceable> file</replaceable>
+</group>
+<group>
+  <arg choice="opt">
+    <option>-d</option>
+  </arg>
+  <arg choice="opt">
+    <option>--daemonize</option>
+  </arg>
+</group>
+<group>
+  <arg choice="opt">
+    <option>-r</option>
+  </arg>
+  <arg choice="opt">
+    <option>--allow-run-as-user</option>
+  </arg>
+</group>
+<arg choice="opt">
+  -v<arg choice="opt">v<arg choice="opt">v</arg></arg>
+</arg>
+</cmdsynopsis>
+</refsynopsisdiv>
+
+<refsect1>
+<title>Description</title>
+<para>The Icecream scheduler is the central instance of an Icecream compile
+network. It distributes the compile jobs and provides the data for the
+monitors.</para>
+</refsect1>
+
+<refsect1>
+<title>Options</title>
+
+<variablelist>
+
+<varlistentry>
+<term><option>-n</option>, <option>--netname</option>
+<parameter>netname</parameter></term>
+<listitem><para>The name of the Icecream network the scheduler
+controls.</para></listitem>
+</varlistentry>
+
+<varlistentry>
+<term><option>-p</option>, <option>--port</option>
+<parameter>port</parameter></term>
+<listitem><para>IP port the scheduler uses.</para></listitem>
+</varlistentry>
+
+<varlistentry>
+<term><option>-h</option>, <option>--help</option></term>
+<listitem><para>Print help message.</para></listitem>
+</varlistentry>
+
+<varlistentry>
+<term><option>-l</option>, <option>--log-file</option>
+<parameter>logfile</parameter></term>
+<listitem><para>Name of file where log output is written to.</para></listitem>
+</varlistentry>
+
+<varlistentry>
+<term>
+<option>-d</option>, <option>--daemonize</option>
+</term>
+<listitem><para>Detach daemon from shell.</para></listitem>
+</varlistentry>
+
+<varlistentry>
+<term><option>-v</option>, <option>-vv</option>, <option>-vvv</option></term>
+<listitem><para>Control verbosity of daemon. The more v the more
+verbose.</para></listitem>
+</varlistentry>
+
+<varlistentry>
+<term>
+<option>-r</option>, <option>--allow-run-as-user</option>
+</term>
+<listitem><para>Force running the scheduler with user rights. Usually you will
+need to run the scheduler with root rights.</para></listitem>
+</varlistentry>
+
+</variablelist>
+
+</refsect1>
+
+
+<refsect1>
+<title>See Also</title>
+<para>icecream, scheduler, iceccd, icemon</para>
+</refsect1>
+
+<refsect1>
+<title>Author</title>
+<para>Cornelius Schumacher</para>
+</refsect1>
+</refentry>

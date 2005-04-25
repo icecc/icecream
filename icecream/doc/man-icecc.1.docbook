@@ -1,0 +1,59 @@
+<?xml version="1.0" ?>
+<!-- vim:set ts=4 noet syntax=xml: -->
+<!DOCTYPE refentry PUBLIC "-//KDE//DTD DocBook XML V4.2-Based Variant V1.1//EN" "dtd/kdex.dtd" [
+<!ENTITY % English "INCLUDE">
+]>
+
+<refentry lang="&language;">
+<refentryinfo>
+	<title>Icecream User's Manual</title>
+	<author>
+          <personname>
+            <firstname>Cornelius</firstname>
+            <surname>Schumacher</surname>
+          </personname>
+        </author>
+	<date>April 21th, 2005</date>
+	<productname>Icecream</productname>
+</refentryinfo>
+
+<refmeta>
+	<refentrytitle>Icecream compiler</refentrytitle>
+	<manvolnum>1</manvolnum>
+</refmeta>
+
+<refnamediv>
+	<refname>icecc</refname>
+	<refpurpose>Icecream compiler stub</refpurpose>
+</refnamediv>
+
+<refsynopsisdiv>
+<cmdsynopsis>
+<command>icecc</command>
+<arg choice="opt">
+  <option>options</option>
+</arg>
+<arg>-o OBJECT</arg>
+<arg>-c SOURCE</arg>
+</cmdsynopsis>
+</refsynopsisdiv>
+
+<refsect1>
+<title>Description</title>
+<para>icecc is the Icecream compiler stub. It gets called in place of the actual
+compiler and transparently routes the compile requests to the Icecream
+network. You shouldn't call icecc directly, but place the specific compiler
+stubs in your path:
+<command>export PATH=/opt/icecream/bin:$PATH</command>.</para>
+</refsect1>
+
+<refsect1>
+<title>See Also</title>
+<para>icecream, scheduler, iceccd, icemon</para>
+</refsect1>
+
+<refsect1>
+<title>Author</title>
+<para>Cornelius Schumacher</para>
+</refsect1>
+</refentry>
