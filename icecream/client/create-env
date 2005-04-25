@@ -53,7 +53,7 @@ add_file ()
 }
 
 if test -z "`type -p gcc`"; then
-  echo "No gcc found in path."
+  echo "create-env: No gcc found in path."
   exit 1
 fi
 
@@ -106,14 +106,14 @@ done
 # of ordering
 target_files=`for i in $new_target_files; do echo $i; done | sort`
 md5=`for i in $target_files; do md5sum $tmpdir/$i; done | sed -e 's/ .*$//' | md5sum | sed -e 's/ .*$//'` || {
-  echo "Couldn't compute MD5 sum."
+  echo "create-env: Couldn't compute MD5 sum."
   exit 2
 }
 echo "creating $md5.tar.bz2"
 mydir=`pwd`
 cd $tempdir
 tar -cjhf "$mydir/$md5".tar.bz2 $target_files || {
-  echo "Couldn't create archive"
+  echo "create-env: Couldn't create archive"
   exit 3
 }
 cd ..
