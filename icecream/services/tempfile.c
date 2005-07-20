@@ -65,6 +65,7 @@ int dcc_make_tmpnam(const char *prefix,
                     char *name_ret, int relative)
 {
     unsigned long random_bits;
+    unsigned long tries = 0;
     int fd;
 
     random_bits = (unsigned long) getpid() << 16;
@@ -99,9 +100,21 @@ int dcc_make_tmpnam(const char *prefix,
          * and our children should do anything with it. */
         fd = open(name_ret, O_WRONLY | O_CREAT | O_EXCL, 0600);
         if (fd == -1) {
-            /* try again */
-            random_bits += 7777; /* fairly prime */
-            continue;
+	    /* Don't try getting a file too often.  Safety net against
+	       endless loops. Probably just paranoia.  */
+	    if (++tries > 1000000)
+	      return EXIT_IO_ERROR;
+	    /* Some errors won't change by changing the filename,
+	       e.g. ENOENT means that the directory where we try to create
+	       the file was removed from under us.  Don't endlessly loop
+	       in that case.  */
+            switch (errno) {
+	      case EACCES: case EEXIST: case EISDIR: case ELOOP: 
+		/* try again */
+		random_bits += 7777; /* fairly prime */
+		continue;
+	    }
+	    return EXIT_IO_ERROR;
         }
         
         if (close(fd) == -1) {  /* huh? */
