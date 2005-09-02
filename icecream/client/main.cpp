@@ -160,7 +160,7 @@ int main(int argc, char **argv)
 
     CompileJob job;
 
-    /* We can disable remote jobs using NO_ICECC env variable */
+    /* if ICECC is set to no, than run job locally */
     if ( getenv( "ICECC" ) ) {
 	string icecc;
 	icecc = getenv( "ICECC" );
