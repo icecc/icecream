@@ -159,7 +159,17 @@ int main(int argc, char **argv)
     dcc_ignore_sigpipe(1);
 
     CompileJob job;
-    local = analyse_argv( argv, job );
+
+    /* We can disable remote jobs using NO_ICECC env variable */
+    if ( getenv( "ICECC" ) ) {
+	string icecc;
+	icecc = getenv( "ICECC" );
+        if ( icecc == "no" ) {
+	    local = true;
+        }
+    }
+    
+    local |= analyse_argv( argv, job );
 
     pid_t pid = 0;
 
