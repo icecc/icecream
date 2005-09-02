@@ -79,6 +79,9 @@
 <arg choice="opt">
   <option>--cache-limit <replaceable>MB</replaceable></option>
 </arg>
+<arg choice="opt">
+  <option>-N <replaceable>hostname</replaceable></option>
+</arg>
 </cmdsynopsis>
 </refsynopsisdiv>
 
@@ -181,6 +184,11 @@ dropping privileges.</para></listitem>
 </term>
 <listitem><para>Maximum size in Mega Bytes of cache used to store compile
 environments of compile clients.</para></listitem>
+</varlistentry>
+
+<varlistentry>
+<term><option>-N</option> <parameter>hostname</parameter></term>
+<listitem><para>The name of the icecream host on the network.</para></listitem>
 </varlistentry>
 
 </variablelist>
