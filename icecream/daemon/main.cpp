@@ -402,7 +402,7 @@ int main( int argc, char ** argv )
 		if ( optarg && *optarg )
 		    nodename = optarg;
 		else
-                    usage("Error: -n requires argument");
+                    usage("Error: -N requires argument");
 		break;
             case 'l':
                 if ( optarg && *optarg )
