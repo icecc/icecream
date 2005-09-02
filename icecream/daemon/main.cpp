@@ -362,7 +362,7 @@ int main( int argc, char ** argv )
             { 0, 0, 0, 0 }
         };
 
-        const int c = getopt_long( argc, argv, "n:m:l:s:whvdrb:u:", long_options, &option_index );
+        const int c = getopt_long( argc, argv, "N:n:m:l:s:whvdrb:u:", long_options, &option_index );
         if ( c == -1 ) break; // eoo
 
         switch ( c ) {
@@ -398,6 +398,12 @@ int main( int argc, char ** argv )
             case 'd':
                 detach = true;
                 break;
+	    case 'N':
+		if ( optarg && *optarg )
+		    nodename = optarg;
+		else
+                    usage("Error: -n requires argument");
+		break;
             case 'l':
                 if ( optarg && *optarg )
                     logfile = optarg;
