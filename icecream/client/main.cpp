@@ -160,7 +160,7 @@ int main(int argc, char **argv)
 
     CompileJob job;
 
-    /* if ICECC is set to no, than run job locally */
+    /* if ICECC is set to no, then run job locally */
     if ( getenv( "ICECC" ) ) {
 	string icecc;
 	icecc = getenv( "ICECC" );
@@ -168,7 +168,7 @@ int main(int argc, char **argv)
 	    local = true;
         }
     }
-    
+
     local |= analyse_argv( argv, job );
 
     pid_t pid = 0;
