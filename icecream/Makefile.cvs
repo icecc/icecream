@@ -6,7 +6,7 @@ all:
 	fi
 
 	if ! test -d admin; then \
-		echo "Need admin in .." ;\
+		echo "Need admin in ." ;\
 		exit ;\
 	fi
 		
