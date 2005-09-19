@@ -32,8 +32,11 @@ objdir = $(CURDIR)/obj-$(DEB_BUILD_GNU_TYPE)
 
 -include debian/debiandirs
 
-debian/debiandirs: admin/debianrules
+debian/debiandirs: admin admin/debianrules
 	perl -w admin/debianrules echodirs > debian/debiandirs
+
+admin:
+	$(MAKE) -f Makefile.cvs
 
 configure: configure-stamp
 configure-stamp:
