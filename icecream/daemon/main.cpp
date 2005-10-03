@@ -286,7 +286,7 @@ bool maybe_stats(bool force = false) {
         trace() << "load load=" << realLoad << " mem=" << memory_fillgrade << endl;
 
         // Matz got in the urine that not all CPUs are always feed
-        mem_limit = std::max( msg.freeMem / std::min( max_kids, 4 ), 100U );
+        mem_limit = std::max( msg.freeMem / std::min( std::max( max_kids, 1 ), 4 ), 100U );
 
         if ( !scheduler->send_msg( msg ) )
             return false;
