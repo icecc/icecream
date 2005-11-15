@@ -361,7 +361,7 @@ void
 MsgChannel::read_environments( Environments &envs )
 {
   envs.clear();
-  unsigned int count;
+  uint32_t count;
   readuint32( count );
   for ( unsigned int i = 0; i < count; i++ )
     {
@@ -379,8 +379,11 @@ MsgChannel::readcompressed (unsigned char **uncompressed_buf,
 {
   lzo_uint uncompressed_len;
   lzo_uint compressed_len;
-  readuint32 (uncompressed_len);
-  readuint32 (compressed_len);
+  uint32_t tmp;
+  readuint32 (tmp);
+  uncompressed_len = tmp;
+  readuint32 (tmp);
+  compressed_len = tmp;
   /* If there was some input, but nothing compressed, or we don't have
      everything to uncompress, there was an error.  */
   if ((uncompressed_len && !compressed_len)
@@ -751,7 +754,7 @@ MsgChannel::get_msg(int timeout)
 {
   Msg *m = 0;
   enum MsgType type;
-  unsigned int t;
+  uint32_t t;
   if (timeout > 0 && !wait_for_msg (timeout) ) {
     trace() << "blocking && !waiting_for_msg()\n";
     return 0;
@@ -1051,7 +1054,7 @@ GetCSMsg::fill_from_channel (MsgChannel *c)
   Msg::fill_from_channel (c);
   c->read_environments( versions );
   c->read_string (filename);
-  unsigned int _lang;
+  uint32_t _lang;
   c->readuint32 (_lang);
   c->readuint32( count );
   c->read_string( target );
@@ -1101,7 +1104,7 @@ void
 CompileFileMsg::fill_from_channel (MsgChannel *c)
 {
   Msg::fill_from_channel (c);
-  unsigned int id, lang;
+  uint32_t id, lang;
   list<string> _l1, _l2;
   string version;
   c->readuint32 (lang);
@@ -1231,7 +1234,7 @@ JobLocalDoneMsg::JobLocalDoneMsg (int id, int exit)
 void JobLocalDoneMsg::fill_from_channel( MsgChannel *c )
 {
   Msg::fill_from_channel(c);
-  unsigned int error = 255;
+  uint32_t error = 255;
   c->readuint32(error);
   c->readuint32(job_id);
   exitcode = ( int )error;
@@ -1249,7 +1252,7 @@ void MonLocalJobDoneMsg::fill_from_channel( MsgChannel *c )
   Msg::fill_from_channel(c);
   if ( !IS_PROTOCOL_20(c ) )
     {
-      unsigned int error = 255;
+      uint32_t error = 255;
       c->readuint32(error);
     }
   c->readuint32(job_id);
@@ -1299,7 +1302,7 @@ JobDoneMsg::fill_from_channel (MsgChannel *c)
   c->readuint32 (sys_msec);
   if ( !IS_PROTOCOL_20( c ) )
     {
-      unsigned int maxrss, idrss, majflt, nswap;
+      uint32_t maxrss, idrss, majflt, nswap;
       c->readuint32 (maxrss);
       c->readuint32 (idrss);
       c->readuint32 (majflt);
@@ -1354,7 +1357,7 @@ LoginMsg::fill_from_channel (MsgChannel *c)
   c->read_environments( envs );
   c->read_string( nodename );
   c->read_string( host_platform );
-  unsigned int net_chroot_possible = 0;
+  uint32_t net_chroot_possible = 0;
   if ( IS_PROTOCOL_18( c ) )
     c->readuint32 (net_chroot_possible);
   chroot_possible = net_chroot_possible != 0;
@@ -1380,7 +1383,7 @@ StatsMsg::fill_from_channel (MsgChannel *c)
   c->readuint32 (load);
   if ( !IS_PROTOCOL_19( c ) )
     {
-      unsigned int dummy;
+      uint32_t dummy;
       c->readuint32 (dummy);
       c->readuint32 (dummy);
       c->readuint32 (dummy);

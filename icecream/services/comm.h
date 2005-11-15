@@ -135,7 +135,7 @@ public:
   int protocol;
 
   std::string name;
-  unsigned short port;
+  uint32_t port;
   time_t last_talk;
 
   // NULL  <--> channel closed
@@ -234,9 +234,9 @@ public:
   Environments versions;
   std::string filename;
   CompileJob::Language lang;
-  unsigned int count; // the number of UseCS messages to answer with - usually 1
+  uint32_t count; // the number of UseCS messages to answer with - usually 1
   std::string target;
-  unsigned int arg_flags;
+  uint32_t arg_flags;
   GetCSMsg () : Msg(M_GET_CS), count( 1 ),arg_flags( 0 ) {}
   GetCSMsg (const Environments &envs, const std::string &f, CompileJob::Language _lang, unsigned int _count, std::string _target, unsigned int _arg_flags)
     : Msg(M_GET_CS), versions( envs ), filename(f), lang(_lang), count( _count ), target( _target ), arg_flags( _arg_flags )
@@ -247,11 +247,11 @@ public:
 
 class UseCSMsg : public Msg {
 public:
-  unsigned int job_id;
+  uint32_t job_id;
   std::string hostname;
-  unsigned int port;
+  uint32_t port;
   std::string host_platform;
-  unsigned int got_env;
+  uint32_t got_env;
   UseCSMsg () : Msg(M_USE_CS) {}
   UseCSMsg (std::string platform, std::string host, unsigned int p, unsigned int id, bool gotit)
     : Msg(M_USE_CS), job_id(id), hostname (host), port (p), host_platform( platform ), got_env( gotit ) {}
@@ -262,7 +262,7 @@ public:
 
 class GetSchedulerMsg : public Msg {
 public:
-  unsigned int wants_native;
+  uint32_t wants_native;
   GetSchedulerMsg (bool _wants_native = false) : Msg(M_GET_SCHEDULER),
                                                  wants_native( _wants_native ) { }
   virtual void fill_from_channel (MsgChannel * c);
@@ -272,7 +272,7 @@ public:
 class UseSchedulerMsg : public Msg {
 public:
   std::string hostname;
-  unsigned int port;
+  uint32_t port;
   std::string nativeVersion;
   UseSchedulerMsg () : Msg(M_USE_SCHEDULER), port( 0 ) {}
   UseSchedulerMsg (std::string host, unsigned int p, std::string _native)
@@ -324,8 +324,8 @@ public:
 
 class JobBeginMsg : public Msg {
 public:
-  unsigned int job_id;
-  unsigned int stime;
+  uint32_t job_id;
+  uint32_t stime;
   JobBeginMsg () : Msg(M_JOB_BEGIN) {}
   JobBeginMsg (unsigned int j) : Msg(M_JOB_BEGIN), job_id(j), stime(time(0)) {}
   virtual void fill_from_channel (MsgChannel * c);
@@ -334,19 +334,19 @@ public:
 
 class JobDoneMsg : public Msg {
 public:
-  unsigned int real_msec;  /* real time it used */
-  unsigned int user_msec;  /* user time used */
-  unsigned int sys_msec;   /* system time used */
-  unsigned int pfaults;     /* page faults */
+  uint32_t real_msec;  /* real time it used */
+  uint32_t user_msec;  /* user time used */
+  uint32_t sys_msec;   /* system time used */
+  uint32_t pfaults;     /* page faults */
 
   int exitcode;            /* exit code */
 
-  unsigned int in_compressed;
-  unsigned int in_uncompressed;
-  unsigned int out_compressed;
-  unsigned int out_uncompressed;
+  uint32_t in_compressed;
+  uint32_t in_uncompressed;
+  uint32_t out_compressed;
+  uint32_t out_uncompressed;
 
-  unsigned int job_id;
+  uint32_t job_id;
   JobDoneMsg (int job_id = 0, int exitcode = -1);
   virtual void fill_from_channel (MsgChannel * c);
   virtual void send_to_channel (MsgChannel * c) const;
@@ -355,7 +355,7 @@ public:
 class JobLocalBeginMsg : public Msg {
 public:
   std::string outfile;
-  unsigned int stime;
+  uint32_t stime;
   JobLocalBeginMsg(const std::string &file = "") : Msg( M_JOB_LOCAL_BEGIN ),
                                                    outfile( file ), stime(time(0)) {}
   virtual void fill_from_channel (MsgChannel * c);
@@ -365,7 +365,7 @@ public:
 #if MIN_PROTOCOL_VERSION < 20
 class JobLocalId : public Msg {
 public:
-  unsigned int job_id;
+  uint32_t job_id;
   JobLocalId() : Msg( M_JOB_LOCAL_ID ), job_id(0) {}
   JobLocalId( unsigned int j ) : Msg( M_JOB_LOCAL_ID ), job_id( j ) {}
   virtual void fill_from_channel (MsgChannel * c);
@@ -375,7 +375,7 @@ public:
 class JobLocalDoneMsg : public Msg {
 public:
   int exitcode;            /* exit code */
-  unsigned int job_id;
+  uint32_t job_id;
   JobLocalDoneMsg (int job_id = 0, int exitcode = -1);
   virtual void fill_from_channel (MsgChannel * c);
   virtual void send_to_channel (MsgChannel * c) const;
@@ -384,9 +384,9 @@ public:
 
 class LoginMsg : public Msg {
 public:
-  unsigned int port;
+  uint32_t port;
   Environments envs;
-  unsigned int max_kids;
+  uint32_t max_kids;
   bool         chroot_possible;
   std::string nodename;
   std::string host_platform;
@@ -408,12 +408,12 @@ public:
    * linear scale). Load of 1000 means to not schedule
    * another job under no circumstances.
    */
-  unsigned int load;
+  uint32_t load;
 
-  unsigned int loadAvg1;
-  unsigned int loadAvg5;
-  unsigned int loadAvg10;
-  unsigned int freeMem;
+  uint32_t loadAvg1;
+  uint32_t loadAvg5;
+  uint32_t loadAvg10;
+  uint32_t freeMem;
 
   StatsMsg () : Msg(M_STATS) { load = 0; }
   virtual void fill_from_channel (MsgChannel * c);
@@ -439,8 +439,8 @@ public:
 
 class MonGetCSMsg : public GetCSMsg {
 public:
-  unsigned int job_id;
-  unsigned int clientid;
+  uint32_t job_id;
+  uint32_t clientid;
 
   MonGetCSMsg() : GetCSMsg() { // overwrite
     type = M_MON_GET_CS;
@@ -457,9 +457,9 @@ public:
 
 class MonJobBeginMsg : public Msg {
 public:
-  unsigned int job_id;
-  unsigned int stime;
-  unsigned int hostid;
+  uint32_t job_id;
+  uint32_t stime;
+  uint32_t hostid;
   MonJobBeginMsg() : Msg(M_MON_JOB_BEGIN), job_id( 0 ), stime( 0 ), hostid( 0 ) {}
   MonJobBeginMsg( unsigned int id, unsigned int time, int _hostid)
     : Msg( M_MON_JOB_BEGIN ), job_id( id ), stime( time ), hostid( _hostid ) {}
@@ -481,9 +481,9 @@ public:
 
 class MonLocalJobBeginMsg : public Msg {
 public:
-  unsigned int job_id;
-  unsigned int stime;
-  unsigned int hostid;
+  uint32_t job_id;
+  uint32_t stime;
+  uint32_t hostid;
   std::string file;
   MonLocalJobBeginMsg() : Msg(M_MON_LOCAL_JOB_BEGIN) {}
   MonLocalJobBeginMsg( unsigned int id, const std::string &_file, unsigned int time, int _hostid )
@@ -494,7 +494,7 @@ public:
 
 class MonLocalJobDoneMsg : public Msg {
 public:
-  unsigned int job_id;
+  uint32_t job_id;
   MonLocalJobDoneMsg(unsigned int id = 0) : Msg( M_MON_LOCAL_JOB_DONE ), job_id( id ) {}
   virtual void fill_from_channel (MsgChannel * c);
   virtual void send_to_channel (MsgChannel * c) const;
@@ -502,7 +502,7 @@ public:
 
 class MonStatsMsg : public Msg {
 public:
-  unsigned int hostid;
+  uint32_t hostid;
   std::string statmsg;
   MonStatsMsg() : Msg( M_MON_STATS ) {}
   MonStatsMsg( int id, const std::string &_statmsg )
