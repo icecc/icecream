@@ -47,7 +47,7 @@
 #include "logging.h"
 #include "job.h"
 
-#define DEBUG_SCHEDULER 1
+#define DEBUG_SCHEDULER 0
 
 /* TODO:
    * leak check
@@ -350,6 +350,9 @@ server_speed (CS *cs, Job *job)
 static void
 handle_monitor_stats( CS *cs, StatsMsg *m = 0)
 {
+  if ( monitors.empty() )
+    return;
+
   string msg;
   char buffer[1000];
   sprintf( buffer, "Name:%s\n", cs->nodename.c_str() );
@@ -432,6 +435,50 @@ remove_job_request (void)
     {
       toanswer.push_back( first );
     }
+}
+
+static string dump_job (Job *job);
+
+static bool
+reorder_arch_jobs( const string &arch )
+{
+  assert ( !toanswer.empty() );
+
+#if DEBUG_SCHEDULER > 1
+  trace() << "reorder_arch_jobs " << arch << endl;
+
+  for (map<unsigned int, Job*>::const_iterator it = jobs.begin();
+       it != jobs.end(); ++it)
+    trace() << " " << dump_job (it->second) << endl;
+#endif
+
+  bool reshuffled = false;
+  for ( list<UnansweredList*>::iterator it = toanswer.begin(); it != toanswer.end(); ++it )
+    {
+      UnansweredList *oldlist = *it;
+      list<Job*> tmpList;
+      list<Job*> tmpRest;
+      while ( !oldlist->l.empty() )
+        {
+          Job *job = oldlist->l.front();
+          oldlist->l.pop_front();
+          if ( job->target_platform == arch )
+            tmpList.push_back( job );
+          else
+            tmpRest.push_back( job );
+        }
+      if ( !tmpRest.empty() && !tmpList.empty() )
+        reshuffled = true;
+
+      oldlist->l = tmpRest;
+      for ( list<Job*>::const_iterator it2 = tmpList.begin(); it2 != tmpList.end(); ++it2 )
+        oldlist->l.push_back( *it2 );
+    }
+
+#if DEBUG_SCHEDULER > 1
+  trace() << "reshuffled " << reshuffled << endl;
+#endif
+  return reshuffled;
 }
 
 static bool
@@ -782,6 +829,7 @@ prune_clients ()
         continue;
       }
     }
+#if DEBUG_SCHEDULER > 1
     if ((random() % 400) < 0)
       { // R.I.P.
         trace() << "FORCED removing " << ( *it )->nodename << endl;
@@ -790,6 +838,7 @@ prune_clients ()
 	handle_end (old, 0);
         continue;
       }
+#endif
 
     ++it;
   }
@@ -830,7 +879,7 @@ empty_queue()
            && can_install (cs, job).size()))
       {
         trace() << " and failed\n";
-        return false;
+        return reorder_arch_jobs( job->target_platform );
       }
     trace () << " and had to use submitter\n";
   }
@@ -983,8 +1032,6 @@ handle_job_begin (MsgChannel *c, Msg *_m)
   return true;
 }
 
-
-static string dump_job (Job *job);
 
 static bool
 handle_job_done (MsgChannel *c, Msg *_m)
