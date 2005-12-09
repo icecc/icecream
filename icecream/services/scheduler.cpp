@@ -167,6 +167,14 @@ public:
   Environments environments;
   time_t starttime;  // _local_ to the compiler server
   time_t start_on_scheduler;  // starttime local to scheduler
+  /**
+   * the end signal from client and daemon is a bit of a race and
+   * in 99.9% of all cases it's catched correctly. But for the remaining
+   * 0.1% we need a solution too - otherwise these jobs are eating up slots.
+   * So the solution is to track done jobs (client exited, daemon didn't signal)
+   * and after 10s no signal, kill the daemon (and let it rehup) **/
+  time_t done_time;
+
   string target_platform;
   string filename;
   list<Job*> master_job_for;
@@ -175,19 +183,22 @@ public:
   Job (MsgChannel *c, unsigned int _id, CS *subm)
      : id(_id), state(PENDING), server(0),
        submitter(subm),
-       client_channel(c), starttime(0), start_on_scheduler(0), arg_flags( 0 ) {}
+       client_channel(c), starttime(0), start_on_scheduler(0), done_time( 0 ), arg_flags( 0 ) {}
   ~Job()
   {
    // XXX is this really deleted on all other paths?
 /*    fd2chan.erase (channel->fd);
     delete channel;*/
   }
+
 };
 
 // A subset of connected_hosts representing the compiler servers
 static list<CS*> css;
 static unsigned int new_job_id;
 static map<unsigned int, Job*> jobs;
+static map<unsigned int, Job*> done_jobs;
+
 /* XXX Uah.  Don't use a queue for the job requests.  It's a hell
    to delete anything out of them (for clean up).  */
 struct UnansweredList {
@@ -764,10 +775,10 @@ pick_server(Job *job)
   return bestui;
 }
 
-/* Prunes the list of connected clients by those which haven't
+/* Prunes the list of connected servers by those which haven't
    answered for a long time.  */
 static void
-prune_clients ()
+prune_servers ()
 {
   list<CS*>::iterator it;
 
@@ -800,6 +811,29 @@ prune_clients ()
 
     ++it;
   }
+
+
+  /**
+   * check the jobs that were not cared about even though they are done
+   * (one in a million ;( */
+  for (map<unsigned int, Job*>::const_iterator it = done_jobs.begin();
+       it != done_jobs.end(); ++it)
+    {
+      Job *j = it->second;
+      if (j->done_time - now > 30 )
+        {
+          trace() << "undone " << dump_job( j ) << endl;
+          trace() << "FORCED removing " << j->server->nodename << endl;
+          handle_end( j->server, 0 );
+          /* the above will kill all jobs associated with this server, so
+             we better get out of this, as done_jobs is changed too and
+             we'll come back (</schwarzeneggeraccent>)
+          */
+          break;
+        }
+
+    }
+
 }
 
 static Job*
@@ -817,8 +851,6 @@ delay_current_job()
 static bool
 empty_queue()
 {
-  prune_clients ();
-
   Job *job = get_job_request ();
   if (!job)
     return false;
@@ -855,7 +887,7 @@ empty_queue()
            && can_install (cs, job).size()))
       {
         trace() << " and failed ";
-	
+
 #if DEBUG_SCHEDULER > 1
         list<UnansweredList*>::iterator it;
         for (it = toanswer.begin(); it != toanswer.end(); ++it)
@@ -1077,25 +1109,8 @@ handle_job_done (MsgChannel *c, Msg *_m)
   notify_monitors (MonJobDoneMsg (*m));
   j->server->busy_installing = 0;
   jobs.erase (m->job_id);
+  done_jobs.erase (m->job_id);
   delete j;
-
-
-#if DEBUG_SCHEDULER > 0
-  if (new_job_id % 1000) // don't polute the log file in checking this for every job
-	return true;
-
-  bool first = true;
-
-  for (map<unsigned int, Job*>::const_iterator it = jobs.begin();
-       it != jobs.end(); ++it)
-    {
-      int id = it->first;
-      Job *j = it->second;
-      if (new_job_id - id > 2000)
-        trace() << "  undone: " << dump_job( j ) << endl;
-      first = false;
-    }
-#endif
 
   return true;
 }
@@ -1357,6 +1372,7 @@ handle_end (MsgChannel *c, Msg *m)
 		if ((*jit)->server)
 		  (*jit)->server->busy_installing = 0;
 		jobs.erase( (*jit)->id );
+                done_jobs.erase( (*jit)->id );
 		delete (*jit);
 	      }
 	    delete l;
@@ -1381,6 +1397,7 @@ handle_end (MsgChannel *c, Msg *m)
 		job->server->joblist.remove (job);
 	      if (job->server)
 	        job->server->busy_installing = 0;
+              done_jobs.erase( job->id );
               jobs.erase( mit++ );
               delete job;
             }
@@ -1442,6 +1459,7 @@ handle_end (MsgChannel *c, Msg *m)
                           job->server->joblist.remove (job);
 		          job->server->busy_installing = 0;
 		        }
+                      done_jobs.erase( job->id );
                       jobs.erase (it++);
                       delete job;
                     }
@@ -1458,8 +1476,11 @@ handle_end (MsgChannel *c, Msg *m)
           for (it = jobs.begin(); it != jobs.end(); ++it)
             if (it->second->client_channel == c)
 	      {
-                it->second->client_channel = 0;
-                it->second->state = Job::WAITINGFORDONE;
+                Job *done = it->second;
+                done->client_channel = 0;
+                done->state = Job::WAITINGFORDONE;
+                done_jobs[done->id] = done;
+                done->done_time = time( 0 );
               }
         }
     }
@@ -1704,9 +1725,11 @@ main (int argc, char * argv[])
 
   while (1)
     {
+      prune_servers ();
+
       while (empty_queue())
 	continue;
-	
+
       fd_set read_set;
       int max_fd = 0;
       FD_ZERO (&read_set);
