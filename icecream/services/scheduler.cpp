@@ -680,18 +680,18 @@ pick_server(Job *job)
         continue;
       }
 
-      // incompatible architecture
-      if ( !can_install( cs, job ).size() ) {
-#if DEBUG_SCHEDULER > 1
-        trace() << cs->nodename << " can't install " << job->id << endl;
-#endif
-        continue;
-      }
-
       /* Servers that are already compiling jobs but got no environments
          are currently installing new environments - ignore so far */
       if ( cs->joblist.size() != 0 && cs->compiler_versions.size() == 0 ) {
         trace() << cs->nodename << " is currently installing\n";
+        continue;
+      }
+
+      // incompatible architecture
+      if ( !can_install( cs, job ).size() ) {
+#if DEBUG_SCHEDULER > 2
+        trace() << cs->nodename << " can't install " << job->id << endl;
+#endif
         continue;
       }
 
@@ -854,7 +854,15 @@ empty_queue()
            /* This should be trivially true.  */
            && can_install (cs, job).size()))
       {
-        trace() << " and failed\n";
+        trace() << " and failed ";
+	
+#if DEBUG_SCHEDULER > 1
+        list<UnansweredList*>::iterator it;
+        for (it = toanswer.begin(); it != toanswer.end(); ++it)
+		trace() << (*it)->server->nodename << " ";
+#endif
+	trace() << endl;
+
         job = delay_current_job();
         if ( job == first_job || !job ) // no job found in the whole toanswer list
           return false;
@@ -1698,7 +1706,7 @@ main (int argc, char * argv[])
     {
       while (empty_queue())
 	continue;
-
+	
       fd_set read_set;
       int max_fd = 0;
       FD_ZERO (&read_set);
