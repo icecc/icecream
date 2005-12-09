@@ -440,48 +440,6 @@ remove_job_request (void)
 static string dump_job (Job *job);
 
 static bool
-reorder_arch_jobs( const string &arch )
-{
-  assert ( !toanswer.empty() );
-
-#if DEBUG_SCHEDULER > 1
-  trace() << "reorder_arch_jobs " << arch << endl;
-
-  for (map<unsigned int, Job*>::const_iterator it = jobs.begin();
-       it != jobs.end(); ++it)
-    trace() << " " << dump_job (it->second) << endl;
-#endif
-
-  bool reshuffled = false;
-  for ( list<UnansweredList*>::iterator it = toanswer.begin(); it != toanswer.end(); ++it )
-    {
-      UnansweredList *oldlist = *it;
-      list<Job*> tmpList;
-      list<Job*> tmpRest;
-      while ( !oldlist->l.empty() )
-        {
-          Job *job = oldlist->l.front();
-          oldlist->l.pop_front();
-          if ( job->target_platform == arch )
-            tmpList.push_back( job );
-          else
-            tmpRest.push_back( job );
-        }
-      if ( !tmpRest.empty() && !tmpList.empty() )
-        reshuffled = true;
-
-      oldlist->l = tmpRest;
-      for ( list<Job*>::const_iterator it2 = tmpList.begin(); it2 != tmpList.end(); ++it2 )
-        oldlist->l.push_back( *it2 );
-    }
-
-#if DEBUG_SCHEDULER > 1
-  trace() << "reshuffled " << reshuffled << endl;
-#endif
-  return reshuffled;
-}
-
-static bool
 handle_cs_request (MsgChannel *c, Msg *_m)
 {
   GetCSMsg *m = dynamic_cast<GetCSMsg *>(_m);
@@ -844,6 +802,18 @@ prune_clients ()
   }
 }
 
+static Job*
+delay_current_job()
+{
+  assert (!toanswer.empty());
+  if ( toanswer.size() == 1 )
+    return 0;
+  UnansweredList *first = toanswer.front();
+  toanswer.pop_front();
+  toanswer.push_back( first );
+  return get_job_request();
+}
+
 static bool
 empty_queue()
 {
@@ -867,9 +837,15 @@ empty_queue()
       return false;
     }
 
-  CS *cs = pick_server (job);
+  Job *first_job = job;
+  CS *cs = 0;
 
-  if (!cs) {
+  while ( true ) {
+    cs = pick_server (job);
+
+    if (cs)
+      break;
+
     trace() << "tried to pick a server for " << job->id;
     /* Ignore the load on the submitter itself if no other host could
        be found.  We only obey to its max job number.  */
@@ -879,9 +855,15 @@ empty_queue()
            && can_install (cs, job).size()))
       {
         trace() << " and failed\n";
-        return reorder_arch_jobs( job->target_platform );
+        job = delay_current_job();
+        if ( job == first_job || !job ) // no job found in the whole toanswer list
+          return false;
       }
-    trace () << " and had to use submitter\n";
+    else
+      {
+        trace () << " and had to use submitter\n";
+        break;
+      }
   }
 
   remove_job_request ();
