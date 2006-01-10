@@ -766,7 +766,10 @@ pick_server(Job *job)
 
   // to make sure we find the fast computers at least after some time, we overwrite
   // the install rule for every 19th job - if the farm is only filled a bit
-  if ( best && ( ( matches < 19 || matches < css.size() / 3 ) && job->id % 19 != 0 ) )
+  if ( bestui && ( matches < 11 && matches < css.size() / 3 ) && job->id % 19 != 0 )
+	best = 0;
+
+  if ( best )
     {
 #if DEBUG_SCHEDULER > 1
     trace() << "taking best installed " << best->nodename << " " <<  server_speed (best) << endl;
