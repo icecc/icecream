@@ -680,6 +680,8 @@ pick_server(Job *job)
   // best uninstalled
   CS *bestui = 0;
 
+  uint matches = 0;
+
   for (it = css.begin(); it != css.end(); ++it)
     {
       CS *cs = *it;
@@ -724,7 +726,10 @@ pick_server(Job *job)
 	  /* Make all servers compile a job at least once, so we'll get an
 	     idea about their speed.  */
 	  if (envs_match (cs, job))
-	    best = cs;
+            {
+              best = cs;
+              matches++;
+            }
 	  else
             {
               // if there is one server that already got the environment and one that
@@ -744,6 +749,7 @@ pick_server(Job *job)
             if (best->last_compiled_jobs.size() != 0
                 && server_speed (best, job) < server_speed (cs, job))
               best = cs;
+          matches++;
         }
       else
         {
@@ -759,8 +765,8 @@ pick_server(Job *job)
     }
 
   // to make sure we find the fast computers at least after some time, we overwrite
-  // the install rule for every 19th job
-  if ( best && job->id % 19 != 0 )
+  // the install rule for every 19th job - if the farm is only filled a bit
+  if ( best && ( ( matches < 19 || matches < css.size() / 3 ) && job->id % 19 != 0 ) )
     {
 #if DEBUG_SCHEDULER > 1
     trace() << "taking best installed " << best->nodename << " " <<  server_speed (best) << endl;
