@@ -725,16 +725,12 @@ pick_server(Job *job)
 	     idea about their speed.  */
 	  if (envs_match (cs, job))
 	    best = cs;
-	  else {
-            // if there is one server that already got the environment and one that
-            // hasn't compiled at all, pick the one with environment first
-	    bestui = cs;
-
-            // to make sure we find the fast computers at least after some time, we overwrite
-            // the above rule for every 7th job
-            if ( job->id % 7 == 0 )
-              best = 0;
-          }
+	  else
+            {
+              // if there is one server that already got the environment and one that
+              // hasn't compiled at all, pick the one with environment first
+              bestui = cs;
+            }
 	  break;
 	}
 
@@ -762,7 +758,10 @@ pick_server(Job *job)
         }
     }
 
-  if ( best ) {
+  // to make sure we find the fast computers at least after some time, we overwrite
+  // the install rule for every 19th job
+  if ( best && job->id % 19 != 0 )
+    {
 #if DEBUG_SCHEDULER > 1
     trace() << "taking best installed " << best->nodename << " " <<  server_speed (best) << endl;
 #endif
@@ -820,7 +819,7 @@ prune_servers ()
        it != done_jobs.end(); ++it)
     {
       Job *j = it->second;
-      if (j->done_time - now > 30 )
+      if (now - j->done_time > 30 )
         {
           trace() << "undone " << dump_job( j ) << endl;
           trace() << "FORCED removing " << j->server->nodename << endl;
