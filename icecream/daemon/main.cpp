@@ -537,6 +537,7 @@ int main( int argc, char ** argv )
     typedef pair<CompileJob*, MsgChannel*> Compile_Request;
     queue<Compile_Request> requests;
     map<pid_t, JobDoneMsg*> jobmap;
+    map<pid_t, string> envmap;
     // the pidmap maps the PID to the socket to the server child
     typedef map<pid_t, int> Pidmap;
     Pidmap pidmap;
@@ -667,8 +668,10 @@ int main( int argc, char ** argv )
                     } else
                         close( sockets[1] );
                 } else {
-                    envs_last_use[job->targetPlatform() + "/" + job->environmentVersion()] = time( NULL );
+                    string envforjob = job->targetPlatform() + "/" + job->environmentVersion();
+                    envs_last_use[envforjob] = time( NULL );
                     pid = handle_connection( envbasedir, req.first, req.second, sock, mem_limit, nobody_uid );
+		    envmap[pid] = envforjob;
                 }
 
                 if ( pid > 0) { // forks away
@@ -714,6 +717,8 @@ int main( int argc, char ** argv )
                     }
                     scheduler->send_msg( *msg );
                 }
+		envs_last_use[envmap[child]] = time( NULL );
+		envmap.erase(child);
                 delete msg;
                 continue;
             }
@@ -830,16 +835,26 @@ int main( int argc, char ** argv )
                                     trace() << "installed " << emsg->name << " size: " << installed_size
                                             << " all: " << cache_size << endl;
 
-                                    while ( cache_size > cache_size_limit ) {
+				    time_t now = time( NULL );
+                                    while ( cache_size > cache_size_limit ) 
+                                     {
                                         string oldest;
                                         // I don't dare to use (time_t)-1
                                         time_t oldest_time = time( NULL ) + 90000;
                                         for ( map<string, time_t>::const_iterator it = envs_last_use.begin();
                                               it != envs_last_use.end(); ++it ) {
                                             trace() << "das ist jetzt so: " << it->first << " " << it->second << " " << oldest_time << endl;
-                                            if ( it->second < oldest_time ) {
-                                                oldest_time = it->second;
-                                                oldest = it->first;
+					    // ignore recently used envs (they might be in use _right_ now
+                                            if ( it->second < oldest_time && now - it->second < 100 ) {
+						bool found = false;
+						for (map<pid_t,string>::const_iterator it2 = envmap.begin(); it2 != envmap.end(); ++it2)
+							if (it2->second == it->first)
+								found = true;
+						if (!found) 
+						  {
+                                                    oldest_time = it->second;
+                                                    oldest = it->first;
+						  }
                                             }
                                         }
                                         if ( oldest.empty() || oldest == current )
