@@ -484,7 +484,7 @@ handle_cs_request (MsgChannel *c, Msg *_m)
       job->language = ( m->lang == CompileJob::Lang_C ? "C" : "C++" );
       job->filename = m->filename;
       enqueue_job_request (job);
-      log_info() << "NEW: " << job->id << " versions=[";
+      log_info() << "NEW " << job->id << " client=" << submitter->nodename << " versions=[";
       for ( Environments::const_iterator it = job->environments.begin(); it != job->environments.end(); ++it )
         log_info() << it->second << "(" << it->first << "), ";
       log_info() << "] " << m->filename << " " << job->language << endl;
@@ -602,7 +602,9 @@ can_install( CS* cs, const Job *job )
 {
   // trace() << "can_install host: '" << cs->host_platform << "' target: '" << job->target_platform << "'" << endl;
   if ( cs->busy_installing ) {
+#if DEBUG_SCHEDULER > 0
     trace() << cs->nodename << " is busy installing since " << time(0) - cs->busy_installing << " seconds." << endl;
+#endif
     return string();
   }
 
@@ -696,7 +698,9 @@ pick_server(Job *job)
       /* Servers that are already compiling jobs but got no environments
          are currently installing new environments - ignore so far */
       if ( cs->joblist.size() != 0 && cs->compiler_versions.size() == 0 ) {
+#if DEBUG_SCHEDULER > 0
         trace() << cs->nodename << " is currently installing\n";
+#endif
         continue;
       }
 
@@ -894,14 +898,19 @@ empty_queue()
            /* This should be trivially true.  */
            && can_install (cs, job).size()))
       {
+#if DEBUG_SCHEDULER > 0
         trace() << " and failed ";
+#endif
 
 #if DEBUG_SCHEDULER > 1
         list<UnansweredList*>::iterator it;
         for (it = toanswer.begin(); it != toanswer.end(); ++it)
 		trace() << (*it)->server->nodename << " ";
 #endif
+
+#if DEBUG_SCHEDULER > 0
 	trace() << endl;
+#endif
 
         job = delay_current_job();
         if ( job == first_job || !job ) // no job found in the whole toanswer list
@@ -934,7 +943,9 @@ empty_queue()
     }
   else
     {
+#if DEBUG_SCHEDULER > 0
       trace() << "put " << job->id << " in joblist of " << cs->nodename << endl;
+#endif
       cs->joblist.push_back( job );
       if ( !gotit ) { // if we made the environment transfer, don't rely on the list
 	cs->compiler_versions.clear();
@@ -1049,7 +1060,9 @@ handle_job_begin (MsgChannel *c, Msg *_m)
     trace() << "handle_job_begin: no valid job id " << m->job_id << endl;
     return false;
   }
+#if DEBUG_SCHEDULER > 0
   trace() << "BEGIN: " << m->job_id << endl;
+#endif
   if (jobs[m->job_id]->server != c) {
     trace() << "that job isn't handled by " << c->name << endl;
     return false;
@@ -1076,6 +1089,8 @@ handle_job_done (MsgChannel *c, Msg *_m)
       return false;
     }
 
+  Job *j = jobs[m->job_id];
+
   if ( m->exitcode == 0 )
     {
       trace() << "END " << m->job_id
@@ -1097,7 +1112,7 @@ handle_job_done (MsgChannel *c, Msg *_m)
               << " user=" << m->user_msec
               << " sys=" << m->sys_msec
               << " pfaults=" << m->pfaults
-              << " server=" << c->name
+              << " server=" << j->server->nodename
               << endl;
     }
   else
@@ -1111,7 +1126,6 @@ handle_job_done (MsgChannel *c, Msg *_m)
     }
   c->last_talk = time( 0 );
 
-  Job *j = jobs[m->job_id];
   j->server->joblist.remove (j);
   add_job_stats (j, m);
   notify_monitors (MonJobDoneMsg (*m));
@@ -1231,7 +1245,7 @@ handle_line (MsgChannel *c, Msg *_m)
 	  line = " " + cs->nodename + buffer;
 	  line += "[" + cs->host_platform + "] speed=";
 	  sprintf (buffer, "%.2f jobs=%d/%d load=%d", server_speed (cs),
-	  	   cs->joblist.size(), cs->max_jobs, cs->load);
+	  	   (int)cs->joblist.size(), cs->max_jobs, cs->load);
 	  line += buffer;
           if (cs->busy_installing)
             {
