@@ -32,10 +32,12 @@ ostream *logfile_warning = 0;
 ostream *logfile_error = 0;
 ofstream logfile_null( "/dev/null" );
 ofstream logfile_file;
+static string logfile_filename;
 
 void setup_debug(int level, const string &filename)
 {
     debug_level = level;
+    logfile_filename = filename;
 
     ostream *output = 0;
     if ( filename.length() ) {
@@ -63,6 +65,11 @@ void setup_debug(int level, const string &filename)
         logfile_error = output;
     else
         logfile_error = &logfile_null;
+}
+
+void reset_debug() 
+{
+	setup_debug(debug_level, logfile_filename);
 }
 
 #ifdef HAVE_BACKTRACE

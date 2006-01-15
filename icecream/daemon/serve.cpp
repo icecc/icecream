@@ -98,6 +98,7 @@ int handle_connection( const string &basedir, CompileJob *job,
         return pid;
     }
 
+    reset_debug();
     close( socket[0] );
     out_fd = socket[1];
 
@@ -116,7 +117,7 @@ int handle_connection( const string &basedir, CompileJob *job,
 	    log_info() << "should use " << job->environmentVersion() << "(" << job->targetPlatform() << ") " << job->jobID() << endl;
             string dirname = basedir + "/target=" + job->targetPlatform() + "/" + job->environmentVersion();
             if ( ::access( string( dirname + "/usr/bin/gcc" ).c_str(), X_OK ) ) {
-                log_error() << "I don't have that environment\n";
+                log_error() << "I don't have environment " << job->environmentVersion() << "(" << job->targetPlatform() << ") " << job->jobID() << endl;
                 throw myexception( EXIT_DISTCC_FAILED ); // the scheduler didn't listen to us!
             }
 

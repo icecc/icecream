@@ -943,11 +943,15 @@ empty_queue()
     }
   else
     {
-#if DEBUG_SCHEDULER > 0
-      trace() << "put " << job->id << " in joblist of " << cs->nodename << endl;
+#if DEBUG_SCHEDULER >= 0
+      trace() << "put " << job->id << " in joblist of " << cs->nodename;
+      if (!gotit) 
+	trace() << " (will install now)";
+      trace() << endl;
 #endif
       cs->joblist.push_back( job );
-      if ( !gotit ) { // if we made the environment transfer, don't rely on the list
+      if ( !gotit ) // if we made the environment transfer, don't rely on the list
+      {
 	cs->compiler_versions.clear();
         cs->busy_installing = time(0);
       }
@@ -1025,7 +1029,7 @@ handle_relogin (MsgChannel *c, Msg *_m)
   cs->compiler_versions = m->envs;
   cs->busy_installing = 0;
 
-  trace() << cs->nodename << "(" << cs->host_platform << "): [";
+  trace() << "RELOGIN " << cs->nodename << "(" << cs->host_platform << "): [";
   for (Environments::const_iterator it = m->envs.begin();
        it != m->envs.end(); ++it)
     trace() << it->second << "(" << it->first << "), ";
@@ -1060,18 +1064,21 @@ handle_job_begin (MsgChannel *c, Msg *_m)
     trace() << "handle_job_begin: no valid job id " << m->job_id << endl;
     return false;
   }
-#if DEBUG_SCHEDULER > 0
-  trace() << "BEGIN: " << m->job_id << endl;
-#endif
-  if (jobs[m->job_id]->server != c) {
+  Job *job = jobs[m->job_id];
+  if (job->server != c) {
     trace() << "that job isn't handled by " << c->name << endl;
     return false;
   }
-  jobs[m->job_id]->state = Job::COMPILING;
-  jobs[m->job_id]->starttime = m->stime;
-  jobs[m->job_id]->start_on_scheduler = time(0);
+  job->state = Job::COMPILING;
+  job->starttime = m->stime;
+  job->start_on_scheduler = time(0);
   CS *cs = dynamic_cast<CS*>( c );
   notify_monitors (MonJobBeginMsg (m->job_id, m->stime, cs->hostid));
+#if DEBUG_SCHEDULER > 0
+  trace() << "BEGIN: " << m->job_id << " client=" << j->submitter->nodename << "(" << job->target_platform 
+          << ")" << " server=" << job->server->nodename << "(" << job->server->host_platform << ")" << endl;
+#endif
+
   return true;
 }
 
