@@ -890,7 +890,10 @@ empty_queue()
     if (cs)
       break;
 
+#if DEBUG_SCHEDULER > 0
     trace() << "tried to pick a server for " << job->id;
+#endif
+
     /* Ignore the load on the submitter itself if no other host could
        be found.  We only obey to its max job number.  */
     cs = job->submitter;
@@ -918,7 +921,9 @@ empty_queue()
       }
     else
       {
+#if DEBUG_SCHEDULER > 0
         trace () << " and had to use submitter\n";
+#endif
         break;
       }
   }
@@ -991,7 +996,7 @@ handle_login (MsgChannel *c, Msg *_m)
   if (!allow_run_as_user && !m->chroot_possible)
     return false;
 
-  trace() << "login " << m->nodename << " protocol version: " << c->protocol << endl;
+  trace() << "login " << m->nodename << " protocol version: " << c->protocol;
 
   CS *cs = static_cast<CS *>(c);
   cs->remote_port = m->port;
@@ -1007,11 +1012,11 @@ handle_login (MsgChannel *c, Msg *_m)
   handle_monitor_stats( cs );
   css.push_back (cs);
 
-#if 0
-  trace() << cs->nodename << ": [";
-  for (list<string>::const_iterator it = m->envs.begin();
+#if 1
+  trace() << " [";
+  for (Environments::const_iterator it = m->envs.begin();
        it != m->envs.end(); ++it)
-    trace() << *it << ", ";
+    trace() << it->second << "(" << it->first << "), ";
   trace() << "]\n";
 #endif
 
@@ -1074,8 +1079,8 @@ handle_job_begin (MsgChannel *c, Msg *_m)
   job->start_on_scheduler = time(0);
   CS *cs = dynamic_cast<CS*>( c );
   notify_monitors (MonJobBeginMsg (m->job_id, m->stime, cs->hostid));
-#if DEBUG_SCHEDULER > 0
-  trace() << "BEGIN: " << m->job_id << " client=" << j->submitter->nodename << "(" << job->target_platform 
+#if DEBUG_SCHEDULER >= 0
+  trace() << "BEGIN: " << m->job_id << " client=" << job->submitter->nodename << "(" << job->target_platform 
           << ")" << " server=" << job->server->nodename << "(" << job->server->host_platform << ")" << endl;
 #endif
 
