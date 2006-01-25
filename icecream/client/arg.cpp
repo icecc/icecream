@@ -86,7 +86,7 @@ bool analyse_argv( const char * const *argv,
             if (!strcmp(a, "-E")) {
                 always_local = true;
                 args.append(a, Arg_Local);
-            } else if (!strcmp(a, "-MD") || !strcmp(a, "-MMD")) {
+            } else if (!strcmp(a, "-MD") || !strcmp(a, "-MMD") || !strncmp(a, "-fdump", 6)) {
                 args.append(a, Arg_Local);
                 /* These two generate dependencies as a side effect.  They
                  * should work with the way we call cpp. */
