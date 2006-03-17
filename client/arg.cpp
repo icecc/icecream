@@ -158,7 +158,8 @@ bool analyse_argv( const char * const *argv,
             } else if (str_startswith("-o", a)) {
                 if (!strcmp(a, "-o")) {
                     /* Whatever follows must be the output */
-                    ofile = argv[++i];
+		    if ( argv[i+1] )
+                      ofile = argv[++i];
                 } else {
                     a += 2;
                     ofile = a;
