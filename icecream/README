@@ -1,3 +1,8 @@
+NOTE: Although icecream will compile on some non-Linux systems,
+it depends critically on Linux' /proc/ structures and will fail
+at runtime until somebody figures out how to emulate the "ticks"
+form of process accounting in there.
+
 How to install icecream
 =======================
 
