@@ -1,3 +1,9 @@
+icecc (0.6.1-1) unstable; urgency=low
+
+  * It still builds at the new location so just bump the version number.
+
+ -- Andre Woebbeking <Woebbeking@web.de>  Sat, 29 Apr 2006 20:36:15 +0200
+
 icecc (0.6-1) unstable; urgency=low
 
   * Initial Release.
