@@ -46,7 +46,12 @@ case "$1" in
         fi
         logfile=""
         if test -n "$ICECREAM_LOG_FILE"; then
+            touch $ICECREAM_LOG_FILE
+            chown icecream:icecream $ICECREAM_LOG_FILE
             logfile="-l $ICECREAM_LOG_FILE"
+        else
+            touch /var/log/iceccd
+            chown icecream:icecream /var/log/iceccd
         fi
         nice= 
 	if test -n "$ICECREAM_NICE_LEVEL"; then
