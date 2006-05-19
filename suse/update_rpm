@@ -5,7 +5,7 @@ opwd=$PWD
 tdir=`mktemp -d`
 cd $tdir || exit 1
 svn export svn+ssh://svn.kde.org/home/kde/trunk/icecream
-rm suse/update_rpm
+rm icecream/suse/update_rpm
 version=`grep ^Version: icecream/suse/icecream.spec | cut -d: -f2- | sed -e "s, *,,"`
 tar -cvj -f $opwd/icecream-$version.tar.bz2 icecream
 cp icecream/suse/icecream.spec $opwd/
