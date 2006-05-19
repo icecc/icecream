@@ -21,9 +21,10 @@ Requires:       /bin/tar /usr/bin/bzip2
 PreReq:         %fillup_prereq
 Prereq:         /usr/sbin/useradd /usr/sbin/groupadd
 Requires:       gcc-c++
-Version:        0.6.3
+Version:        0.6.4
 Release:        5
 Source0:        ftp://ftp.suse.com/pub/projects/icecream/%name-%{version}.tar.bz2
+Source1:        %name-manpages.tar.bz2
 BuildRoot:      %{_tmppath}/%{name}-%{version}-build
 
 %description
@@ -40,7 +41,7 @@ Authors:
     Frerich Raabe <raabe@kde.org>
 
 %prep
-%setup -q -n %name
+%setup -q -n %name -a 2
 rm -r mon
 
 %build
@@ -68,6 +69,10 @@ ln -sf /etc/init.d/icecream $RPM_BUILD_ROOT%{_sbindir}/rcicecream
 mkdir -p $RPM_BUILD_ROOT/var/adm/fillup-templates
 install -m 644 suse/sysconfig.icecream $RPM_BUILD_ROOT/var/adm/fillup-templates/sysconfig.icecream
 mkdir -p $RPM_BUILD_ROOT/var/cache/icecream
+mkdir -p $RPM_BUILD_ROOT%_mandir/man{1,7}
+for i in mans/*.1 mans/*.7; do
+	install -m 644 $i $RPM_BUILD_ROOT%_mandir/man`echo $i | sed -e 's,.*(.)$,\1,'`/`basename $i`
+done
 
 %preun
 %stop_on_removal icecream
@@ -94,6 +99,7 @@ rm -rf ${RPM_BUILD_ROOT}
 %_bindir/create-env
 %_sbindir/iceccd
 %_sbindir/rcicecream
+%_mandir/man*/*
 /opt/icecream
 /var/adm/fillup-templates/sysconfig.icecream
 %attr(-,icecream,icecream) /var/cache/icecream

@@ -1,5 +1,6 @@
 #! /bin/sh
 
+export PATH=/opt/kde3/bin:$PATH
 opwd=$PWD
 tdir=`mktemp -d`
 cd $tdir || exit 1
@@ -8,5 +9,15 @@ rm suse/update_rpm
 version=`grep ^Version: icecream/suse/icecream.spec | cut -d: -f2- | sed -e "s, *,,"`
 tar -cvj -f $opwd/icecream-$version.tar.bz2 icecream
 cp icecream/suse/icecream.spec $opwd/
+mkdir mans
+omans=$PWD/mans
+cd icecream/doc
+for i in *.docbook; do
+	output=${i/man-/}
+	output=${output/.docbook/}
+	meinproc --stylesheet /opt/kde3/share/apps/ksgmltools2/customization/kde-man.xsl $i && mv manpage.troff $omans/$output
+done
+cd ../..
+tar cvjf $opwd/icecream-manpages.tar.bz2 mans
 cd /
 rm -rf $tdir
