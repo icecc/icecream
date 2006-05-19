@@ -41,7 +41,7 @@ Authors:
     Frerich Raabe <raabe@kde.org>
 
 %prep
-%setup -q -n %name -a 2
+%setup -q -n %name -a 1
 rm -r mon
 
 %build
@@ -71,7 +71,7 @@ install -m 644 suse/sysconfig.icecream $RPM_BUILD_ROOT/var/adm/fillup-templates/
 mkdir -p $RPM_BUILD_ROOT/var/cache/icecream
 mkdir -p $RPM_BUILD_ROOT%_mandir/man{1,7}
 for i in mans/*.1 mans/*.7; do
-	install -m 644 $i $RPM_BUILD_ROOT%_mandir/man`echo $i | sed -e 's,.*(.)$,\1,'`/`basename $i`
+	install -m 644 $i $RPM_BUILD_ROOT%_mandir/man`echo $i | sed -e 's,.*\(.\)$,\1,'`/`basename $i`
 done
 
 %preun
