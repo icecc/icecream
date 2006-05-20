@@ -342,6 +342,7 @@ struct Daemon
     int listen_fd;
     string machine_name;
     string nodename;
+    size_t cache_size;
 
     Daemon() {
         envbasedir = "/tmp/icecc-envs";
@@ -349,7 +350,83 @@ struct Daemon
         listen_fd = -1;
     }
     int answer_client_requests();
+    void transfer_env( MsgChannel *&c, Msg *msg );
+    void get_native_env( MsgChannel *&c );
 };
+
+void Daemon::transfer_env( MsgChannel *&c, Msg *msg )
+{
+    EnvTransferMsg *emsg = static_cast<EnvTransferMsg*>( msg );
+    string target = emsg->target;
+    if ( target.empty() )
+        target =  machine_name;
+    size_t installed_size = install_environment( envbasedir, emsg->target, emsg->name, c, nobody_uid );
+    if (!installed_size) {
+        trace() << "install environment failed" << endl;
+        c->send_msg(EndMsg()); // shut up, we had an error
+        reannounce_environments(envbasedir, nodename);
+    } else {
+        cache_size += installed_size;
+        string current = emsg->target + "/" + emsg->name;
+        envs_last_use[current] = time( NULL );
+        trace() << "installed " << emsg->name << " size: " << installed_size
+                << " all: " << cache_size << endl;
+
+        time_t now = time( NULL );
+        while ( cache_size > cache_size_limit ) {
+            string oldest;
+            // I don't dare to use (time_t)-1
+            time_t oldest_time = time( NULL ) + 90000;
+            for ( map<string, time_t>::const_iterator it = envs_last_use.begin();
+                  it != envs_last_use.end(); ++it ) {
+                trace() << "das ist jetzt so: " << it->first << " " << it->second << " " << oldest_time << endl;
+                // ignore recently used envs (they might be in use _right_ now
+                if ( it->second < oldest_time && now - it->second < 100 ) {
+                    bool found = false;
+                    for (map<pid_t,string>::const_iterator it2 = envmap.begin(); it2 != envmap.end(); ++it2)
+                        if (it2->second == it->first)
+                            found = true;
+                    if (!found) {
+                        oldest_time = it->second;
+                        oldest = it->first;
+                    }
+                }
+            }
+            if ( oldest.empty() || oldest == current )
+                break;
+            cache_size -= min( remove_environment( envbasedir, oldest, nobody_uid ), cache_size );
+            envs_last_use.erase( oldest );
+        }
+
+        reannounce_environments(envbasedir, nodename); // do that before the file compiles
+        delete msg;
+        msg = c->get_msg();
+        if ( msg->type == M_COMPILE_FILE ) { // we sure hope so
+            CompileJob *job = dynamic_cast<CompileFileMsg*>( msg )->takeJob();
+            requests.push( make_pair( job, c ));
+            c = 0; // forget you saw him
+        } else {
+            log_error() << "not compile file\n";
+        }
+    }
+}
+
+void Daemon::get_native_env( MsgChannel *&c )
+{
+    if ( !native_environment.length() ) {
+        size_t installed_size = setup_env_cache( envbasedir, native_environment, nobody_uid );
+        // we only clean out cache on next target install
+        cache_size += installed_size;
+        if ( ! installed_size ) {
+            c->send_msg( EndMsg() );
+            throw( 1 );
+        }
+        UseNativeEnvMsg m( native_environment );
+        c->send_msg( m );
+    } else {
+        c->send_msg( EndMsg() );
+    }
+}
 
 int Daemon::answer_client_requests()
 {
@@ -363,7 +440,7 @@ int Daemon::answer_client_requests()
                    << current_kids << " (" << max_kids << ")\n";
     }
 
-    size_t cache_size = 0;
+    cache_size = 0;
 
     const int max_count = 0; // DEBUG
     int count = 0; // DEBUG
@@ -529,84 +606,23 @@ int Daemon::answer_client_requests()
                 if ( !msg ) {
                     log_error() << "no message?\n";
                 } else {
-                    log_warning() << "msg " << ( char )msg->type << endl;
-                    if ( msg->type == M_GET_NATIVE_ENV ) {
-                        if ( !native_environment.length() ) {
-                            size_t installed_size = setup_env_cache( envbasedir, native_environment, nobody_uid );
-                            // we only clean out cache on next target install
-                            cache_size += installed_size;
-                            if ( ! installed_size ) {
-                                c->send_msg( EndMsg() );
-                                delete scheduler;
-                                return 1;
-                            }
-                            UseNativeEnvMsg m( native_environment );
-                            c->send_msg( m );
-                        } else {
-                            c->send_msg( EndMsg() );
-                        }
-                    } else if ( msg->type == M_COMPILE_FILE ) {
-                        CompileJob *job = dynamic_cast<CompileFileMsg*>( msg )->takeJob();
-                        requests.push( make_pair( job, c ));
-                        c = 0; // forget you saw him
-                    } else if ( msg->type == M_TRANFER_ENV ) {
-                        EnvTransferMsg *emsg = dynamic_cast<EnvTransferMsg*>( msg );
-                        string target = emsg->target;
-                        if ( target.empty() )
-                            target =  machine_name;
-                        size_t installed_size = install_environment( envbasedir, emsg->target, emsg->name, c, nobody_uid );
-                        if (!installed_size) {
-                            trace() << "install environment failed" << endl;
-                            c->send_msg(EndMsg()); // shut up, we had an error
-                            reannounce_environments(envbasedir, nodename);
-                        } else {
-                            cache_size += installed_size;
-                            string current = emsg->target + "/" + emsg->name;
-                            envs_last_use[current] = time( NULL );
-                            trace() << "installed " << emsg->name << " size: " << installed_size
-                                    << " all: " << cache_size << endl;
-
-                            time_t now = time( NULL );
-                            while ( cache_size > cache_size_limit )
-                            {
-                                string oldest;
-                                // I don't dare to use (time_t)-1
-                                time_t oldest_time = time( NULL ) + 90000;
-                                for ( map<string, time_t>::const_iterator it = envs_last_use.begin();
-                                      it != envs_last_use.end(); ++it ) {
-                                    trace() << "das ist jetzt so: " << it->first << " " << it->second << " " << oldest_time << endl;
-                                    // ignore recently used envs (they might be in use _right_ now
-                                    if ( it->second < oldest_time && now - it->second < 100 ) {
-                                        bool found = false;
-                                        for (map<pid_t,string>::const_iterator it2 = envmap.begin(); it2 != envmap.end(); ++it2)
-                                            if (it2->second == it->first)
-                                                found = true;
-                                        if (!found)
-                                        {
-                                            oldest_time = it->second;
-                                            oldest = it->first;
-                                        }
-                                    }
-                                }
-                                if ( oldest.empty() || oldest == current )
-                                    break;
-                                cache_size -= min( remove_environment( envbasedir, oldest, nobody_uid ), cache_size );
-                                envs_last_use.erase( oldest );
-                            }
-
-                            reannounce_environments(envbasedir, nodename); // do that before the file compiles
-                            delete msg;
-                            msg = c->get_msg();
-                            if ( msg->type == M_COMPILE_FILE ) { // we sure hope so
-                                CompileJob *job = dynamic_cast<CompileFileMsg*>( msg )->takeJob();
-                                requests.push( make_pair( job, c ));
-                                c = 0; // forget you saw him
-                            } else {
-                                log_error() << "not compile file\n";
-                            }
-                        }
-                    } else
-                        log_error() << "not compile: " << ( char )msg->type << endl;
+                    try {
+                        log_warning() << "msg " << ( char )msg->type << endl;
+                        if ( msg->type == M_GET_NATIVE_ENV ) {
+                            get_native_env( c );
+                        } else if ( msg->type == M_COMPILE_FILE ) {
+                            CompileJob *job = dynamic_cast<CompileFileMsg*>( msg )->takeJob();
+                            requests.push( make_pair( job, c ));
+                            c = 0; // forget you saw him
+                        } else if ( msg->type == M_TRANFER_ENV ) {
+                            transfer_env( c, msg );
+                        } else
+                            log_error() << "not compile: " << ( char )msg->type << endl;
+                    } catch ( int ret ) {
+                        delete msg;
+                        delete scheduler;
+                        return ret;
+                    }
                     delete msg;
                 }
                 delete c;
@@ -868,21 +884,18 @@ int main( int argc, char ** argv )
 
         if ( !scheduler ) {
 
-            while ( !d.requests.empty() )
-            {
+            while ( !d.requests.empty() ) {
                 Compile_Request req = d.requests.front();
                 d.requests.pop();
                 delete req.first;
                 delete req.second;
             }
 
-            while ( current_kids > 0 )
-            {
+            while ( current_kids > 0 ) {
                 int status;
                 pid_t child = wait(&status);
                 current_kids--;
-                if ( child > 0 )
-                {
+                if ( child > 0 ) {
                     d.jobmap.erase( child );
                     Pidmap::iterator pid_it = d.pidmap.find( child );
                     if ( pid_it != d.pidmap.end() ) {
@@ -914,8 +927,13 @@ int main( int argc, char ** argv )
         lmsg.max_kids = max_kids;
         scheduler->send_msg( lmsg );
 
-        while (true)
-            d.answer_client_requests();
+        while (true) {
+            int ret = d.answer_client_requests();
+            if ( ret ) {
+                tosleep = ret;
+                break;
+            }
+        }
 
         delete scheduler;
         scheduler = 0;
