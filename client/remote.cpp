@@ -479,7 +479,7 @@ maybe_build_local (MsgChannel *scheduler, UseCSMsg *usecs, CompileJob &job,
             struct rusage ru;
 
             gettimeofday(&begintv, 0 );
-	    ret = build_local( job, &ru );
+	    ret = build_local( job, scheduler, &ru );
             gettimeofday(&endtv, 0 );
 
             // filling the stats, so the daemon can play proxy for us
@@ -494,11 +494,8 @@ maybe_build_local (MsgChannel *scheduler, UseCSMsg *usecs, CompileJob &job,
             msg.pfaults = ru.ru_majflt + ru.ru_minflt + ru.ru_nswap ;
             msg.exitcode = ret;
 
-            if ( IS_PROTOCOL_16( cserver ) )
-                cserver->send_msg( msg );
-            else
-                cserver->send_msg( EndMsg() );
-	    delete cserver;
+            cserver->send_msg( msg );
+            delete cserver;
 	    return true;
 	}
     }

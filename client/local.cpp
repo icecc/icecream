@@ -132,7 +132,7 @@ void handle_user_break( int sig )
  *
  * This is called with a lock on localhost already held.
  **/
-int build_local(CompileJob &job, struct rusage *used)
+int build_local(CompileJob &job, MsgChannel *scheduler, struct rusage *used)
 {
     list<string> arguments;
 

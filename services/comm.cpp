@@ -792,16 +792,14 @@ MsgChannel::get_msg(int timeout)
     case M_JOB_DONE: m = new JobDoneMsg; break;
     case M_LOGIN: m = new LoginMsg; break;
     case M_STATS: m = new StatsMsg; break;
-    case M_GET_SCHEDULER: m = new GetSchedulerMsg; break;
-    case M_USE_SCHEDULER: m = new UseSchedulerMsg; break;
+    case M_GET_NATIVE_ENV: m = new GetNativeEnvMsg; break;
+    case M_NATIVE_ENV: m = new UseNativeEnvMsg; break;
     case M_MON_LOGIN: m = new MonLoginMsg; break;
     case M_MON_GET_CS: m = new MonGetCSMsg; break;
     case M_MON_JOB_BEGIN: m = new MonJobBeginMsg; break;
     case M_MON_JOB_DONE: m = new MonJobDoneMsg; break;
     case M_MON_STATS: m = new MonStatsMsg; break;
     case M_JOB_LOCAL_BEGIN: m = new JobLocalBeginMsg; break;
-    case M_JOB_LOCAL_ID: m = new JobLocalId; break;
-    case M_JOB_LOCAL_DONE: m = new JobLocalDoneMsg; break;
     case M_MON_LOCAL_JOB_BEGIN: m = new MonLocalJobBeginMsg; break;
     case M_MON_LOCAL_JOB_DONE: m = new MonLocalJobDoneMsg; break;
     case M_TRANFER_ENV: m = new EnvTransferMsg; break;
@@ -1059,10 +1057,7 @@ GetCSMsg::fill_from_channel (MsgChannel *c)
   c->readuint32( count );
   c->read_string( target );
   lang = static_cast<CompileJob::Language>( _lang );
-  if ( IS_PROTOCOL_15( c ) )
-    c->readuint32( arg_flags );
-  else
-    arg_flags = 7000; // something _really_ large
+  c->readuint32( arg_flags );
 }
 
 void
@@ -1074,8 +1069,7 @@ GetCSMsg::send_to_channel (MsgChannel *c) const
   c->writeuint32 ((uint32_t) lang);
   c->writeuint32( count );
   c->write_string( target );
-  if ( IS_PROTOCOL_15( c ) )
-    c->writeuint32( arg_flags );
+  c->writeuint32( arg_flags );
 }
 
 void
@@ -1226,52 +1220,13 @@ void JobLocalBeginMsg::send_to_channel( MsgChannel *c ) const
   c->write_string( outfile );
 }
 
-JobLocalDoneMsg::JobLocalDoneMsg (int id, int exit)
-  : Msg(M_JOB_LOCAL_DONE), exitcode( exit ), job_id( id )
-{
-}
-
-void JobLocalDoneMsg::fill_from_channel( MsgChannel *c )
-{
-  Msg::fill_from_channel(c);
-  uint32_t error = 255;
-  c->readuint32(error);
-  c->readuint32(job_id);
-  exitcode = ( int )error;
-}
-
-void JobLocalDoneMsg::send_to_channel( MsgChannel *c ) const
-{
-  Msg::send_to_channel( c );
-  c->writeuint32(( int )exitcode);
-  c->writeuint32(job_id);
-}
-
 void MonLocalJobDoneMsg::fill_from_channel( MsgChannel *c )
 {
   Msg::fill_from_channel(c);
-  if ( !IS_PROTOCOL_20(c ) )
-    {
-      uint32_t error = 255;
-      c->readuint32(error);
-    }
   c->readuint32(job_id);
 }
 
 void MonLocalJobDoneMsg::send_to_channel( MsgChannel *c ) const
-{
-  Msg::send_to_channel( c );
-  if ( !IS_PROTOCOL_20( c ) )
-    c->writeuint32(0);
-  c->writeuint32(job_id);
-}
-void JobLocalId::fill_from_channel( MsgChannel *c )
-{
-  Msg::fill_from_channel(c);
-  c->readuint32(job_id);
-}
-
-void JobLocalId::send_to_channel( MsgChannel *c ) const
 {
   Msg::send_to_channel( c );
   c->writeuint32(job_id);
@@ -1300,17 +1255,7 @@ JobDoneMsg::fill_from_channel (MsgChannel *c)
   c->readuint32 (real_msec);
   c->readuint32 (user_msec);
   c->readuint32 (sys_msec);
-  if ( !IS_PROTOCOL_20( c ) )
-    {
-      uint32_t maxrss, idrss, majflt, nswap;
-      c->readuint32 (maxrss);
-      c->readuint32 (idrss);
-      c->readuint32 (majflt);
-      c->readuint32 (nswap);
-      pfaults = majflt;
-    }
-  else
-    c->readuint32( pfaults );
+  c->readuint32( pfaults );
   c->readuint32 (in_compressed);
   c->readuint32 (in_uncompressed);
   c->readuint32 (out_compressed);
@@ -1327,14 +1272,7 @@ JobDoneMsg::send_to_channel (MsgChannel *c) const
   c->writeuint32 (real_msec);
   c->writeuint32 (user_msec);
   c->writeuint32 (sys_msec);
-  if ( !IS_PROTOCOL_20( c ) )
-    {
-      c->writeuint32( 0 );
-      c->writeuint32( 0 );
-      c->writeuint32( pfaults );
-      c->writeuint32( 0 );
-    } else
-    c->writeuint32( pfaults );
+  c->writeuint32( pfaults );
   c->writeuint32 (in_compressed);
   c->writeuint32 (in_uncompressed);
   c->writeuint32 (out_compressed);
@@ -1358,8 +1296,7 @@ LoginMsg::fill_from_channel (MsgChannel *c)
   c->read_string( nodename );
   c->read_string( host_platform );
   uint32_t net_chroot_possible = 0;
-  if ( IS_PROTOCOL_18( c ) )
-    c->readuint32 (net_chroot_possible);
+  c->readuint32 (net_chroot_possible);
   chroot_possible = net_chroot_possible != 0;
 }
 
@@ -1372,8 +1309,7 @@ LoginMsg::send_to_channel (MsgChannel *c) const
   c->write_environments( envs );
   c->write_string( nodename );
   c->write_string( host_platform );
-  if ( IS_PROTOCOL_18( c ) )
-    c->writeuint32( chroot_possible );
+  c->writeuint32( chroot_possible );
 }
 
 void
@@ -1381,14 +1317,6 @@ StatsMsg::fill_from_channel (MsgChannel *c)
 {
   Msg::fill_from_channel (c);
   c->readuint32 (load);
-  if ( !IS_PROTOCOL_19( c ) )
-    {
-      uint32_t dummy;
-      c->readuint32 (dummy);
-      c->readuint32 (dummy);
-      c->readuint32 (dummy);
-      c->readuint32 (dummy);
-    }
   c->readuint32 (loadAvg1);
   c->readuint32 (loadAvg5);
   c->readuint32 (loadAvg10);
@@ -1400,13 +1328,6 @@ StatsMsg::send_to_channel (MsgChannel *c) const
 {
   Msg::send_to_channel (c);
   c->writeuint32 (load);
-  if ( !IS_PROTOCOL_19( c ) )
-    {
-      c->writeuint32 (0);
-      c->writeuint32 (0);
-      c->writeuint32 (0);
-      c->writeuint32 (0);
-    }
   c->writeuint32 (loadAvg1);
   c->writeuint32 (loadAvg5);
   c->writeuint32 (loadAvg10);
@@ -1414,38 +1335,16 @@ StatsMsg::send_to_channel (MsgChannel *c) const
 }
 
 void
-GetSchedulerMsg::fill_from_channel (MsgChannel *c)
+UseNativeEnvMsg::fill_from_channel (MsgChannel *c)
 {
   Msg::fill_from_channel (c);
-  if ( IS_PROTOCOL_17( c ) )
-    c->readuint32( wants_native );
-  else
-    wants_native = true;
-}
-
-void
-GetSchedulerMsg::send_to_channel (MsgChannel *c) const
-{
-  Msg::send_to_channel (c);
-  if ( IS_PROTOCOL_17( c ) )
-    c->writeuint32( wants_native );
-}
-
-void
-UseSchedulerMsg::fill_from_channel (MsgChannel *c)
-{
-  Msg::fill_from_channel (c);
-  c->readuint32 (port);
-  c->read_string (hostname);
   c->read_string( nativeVersion );
 }
 
 void
-UseSchedulerMsg::send_to_channel (MsgChannel *c) const
+UseNativeEnvMsg::send_to_channel (MsgChannel *c) const
 {
   Msg::send_to_channel (c);
-  c->writeuint32 (port);
-  c->write_string (hostname);
   c->write_string( nativeVersion );
 }
 

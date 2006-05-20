@@ -33,17 +33,9 @@
 #include "job.h"
 
 // if you increase the PROTOCOL_VERSION, add a macro below and use that
-#define PROTOCOL_VERSION 20
+#define PROTOCOL_VERSION 21
 // if you increase the MIN_PROTOCOL_VERSION, comment out macros below and clean up the code
-#define MIN_PROTOCOL_VERSION 14
-
-#define IS_PROTOCOL_14( c ) ( c->protocol >= 14 )
-#define IS_PROTOCOL_15( c ) ( c->protocol >= 15 )
-#define IS_PROTOCOL_16( c ) ( c->protocol >= 16 )
-#define IS_PROTOCOL_17( c ) ( c->protocol >= 17 )
-#define IS_PROTOCOL_18( c ) ( c->protocol >= 18 )
-#define IS_PROTOCOL_19( c ) ( c->protocol >= 19 )
-#define IS_PROTOCOL_20( c ) ( c->protocol >= 20 )
+#define MIN_PROTOCOL_VERSION 21
 
 enum MsgType {
   // so far unknown
@@ -61,9 +53,9 @@ enum MsgType {
   M_TIMEOUT,
 
   // C --> CS
-  M_GET_SCHEDULER,
+  M_GET_NATIVE_ENV,
   // CS -> C
-  M_USE_SCHEDULER,
+  M_NATIVE_ENV,
 
   // C --> S
   M_GET_CS,
@@ -83,10 +75,6 @@ enum MsgType {
 
   // C --> S
   M_JOB_LOCAL_BEGIN, // = 'N'
-#if MIN_PROTOCOL_VERSION < 20 // this will change the protocol completely
-  M_JOB_LOCAL_ID,
-  M_JOB_LOCAL_DONE,
-#endif
 
   // CS --> S, first message sent
   M_LOGIN, // = 'Q'
@@ -260,23 +248,17 @@ public:
 };
 
 
-class GetSchedulerMsg : public Msg {
+class GetNativeEnvMsg : public Msg {
 public:
-  uint32_t wants_native;
-  GetSchedulerMsg (bool _wants_native = false) : Msg(M_GET_SCHEDULER),
-                                                 wants_native( _wants_native ) { }
-  virtual void fill_from_channel (MsgChannel * c);
-  virtual void send_to_channel (MsgChannel * c) const;
+  GetNativeEnvMsg () : Msg(M_GET_NATIVE_ENV) {}
 };
 
-class UseSchedulerMsg : public Msg {
+class UseNativeEnvMsg : public Msg {
 public:
-  std::string hostname;
-  uint32_t port;
   std::string nativeVersion;
-  UseSchedulerMsg () : Msg(M_USE_SCHEDULER), port( 0 ) {}
-  UseSchedulerMsg (std::string host, unsigned int p, std::string _native)
-      : Msg(M_USE_SCHEDULER), hostname (host), port (p), nativeVersion( _native ) {}
+  UseNativeEnvMsg () : Msg(M_NATIVE_ENV) {}
+  UseNativeEnvMsg (std::string _native)
+      : Msg(M_NATIVE_ENV), nativeVersion( _native ) {}
   virtual void fill_from_channel (MsgChannel * c);
   virtual void send_to_channel (MsgChannel * c) const;
 };
@@ -361,26 +343,6 @@ public:
   virtual void fill_from_channel (MsgChannel * c);
   virtual void send_to_channel (MsgChannel * c) const;
 };
-
-#if MIN_PROTOCOL_VERSION < 20
-class JobLocalId : public Msg {
-public:
-  uint32_t job_id;
-  JobLocalId() : Msg( M_JOB_LOCAL_ID ), job_id(0) {}
-  JobLocalId( unsigned int j ) : Msg( M_JOB_LOCAL_ID ), job_id( j ) {}
-  virtual void fill_from_channel (MsgChannel * c);
-  virtual void send_to_channel (MsgChannel * c) const;
-};
-
-class JobLocalDoneMsg : public Msg {
-public:
-  int exitcode;            /* exit code */
-  uint32_t job_id;
-  JobLocalDoneMsg (int job_id = 0, int exitcode = -1);
-  virtual void fill_from_channel (MsgChannel * c);
-  virtual void send_to_channel (MsgChannel * c) const;
-};
-#endif
 
 class LoginMsg : public Msg {
 public:

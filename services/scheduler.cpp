@@ -507,31 +507,15 @@ handle_local_job (MsgChannel *c, Msg *_m)
     return false;
 
   ++new_job_id;
-  if ( !IS_PROTOCOL_20( c ) )
-    if ( !c->send_msg( JobLocalId( new_job_id ) ) )
-      return false;
 
   list<CS*>::iterator it;
   for (it = css.begin(); it != css.end(); ++it)
     if (c->eq_ip (**it))
       break;
   if ( it != css.end() ) {
-    // the older clients get a different way to the end
-    if ( IS_PROTOCOL_20( c ) )
-      dynamic_cast<CS*>( c )->local_job_id = new_job_id;
+    dynamic_cast<CS*>( c )->local_job_id = new_job_id;
     notify_monitors (MonLocalJobBeginMsg( new_job_id, m->outfile, m->stime, ( *it )->hostid ) );
   }
-  return true;
-}
-
-static bool
-handle_local_job_end (MsgChannel *, Msg *_m)
-{
-  JobLocalDoneMsg *m = dynamic_cast<JobLocalDoneMsg *>(_m);
-  if (!m)
-    return false;
-
-  notify_monitors ( MonLocalJobDoneMsg( m->job_id ) );
   return true;
 }
 
@@ -950,7 +934,7 @@ empty_queue()
     {
 #if DEBUG_SCHEDULER >= 0
       trace() << "put " << job->id << " in joblist of " << cs->nodename;
-      if (!gotit) 
+      if (!gotit)
 	trace() << " (will install now)";
       trace() << endl;
 #endif
@@ -1080,7 +1064,7 @@ handle_job_begin (MsgChannel *c, Msg *_m)
   CS *cs = dynamic_cast<CS*>( c );
   notify_monitors (MonJobBeginMsg (m->job_id, m->stime, cs->hostid));
 #if DEBUG_SCHEDULER >= 0
-  trace() << "BEGIN: " << m->job_id << " client=" << job->submitter->nodename << "(" << job->target_platform 
+  trace() << "BEGIN: " << m->job_id << " client=" << job->submitter->nodename << "(" << job->target_platform
           << ")" << " server=" << job->server->nodename << "(" << job->server->host_platform << ")" << endl;
 #endif
 
@@ -1555,7 +1539,6 @@ handle_activity (MsgChannel *c)
     case M_END: handle_end (c, m); ret = false; break;
     case M_TIMEOUT: ret = handle_timeout (c, m); break;
     case M_JOB_LOCAL_BEGIN: ret = handle_local_job (c, m); break;
-    case M_JOB_LOCAL_DONE: ret = handle_local_job_end (c, m); break;
     case M_LOGIN: ret = handle_relogin (c, m); break;
     case M_TEXT: ret = handle_line (c, m); break;
     default:

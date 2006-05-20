@@ -177,11 +177,12 @@ int main(int argc, char **argv)
        to do and kill that child when we're done. This way we can start right away with the
        action without any round trip delays and the scheduler can tell the monitors anyway
     */
+#warning this is no longer working
     if ( local ) {
         pid = fork();
         if ( pid ) { // do your job and kill the rest
             struct rusage ru;
-            int ret = build_local( job, &ru );
+            int ret = build_local( job, 0, &ru );
             int status;
             if ( waitpid( pid, &status, WNOHANG ) != pid && errno != ECHILD)
                 kill( pid, SIGTERM );
@@ -192,22 +193,9 @@ int main(int argc, char **argv)
     MsgChannel *local_daemon = Service::createChannel( "127.0.0.1", 10245, 0); // 0 == no timeout
     if ( ! local_daemon ) {
         log_warning() << "no local daemon found\n";
-        delete local_daemon;
-        return local || build_local( job );
-    }
-    if ( !local_daemon->send_msg( GetSchedulerMsg( getenv( "ICECC_VERSION" ) == 0 && !local) ) ) {
-        log_warning() << "failed to write get scheduler\n";
-        delete local_daemon;
-        return local || build_local( job );
+        return local || build_local( job, 0 );
     }
 
-    // the timeout is high because it creates the native version
-    Msg *umsg = local_daemon->get_msg(4 * 60);
-    if ( !umsg || umsg->type != M_USE_SCHEDULER ) {
-        delete local_daemon;
-        return local || build_local( job );
-    }
-    UseSchedulerMsg *ucs = dynamic_cast<UseSchedulerMsg*>( umsg );
     Environments envs;
 
     if ( !local ) {
@@ -218,11 +206,29 @@ int main(int argc, char **argv)
                 // we just build locally
             }
         } else {
+            if ( !local_daemon->send_msg( GetNativeEnvMsg() ) ) {
+                log_warning() << "failed to write get native environment\n";
+                delete local_daemon;
+                return local || build_local( job, 0 );
+            }
+
+            // the timeout is high because it creates the native version
+            Msg *umsg = local_daemon->get_msg(4 * 60);
+            if ( !umsg || umsg->type != M_NATIVE_ENV ) {
+                delete local_daemon;
+                return local || build_local( job, 0 );
+            }
+            UseNativeEnvMsg *ucs = dynamic_cast<UseNativeEnvMsg*>( umsg );
+
             string native = ucs->nativeVersion;
             if ( native.empty() || ::access( native.c_str(), R_OK ) ) {
                 log_warning() << "$ICECC_VERSION has to point to an existing file to be installed - as the local daemon didn't know any we try local." << endl;
             } else
                 envs.push_back(make_pair( job.targetPlatform(), native ) );
+
+            log_info() << "native " << native << endl;
+
+            delete umsg;
         }
     }
 
@@ -238,42 +244,28 @@ int main(int argc, char **argv)
 
     if ( error ) {
         delete local_daemon;
-        delete ucs;
-        return local || build_local( job );
+        return local || build_local( job, 0 );
     }
-
-    trace() << "contacting scheduler " << ucs->hostname << ":" << ucs->port << endl;
-
-    delete local_daemon;
-
-    MsgChannel *scheduler = Service::createChannel( ucs->hostname, ucs->port, 0 ); // 0 == no time out
-    if ( ! scheduler ) {
-        log_warning() << "no scheduler found at " << ucs->hostname << ":" << ucs->port << endl;
-        delete scheduler;
-	delete ucs;
-        return local || build_local( job );
-    }
-
-    delete ucs;
 
     if ( local ) {
-        scheduler->send_msg( JobLocalBeginMsg( get_absfilename( job.outputFile() )) );
-        sleep( 30 * 60 ); // wait for the kill by parent - without killing the scheduler connection ;/
-        delete scheduler;
+        local_daemon->send_msg( JobLocalBeginMsg( get_absfilename( job.outputFile() )) );
+        sleep( 30 * 60 ); // wait for the kill by parent - without killing the local_domain connection ;/
+        delete local_daemon;
         return 0;
     }
 
     int ret;
     try {
-        // by default every 100th is compiled three times
+        // check if it should be compiled three times
         const char *s = getenv( "ICECC_REPEAT_RATE" );
         int rate = s ? atoi( s ) : 0;
-        ret = build_remote( job, scheduler, envs, rate);
+        ret = build_remote( job, local_daemon, envs, rate);
     } catch ( int error ) {
-        delete scheduler;
-        return build_local( job );
+        delete local_daemon;
+        fprintf( stderr, "got exception %d (this should be an exception!)\n", error );
+        return build_local( job, 0 );
     }
-    scheduler->send_msg (EndMsg());
-    delete scheduler;
+    local_daemon->send_msg (EndMsg());
+    delete local_daemon;
     return ret;
 }

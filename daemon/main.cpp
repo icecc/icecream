@@ -84,6 +84,10 @@ const int PORT = 10245;
 
 using namespace std;
 
+typedef pair<CompileJob*, MsgChannel*> Compile_Request;
+// the pidmap maps the PID to the socket to the server child
+typedef map<pid_t, int> Pidmap;
+
 int set_cloexec_flag (int desc, int value)
 {
     int oldflags = fcntl (desc, F_GETFD, 0);
@@ -325,20 +329,325 @@ void fill_msg(int fd, JobDoneMsg *msg)
     }
 }
 
+struct Daemon
+{
+    queue<Compile_Request> requests;
+    map<pid_t, JobDoneMsg*> jobmap;
+    map<pid_t, string> envmap;
+    Pidmap pidmap;
+    map<string, time_t> envs_last_use;
+    string native_environment;
+    string envbasedir;
+    uid_t nobody_uid;
+    int listen_fd;
+    string machine_name;
+    string nodename;
+
+    Daemon() {
+        envbasedir = "/tmp/icecc-envs";
+        nobody_uid = 65534;
+        listen_fd = -1;
+    }
+    int answer_client_requests();
+};
+
+int Daemon::answer_client_requests()
+{
+    int acc_fd;
+    struct sockaddr cli_addr;
+    socklen_t cli_len;
+
+    if ( requests.size() + current_kids )
+    {
+        log_info() << "requests " << requests.size() << " "
+                   << current_kids << " (" << max_kids << ")\n";
+    }
+
+    size_t cache_size = 0;
+
+    const int max_count = 0; // DEBUG
+    int count = 0; // DEBUG
+
+    if ( !requests.empty() && current_kids < max_kids ) {
+        Compile_Request req = requests.front();
+        requests.pop();
+        CompileJob *job = req.first;
+        int sock = -1;
+        pid_t pid = -1;
+
+        if ( job->environmentVersion() == "__client" ) {
+            int sockets[2];
+            if (pipe(sockets)) {
+                log_error() << "pipe can't be created " << strerror( errno ) << endl;
+                exit( 1 );
+            }
+            sock = sockets[0];
+            // if the client compiles, we fork off right away
+            pid = fork();
+            if ( pid == 0 )
+            {
+                close( sockets[0] );
+                Msg *msg = req.second->get_msg(12 * 60); // wait forever
+                if ( !msg )
+                    ::exit( 1 );
+                if ( msg->type != M_JOB_DONE )
+                    ::exit( 0 ); // without further notice
+                JobDoneMsg *jdmsg = static_cast<JobDoneMsg*>( msg );
+                unsigned int dummy = 0;
+                write( sockets[1], &dummy, sizeof( unsigned int ) ); // in_compressed
+                write( sockets[1], &dummy, sizeof( unsigned int ) ); // in_uncompressed
+                write( sockets[1], &dummy, sizeof( unsigned int ) ); // out_compressed
+                write( sockets[1], &jdmsg->out_uncompressed, sizeof( unsigned int ) );
+                write( sockets[1], &jdmsg->real_msec, sizeof( unsigned int ) );
+                // the rest are additional information for client jobs
+                write( sockets[1], &jdmsg->job_id, sizeof( unsigned int ) );
+                write( sockets[1], &jdmsg->user_msec, sizeof( unsigned int ) );
+                write( sockets[1], &jdmsg->sys_msec, sizeof( unsigned int ) );
+                write( sockets[1], &jdmsg->pfaults, sizeof( unsigned int ) );
+                ::exit( jdmsg->exitcode );
+            } else
+                close( sockets[1] );
+        } else {
+            string envforjob = job->targetPlatform() + "/" + job->environmentVersion();
+            envs_last_use[envforjob] = time( NULL );
+            pid = handle_connection( envbasedir, req.first, req.second, sock, mem_limit, nobody_uid );
+            envmap[pid] = envforjob;
+        }
+
+        if ( pid > 0) { // forks away
+            current_kids++;
+            if ( !scheduler || !scheduler->send_msg( JobBeginMsg( job->jobID() ) ) ) {
+                log_warning() << "can't reach scheduler to tell him about job start of "
+                              << job->jobID() << endl;
+                delete req.first;
+                delete req.second;
+                return 2;
+            }
+            jobmap[pid] = new JobDoneMsg;
+            jobmap[pid]->job_id = job->jobID();
+            if ( sock > -1 )
+                pidmap[pid] = sock;
+        }
+        delete req.first;
+        delete req.second;
+    }
+    struct rusage ru;
+    int status;
+    pid_t child = wait3(&status, WNOHANG, &ru);
+    if ( child > 0 ) {
+        JobDoneMsg *msg = jobmap[child];
+        if ( msg )
+            current_kids--;
+        else
+            log_error() << "catched child pid " << child << " not in my map\n";
+        jobmap.erase( child );
+        Pidmap::iterator pid_it = pidmap.find( child );
+        if ( pid_it != pidmap.end() ) {
+            fill_msg( pid_it->second, msg );
+            close( pid_it->second );
+            pidmap.erase( pid_it );
+        }
+        if ( msg && scheduler ) {
+            msg->exitcode = WEXITSTATUS( status );
+            if ( !msg->user_msec ) { // if not already set
+                msg->user_msec = ru.ru_utime.tv_sec * 1000 + ru.ru_utime.tv_usec / 1000;
+                msg->sys_msec = ru.ru_stime.tv_sec * 1000 + ru.ru_stime.tv_usec / 1000;
+                msg->pfaults = ru.ru_majflt + ru.ru_nswap + ru.ru_minflt;
+            }
+            scheduler->send_msg( *msg );
+        }
+        envs_last_use[envmap[child]] = time( NULL );
+        envmap.erase(child);
+        delete msg;
+        return 0;
+    }
+
+    if ( !maybe_stats() ) {
+        log_error() << "lost connection to scheduler. Trying again.\n";
+        delete scheduler;
+        scheduler = 0;
+        return 2;
+    }
+
+    fd_set listen_set;
+    struct timeval tv;
+
+    FD_ZERO( &listen_set );
+    FD_SET( listen_fd, &listen_set );
+    int max_fd = listen_fd;
+
+    for ( Pidmap::const_iterator it = pidmap.begin(); it != pidmap.end(); ++it ) {
+        FD_SET( it->second, &listen_set );
+        if ( max_fd < it->second )
+            max_fd = it->second;
+    }
+
+    FD_SET( scheduler->fd, &listen_set );
+    if ( max_fd < scheduler->fd )
+        max_fd = scheduler->fd;
+
+    tv.tv_sec = 0;
+    tv.tv_usec = 400000;
+
+    int ret = select (max_fd + 1, &listen_set, NULL, NULL, &tv);
+    if ( ret == -1 && errno != EINTR )
+        log_perror( "select" );
+
+    if ( ret > 0 ) {
+        if ( FD_ISSET( scheduler->fd, &listen_set ) ) {
+            Msg *msg = scheduler->get_msg();
+            if ( !msg ) {
+                log_error() << "no message from scheduler\n";
+                delete scheduler;
+                scheduler = 0;
+                return 1;
+            } else {
+                if ( msg->type == M_PING ) {
+                    if ( !maybe_stats(true) ) {
+                        delete scheduler;
+                        scheduler = 0;
+                        return 1;
+                    }
+                } else
+                    log_error() << "unknown scheduler type " << ( char )msg->type << endl;
+            }
+            return 0;
+        }
+
+        if ( FD_ISSET( listen_fd, &listen_set ) ) {
+            cli_len = sizeof cli_addr;
+            acc_fd = accept(listen_fd, &cli_addr, &cli_len);
+            if (acc_fd == -1 && errno != EINTR) {
+                log_perror("accept failed:");
+                return EXIT_CONNECT_FAILED;
+            } else {
+                MsgChannel *c = Service::createChannel( acc_fd, (struct sockaddr*) &cli_addr, cli_len );
+                if ( !c )
+                    return 0;
+
+                Msg *msg = c->get_msg();
+                if ( !msg ) {
+                    log_error() << "no message?\n";
+                } else {
+                    log_warning() << "msg " << ( char )msg->type << endl;
+                    if ( msg->type == M_GET_NATIVE_ENV ) {
+                        if ( !native_environment.length() ) {
+                            size_t installed_size = setup_env_cache( envbasedir, native_environment, nobody_uid );
+                            // we only clean out cache on next target install
+                            cache_size += installed_size;
+                            if ( ! installed_size ) {
+                                c->send_msg( EndMsg() );
+                                delete scheduler;
+                                return 1;
+                            }
+                            UseNativeEnvMsg m( native_environment );
+                            c->send_msg( m );
+                        } else {
+                            c->send_msg( EndMsg() );
+                        }
+                    } else if ( msg->type == M_COMPILE_FILE ) {
+                        CompileJob *job = dynamic_cast<CompileFileMsg*>( msg )->takeJob();
+                        requests.push( make_pair( job, c ));
+                        c = 0; // forget you saw him
+                    } else if ( msg->type == M_TRANFER_ENV ) {
+                        EnvTransferMsg *emsg = dynamic_cast<EnvTransferMsg*>( msg );
+                        string target = emsg->target;
+                        if ( target.empty() )
+                            target =  machine_name;
+                        size_t installed_size = install_environment( envbasedir, emsg->target, emsg->name, c, nobody_uid );
+                        if (!installed_size) {
+                            trace() << "install environment failed" << endl;
+                            c->send_msg(EndMsg()); // shut up, we had an error
+                            reannounce_environments(envbasedir, nodename);
+                        } else {
+                            cache_size += installed_size;
+                            string current = emsg->target + "/" + emsg->name;
+                            envs_last_use[current] = time( NULL );
+                            trace() << "installed " << emsg->name << " size: " << installed_size
+                                    << " all: " << cache_size << endl;
+
+                            time_t now = time( NULL );
+                            while ( cache_size > cache_size_limit )
+                            {
+                                string oldest;
+                                // I don't dare to use (time_t)-1
+                                time_t oldest_time = time( NULL ) + 90000;
+                                for ( map<string, time_t>::const_iterator it = envs_last_use.begin();
+                                      it != envs_last_use.end(); ++it ) {
+                                    trace() << "das ist jetzt so: " << it->first << " " << it->second << " " << oldest_time << endl;
+                                    // ignore recently used envs (they might be in use _right_ now
+                                    if ( it->second < oldest_time && now - it->second < 100 ) {
+                                        bool found = false;
+                                        for (map<pid_t,string>::const_iterator it2 = envmap.begin(); it2 != envmap.end(); ++it2)
+                                            if (it2->second == it->first)
+                                                found = true;
+                                        if (!found)
+                                        {
+                                            oldest_time = it->second;
+                                            oldest = it->first;
+                                        }
+                                    }
+                                }
+                                if ( oldest.empty() || oldest == current )
+                                    break;
+                                cache_size -= min( remove_environment( envbasedir, oldest, nobody_uid ), cache_size );
+                                envs_last_use.erase( oldest );
+                            }
+
+                            reannounce_environments(envbasedir, nodename); // do that before the file compiles
+                            delete msg;
+                            msg = c->get_msg();
+                            if ( msg->type == M_COMPILE_FILE ) { // we sure hope so
+                                CompileJob *job = dynamic_cast<CompileFileMsg*>( msg )->takeJob();
+                                requests.push( make_pair( job, c ));
+                                c = 0; // forget you saw him
+                            } else {
+                                log_error() << "not compile file\n";
+                            }
+                        }
+                    } else
+                        log_error() << "not compile: " << ( char )msg->type << endl;
+                    delete msg;
+                }
+                delete c;
+
+                if ( max_count && ++count > max_count ) {
+                    cout << "I'm closing now. Hoping you used valgrind! :)\n";
+                    exit( 0 );
+                }
+            }
+        } else {
+            for ( Pidmap::iterator it = pidmap.begin(); it != pidmap.end(); ++it ) {
+                if ( FD_ISSET( it->second, &listen_set ) ) {
+                    JobDoneMsg *msg = jobmap[it->first];
+                    if ( msg )
+                    {
+                        fill_msg( it->second, msg );
+                        close( it->second );
+                        pidmap.erase( it );
+                        break;
+                    }
+                }
+            }
+        }
+    }
+    return 0;
+}
+
+
 int main( int argc, char ** argv )
 {
     int max_processes = -1;
 
+    Daemon d;
     string netname;
-    string envbasedir = "/tmp/icecc-envs";
+
     int debug_level = Error;
     string logfile;
     bool detach = false;
     nice_level = 5; // defined in serve.h
-    string nodename;
     string schedname;
     bool runasuser = false;
-    uid_t nobody_uid = 65534;
 
     gettimeofday( &last_stat, 0 );
     last_sent = last_stat;
@@ -379,7 +688,7 @@ int main( int argc, char ** argv )
                            usage("Error: --nice requires argument");
                    } else if ( optname == "name" ) {
                        if ( optarg && *optarg )
-                           nodename = optarg;
+                           d.nodename = optarg;
                        else
                            usage("Error: --name requires argument");
                    } else if ( optname == "cache-limit" ) {
@@ -400,7 +709,7 @@ int main( int argc, char ** argv )
                 break;
 	    case 'N':
 		if ( optarg && *optarg )
-		    nodename = optarg;
+		    d.nodename = optarg;
 		else
                     usage("Error: -N requires argument");
 		break;
@@ -439,7 +748,7 @@ int main( int argc, char ** argv )
                 break;
             case 'b':
                 if ( optarg && *optarg )
-                    envbasedir = optarg;
+                    d.envbasedir = optarg;
                 break;
             case 'r':
                 runasuser = true;
@@ -451,7 +760,7 @@ int main( int argc, char ** argv )
                     if ( !pw ) {
                         usage( "Error: -u requires a valid username" );
                     } else
-                        nobody_uid = pw->pw_uid;
+                        d.nobody_uid = pw->pw_uid;
                 } else
                     usage( "Error: -u requires a valid username" );
                 break;
@@ -480,8 +789,10 @@ int main( int argc, char ** argv )
         return 1;
     }
 
-    if ( !nodename.length() )
-        nodename = uname_buf.nodename;
+    if ( !d.nodename.length() )
+        d.nodename = uname_buf.nodename;
+
+    d.machine_name = uname_buf.machine;
 
     chdir( "/" );
 
@@ -532,20 +843,7 @@ int main( int argc, char ** argv )
      * not.  */
     dcc_master_pid = getpid();
 
-    const int max_count = 0; // DEBUG
-    int count = 0; // DEBUG
-    typedef pair<CompileJob*, MsgChannel*> Compile_Request;
-    queue<Compile_Request> requests;
-    map<pid_t, JobDoneMsg*> jobmap;
-    map<pid_t, string> envmap;
-    // the pidmap maps the PID to the socket to the server child
-    typedef map<pid_t, int> Pidmap;
-    Pidmap pidmap;
-
-    size_t cache_size = 0;
-    map<string, time_t> envs_last_use;
-    string native_environment;
-    if ( !cleanup_cache( envbasedir, nobody_uid ) )
+    if ( !cleanup_cache( d.envbasedir, d.nobody_uid ) )
         return 1;
 
     list<string> nl = get_netnames (200);
@@ -553,15 +851,14 @@ int main( int argc, char ** argv )
     for (list<string>::const_iterator it = nl.begin(); it != nl.end(); ++it)
       trace() << *it << endl;
 
-    int listen_fd = -1;
     int tosleep = 0;
 
     while ( 1 ) {
-        if ( listen_fd > -1 ) {
+        if ( d.listen_fd > -1 ) {
             // as long as we have no scheduler, don't listen for clients
-            shutdown( listen_fd, SHUT_RDWR ); // Dirk's suggestion
-            close( listen_fd );
-            listen_fd = -1;
+            shutdown( d.listen_fd, SHUT_RDWR ); // Dirk's suggestion
+            close( d.listen_fd );
+            d.listen_fd = -1;
         }
 
         if ( tosleep )
@@ -571,10 +868,10 @@ int main( int argc, char ** argv )
 
         if ( !scheduler ) {
 
-            while ( !requests.empty() )
+            while ( !d.requests.empty() )
             {
-                Compile_Request req = requests.front();
-                requests.pop();
+                Compile_Request req = d.requests.front();
+                d.requests.pop();
                 delete req.first;
                 delete req.second;
             }
@@ -586,17 +883,17 @@ int main( int argc, char ** argv )
                 current_kids--;
                 if ( child > 0 )
                 {
-                    jobmap.erase( child );
-                    Pidmap::iterator pid_it = pidmap.find( child );
-                    if ( pid_it != pidmap.end() ) {
+                    d.jobmap.erase( child );
+                    Pidmap::iterator pid_it = d.pidmap.find( child );
+                    if ( pid_it != d.pidmap.end() ) {
                         close( pid_it->second );
-                        pidmap.erase( pid_it );
+                        d.pidmap.erase( pid_it );
                     }
                 }
             }
 
-            jobmap.clear();
-            pidmap.clear();
+            d.jobmap.clear();
+            d.pidmap.clear();
 
             trace() << "connect_scheduler\n";
             scheduler = connect_scheduler (netname, 2000, schedname);
@@ -607,300 +904,19 @@ int main( int argc, char ** argv )
             }
         }
 
-        listen_fd = setup_listen_fd();
-        if ( listen_fd == -1 ) // error
+        d.listen_fd = setup_listen_fd();
+        if ( d.listen_fd == -1 ) // error
             return 1;
 
         trace() << "login as " << uname_buf.machine << endl;
-        LoginMsg lmsg( PORT, nodename, uname_buf.machine );
-        lmsg.envs = available_environmnents(envbasedir);
+        LoginMsg lmsg( PORT, d.nodename, d.machine_name );
+        lmsg.envs = available_environmnents(d.envbasedir);
         lmsg.max_kids = max_kids;
         scheduler->send_msg( lmsg );
 
-        while (1) {
-            int acc_fd;
-            struct sockaddr cli_addr;
-            socklen_t cli_len;
+        while (true)
+            d.answer_client_requests();
 
-            if ( requests.size() + current_kids )
-            {
-                log_info() << "requests " << requests.size() << " "
-                           << current_kids << " (" << max_kids << ")\n";
-            }
-
-            if ( !requests.empty() && current_kids < max_kids ) {
-                Compile_Request req = requests.front();
-                requests.pop();
-                CompileJob *job = req.first;
-                int sock = -1;
-                pid_t pid = -1;
-
-                if ( job->environmentVersion() == "__client" ) {
-                    int sockets[2];
-                    if (pipe(sockets)) {
-                        log_error() << "pipe can't be created " << strerror( errno ) << endl;
-                        exit( 1 );
-                    }
-                    sock = sockets[0];
-                    // if the client compiles, we fork off right away
-                    pid = fork();
-                    if ( pid == 0 )
-                    {
-                        close( sockets[0] );
-                        Msg *msg = req.second->get_msg(12 * 60); // wait forever
-                        if ( !msg )
-                            ::exit( 1 );
-                        if ( msg->type != M_JOB_DONE )
-                            ::exit( 0 ); // without further notice
-                        JobDoneMsg *jdmsg = static_cast<JobDoneMsg*>( msg );
-                        unsigned int dummy = 0;
-                        write( sockets[1], &dummy, sizeof( unsigned int ) ); // in_compressed
-                        write( sockets[1], &dummy, sizeof( unsigned int ) ); // in_uncompressed
-                        write( sockets[1], &dummy, sizeof( unsigned int ) ); // out_compressed
-                        write( sockets[1], &jdmsg->out_uncompressed, sizeof( unsigned int ) );
-                        write( sockets[1], &jdmsg->real_msec, sizeof( unsigned int ) );
-                        // the rest are additional information for client jobs
-                        write( sockets[1], &jdmsg->job_id, sizeof( unsigned int ) );
-                        write( sockets[1], &jdmsg->user_msec, sizeof( unsigned int ) );
-                        write( sockets[1], &jdmsg->sys_msec, sizeof( unsigned int ) );
-                        write( sockets[1], &jdmsg->pfaults, sizeof( unsigned int ) );
-                        ::exit( jdmsg->exitcode );
-                    } else
-                        close( sockets[1] );
-                } else {
-                    string envforjob = job->targetPlatform() + "/" + job->environmentVersion();
-                    envs_last_use[envforjob] = time( NULL );
-                    pid = handle_connection( envbasedir, req.first, req.second, sock, mem_limit, nobody_uid );
-		    envmap[pid] = envforjob;
-                }
-
-                if ( pid > 0) { // forks away
-                    current_kids++;
-                    if ( !scheduler || !scheduler->send_msg( JobBeginMsg( job->jobID() ) ) ) {
-                        log_warning() << "can't reach scheduler to tell him about job start of "
-                                    << job->jobID() << endl;
-                        tosleep = 2;
-                        delete req.first;
-                        delete req.second;
-                        break;
-                    }
-                    jobmap[pid] = new JobDoneMsg;
-                    jobmap[pid]->job_id = job->jobID();
-                    if ( sock > -1 )
-                        pidmap[pid] = sock;
-                }
-                delete req.first;
-                delete req.second;
-            }
-            struct rusage ru;
-            int status;
-            pid_t child = wait3(&status, WNOHANG, &ru);
-            if ( child > 0 ) {
-                JobDoneMsg *msg = jobmap[child];
-                if ( msg )
-                    current_kids--;
-                else
-                    log_error() << "catched child pid " << child << " not in my map\n";
-                jobmap.erase( child );
-                Pidmap::iterator pid_it = pidmap.find( child );
-                if ( pid_it != pidmap.end() ) {
-                    fill_msg( pid_it->second, msg );
-                    close( pid_it->second );
-                    pidmap.erase( pid_it );
-                }
-                if ( msg && scheduler ) {
-                    msg->exitcode = WEXITSTATUS( status );
-                    if ( !msg->user_msec ) { // if not already set
-                        msg->user_msec = ru.ru_utime.tv_sec * 1000 + ru.ru_utime.tv_usec / 1000;
-                        msg->sys_msec = ru.ru_stime.tv_sec * 1000 + ru.ru_stime.tv_usec / 1000;
-                        msg->pfaults = ru.ru_majflt + ru.ru_nswap + ru.ru_minflt;
-                    }
-                    scheduler->send_msg( *msg );
-                }
-		envs_last_use[envmap[child]] = time( NULL );
-		envmap.erase(child);
-                delete msg;
-                continue;
-            }
-
-            if ( !maybe_stats() ) {
-                log_error() << "lost connection to scheduler. Trying again.\n";
-                delete scheduler;
-                scheduler = 0;
-                tosleep = 2;
-                break;
-            }
-
-
-            fd_set listen_set;
-            struct timeval tv;
-
-            FD_ZERO( &listen_set );
-            FD_SET( listen_fd, &listen_set );
-            int max_fd = listen_fd;
-
-            for ( Pidmap::const_iterator it = pidmap.begin(); it != pidmap.end(); ++it ) {
-                FD_SET( it->second, &listen_set );
-                if ( max_fd < it->second )
-                    max_fd = it->second;
-            }
-
-            FD_SET( scheduler->fd, &listen_set );
-            if ( max_fd < scheduler->fd )
-                max_fd = scheduler->fd;
-
-            tv.tv_sec = 0;
-            tv.tv_usec = 400000;
-
-            ret = select (max_fd + 1, &listen_set, NULL, NULL, &tv);
-            if ( ret == -1 && errno != EINTR )
-                log_perror( "select" );
-
-            if ( ret > 0 ) {
-                if ( FD_ISSET( scheduler->fd, &listen_set ) ) {
-                    Msg *msg = scheduler->get_msg();
-                    if ( !msg ) {
-                        log_error() << "no message from scheduler\n";
-                        delete scheduler;
-                        scheduler = 0;
-                        tosleep = 1;
-                        break;
-                     } else {
-                        if ( msg->type == M_PING ) {
-                            if ( !maybe_stats(true) ) {
-                                delete scheduler;
-                                scheduler = 0;
-                                tosleep = 1;
-                                break;
-                            }
-                        } else
-                            log_error() << "unknown scheduler type " << ( char )msg->type << endl;
-                    }
-                    continue;
-                }
-
-                if ( FD_ISSET( listen_fd, &listen_set ) ) {
-                    cli_len = sizeof cli_addr;
-                    acc_fd = accept(listen_fd, &cli_addr, &cli_len);
-                    if (acc_fd == -1 && errno != EINTR) {
-                        log_perror("accept failed:");
-                        return EXIT_CONNECT_FAILED;
-                    } else {
-                        MsgChannel *c = Service::createChannel( acc_fd, (struct sockaddr*) &cli_addr, cli_len );
-                        if ( !c )
-                            continue;
-
-                        Msg *msg = c->get_msg();
-                        if ( !msg ) {
-                            log_error() << "no message?\n";
-                        } else {
-                            if ( msg->type == M_GET_SCHEDULER ) {
-                                GetSchedulerMsg *gsm = dynamic_cast<GetSchedulerMsg*>( msg );
-                                if ( scheduler && gsm ) {
-                                    if ( gsm->wants_native && !native_environment.length() ) {
-                                        size_t installed_size = setup_env_cache( envbasedir, native_environment, nobody_uid );
-                                        // we only clean out cache on next target install
-                                        cache_size += installed_size;
-                                        if ( ! installed_size ) {
-                                            c->send_msg( EndMsg() );
-                                            delete scheduler;
-                                            return 1;
-                                        }
-                                    }
-                                    UseSchedulerMsg m( scheduler->name,
-                                                       scheduler->port,
-                                                       native_environment );
-                                    c->send_msg( m );
-                                } else {
-                                    c->send_msg( EndMsg() );
-                                }
-                            } else if ( msg->type == M_COMPILE_FILE ) {
-                                CompileJob *job = dynamic_cast<CompileFileMsg*>( msg )->takeJob();
-                                requests.push( make_pair( job, c ));
-                                c = 0; // forget you saw him
-                            } else if ( msg->type == M_TRANFER_ENV ) {
-                                EnvTransferMsg *emsg = dynamic_cast<EnvTransferMsg*>( msg );
-                                string target = emsg->target;
-                                if ( target.empty() )
-                                    target =  uname_buf.machine;
-                                size_t installed_size = install_environment( envbasedir, emsg->target, emsg->name, c, nobody_uid );
-                                if (!installed_size) {
-                                    trace() << "install environment failed" << endl;
-                                    c->send_msg(EndMsg()); // shut up, we had an error
-                                    reannounce_environments(envbasedir, nodename);
-				} else {
-                                    cache_size += installed_size;
-                                    string current = emsg->target + "/" + emsg->name;
-                                    envs_last_use[current] = time( NULL );
-                                    trace() << "installed " << emsg->name << " size: " << installed_size
-                                            << " all: " << cache_size << endl;
-
-				    time_t now = time( NULL );
-                                    while ( cache_size > cache_size_limit ) 
-                                     {
-                                        string oldest;
-                                        // I don't dare to use (time_t)-1
-                                        time_t oldest_time = time( NULL ) + 90000;
-                                        for ( map<string, time_t>::const_iterator it = envs_last_use.begin();
-                                              it != envs_last_use.end(); ++it ) {
-                                            trace() << "das ist jetzt so: " << it->first << " " << it->second << " " << oldest_time << endl;
-					    // ignore recently used envs (they might be in use _right_ now
-                                            if ( it->second < oldest_time && now - it->second < 100 ) {
-						bool found = false;
-						for (map<pid_t,string>::const_iterator it2 = envmap.begin(); it2 != envmap.end(); ++it2)
-							if (it2->second == it->first)
-								found = true;
-						if (!found) 
-						  {
-                                                    oldest_time = it->second;
-                                                    oldest = it->first;
-						  }
-                                            }
-                                        }
-                                        if ( oldest.empty() || oldest == current )
-                                            break;
-                                        cache_size -= min( remove_environment( envbasedir, oldest, nobody_uid ), cache_size );
-                                        envs_last_use.erase( oldest );
-                                    }
-
-                                    reannounce_environments(envbasedir, nodename); // do that before the file compiles
-                                    delete msg;
-                                    msg = c->get_msg();
-                                    if ( msg->type == M_COMPILE_FILE ) { // we sure hope so
-                                        CompileJob *job = dynamic_cast<CompileFileMsg*>( msg )->takeJob();
-                                        requests.push( make_pair( job, c ));
-                                        c = 0; // forget you saw him
-                                    } else {
-                                        log_error() << "not compile file\n";
-                                    }
-                                }
-                            } else
-                                log_error() << "not compile: " << ( char )msg->type << endl;
-                            delete msg;
-                        }
-                        delete c;
-
-                        if ( max_count && ++count > max_count ) {
-                            cout << "I'm closing now. Hoping you used valgrind! :)\n";
-                            exit( 0 );
-                        }
-                    }
-                } else {
-                    for ( Pidmap::iterator it = pidmap.begin(); it != pidmap.end(); ++it ) {
-                        if ( FD_ISSET( it->second, &listen_set ) ) {
-                            JobDoneMsg *msg = jobmap[it->first];
-                            if ( msg )
-                            {
-                                fill_msg( it->second, msg );
-                                close( it->second );
-                                pidmap.erase( it );
-                                break;
-                            }
-                        }
-                    }
-                }
-            }
-        }
         delete scheduler;
         scheduler = 0;
     }
