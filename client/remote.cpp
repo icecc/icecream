@@ -180,7 +180,6 @@ static UseCSMsg *get_server( MsgChannel *scheduler )
         throw( 1 );
     }
     UseCSMsg *usecs = dynamic_cast<UseCSMsg *>(umsg);
-    trace() << "got CS " << usecs->hostname << endl;
     return usecs;
 }
 
@@ -458,17 +457,12 @@ maybe_build_local (MsgChannel *scheduler, UseCSMsg *usecs, CompileJob &job,
 {
     if ( usecs->hostname == "127.0.0.1" ) {
         trace() << "building myself, but telling localhost\n";
-        unsigned int port = usecs->port;
         int job_id = usecs->job_id;
         job.setJobID( job_id );
-        MsgChannel *cserver = Service::createChannel( "127.0.0.1", port, 0 ); // 0 == no time out
-        if ( !cserver ) // very unlikely as we talked before with him
-            throw ( 2 );
+        job.setEnvironmentVersion( "__client" );
         CompileFileMsg compile_file( &job );
-        if ( !cserver->send_msg( compile_file ) ) {
+        if ( !scheduler->send_msg( compile_file ) ) {
             log_info() << "write of job failed" << endl;
-            delete cserver;
-            cserver = 0;
             throw( 9 );
         }
         struct timeval begintv,  endtv;
@@ -490,8 +484,7 @@ maybe_build_local (MsgChannel *scheduler, UseCSMsg *usecs, CompileJob &job,
         msg.pfaults = ru.ru_majflt + ru.ru_minflt + ru.ru_nswap ;
         msg.exitcode = ret;
 
-        cserver->send_msg( msg );
-        delete cserver;
+        scheduler->send_msg( msg );
         return true;
     }
     return false;

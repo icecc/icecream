@@ -287,7 +287,7 @@ bool maybe_stats(bool force = false) {
         if ( realLoad > 800 )
             msg.load = 1000;
 
-        trace() << "load load=" << realLoad << " mem=" << memory_fillgrade << endl;
+        //trace() << "load load=" << realLoad << " mem=" << memory_fillgrade << endl;
 
         // Matz got in the urine that not all CPUs are always feed
         mem_limit = std::max( msg.freeMem / std::min( std::max( max_kids, 1 ), 4 ), 100U );
@@ -561,6 +561,14 @@ void Daemon::handle_end( MsgChannel *&c )
 {
     trace() << "handle_end " << c << endl;
     fd2chan.erase (c->fd);
+    for (map<int, MsgChannel *>::iterator it = pending_clients.begin();
+         it != pending_clients.end(); ++it) {
+        if ( it->second == c ) {
+            pending_clients.erase( it );
+            break;
+        }
+    }
+
     delete c;
     c = 0;
 }
@@ -571,7 +579,7 @@ void Daemon::clear_children()
         Compile_Request req = requests.front();
         requests.pop();
         delete req.first;
-        delete req.second;
+        handle_end( req.second );
     }
 
     while ( current_kids > 0 ) {
@@ -591,10 +599,9 @@ void Daemon::clear_children()
     jobmap.clear();
     pidmap.clear();
 
-    for (map<int, MsgChannel *>::iterator it = fd2chan.begin();
-         it != fd2chan.end(); ++it)  {
-        handle_end( it->second );
-    }
+    while ( !fd2chan.empty() )
+        handle_end( fd2chan.begin()->second );
+
     fd2chan.clear();
     new_client_id = 0;
     pending_clients.clear();
@@ -625,6 +632,7 @@ int Daemon::handle_activity( MsgChannel *&c )
         case M_COMPILE_FILE: compile_file( c, msg ); break;
         case M_TRANFER_ENV: transfer_env( c, msg ); break;
         case M_GET_CS: handle_get_cs( c, msg ); break;
+        case M_END: handle_end( c ); break;
         default:
             log_error() << "not compile: " << ( char )msg->type << endl;
             c->send_msg( EndMsg() );
@@ -715,19 +723,21 @@ int Daemon::answer_client_requests()
                 log_error() << "no message from scheduler\n";
                 return 1;
             } else {
+                int ret = 0;
                 switch ( msg->type )
                 {
                 case M_PING:
                     if ( !maybe_stats(true) )
-                        return 1;
+                        ret = 1;
                     break;
                 case M_USE_CS:
-                    return handle_use_cs( dynamic_cast<UseCSMsg*>( msg ) );
+                    ret = handle_use_cs( dynamic_cast<UseCSMsg*>( msg ) );
                 default:
                     log_error() << "unknown scheduler type " << ( char )msg->type << endl;
                 }
             }
-            return 0;
+            delete msg;
+            return ret;
         }
 
         if ( FD_ISSET( listen_fd, &listen_set ) ) {

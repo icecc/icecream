@@ -211,28 +211,28 @@ int main(int argc, char **argv)
 
             delete umsg;
         }
-    }
 
-    bool error = ( envs.size() == 0 );
-    for ( Environments::const_iterator it = envs.begin(); it != envs.end(); ++it ) {
-        trace() << "env: " << it->first << " '" << it->second << "'" << endl;
-        if ( ::access( it->second.c_str(), R_OK ) ) {
-            log_error() << "can't read environment " << it->second << endl;
-            error = true;
-            break;
+        bool error = ( envs.size() == 0 );
+        for ( Environments::const_iterator it = envs.begin(); it != envs.end(); ++it ) {
+            trace() << "env: " << it->first << " '" << it->second << "'" << endl;
+            if ( ::access( it->second.c_str(), R_OK ) ) {
+                log_error() << "can't read environment " << it->second << endl;
+                error = true;
+                break;
+            }
         }
-    }
 
-    if ( error ) {
-        delete local_daemon;
-        return local || build_local( job, 0 );
+        if ( error ) {
+            delete local_daemon;
+            return build_local( job, 0 );
+        }
     }
 
     int ret;
     if ( local ) {
         struct rusage ru;
         local_daemon->send_msg( JobLocalBeginMsg( get_absfilename( job.outputFile() )) );
-        ret = build_local( job, 0, &ru );
+        ret = build_local( job, local_daemon, &ru );
     } else {
         try {
             // check if it should be compiled three times
