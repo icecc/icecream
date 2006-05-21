@@ -343,6 +343,7 @@ struct Daemon
     string machine_name;
     string nodename;
     size_t cache_size;
+    map<int, MsgChannel *> fd2chan;
 
     Daemon() {
         envbasedir = "/tmp/icecc-envs";
@@ -352,6 +353,11 @@ struct Daemon
     int answer_client_requests();
     void transfer_env( MsgChannel *&c, Msg *msg );
     void get_native_env( MsgChannel *&c );
+    int handle_old_request();
+    void compile_file( MsgChannel *&c, Msg *msg );
+    int handle_activity( MsgChannel *&c );
+    void handle_end( MsgChannel *&c );
+    void clear_children();
 };
 
 void Daemon::transfer_env( MsgChannel *&c, Msg *msg )
@@ -413,6 +419,8 @@ void Daemon::transfer_env( MsgChannel *&c, Msg *msg )
 
 void Daemon::get_native_env( MsgChannel *&c )
 {
+    trace() << "get_native_env " << native_environment << endl;
+
     if ( !native_environment.length() ) {
         size_t installed_size = setup_env_cache( envbasedir, native_environment, nobody_uid );
         // we only clean out cache on next target install
@@ -421,30 +429,13 @@ void Daemon::get_native_env( MsgChannel *&c )
             c->send_msg( EndMsg() );
             throw( 1 );
         }
-        UseNativeEnvMsg m( native_environment );
-        c->send_msg( m );
-    } else {
-        c->send_msg( EndMsg() );
     }
+    UseNativeEnvMsg m( native_environment );
+    c->send_msg( m );
 }
 
-int Daemon::answer_client_requests()
+int Daemon::handle_old_request()
 {
-    int acc_fd;
-    struct sockaddr cli_addr;
-    socklen_t cli_len;
-
-    if ( requests.size() + current_kids )
-    {
-        log_info() << "requests " << requests.size() << " "
-                   << current_kids << " (" << max_kids << ")\n";
-    }
-
-    cache_size = 0;
-
-    const int max_count = 0; // DEBUG
-    int count = 0; // DEBUG
-
     if ( !requests.empty() && current_kids < max_kids ) {
         Compile_Request req = requests.front();
         requests.pop();
@@ -461,8 +452,7 @@ int Daemon::answer_client_requests()
             sock = sockets[0];
             // if the client compiles, we fork off right away
             pid = fork();
-            if ( pid == 0 )
-            {
+            if ( pid == 0 ) {
                 close( sockets[0] );
                 Msg *msg = req.second->get_msg(12 * 60); // wait forever
                 if ( !msg )
@@ -491,7 +481,7 @@ int Daemon::answer_client_requests()
             envmap[pid] = envforjob;
         }
 
-        if ( pid > 0) { // forks away
+        if ( pid > 0) { // forked away
             current_kids++;
             if ( !scheduler || !scheduler->send_msg( JobBeginMsg( job->jobID() ) ) ) {
                 log_warning() << "can't reach scheduler to tell him about job start of "
@@ -536,13 +526,107 @@ int Daemon::answer_client_requests()
         envs_last_use[envmap[child]] = time( NULL );
         envmap.erase(child);
         delete msg;
+    }
+    return 0;
+}
+
+void Daemon::compile_file( MsgChannel *&c, Msg *msg )
+{
+    CompileJob *job = dynamic_cast<CompileFileMsg*>( msg )->takeJob();
+    requests.push( make_pair( job, c ));
+    c = 0; // forget you saw him
+}
+
+void Daemon::handle_end( MsgChannel *&c )
+{
+    fd2chan.erase (c->fd);
+    delete c;
+    c = 0;
+}
+
+void Daemon::clear_children()
+{
+    while ( !requests.empty() ) {
+        Compile_Request req = requests.front();
+        requests.pop();
+        delete req.first;
+        delete req.second;
+    }
+
+    while ( current_kids > 0 ) {
+        int status;
+        pid_t child = wait(&status);
+        current_kids--;
+        if ( child > 0 ) {
+            jobmap.erase( child );
+            Pidmap::iterator pid_it = pidmap.find( child );
+            if ( pid_it != pidmap.end() ) {
+                close( pid_it->second );
+                pidmap.erase( pid_it );
+            }
+        }
+    }
+
+    jobmap.clear();
+    pidmap.clear();
+
+    for (map<int, MsgChannel *>::iterator it = fd2chan.begin();
+         it != fd2chan.end(); ++it)  {
+        handle_end( it->second );
+    }
+    fd2chan.clear();
+}
+
+int Daemon::handle_activity( MsgChannel *&c )
+{
+    Msg *msg = c->get_msg();
+    if ( !msg ) {
+        log_error() << "no message\n";
+        handle_end( c );
         return 0;
     }
+    try {
+        log_warning() << "msg " << ( char )msg->type << endl;
+        switch ( msg->type ) {
+        case M_GET_NATIVE_ENV: get_native_env( c ); break;
+        case M_COMPILE_FILE: compile_file( c, msg ); break;
+        case M_TRANFER_ENV: transfer_env( c, msg ); break;
+        case M_GET_CS: scheduler->send_msg( *msg, false ); break;
+        default:
+            log_error() << "not compile: " << ( char )msg->type << endl;
+            c->send_msg( EndMsg() );
+            handle_end( c );
+        }
+    } catch ( int ret ) {
+        delete msg;
+        return ret;
+    }
+    delete msg;
+    return 0;
+}
+
+int Daemon::answer_client_requests()
+{
+    int acc_fd;
+    struct sockaddr cli_addr;
+    socklen_t cli_len;
+
+    if ( requests.size() + current_kids )  {
+        log_info() << "requests " << requests.size() << " "
+                   << current_kids << " (" << max_kids << ")\n";
+    }
+
+    cache_size = 0;
+
+    const int max_count = 0; // DEBUG
+    int count = 0; // DEBUG
+
+    int ret = handle_old_request();
+    if ( ret )
+        return ret;
 
     if ( !maybe_stats() ) {
         log_error() << "lost connection to scheduler. Trying again.\n";
-        delete scheduler;
-        scheduler = 0;
         return 2;
     }
 
@@ -559,6 +643,24 @@ int Daemon::answer_client_requests()
             max_fd = it->second;
     }
 
+    for (map<int, MsgChannel *>::const_iterator it = fd2chan.begin();
+         it != fd2chan.end();)  {
+        int i = it->first;
+        MsgChannel *c = it->second;
+        bool ok = true;
+        ++it;
+        /* handle_activity() can delete c and make the iterator
+           invalid.  */
+        while (ok && c->has_msg ())
+            if (handle_activity (c) != 0)
+                ok = false;
+        if (ok)  {
+            if (i > max_fd)
+                max_fd = i;
+            FD_SET (i, &listen_set);
+        }
+    }
+
     FD_SET( scheduler->fd, &listen_set );
     if ( max_fd < scheduler->fd )
         max_fd = scheduler->fd;
@@ -566,7 +668,7 @@ int Daemon::answer_client_requests()
     tv.tv_sec = 0;
     tv.tv_usec = 400000;
 
-    int ret = select (max_fd + 1, &listen_set, NULL, NULL, &tv);
+    ret = select (max_fd + 1, &listen_set, NULL, NULL, &tv);
     if ( ret == -1 && errno != EINTR )
         log_perror( "select" );
 
@@ -575,16 +677,11 @@ int Daemon::answer_client_requests()
             Msg *msg = scheduler->get_msg();
             if ( !msg ) {
                 log_error() << "no message from scheduler\n";
-                delete scheduler;
-                scheduler = 0;
                 return 1;
             } else {
                 if ( msg->type == M_PING ) {
-                    if ( !maybe_stats(true) ) {
-                        delete scheduler;
-                        scheduler = 0;
+                    if ( !maybe_stats(true) )
                         return 1;
-                    }
                 } else
                     log_error() << "unknown scheduler type " << ( char )msg->type << endl;
             }
@@ -601,31 +698,9 @@ int Daemon::answer_client_requests()
                 MsgChannel *c = Service::createChannel( acc_fd, (struct sockaddr*) &cli_addr, cli_len );
                 if ( !c )
                     return 0;
-
-                Msg *msg = c->get_msg();
-                if ( !msg ) {
-                    log_error() << "no message?\n";
-                } else {
-                    try {
-                        log_warning() << "msg " << ( char )msg->type << endl;
-                        if ( msg->type == M_GET_NATIVE_ENV ) {
-                            get_native_env( c );
-                        } else if ( msg->type == M_COMPILE_FILE ) {
-                            CompileJob *job = dynamic_cast<CompileFileMsg*>( msg )->takeJob();
-                            requests.push( make_pair( job, c ));
-                            c = 0; // forget you saw him
-                        } else if ( msg->type == M_TRANFER_ENV ) {
-                            transfer_env( c, msg );
-                        } else
-                            log_error() << "not compile: " << ( char )msg->type << endl;
-                    } catch ( int ret ) {
-                        delete msg;
-                        delete scheduler;
-                        return ret;
-                    }
-                    delete msg;
-                }
-                delete c;
+                fd2chan[c->fd] = c;
+                if (!c->read_a_bit () || c->has_msg ())
+                    handle_activity (c);
 
                 if ( max_count && ++count > max_count ) {
                     cout << "I'm closing now. Hoping you used valgrind! :)\n";
@@ -643,6 +718,20 @@ int Daemon::answer_client_requests()
                         pidmap.erase( it );
                         break;
                     }
+                }
+            }
+            for (map<int, MsgChannel *>::const_iterator it = fd2chan.begin();
+                 max_fd && it != fd2chan.end();)  {
+                int i = it->first;
+                MsgChannel *c = it->second;
+                /* handle_activity can delete the channel from the fd2chan list,
+                   hence advance the iterator right now, so it doesn't become
+                   invalid.  */
+                ++it;
+                if (FD_ISSET (i, &listen_set)) {
+                    if (!c->read_a_bit () || c->has_msg ())
+                        handle_activity (c);
+                    max_fd--;
                 }
             }
         }
@@ -884,29 +973,7 @@ int main( int argc, char ** argv )
 
         if ( !scheduler ) {
 
-            while ( !d.requests.empty() ) {
-                Compile_Request req = d.requests.front();
-                d.requests.pop();
-                delete req.first;
-                delete req.second;
-            }
-
-            while ( current_kids > 0 ) {
-                int status;
-                pid_t child = wait(&status);
-                current_kids--;
-                if ( child > 0 ) {
-                    d.jobmap.erase( child );
-                    Pidmap::iterator pid_it = d.pidmap.find( child );
-                    if ( pid_it != d.pidmap.end() ) {
-                        close( pid_it->second );
-                        d.pidmap.erase( pid_it );
-                    }
-                }
-            }
-
-            d.jobmap.clear();
-            d.pidmap.clear();
+            d.clear_children();
 
             trace() << "connect_scheduler\n";
             scheduler = connect_scheduler (netname, 2000, schedname);
@@ -930,6 +997,7 @@ int main( int argc, char ** argv )
         while (true) {
             int ret = d.answer_client_requests();
             if ( ret ) {
+                trace() << "answer_client_requests returned " << ret << endl;
                 tosleep = ret;
                 break;
             }
@@ -937,5 +1005,6 @@ int main( int argc, char ** argv )
 
         delete scheduler;
         scheduler = 0;
+
     }
 }

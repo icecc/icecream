@@ -121,19 +121,18 @@ int main(int argc, char **argv)
     if ( env ) {
         if ( !strcasecmp( env, "info" ) )  {
             debug_level |= Info|Warning;
-        } else if ( !strcasecmp( env, "debug" ) ||
-                    !strcasecmp( env, "trace" ) )  {
-            debug_level |= Info|Debug|Warning;
         } else if ( !strcasecmp( env, "warnings" ) ) {
             debug_level |= Warning; // taking out warning
-        }
+        } else // any other value
+            debug_level |= Info|Debug|Warning;
     }
+
     setup_debug(debug_level);
+
     string compiler_name = argv[0];
     dcc_client_catch_signals();
 
     if ( find_basename( compiler_name ) == rs_program_name) {
-        trace() << argc << endl;
         if ( argc > 1 ) {
             string arg = argv[1];
             if ( arg == "--help" ) {
@@ -171,29 +170,10 @@ int main(int argc, char **argv)
 
     local |= analyse_argv( argv, job );
 
-    pid_t pid = 0;
-
-    /* for local jobs, we fork off a child that tells the scheduler that we got something
-       to do and kill that child when we're done. This way we can start right away with the
-       action without any round trip delays and the scheduler can tell the monitors anyway
-    */
-#warning this is no longer working
-    if ( local ) {
-        pid = fork();
-        if ( pid ) { // do your job and kill the rest
-            struct rusage ru;
-            int ret = build_local( job, 0, &ru );
-            int status;
-            if ( waitpid( pid, &status, WNOHANG ) != pid && errno != ECHILD)
-                kill( pid, SIGTERM );
-            return ret; // exit the program
-        }
-    }
-
     MsgChannel *local_daemon = Service::createChannel( "127.0.0.1", 10245, 0); // 0 == no timeout
     if ( ! local_daemon ) {
         log_warning() << "no local daemon found\n";
-        return local || build_local( job, 0 );
+        return build_local( job, 0 );
     }
 
     Environments envs;
@@ -209,14 +189,15 @@ int main(int argc, char **argv)
             if ( !local_daemon->send_msg( GetNativeEnvMsg() ) ) {
                 log_warning() << "failed to write get native environment\n";
                 delete local_daemon;
-                return local || build_local( job, 0 );
+                return build_local( job, 0 );
             }
 
             // the timeout is high because it creates the native version
             Msg *umsg = local_daemon->get_msg(4 * 60);
+            trace() << "sent " << ( char )umsg->type << endl;
             if ( !umsg || umsg->type != M_NATIVE_ENV ) {
                 delete local_daemon;
-                return local || build_local( job, 0 );
+                return build_local( job, 0 );
             }
             UseNativeEnvMsg *ucs = dynamic_cast<UseNativeEnvMsg*>( umsg );
 
@@ -247,23 +228,21 @@ int main(int argc, char **argv)
         return local || build_local( job, 0 );
     }
 
-    if ( local ) {
-        local_daemon->send_msg( JobLocalBeginMsg( get_absfilename( job.outputFile() )) );
-        sleep( 30 * 60 ); // wait for the kill by parent - without killing the local_domain connection ;/
-        delete local_daemon;
-        return 0;
-    }
-
     int ret;
-    try {
-        // check if it should be compiled three times
-        const char *s = getenv( "ICECC_REPEAT_RATE" );
-        int rate = s ? atoi( s ) : 0;
-        ret = build_remote( job, local_daemon, envs, rate);
-    } catch ( int error ) {
-        delete local_daemon;
-        fprintf( stderr, "got exception %d (this should be an exception!)\n", error );
-        return build_local( job, 0 );
+    if ( local ) {
+        struct rusage ru;
+        local_daemon->send_msg( JobLocalBeginMsg( get_absfilename( job.outputFile() )) );
+        ret = build_local( job, 0, &ru );
+    } else {
+        try {
+            // check if it should be compiled three times
+            const char *s = getenv( "ICECC_REPEAT_RATE" );
+            int rate = s ? atoi( s ) : 0;
+            ret = build_remote( job, local_daemon, envs, rate);
+        } catch ( int error ) {
+            fprintf( stderr, "got exception %d (this should be an exception!)\n", error );
+            ret = build_local( job, 0 );
+        }
     }
     local_daemon->send_msg (EndMsg());
     delete local_daemon;
