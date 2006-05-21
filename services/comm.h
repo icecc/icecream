@@ -225,9 +225,10 @@ public:
   uint32_t count; // the number of UseCS messages to answer with - usually 1
   std::string target;
   uint32_t arg_flags;
-  GetCSMsg () : Msg(M_GET_CS), count( 1 ),arg_flags( 0 ) {}
+  uint32_t client_id;
+  GetCSMsg () : Msg(M_GET_CS), count( 1 ),arg_flags( 0 ), client_id( 0 ) {}
   GetCSMsg (const Environments &envs, const std::string &f, CompileJob::Language _lang, unsigned int _count, std::string _target, unsigned int _arg_flags)
-    : Msg(M_GET_CS), versions( envs ), filename(f), lang(_lang), count( _count ), target( _target ), arg_flags( _arg_flags )
+    : Msg(M_GET_CS), versions( envs ), filename(f), lang(_lang), count( _count ), target( _target ), arg_flags( _arg_flags ), client_id( 0 )
   {}
   virtual void fill_from_channel (MsgChannel * c);
   virtual void send_to_channel (MsgChannel * c) const;
@@ -240,13 +241,13 @@ public:
   uint32_t port;
   std::string host_platform;
   uint32_t got_env;
+  uint32_t client_id;
   UseCSMsg () : Msg(M_USE_CS) {}
-  UseCSMsg (std::string platform, std::string host, unsigned int p, unsigned int id, bool gotit)
-    : Msg(M_USE_CS), job_id(id), hostname (host), port (p), host_platform( platform ), got_env( gotit ) {}
+  UseCSMsg (std::string platform, std::string host, unsigned int p, unsigned int id, bool gotit, unsigned int _client_id)
+    : Msg(M_USE_CS), job_id(id), hostname (host), port (p), host_platform( platform ), got_env( gotit ), client_id( _client_id ) {}
   virtual void fill_from_channel (MsgChannel * c);
   virtual void send_to_channel (MsgChannel * c) const;
 };
-
 
 class GetNativeEnvMsg : public Msg {
 public:

@@ -1058,6 +1058,7 @@ GetCSMsg::fill_from_channel (MsgChannel *c)
   c->read_string( target );
   lang = static_cast<CompileJob::Language>( _lang );
   c->readuint32( arg_flags );
+  c->readuint32( client_id );
 }
 
 void
@@ -1070,6 +1071,7 @@ GetCSMsg::send_to_channel (MsgChannel *c) const
   c->writeuint32( count );
   c->write_string( target );
   c->writeuint32( arg_flags );
+  c->writeuint32( client_id );
 }
 
 void
@@ -1081,6 +1083,7 @@ UseCSMsg::fill_from_channel (MsgChannel *c)
   c->read_string (hostname);
   c->read_string (host_platform);
   c->readuint32( got_env );
+  c->readuint32( client_id );
 }
 
 void
@@ -1092,6 +1095,7 @@ UseCSMsg::send_to_channel (MsgChannel *c) const
   c->write_string (hostname);
   c->write_string (host_platform);
   c->writeuint32( got_env );
+  c->writeuint32( client_id );
 }
 
 void

@@ -344,11 +344,14 @@ struct Daemon
     string nodename;
     size_t cache_size;
     map<int, MsgChannel *> fd2chan;
+    map<int, MsgChannel *> pending_clients;
+    int new_client_id;
 
     Daemon() {
         envbasedir = "/tmp/icecc-envs";
         nobody_uid = 65534;
         listen_fd = -1;
+        new_client_id = 0;
     }
     int answer_client_requests();
     void transfer_env( MsgChannel *&c, Msg *msg );
@@ -358,7 +361,19 @@ struct Daemon
     int handle_activity( MsgChannel *&c );
     void handle_end( MsgChannel *&c );
     void clear_children();
+    int handle_use_cs( UseCSMsg *msg );
+    void handle_get_cs( MsgChannel *&c, Msg *msg );
 };
+
+int Daemon::handle_use_cs( UseCSMsg *msg )
+{
+    MsgChannel *c = pending_clients[msg->client_id];
+    trace() << "handle_use_cs " << msg->job_id << " " << msg->client_id << " " << c << endl;
+    if ( !c )
+        return 1;
+    c->send_msg( *msg, true );
+    return 0;
+}
 
 void Daemon::transfer_env( MsgChannel *&c, Msg *msg )
 {
@@ -487,7 +502,7 @@ int Daemon::handle_old_request()
                 log_warning() << "can't reach scheduler to tell him about job start of "
                               << job->jobID() << endl;
                 delete req.first;
-                delete req.second;
+                handle_end( req.second );
                 return 2;
             }
             jobmap[pid] = new JobDoneMsg;
@@ -496,7 +511,7 @@ int Daemon::handle_old_request()
                 pidmap[pid] = sock;
         }
         delete req.first;
-        delete req.second;
+        handle_end( req.second );
     }
     struct rusage ru;
     int status;
@@ -539,6 +554,7 @@ void Daemon::compile_file( MsgChannel *&c, Msg *msg )
 
 void Daemon::handle_end( MsgChannel *&c )
 {
+    trace() << "handle_end " << c << endl;
     fd2chan.erase (c->fd);
     delete c;
     c = 0;
@@ -575,6 +591,16 @@ void Daemon::clear_children()
         handle_end( it->second );
     }
     fd2chan.clear();
+    new_client_id = 0;
+    pending_clients.clear();
+}
+
+void Daemon::handle_get_cs( MsgChannel *&c, Msg *msg )
+{
+    GetCSMsg *umsg = dynamic_cast<GetCSMsg*>( msg );
+    umsg->client_id = ++new_client_id;
+    scheduler->send_msg( *umsg, false );
+    pending_clients[new_client_id] = c;
 }
 
 int Daemon::handle_activity( MsgChannel *&c )
@@ -591,7 +617,7 @@ int Daemon::handle_activity( MsgChannel *&c )
         case M_GET_NATIVE_ENV: get_native_env( c ); break;
         case M_COMPILE_FILE: compile_file( c, msg ); break;
         case M_TRANFER_ENV: transfer_env( c, msg ); break;
-        case M_GET_CS: scheduler->send_msg( *msg, false ); break;
+        case M_GET_CS: handle_get_cs( c, msg ); break;
         default:
             log_error() << "not compile: " << ( char )msg->type << endl;
             c->send_msg( EndMsg() );
@@ -657,6 +683,7 @@ int Daemon::answer_client_requests()
         if (ok)  {
             if (i > max_fd)
                 max_fd = i;
+            trace() << "fd " << i << endl;
             FD_SET (i, &listen_set);
         }
     }
@@ -669,8 +696,10 @@ int Daemon::answer_client_requests()
     tv.tv_usec = 400000;
 
     ret = select (max_fd + 1, &listen_set, NULL, NULL, &tv);
-    if ( ret == -1 && errno != EINTR )
+    if ( ret == -1 && errno != EINTR ) {
         log_perror( "select" );
+        return 5;
+    }
 
     if ( ret > 0 ) {
         if ( FD_ISSET( scheduler->fd, &listen_set ) ) {
@@ -679,11 +708,17 @@ int Daemon::answer_client_requests()
                 log_error() << "no message from scheduler\n";
                 return 1;
             } else {
-                if ( msg->type == M_PING ) {
+                switch ( msg->type )
+                {
+                case M_PING:
                     if ( !maybe_stats(true) )
                         return 1;
-                } else
+                    break;
+                case M_USE_CS:
+                    return handle_use_cs( dynamic_cast<UseCSMsg*>( msg ) );
+                default:
                     log_error() << "unknown scheduler type " << ( char )msg->type << endl;
+                }
             }
             return 0;
         }
@@ -698,6 +733,8 @@ int Daemon::answer_client_requests()
                 MsgChannel *c = Service::createChannel( acc_fd, (struct sockaddr*) &cli_addr, cli_len );
                 if ( !c )
                     return 0;
+                trace() << "acccept " << c->fd << " " << c->name << endl;
+
                 fd2chan[c->fd] = c;
                 if (!c->read_a_bit () || c->has_msg ())
                     handle_activity (c);
@@ -711,8 +748,7 @@ int Daemon::answer_client_requests()
             for ( Pidmap::iterator it = pidmap.begin(); it != pidmap.end(); ++it ) {
                 if ( FD_ISSET( it->second, &listen_set ) ) {
                     JobDoneMsg *msg = jobmap[it->first];
-                    if ( msg )
-                    {
+                    if ( msg ) {
                         fill_msg( it->second, msg );
                         close( it->second );
                         pidmap.erase( it );
@@ -724,6 +760,7 @@ int Daemon::answer_client_requests()
                  max_fd && it != fd2chan.end();)  {
                 int i = it->first;
                 MsgChannel *c = it->second;
+
                 /* handle_activity can delete the channel from the fd2chan list,
                    hence advance the iterator right now, so it doesn't become
                    invalid.  */

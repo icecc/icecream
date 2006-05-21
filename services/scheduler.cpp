@@ -47,7 +47,7 @@
 #include "logging.h"
 #include "job.h"
 
-#define DEBUG_SCHEDULER 0
+#define DEBUG_SCHEDULER 2
 
 /* TODO:
    * leak check
@@ -120,10 +120,10 @@ public:
   string host_platform;
   unsigned int local_job_id; // only useful for type == CLIENT
 
-    // unsigned int jobs_done;
-    //  unsigned long long rcvd_kb, sent_kb;
-    // unsigned int ms_per_job;
-    // unsigned int bytes_per_ms;
+  // unsigned int jobs_done;
+  //  unsigned long long rcvd_kb, sent_kb;
+  // unsigned int ms_per_job;
+  // unsigned int bytes_per_ms;
   // LOAD is load * 1000
   unsigned int load;
   int max_jobs;
@@ -145,7 +145,7 @@ public:
   JobStat cum_compiled;  // cumulated
   JobStat cum_requested;
   enum {CONNECTED, LOGGEDIN} state;
-  enum {UNKNOWN, CLIENT, DAEMON, MONITOR, LINE} type;
+  enum {UNKNOWN, DAEMON, MONITOR, LINE} type;
   bool chroot_possible;
   static unsigned int hostid_counter;
 };
@@ -160,10 +160,10 @@ time_t starttime;
 class Job {
 public:
   unsigned int id;
+  unsigned int local_client_id;
   enum {PENDING, WAITINGFORCS, COMPILING, WAITINGFORDONE} state;
   CS *server;  // on which server we build
   CS *submitter;  // who submitted us
-  MsgChannel *client_channel;
   Environments environments;
   time_t starttime;  // _local_ to the compiler server
   time_t start_on_scheduler;  // starttime local to scheduler
@@ -180,10 +180,10 @@ public:
   list<Job*> master_job_for;
   unsigned int arg_flags;
   string language; // for debugging
-  Job (MsgChannel *c, unsigned int _id, CS *subm)
-     : id(_id), state(PENDING), server(0),
-       submitter(subm),
-       client_channel(c), starttime(0), start_on_scheduler(0), done_time( 0 ), arg_flags( 0 ) {}
+  Job (unsigned int _id, CS *subm)
+    : id(_id), local_client_id( 0 ), state(PENDING), server(0),
+      submitter(subm),
+      starttime(0), start_on_scheduler(0), done_time( 0 ), arg_flags( 0 ) {}
   ~Job()
   {
    // XXX is this really deleted on all other paths?
@@ -395,12 +395,12 @@ handle_monitor_stats( CS *cs, StatsMsg *m = 0)
 }
 
 static Job *
-create_new_job (MsgChannel *channel, CS *submitter)
+create_new_job (CS *submitter)
 {
   ++new_job_id;
   assert (jobs.find(new_job_id) == jobs.end());
 
-  Job *job = new Job (channel, new_job_id, submitter);
+  Job *job = new Job (new_job_id, submitter);
   jobs[new_job_id] = job;
   return job;
 }
@@ -457,32 +457,19 @@ handle_cs_request (MsgChannel *c, Msg *_m)
   if (!m)
     return false;
 
-  list<CS*>::iterator it;
-  for (it = css.begin(); it != css.end(); ++it)
-    if (c->eq_ip (**it))
-      break;
-  if (it == css.end())
-    {
-      log_warning() << "Asking host not connected" << endl;
-      c->send_msg( EndMsg() ); // forget it!
-      return false;
-    }
-
-  /* Don't use the CS from the channel on which the request came in.
-     It will go away as soon as we sent him which server to use.
-     Instead use the long-lasting connection to the daemon.  */
-  CS *submitter = *it;
+  CS *submitter = static_cast<CS*>( c );
 
   Job *master_job = 0;
 
   for ( unsigned int i = 0; i < m->count; ++i )
     {
-      Job *job = create_new_job (c, submitter);
+      Job *job = create_new_job (submitter);
       job->environments = m->versions;
       job->target_platform = m->target;
       job->arg_flags = m->arg_flags;
       job->language = ( m->lang == CompileJob::Lang_C ? "C" : "C++" );
       job->filename = m->filename;
+      job->local_client_id = m->client_id;
       enqueue_job_request (job);
       log_info() << "NEW " << job->id << " client=" << submitter->nodename << " versions=[";
       for ( Environments::const_iterator it = job->environments.begin(); it != job->environments.end(); ++it )
@@ -508,14 +495,10 @@ handle_local_job (MsgChannel *c, Msg *_m)
 
   ++new_job_id;
 
-  list<CS*>::iterator it;
-  for (it = css.begin(); it != css.end(); ++it)
-    if (c->eq_ip (**it))
-      break;
-  if ( it != css.end() ) {
-    dynamic_cast<CS*>( c )->local_job_id = new_job_id;
-    notify_monitors (MonLocalJobBeginMsg( new_job_id, m->outfile, m->stime, ( *it )->hostid ) );
-  }
+#warning does not make sense now
+  CS *cs = dynamic_cast<CS*>( c );
+  cs->local_job_id = new_job_id;
+  notify_monitors (MonLocalJobBeginMsg( new_job_id, m->outfile, m->stime, cs->hostid ) );
   return true;
 }
 
@@ -855,8 +838,7 @@ empty_queue()
     {
       trace() << "no servers to handle\n";
       remove_job_request ();
-      if ( job->client_channel )
-        job->client_channel->send_msg( EndMsg() );
+      job->submitter->send_msg( JobDoneMsg( job->local_client_id, 255 ) );
       jobs.erase( job->id );
       notify_monitors (MonJobDoneMsg (JobDoneMsg( job->id,  255 )));
       // Don't delete channel here.  We expect the client on the other side
@@ -918,16 +900,12 @@ empty_queue()
   job->server = cs;
 
   bool gotit = envs_match( cs, job );
-  UseCSMsg m2(can_install( cs, job ), cs->name, cs->remote_port, job->id, gotit );
+  UseCSMsg m2(can_install( cs, job ), cs->name, cs->remote_port, job->id, gotit, 1 );
 
-  if (!job->client_channel || !job->client_channel->send_msg (m2))
+  if (!job->submitter->send_msg (m2))
     {
       trace() << "failed to deliver job " << job->id << endl;
-      if ( job->client_channel )
-        job->client_channel->send_msg (EndMsg()); // most likely won't work
-      jobs.erase( job->id );
-      notify_monitors (MonJobDoneMsg (JobDoneMsg( job->id, 255 )));
-      delete job;
+      handle_end( job->submitter, 0 ); // will care for the rest
       return true;
     }
   else
@@ -1306,10 +1284,6 @@ try_login (MsgChannel *c, Msg *m)
   CS *cs = static_cast<CS *>(c);
   switch (m->type)
     {
-    case M_GET_CS:
-      cs->type = CS::CLIENT;
-      ret = handle_cs_request (c, m);
-      break;
     case M_LOGIN:
       cs->type = CS::DAEMON;
       ret = handle_login (c, m);
@@ -1317,10 +1291,6 @@ try_login (MsgChannel *c, Msg *m)
     case M_MON_LOGIN:
       cs->type = CS::MONITOR;
       ret = handle_mon_login (c, m);
-      break;
-    case M_JOB_LOCAL_BEGIN:
-      cs->type = CS::CLIENT;
-      ret = handle_local_job (c, m);
       break;
     case M_TEXT:
       cs->type = CS::LINE;
@@ -1384,8 +1354,7 @@ handle_end (MsgChannel *c, Msg *m)
 	    for (jit = l->l.begin(); jit != l->l.end(); ++jit)
 	      {
 		trace() << "STOP (DAEMON) FOR " << (*jit)->id << endl;
-                if ( ( *jit )->client_channel )
-                  (*jit)->client_channel->send_msg( EndMsg() );
+                (*jit)->submitter->send_msg( JobDoneMsg((*jit)->local_client_id, 255) );
                 notify_monitors (MonJobDoneMsg (JobDoneMsg( ( *jit )->id,  255 )));
 		if ((*jit)->server)
 		  (*jit)->server->busy_installing = 0;
@@ -1406,8 +1375,7 @@ handle_end (MsgChannel *c, Msg *m)
           if (job->server == toremove || job->submitter == toremove)
             {
               trace() << "STOP (DAEMON2) FOR " << mit->first << endl;
-              if ( job->client_channel )
-                job->client_channel->send_msg( EndMsg() );
+              job->submitter->send_msg( JobDoneMsg( job->local_client_id, 255 ) );
               notify_monitors (MonJobDoneMsg (JobDoneMsg( job->id,  255 )));
 	      /* If this job is removed because the submitter is removed
 		 also remove the job from the servers joblist.  */
@@ -1423,83 +1391,6 @@ handle_end (MsgChannel *c, Msg *m)
             {
               ++mit;
             }
-        }
-    }
-  else if (toremove->type == CS::CLIENT)
-    {
-#if DEBUG_SCHEDULER > 1
-      trace() << "remove client " << m << " " << toremove->local_job_id << endl;
-#endif
-
-      map<unsigned int, Job*>::iterator it;
-
-      /* A client disconnected.  */
-      if (!m)
-        {
-          if ( toremove->local_job_id )
-            {
-              notify_monitors (MonLocalJobDoneMsg (toremove->local_job_id));
-            }
-          else
-            {
-              /* If it's disconnected without END message something went wrong,
-                 and we must remove all its job requests and jobs.  All job
-                 requests are also in the jobs list, so it's enough to traverse
-                 that one, and when finding a job to possibly remove it also
-                 from any request queues.
-                 XXX This is made particularly ugly due to using real queues.  */
-              for (it = jobs.begin(); it != jobs.end();)
-                {
-                  if (it->second->client_channel == c)
-                    {
-                      trace() << "STOP FOR " << it->first << endl;
-                      Job *job = it->second;
-                      notify_monitors (MonJobDoneMsg (JobDoneMsg (job->id, 255)));
-
-                      /* Remove this job from the request queue.  */
-                      list<UnansweredList*>::iterator ait;
-                      for (ait = toanswer.begin(); ait != toanswer.end();)
-                        {
-                          UnansweredList *l = *ait;
-                          if (l->server == job->submitter
-                              && (l->l.remove (job), true)
-                              && l->l.empty())
-                            {
-                              ait = toanswer.erase (ait);
-                              delete l;
-                            }
-                          else
-                            ++ait;
-                        }
-
-                      if (job->server)
-		        {
-                          job->server->joblist.remove (job);
-		          job->server->busy_installing = 0;
-		        }
-                      done_jobs.erase( job->id );
-                      jobs.erase (it++);
-                      delete job;
-                    }
-                  else
-                    ++it;
-                }
-            }
-	}
-      else
-        {
-          /* If it's disconnected _with_ END message we want to make sure
-             we don't send something through the channel when the job
-             done message arrives.  */
-          for (it = jobs.begin(); it != jobs.end(); ++it)
-            if (it->second->client_channel == c)
-	      {
-                Job *done = it->second;
-                done->client_channel = 0;
-                done->state = Job::WAITINGFORDONE;
-                done_jobs[done->id] = done;
-                done->done_time = time( 0 );
-              }
         }
     }
   else if (toremove->type == CS::LINE)
@@ -1541,6 +1432,7 @@ handle_activity (MsgChannel *c)
     case M_JOB_LOCAL_BEGIN: ret = handle_local_job (c, m); break;
     case M_LOGIN: ret = handle_relogin (c, m); break;
     case M_TEXT: ret = handle_line (c, m); break;
+    case M_GET_CS: ret = handle_cs_request (c, m); break;
     default:
       log_info() << "Invalid message type arrived " << ( char )m->type << endl;
       handle_end (c, m);
