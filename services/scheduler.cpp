@@ -900,7 +900,7 @@ empty_queue()
   job->server = cs;
 
   bool gotit = envs_match( cs, job );
-  UseCSMsg m2(can_install( cs, job ), cs->name, cs->remote_port, job->id, gotit, 1 );
+  UseCSMsg m2(can_install( cs, job ), cs->name, cs->remote_port, job->id, gotit, job->local_client_id );
 
   if (!job->submitter->send_msg (m2))
     {

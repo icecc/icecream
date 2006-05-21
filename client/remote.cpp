@@ -180,6 +180,7 @@ static UseCSMsg *get_server( MsgChannel *scheduler )
         throw( 1 );
     }
     UseCSMsg *usecs = dynamic_cast<UseCSMsg *>(umsg);
+    trace() << "got CS " << usecs->hostname << endl;
     return usecs;
 }
 
@@ -455,49 +456,43 @@ static bool
 maybe_build_local (MsgChannel *scheduler, UseCSMsg *usecs, CompileJob &job,
 		   int &ret)
 {
-    sockaddr_in name;
-    socklen_t len = sizeof(name);
-    int error = getsockname(scheduler->fd, (struct sockaddr*)&name, &len);
-    if ( !error ) {
-	if ( usecs->hostname == inet_ntoa( name.sin_addr ) ) {
-	    trace() << "building myself, but telling localhost\n";
-	    unsigned int port = usecs->port;
-	    int job_id = usecs->job_id;
-	    job.setJobID( job_id );
-	    job.setEnvironmentVersion( "__client" );
-	    MsgChannel *cserver = Service::createChannel( "127.0.0.1", port, 0 ); // 0 == no time out
-	    if ( !cserver ) // very unlikely as we talked before with him
-		throw ( 2 );
-	    CompileFileMsg compile_file( &job );
-	    if ( !cserver->send_msg( compile_file ) ) {
-		log_info() << "write of job failed" << endl;
-		delete cserver;
-		cserver = 0;
-		throw( 9 );
-	    }
-            struct timeval begintv,  endtv;
-            struct rusage ru;
-
-            gettimeofday(&begintv, 0 );
-	    ret = build_local( job, scheduler, &ru );
-            gettimeofday(&endtv, 0 );
-
-            // filling the stats, so the daemon can play proxy for us
-            JobDoneMsg msg( job_id, ret );
-
-            msg.real_msec = ( endtv.tv_sec - begintv.tv_sec ) * 1000 + ( endtv.tv_usec - begintv.tv_usec ) / 1000;
-            struct stat st;
-            if ( !stat( job.outputFile().c_str(), &st ) )
-                msg.out_uncompressed = st.st_size;
-            msg.user_msec = ru.ru_utime.tv_sec * 1000 + ru.ru_utime.tv_usec / 1000;
-            msg.sys_msec = ru.ru_stime.tv_sec * 1000 + ru.ru_stime.tv_usec / 1000;
-            msg.pfaults = ru.ru_majflt + ru.ru_minflt + ru.ru_nswap ;
-            msg.exitcode = ret;
-
-            cserver->send_msg( msg );
+    if ( usecs->hostname == "127.0.0.1" ) {
+        trace() << "building myself, but telling localhost\n";
+        unsigned int port = usecs->port;
+        int job_id = usecs->job_id;
+        job.setJobID( job_id );
+        MsgChannel *cserver = Service::createChannel( "127.0.0.1", port, 0 ); // 0 == no time out
+        if ( !cserver ) // very unlikely as we talked before with him
+            throw ( 2 );
+        CompileFileMsg compile_file( &job );
+        if ( !cserver->send_msg( compile_file ) ) {
+            log_info() << "write of job failed" << endl;
             delete cserver;
-	    return true;
-	}
+            cserver = 0;
+            throw( 9 );
+        }
+        struct timeval begintv,  endtv;
+        struct rusage ru;
+
+        gettimeofday(&begintv, 0 );
+        ret = build_local( job, scheduler, &ru );
+        gettimeofday(&endtv, 0 );
+
+        // filling the stats, so the daemon can play proxy for us
+        JobDoneMsg msg( job_id, ret );
+
+        msg.real_msec = ( endtv.tv_sec - begintv.tv_sec ) * 1000 + ( endtv.tv_usec - begintv.tv_usec ) / 1000;
+        struct stat st;
+        if ( !stat( job.outputFile().c_str(), &st ) )
+            msg.out_uncompressed = st.st_size;
+        msg.user_msec = ru.ru_utime.tv_sec * 1000 + ru.ru_utime.tv_usec / 1000;
+        msg.sys_msec = ru.ru_stime.tv_sec * 1000 + ru.ru_stime.tv_usec / 1000;
+        msg.pfaults = ru.ru_majflt + ru.ru_minflt + ru.ru_nswap ;
+        msg.exitcode = ret;
+
+        cserver->send_msg( msg );
+        delete cserver;
+        return true;
     }
     return false;
 }

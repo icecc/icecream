@@ -346,6 +346,7 @@ struct Daemon
     map<int, MsgChannel *> fd2chan;
     map<int, MsgChannel *> pending_clients;
     int new_client_id;
+    string remote_name;
 
     Daemon() {
         envbasedir = "/tmp/icecc-envs";
@@ -368,9 +369,13 @@ struct Daemon
 int Daemon::handle_use_cs( UseCSMsg *msg )
 {
     MsgChannel *c = pending_clients[msg->client_id];
-    trace() << "handle_use_cs " << msg->job_id << " " << msg->client_id << " " << c << endl;
+    trace() << "handle_use_cs " << msg->job_id << " " << msg->client_id
+            << " " << c << " " << msg->hostname << " " << remote_name <<  endl;
     if ( !c )
         return 1;
+    if ( msg->hostname == remote_name )
+        msg->hostname = "127.0.0.1";
+
     c->send_msg( *msg, true );
     return 0;
 }
@@ -593,12 +598,14 @@ void Daemon::clear_children()
     fd2chan.clear();
     new_client_id = 0;
     pending_clients.clear();
+    trace() << "cleared children\n";
 }
 
 void Daemon::handle_get_cs( MsgChannel *&c, Msg *msg )
 {
     GetCSMsg *umsg = dynamic_cast<GetCSMsg*>( msg );
     umsg->client_id = ++new_client_id;
+    trace() << "handle_get_cs " << umsg->client_id << endl;
     scheduler->send_msg( *umsg, false );
     pending_clients[new_client_id] = c;
 }
@@ -1009,7 +1016,6 @@ int main( int argc, char ** argv )
         tosleep = 0;
 
         if ( !scheduler ) {
-
             d.clear_children();
 
             trace() << "connect_scheduler\n";
@@ -1019,6 +1025,13 @@ int main( int argc, char ** argv )
                 tosleep = 1;
                 continue;
             }
+            sockaddr_in name;
+            socklen_t len = sizeof(name);
+            int error = getsockname(scheduler->fd, (struct sockaddr*)&name, &len);
+            if ( !error )
+                d.remote_name = inet_ntoa( name.sin_addr );
+            else
+                d.remote_name = string();
         }
 
         d.listen_fd = setup_listen_fd();
