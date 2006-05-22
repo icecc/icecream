@@ -732,6 +732,7 @@ int Daemon::answer_client_requests()
                     break;
                 case M_USE_CS:
                     ret = handle_use_cs( dynamic_cast<UseCSMsg*>( msg ) );
+		    break;
                 default:
                     log_error() << "unknown scheduler type " << ( char )msg->type << endl;
                 }
