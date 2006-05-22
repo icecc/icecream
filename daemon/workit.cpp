@@ -173,7 +173,8 @@ int work_it( CompileJob &j,
         close( main_sock[0] );
         fcntl(main_sock[1], F_SETFD, FD_CLOEXEC);
         setenv( "PATH", "usr/bin", 1 );
-        setenv( "LD_LIBRARY_PATH", "usr/lib:lib", 1 );
+	if (getuid() == 0)
+            setenv( "LD_LIBRARY_PATH", "usr/lib:lib", 1 );
 
 #ifdef RLIMIT_AS
         struct rlimit rlim;
@@ -191,16 +192,16 @@ int work_it( CompileJob &j,
         argc += 3; // file.i -o file.o
         argc += 4; // gpc parameters
         char **argv = new char*[argc + 1];
+	int i = 0;
         if (j.language() == CompileJob::Lang_C)
-            argv[0] = strdup( "usr/bin/gcc" );
+            argv[i++] = strdup( "usr/bin/gcc" );
         else if (j.language() == CompileJob::Lang_CXX)
-            argv[0] = strdup( "usr/bin/g++" );
+            argv[i++] = strdup( "usr/bin/g++" );
         else
             assert(0);
 
         //TODOlist.push_back( "-Busr/lib/gcc-lib/i586-suse-linux/3.3.1/" );
 
-        int i = 1;
         for ( std::list<string>::const_iterator it = list.begin();
               it != list.end(); ++it) {
             argv[i++] = strdup( it->c_str() );
