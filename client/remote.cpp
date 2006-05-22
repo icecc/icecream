@@ -170,9 +170,9 @@ string get_absfilename( const string &_file )
     return file;
 }
 
-static UseCSMsg *get_server( MsgChannel *scheduler )
+static UseCSMsg *get_server( MsgChannel *local_daemon )
 {
-    Msg * umsg = scheduler->get_msg(4 * 60);
+    Msg * umsg = local_daemon->get_msg(4 * 60);
     if (!umsg || umsg->type != M_USE_CS)
     {
         log_warning() << "replied not with use_cs " << ( umsg ? ( char )umsg->type : '0' )  << endl;
@@ -452,7 +452,7 @@ string md5_for_file( const string & file )
 }
 
 static bool
-maybe_build_local (MsgChannel *scheduler, UseCSMsg *usecs, CompileJob &job,
+maybe_build_local (MsgChannel *local_daemon, UseCSMsg *usecs, CompileJob &job,
 		   int &ret)
 {
     if ( usecs->hostname == "127.0.0.1" ) {
@@ -461,7 +461,7 @@ maybe_build_local (MsgChannel *scheduler, UseCSMsg *usecs, CompileJob &job,
         job.setJobID( job_id );
         job.setEnvironmentVersion( "__client" );
         CompileFileMsg compile_file( &job );
-        if ( !scheduler->send_msg( compile_file ) ) {
+        if ( !local_daemon->send_msg( compile_file ) ) {
             log_info() << "write of job failed" << endl;
             throw( 9 );
         }
@@ -469,7 +469,7 @@ maybe_build_local (MsgChannel *scheduler, UseCSMsg *usecs, CompileJob &job,
         struct rusage ru;
 
         gettimeofday(&begintv, 0 );
-        ret = build_local( job, scheduler, &ru );
+        ret = build_local( job, local_daemon, &ru );
         gettimeofday(&endtv, 0 );
 
         // filling the stats, so the daemon can play proxy for us
@@ -484,13 +484,13 @@ maybe_build_local (MsgChannel *scheduler, UseCSMsg *usecs, CompileJob &job,
         msg.pfaults = ru.ru_majflt + ru.ru_minflt + ru.ru_nswap ;
         msg.exitcode = ret;
 
-        scheduler->send_msg( msg );
+        local_daemon->send_msg( msg );
         return true;
     }
     return false;
 }
 
-int build_remote(CompileJob &job, MsgChannel *scheduler, const Environments &_envs, int permill )
+int build_remote(CompileJob &job, MsgChannel *local_daemon, const Environments &_envs, int permill )
 {
     srand( time( 0 ) + getpid() );
 
@@ -522,14 +522,14 @@ int build_remote(CompileJob &job, MsgChannel *scheduler, const Environments &_en
 */
         fake_filename += get_absfilename( job.inputFile() );
         GetCSMsg getcs (envs, fake_filename, job.language(), torepeat, job.targetPlatform(), job.argumentFlags() );
-        if (!scheduler->send_msg (getcs)) {
+        if (!local_daemon->send_msg (getcs)) {
             log_warning() << "asked for CS\n";
             throw( 0 );
         }
 
-        UseCSMsg *usecs = get_server( scheduler );
+        UseCSMsg *usecs = get_server( local_daemon );
 	int ret;
-	if (!maybe_build_local (scheduler, usecs, job, ret))
+	if (!maybe_build_local (local_daemon, usecs, job, ret))
             ret = build_remote_int( job, usecs,
 	    			    version_map[usecs->host_platform],
 				    versionfile_map[usecs->host_platform],
@@ -560,7 +560,7 @@ int build_remote(CompileJob &job, MsgChannel *scheduler, const Environments &_en
         job.appendFlag( rand_seed, Arg_Remote );
 
         GetCSMsg getcs (envs, get_absfilename( job.inputFile() ), job.language(), torepeat, job.targetPlatform(), job.argumentFlags() );
-        if (!scheduler->send_msg (getcs)) {
+        if (!local_daemon->send_msg (getcs)) {
             log_warning() << "asked for CS\n";
             throw( 0 );
         }
@@ -580,14 +580,14 @@ int build_remote(CompileJob &job, MsgChannel *scheduler, const Environments &_en
             } else
                 sprintf( buffer, job.outputFile().c_str() );
 
-            umsgs[i] = get_server( scheduler );
+            umsgs[i] = get_server( local_daemon );
             trace() << "got_server_for_job " << umsgs[i]->hostname << endl;
 
             pid_t pid = fork();
             if ( !pid ) {
                 int ret = 42;
                 try {
-		    if (!maybe_build_local (scheduler, umsgs[i], jobs[i], ret))
+		    if (!maybe_build_local (local_daemon, umsgs[i], jobs[i], ret))
 			ret = build_remote_int(
 				  jobs[i], umsgs[i],
 				  version_map[umsgs[i]->host_platform],
