@@ -425,7 +425,6 @@ void Daemon::transfer_env( MsgChannel *&c, Msg *msg )
         }
 
         reannounce_environments(envbasedir, nodename); // do that before the file compiles
-        delete msg;
         msg = c->get_msg();
         if ( msg->type == M_COMPILE_FILE ) { // we sure hope so
             CompileJob *job = dynamic_cast<CompileFileMsg*>( msg )->takeJob();
@@ -723,7 +722,7 @@ int Daemon::answer_client_requests()
                 log_error() << "no message from scheduler\n";
                 return 1;
             } else {
-                int ret = 0;
+                ret = 0;
                 switch ( msg->type )
                 {
                 case M_PING:
