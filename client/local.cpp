@@ -131,9 +131,9 @@ void handle_user_break( int sig )
  * log our resource usage.
  *
  **/
-int build_local(CompileJob &job, MsgChannel *scheduler, struct rusage *used)
+int build_local(CompileJob &job, MsgChannel *local_daemon, struct rusage *used)
 {
-    trace() << "build_local " << scheduler << endl;
+    trace() << "build_local " << local_daemon << endl;
     list<string> arguments;
 
     string compiler_name = get_compiler_name( job );
@@ -164,7 +164,7 @@ int build_local(CompileJob &job, MsgChannel *scheduler, struct rusage *used)
     trace() << endl;
 #endif
 
-    if ( !scheduler ) {
+    if ( !local_daemon ) {
         int fd;
         if ( !dcc_lock_host(fd ) ) {
             log_error() << "can't lock for local job\n";
@@ -207,6 +207,4 @@ int build_local(CompileJob &job, MsgChannel *scheduler, struct rusage *used)
             dcc_unlock( lock_fd );
         return ret;
     }
-
-
 }

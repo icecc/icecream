@@ -188,16 +188,16 @@ int main(int argc, char **argv)
         } else {
             if ( !local_daemon->send_msg( GetNativeEnvMsg() ) ) {
                 log_warning() << "failed to write get native environment\n";
-                delete local_daemon;
-                return build_local( job, 0 );
+		goto do_local_error;
             }
 
             // the timeout is high because it creates the native version
             Msg *umsg = local_daemon->get_msg(4 * 60);
-            trace() << "sent " << (umsg ? ( char )umsg->type : '?') << endl;
+            trace() << "got " << (umsg ? ( char )umsg->type : '?') << endl;
             if ( !umsg || umsg->type != M_NATIVE_ENV ) {
-                delete local_daemon;
-                return build_local( job, 0 );
+		log_warning() << "daemon didn't answer with a native env\n";
+		delete umsg;
+                goto do_local_error;
             }
             UseNativeEnvMsg *ucs = dynamic_cast<UseNativeEnvMsg*>( umsg );
 
@@ -212,19 +212,14 @@ int main(int argc, char **argv)
             delete umsg;
         }
 
-        bool error = ( envs.size() == 0 );
+        if ( envs.size() == 0 )
+	    goto do_local_error;
         for ( Environments::const_iterator it = envs.begin(); it != envs.end(); ++it ) {
             trace() << "env: " << it->first << " '" << it->second << "'" << endl;
             if ( ::access( it->second.c_str(), R_OK ) ) {
                 log_error() << "can't read environment " << it->second << endl;
-                error = true;
-                break;
+                goto do_local_error;
             }
-        }
-
-        if ( error ) {
-            delete local_daemon;
-            return build_local( job, 0 );
         }
     }
 
@@ -247,4 +242,8 @@ int main(int argc, char **argv)
     local_daemon->send_msg (EndMsg());
     delete local_daemon;
     return ret;
+
+do_local_error:
+    delete local_daemon;
+    return build_local( job, 0 );
 }
