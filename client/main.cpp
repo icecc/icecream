@@ -212,13 +212,14 @@ int main(int argc, char **argv)
             delete umsg;
         }
 
+	// we set it to local so we tell the local daemon about it - avoiding file locking
         if ( envs.size() == 0 )
-	    goto do_local_error;
+	    local = true;
         for ( Environments::const_iterator it = envs.begin(); it != envs.end(); ++it ) {
             trace() << "env: " << it->first << " '" << it->second << "'" << endl;
             if ( ::access( it->second.c_str(), R_OK ) ) {
                 log_error() << "can't read environment " << it->second << endl;
-                goto do_local_error;
+                local = true;
             }
         }
     }
