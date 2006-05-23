@@ -95,6 +95,11 @@ struct hash_channel {
 };
 typedef hash_set<MsgChannel*, hash_channel> ChannelSet;
 
+struct UseCsCache {
+    UseCSMsg *msg;
+    MsgChannel *client;
+};
+
 int set_cloexec_flag (int desc, int value)
 {
     int oldflags = fcntl (desc, F_GETFD, 0);
@@ -357,6 +362,7 @@ struct Daemon
     ChannelSet waiting_local_jobs, active_local_jobs;
     int new_client_id;
     string remote_name;
+    queue<UseCsCache> pending_use_cs;
 
     Daemon() {
         envbasedir = "/tmp/icecc-envs";
@@ -384,10 +390,13 @@ int Daemon::handle_use_cs( UseCSMsg *msg )
             << " " << c << " " << msg->hostname << " " << remote_name <<  endl;
     if ( !c )
         return 1;
-    if ( msg->hostname == remote_name )
-        msg->hostname = "127.0.0.1";
-
-    c->send_msg( *msg, true );
+    if ( msg->hostname == remote_name ) {
+        UseCsCache ucc;
+        ucc.msg = new UseCSMsg( msg->host_platform, "127.0.0.1", msg->port, msg->job_id, true, 1 );
+        ucc.client = c;
+        pending_use_cs.push( ucc );
+    } else
+        c->send_msg( *msg, true );
     return 0;
 }
 
@@ -477,6 +486,24 @@ int Daemon::handle_old_request()
 	    current_local_jobs++;
 	}
     }
+    if ( !pending_use_cs.empty() && (current_kids+current_local_jobs) < max_kids )
+    {
+        UseCsCache ucc = pending_use_cs.front();
+        pending_use_cs.pop();
+        ucc.client->send_msg( *ucc.msg, true );
+        delete ucc.msg;
+        /* in this time the client has to find the msg and hit the maybe_build_local, so
+         * he's better quick */
+        Msg *compile = ucc.client->get_msg( 5 );
+        if ( !compile || compile->type != M_COMPILE_FILE )
+        {
+            handle_end( ucc.client );
+            return 0;
+        }
+        compile_file( ucc.client, compile );
+
+    }
+
     if ( !requests.empty() && (current_kids+current_local_jobs) < max_kids ) {
         Compile_Request req = requests.front();
         requests.pop();
@@ -575,7 +602,6 @@ void Daemon::compile_file( MsgChannel *&c, Msg *msg )
 {
     CompileJob *job = dynamic_cast<CompileFileMsg*>( msg )->takeJob();
     requests.push( make_pair( job, c ));
-    c = 0; // forget you saw him
 }
 
 void Daemon::handle_end( MsgChannel *&c )
