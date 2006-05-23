@@ -71,6 +71,7 @@
 #include <queue>
 #include <map>
 #include <algorithm>
+#include <ext/hash_set>
 
 #include "ncpus.h"
 #include "exitcode.h"
@@ -83,10 +84,16 @@
 const int PORT = 10245;
 
 using namespace std;
+using namespace __gnu_cxx; // for the extensions we like, e.g. hash_set
 
 typedef pair<CompileJob*, MsgChannel*> Compile_Request;
 // the pidmap maps the PID to the socket to the server child
 typedef map<pid_t, int> Pidmap;
+
+struct hash_channel {
+  size_t operator()(const MsgChannel *c)const{return (size_t)c;}
+};
+typedef hash_set<MsgChannel*, hash_channel> ChannelSet;
 
 int set_cloexec_flag (int desc, int value)
 {
@@ -253,6 +260,8 @@ struct timeval last_sent;
 int mem_limit = 100;
 int max_kids = 0;
 int current_kids = 0;
+int current_local_jobs = 0;  // like link jobs.  Exactly those which start
+			     // with a JobLocalBeginMsg
 unsigned long myniceload = 0;
 unsigned long myidleload = 0;
 
@@ -345,6 +354,7 @@ struct Daemon
     size_t cache_size;
     map<int, MsgChannel *> fd2chan;
     map<int, MsgChannel *> pending_clients;
+    ChannelSet waiting_local_jobs, active_local_jobs;
     int new_client_id;
     string remote_name;
 
@@ -364,6 +374,7 @@ struct Daemon
     void clear_children();
     int handle_use_cs( UseCSMsg *msg );
     void handle_get_cs( MsgChannel *&c, Msg *msg );
+    void handle_local_job( MsgChannel *&c );
 };
 
 int Daemon::handle_use_cs( UseCSMsg *msg )
@@ -455,7 +466,18 @@ void Daemon::get_native_env( MsgChannel *&c )
 
 int Daemon::handle_old_request()
 {
-    if ( !requests.empty() && current_kids < max_kids ) {
+    if ( !waiting_local_jobs.empty() && (current_kids+current_local_jobs) < max_kids) {
+        MsgChannel *c = *waiting_local_jobs.begin();
+	if (!c->send_msg (JobLocalBeginMsg())) {
+	    log_warning() << "can't send start message to client" << endl;
+	    handle_end (c);
+        } else {
+	    waiting_local_jobs.erase (c);
+	    active_local_jobs.insert (c);
+	    current_local_jobs++;
+	}
+    }
+    if ( !requests.empty() && (current_kids+current_local_jobs) < max_kids ) {
         Compile_Request req = requests.front();
         requests.pop();
         CompileJob *job = req.first;
@@ -567,6 +589,13 @@ void Daemon::handle_end( MsgChannel *&c )
             break;
         }
     }
+    if (waiting_local_jobs.count (c) > 0)
+	waiting_local_jobs.erase (c);
+    if (active_local_jobs.count (c) > 0) {
+	trace() << "was a local job" << endl;
+	current_local_jobs--;
+	active_local_jobs.erase (c);
+    }
 
     delete c;
     c = 0;
@@ -616,6 +645,12 @@ void Daemon::handle_get_cs( MsgChannel *&c, Msg *msg )
     pending_clients[new_client_id] = c;
 }
 
+void Daemon::handle_local_job( MsgChannel *&c )
+{
+    trace() << "handle_local_job" << c << endl;
+    waiting_local_jobs.insert (c);
+}
+
 int Daemon::handle_activity( MsgChannel *&c )
 {
     Msg *msg = c->get_msg();
@@ -632,6 +667,7 @@ int Daemon::handle_activity( MsgChannel *&c )
         case M_TRANFER_ENV: transfer_env( c, msg ); break;
         case M_GET_CS: handle_get_cs( c, msg ); break;
         case M_END: handle_end( c ); break;
+	case M_JOB_LOCAL_BEGIN: handle_local_job (c); break;
         default:
             log_error() << "not compile: " << ( char )msg->type << endl;
             c->send_msg( EndMsg() );
@@ -651,9 +687,11 @@ int Daemon::answer_client_requests()
     struct sockaddr cli_addr;
     socklen_t cli_len;
 
-    if ( requests.size() + current_kids )  {
-        log_info() << "requests " << requests.size() << " "
-                   << current_kids << " (" << max_kids << ")\n";
+    if ( requests.size() + current_kids + current_local_jobs + waiting_local_jobs.size() )  {
+        log_info() << "requests " << requests.size() << " kids "
+                   << current_kids << " locals " << current_local_jobs
+		   << " waiting " << waiting_local_jobs.size()
+		   << " (max " << max_kids << ")\n";
     }
 
     cache_size = 0;
@@ -690,11 +728,14 @@ int Daemon::answer_client_requests()
         bool ok = true;
         ++it;
         /* handle_activity() can delete c and make the iterator
-           invalid.  */
-        while (ok && c->has_msg ())
+           invalid.  XXX handle_activity and friends were copied from
+	   the scheduler.  This needs a big cleanup for the return values,
+	   currently this either leaks or segfaults.  That's why we need
+	   to check 'ok' and 'c'.  The latter test must go away.  */
+        while (ok && c && c->has_msg ())
             if (handle_activity (c) != 0)
                 ok = false;
-        if (ok)  {
+        if (ok && c)  {
             if (i > max_fd)
                 max_fd = i;
             trace() << "fd " << i << endl;
@@ -750,7 +791,7 @@ int Daemon::answer_client_requests()
                 MsgChannel *c = Service::createChannel( acc_fd, (struct sockaddr*) &cli_addr, cli_len );
                 if ( !c )
                     return 0;
-                trace() << "acccept " << c->fd << " " << c->name << endl;
+                trace() << "accept " << c->fd << " " << c->name << endl;
 
                 fd2chan[c->fd] = c;
                 if (!c->read_a_bit () || c->has_msg ())

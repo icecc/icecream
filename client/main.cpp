@@ -226,7 +226,15 @@ int main(int argc, char **argv)
     int ret;
     if ( local ) {
         struct rusage ru;
+	/* Inform the daemon that we like to start a job.  */
         local_daemon->send_msg( JobLocalBeginMsg( get_absfilename( job.outputFile() )) );
+	/* Now wait until the daemon gives us the start signal.  40 minutes
+	   should be enough for all normal compile or link jobs.  */
+	Msg *startme = local_daemon->get_msg (40*60);
+	/* If we can't talk to the daemon anymore we need to fall back
+	   to lock file locking.  */
+        if (!startme || startme->type != M_JOB_LOCAL_BEGIN)
+	    goto do_local_error;
         ret = build_local( job, local_daemon, &ru );
     } else {
         try {

@@ -73,7 +73,7 @@ enum MsgType {
   M_JOB_BEGIN,
   M_JOB_DONE,
 
-  // C --> S
+  // C --> CS, CS --> S (forwarded from C), _and_ CS -> C as start ping
   M_JOB_LOCAL_BEGIN, // = 'N'
 
   // CS --> S, first message sent
