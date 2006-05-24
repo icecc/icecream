@@ -505,7 +505,7 @@ int Daemon::handle_old_request()
             return 0;
         }
         compile_file( ucc.client, compile );
-
+	delete compile;
     }
 
     if ( !requests.empty() && (current_kids+active_local_jobs.size()) < max_kids ) {
