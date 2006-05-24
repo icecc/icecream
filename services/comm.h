@@ -75,9 +75,10 @@ enum MsgType {
 
   // C --> CS, CS --> S (forwarded from C), _and_ CS -> C as start ping
   M_JOB_LOCAL_BEGIN, // = 'N'
+  M_JOB_LOCAL_DONE,
 
   // CS --> S, first message sent
-  M_LOGIN, // = 'Q'
+  M_LOGIN,
 
   // CS --> S (periodic)
   M_STATS,
@@ -85,10 +86,9 @@ enum MsgType {
   // messages between monitor and scheduler
   M_MON_LOGIN,
   M_MON_GET_CS,
-  M_MON_JOB_BEGIN,
+  M_MON_JOB_BEGIN, // = 'T'
   M_MON_JOB_DONE,
   M_MON_LOCAL_JOB_BEGIN,
-  M_MON_LOCAL_JOB_DONE,
   M_MON_STATS,
 
   M_TRANFER_ENV,
@@ -339,8 +339,17 @@ class JobLocalBeginMsg : public Msg {
 public:
   std::string outfile;
   uint32_t stime;
-  JobLocalBeginMsg(const std::string &file = "") : Msg( M_JOB_LOCAL_BEGIN ),
-                                                   outfile( file ), stime(time(0)) {}
+  uint32_t id;
+  JobLocalBeginMsg(int job_id = 0, const std::string &file = "") : Msg( M_JOB_LOCAL_BEGIN ),
+                                                                   outfile( file ), stime(time(0)), id( job_id ) {}
+  virtual void fill_from_channel (MsgChannel * c);
+  virtual void send_to_channel (MsgChannel * c) const;
+};
+
+class JobLocalDoneMsg : public Msg {
+public:
+  uint32_t job_id;
+  JobLocalDoneMsg(unsigned int id = 0) : Msg( M_JOB_LOCAL_DONE ), job_id( id ) {}
   virtual void fill_from_channel (MsgChannel * c);
   virtual void send_to_channel (MsgChannel * c) const;
 };
@@ -451,14 +460,6 @@ public:
   MonLocalJobBeginMsg() : Msg(M_MON_LOCAL_JOB_BEGIN) {}
   MonLocalJobBeginMsg( unsigned int id, const std::string &_file, unsigned int time, int _hostid )
     : Msg( M_MON_LOCAL_JOB_BEGIN ), job_id( id ), stime( time ), hostid( _hostid ), file( _file ) {}
-  virtual void fill_from_channel (MsgChannel * c);
-  virtual void send_to_channel (MsgChannel * c) const;
-};
-
-class MonLocalJobDoneMsg : public Msg {
-public:
-  uint32_t job_id;
-  MonLocalJobDoneMsg(unsigned int id = 0) : Msg( M_MON_LOCAL_JOB_DONE ), job_id( id ) {}
   virtual void fill_from_channel (MsgChannel * c);
   virtual void send_to_channel (MsgChannel * c) const;
 };

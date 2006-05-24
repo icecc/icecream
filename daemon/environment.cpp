@@ -233,8 +233,10 @@ size_t setup_env_cache(const string &basedir, string &native_environment, uid_t 
         int status = 0;
         if ( waitpid( pid, &status, 0 ) != pid )
             status = 1;
+        trace() << "waitpid " << status << endl;
         if ( !status )
         {
+            trace() << "opendir " << nativedir << endl;
             native_environment = list_native_environment( nativedir );
             if ( native_environment.empty() )
                 status = 1;

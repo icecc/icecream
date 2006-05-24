@@ -118,7 +118,6 @@ public:
   string nodename;
   time_t busy_installing;
   string host_platform;
-  unsigned int local_job_id; // only useful for type == CLIENT
 
   // unsigned int jobs_done;
   //  unsigned long long rcvd_kb, sent_kb;
@@ -134,7 +133,6 @@ public:
       type(UNKNOWN), chroot_possible(false) {
     hostid = 0;
     busy_installing = 0;
-    local_job_id = 0;
   }
   void pick_new_id() {
     assert( !hostid );
@@ -148,6 +146,7 @@ public:
   enum {UNKNOWN, DAEMON, MONITOR, LINE} type;
   bool chroot_possible;
   static unsigned int hostid_counter;
+  map<int, int> client_map; // map client ID for daemon to our IDs
 };
 
 unsigned int CS::hostid_counter = 0;
@@ -494,11 +493,24 @@ handle_local_job (MsgChannel *c, Msg *_m)
     return false;
 
   ++new_job_id;
-
-#warning does not make sense now
+  trace() << "handle_local_job " << m->outfile << " " << m->id << endl;
   CS *cs = dynamic_cast<CS*>( c );
-  cs->local_job_id = new_job_id;
+  cs->client_map[m->id] = new_job_id;
   notify_monitors (MonLocalJobBeginMsg( new_job_id, m->outfile, m->stime, cs->hostid ) );
+  return true;
+}
+
+static bool
+handle_local_job_done (MsgChannel *c, Msg *_m)
+{
+  JobLocalDoneMsg *m = dynamic_cast<JobLocalDoneMsg *>(_m);
+  if (!m)
+    return false;
+
+  trace() << "handle_local_job_done " << m->job_id << endl;
+  CS *cs = dynamic_cast<CS*>( c );
+  notify_monitors (MonJobDoneMsg( cs->client_map[m->job_id] ) );
+  cs->client_map.erase( m->job_id );
   return true;
 }
 
@@ -1430,6 +1442,7 @@ handle_activity (MsgChannel *c)
     case M_END: handle_end (c, m); ret = false; break;
     case M_TIMEOUT: ret = handle_timeout (c, m); break;
     case M_JOB_LOCAL_BEGIN: ret = handle_local_job (c, m); break;
+    case M_JOB_LOCAL_DONE: ret = handle_local_job_done( c, m ); break;
     case M_LOGIN: ret = handle_relogin (c, m); break;
     case M_TEXT: ret = handle_line (c, m); break;
     case M_GET_CS: ret = handle_cs_request (c, m); break;
@@ -1695,6 +1708,7 @@ main (int argc, char * argv[])
 	  if (remote_fd >= 0)
 	    {
 	      CS *cs = new CS (remote_fd, (struct sockaddr*) &remote_addr, remote_len, false);
+              trace() << "accepted " << cs->name << " " << cs->port << endl;
               cs->last_talk = time( 0 );
 
               if ( !cs->protocol ) // protocol mismatch

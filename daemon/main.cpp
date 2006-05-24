@@ -90,13 +90,14 @@ typedef pair<CompileJob*, MsgChannel*> Compile_Request;
 // the pidmap maps the PID to the socket to the server child
 typedef map<pid_t, int> Pidmap;
 
-struct hash_channel {
-  size_t operator()(const MsgChannel *c)const{return (size_t)c;}
-};
-typedef hash_set<MsgChannel*, hash_channel> ChannelSet;
-
 struct UseCsCache {
     UseCSMsg *msg;
+    MsgChannel *client;
+};
+
+struct LocalJobCache {
+    int job_id;
+    string outfile;
     MsgChannel *client;
 };
 
@@ -263,10 +264,8 @@ int setup_listen_fd()
 struct timeval last_stat;
 struct timeval last_sent;
 int mem_limit = 100;
-int max_kids = 0;
+unsigned int max_kids = 0;
 int current_kids = 0;
-int current_local_jobs = 0;  // like link jobs.  Exactly those which start
-			     // with a JobLocalBeginMsg
 unsigned long myniceload = 0;
 unsigned long myidleload = 0;
 
@@ -304,7 +303,7 @@ bool maybe_stats(bool force = false) {
         //trace() << "load load=" << realLoad << " mem=" << memory_fillgrade << endl;
 
         // Matz got in the urine that not all CPUs are always feed
-        mem_limit = std::max( msg.freeMem / std::min( std::max( max_kids, 1 ), 4 ), 100U );
+        mem_limit = std::max( msg.freeMem / std::min( std::max( max_kids, 1U ), 4U ), 100U );
 
         if ( !scheduler->send_msg( msg ) )
             return false;
@@ -359,7 +358,10 @@ struct Daemon
     size_t cache_size;
     map<int, MsgChannel *> fd2chan;
     map<int, MsgChannel *> pending_clients;
-    ChannelSet waiting_local_jobs, active_local_jobs;
+    queue<LocalJobCache> waiting_local_jobs;
+    // like link jobs.  Exactly those which start
+    // with a JobLocalBeginMsg
+    map<MsgChannel*,LocalJobCache> active_local_jobs;
     int new_client_id;
     string remote_name;
     queue<UseCsCache> pending_use_cs;
@@ -371,16 +373,16 @@ struct Daemon
         new_client_id = 0;
     }
     int answer_client_requests();
-    void transfer_env( MsgChannel *&c, Msg *msg );
-    void get_native_env( MsgChannel *&c );
+    void transfer_env( MsgChannel *c, Msg *msg );
+    void get_native_env( MsgChannel *c );
     int handle_old_request();
-    void compile_file( MsgChannel *&c, Msg *msg );
-    int handle_activity( MsgChannel *&c );
+    void compile_file( MsgChannel *c, Msg *msg );
+    int handle_activity( MsgChannel *c );
     void handle_end( MsgChannel *&c );
     void clear_children();
     int handle_use_cs( UseCSMsg *msg );
-    void handle_get_cs( MsgChannel *&c, Msg *msg );
-    void handle_local_job( MsgChannel *&c );
+    void handle_get_cs( MsgChannel *c, Msg *msg );
+    void handle_local_job( MsgChannel *c, Msg *msg );
 };
 
 int Daemon::handle_use_cs( UseCSMsg *msg )
@@ -400,7 +402,7 @@ int Daemon::handle_use_cs( UseCSMsg *msg )
     return 0;
 }
 
-void Daemon::transfer_env( MsgChannel *&c, Msg *msg )
+void Daemon::transfer_env( MsgChannel *c, Msg *msg )
 {
     EnvTransferMsg *emsg = static_cast<EnvTransferMsg*>( msg );
     string target = emsg->target;
@@ -449,14 +451,13 @@ void Daemon::transfer_env( MsgChannel *&c, Msg *msg )
         if ( msg->type == M_COMPILE_FILE ) { // we sure hope so
             CompileJob *job = dynamic_cast<CompileFileMsg*>( msg )->takeJob();
             requests.push( make_pair( job, c ));
-            c = 0; // forget you saw him
         } else {
             log_error() << "not compile file\n";
         }
     }
 }
 
-void Daemon::get_native_env( MsgChannel *&c )
+void Daemon::get_native_env( MsgChannel *c )
 {
     trace() << "get_native_env " << native_environment << endl;
 
@@ -475,18 +476,20 @@ void Daemon::get_native_env( MsgChannel *&c )
 
 int Daemon::handle_old_request()
 {
-    if ( !waiting_local_jobs.empty() && (current_kids+current_local_jobs) < max_kids) {
-        MsgChannel *c = *waiting_local_jobs.begin();
-	if (!c->send_msg (JobLocalBeginMsg())) {
+    if ( !waiting_local_jobs.empty() && (current_kids+active_local_jobs.size()) < max_kids)
+    {
+        LocalJobCache ljc = waiting_local_jobs.front();
+        waiting_local_jobs.pop();
+        if (!ljc.client->send_msg (JobLocalBeginMsg())) {
 	    log_warning() << "can't send start message to client" << endl;
-	    handle_end (c);
+	    handle_end (ljc.client);
         } else {
-	    waiting_local_jobs.erase (c);
-	    active_local_jobs.insert (c);
-	    current_local_jobs++;
+            active_local_jobs[ljc.client] = ljc;
+            trace() << "pushed local job " << ljc.job_id << endl;
+            scheduler->send_msg( JobLocalBeginMsg( ljc.job_id, ljc.outfile ) );
 	}
     }
-    if ( !pending_use_cs.empty() && (current_kids+current_local_jobs) < max_kids )
+    if ( !pending_use_cs.empty() && (current_kids+active_local_jobs.size()) < max_kids )
     {
         UseCsCache ucc = pending_use_cs.front();
         pending_use_cs.pop();
@@ -504,7 +507,7 @@ int Daemon::handle_old_request()
 
     }
 
-    if ( !requests.empty() && (current_kids+current_local_jobs) < max_kids ) {
+    if ( !requests.empty() && (current_kids+active_local_jobs.size()) < max_kids ) {
         Compile_Request req = requests.front();
         requests.pop();
         CompileJob *job = req.first;
@@ -598,7 +601,7 @@ int Daemon::handle_old_request()
     return 0;
 }
 
-void Daemon::compile_file( MsgChannel *&c, Msg *msg )
+void Daemon::compile_file( MsgChannel *c, Msg *msg )
 {
     CompileJob *job = dynamic_cast<CompileFileMsg*>( msg )->takeJob();
     requests.push( make_pair( job, c ));
@@ -615,12 +618,17 @@ void Daemon::handle_end( MsgChannel *&c )
             break;
         }
     }
+#warning this part is tricky with a stl:queue - any other idea?
+#if 0
     if (waiting_local_jobs.count (c) > 0)
 	waiting_local_jobs.erase (c);
+#endif
     if (active_local_jobs.count (c) > 0) {
+        LocalJobCache ljc = active_local_jobs[c];
 	trace() << "was a local job" << endl;
-	current_local_jobs--;
 	active_local_jobs.erase (c);
+#warning we need to remember the client_id
+        scheduler->send_msg( JobLocalDoneMsg( ljc.job_id ) );
     }
 
     delete c;
@@ -662,7 +670,7 @@ void Daemon::clear_children()
     trace() << "cleared children\n";
 }
 
-void Daemon::handle_get_cs( MsgChannel *&c, Msg *msg )
+void Daemon::handle_get_cs( MsgChannel *c, Msg *msg )
 {
     GetCSMsg *umsg = dynamic_cast<GetCSMsg*>( msg );
     umsg->client_id = ++new_client_id;
@@ -671,13 +679,18 @@ void Daemon::handle_get_cs( MsgChannel *&c, Msg *msg )
     pending_clients[new_client_id] = c;
 }
 
-void Daemon::handle_local_job( MsgChannel *&c )
+void Daemon::handle_local_job( MsgChannel *c, Msg *msg )
 {
-    trace() << "handle_local_job" << c << endl;
-    waiting_local_jobs.insert (c);
+    trace() << "handle_local_job " << c << endl;
+    LocalJobCache ljc;
+    ljc.outfile = dynamic_cast<JobLocalBeginMsg*>( msg )->outfile;
+    ljc.job_id = ++new_client_id;
+    ljc.job_id = 0;
+    ljc.client = c;
+    waiting_local_jobs.push( ljc );
 }
 
-int Daemon::handle_activity( MsgChannel *&c )
+int Daemon::handle_activity( MsgChannel *c )
 {
     Msg *msg = c->get_msg();
     if ( !msg ) {
@@ -693,7 +706,7 @@ int Daemon::handle_activity( MsgChannel *&c )
         case M_TRANFER_ENV: transfer_env( c, msg ); break;
         case M_GET_CS: handle_get_cs( c, msg ); break;
         case M_END: handle_end( c ); break;
-	case M_JOB_LOCAL_BEGIN: handle_local_job (c); break;
+	case M_JOB_LOCAL_BEGIN: handle_local_job (c, msg); break;
         default:
             log_error() << "not compile: " << ( char )msg->type << endl;
             c->send_msg( EndMsg() );
@@ -713,9 +726,10 @@ int Daemon::answer_client_requests()
     struct sockaddr cli_addr;
     socklen_t cli_len;
 
-    if ( requests.size() + current_kids + current_local_jobs + waiting_local_jobs.size() )  {
-        log_info() << "requests " << requests.size() << " kids "
-                   << current_kids << " locals " << current_local_jobs
+    if ( requests.size() + current_kids + active_local_jobs.size() + waiting_local_jobs.size() )  {
+        log_info() << "puscs " << pending_use_cs.size()
+                   << " requests " << requests.size() << " kids "
+                   << current_kids << " locals " << active_local_jobs.size()
 		   << " waiting " << waiting_local_jobs.size()
 		   << " (max " << max_kids << ")\n";
     }
@@ -764,7 +778,6 @@ int Daemon::answer_client_requests()
         if (ok && c)  {
             if (i > max_fd)
                 max_fd = i;
-            trace() << "fd " << i << endl;
             FD_SET (i, &listen_set);
         }
     }

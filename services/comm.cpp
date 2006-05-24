@@ -800,8 +800,8 @@ MsgChannel::get_msg(int timeout)
     case M_MON_JOB_DONE: m = new MonJobDoneMsg; break;
     case M_MON_STATS: m = new MonStatsMsg; break;
     case M_JOB_LOCAL_BEGIN: m = new JobLocalBeginMsg; break;
+    case M_JOB_LOCAL_DONE : m = new JobLocalDoneMsg; break;
     case M_MON_LOCAL_JOB_BEGIN: m = new MonLocalJobBeginMsg; break;
-    case M_MON_LOCAL_JOB_DONE: m = new MonLocalJobDoneMsg; break;
     case M_TRANFER_ENV: m = new EnvTransferMsg; break;
     case M_TEXT: m = new TextMsg; break;
     }
@@ -1224,13 +1224,13 @@ void JobLocalBeginMsg::send_to_channel( MsgChannel *c ) const
   c->write_string( outfile );
 }
 
-void MonLocalJobDoneMsg::fill_from_channel( MsgChannel *c )
+void JobLocalDoneMsg::fill_from_channel( MsgChannel *c )
 {
   Msg::fill_from_channel(c);
   c->readuint32(job_id);
 }
 
-void MonLocalJobDoneMsg::send_to_channel( MsgChannel *c ) const
+void JobLocalDoneMsg::send_to_channel( MsgChannel *c ) const
 {
   Msg::send_to_channel( c );
   c->writeuint32(job_id);
