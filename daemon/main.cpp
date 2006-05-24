@@ -72,6 +72,7 @@
 #include <map>
 #include <algorithm>
 #include <ext/hash_set>
+#include <set>
 
 #include "ncpus.h"
 #include "exitcode.h"
@@ -358,7 +359,7 @@ struct Daemon
     size_t cache_size;
     map<int, MsgChannel *> fd2chan;
     map<int, MsgChannel *> pending_clients;
-    queue<LocalJobCache> waiting_local_jobs;
+    deque<LocalJobCache> waiting_local_jobs;
     // like link jobs.  Exactly those which start
     // with a JobLocalBeginMsg
     map<MsgChannel*,LocalJobCache> active_local_jobs;
@@ -478,8 +479,8 @@ int Daemon::handle_old_request()
 {
     if ( !waiting_local_jobs.empty() && (current_kids+active_local_jobs.size()) < max_kids)
     {
-        LocalJobCache ljc = waiting_local_jobs.front();
-        waiting_local_jobs.pop();
+        LocalJobCache ljc = *waiting_local_jobs.begin();
+        waiting_local_jobs.erase( waiting_local_jobs.begin() );
         if (!ljc.client->send_msg (JobLocalBeginMsg())) {
 	    log_warning() << "can't send start message to client" << endl;
 	    handle_end (ljc.client);
@@ -618,16 +619,17 @@ void Daemon::handle_end( MsgChannel *&c )
             break;
         }
     }
-#warning this part is tricky with a stl:queue - any other idea?
-#if 0
-    if (waiting_local_jobs.count (c) > 0)
-	waiting_local_jobs.erase (c);
-#endif
+    for ( deque<LocalJobCache>::iterator it = waiting_local_jobs.begin(); 
+	 it != waiting_local_jobs.end(); ++it) 
+	if (it->client == c) {
+		waiting_local_jobs.erase(it);
+		break;
+	}
+
     if (active_local_jobs.count (c) > 0) {
         LocalJobCache ljc = active_local_jobs[c];
 	trace() << "was a local job" << endl;
 	active_local_jobs.erase (c);
-#warning we need to remember the client_id
         scheduler->send_msg( JobLocalDoneMsg( ljc.job_id ) );
     }
 
@@ -685,9 +687,8 @@ void Daemon::handle_local_job( MsgChannel *c, Msg *msg )
     LocalJobCache ljc;
     ljc.outfile = dynamic_cast<JobLocalBeginMsg*>( msg )->outfile;
     ljc.job_id = ++new_client_id;
-    ljc.job_id = 0;
     ljc.client = c;
-    waiting_local_jobs.push( ljc );
+    waiting_local_jobs.push_back( ljc );
 }
 
 int Daemon::handle_activity( MsgChannel *c )

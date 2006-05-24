@@ -591,6 +591,7 @@ MsgChannel *Service::createChannel (const string &hostname, unsigned short p, in
       if (connect (remote_fd, (struct sockaddr *) &remote_addr, sizeof (remote_addr)) < 0)
         {
           close( remote_fd );
+	  trace() << "connect failed\n";
           return 0;
         }
     }
@@ -600,6 +601,7 @@ MsgChannel *Service::createChannel (const string &hostname, unsigned short p, in
     {
       delete c;
       c = 0;
+      trace() << "not the same protocol\n";
     }
   return c;
 }
@@ -1215,6 +1217,7 @@ void JobLocalBeginMsg::fill_from_channel( MsgChannel *c )
   Msg::fill_from_channel(c);
   c->readuint32(stime);
   c->read_string( outfile );
+  c->readuint32(id);
 }
 
 void JobLocalBeginMsg::send_to_channel( MsgChannel *c ) const
@@ -1222,6 +1225,7 @@ void JobLocalBeginMsg::send_to_channel( MsgChannel *c ) const
   Msg::send_to_channel( c );
   c->writeuint32(stime);
   c->write_string( outfile );
+  c->writeuint32(id);
 }
 
 void JobLocalDoneMsg::fill_from_channel( MsgChannel *c )
