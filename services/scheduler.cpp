@@ -509,7 +509,7 @@ handle_local_job_done (MsgChannel *c, Msg *_m)
 
   trace() << "handle_local_job_done " << m->job_id << endl;
   CS *cs = dynamic_cast<CS*>( c );
-  notify_monitors (MonJobDoneMsg( cs->client_map[m->job_id] ) );
+  notify_monitors (JobLocalDoneMsg( cs->client_map[m->job_id] ) );
   cs->client_map.erase( m->job_id );
   return true;
 }
