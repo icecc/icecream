@@ -52,27 +52,34 @@ add_file ()
   fi
 }
 
-if test -z "`type -p gcc`"; then
-  echo "create-env: No gcc found in path."
-  exit 1
-fi
+test -n "$CC" || CC=gcc
+test -n "$CXX" || CXX=g++
 
-added_gcc=/usr/bin/gcc
-added_gxx=/usr/bin/g++
-
-if test "$1" = "--respect-path"; then
-  added_gcc=`which gcc` 
-  added_gxx=`which g++` 
+# prefer /usr/bin installations over colorgcc
+if test "$1" != "--respect-path"; then
+   PATH=/usr/bin:$PATH
 # Perhaps we are on Gentoo.  They provide a wrapper for GCC.
 elif test -x /usr/bin/gcc-config; then
   gccpath=`/usr/bin/gcc-config -B`
   if test -d "$gccpath" && test -x "$gccpath/gcc"; then
-    added_gcc=$gccpath/gcc
-    added_gxx=$gccpath/g++
+    PATH=$gccpath:$PATH
   fi
 fi
 
-add_file $added_gcc /usr/bin/gcc 
+added_gcc=`which $CC`
+added_gxx=`which $CXX`
+
+if test -z "$added_gcc" ; then
+  echo "No gcc found in path."
+  exit 1
+fi
+
+if test -z "$added_gxx" ; then
+  echo "No g++ found in path."
+  exit 1
+fi
+
+add_file $added_gcc /usr/bin/gcc
 add_file $added_gxx /usr/bin/g++
 add_file /usr/bin/as
 
@@ -106,14 +113,14 @@ done
 # of ordering
 target_files=`for i in $new_target_files; do echo $i; done | sort`
 md5=`for i in $target_files; do md5sum $tmpdir/$i; done | sed -e 's/ .*$//' | md5sum | sed -e 's/ .*$//'` || {
-  echo "create-env: Couldn't compute MD5 sum."
+  echo "Couldn't compute MD5 sum."
   exit 2
 }
 echo "creating $md5.tar.bz2"
 mydir=`pwd`
 cd $tempdir
 tar -cjhf "$mydir/$md5".tar.bz2 $target_files || {
-  echo "create-env: Couldn't create archive"
+  echo "Couldn't create archive"
   exit 3
 }
 cd ..
