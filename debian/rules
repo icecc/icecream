@@ -164,6 +164,8 @@ install-arch:
 	$(MAKE) install DESTDIR=$(CURDIR)/debian/tmp
 
 	mkdir -p $(CURDIR)/debian/tmp/usr/lib/icecc/bin
+	ln -s /usr/bin/icecc $(CURDIR)/debian/tmp/usr/lib/icecc/bin/cc 
+	ln -s /usr/bin/icecc $(CURDIR)/debian/tmp/usr/lib/icecc/bin/c++
 	ln -s /usr/bin/icecc $(CURDIR)/debian/tmp/usr/lib/icecc/bin/gcc 
 	ln -s /usr/bin/icecc $(CURDIR)/debian/tmp/usr/lib/icecc/bin/g++
 
