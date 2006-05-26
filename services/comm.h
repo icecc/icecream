@@ -91,7 +91,7 @@ enum MsgType {
   M_MON_LOCAL_JOB_BEGIN,
   M_MON_STATS,
 
-  M_TRANFER_ENV,
+  M_TRANFER_ENV, // = 'X'
 
   M_TEXT,
   M_STATUS_TEXT,

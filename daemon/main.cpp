@@ -380,7 +380,7 @@ struct Daemon
     void compile_file( MsgChannel *c, Msg *msg );
     int handle_activity( MsgChannel *c );
     void handle_end( MsgChannel *&c );
-    void handle_get_internals( MsgChannel *c );
+    int handle_get_internals( MsgChannel *c );
     void clear_children();
     int handle_use_cs( UseCSMsg *msg );
     void handle_get_cs( MsgChannel *c, Msg *msg );
@@ -463,9 +463,11 @@ string Daemon::dump_internals() const
     return result;
 }
 
-void Daemon::handle_get_internals( MsgChannel *c )
+int Daemon::handle_get_internals( MsgChannel *c )
 {
+    trace() << "handle_get_internals " << dump_internals() << endl;
     c->send_msg( StatusTextMsg( dump_internals() ) );
+    return 0;
 }
 
 int Daemon::handle_use_cs( UseCSMsg *msg )
@@ -896,7 +898,7 @@ int Daemon::answer_client_requests()
                     ret = handle_use_cs( dynamic_cast<UseCSMsg*>( msg ) );
 		    break;
                 case M_GET_INTERNALS:
-                    handle_get_internals( scheduler );
+                    ret = handle_get_internals( scheduler );
                     break;
                 default:
                     log_error() << "unknown scheduler type " << ( char )msg->type << endl;
