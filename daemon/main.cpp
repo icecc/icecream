@@ -425,7 +425,7 @@ string Daemon::dump_internals() const
     if ( !envs_last_use.empty() )
         result += "  Now: " + toString( time( 0 ) ) + "\n";
     for (map<string, time_t>::const_iterator it = envs_last_use.begin();
-         it != envs_last_use.end();)  {
+         it != envs_last_use.end(); ++it)  {
         result += "  envs_last_use[" + it->first  + "] =" +
                   toString( it->second ) + "\n";
     }
