@@ -692,6 +692,11 @@ MsgChannel::~MsgChannel()
     free (addr);
 }
 
+string MsgChannel::dump() const
+{
+  return name + ":" + toString( port );
+}
+
 /* Wait blocking until the protocol setup for this channel is complete.
    Returns false if an error occured.  */
 bool
@@ -806,6 +811,8 @@ MsgChannel::get_msg(int timeout)
     case M_MON_LOCAL_JOB_BEGIN: m = new MonLocalJobBeginMsg; break;
     case M_TRANFER_ENV: m = new EnvTransferMsg; break;
     case M_TEXT: m = new TextMsg; break;
+    case M_GET_INTERNALS: m = new GetInternalStatus; break;
+    case M_STATUS_TEXT: m = new StatusTextMsg; break;
     }
   if (!m)
 	return 0;
@@ -1452,6 +1459,20 @@ void
 TextMsg::send_to_channel (MsgChannel *c) const
 {
   c->write_line (text);
+}
+
+void
+StatusTextMsg::fill_from_channel (MsgChannel *c)
+{
+  Msg::fill_from_channel( c );
+  c->read_string (text);
+}
+
+void
+StatusTextMsg::send_to_channel (MsgChannel *c) const
+{
+  Msg::send_to_channel( c );
+  c->write_string (text);
 }
 
 /*

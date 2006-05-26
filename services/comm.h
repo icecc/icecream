@@ -93,7 +93,9 @@ enum MsgType {
 
   M_TRANFER_ENV,
 
-  M_TEXT
+  M_TEXT,
+  M_STATUS_TEXT,
+  M_GET_INTERNALS
 };
 
 class MsgChannel;
@@ -126,6 +128,7 @@ public:
   uint32_t port;
   time_t last_talk;
 
+  std::string dump() const;
   // NULL  <--> channel closed
   Msg *get_msg(int timeout = 10);
   // false <--> error (msg not send)
@@ -404,6 +407,11 @@ public:
   virtual void send_to_channel (MsgChannel * c) const;
 };
 
+class GetInternalStatus : public Msg {
+public:
+  GetInternalStatus() : Msg(M_GET_INTERNALS) {}
+};
+
 class MonLoginMsg : public Msg {
 public:
   MonLoginMsg() : Msg(M_MON_LOGIN) {}
@@ -483,6 +491,16 @@ public:
   TextMsg() : Msg( M_TEXT ) {}
   TextMsg( const std::string &_text)
     : Msg ( M_TEXT ), text(_text) {}
+  virtual void fill_from_channel (MsgChannel *c);
+  virtual void send_to_channel (MsgChannel *c) const;
+};
+
+class StatusTextMsg : public Msg {
+public:
+  std::string text;
+  StatusTextMsg() : Msg( M_STATUS_TEXT ) {}
+  StatusTextMsg( const std::string &_text)
+    : Msg ( M_STATUS_TEXT ), text(_text) {}
   virtual void fill_from_channel (MsgChannel *c);
   virtual void send_to_channel (MsgChannel *c) const;
 };

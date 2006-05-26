@@ -1272,10 +1272,22 @@ handle_line (MsgChannel *c, Msg *_m)
     {
       *(int *)0 = 42;  // ;-)
     }
+  else if (cmd == "internals" )
+    {
+      for (list<CS*>::iterator it = css.begin(); it != css.end(); ++it)
+        {
+          ( *it )->send_msg( GetInternalStatus() );
+          Msg *msg = ( *it )->get_msg();
+          if ( msg && msg->type == M_STATUS_TEXT )
+            c->send_msg( TextMsg( dynamic_cast<StatusTextMsg*>( msg )->text ) );
+          else
+            c->send_msg( TextMsg( ( *it )->nodename + " not reporting\n" ) );
+        }
+    }
   else if (cmd == "help")
     {
       c->send_msg (TextMsg (
-        "listcs\nlistjobs\nremovecs\nhelp\nquit"));
+        "listcs\nlistjobs\nremovecs\ninternals\nhelp\nquit"));
     }
   else
     {

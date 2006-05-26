@@ -70,4 +70,15 @@ static inline void log_perror(const char *prefix) {
     log_error() << prefix << " " << strerror( tmp_errno ) << std::endl;
 }
 
+#include <sstream>
+#include <iostream>
+
+template<class T>
+std::string toString(const T& val)
+{
+    std::ostringstream os;
+    os << val;
+    return os.str();
+}
+
 #endif

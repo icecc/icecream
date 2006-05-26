@@ -380,11 +380,93 @@ struct Daemon
     void compile_file( MsgChannel *c, Msg *msg );
     int handle_activity( MsgChannel *c );
     void handle_end( MsgChannel *&c );
+    void handle_get_internals( MsgChannel *c );
     void clear_children();
     int handle_use_cs( UseCSMsg *msg );
     void handle_get_cs( MsgChannel *c, Msg *msg );
     void handle_local_job( MsgChannel *c, Msg *msg );
+    string dump_internals() const;
 };
+
+string Daemon::dump_internals() const
+{
+    string result;
+    result += "Node Name: " + nodename + "\n";
+    queue<Compile_Request> reqcopy = requests;
+    while ( reqcopy.size() ) {
+        Compile_Request req = reqcopy.front();
+        reqcopy.pop();
+        CompileJob *job = req.first;
+        MsgChannel *c = req.second;
+        result += "  Request from " + c->dump() + ": " + job->inputFile() + " - " + toString( job->jobID() ) + "\n";
+    }
+    result += "  Remote name: " + remote_name + "\n";
+    for (map<int, MsgChannel *>::const_iterator it = fd2chan.begin();
+         it != fd2chan.end();)  {
+        result += "  fd2chan[" + toString( it->first ) + "] =" + it->second->dump() + "\n";
+    }
+    for (map<int, MsgChannel *>::const_iterator it = pending_clients.begin();
+         it != pending_clients.end();)  {
+        result += "pending_clients[" + toString( it->first ) + "] =" +
+                  it->second->dump() + "\n";
+    }
+    if ( cache_size )
+        result += "  Cache Size: " + toString( cache_size ) + "\n";
+    result += "  Architecture: " + machine_name + "\n";
+    if ( !native_environment.empty() )
+        result += "  NativeEnv: " + native_environment + "\n";
+
+    for (map<MsgChannel*, LocalJobCache>::const_iterator it = active_local_jobs.begin();
+         it != active_local_jobs.end();)  {
+        const LocalJobCache ljc = it->second;
+        result += "  active_local_jobs[" + it->first->dump() + "]=" +
+                  ljc.outfile + "(" + toString( ljc.job_id ) + ")\n";
+    }
+    if ( !envs_last_use.empty() )
+        result += "  Now: " + toString( time( 0 ) ) + "\n";
+    for (map<string, time_t>::const_iterator it = envs_last_use.begin();
+         it != envs_last_use.end();)  {
+        result += "  envs_last_use[" + it->first  + "] =" +
+                  toString( it->second ) + "\n";
+    }
+    for ( deque<LocalJobCache>::const_iterator it = waiting_local_jobs.begin();
+          it != waiting_local_jobs.end(); ++it ) {
+        result += "  Waiting LJ: " + it->outfile + "(" + toString( it->job_id ) + ")\n";
+    }
+    for ( map<pid_t, JobDoneMsg*>::const_iterator it = jobmap.begin();
+          it != jobmap.end(); ++it ) {
+        result += string( "jobmap[" ) + toString( it->first ) + "] = " + toString( it->second ) + "\n";
+        if ( pidmap.count( it->first ) > 0 ) {
+            result += "  pidmap[" + toString( it->first ) + "] = ";
+            // pidmap[it->first] is non-const
+            result += toString( pidmap.find( it->first )->second ) + "\n";
+        }
+        if ( envmap.count( it->first ) > 0 ) {
+            result += "  envmap[" + toString( it->first ) + "] = " + envmap.find( it->first )->second + "\n";
+        }
+    }
+
+    for ( Pidmap::const_iterator it = pidmap.begin();
+          it != pidmap.end(); ++it ) {
+        if ( jobmap.count( it->first ) > 0 )
+            continue;
+        result += "  pidmap[" + toString( it->first ) + "] = " + toString( it->second ) + "\n";
+    }
+
+    for ( map<pid_t, string>::const_iterator it = envmap.begin();
+          it != envmap.end(); ++it ) {
+        if ( jobmap.count( it->first ) > 0 )
+            continue;
+        result += "  envmap[" + toString( it->first ) + "] = " + it->second + "\n";
+    }
+
+    return result;
+}
+
+void Daemon::handle_get_internals( MsgChannel *c )
+{
+    c->send_msg( StatusTextMsg( dump_internals() ) );
+}
 
 int Daemon::handle_use_cs( UseCSMsg *msg )
 {
@@ -619,8 +701,8 @@ void Daemon::handle_end( MsgChannel *&c )
             break;
         }
     }
-    for ( deque<LocalJobCache>::iterator it = waiting_local_jobs.begin(); 
-	 it != waiting_local_jobs.end(); ++it) 
+    for ( deque<LocalJobCache>::iterator it = waiting_local_jobs.begin();
+	 it != waiting_local_jobs.end(); ++it)
 	if (it->client == c) {
 		waiting_local_jobs.erase(it);
 		break;
@@ -813,6 +895,9 @@ int Daemon::answer_client_requests()
                 case M_USE_CS:
                     ret = handle_use_cs( dynamic_cast<UseCSMsg*>( msg ) );
 		    break;
+                case M_GET_INTERNALS:
+                    handle_get_internals( scheduler );
+                    break;
                 default:
                     log_error() << "unknown scheduler type " << ( char )msg->type << endl;
                 }
