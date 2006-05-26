@@ -339,6 +339,7 @@ static int build_remote_int(CompileJob &job, UseCSMsg *usecs, const string &envi
         throw( 14 );
 
     if ( msg->type != M_COMPILE_RESULT ) {
+        log_warning() << "waited for compile result, but got " << (char)msg->type << endl;
         delete msg;
         throw( 13 );
     }
