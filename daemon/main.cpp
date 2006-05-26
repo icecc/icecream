@@ -406,7 +406,7 @@ string Daemon::dump_internals() const
         result += "  fd2chan[" + toString( it->first ) + "] =" + it->second->dump() + "\n";
     }
     for (map<int, MsgChannel *>::const_iterator it = pending_clients.begin();
-         it != pending_clients.end();)  {
+         it != pending_clients.end(); ++it)  {
         result += "pending_clients[" + toString( it->first ) + "] =" +
                   it->second->dump() + "\n";
     }
@@ -417,7 +417,7 @@ string Daemon::dump_internals() const
         result += "  NativeEnv: " + native_environment + "\n";
 
     for (map<MsgChannel*, LocalJobCache>::const_iterator it = active_local_jobs.begin();
-         it != active_local_jobs.end();)  {
+         it != active_local_jobs.end(); ++it)  {
         const LocalJobCache ljc = it->second;
         result += "  active_local_jobs[" + it->first->dump() + "]=" +
                   ljc.outfile + "(" + toString( ljc.job_id ) + ")\n";
