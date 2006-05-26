@@ -807,6 +807,8 @@ MsgChannel::get_msg(int timeout)
     case M_TRANFER_ENV: m = new EnvTransferMsg; break;
     case M_TEXT: m = new TextMsg; break;
     }
+  if (!m)
+	return 0;
   m->fill_from_channel (this);
   instate = NEED_LEN;
   update_state ();
