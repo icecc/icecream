@@ -391,7 +391,7 @@ string Daemon::dump_internals() const
 {
     string result;
     result += "Node Name: " + nodename + "\n";
-    for (deque<Compile_Request>::const_iterator it = requests.begin(); 
+    for (deque<Compile_Request>::const_iterator it = requests.begin();
 	 it != requests.end(); ++it) {
         CompileJob *job = it->first;
         MsgChannel *c = it->second;
@@ -472,8 +472,10 @@ int Daemon::handle_use_cs( UseCSMsg *msg )
     MsgChannel *c = pending_clients[msg->client_id];
     trace() << "handle_use_cs " << msg->job_id << " " << msg->client_id
             << " " << c << " " << msg->hostname << " " << remote_name <<  endl;
-    if ( !c )
+    if ( !c ) {
+        scheduler->send_msg( JobDoneMsg( msg->job_id ) );
         return 1;
+    }
     if ( msg->hostname == remote_name ) {
         UseCsCache ucc;
         ucc.msg = new UseCSMsg( msg->host_platform, "127.0.0.1", msg->port, msg->job_id, true, 1 );
@@ -712,6 +714,8 @@ void Daemon::handle_end( MsgChannel *&c )
          it != requests.end(); ++it)
         if (it->second == c) {
                 requests.erase(it);
+                if ( scheduler )
+                    scheduler->send_msg( JobDoneMsg( it->first->jobID() ) );
                 break;
         }
 
