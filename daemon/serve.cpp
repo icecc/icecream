@@ -98,7 +98,7 @@ int handle_connection( const string &basedir, CompileJob *job,
         return pid;
     }
 
-    reset_debug();
+    reset_debug(0);
     close( socket[0] );
     out_fd = socket[1];
 

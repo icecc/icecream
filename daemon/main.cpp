@@ -67,8 +67,7 @@
 #define RUSAGE_CHILDREN (-1)
 #endif
 
-
-#include <queue>
+#include <deque>
 #include <map>
 #include <algorithm>
 #include <ext/hash_set>
@@ -345,7 +344,7 @@ void fill_msg(int fd, JobDoneMsg *msg)
 
 struct Daemon
 {
-    queue<Compile_Request> requests;
+    deque<Compile_Request> requests;
     map<pid_t, JobDoneMsg*> jobmap;
     map<pid_t, string> envmap;
     Pidmap pidmap;
@@ -365,7 +364,7 @@ struct Daemon
     map<MsgChannel*,LocalJobCache> active_local_jobs;
     int new_client_id;
     string remote_name;
-    queue<UseCsCache> pending_use_cs;
+    deque<UseCsCache> pending_use_cs;
 
     Daemon() {
         envbasedir = "/tmp/icecc-envs";
@@ -392,12 +391,10 @@ string Daemon::dump_internals() const
 {
     string result;
     result += "Node Name: " + nodename + "\n";
-    queue<Compile_Request> reqcopy = requests;
-    while ( reqcopy.size() ) {
-        Compile_Request req = reqcopy.front();
-        reqcopy.pop();
-        CompileJob *job = req.first;
-        MsgChannel *c = req.second;
+    for (deque<Compile_Request>::const_iterator it = requests.begin(); 
+	 it != requests.end(); ++it) {
+        CompileJob *job = it->first;
+        MsgChannel *c = it->second;
         result += "  Request from " + c->dump() + ": " + job->inputFile() + " - " + toString( job->jobID() ) + "\n";
     }
     result += "  Remote name: " + remote_name + "\n";
@@ -481,7 +478,7 @@ int Daemon::handle_use_cs( UseCSMsg *msg )
         UseCsCache ucc;
         ucc.msg = new UseCSMsg( msg->host_platform, "127.0.0.1", msg->port, msg->job_id, true, 1 );
         ucc.client = c;
-        pending_use_cs.push( ucc );
+        pending_use_cs.push_back( ucc );
     } else
         c->send_msg( *msg, true );
     return 0;
@@ -533,12 +530,13 @@ void Daemon::transfer_env( MsgChannel *c, Msg *msg )
 
         reannounce_environments(envbasedir, nodename); // do that before the file compiles
         msg = c->get_msg();
-        if ( msg->type == M_COMPILE_FILE ) { // we sure hope so
+        if ( msg && msg->type == M_COMPILE_FILE ) { // we sure hope so
             CompileJob *job = dynamic_cast<CompileFileMsg*>( msg )->takeJob();
-            requests.push( make_pair( job, c ));
+            requests.push_back( make_pair( job, c ));
         } else {
             log_error() << "not compile file\n";
         }
+	delete msg;
     }
 }
 
@@ -577,7 +575,7 @@ int Daemon::handle_old_request()
     if ( !pending_use_cs.empty() && (current_kids+active_local_jobs.size()) < max_kids )
     {
         UseCsCache ucc = pending_use_cs.front();
-        pending_use_cs.pop();
+        pending_use_cs.pop_front();
         ucc.client->send_msg( *ucc.msg, true );
         delete ucc.msg;
         /* in this time the client has to find the msg and hit the maybe_build_local, so
@@ -594,7 +592,7 @@ int Daemon::handle_old_request()
 
     if ( !requests.empty() && (current_kids+active_local_jobs.size()) < max_kids ) {
         Compile_Request req = requests.front();
-        requests.pop();
+        requests.pop_front();
         CompileJob *job = req.first;
         int sock = -1;
         pid_t pid = -1;
@@ -689,7 +687,7 @@ int Daemon::handle_old_request()
 void Daemon::compile_file( MsgChannel *c, Msg *msg )
 {
     CompileJob *job = dynamic_cast<CompileFileMsg*>( msg )->takeJob();
-    requests.push( make_pair( job, c ));
+    requests.push_back( make_pair( job, c ));
 }
 
 void Daemon::handle_end( MsgChannel *&c )
@@ -710,6 +708,13 @@ void Daemon::handle_end( MsgChannel *&c )
 		break;
 	}
 
+    for ( deque<Compile_Request>::iterator it = requests.begin();
+         it != requests.end(); ++it)
+        if (it->second == c) {
+                requests.erase(it);
+                break;
+        }
+
     if (active_local_jobs.count (c) > 0) {
         LocalJobCache ljc = active_local_jobs[c];
 	trace() << "was a local job" << endl;
@@ -725,7 +730,7 @@ void Daemon::clear_children()
 {
     while ( !requests.empty() ) {
         Compile_Request req = requests.front();
-        requests.pop();
+        requests.pop_front();
         delete req.first;
         handle_end( req.second );
     }

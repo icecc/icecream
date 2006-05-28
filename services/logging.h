@@ -33,7 +33,7 @@ extern std::ostream *logfile_error;
 extern std::ostream *logfile_trace;
 
 void setup_debug(int level, const std::string &logfile = "");
-void reset_debug();
+void reset_debug(int);
 
 inline std::ostream & output_date( std::ostream &os )
 {
