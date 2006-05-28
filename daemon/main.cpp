@@ -583,6 +583,7 @@ int Daemon::handle_old_request()
         /* in this time the client has to find the msg and hit the maybe_build_local, so
          * he's better quick */
         Msg *compile = ucc.client->get_msg( 5 );
+        trace() << "pending_use_cs-- " << ucc.msg->job_id <<  " " << compile << endl;
         if ( !compile || compile->type != M_COMPILE_FILE )
         {
             handle_end( ucc.client );
@@ -598,6 +599,8 @@ int Daemon::handle_old_request()
         CompileJob *job = req.first;
         int sock = -1;
         pid_t pid = -1;
+
+        trace() << "requests--" << job->jobID() << endl;
 
         if ( job->environmentVersion() == "__client" ) {
             int sockets[2];
@@ -639,6 +642,7 @@ int Daemon::handle_old_request()
 
         if ( pid > 0) { // forked away
             current_kids++;
+            trace() << "sending scheduler about " << job->jobID() << endl;
             if ( !scheduler || !scheduler->send_msg( JobBeginMsg( job->jobID() ) ) ) {
                 log_warning() << "can't reach scheduler to tell him about job start of "
                               << job->jobID() << endl;
@@ -695,6 +699,7 @@ void Daemon::compile_file( MsgChannel *c, Msg *msg )
 void Daemon::handle_end( MsgChannel *&c )
 {
     trace() << "handle_end " << c << endl;
+    trace() << dump_internals() << endl;
     fd2chan.erase (c->fd);
     for (map<int, MsgChannel *>::iterator it = pending_clients.begin();
          it != pending_clients.end(); ++it) {
