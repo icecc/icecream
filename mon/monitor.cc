@@ -171,7 +171,6 @@ void Monitor::handle_local_done( Msg *_m )
   JobLocalDoneMsg *m = dynamic_cast<JobLocalDoneMsg*>( _m );
   if ( !m ) return;
 
-  kdDebug() << "Monitor::handle_local_done " << m->job_id << endl;
   JobList::iterator it = m_rememberedJobs.find( m->job_id );
   if ( it == m_rememberedJobs.end() ) {
     // we started in between
