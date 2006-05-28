@@ -399,7 +399,7 @@ string Daemon::dump_internals() const
     }
     result += "  Remote name: " + remote_name + "\n";
     for (map<int, MsgChannel *>::const_iterator it = fd2chan.begin();
-         it != fd2chan.end();)  {
+         it != fd2chan.end(); ++it)  {
         result += "  fd2chan[" + toString( it->first ) + "] =" + it->second->dump() + "\n";
     }
     for (map<int, MsgChannel *>::const_iterator it = pending_clients.begin();
