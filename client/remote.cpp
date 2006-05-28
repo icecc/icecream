@@ -157,10 +157,11 @@ string get_absfilename( const string &_file )
         file.replace( idx, 3, "/" );
         idx = file.find( "/.." );
     }
-    idx = file.find( "/." );
+
+    idx = file.find( "/./" );
     while ( idx != string::npos ) {
-        file.replace( idx, 2, "/" );
-        idx = file.find( "/." );
+        file.replace( idx, 3, "/" );
+        idx = file.find( "/./" );
     }
     idx = file.find( "//" );
     while ( idx != string::npos ) {
