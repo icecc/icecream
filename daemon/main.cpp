@@ -587,11 +587,11 @@ int Daemon::handle_old_request()
         UseCsCache ucc = pending_use_cs.front();
         pending_use_cs.pop_front();
         ucc.client->send_msg( *ucc.msg, true );
-        delete ucc.msg;
         /* in this time the client has to find the msg and hit the maybe_build_local, so
          * he's better quick */
         Msg *compile = ucc.client->get_msg( 5 );
         trace() << "pending_use_cs-- " << ucc.msg->job_id <<  " " << compile << endl;
+        delete ucc.msg;
         if ( !compile || compile->type != M_COMPILE_FILE )
         {
             handle_end( ucc.client );
