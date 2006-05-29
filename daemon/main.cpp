@@ -489,9 +489,9 @@ int Daemon::scheduler_use_cs( UseCSMsg *msg )
         ucc.msg = new UseCSMsg( msg->host_platform, "127.0.0.1", msg->port, msg->job_id, true, 1 );
         ucc.client = c;
         pending_use_cs.push_back( ucc );
-        client_map[msg->client_id] = msg->job_id;
     } else
         c->send_msg( *msg, true );
+    client_map[msg->client_id] = msg->job_id;
     return 0;
 }
 
