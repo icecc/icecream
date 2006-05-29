@@ -834,7 +834,7 @@ bool Daemon::handle_activity( MsgChannel *c )
     case M_COMPILE_FILE: ret = handle_compile_file( c, msg ); break;
     case M_TRANFER_ENV: ret = handle_transfer_env( c, msg ); break;
     case M_GET_CS: ret = handle_get_cs( c, msg ); break;
-    case M_END: handle_end( c, 0 ); ret = false; break;
+    case M_END: handle_end( c, 119 ); ret = false; break;
     case M_JOB_LOCAL_BEGIN: ret = handle_local_job (c, msg); break;
     case M_JOB_DONE: ret = handle_job_done( c, msg ); break;
     default:
