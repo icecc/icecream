@@ -98,6 +98,7 @@ struct UseCsCache {
 struct LocalJobCache {
     int job_id;
     string outfile;
+    bool link;
     MsgChannel *client;
 };
 
@@ -359,8 +360,7 @@ struct Daemon
     map<int, MsgChannel *> fd2chan;
     map<int, MsgChannel *> pending_clients;
     deque<LocalJobCache> waiting_local_jobs;
-    // like link jobs.  Exactly those which start
-    // with a JobLocalBeginMsg
+    // local jobs. link == true => JobLocalBeginMsg
     map<MsgChannel*,LocalJobCache> active_local_jobs;
     // maps our client IDs to scheduler IDs
     map<int,int> client_map;
@@ -420,7 +420,7 @@ string Daemon::dump_internals() const
          it != active_local_jobs.end(); ++it)  {
         const LocalJobCache ljc = it->second;
         result += "  active_local_jobs[" + it->first->dump() + "]=" +
-                  ljc.outfile + "(" + toString( ljc.job_id ) + ")\n";
+                  ljc.outfile + "(" + toString( ljc.job_id ) + ") " + ( ljc.link ? "link" : "!link" ) + "\n";
     }
     if ( !envs_last_use.empty() )
         result += "  Now: " + toString( time( 0 ) ) + "\n";
@@ -571,13 +571,13 @@ bool Daemon::handle_get_native_env( MsgChannel *c )
     return true;
 }
 
-bool Daemon::handle_job_done( MsgChannel *, Msg *m )
+bool Daemon::handle_job_done( MsgChannel *c, Msg *m )
 {
+    assert( active_local_jobs.count( c ) > 0 );
+    active_local_jobs.erase( c );
     JobDoneMsg *msg = static_cast<JobDoneMsg*>( m );
     trace() << "handle_job_done " << msg->job_id << " " << msg->exitcode << endl;
     scheduler->send_msg( *msg );
-#warning TODO it is possible that handle_end needs to decrement current_kids too
-    current_kids--;
     return true;
 }
 
@@ -626,7 +626,6 @@ int Daemon::handle_old_request()
         trace() << "requests--" << job->jobID() << endl;
 
         if ( job->environmentVersion() == "__client" ) {
-            current_kids++;
             if ( !scheduler || !scheduler->send_msg( JobBeginMsg( job->jobID() ) ) ) {
                 log_warning() << "can't reach scheduler to tell him about job start of "
                               << job->jobID() << endl;
@@ -635,6 +634,10 @@ int Daemon::handle_old_request()
                 return 2;
             }
             /* local jobs come back as JobDone msgs */
+            LocalJobCache ljc;
+            ljc.client = req.second;
+            ljc.link = false;
+            active_local_jobs[req.second] = ljc;
             return 0;
         } else {
             string envforjob = job->targetPlatform() + "/" + job->environmentVersion();
@@ -799,6 +802,7 @@ bool Daemon::handle_local_job( MsgChannel *c, Msg *msg )
 {
     trace() << "handle_local_job " << c << endl;
     LocalJobCache ljc;
+    ljc.link = true;
     ljc.outfile = dynamic_cast<JobLocalBeginMsg*>( msg )->outfile;
     ljc.job_id = ++new_client_id;
     ljc.client = c;
