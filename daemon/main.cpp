@@ -375,17 +375,18 @@ struct Daemon
         new_client_id = 0;
     }
     int answer_client_requests();
-    void transfer_env( MsgChannel *c, Msg *msg );
-    void get_native_env( MsgChannel *c );
+    bool handle_transfer_env( MsgChannel *c, Msg *msg );
+    bool handle_get_native_env( MsgChannel *c );
     int handle_old_request();
-    void compile_file( MsgChannel *c, Msg *msg );
-    int handle_activity( MsgChannel *c );
-    void handle_end( MsgChannel *&c );
+    bool handle_compile_file( MsgChannel *c, Msg *msg );
+    bool handle_activity( MsgChannel *c );
+    void handle_end( MsgChannel *c, int exitcode );
     int handle_get_internals( MsgChannel *c );
     void clear_children();
     int handle_use_cs( UseCSMsg *msg );
-    void handle_get_cs( MsgChannel *c, Msg *msg );
-    void handle_local_job( MsgChannel *c, Msg *msg );
+    bool handle_get_cs( MsgChannel *c, Msg *msg );
+    bool handle_local_job( MsgChannel *c, Msg *msg );
+    bool handle_job_done( MsgChannel *c, Msg *m );
     string dump_internals() const;
 };
 
@@ -470,6 +471,7 @@ string Daemon::dump_internals() const
 int Daemon::handle_get_internals( MsgChannel *c )
 {
     trace() << "handle_get_internals " << dump_internals() << endl;
+    // TODO: use scheduler and remove parameter
     c->send_msg( StatusTextMsg( dump_internals() ) );
     return 0;
 }
@@ -480,7 +482,7 @@ int Daemon::handle_use_cs( UseCSMsg *msg )
     trace() << "handle_use_cs " << msg->job_id << " " << msg->client_id
             << " " << c << " " << msg->hostname << " " << remote_name <<  endl;
     if ( !c ) {
-        scheduler->send_msg( JobDoneMsg( msg->job_id ) );
+        scheduler->send_msg( JobDoneMsg( msg->job_id, 107 ) );
         return 1;
     }
     if ( msg->hostname == remote_name ) {
@@ -494,7 +496,7 @@ int Daemon::handle_use_cs( UseCSMsg *msg )
     return 0;
 }
 
-void Daemon::transfer_env( MsgChannel *c, Msg *msg )
+bool Daemon::handle_transfer_env( MsgChannel *c, Msg *msg )
 {
     EnvTransferMsg *emsg = static_cast<EnvTransferMsg*>( msg );
     string target = emsg->target;
@@ -548,9 +550,10 @@ void Daemon::transfer_env( MsgChannel *c, Msg *msg )
         }
 	delete msg;
     }
+    return true;
 }
 
-void Daemon::get_native_env( MsgChannel *c )
+bool Daemon::handle_get_native_env( MsgChannel *c )
 {
     trace() << "get_native_env " << native_environment << endl;
 
@@ -560,11 +563,20 @@ void Daemon::get_native_env( MsgChannel *c )
         cache_size += installed_size;
         if ( ! installed_size ) {
             c->send_msg( EndMsg() );
-            throw( 1 );
+            handle_end( c, 121 );
+            return false;
         }
     }
     UseNativeEnvMsg m( native_environment );
     c->send_msg( m );
+    return true;
+}
+
+bool Daemon::handle_job_done( MsgChannel *c, Msg *m )
+{
+    JobDoneMsg *msg = static_cast<JobDoneMsg*>( m );
+    trace() << "handle_job_done " << msg->job_id << " " << msg->exitcode << endl;
+    return true;
 }
 
 int Daemon::handle_old_request()
@@ -575,7 +587,7 @@ int Daemon::handle_old_request()
         waiting_local_jobs.erase( waiting_local_jobs.begin() );
         if (!ljc.client->send_msg (JobLocalBeginMsg())) {
 	    log_warning() << "can't send start message to client" << endl;
-	    handle_end (ljc.client);
+	    handle_end (ljc.client,  112);
         } else {
             active_local_jobs[ljc.client] = ljc;
             trace() << "pushed local job " << ljc.job_id << endl;
@@ -594,10 +606,11 @@ int Daemon::handle_old_request()
         delete ucc.msg;
         if ( !compile || compile->type != M_COMPILE_FILE )
         {
-            handle_end( ucc.client );
+            handle_end( ucc.client, 113 );
             return 0;
         }
-        compile_file( ucc.client, compile );
+        if ( !handle_compile_file( ucc.client, compile ) )
+            return 0;
 	delete compile;
     }
 
@@ -639,8 +652,10 @@ int Daemon::handle_old_request()
                 write( sockets[1], &jdmsg->sys_msec, sizeof( unsigned int ) );
                 write( sockets[1], &jdmsg->pfaults, sizeof( unsigned int ) );
                 ::exit( jdmsg->exitcode );
-            } else
+            } else {
                 close( sockets[1] );
+                req.second = 0; // don't delete it, we'll need it
+            }
         } else {
             string envforjob = job->targetPlatform() + "/" + job->environmentVersion();
             envs_last_use[envforjob] = time( NULL );
@@ -655,16 +670,17 @@ int Daemon::handle_old_request()
                 log_warning() << "can't reach scheduler to tell him about job start of "
                               << job->jobID() << endl;
                 delete req.first;
-                handle_end( req.second );
+                handle_end( req.second, 114 );
+                req.second = 0;
                 return 2;
             }
-            jobmap[pid] = new JobDoneMsg;
-            jobmap[pid]->job_id = job->jobID();
+            jobmap[pid] = new JobDoneMsg( job->jobID(), -1 ) ;
             if ( sock > -1 )
                 pidmap[pid] = sock;
         }
         delete req.first;
-        handle_end( req.second );
+        if ( req.second )
+            handle_end( req.second, 115 );
     }
     struct rusage ru;
     int status;
@@ -698,13 +714,14 @@ int Daemon::handle_old_request()
     return 0;
 }
 
-void Daemon::compile_file( MsgChannel *c, Msg *msg )
+bool Daemon::handle_compile_file( MsgChannel *c, Msg *msg )
 {
     CompileJob *job = dynamic_cast<CompileFileMsg*>( msg )->takeJob();
     requests.push_back( make_pair( job, c ));
+    return true;
 }
 
-void Daemon::handle_end( MsgChannel *&c )
+void Daemon::handle_end( MsgChannel *c, int exitcode )
 {
     trace() << "handle_end " << c << endl;
     trace() << dump_internals() << endl;
@@ -713,7 +730,7 @@ void Daemon::handle_end( MsgChannel *&c )
          it != pending_clients.end(); ++it) {
         if ( it->second == c ) {
 	    if ( scheduler && client_map[it->first] > 0 )
-		scheduler->send_msg( JobDoneMsg( client_map[it->first] ) );
+		scheduler->send_msg( JobDoneMsg( client_map[it->first], exitcode ) );
 	    client_map.erase(it->first);
             pending_clients.erase( it );
             break;
@@ -730,7 +747,7 @@ void Daemon::handle_end( MsgChannel *&c )
          it != requests.end(); ++it)
         if (it->second == c) {
                 if ( scheduler )
-                    scheduler->send_msg( JobDoneMsg( it->first->jobID() ) );
+                    scheduler->send_msg( JobDoneMsg( it->first->jobID(), 109 ) );
 		requests.erase(it);
                 break;
         }
@@ -743,7 +760,6 @@ void Daemon::handle_end( MsgChannel *&c )
     }
 
     delete c;
-    c = 0;
 }
 
 void Daemon::clear_children()
@@ -752,7 +768,7 @@ void Daemon::clear_children()
         Compile_Request req = requests.front();
         requests.pop_front();
         delete req.first;
-        handle_end( req.second );
+        handle_end( req.second, 116 );
     }
 
     while ( current_kids > 0 ) {
@@ -775,23 +791,24 @@ void Daemon::clear_children()
     client_map.clear();
 
     while ( !fd2chan.empty() )
-        handle_end( fd2chan.begin()->second );
+        handle_end( fd2chan.begin()->second, 117 );
 
     fd2chan.clear();
     new_client_id = 0;
     trace() << "cleared children\n";
 }
 
-void Daemon::handle_get_cs( MsgChannel *c, Msg *msg )
+bool Daemon::handle_get_cs( MsgChannel *c, Msg *msg )
 {
     GetCSMsg *umsg = dynamic_cast<GetCSMsg*>( msg );
     umsg->client_id = ++new_client_id;
     trace() << "handle_get_cs " << umsg->client_id << endl;
     scheduler->send_msg( *umsg, false );
     pending_clients[new_client_id] = c;
+    return true;
 }
 
-void Daemon::handle_local_job( MsgChannel *c, Msg *msg )
+bool Daemon::handle_local_job( MsgChannel *c, Msg *msg )
 {
     trace() << "handle_local_job " << c << endl;
     LocalJobCache ljc;
@@ -799,36 +816,35 @@ void Daemon::handle_local_job( MsgChannel *c, Msg *msg )
     ljc.job_id = ++new_client_id;
     ljc.client = c;
     waiting_local_jobs.push_back( ljc );
+    return true;
 }
 
-int Daemon::handle_activity( MsgChannel *c )
+bool Daemon::handle_activity( MsgChannel *c )
 {
     Msg *msg = c->get_msg();
     if ( !msg ) {
         log_error() << "no message\n";
-        handle_end( c );
-        return 0;
+        handle_end( c, 118 );
+        return false;
     }
-    try {
-        log_warning() << "msg " << ( char )msg->type << endl;
-        switch ( msg->type ) {
-        case M_GET_NATIVE_ENV: get_native_env( c ); break;
-        case M_COMPILE_FILE: compile_file( c, msg ); break;
-        case M_TRANFER_ENV: transfer_env( c, msg ); break;
-        case M_GET_CS: handle_get_cs( c, msg ); break;
-        case M_END: handle_end( c ); break;
-	case M_JOB_LOCAL_BEGIN: handle_local_job (c, msg); break;
-        default:
-            log_error() << "not compile: " << ( char )msg->type << endl;
-            c->send_msg( EndMsg() );
-            handle_end( c );
-        }
-    } catch ( int ret ) {
-        delete msg;
-        return ret;
+    bool ret = false;
+    log_warning() << "msg " << ( char )msg->type << endl;
+    switch ( msg->type ) {
+    case M_GET_NATIVE_ENV: ret = handle_get_native_env( c ); break;
+    case M_COMPILE_FILE: ret = handle_compile_file( c, msg ); break;
+    case M_TRANFER_ENV: ret = handle_transfer_env( c, msg ); break;
+    case M_GET_CS: ret = handle_get_cs( c, msg ); break;
+    case M_END: handle_end( c, 0 ); ret = false; break;
+    case M_JOB_LOCAL_BEGIN: ret = handle_local_job (c, msg); break;
+    case M_JOB_DONE: ret = handle_job_done( c, msg ); break;
+    default:
+        log_error() << "not compile: " << ( char )msg->type << endl;
+        c->send_msg( EndMsg() );
+        handle_end( c, 120 );
+        ret = false;
     }
     delete msg;
-    return 0;
+    return ret;
 }
 
 int Daemon::answer_client_requests()
@@ -840,7 +856,7 @@ int Daemon::answer_client_requests()
     if ( requests.size() + current_kids + active_local_jobs.size() + waiting_local_jobs.size() )  {
         log_info() << "puscs " << pending_use_cs.size()
                    << " requests " << requests.size() << " kids "
-                   << current_kids << " locals " << active_local_jobs.size()
+                   << current_kids << " links " << active_local_jobs.size()
 		   << " waiting " << waiting_local_jobs.size()
 		   << " (max " << max_kids << ")\n";
     }
@@ -873,7 +889,7 @@ int Daemon::answer_client_requests()
     }
 
     for (map<int, MsgChannel *>::const_iterator it = fd2chan.begin();
-         it != fd2chan.end();)  {
+         it != fd2chan.end();) {
         int i = it->first;
         MsgChannel *c = it->second;
         bool ok = true;
@@ -883,10 +899,10 @@ int Daemon::answer_client_requests()
 	   the scheduler.  This needs a big cleanup for the return values,
 	   currently this either leaks or segfaults.  That's why we need
 	   to check 'ok' and 'c'.  The latter test must go away.  */
-        while (ok && c && c->has_msg ())
-            if (handle_activity (c) != 0)
+        while (ok && c->has_msg ())
+            if (!handle_activity (c))
                 ok = false;
-        if (ok && c)  {
+        if (ok)  {
             if (i > max_fd)
                 max_fd = i;
             FD_SET (i, &listen_set);
