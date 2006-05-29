@@ -381,9 +381,9 @@ struct Daemon
     bool handle_compile_file( MsgChannel *c, Msg *msg );
     bool handle_activity( MsgChannel *c );
     void handle_end( MsgChannel *c, int exitcode );
-    int handle_get_internals( MsgChannel *c );
+    int scheduler_get_internals( );
     void clear_children();
-    int handle_use_cs( UseCSMsg *msg );
+    int scheduler_use_cs( UseCSMsg *msg );
     bool handle_get_cs( MsgChannel *c, Msg *msg );
     bool handle_local_job( MsgChannel *c, Msg *msg );
     bool handle_job_done( MsgChannel *c, Msg *m );
@@ -468,15 +468,14 @@ string Daemon::dump_internals() const
     return result;
 }
 
-int Daemon::handle_get_internals( MsgChannel *c )
+int Daemon::scheduler_get_internals( )
 {
     trace() << "handle_get_internals " << dump_internals() << endl;
-    // TODO: use scheduler and remove parameter
-    c->send_msg( StatusTextMsg( dump_internals() ) );
+    scheduler->send_msg( StatusTextMsg( dump_internals() ) );
     return 0;
 }
 
-int Daemon::handle_use_cs( UseCSMsg *msg )
+int Daemon::scheduler_use_cs( UseCSMsg *msg )
 {
     MsgChannel *c = pending_clients[msg->client_id];
     trace() << "handle_use_cs " << msg->job_id << " " << msg->client_id
@@ -572,10 +571,13 @@ bool Daemon::handle_get_native_env( MsgChannel *c )
     return true;
 }
 
-bool Daemon::handle_job_done( MsgChannel *c, Msg *m )
+bool Daemon::handle_job_done( MsgChannel *, Msg *m )
 {
     JobDoneMsg *msg = static_cast<JobDoneMsg*>( m );
     trace() << "handle_job_done " << msg->job_id << " " << msg->exitcode << endl;
+    scheduler->send_msg( *msg );
+#warning TODO it is possible that handle_end needs to decrement current_kids too
+    current_kids--;
     return true;
 }
 
@@ -624,38 +626,16 @@ int Daemon::handle_old_request()
         trace() << "requests--" << job->jobID() << endl;
 
         if ( job->environmentVersion() == "__client" ) {
-            int sockets[2];
-            if (pipe(sockets)) {
-                log_error() << "pipe can't be created " << strerror( errno ) << endl;
-                exit( 1 );
+            current_kids++;
+            if ( !scheduler || !scheduler->send_msg( JobBeginMsg( job->jobID() ) ) ) {
+                log_warning() << "can't reach scheduler to tell him about job start of "
+                              << job->jobID() << endl;
+                delete req.first;
+                handle_end( req.second, 114 );
+                return 2;
             }
-            sock = sockets[0];
-            // if the client compiles, we fork off right away
-            pid = fork();
-            if ( pid == 0 ) {
-                close( sockets[0] );
-                Msg *msg = req.second->get_msg(12 * 60); // wait forever
-                if ( !msg )
-                    ::exit( 1 );
-                if ( msg->type != M_JOB_DONE )
-                    ::exit( 0 ); // without further notice
-                JobDoneMsg *jdmsg = static_cast<JobDoneMsg*>( msg );
-                unsigned int dummy = 0;
-                write( sockets[1], &dummy, sizeof( unsigned int ) ); // in_compressed
-                write( sockets[1], &dummy, sizeof( unsigned int ) ); // in_uncompressed
-                write( sockets[1], &dummy, sizeof( unsigned int ) ); // out_compressed
-                write( sockets[1], &jdmsg->out_uncompressed, sizeof( unsigned int ) );
-                write( sockets[1], &jdmsg->real_msec, sizeof( unsigned int ) );
-                // the rest are additional information for client jobs
-                write( sockets[1], &jdmsg->job_id, sizeof( unsigned int ) );
-                write( sockets[1], &jdmsg->user_msec, sizeof( unsigned int ) );
-                write( sockets[1], &jdmsg->sys_msec, sizeof( unsigned int ) );
-                write( sockets[1], &jdmsg->pfaults, sizeof( unsigned int ) );
-                ::exit( jdmsg->exitcode );
-            } else {
-                close( sockets[1] );
-                req.second = 0; // don't delete it, we'll need it
-            }
+            /* local jobs come back as JobDone msgs */
+            return 0;
         } else {
             string envforjob = job->targetPlatform() + "/" + job->environmentVersion();
             envs_last_use[envforjob] = time( NULL );
@@ -671,7 +651,6 @@ int Daemon::handle_old_request()
                               << job->jobID() << endl;
                 delete req.first;
                 handle_end( req.second, 114 );
-                req.second = 0;
                 return 2;
             }
             jobmap[pid] = new JobDoneMsg( job->jobID(), -1 ) ;
@@ -700,11 +679,9 @@ int Daemon::handle_old_request()
         }
         if ( msg && scheduler ) {
             msg->exitcode = WEXITSTATUS( status );
-            if ( !msg->user_msec ) { // if not already set
-                msg->user_msec = ru.ru_utime.tv_sec * 1000 + ru.ru_utime.tv_usec / 1000;
-                msg->sys_msec = ru.ru_stime.tv_sec * 1000 + ru.ru_stime.tv_usec / 1000;
-                msg->pfaults = ru.ru_majflt + ru.ru_nswap + ru.ru_minflt;
-            }
+            msg->user_msec = ru.ru_utime.tv_sec * 1000 + ru.ru_utime.tv_usec / 1000;
+            msg->sys_msec = ru.ru_stime.tv_sec * 1000 + ru.ru_stime.tv_usec / 1000;
+            msg->pfaults = ru.ru_majflt + ru.ru_nswap + ru.ru_minflt;
             scheduler->send_msg( *msg );
         }
         envs_last_use[envmap[child]] = time( NULL );
@@ -758,6 +735,16 @@ void Daemon::handle_end( MsgChannel *c, int exitcode )
         scheduler->send_msg( JobLocalDoneMsg( ljc.job_id ) );
 	active_local_jobs.erase (c);
     }
+
+    for ( deque<UseCsCache>::iterator it = pending_use_cs.begin();
+          it != pending_use_cs.end(); ++it )
+        if ( it->client == c ) {
+            if ( scheduler )
+                scheduler->send_msg( JobLocalDoneMsg( it->msg->job_id ) );
+            delete it->msg;
+            pending_use_cs.erase( it );
+            break;
+        }
 
     delete c;
 }
@@ -937,10 +924,10 @@ int Daemon::answer_client_requests()
                         ret = 1;
                     break;
                 case M_USE_CS:
-                    ret = handle_use_cs( dynamic_cast<UseCSMsg*>( msg ) );
+                    ret = scheduler_use_cs( dynamic_cast<UseCSMsg*>( msg ) );
 		    break;
                 case M_GET_INTERNALS:
-                    ret = handle_get_internals( scheduler );
+                    ret = scheduler_get_internals( );
                     break;
                 default:
                     log_error() << "unknown scheduler type " << ( char )msg->type << endl;
