@@ -712,10 +712,10 @@ void Daemon::handle_end( MsgChannel *&c )
     for (map<int, MsgChannel *>::iterator it = pending_clients.begin();
          it != pending_clients.end(); ++it) {
         if ( it->second == c ) {
-            pending_clients.erase( it );
-	    if ( scheduler )
+	    if ( scheduler && client_map[it->first] > 0 )
 		scheduler->send_msg( JobDoneMsg( client_map[it->first] ) );
 	    client_map.erase(it->first);
+            pending_clients.erase( it );
             break;
         }
     }
@@ -729,17 +729,17 @@ void Daemon::handle_end( MsgChannel *&c )
     for ( deque<Compile_Request>::iterator it = requests.begin();
          it != requests.end(); ++it)
         if (it->second == c) {
-                requests.erase(it);
                 if ( scheduler )
                     scheduler->send_msg( JobDoneMsg( it->first->jobID() ) );
+		requests.erase(it);
                 break;
         }
 
     if (active_local_jobs.count (c) > 0) {
         LocalJobCache ljc = active_local_jobs[c];
 	trace() << "was a local job" << endl;
-	active_local_jobs.erase (c);
         scheduler->send_msg( JobLocalDoneMsg( ljc.job_id ) );
+	active_local_jobs.erase (c);
     }
 
     delete c;
