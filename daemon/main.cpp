@@ -760,13 +760,13 @@ void Daemon::clear_children()
 
     jobmap.clear();
     pidmap.clear();
+    pending_clients.clear();
 
     while ( !fd2chan.empty() )
         handle_end( fd2chan.begin()->second );
 
     fd2chan.clear();
     new_client_id = 0;
-    pending_clients.clear();
     trace() << "cleared children\n";
 }
 
