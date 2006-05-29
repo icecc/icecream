@@ -362,6 +362,8 @@ struct Daemon
     // like link jobs.  Exactly those which start
     // with a JobLocalBeginMsg
     map<MsgChannel*,LocalJobCache> active_local_jobs;
+    // maps our client IDs to scheduler IDs
+    map<int,int> client_map;
     int new_client_id;
     string remote_name;
     deque<UseCsCache> pending_use_cs;
@@ -404,7 +406,7 @@ string Daemon::dump_internals() const
     }
     for (map<int, MsgChannel *>::const_iterator it = pending_clients.begin();
          it != pending_clients.end(); ++it)  {
-        result += "pending_clients[" + toString( it->first ) + "] =" +
+        result += "  pending_clients[" + toString( it->first ) + "] =" +
                   it->second->dump() + "\n";
     }
     if ( cache_size )
@@ -457,6 +459,11 @@ string Daemon::dump_internals() const
         result += "  envmap[" + toString( it->first ) + "] = " + it->second + "\n";
     }
 
+    for ( map<int, int>::const_iterator it = client_map.begin();
+          it != client_map.end(); ++it ) {
+        result += "  client_map[" + toString( it->first ) + "] = " + toString( it->second ) + "\n";
+    }
+
     return result;
 }
 
@@ -481,6 +488,7 @@ int Daemon::handle_use_cs( UseCSMsg *msg )
         ucc.msg = new UseCSMsg( msg->host_platform, "127.0.0.1", msg->port, msg->job_id, true, 1 );
         ucc.client = c;
         pending_use_cs.push_back( ucc );
+        client_map[msg->client_id] = msg->job_id;
     } else
         c->send_msg( *msg, true );
     return 0;
@@ -705,6 +713,9 @@ void Daemon::handle_end( MsgChannel *&c )
          it != pending_clients.end(); ++it) {
         if ( it->second == c ) {
             pending_clients.erase( it );
+	    if ( scheduler )
+		scheduler->send_msg( JobDoneMsg( client_map[it->first] ) );
+	    client_map.erase(it->first);
             break;
         }
     }
@@ -761,6 +772,7 @@ void Daemon::clear_children()
     jobmap.clear();
     pidmap.clear();
     pending_clients.clear();
+    client_map.clear();
 
     while ( !fd2chan.empty() )
         handle_end( fd2chan.begin()->second );
