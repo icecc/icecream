@@ -45,7 +45,7 @@ void setup_debug(int level, const string &filename)
     logfile_file.close();
     ostream *output = 0;
     if ( filename.length() ) {
-        logfile_file.open( filename.c_str() );
+        logfile_file.open( filename.c_str(), fstream::out | fstream::app );
         output = &logfile_file;
     } else
         output = &cerr;
