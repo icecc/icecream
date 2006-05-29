@@ -96,6 +96,8 @@ struct UseCsCache {
 };
 
 struct LocalJobCache {
+public:
+    LocalJobCache(int id = 0, bool l = false) { job_id = id; link = l; client = 0; }
     int job_id;
     string outfile;
     bool link;
@@ -634,9 +636,8 @@ int Daemon::handle_old_request()
                 return 2;
             }
             /* local jobs come back as JobDone msgs */
-            LocalJobCache ljc;
+            LocalJobCache ljc(0, false);
             ljc.client = req.second;
-            ljc.link = false;
             active_local_jobs[req.second] = ljc;
             return 0;
         } else {
@@ -735,7 +736,8 @@ void Daemon::handle_end( MsgChannel *c, int exitcode )
     if (active_local_jobs.count (c) > 0) {
         LocalJobCache ljc = active_local_jobs[c];
 	trace() << "was a local job" << endl;
-        scheduler->send_msg( JobLocalDoneMsg( ljc.job_id ) );
+	if ( scheduler )
+            scheduler->send_msg( JobLocalDoneMsg( ljc.job_id ) );
 	active_local_jobs.erase (c);
     }
 
@@ -801,10 +803,8 @@ bool Daemon::handle_get_cs( MsgChannel *c, Msg *msg )
 bool Daemon::handle_local_job( MsgChannel *c, Msg *msg )
 {
     trace() << "handle_local_job " << c << endl;
-    LocalJobCache ljc;
-    ljc.link = true;
+    LocalJobCache ljc(++new_client_id, true);
     ljc.outfile = dynamic_cast<JobLocalBeginMsg*>( msg )->outfile;
-    ljc.job_id = ++new_client_id;
     ljc.client = c;
     waiting_local_jobs.push_back( ljc );
     return true;
