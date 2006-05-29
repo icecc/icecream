@@ -1282,6 +1282,7 @@ handle_line (MsgChannel *c, Msg *_m)
             c->send_msg( TextMsg( dynamic_cast<StatusTextMsg*>( msg )->text ) );
           else
             c->send_msg( TextMsg( ( *it )->nodename + " not reporting\n" ) );
+	  delete msg;
         }
     }
   else if (cmd == "help")
