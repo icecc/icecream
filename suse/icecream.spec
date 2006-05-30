@@ -28,7 +28,6 @@ Version:        0.7pre4
 Release:        1
 Source0:        ftp://ftp.suse.com/pub/projects/icecream/%name-%{version}.tar.bz2
 Source1:        %name-manpages.tar.bz2
-Source2:        logrotate
 BuildRoot:      %{_tmppath}/%{name}-%{version}-build
 
 %description
@@ -79,7 +78,7 @@ mkdir -p $RPM_BUILD_ROOT%_mandir/man{1,7}
 for i in mans/*.1 mans/*.7; do
 	install -m 644 $i $RPM_BUILD_ROOT%_mandir/man`echo $i | sed -e 's,.*\(.\)$,\1,'`/`basename $i`
 done
-install -D %{SOURCE2} $RPM_BUILD_ROOT/etc/logrotate.d/icecream
+install -m 644 -D suse/logrotate $RPM_BUILD_ROOT/etc/logrotate.d/icecream
 
 %preun
 %stop_on_removal icecream
