@@ -83,7 +83,10 @@ case "$1" in
 	rc_status
 	;;
     reload|force-reload)
-	$0 stop  &&  $0 start
+	if test "$ICECREAM_RUN_SCHEDULER" == "yes"; then
+          killproc  -HUP /usr/sbin/scheduler
+        fi
+        killproc  -HUP /usr/sbin/iceccd
 	rc_status
 	;;
     status)
