@@ -8,6 +8,7 @@
 # Please submit bugfixes or comments via http://bugs.opensuse.org/
 #
 
+# neededforbuild gcc-c++ libstdc++-devel
 # norootforbuild
 # don't use icecc to avoid bootstrap problems
 # icecream 0

@@ -86,23 +86,165 @@ const int PORT = 10245;
 using namespace std;
 using namespace __gnu_cxx; // for the extensions we like, e.g. hash_set
 
-typedef pair<CompileJob*, MsgChannel*> Compile_Request;
 // the pidmap maps the PID to the socket to the server child
 typedef map<pid_t, int> Pidmap;
 
-struct UseCsCache {
-    UseCSMsg *msg;
-    MsgChannel *client;
+struct Client {
+public:
+    /*
+     * UNKNOWN: Client was just created - not supposed to be long term
+     * GOTNATIVE: Client asked us for the native env - this is the first step
+     * PENDING_USE_CS: We have a CS from scheduler and need to tell the client
+     *          as soon as there is a spot available on the local machine
+     * JOBDONE: This was compiled by a local client and we got a jobdone - awaiting END
+     * LINKJOB: This is a local job (aka link job) by a local client we told the scheduler about
+     *          and await the finish of it
+     * TOCOMPILE: We're supposed to compile it ourselves
+     * WAITFORCS: Client asked for a CS and we asked the scheduler - waiting for its answer
+     * WAITCOMPILE: Client got a CS and will ask him now (it's now me)
+     * CLIENTWORK: Client is busy working and we reserve the spot (job_id is set if it's a scheduler job)
+     */
+    enum Status { UNKNOWN, GOTNATIVE, PENDING_USE_CS, JOBDONE, LINKJOB, TOCOMPILE, WAITFORCS, WAITCOMPILE, CLIENTWORK } status;
+    Client()
+    {
+        job_id = 0;
+        channel = 0;
+        job = 0;
+        usecsmsg = 0;
+        client_id = 0;
+        status = UNKNOWN;
+    }
+
+    static string status_str( Status status )
+    {
+        switch ( status ) {
+        case UNKNOWN:
+            return "unknown";
+        case GOTNATIVE:
+            return "gotnative";
+        case PENDING_USE_CS:
+            return "pending_use_cs";
+        case JOBDONE:
+            return "jobdone";
+        case LINKJOB:
+            return "linkjob";
+        case TOCOMPILE:
+            return "tocompile";
+        case WAITFORCS:
+            return "waitforcs";
+        case CLIENTWORK:
+            return "clientwork";
+        case WAITCOMPILE:
+            return "waitcompile";
+        }
+        assert( false );
+        return string(); // shutup gcc
+    }
+
+    ~Client()
+    {
+        delete channel;
+        delete usecsmsg;
+        delete job;
+    }
+    int job_id;
+    string outfile; // only useful for LINKJOB
+    MsgChannel *channel;
+    UseCSMsg *usecsmsg;
+    CompileJob *job;
+    int client_id;
+
+    string dump() const
+    {
+        string ret = status_str( status ) + " " + channel->dump();
+        switch ( status ) {
+        case LINKJOB:
+            return ret + " " + toString( client_id ) + " " + outfile;
+        default:
+            if ( job_id ) {
+                string jobs;
+                if ( usecsmsg )
+                {
+                    jobs = " CS: " + usecsmsg->hostname;
+                }
+                return ret + " CID: " + toString( client_id ) + " ID: " + toString( job_id ) + jobs;
+            }
+            else
+                return ret + " CID: " + toString( client_id );
+        }
+        return ret;
+    }
 };
 
-struct LocalJobCache {
+class Clients : public map<MsgChannel*, Client*>
+{
 public:
-    LocalJobCache(int id = 0, bool l = false) { job_id = id; link = l; client = 0; }
-    int job_id;
-    string outfile;
-    bool link;
-    MsgChannel *client;
+    Clients() {
+        active_processes = 0;
+    }
+    unsigned int active_processes;
+
+    Client *find_by_client_id( int id ) const
+    {
+        for ( const_iterator it = begin(); it != end(); ++it )
+            if ( it->second->client_id == id )
+                return it->second;
+        return 0;
+    }
+
+    Client *find_by_channel( MsgChannel *c ) const {
+        const_iterator it = find( c );
+        if ( it == end() )
+            return 0;
+        return it->second;
+    }
+    Client *take_first()
+    {
+        iterator it = begin();
+        if ( it == end() )
+            return 0;
+        Client *cl = it->second;
+        erase( it );
+        return cl;
+    }
+
+    string dump_status(Client::Status s) const
+    {
+        int count = 0;
+        for ( const_iterator it = begin(); it != end(); ++it )
+        {
+            if ( it->second->status == s )
+                count++;
+        }
+        if ( count )
+            return toString( count ) + " " + Client::status_str( s ) + ", ";
+        else
+            return string();
+    }
+
+    string dump_per_status() const {
+        // TODO perhaps a loop? :/
+        return dump_status( Client::UNKNOWN ) + dump_status( Client::PENDING_USE_CS ) +
+            dump_status( Client::JOBDONE ) + dump_status( Client::LINKJOB ) +
+            dump_status( Client::TOCOMPILE ) + dump_status( Client::WAITFORCS ) +
+            dump_status( Client::CLIENTWORK ) + dump_status( Client::GOTNATIVE ) +
+            dump_status( Client::WAITCOMPILE );
+    }
+    Client *get_earliest_client( Client::Status s ) const
+    {
+        // TODO: possibly speed this up in adding some sorted lists
+        Client *client = 0;
+        int min_client_id = 0;
+        for ( const_iterator it = begin(); it != end(); ++it )
+            if ( it->second->status == s && ( !min_client_id || min_client_id > it->second->client_id ))
+            {
+                client = it->second;
+                min_client_id = client->client_id;
+            }
+        return client;
+    }
 };
+
 
 int set_cloexec_flag (int desc, int value)
 {
@@ -347,7 +489,7 @@ void fill_msg(int fd, JobDoneMsg *msg)
 
 struct Daemon
 {
-    deque<Compile_Request> requests;
+    Clients clients;
     map<pid_t, JobDoneMsg*> jobmap;
     map<pid_t, string> envmap;
     Pidmap pidmap;
@@ -360,15 +502,8 @@ struct Daemon
     string nodename;
     size_t cache_size;
     map<int, MsgChannel *> fd2chan;
-    map<int, MsgChannel *> pending_clients;
-    deque<LocalJobCache> waiting_local_jobs;
-    // local jobs. link == true => JobLocalBeginMsg
-    map<MsgChannel*,LocalJobCache> active_local_jobs;
-    // maps our client IDs to scheduler IDs
-    map<int,int> client_map;
     int new_client_id;
     string remote_name;
-    deque<UseCsCache> pending_use_cs;
 
     Daemon() {
         envbasedir = "/tmp/icecc-envs";
@@ -382,7 +517,7 @@ struct Daemon
     int handle_old_request();
     bool handle_compile_file( MsgChannel *c, Msg *msg );
     bool handle_activity( MsgChannel *c );
-    void handle_end( MsgChannel *c, int exitcode );
+    void handle_end( Client *client, int exitcode );
     int scheduler_get_internals( );
     void clear_children();
     int scheduler_use_cs( UseCSMsg *msg );
@@ -390,26 +525,21 @@ struct Daemon
     bool handle_local_job( MsgChannel *c, Msg *msg );
     bool handle_job_done( MsgChannel *c, Msg *m );
     string dump_internals() const;
+    void fetch_children();
 };
 
 string Daemon::dump_internals() const
 {
     string result;
     result += "Node Name: " + nodename + "\n";
-    for (deque<Compile_Request>::const_iterator it = requests.begin();
-	 it != requests.end(); ++it) {
-        CompileJob *job = it->first;
-        MsgChannel *c = it->second;
-        result += "  Request from " + c->dump() + ": " + job->inputFile() + " - " + toString( job->jobID() ) + "\n";
-    }
     result += "  Remote name: " + remote_name + "\n";
     for (map<int, MsgChannel *>::const_iterator it = fd2chan.begin();
          it != fd2chan.end(); ++it)  {
-        result += "  fd2chan[" + toString( it->first ) + "] =" + it->second->dump() + "\n";
+        result += "  fd2chan[" + toString( it->first ) + "] = " + it->second->dump() + "\n";
     }
-    for (map<int, MsgChannel *>::const_iterator it = pending_clients.begin();
-         it != pending_clients.end(); ++it)  {
-        result += "  pending_clients[" + toString( it->first ) + "] =" +
+    for (Clients::const_iterator it = clients.begin();
+         it != clients.end(); ++it)  {
+        result += "  client " + toString( it->second->client_id ) + ": " +
                   it->second->dump() + "\n";
     }
     if ( cache_size )
@@ -418,26 +548,16 @@ string Daemon::dump_internals() const
     if ( !native_environment.empty() )
         result += "  NativeEnv: " + native_environment + "\n";
 
-    for (map<MsgChannel*, LocalJobCache>::const_iterator it = active_local_jobs.begin();
-         it != active_local_jobs.end(); ++it)  {
-        const LocalJobCache ljc = it->second;
-        result += "  active_local_jobs[" + it->first->dump() + "]=" +
-                  ljc.outfile + "(" + toString( ljc.job_id ) + ") " + ( ljc.link ? "link" : "!link" ) + "\n";
-    }
     if ( !envs_last_use.empty() )
         result += "  Now: " + toString( time( 0 ) ) + "\n";
     for (map<string, time_t>::const_iterator it = envs_last_use.begin();
          it != envs_last_use.end(); ++it)  {
-        result += "  envs_last_use[" + it->first  + "] =" +
+        result += "  envs_last_use[" + it->first  + "] = " +
                   toString( it->second ) + "\n";
-    }
-    for ( deque<LocalJobCache>::const_iterator it = waiting_local_jobs.begin();
-          it != waiting_local_jobs.end(); ++it ) {
-        result += "  Waiting LJ: " + it->outfile + "(" + toString( it->job_id ) + ")\n";
     }
     for ( map<pid_t, JobDoneMsg*>::const_iterator it = jobmap.begin();
           it != jobmap.end(); ++it ) {
-        result += string( "jobmap[" ) + toString( it->first ) + "] = " + toString( it->second ) + "\n";
+        result += string( "  jobmap[" ) + toString( it->first ) + "] = " + toString( it->second ) + "\n";
         if ( pidmap.count( it->first ) > 0 ) {
             result += "  pidmap[" + toString( it->first ) + "] = ";
             // pidmap[it->first] is non-const
@@ -462,11 +582,6 @@ string Daemon::dump_internals() const
         result += "  envmap[" + toString( it->first ) + "] = " + it->second + "\n";
     }
 
-    for ( map<int, int>::const_iterator it = client_map.begin();
-          it != client_map.end(); ++it ) {
-        result += "  client_map[" + toString( it->first ) + "] = " + toString( it->second ) + "\n";
-    }
-
     return result;
 }
 
@@ -479,7 +594,7 @@ int Daemon::scheduler_get_internals( )
 
 int Daemon::scheduler_use_cs( UseCSMsg *msg )
 {
-    MsgChannel *c = pending_clients[msg->client_id];
+    Client *c = clients.find_by_client_id( msg->client_id );
     trace() << "handle_use_cs " << msg->job_id << " " << msg->client_id
             << " " << c << " " << msg->hostname << " " << remote_name <<  endl;
     if ( !c ) {
@@ -487,13 +602,13 @@ int Daemon::scheduler_use_cs( UseCSMsg *msg )
         return 1;
     }
     if ( msg->hostname == remote_name ) {
-        UseCsCache ucc;
-        ucc.msg = new UseCSMsg( msg->host_platform, "127.0.0.1", msg->port, msg->job_id, true, 1 );
-        ucc.client = c;
-        pending_use_cs.push_back( ucc );
-    } else
-        c->send_msg( *msg, true );
-    client_map[msg->client_id] = msg->job_id;
+        c->usecsmsg = new UseCSMsg( msg->host_platform, "127.0.0.1", msg->port, msg->job_id, true, 1 );
+        c->status = Client::PENDING_USE_CS;
+    } else {
+        c->channel->send_msg( *msg, true );
+        c->status = Client::WAITCOMPILE;
+    }
+    c->job_id = msg->job_id;
     return 0;
 }
 
@@ -542,14 +657,6 @@ bool Daemon::handle_transfer_env( MsgChannel *c, Msg *msg )
         }
 
         reannounce_environments(envbasedir, nodename); // do that before the file compiles
-        msg = c->get_msg();
-        if ( msg && msg->type == M_COMPILE_FILE ) { // we sure hope so
-            CompileJob *job = dynamic_cast<CompileFileMsg*>( msg )->takeJob();
-            requests.push_back( make_pair( job, c ));
-        } else {
-            log_error() << "not compile file\n";
-        }
-	delete msg;
     }
     return true;
 }
@@ -558,16 +665,20 @@ bool Daemon::handle_get_native_env( MsgChannel *c )
 {
     trace() << "get_native_env " << native_environment << endl;
 
+    Client *client = clients.find_by_channel( c );
+    assert( client );
+
     if ( !native_environment.length() ) {
         size_t installed_size = setup_env_cache( envbasedir, native_environment, nobody_uid );
         // we only clean out cache on next target install
         cache_size += installed_size;
         if ( ! installed_size ) {
             c->send_msg( EndMsg() );
-            handle_end( c, 121 );
+            handle_end( client, 121 );
             return false;
         }
     }
+    client->status = Client::GOTNATIVE;
     UseNativeEnvMsg m( native_environment );
     c->send_msg( m );
     return true;
@@ -575,96 +686,91 @@ bool Daemon::handle_get_native_env( MsgChannel *c )
 
 bool Daemon::handle_job_done( MsgChannel *c, Msg *m )
 {
-    assert( active_local_jobs.count( c ) > 0 );
-    active_local_jobs.erase( c );
+    Client *cl = clients.find_by_channel( c );
+    assert( cl );
+    if ( cl->status == Client::CLIENTWORK )
+        clients.active_processes--;
+    cl->status = Client::JOBDONE;
     JobDoneMsg *msg = static_cast<JobDoneMsg*>( m );
     trace() << "handle_job_done " << msg->job_id << " " << msg->exitcode << endl;
     scheduler->send_msg( *msg );
+    cl->job_id = 0; // the scheduler doesn't have it anymore
     return true;
 }
 
 int Daemon::handle_old_request()
 {
-    if ( !waiting_local_jobs.empty() && (current_kids+active_local_jobs.size()) < max_kids)
+    if ( current_kids + clients.active_processes >= max_kids )
+        return 0;
+
+    Client *client = clients.get_earliest_client(Client::LINKJOB);
+    if ( client )
     {
-        LocalJobCache ljc = *waiting_local_jobs.begin();
-        waiting_local_jobs.erase( waiting_local_jobs.begin() );
-        if (!ljc.client->send_msg (JobLocalBeginMsg())) {
+        if (!client->channel->send_msg (JobLocalBeginMsg())) {
 	    log_warning() << "can't send start message to client" << endl;
-	    handle_end (ljc.client,  112);
+	    handle_end (client, 112);
         } else {
-            active_local_jobs[ljc.client] = ljc;
-            trace() << "pushed local job " << ljc.job_id << endl;
-            scheduler->send_msg( JobLocalBeginMsg( ljc.job_id, ljc.outfile ) );
+            client->status = Client::CLIENTWORK;
+            clients.active_processes++;
+            trace() << "pushed local job " << client->client_id << endl;
+            scheduler->send_msg( JobLocalBeginMsg( client->client_id, client->outfile ) );
 	}
     }
-    if ( !pending_use_cs.empty() && (current_kids+active_local_jobs.size()) < max_kids )
+
+    if ( current_kids + clients.active_processes >= max_kids )
+        return 0;
+
+    client = clients.get_earliest_client( Client::PENDING_USE_CS );
+    if ( client )
     {
-        UseCsCache ucc = pending_use_cs.front();
-        pending_use_cs.pop_front();
-        ucc.client->send_msg( *ucc.msg, true );
-        /* in this time the client has to find the msg and hit the maybe_build_local, so
-         * he's better quick */
-        Msg *compile = ucc.client->get_msg( 5 );
-        trace() << "pending_use_cs-- " << ucc.msg->job_id <<  " " << compile << endl;
-        delete ucc.msg;
-        if ( !compile || compile->type != M_COMPILE_FILE )
-        {
-            handle_end( ucc.client, 113 );
-            return 0;
-        }
-        if ( !handle_compile_file( ucc.client, compile ) )
-            return 0;
-	delete compile;
+        trace() << "pending " << client->dump() << endl;
+        client->channel->send_msg( *client->usecsmsg, true );
+        client->status = Client::CLIENTWORK;
+        /* we make sure we reserve a spot and the rest is done if the
+         * client contacts as back with a Compile request */
+        clients.active_processes++;
     }
 
-    if ( !requests.empty() && (current_kids+active_local_jobs.size()) < max_kids ) {
-        Compile_Request req = requests.front();
-        requests.pop_front();
-        CompileJob *job = req.first;
-        int sock = -1;
-        pid_t pid = -1;
+    if ( current_kids + clients.active_processes >= max_kids )
+        return 0;
 
-        trace() << "requests--" << job->jobID() << endl;
+    client = clients.get_earliest_client( Client::TOCOMPILE );
+    if ( !client )
+        return 0;
 
-        if ( job->environmentVersion() == "__client" ) {
-            if ( !scheduler || !scheduler->send_msg( JobBeginMsg( job->jobID() ) ) ) {
-                log_warning() << "can't reach scheduler to tell him about job start of "
-                              << job->jobID() << endl;
-                delete req.first;
-                handle_end( req.second, 114 );
-                return 2;
-            }
-            /* local jobs come back as JobDone msgs */
-            LocalJobCache ljc(0, false);
-            ljc.client = req.second;
-            active_local_jobs[req.second] = ljc;
-            return 0;
-        } else {
-            string envforjob = job->targetPlatform() + "/" + job->environmentVersion();
-            envs_last_use[envforjob] = time( NULL );
-            pid = handle_connection( envbasedir, req.first, req.second, sock, mem_limit, nobody_uid );
-            envmap[pid] = envforjob;
+    CompileJob *job = client->job;
+    assert( job );
+    int sock = -1;
+    pid_t pid = -1;
+
+    trace() << "requests--" << job->jobID() << endl;
+
+    string envforjob = job->targetPlatform() + "/" + job->environmentVersion();
+    envs_last_use[envforjob] = time( NULL );
+    pid = handle_connection( envbasedir, job, client->channel, sock, mem_limit, nobody_uid );
+    envmap[pid] = envforjob;
+
+    if ( pid > 0) { // forked away
+        current_kids++;
+        trace() << "sending scheduler about " << job->jobID() << endl;
+        if ( !scheduler || !scheduler->send_msg( JobBeginMsg( job->jobID() ) ) ) {
+            log_warning() << "can't reach scheduler to tell him about job start of "
+                          << job->jobID() << endl;
+            handle_end( client, 114 );
+            return 2;
         }
-
-        if ( pid > 0) { // forked away
-            current_kids++;
-            trace() << "sending scheduler about " << job->jobID() << endl;
-            if ( !scheduler || !scheduler->send_msg( JobBeginMsg( job->jobID() ) ) ) {
-                log_warning() << "can't reach scheduler to tell him about job start of "
-                              << job->jobID() << endl;
-                delete req.first;
-                handle_end( req.second, 114 );
-                return 2;
-            }
-            jobmap[pid] = new JobDoneMsg( job->jobID(), -1 ) ;
-            if ( sock > -1 )
-                pidmap[pid] = sock;
-        }
-        delete req.first;
-        if ( req.second )
-            handle_end( req.second, 115 );
+        jobmap[pid] = new JobDoneMsg( job->jobID(), -1 ) ;
+        if ( sock > -1 )
+            pidmap[pid] = sock;
+        /* this should happen in the parent so the child is alone with the client */
+        handle_end( client, 115 );
     }
+
+    return 0;
+}
+
+void Daemon::fetch_children()
+{
     struct rusage ru;
     int status;
     pid_t child = wait3(&status, WNOHANG, &ru);
@@ -692,75 +798,60 @@ int Daemon::handle_old_request()
         envmap.erase(child);
         delete msg;
     }
-    return 0;
 }
 
 bool Daemon::handle_compile_file( MsgChannel *c, Msg *msg )
 {
     CompileJob *job = dynamic_cast<CompileFileMsg*>( msg )->takeJob();
-    requests.push_back( make_pair( job, c ));
+    Client *cl = clients.find_by_channel( c );
+    assert( cl );
+    cl->job = job;
+    trace() << "handle_compile_file " << cl->status_str(cl->status) << endl;
+    if ( cl->status == Client::CLIENTWORK )
+    {
+        assert( job->environmentVersion() == "__client" );
+        assert( scheduler );
+        if ( !scheduler->send_msg( JobBeginMsg( job->jobID() ) ) )
+        {
+            log_warning() << "can't reach scheduler to tell him about job start of "
+                          << job->jobID() << endl;
+            handle_end( cl, 114 );
+            return false; // pretty unlikely after all
+        }
+    } else
+        cl->status = Client::TOCOMPILE;
     return true;
 }
 
-void Daemon::handle_end( MsgChannel *c, int exitcode )
+void Daemon::handle_end( Client *client, int exitcode )
 {
-    trace() << "handle_end " << c << endl;
+    trace() << "handle_end " << client->dump() << endl;
     trace() << dump_internals() << endl;
-    fd2chan.erase (c->fd);
-    for (map<int, MsgChannel *>::iterator it = pending_clients.begin();
-         it != pending_clients.end(); ++it) {
-        if ( it->second == c ) {
-	    if ( scheduler && client_map[it->first] > 0 )
-		scheduler->send_msg( JobDoneMsg( client_map[it->first], exitcode ) );
-	    client_map.erase(it->first);
-            pending_clients.erase( it );
-            break;
+    fd2chan.erase (client->channel->fd);
+
+    if ( client->status == Client::CLIENTWORK )
+        clients.active_processes--;
+
+    if ( scheduler ) {
+        if ( client->job_id > 0 ) {
+            trace() << "scheduler->send_msg( JobDoneMsg( " << client->job_id << " " << exitcode << "))\n";
+            scheduler->send_msg( JobDoneMsg( client->job_id, exitcode ) );
+        } else if ( client->status == Client::CLIENTWORK ) {
+            // Clientwork && !job_id == LINK
+            trace() << "scheduler->send_msg( JobLocalDoneMsg( " << client->client_id << ") );\n";
+            scheduler->send_msg( JobLocalDoneMsg( client->client_id ) );
         }
     }
-    for ( deque<LocalJobCache>::iterator it = waiting_local_jobs.begin();
-	 it != waiting_local_jobs.end(); ++it)
-	if (it->client == c) {
-		waiting_local_jobs.erase(it);
-		break;
-	}
 
-    for ( deque<Compile_Request>::iterator it = requests.begin();
-         it != requests.end(); ++it)
-        if (it->second == c) {
-                if ( scheduler )
-                    scheduler->send_msg( JobDoneMsg( it->first->jobID(), 109 ) );
-		requests.erase(it);
-                break;
-        }
-
-    if (active_local_jobs.count (c) > 0) {
-        LocalJobCache ljc = active_local_jobs[c];
-	trace() << "was a local job" << endl;
-	if ( scheduler )
-            scheduler->send_msg( JobLocalDoneMsg( ljc.job_id ) );
-	active_local_jobs.erase (c);
-    }
-
-    for ( deque<UseCsCache>::iterator it = pending_use_cs.begin();
-          it != pending_use_cs.end(); ++it )
-        if ( it->client == c ) {
-            if ( scheduler )
-                scheduler->send_msg( JobLocalDoneMsg( it->msg->job_id ) );
-            delete it->msg;
-            pending_use_cs.erase( it );
-            break;
-        }
-
-    delete c;
+    clients.erase( client->channel );
+    delete client;
 }
 
 void Daemon::clear_children()
 {
-    while ( !requests.empty() ) {
-        Compile_Request req = requests.front();
-        requests.pop_front();
-        delete req.first;
-        handle_end( req.second, 116 );
+    while ( !clients.empty() ) {
+        Client *cl = clients.take_first();
+        handle_end( cl, 116 );
     }
 
     while ( current_kids > 0 ) {
@@ -779,11 +870,9 @@ void Daemon::clear_children()
 
     jobmap.clear();
     pidmap.clear();
-    pending_clients.clear();
-    client_map.clear();
 
-    while ( !fd2chan.empty() )
-        handle_end( fd2chan.begin()->second, 117 );
+    // they should be all in clients too
+    assert( fd2chan.empty() );
 
     fd2chan.clear();
     new_client_id = 0;
@@ -793,31 +882,36 @@ void Daemon::clear_children()
 bool Daemon::handle_get_cs( MsgChannel *c, Msg *msg )
 {
     GetCSMsg *umsg = dynamic_cast<GetCSMsg*>( msg );
-    umsg->client_id = ++new_client_id;
+    Client *cl = clients.find_by_channel( c );
+    assert( cl );
+    cl->status = Client::WAITFORCS;
+    umsg->client_id = cl->client_id;
     trace() << "handle_get_cs " << umsg->client_id << endl;
     scheduler->send_msg( *umsg, false );
-    pending_clients[new_client_id] = c;
     return true;
 }
 
 bool Daemon::handle_local_job( MsgChannel *c, Msg *msg )
 {
     trace() << "handle_local_job " << c << endl;
-    LocalJobCache ljc(++new_client_id, true);
-    ljc.outfile = dynamic_cast<JobLocalBeginMsg*>( msg )->outfile;
-    ljc.client = c;
-    waiting_local_jobs.push_back( ljc );
+    Client *cl = clients.find_by_channel( c );
+    assert( cl );
+    cl->status = Client::LINKJOB;
+    cl->outfile = dynamic_cast<JobLocalBeginMsg*>( msg )->outfile;
     return true;
 }
 
 bool Daemon::handle_activity( MsgChannel *c )
 {
+    Client *client = clients.find_by_channel( c );
+    assert( client );
     Msg *msg = c->get_msg();
     if ( !msg ) {
         log_error() << "no message\n";
-        handle_end( c, 118 );
+        handle_end( client, 118 );
         return false;
     }
+
     bool ret = false;
     log_warning() << "msg " << ( char )msg->type << endl;
     switch ( msg->type ) {
@@ -825,13 +919,13 @@ bool Daemon::handle_activity( MsgChannel *c )
     case M_COMPILE_FILE: ret = handle_compile_file( c, msg ); break;
     case M_TRANFER_ENV: ret = handle_transfer_env( c, msg ); break;
     case M_GET_CS: ret = handle_get_cs( c, msg ); break;
-    case M_END: handle_end( c, 119 ); ret = false; break;
+    case M_END: handle_end( client, 119 ); ret = false; break;
     case M_JOB_LOCAL_BEGIN: ret = handle_local_job (c, msg); break;
     case M_JOB_DONE: ret = handle_job_done( c, msg ); break;
     default:
         log_error() << "not compile: " << ( char )msg->type << endl;
         c->send_msg( EndMsg() );
-        handle_end( c, 120 );
+        handle_end( client, 120 );
         ret = false;
     }
     delete msg;
@@ -844,13 +938,9 @@ int Daemon::answer_client_requests()
     struct sockaddr cli_addr;
     socklen_t cli_len;
 
-    if ( requests.size() + current_kids + active_local_jobs.size() + waiting_local_jobs.size() )  {
-        log_info() << "puscs " << pending_use_cs.size()
-                   << " requests " << requests.size() << " kids "
-                   << current_kids << " links " << active_local_jobs.size()
-		   << " waiting " << waiting_local_jobs.size()
-		   << " (max " << max_kids << ")\n";
-    }
+    if ( clients.size() + current_kids )
+        log_info() << dump_internals() << endl;
+    //log_info() << "clients " << clients.dump_per_status() << " " << current_kids << " (" << max_kids << ")" << endl;
 
     cache_size = 0;
 
@@ -860,6 +950,7 @@ int Daemon::answer_client_requests()
     int ret = handle_old_request();
     if ( ret )
         return ret;
+    fetch_children();
 
     if ( !maybe_stats() ) {
         log_error() << "lost connection to scheduler. Trying again.\n";
@@ -952,6 +1043,11 @@ int Daemon::answer_client_requests()
                 if ( !c )
                     return 0;
                 trace() << "accept " << c->fd << " " << c->name << endl;
+
+                Client *client = new Client;
+                client->client_id = ++new_client_id;
+                client->channel = c;
+                clients[c] = client;
 
                 fd2chan[c->fd] = c;
                 if (!c->read_a_bit () || c->has_msg ())
