@@ -660,6 +660,9 @@ MsgChannel::MsgChannel (int _fd, struct sockaddr *_a, socklen_t _l, bool text)
   if (fcntl (fd, F_SETFL, O_NONBLOCK) < 0)
     log_perror("MsgChannel fcntl()");
 
+  if (fcntl (fd, F_SETFD, FD_CLOEXEC) < 0)
+    log_perror("MsgChannel fcntl() 2");
+
   if (text_based)
     {
       instate = NEED_LEN;
