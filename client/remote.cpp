@@ -109,23 +109,37 @@ Environments parse_icecc_version(const string &target_platform )
     return envs;
 }
 
+static bool endswith( const string &orig, const char *suff, string &ret )
+{
+    size_t len = strlen( suff );
+    if ( orig.size() > len && orig.substr( orig.size() - len ) == suff )
+    {
+        ret = orig.substr( 0, orig.size() - len );
+        return true;
+    }
+    return false;
+}
+
 Environments rip_out_paths( const Environments &envs, map<string, string> &version_map, map<string, string> &versionfile_map )
 {
     version_map.clear();
 
-    string suff = ".tar.bz2";
     Environments env2;
+
+    static const char *suffs[] = { ".tar.bz2", ".tar.gz", ".tar" };
+
+    string versfile;
 
     for ( Environments::const_iterator it = envs.begin(); it != envs.end(); ++it )
     {
-        string versfile = it->second;
-        if ( versfile.size() > suff.size() && versfile.substr( versfile.size() - suff.size() ) == suff )
-        {
-            versionfile_map[it->first] = it->second;
-            versfile = find_basename( versfile.substr( 0, versfile.size() - suff.size() ) );
-            version_map[it->first] = versfile;
-            env2.push_back( make_pair( it->first, versfile ) );
-        }
+        for ( int i = 0; i < 3; i++ )
+            if ( endswith( it->second, suffs[i], versfile ) )
+            {
+                versionfile_map[it->first] = it->second;
+                versfile = find_basename( versfile );
+                version_map[it->first] = versfile;
+                env2.push_back( make_pair( it->first, versfile ) );
+            }
     }
     return env2;
 }
@@ -509,7 +523,7 @@ int build_remote(CompileJob &job, MsgChannel *local_daemon, const Environments &
     map<string, string> versionfile_map, version_map;
     Environments envs = rip_out_paths( _envs, version_map, versionfile_map );
     if (!envs.size()) {
-	log_error() << "$ICECC_VERSION needs to point to .tar.bz2 files\n";
+	log_error() << "$ICECC_VERSION needs to point to .tar files\n";
 	throw(22);
     }
 

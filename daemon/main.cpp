@@ -621,7 +621,9 @@ bool Daemon::handle_transfer_env( MsgChannel *c, Msg *msg )
     string target = emsg->target;
     if ( target.empty() )
         target =  machine_name;
-    size_t installed_size = install_environment( envbasedir, emsg->target, emsg->name, c, nobody_uid, nobody_gid );
+    size_t installed_size = install_environment( envbasedir, emsg->target,
+                                                 emsg->name, c, nobody_uid,
+                                                 nobody_gid );
     if (!installed_size) {
         trace() << "install environment failed" << endl;
         c->send_msg(EndMsg()); // shut up, we had an error
@@ -655,7 +657,8 @@ bool Daemon::handle_transfer_env( MsgChannel *c, Msg *msg )
             }
             if ( oldest.empty() || oldest == current )
                 break;
-            cache_size -= min( remove_environment( envbasedir, oldest, nobody_uid, nobody_gid ), cache_size );
+            cache_size -= min( remove_environment( envbasedir, oldest, nobody_uid,
+                                                   nobody_gid ), cache_size );
             envs_last_use.erase( oldest );
         }
 
@@ -672,7 +675,8 @@ bool Daemon::handle_get_native_env( MsgChannel *c )
     assert( client );
 
     if ( !native_environment.length() ) {
-        size_t installed_size = setup_env_cache( envbasedir, native_environment, nobody_uid, nobody_gid );
+        size_t installed_size = setup_env_cache( envbasedir, native_environment,
+                                                 nobody_uid, nobody_gid );
         // we only clean out cache on next target install
         cache_size += installed_size;
         if ( ! installed_size ) {
@@ -750,7 +754,7 @@ int Daemon::handle_old_request()
 
     string envforjob = job->targetPlatform() + "/" + job->environmentVersion();
     envs_last_use[envforjob] = time( NULL );
-    pid = handle_connection( envbasedir, job, client->channel, sock, mem_limit, nobody_uid );
+    pid = handle_connection( envbasedir, job, client->channel, sock, mem_limit, nobody_uid, nobody_gid );
     envmap[pid] = envforjob;
 
     if ( pid > 0) { // forked away

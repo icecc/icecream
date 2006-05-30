@@ -85,7 +85,7 @@ public:
  **/
 int handle_connection( const string &basedir, CompileJob *job,
                        MsgChannel *serv, int &out_fd,
-                       unsigned int mem_limit, uid_t nobody_uid )
+                       unsigned int mem_limit, uid_t nobody_uid, gid_t nobody_gid )
 {
     int socket[2];
     if ( pipe( socket ) == -1)
@@ -124,6 +124,7 @@ int handle_connection( const string &basedir, CompileJob *job,
             if ( getuid() == 0 ) {
                 chdir( dirname.c_str() ); // without the chdir, the chroot will escape the jail right away
                 chroot( dirname.c_str() );
+                setgid( nobody_gid );
                 setuid( nobody_uid );
             }
             else
@@ -137,7 +138,7 @@ int handle_connection( const string &basedir, CompileJob *job,
             chdir( "/" );
 
         if ( ::access( _PATH_TMP + 1, W_OK ) ) {
-            log_error() << "can't write into " << _PATH_TMP << endl;
+            log_error() << "can't write into " << _PATH_TMP << " " << strerror( errno ) << endl;
             throw myexception( -1 );
         }
 

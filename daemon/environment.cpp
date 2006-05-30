@@ -154,7 +154,11 @@ bool cleanup_cache( const string &basedir, uid_t nobody_uid, gid_t nobody_gid )
         return status == 0;
     }
     // else
-    setgid( nobody_gid );
+    if ( setgid( nobody_gid ) < 0 ) {
+      log_perror("setgid failed");
+      exit (143);
+    }
+
     if (!geteuid() && setuid( nobody_uid ) < 0) {
       log_perror("setuid failed");
       exit (142);
@@ -298,6 +302,22 @@ size_t install_environment( const std::string &basename, const std::string &targ
     }
 
     string dirname = basename + "/target=" + target;
+    Msg *msg = c->get_msg(30);
+    if ( !msg || msg->type != M_FILE_CHUNK )
+    {
+        trace() << "Expected first file chunk\n";
+        return 0;
+    }
+
+    FileChunkMsg *fmsg = dynamic_cast<FileChunkMsg*>( msg );
+    enum { BZip2, Gzip, None} compression = None;
+    if ( fmsg->len > 2 )
+    {
+        if ( fmsg->buffer[0] == 037 && fmsg->buffer[1] == 0213 )
+            compression = Gzip;
+        else if ( fmsg->buffer[0] == 'B' && fmsg->buffer[1] == 'Z' )
+            compression = BZip2;
+    }
 
     int fds[2];
     if ( pipe( fds ) )
@@ -311,8 +331,16 @@ size_t install_environment( const std::string &basename, const std::string &targ
         FILE *fpipe = fdopen( fds[1], "w" );
 
         bool error = false;
-        Msg *msg = 0;
         do {
+
+            maybe_stats(false);
+            trace() << "got env share: " << fmsg->len << endl;
+            int ret = fwrite( fmsg->buffer, fmsg->len, 1, fpipe );
+            if ( ret != 1 ) {
+                log_error() << "wrote " << ret << " bytes\n";
+                error = true;
+                break;
+            }
             delete msg;
             msg = c->get_msg(30);
             if (!msg) {
@@ -324,17 +352,10 @@ size_t install_environment( const std::string &basename, const std::string &targ
                 trace() << "end\n";
                 break;
             }
-            FileChunkMsg *fmsg = dynamic_cast<FileChunkMsg*>( msg );
+            fmsg = dynamic_cast<FileChunkMsg*>( msg );
+
             if ( !fmsg ) {
                 log_error() << "Expected another file chunk\n";
-                error = true;
-                break;
-            }
-            maybe_stats(false);
-            trace() << "got env share: " << fmsg->len << endl;
-            int ret = fwrite( fmsg->buffer, fmsg->len, 1, fpipe );
-            if ( ret != 1 ) {
-                log_error() << "wrote " << ret << " bytes\n";
                 error = true;
                 break;
             }
@@ -355,16 +376,16 @@ size_t install_environment( const std::string &basename, const std::string &targ
             system( buffer );
             status = 1;
         } else {
-
             if ( waitpid( pid, &status, 0) != pid )
                 status = 1;
             dirname = dirname + "/" + name;
             mkdir( ( dirname + "/var" ).c_str(), 0755 );
-            chown( ( dirname + "/var" ).c_str(), 0, 0 );
-            mkdir( ( dirname + "/var/tmp" ).c_str(), 1775 );
-            chown( ( dirname + "/var/tmp" ).c_str(), 0, nobody_gid );
-            mkdir( ( dirname + "/tmp" ).c_str(), 1775 );
+            chown( ( dirname + "/var" ).c_str(), nobody_uid, nobody_gid );
+            mkdir( ( dirname + "/var/tmp" ).c_str(), 0755 );
+            chown( ( dirname + "/var/tmp" ).c_str(), nobody_uid, nobody_gid );
+            mkdir( ( dirname + "/tmp" ).c_str(), 01755 );
             chown( ( dirname + "/tmp" ).c_str(), 0, nobody_gid );
+            chmod( ( dirname + "/tmp" ).c_str(), 01775 );
         }
 
         if ( status ) {
@@ -408,7 +429,12 @@ size_t install_environment( const std::string &basename, const std::string &targ
     char **argv;
     argv = new char*[4];
     argv[0] = strdup( "/bin/tar" );
-    argv[1] = strdup( "xjf" );
+    if ( compression == BZip2 )
+        argv[1] = strdup( "xjf" );
+    else if ( compression == Gzip )
+        argv[1] = strdup( "xzf" );
+    else if ( compression == None )
+        argv[1] = strdup( "xf" );
     argv[2] = strdup( "-" );
     argv[3] = 0;
     execv( argv[0], argv );
