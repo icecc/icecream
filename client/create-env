@@ -110,16 +110,16 @@ for i in $target_files; do
 done
 
 # now strip the target files as necessary
-for i in $new_target_files; do 
-  if test -f $i -a -x $i; then
-    strip -s $i
+for i in $target_files; do 
+  if test -f $tempdir/$i -a -x $tempdir/$i; then
+    strip -s $tempdir/$i
   fi
 done
 
 # now sort the files in order to make the md5sums independent
 # of ordering
 target_files=`for i in $new_target_files; do echo $i; done | sort`
-md5=`for i in $target_files; do md5sum $tmpdir/$i; done | sed -e 's/ .*$//' | md5sum | sed -e 's/ .*$//'` || {
+md5=`for i in $target_files; do md5sum $tempdir/$i; done | sed -e 's/ .*$//' | md5sum | sed -e 's/ .*$//'` || {
   echo "Couldn't compute MD5 sum."
   exit 2
 }
