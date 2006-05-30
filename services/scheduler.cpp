@@ -1108,10 +1108,18 @@ handle_job_done (MsgChannel *c, Msg *_m)
     trace() << "END " << m->job_id
             << " status=" << m->exitcode << endl;
 
-  if ((m->is_from_server() && jobs[m->job_id]->server != c)
-      || (!m->is_from_server() && jobs[m->job_id]->submitter != c) )
+  if (m->is_from_server() && jobs[m->job_id]->server != c)
     {
       log_info() << "the server isn't the same for job " << m->job_id << endl;
+      log_info() << "server: " << jobs[m->job_id]->server->nodename << endl;
+      log_info() << "msg came from: " << ((CS*)c)->nodename << endl;
+      return false;
+    }
+  if (!m->is_from_server() && jobs[m->job_id]->submitter != c)
+    {
+      log_info() << "the submitter isn't the same for job " << m->job_id << endl;
+      log_info() << "submitter: " << jobs[m->job_id]->submitter->nodename << endl;
+      log_info() << "msg came from: " << ((CS*)c)->nodename << endl;
       return false;
     }
   c->last_talk = time( 0 );
