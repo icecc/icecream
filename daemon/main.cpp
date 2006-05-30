@@ -605,6 +605,7 @@ int Daemon::scheduler_use_cs( UseCSMsg *msg )
         c->usecsmsg = new UseCSMsg( msg->host_platform, "127.0.0.1", msg->port, msg->job_id, true, 1 );
         c->status = Client::PENDING_USE_CS;
     } else {
+        c->usecsmsg = new UseCSMsg( msg->host_platform, msg->hostname, msg->port, msg->job_id, true, 1 );
         c->channel->send_msg( *msg, true );
         c->status = Client::WAITCOMPILE;
     }
