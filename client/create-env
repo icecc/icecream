@@ -109,6 +109,13 @@ for i in $target_files; do
   new_target_files="$new_target_files $target"
 done
 
+# now strip the target files as necessary
+for i in $new_target_files; do 
+  if test -f $i -a -x $i; then
+    strip -s $i
+  fi
+done
+
 # now sort the files in order to make the md5sums independent
 # of ordering
 target_files=`for i in $new_target_files; do echo $i; done | sort`
