@@ -848,9 +848,12 @@ empty_queue()
 
   if (css.empty())
     {
-      trace() << "no servers to handle\n";
+      /* XXX Can't happen anymore, right?  We have a request, hence one
+	 daemon must be connected to us (the submitter), so css can't
+	 be empty.  */
+      log_error() << "no servers to handle\n";
+      abort ();
       remove_job_request ();
-      job->submitter->send_msg( JobDoneMsg( job->local_client_id, 255 ) );
       jobs.erase( job->id );
       notify_monitors (MonJobDoneMsg (JobDoneMsg( job->id,  255 )));
       // Don't delete channel here.  We expect the client on the other side
@@ -1105,7 +1108,8 @@ handle_job_done (MsgChannel *c, Msg *_m)
     trace() << "END " << m->job_id
             << " status=" << m->exitcode << endl;
 
-  if (jobs[m->job_id]->server != c )
+  if ((m->is_from_server() && jobs[m->job_id]->server != c)
+      || (!m->is_from_server() && jobs[m->job_id]->submitter != c) )
     {
       log_info() << "the server isn't the same for job " << m->job_id << endl;
       return false;
@@ -1379,7 +1383,6 @@ handle_end (MsgChannel *c, Msg *m)
 	    for (jit = l->l.begin(); jit != l->l.end(); ++jit)
 	      {
 		trace() << "STOP (DAEMON) FOR " << (*jit)->id << endl;
-                (*jit)->submitter->send_msg( JobDoneMsg((*jit)->local_client_id, 255) );
                 notify_monitors (MonJobDoneMsg (JobDoneMsg( ( *jit )->id,  255 )));
 		if ((*jit)->server)
 		  (*jit)->server->busy_installing = 0;
@@ -1400,7 +1403,6 @@ handle_end (MsgChannel *c, Msg *m)
           if (job->server == toremove || job->submitter == toremove)
             {
               trace() << "STOP (DAEMON2) FOR " << mit->first << endl;
-              job->submitter->send_msg( JobDoneMsg( job->local_client_id, 255 ) );
               notify_monitors (MonJobDoneMsg (JobDoneMsg( job->id,  255 )));
 	      /* If this job is removed because the submitter is removed
 		 also remove the job from the servers joblist.  */

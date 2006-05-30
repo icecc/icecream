@@ -475,7 +475,7 @@ maybe_build_local (MsgChannel *local_daemon, UseCSMsg *usecs, CompileJob &job,
         gettimeofday(&endtv, 0 );
 
         // filling the stats, so the daemon can play proxy for us
-        JobDoneMsg msg( job_id, ret );
+        JobDoneMsg msg( job_id, ret, JobDoneMsg::FROM_SUBMITTER );
 
         msg.real_msec = ( endtv.tv_sec - begintv.tv_sec ) * 1000 + ( endtv.tv_usec - begintv.tv_usec ) / 1000;
         struct stat st;

@@ -598,7 +598,7 @@ int Daemon::scheduler_use_cs( UseCSMsg *msg )
     trace() << "handle_use_cs " << msg->job_id << " " << msg->client_id
             << " " << c << " " << msg->hostname << " " << remote_name <<  endl;
     if ( !c ) {
-        scheduler->send_msg( JobDoneMsg( msg->job_id, 107 ) );
+        scheduler->send_msg( JobDoneMsg( msg->job_id, 107, JobDoneMsg::FROM_SUBMITTER ) );
         return 1;
     }
     if ( msg->hostname == remote_name ) {
@@ -760,7 +760,7 @@ int Daemon::handle_old_request()
             handle_end( client, 114 );
             return 2;
         }
-        jobmap[pid] = new JobDoneMsg( job->jobID(), -1 ) ;
+        jobmap[pid] = new JobDoneMsg( job->jobID(), -1, JobDoneMsg::FROM_SERVER ) ;
         if ( sock > -1 )
             pidmap[pid] = sock;
         /* this should happen in the parent so the child is alone with the client */
@@ -836,7 +836,7 @@ void Daemon::handle_end( Client *client, int exitcode )
     if ( scheduler ) {
         if ( client->job_id > 0 ) {
             trace() << "scheduler->send_msg( JobDoneMsg( " << client->job_id << " " << exitcode << "))\n";
-            scheduler->send_msg( JobDoneMsg( client->job_id, exitcode ) );
+            scheduler->send_msg( JobDoneMsg( client->job_id, exitcode, JobDoneMsg::FROM_SERVER ) );
         } else if ( client->status == Client::CLIENTWORK ) {
             // Clientwork && !job_id == LINK
             trace() << "scheduler->send_msg( JobLocalDoneMsg( " << client->client_id << ") );\n";
@@ -978,10 +978,7 @@ int Daemon::answer_client_requests()
         bool ok = true;
         ++it;
         /* handle_activity() can delete c and make the iterator
-           invalid.  XXX handle_activity and friends were copied from
-	   the scheduler.  This needs a big cleanup for the return values,
-	   currently this either leaks or segfaults.  That's why we need
-	   to check 'ok' and 'c'.  The latter test must go away.  */
+           invalid.  */
         while (ok && c->has_msg ())
             if (!handle_activity (c))
                 ok = false;

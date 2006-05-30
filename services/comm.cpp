@@ -1249,8 +1249,8 @@ void JobLocalDoneMsg::send_to_channel( MsgChannel *c ) const
   c->writeuint32(job_id);
 }
 
-JobDoneMsg::JobDoneMsg (int id, int exit)
-  : Msg(M_JOB_DONE),  exitcode( exit ), job_id( id )
+JobDoneMsg::JobDoneMsg (int id, int exit, unsigned int _flags)
+  : Msg(M_JOB_DONE),  exitcode( exit ), flags (_flags), job_id( id )
 {
   real_msec = 0;
   user_msec = 0;
@@ -1272,11 +1272,12 @@ JobDoneMsg::fill_from_channel (MsgChannel *c)
   c->readuint32 (real_msec);
   c->readuint32 (user_msec);
   c->readuint32 (sys_msec);
-  c->readuint32( pfaults );
+  c->readuint32 (pfaults);
   c->readuint32 (in_compressed);
   c->readuint32 (in_uncompressed);
   c->readuint32 (out_compressed);
   c->readuint32 (out_uncompressed);
+  c->readuint32 (flags);
   exitcode = (int) _exitcode;
 }
 
@@ -1289,11 +1290,12 @@ JobDoneMsg::send_to_channel (MsgChannel *c) const
   c->writeuint32 (real_msec);
   c->writeuint32 (user_msec);
   c->writeuint32 (sys_msec);
-  c->writeuint32( pfaults );
+  c->writeuint32 (pfaults);
   c->writeuint32 (in_compressed);
   c->writeuint32 (in_uncompressed);
   c->writeuint32 (out_compressed);
   c->writeuint32 (out_uncompressed);
+  c->writeuint32 (flags);
 }
 
 LoginMsg::LoginMsg(unsigned int myport, const std::string &_nodename, const std::string _host_platform)
