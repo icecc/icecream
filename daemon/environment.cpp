@@ -89,7 +89,7 @@ static size_t sumup_dir( const string &dir )
         if ( !strcmp( ent->d_name, "." ) || !strcmp( ent->d_name, ".." ) )
             continue;
 
-        if ( stat( ( tdir + ent->d_name ).c_str(), &st ) ) {
+        if ( lstat( ( tdir + ent->d_name ).c_str(), &st ) ) {
             perror( "stat" );
             continue;
         }
@@ -143,7 +143,7 @@ static void list_target_dirs( const string &current_target, const string &target
     closedir( envdir );
 }
 
-bool cleanup_cache( const string &basedir, uid_t nobody_uid )
+bool cleanup_cache( const string &basedir, uid_t nobody_uid, gid_t nobody_gid )
 {
     pid_t pid = fork();
     if ( pid )
@@ -154,7 +154,11 @@ bool cleanup_cache( const string &basedir, uid_t nobody_uid )
         return status == 0;
     }
     // else
-    setuid( nobody_uid );
+    setgid( nobody_gid );
+    if (!geteuid() && setuid( nobody_uid ) < 0) {
+      log_perror("setuid failed");
+      exit (142);
+    }
 
     if ( !::access( basedir.c_str(), W_OK ) ) { // it exists - removing content
 
@@ -222,7 +226,7 @@ Environments available_environmnents(const string &basedir)
     return envs;
 }
 
-size_t setup_env_cache(const string &basedir, string &native_environment, uid_t nobody_uid)
+size_t setup_env_cache(const string &basedir, string &native_environment, uid_t nobody_uid, gid_t nobody_gid)
 {
     native_environment = "";
     string nativedir = basedir + "/native/";
@@ -249,7 +253,11 @@ size_t setup_env_cache(const string &basedir, string &native_environment, uid_t 
         }
     }
     // else
-    setuid( nobody_uid );
+    setgid( nobody_gid );
+    if (!geteuid() && setuid( nobody_uid ) < 0) {
+      log_perror("setuid failed");
+      exit (142);
+    }
 
     if ( !::access( "/usr/bin/gcc", X_OK ) && !::access( "/usr/bin/g++", X_OK ) ) {
         if ( !mkdir ( nativedir.c_str(), 0755 ) )
@@ -275,7 +283,7 @@ error:
 }
 
 size_t install_environment( const std::string &basename, const std::string &target,
-                          const std::string &name, MsgChannel *c, uid_t nobody_uid )
+                          const std::string &name, MsgChannel *c, uid_t nobody_uid, gid_t nobody_gid )
 {
     if ( !name.size() || name[0] == '.' ) {
         log_error() << "illegal name for environment " << name << endl;
@@ -352,11 +360,11 @@ size_t install_environment( const std::string &basename, const std::string &targ
                 status = 1;
             dirname = dirname + "/" + name;
             mkdir( ( dirname + "/var" ).c_str(), 0755 );
-            chown( ( dirname + "/var" ).c_str(), nobody_uid, 0 );
-            mkdir( ( dirname + "/var/tmp" ).c_str(), 0755 );
-            chown( ( dirname + "/var/tmp" ).c_str(), nobody_uid, 0 );
-            mkdir( ( dirname + "/tmp" ).c_str(), 0755 );
-            chown( ( dirname + "/tmp" ).c_str(), nobody_uid, 0 );
+            chown( ( dirname + "/var" ).c_str(), 0, 0 );
+            mkdir( ( dirname + "/var/tmp" ).c_str(), 1775 );
+            chown( ( dirname + "/var/tmp" ).c_str(), 0, nobody_gid );
+            mkdir( ( dirname + "/tmp" ).c_str(), 1775 );
+            chown( ( dirname + "/tmp" ).c_str(), 0, nobody_gid );
         }
 
         if ( status ) {
@@ -366,7 +374,12 @@ size_t install_environment( const std::string &basename, const std::string &targ
         }
     }
     // else
-    setuid( nobody_uid );
+    setgid( nobody_gid );
+    if (!geteuid() && setuid( nobody_uid ) < 0) {
+      log_perror("setuid fails");
+      exit (142);
+    }
+
     close( 0 );
     close( fds[1] );
     dup2( fds[0], 0 );
@@ -402,7 +415,7 @@ size_t install_environment( const std::string &basename, const std::string &targ
     ::exit( 1 ); // if tar fails
 }
 
-size_t remove_environment( const string &basename, const string &env, uid_t nobody_uid )
+size_t remove_environment( const string &basename, const string &env, uid_t nobody_uid, gid_t nobody_gid )
 {
     string::size_type pos = env.find_first_of( '/' );
     if ( pos == string::npos ) // nonsense
@@ -424,7 +437,11 @@ size_t remove_environment( const string &basename, const string &env, uid_t nobo
         return res;
     }
     // else
-    setuid( nobody_uid );
+    setgid(nobody_gid);
+    if (!geteuid() && setuid( nobody_uid ) < 0) {
+      log_perror("setuid fails");
+      exit (142);
+    }
 
     char buffer[PATH_MAX];
     snprintf( buffer, PATH_MAX, "rm -rf '%s'", dirname.c_str() );

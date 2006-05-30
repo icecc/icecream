@@ -497,6 +497,7 @@ struct Daemon
     string native_environment;
     string envbasedir;
     uid_t nobody_uid;
+    gid_t nobody_gid;
     int listen_fd;
     string machine_name;
     string nodename;
@@ -508,6 +509,7 @@ struct Daemon
     Daemon() {
         envbasedir = "/tmp/icecc-envs";
         nobody_uid = 65534;
+        nobody_gid = 65533;
         listen_fd = -1;
         new_client_id = 0;
     }
@@ -619,7 +621,7 @@ bool Daemon::handle_transfer_env( MsgChannel *c, Msg *msg )
     string target = emsg->target;
     if ( target.empty() )
         target =  machine_name;
-    size_t installed_size = install_environment( envbasedir, emsg->target, emsg->name, c, nobody_uid );
+    size_t installed_size = install_environment( envbasedir, emsg->target, emsg->name, c, nobody_uid, nobody_gid );
     if (!installed_size) {
         trace() << "install environment failed" << endl;
         c->send_msg(EndMsg()); // shut up, we had an error
@@ -653,7 +655,7 @@ bool Daemon::handle_transfer_env( MsgChannel *c, Msg *msg )
             }
             if ( oldest.empty() || oldest == current )
                 break;
-            cache_size -= min( remove_environment( envbasedir, oldest, nobody_uid ), cache_size );
+            cache_size -= min( remove_environment( envbasedir, oldest, nobody_uid, nobody_gid ), cache_size );
             envs_last_use.erase( oldest );
         }
 
@@ -670,7 +672,7 @@ bool Daemon::handle_get_native_env( MsgChannel *c )
     assert( client );
 
     if ( !native_environment.length() ) {
-        size_t installed_size = setup_env_cache( envbasedir, native_environment, nobody_uid );
+        size_t installed_size = setup_env_cache( envbasedir, native_environment, nobody_uid, nobody_gid );
         // we only clean out cache on next target install
         cache_size += installed_size;
         if ( ! installed_size ) {
@@ -1213,8 +1215,10 @@ int main( int argc, char ** argv )
                     struct passwd *pw = getpwnam( optarg );
                     if ( !pw ) {
                         usage( "Error: -u requires a valid username" );
-                    } else
+                    } else {
                         d.nobody_uid = pw->pw_uid;
+                        d.nobody_gid = pw->pw_gid;
+                    }
                 } else
                     usage( "Error: -u requires a valid username" );
                 break;
@@ -1297,7 +1301,7 @@ int main( int argc, char ** argv )
      * not.  */
     dcc_master_pid = getpid();
 
-    if ( !cleanup_cache( d.envbasedir, d.nobody_uid ) )
+    if ( !cleanup_cache( d.envbasedir, d.nobody_uid, d.nobody_gid ) )
         return 1;
 
     list<string> nl = get_netnames (200);
