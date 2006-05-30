@@ -86,9 +86,6 @@ const int PORT = 10245;
 using namespace std;
 using namespace __gnu_cxx; // for the extensions we like, e.g. hash_set
 
-// the pidmap maps the PID to the socket to the server child
-typedef map<pid_t, int> Pidmap;
-
 struct Client {
 public:
     /*
@@ -104,7 +101,7 @@ public:
      * WAITCOMPILE: Client got a CS and will ask him now (it's now me)
      * CLIENTWORK: Client is busy working and we reserve the spot (job_id is set if it's a scheduler job)
      */
-    enum Status { UNKNOWN, GOTNATIVE, PENDING_USE_CS, JOBDONE, LINKJOB, TOCOMPILE, WAITFORCS, WAITCOMPILE, CLIENTWORK } status;
+    enum Status { UNKNOWN, GOTNATIVE, PENDING_USE_CS, JOBDONE, LINKJOB, TOCOMPILE, WAITFORCS, WAITCOMPILE, CLIENTWORK, WAITFORCHILD } status;
     Client()
     {
         job_id = 0;
@@ -113,6 +110,8 @@ public:
         usecsmsg = 0;
         client_id = 0;
         status = UNKNOWN;
+	pipe_to_child = -1;
+	child_pid = -1;
     }
 
     static string status_str( Status status )
@@ -136,6 +135,8 @@ public:
             return "clientwork";
         case WAITCOMPILE:
             return "waitcompile";
+	case WAITFORCHILD:
+	    return "waitforchild";
         }
         assert( false );
         return string(); // shutup gcc
@@ -146,6 +147,8 @@ public:
         delete channel;
         delete usecsmsg;
         delete job;
+	if (pipe_to_child >= 0)
+	    close (pipe_to_child);
     }
     int job_id;
     string outfile; // only useful for LINKJOB
@@ -153,6 +156,8 @@ public:
     UseCSMsg *usecsmsg;
     CompileJob *job;
     int client_id;
+    int pipe_to_child; // pipe to child process, only valid if WAITFORCHILD
+    pid_t child_pid;
 
     string dump() const
     {
@@ -198,6 +203,14 @@ public:
             return 0;
         return it->second;
     }
+
+    Client *find_by_pid( pid_t pid ) const {
+        for ( const_iterator it = begin(); it != end(); ++it )
+            if ( it->second->child_pid == pid )
+                return it->second;
+        return 0;
+    }
+
     Client *take_first()
     {
         iterator it = begin();
@@ -228,7 +241,7 @@ public:
             dump_status( Client::JOBDONE ) + dump_status( Client::LINKJOB ) +
             dump_status( Client::TOCOMPILE ) + dump_status( Client::WAITFORCS ) +
             dump_status( Client::CLIENTWORK ) + dump_status( Client::GOTNATIVE ) +
-            dump_status( Client::WAITCOMPILE );
+            dump_status( Client::WAITCOMPILE ) + dump_status (Client::WAITFORCHILD);
     }
     Client *get_earliest_client( Client::Status s ) const
     {
@@ -492,7 +505,6 @@ struct Daemon
     Clients clients;
     map<pid_t, JobDoneMsg*> jobmap;
     map<pid_t, string> envmap;
-    Pidmap pidmap;
     map<string, time_t> envs_last_use;
     string native_environment;
     string envbasedir;
@@ -560,21 +572,9 @@ string Daemon::dump_internals() const
     for ( map<pid_t, JobDoneMsg*>::const_iterator it = jobmap.begin();
           it != jobmap.end(); ++it ) {
         result += string( "  jobmap[" ) + toString( it->first ) + "] = " + toString( it->second ) + "\n";
-        if ( pidmap.count( it->first ) > 0 ) {
-            result += "  pidmap[" + toString( it->first ) + "] = ";
-            // pidmap[it->first] is non-const
-            result += toString( pidmap.find( it->first )->second ) + "\n";
-        }
         if ( envmap.count( it->first ) > 0 ) {
             result += "  envmap[" + toString( it->first ) + "] = " + envmap.find( it->first )->second + "\n";
         }
-    }
-
-    for ( Pidmap::const_iterator it = pidmap.begin();
-          it != pidmap.end(); ++it ) {
-        if ( jobmap.count( it->first ) > 0 )
-            continue;
-        result += "  pidmap[" + toString( it->first ) + "] = " + toString( it->second ) + "\n";
     }
 
     for ( map<pid_t, string>::const_iterator it = envmap.begin();
@@ -766,11 +766,15 @@ int Daemon::handle_old_request()
             handle_end( client, 114 );
             return 2;
         }
+	client->status = Client::WAITFORCHILD;
+	client->pipe_to_child = sock;
+	client->child_pid = pid;
+	/* XXX hack, close the channel fd, and set it to -1, so we don't select
+	   for it.  This filedescriptor belongs to the forked child.  */
+	close (client->channel->fd);
+	fd2chan.erase (client->channel->fd);
+	client->channel->fd = -1;
         jobmap[pid] = new JobDoneMsg( job->jobID(), -1, JobDoneMsg::FROM_SERVER ) ;
-        if ( sock > -1 )
-            pidmap[pid] = sock;
-        /* this should happen in the parent so the child is alone with the client */
-        handle_end( client, 115 );
     }
 
     return 0;
@@ -788,13 +792,12 @@ void Daemon::fetch_children()
         else
             log_error() << "catched child pid " << child << " not in my map\n";
         jobmap.erase( child );
-        Pidmap::iterator pid_it = pidmap.find( child );
-        if ( pid_it != pidmap.end() ) {
-            fill_msg( pid_it->second, msg );
-            close( pid_it->second );
-            pidmap.erase( pid_it );
+	Client *client = clients.find_by_pid( child );
+        if (client) {
+            fill_msg( client->pipe_to_child, msg );
+	    handle_end (client, WEXITSTATUS( status ));
         }
-        if ( msg && scheduler ) {
+        if (msg && scheduler) {
             msg->exitcode = WEXITSTATUS( status );
             msg->user_msec = ru.ru_utime.tv_sec * 1000 + ru.ru_utime.tv_usec / 1000;
             msg->sys_msec = ru.ru_stime.tv_sec * 1000 + ru.ru_stime.tv_usec / 1000;
@@ -839,7 +842,7 @@ void Daemon::handle_end( Client *client, int exitcode )
     if ( client->status == Client::CLIENTWORK )
         clients.active_processes--;
 
-    if ( scheduler ) {
+    if ( scheduler && client->status != Client::WAITFORCHILD) {
         if ( client->job_id > 0 ) {
             trace() << "scheduler->send_msg( JobDoneMsg( " << client->job_id << " " << exitcode << "))\n";
             scheduler->send_msg( JobDoneMsg( client->job_id, exitcode, JobDoneMsg::FROM_SERVER ) );
@@ -865,18 +868,11 @@ void Daemon::clear_children()
         int status;
         pid_t child = wait(&status);
         current_kids--;
-        if ( child > 0 ) {
+        if ( child > 0 )
             jobmap.erase( child );
-            Pidmap::iterator pid_it = pidmap.find( child );
-            if ( pid_it != pidmap.end() ) {
-                close( pid_it->second );
-                pidmap.erase( pid_it );
-            }
-        }
     }
 
     jobmap.clear();
-    pidmap.clear();
 
     // they should be all in clients too
     assert( fd2chan.empty() );
@@ -971,12 +967,6 @@ int Daemon::answer_client_requests()
     FD_SET( listen_fd, &listen_set );
     int max_fd = listen_fd;
 
-    for ( Pidmap::const_iterator it = pidmap.begin(); it != pidmap.end(); ++it ) {
-        FD_SET( it->second, &listen_set );
-        if ( max_fd < it->second )
-            max_fd = it->second;
-    }
-
     for (map<int, MsgChannel *>::const_iterator it = fd2chan.begin();
          it != fd2chan.end();) {
         int i = it->first;
@@ -1063,17 +1053,6 @@ int Daemon::answer_client_requests()
                 }
             }
         } else {
-            for ( Pidmap::iterator it = pidmap.begin(); it != pidmap.end(); ++it ) {
-                if ( FD_ISSET( it->second, &listen_set ) ) {
-                    JobDoneMsg *msg = jobmap[it->first];
-                    if ( msg ) {
-                        fill_msg( it->second, msg );
-                        close( it->second );
-                        pidmap.erase( it );
-                        break;
-                    }
-                }
-            }
             for (map<int, MsgChannel *>::const_iterator it = fd2chan.begin();
                  max_fd && it != fd2chan.end();)  {
                 int i = it->first;
