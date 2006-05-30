@@ -608,7 +608,7 @@ int Daemon::scheduler_use_cs( UseCSMsg *msg )
         c->status = Client::PENDING_USE_CS;
     } else {
         c->usecsmsg = new UseCSMsg( msg->host_platform, msg->hostname, msg->port, msg->job_id, true, 1 );
-        c->channel->send_msg( *msg, true );
+        c->channel->send_msg( *msg );
         c->status = Client::WAITCOMPILE;
     }
     c->job_id = msg->job_id;
@@ -731,7 +731,7 @@ int Daemon::handle_old_request()
     if ( client )
     {
         trace() << "pending " << client->dump() << endl;
-        client->channel->send_msg( *client->usecsmsg, true );
+        client->channel->send_msg( *client->usecsmsg );
         client->status = Client::CLIENTWORK;
         /* we make sure we reserve a spot and the rest is done if the
          * client contacts as back with a Compile request */
@@ -894,7 +894,7 @@ bool Daemon::handle_get_cs( MsgChannel *c, Msg *msg )
     cl->status = Client::WAITFORCS;
     umsg->client_id = cl->client_id;
     trace() << "handle_get_cs " << umsg->client_id << endl;
-    scheduler->send_msg( *umsg, false );
+    scheduler->send_msg( *umsg );
     return true;
 }
 
