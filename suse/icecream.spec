@@ -24,7 +24,7 @@ PreReq:         %fillup_prereq
 %endif
 Prereq:         /usr/sbin/useradd /usr/sbin/groupadd
 Requires:       gcc-c++
-Version:        0.7pre4
+Version:        0.7pre5
 Release:        1
 Source0:        ftp://ftp.suse.com/pub/projects/icecream/%name-%{version}.tar.bz2
 Source1:        %name-manpages.tar.bz2
