@@ -101,7 +101,8 @@ public:
      * WAITCOMPILE: Client got a CS and will ask him now (it's now me)
      * CLIENTWORK: Client is busy working and we reserve the spot (job_id is set if it's a scheduler job)
      */
-    enum Status { UNKNOWN, GOTNATIVE, PENDING_USE_CS, JOBDONE, LINKJOB, TOCOMPILE, WAITFORCS, WAITCOMPILE, CLIENTWORK, WAITFORCHILD } status;
+    enum Status { UNKNOWN, GOTNATIVE, PENDING_USE_CS, JOBDONE, LINKJOB, TOCOMPILE, WAITFORCS,
+                  WAITCOMPILE, CLIENTWORK, WAITFORCHILD } status;
     Client()
     {
         job_id = 0;
@@ -165,6 +166,8 @@ public:
         switch ( status ) {
         case LINKJOB:
             return ret + " " + toString( client_id ) + " " + outfile;
+        case WAITFORCHILD:
+            return ret + " " + toString( client_id ) + " PID: " + toString( child_pid ) + " PFD: " + toString( pipe_to_child );
         default:
             if ( job_id ) {
                 string jobs;
@@ -844,8 +847,27 @@ void Daemon::handle_end( Client *client, int exitcode )
 
     if ( scheduler && client->status != Client::WAITFORCHILD) {
         if ( client->job_id > 0 ) {
-            trace() << "scheduler->send_msg( JobDoneMsg( " << client->job_id << " " << exitcode << "))\n";
-            scheduler->send_msg( JobDoneMsg( client->job_id, exitcode, JobDoneMsg::FROM_SERVER ) );
+            JobDoneMsg::from_type flag = JobDoneMsg::FROM_SUBMITTER;
+            switch ( client->status ) {
+            case Client::TOCOMPILE:
+                flag = JobDoneMsg::FROM_SERVER;
+                break;
+            case Client::UNKNOWN:
+            case Client::GOTNATIVE:
+            case Client::JOBDONE:
+            case Client::WAITFORCS:
+            case Client::WAITFORCHILD:
+            case Client::LINKJOB:
+                assert( false ); // should not have a job_id
+                break;
+            case Client::WAITCOMPILE:
+            case Client::PENDING_USE_CS:
+            case Client::CLIENTWORK:
+                flag = JobDoneMsg::FROM_SUBMITTER;
+                break;
+            }
+            trace() << "scheduler->send_msg( JobDoneMsg( " << client->dump() << ", " << exitcode << "))\n";
+            scheduler->send_msg( JobDoneMsg( client->job_id, exitcode, flag) );
         } else if ( client->status == Client::CLIENTWORK ) {
             // Clientwork && !job_id == LINK
             trace() << "scheduler->send_msg( JobLocalDoneMsg( " << client->client_id << ") );\n";
