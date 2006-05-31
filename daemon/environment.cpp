@@ -337,7 +337,6 @@ size_t install_environment( const std::string &basename, const std::string &targ
         do {
 
             maybe_stats(false);
-            trace() << "got env share: " << fmsg->len << endl;
             int ret = fwrite( fmsg->buffer, fmsg->len, 1, fpipe );
             if ( ret != 1 ) {
                 log_error() << "wrote " << ret << " bytes\n";
@@ -458,7 +457,7 @@ size_t remove_environment( const string &basename, const string &env, uid_t nobo
     string dirname = basename + "/target=" + target;
     trace() << "removing " << dirname << "/" << name << endl;
 
-    size_t res = sumup_dir( dirname );
+    size_t res = sumup_dir( dirname + "/" + name );
 
     pid_t pid = fork();
     if ( pid )
@@ -468,6 +467,11 @@ size_t remove_environment( const string &basename, const string &env, uid_t nobo
             status = 1;
         return res;
     }
+    if ( chdir( dirname.c_str() ) != 0 ) {
+        log_perror( "chdir failed" );
+        exit( 144 );
+    }
+
     // else
     if ( setgid(nobody_gid) < 0) {
       log_perror("setgid fails");
@@ -479,7 +483,7 @@ size_t remove_environment( const string &basename, const string &env, uid_t nobo
     }
 
     char buffer[PATH_MAX];
-    snprintf( buffer, PATH_MAX, "rm -rf '%s'", dirname.c_str() );
+    snprintf( buffer, PATH_MAX, "rm -rfv '%s'", name.c_str() );
     if ( system( buffer ) ) {
         log_error() << "rm -rf failed\n";
         ::exit( 1 );

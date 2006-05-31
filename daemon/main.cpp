@@ -520,6 +520,7 @@ struct Daemon
     map<int, MsgChannel *> fd2chan;
     int new_client_id;
     string remote_name;
+    time_t next_check;
 
     Daemon() {
         envbasedir = "/tmp/icecc-envs";
@@ -527,6 +528,8 @@ struct Daemon
         nobody_gid = 65533;
         listen_fd = -1;
         new_client_id = 0;
+        next_check = 0;
+        cache_size = 0;
     }
     int answer_client_requests();
     bool handle_transfer_env( MsgChannel *c, Msg *msg );
@@ -632,6 +635,7 @@ bool Daemon::handle_transfer_env( MsgChannel *c, Msg *msg )
         c->send_msg(EndMsg()); // shut up, we had an error
         reannounce_environments(envbasedir, nodename);
     } else {
+        trace() << dump_internals() << endl;
         cache_size += installed_size;
         string current = emsg->target + "/" + emsg->name;
         envs_last_use[current] = time( NULL );
@@ -646,8 +650,8 @@ bool Daemon::handle_transfer_env( MsgChannel *c, Msg *msg )
             for ( map<string, time_t>::const_iterator it = envs_last_use.begin();
                   it != envs_last_use.end(); ++it ) {
                 trace() << "das ist jetzt so: " << it->first << " " << it->second << " " << oldest_time << endl;
-                // ignore recently used envs (they might be in use _right_ now
-                if ( it->second < oldest_time && now - it->second < 100 ) {
+                // ignore recently used envs (they might be in use _right_ now)
+                if ( it->second < oldest_time && now - it->second > 200 ) {
                     bool found = false;
                     for (map<pid_t,string>::const_iterator it2 = envmap.begin(); it2 != envmap.end(); ++it2)
                         if (it2->second == it->first)
@@ -660,8 +664,9 @@ bool Daemon::handle_transfer_env( MsgChannel *c, Msg *msg )
             }
             if ( oldest.empty() || oldest == current )
                 break;
-            cache_size -= min( remove_environment( envbasedir, oldest, nobody_uid,
-                                                   nobody_gid ), cache_size );
+            size_t removed = remove_environment( envbasedir, oldest, nobody_uid, nobody_gid );
+            trace() << "removing " << envbasedir << " " << oldest << " " << oldest_time << " " << removed << endl;
+            cache_size -= min( removed, cache_size );
             envs_last_use.erase( oldest );
         }
 
@@ -682,6 +687,7 @@ bool Daemon::handle_get_native_env( MsgChannel *c )
                                                  nobody_uid, nobody_gid );
         // we only clean out cache on next target install
         cache_size += installed_size;
+        trace() << "cache_size = " << cache_size << endl;
         if ( ! installed_size ) {
             c->send_msg( EndMsg() );
             handle_end( client, 121 );
@@ -839,7 +845,7 @@ bool Daemon::handle_compile_file( MsgChannel *c, Msg *msg )
 void Daemon::handle_end( Client *client, int exitcode )
 {
     trace() << "handle_end " << client->dump() << endl;
-    trace() << dump_internals() << endl;
+//    trace() << dump_internals() << endl;
     fd2chan.erase (client->channel->fd);
 
     if ( client->status == Client::CLIENTWORK )
@@ -959,18 +965,9 @@ bool Daemon::handle_activity( MsgChannel *c )
 
 int Daemon::answer_client_requests()
 {
-    int acc_fd;
-    struct sockaddr cli_addr;
-    socklen_t cli_len;
-
-    if ( clients.size() + current_kids )
-        log_info() << dump_internals() << endl;
+/*    if ( clients.size() + current_kids )
+      log_info() << dump_internals() << endl; */
     //log_info() << "clients " << clients.dump_per_status() << " " << current_kids << " (" << max_kids << ")" << endl;
-
-    cache_size = 0;
-
-    const int max_count = 0; // DEBUG
-    int count = 0; // DEBUG
 
     int ret = handle_old_request();
     if ( ret )
@@ -1049,8 +1046,9 @@ int Daemon::answer_client_requests()
         }
 
         if ( FD_ISSET( listen_fd, &listen_set ) ) {
-            cli_len = sizeof cli_addr;
-            acc_fd = accept(listen_fd, &cli_addr, &cli_len);
+            struct sockaddr cli_addr;
+            socklen_t cli_len = sizeof cli_addr;
+            int acc_fd = accept(listen_fd, &cli_addr, &cli_len);
             if (acc_fd == -1 && errno != EINTR) {
                 log_perror("accept failed:");
                 return EXIT_CONNECT_FAILED;
@@ -1068,11 +1066,6 @@ int Daemon::answer_client_requests()
                 fd2chan[c->fd] = c;
                 if (!c->read_a_bit () || c->has_msg ())
                     handle_activity (c);
-
-                if ( max_count && ++count > max_count ) {
-                    cout << "I'm closing now. Hoping you used valgrind! :)\n";
-                    exit( 0 );
-                }
             }
         } else {
             for (map<int, MsgChannel *>::const_iterator it = fd2chan.begin();
