@@ -54,7 +54,8 @@
 
 using namespace std;
 
-Environments parse_icecc_version(const string &target_platform )
+Environments
+parse_icecc_version(const string &target_platform )
 {
     Environments envs;
 
@@ -109,7 +110,8 @@ Environments parse_icecc_version(const string &target_platform )
     return envs;
 }
 
-static bool endswith( const string &orig, const char *suff, string &ret )
+static bool
+endswith( const string &orig, const char *suff, string &ret )
 {
     size_t len = strlen( suff );
     if ( orig.size() > len && orig.substr( orig.size() - len ) == suff )
@@ -120,7 +122,8 @@ static bool endswith( const string &orig, const char *suff, string &ret )
     return false;
 }
 
-Environments rip_out_paths( const Environments &envs, map<string, string> &version_map, map<string, string> &versionfile_map )
+static Environments
+rip_out_paths( const Environments &envs, map<string, string> &version_map, map<string, string> &versionfile_map )
 {
     version_map.clear();
 
@@ -145,7 +148,8 @@ Environments rip_out_paths( const Environments &envs, map<string, string> &versi
 }
 
 
-string get_absfilename( const string &_file )
+string
+get_absfilename( const string &_file )
 {
     string file;
 
@@ -205,7 +209,18 @@ static void write_server_cpp(int cpp_fd, MsgChannel *cserver)
 
     do
     {
-        ssize_t bytes = read(cpp_fd, buffer + offset, sizeof(buffer) - offset );
+        ssize_t bytes;
+        do {
+          bytes = read(cpp_fd, buffer + offset, sizeof(buffer) - offset );
+          if ((int) bytes < 0 && (errno == EINTR || errno == EAGAIN))
+            continue;
+          if ((int) bytes < 0) {
+            log_perror( "reading from cpp_fd" );
+            close( cpp_fd );
+            throw( 11 );
+          }
+          break;
+        } while ( 1 );
         offset += bytes;
         if (!bytes || offset == sizeof( buffer ) )
         {
@@ -238,7 +253,7 @@ static int build_remote_int(CompileJob &job, UseCSMsg *usecs, const string &envi
     bool got_env = usecs->got_env;
     job.setJobID( job_id );
     job.setEnvironmentVersion( environment ); // hoping on the scheduler's wisdom
-    trace() << "Have to use host " << hostname << ":" << port << " - Job ID: " << job.jobID() << " - environment: " << usecs->host_platform << "\n";
+    trace() << "Have to use host " << hostname << ":" << port << " - Job ID: " << job.jobID() << " - environment: " << usecs->host_platform << " got environment: " << (got_env ? "true" : "false") << "\n";
 
     int status = 255;
 
@@ -251,12 +266,6 @@ static int build_remote_int(CompileJob &job, UseCSMsg *usecs, const string &envi
         throw ( 2 );
     }
 
-    unsigned char buffer[100000]; // some random but huge number
-
-    trace() << "got environment " << ( got_env ? "true" : "false" ) << endl;
-
-    off_t offset = 0;
-
     if ( !got_env ) {
         // transfer env
         struct stat buf;
@@ -265,34 +274,15 @@ static int build_remote_int(CompileJob &job, UseCSMsg *usecs, const string &envi
             throw( 4 );
         }
 
-        FILE *file = fopen( version_file.c_str(), "rb" );
-        if ( !file )
-            throw( 5 );
-
         EnvTransferMsg msg( job.targetPlatform(), job.environmentVersion() );
         if ( !cserver->send_msg( msg ) )
             throw( 6 );
 
-        offset = 0;
+        int env_fd = open( version_file.c_str(), O_RDONLY );
+        if (env_fd < 0)
+            throw ( 5 );
 
-        do {
-            ssize_t bytes = fread(buffer + offset, 1, sizeof(buffer) - offset, file );
-            offset += bytes;
-            if (!bytes || offset == sizeof( buffer ) ) {
-                if ( offset ) {
-                    FileChunkMsg fcmsg( buffer, offset );
-                    if ( !cserver->send_msg( fcmsg ) ) {
-                        log_info() << "write of source chunk failed " << offset << " " << bytes << endl;
-                        fclose( file );
-                        throw( 7 );
-                    }
-                    offset = 0;
-                }
-                if ( !bytes )
-                    break;
-            }
-        } while (1);
-        fclose( file );
+        write_server_cpp( env_fd, cserver );
 
         if ( !cserver->send_msg( EndMsg() ) ) {
             log_info() << "write of end failed" << endl;
@@ -305,8 +295,6 @@ static int build_remote_int(CompileJob &job, UseCSMsg *usecs, const string &envi
         log_info() << "write of job failed" << endl;
         throw( 9 );
     }
-
-    offset = 0;
 
     if ( !preproc_file ) {
         int sockets[2];
@@ -437,7 +425,8 @@ static int build_remote_int(CompileJob &job, UseCSMsg *usecs, const string &envi
     return status;
 }
 
-string md5_for_file( const string & file )
+static string
+md5_for_file( const string & file )
 {
     md5_state_t state;
     string result;
