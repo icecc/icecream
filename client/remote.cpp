@@ -356,7 +356,7 @@ static int build_remote_int(CompileJob &job, UseCSMsg *usecs, const string &envi
     if ( status && crmsg->was_out_of_memory ) {
         delete crmsg;
         log_info() << "the server ran out of memory, recompiling locally" << endl;
-        throw( 17 ); // recompile locally
+        throw( 17 ); // recompile locally - TODO: handle this as a normal local job not an error case
     }
 
     if ( output )
