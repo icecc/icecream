@@ -83,8 +83,8 @@ add_file $added_gcc /usr/bin/gcc
 add_file $added_gxx /usr/bin/g++
 add_file /usr/bin/as
 
-add_file `$added_gcc -print-prog-name=cc1`
-add_file `$added_gxx -print-prog-name=cc1plus`
+add_file `$added_gcc -print-prog-name=cc1` /usr/bin/cc1
+add_file `$added_gxx -print-prog-name=cc1plus` /usr/bin/cc1plus
 specfile=`$added_gcc -print-file-name=specs`
 if test -n "$specfile" && test -e "$specfile"; then
   add_file "$specfile"
@@ -105,15 +105,11 @@ for i in $target_files; do
   esac
   mkdir -p $tempdir/`dirname $target`
   cp -p $path $tempdir/$target
+  if test -f $tempdir/$target -a -x $tempdir/$target; then
+    strip -s $tempdir/$target 2>/dev/null
+  fi
   target=`echo $target | cut -b2-`
   new_target_files="$new_target_files $target"
-done
-
-# now strip the target files as necessary
-for i in $target_files; do 
-  if test -f $tempdir/$i -a -x $tempdir/$i; then
-    strip -s $tempdir/$i
-  fi
 done
 
 # now sort the files in order to make the md5sums independent
