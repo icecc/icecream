@@ -122,10 +122,24 @@ int handle_connection( const string &basedir, CompileJob *job,
             }
 
             if ( getuid() == 0 ) {
-                chdir( dirname.c_str() ); // without the chdir, the chroot will escape the jail right away
-                chroot( dirname.c_str() );
-                setgid( nobody_gid );
-                setuid( nobody_uid );
+                // without the chdir, the chroot will escape the
+                // jail right away
+                if ( chdir( dirname.c_str() ) < 0 ) {
+                  log_perror("chdir() failed" );
+                  exit(145);
+                }
+                if ( chroot( dirname.c_str() ) < 0 ) {
+                  log_perror("chroot() failed" );
+                  exit(144);
+                }
+                if ( setgid( nobody_gid ) < 0 ) {
+                  log_perror("setgid() failed" );
+                  exit(143);
+                }
+                if ( setuid( nobody_uid ) < 0) {
+                  log_perror("setuid() failed" );
+                  exit(142);
+                }
             }
             else
                 if ( chdir( dirname.c_str() ) ) {

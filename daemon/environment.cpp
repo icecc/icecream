@@ -257,7 +257,10 @@ size_t setup_env_cache(const string &basedir, string &native_environment, uid_t 
         }
     }
     // else
-    setgid( nobody_gid );
+    if ( setgid( nobody_gid ) < 0) {
+      log_perror("setgid failed");
+      exit(143);
+    }
     if (!geteuid() && setuid( nobody_uid ) < 0) {
       log_perror("setuid failed");
       exit (142);
@@ -372,7 +375,7 @@ size_t install_environment( const std::string &basename, const std::string &targ
         if ( error ) {
             kill( pid, SIGTERM );
             char buffer[PATH_MAX];
-            sprintf( buffer, "rm -rf '/%s'", dirname.c_str() );
+            snprintf( buffer, PATH_MAX, "rm -rf '/%s'", dirname.c_str() );
             system( buffer );
             status = 1;
         } else {
@@ -395,7 +398,10 @@ size_t install_environment( const std::string &basename, const std::string &targ
         }
     }
     // else
-    setgid( nobody_gid );
+    if ( setgid( nobody_gid ) < 0) {
+      log_perror("setgid fails");
+      exit(143);
+    }
     if (!geteuid() && setuid( nobody_uid ) < 0) {
       log_perror("setuid fails");
       exit (142);
@@ -463,7 +469,10 @@ size_t remove_environment( const string &basename, const string &env, uid_t nobo
         return res;
     }
     // else
-    setgid(nobody_gid);
+    if ( setgid(nobody_gid) < 0) {
+      log_perror("setgid fails");
+      exit(143);
+    }
     if (!geteuid() && setuid( nobody_uid ) < 0) {
       log_perror("setuid fails");
       exit (142);
