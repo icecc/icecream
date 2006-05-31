@@ -1113,6 +1113,8 @@ handle_job_done (MsgChannel *c, Msg *_m)
       log_info() << "the server isn't the same for job " << m->job_id << endl;
       log_info() << "server: " << jobs[m->job_id]->server->nodename << endl;
       log_info() << "msg came from: " << ((CS*)c)->nodename << endl;
+      // the daemon is not following matz's rules: kick him
+      handle_end(c, 0);
       return false;
     }
   if (!m->is_from_server() && jobs[m->job_id]->submitter != c)
@@ -1120,6 +1122,8 @@ handle_job_done (MsgChannel *c, Msg *_m)
       log_info() << "the submitter isn't the same for job " << m->job_id << endl;
       log_info() << "submitter: " << jobs[m->job_id]->submitter->nodename << endl;
       log_info() << "msg came from: " << ((CS*)c)->nodename << endl;
+      // the daemon is not following matz's rules: kick him
+      handle_end(c, 0);
       return false;
     }
   c->last_talk = time( 0 );
