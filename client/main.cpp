@@ -195,7 +195,7 @@ int main(int argc, char **argv)
             Msg *umsg = local_daemon->get_msg(4 * 60);
             trace() << "got " << (umsg ? ( char )umsg->type : '?') << endl;
             if ( !umsg || umsg->type != M_NATIVE_ENV ) {
-		log_warning() << "daemon didn't answer with a native env\n";
+		log_warning() << "daemon can't determine native environment. Set $ICECC_VERSION to an icecream environment.\n";
 		delete umsg;
                 goto do_local_error;
             }
