@@ -7,7 +7,7 @@ AC_INIT(client/main.cpp)
 dnl This is so we can use kde-common
 AC_CONFIG_AUX_DIR(admin)
 
-AM_INIT_AUTOMAKE(icecream, "0.1")
+AM_INIT_AUTOMAKE(icecream, "0.7")
 AM_CONFIG_HEADER(config.h)
 AC_CANONICAL_HOST
 
