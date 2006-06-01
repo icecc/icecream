@@ -1237,7 +1237,8 @@ int main( int argc, char ** argv )
         return 1;
     }
 
-    log_info() << "will use nice level " << nice_level << endl;
+    log_info() << "ICECREAM daemon " VERSION " starting up (nice level "
+               << nice_level << ") " << endl;
 
     struct utsname uname_buf;
     if ( uname( &uname_buf ) ) {

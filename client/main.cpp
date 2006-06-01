@@ -140,7 +140,7 @@ int main(int argc, char **argv)
                 return 0;
             }
             if ( arg == "--version" ) {
-                printf( "ICECREAM 0.1\n" );
+                printf( "ICECREAM " VERSION "\n" );
                 return 0;
             }
         }
