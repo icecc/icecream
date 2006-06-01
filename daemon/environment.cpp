@@ -112,7 +112,7 @@ static string list_native_environment( const string &nativedir )
 
     DIR *tdir = opendir( nativedir.c_str() );
     if ( tdir ) {
-        string suff = ".tar.bz2";
+        string suff = ".tar.gz";
         do {
             struct dirent *myenv = readdir(tdir);
             if ( !myenv )
