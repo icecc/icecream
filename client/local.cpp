@@ -130,10 +130,10 @@ void handle_user_break( int sig )
  * can't clean up our temporary files, and (not so important) we can't
  * log our resource usage.
  *
- * This is called with a lock on localhost already held.
  **/
-int build_local(CompileJob &job, struct rusage *used)
+int build_local(CompileJob &job, MsgChannel *local_daemon, struct rusage *used)
 {
+    trace() << "build_local " << local_daemon << endl;
     list<string> arguments;
 
     string compiler_name = get_compiler_name( job );
@@ -164,12 +164,14 @@ int build_local(CompileJob &job, struct rusage *used)
     trace() << endl;
 #endif
 
-    int fd;
-    if ( !dcc_lock_host(fd ) ) {
-        log_error() << "can't lock for local job\n";
-        return EXIT_DISTCC_FAILED;
+    if ( !local_daemon ) {
+        int fd;
+        if ( !dcc_lock_host(fd ) ) {
+            log_error() << "can't lock for local job\n";
+            return EXIT_DISTCC_FAILED;
+        }
+        lock_fd = fd;
     }
-    lock_fd = fd;
 
     pid_t child = 0;
 
@@ -205,6 +207,4 @@ int build_local(CompileJob &job, struct rusage *used)
             dcc_unlock( lock_fd );
         return ret;
     }
-
-
 }

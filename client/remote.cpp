@@ -54,7 +54,8 @@
 
 using namespace std;
 
-Environments parse_icecc_version(const string &target_platform )
+Environments
+parse_icecc_version(const string &target_platform )
 {
     Environments envs;
 
@@ -109,29 +110,46 @@ Environments parse_icecc_version(const string &target_platform )
     return envs;
 }
 
-Environments rip_out_paths( const Environments &envs, map<string, string> &version_map, map<string, string> &versionfile_map )
+static bool
+endswith( const string &orig, const char *suff, string &ret )
+{
+    size_t len = strlen( suff );
+    if ( orig.size() > len && orig.substr( orig.size() - len ) == suff )
+    {
+        ret = orig.substr( 0, orig.size() - len );
+        return true;
+    }
+    return false;
+}
+
+static Environments
+rip_out_paths( const Environments &envs, map<string, string> &version_map, map<string, string> &versionfile_map )
 {
     version_map.clear();
 
-    string suff = ".tar.bz2";
     Environments env2;
+
+    static const char *suffs[] = { ".tar.bz2", ".tar.gz", ".tar" };
+
+    string versfile;
 
     for ( Environments::const_iterator it = envs.begin(); it != envs.end(); ++it )
     {
-        string versfile = it->second;
-        if ( versfile.size() > suff.size() && versfile.substr( versfile.size() - suff.size() ) == suff )
-        {
-            versionfile_map[it->first] = it->second;
-            versfile = find_basename( versfile.substr( 0, versfile.size() - suff.size() ) );
-            version_map[it->first] = versfile;
-            env2.push_back( make_pair( it->first, versfile ) );
-        }
+        for ( int i = 0; i < 3; i++ )
+            if ( endswith( it->second, suffs[i], versfile ) )
+            {
+                versionfile_map[it->first] = it->second;
+                versfile = find_basename( versfile );
+                version_map[it->first] = versfile;
+                env2.push_back( make_pair( it->first, versfile ) );
+            }
     }
     return env2;
 }
 
 
-string get_absfilename( const string &_file )
+string
+get_absfilename( const string &_file )
 {
     string file;
 
@@ -157,10 +175,11 @@ string get_absfilename( const string &_file )
         file.replace( idx, 3, "/" );
         idx = file.find( "/.." );
     }
-    idx = file.find( "/." );
+
+    idx = file.find( "/./" );
     while ( idx != string::npos ) {
-        file.replace( idx, 2, "/" );
-        idx = file.find( "/." );
+        file.replace( idx, 3, "/" );
+        idx = file.find( "/./" );
     }
     idx = file.find( "//" );
     while ( idx != string::npos ) {
@@ -170,9 +189,9 @@ string get_absfilename( const string &_file )
     return file;
 }
 
-static UseCSMsg *get_server( MsgChannel *scheduler )
+static UseCSMsg *get_server( MsgChannel *local_daemon )
 {
-    Msg * umsg = scheduler->get_msg(4 * 60);
+    Msg * umsg = local_daemon->get_msg(4 * 60);
     if (!umsg || umsg->type != M_USE_CS)
     {
         log_warning() << "replied not with use_cs " << ( umsg ? ( char )umsg->type : '0' )  << endl;
@@ -190,7 +209,18 @@ static void write_server_cpp(int cpp_fd, MsgChannel *cserver)
 
     do
     {
-        ssize_t bytes = read(cpp_fd, buffer + offset, sizeof(buffer) - offset );
+        ssize_t bytes;
+        do {
+          bytes = read(cpp_fd, buffer + offset, sizeof(buffer) - offset );
+          if ((int) bytes < 0 && (errno == EINTR || errno == EAGAIN))
+            continue;
+          if ((int) bytes < 0) {
+            log_perror( "reading from cpp_fd" );
+            close( cpp_fd );
+            throw( 11 );
+          }
+          break;
+        } while ( 1 );
         offset += bytes;
         if (!bytes || offset == sizeof( buffer ) )
         {
@@ -223,7 +253,7 @@ static int build_remote_int(CompileJob &job, UseCSMsg *usecs, const string &envi
     bool got_env = usecs->got_env;
     job.setJobID( job_id );
     job.setEnvironmentVersion( environment ); // hoping on the scheduler's wisdom
-    trace() << "Have to use host " << hostname << ":" << port << " - Job ID: " << job.jobID() << " - environment: " << usecs->host_platform << "\n";
+    trace() << "Have to use host " << hostname << ":" << port << " - Job ID: " << job.jobID() << " - environment: " << usecs->host_platform << " got environment: " << (got_env ? "true" : "false") << "\n";
 
     int status = 255;
 
@@ -236,12 +266,6 @@ static int build_remote_int(CompileJob &job, UseCSMsg *usecs, const string &envi
         throw ( 2 );
     }
 
-    unsigned char buffer[100000]; // some random but huge number
-
-    trace() << "got environment " << ( got_env ? "true" : "false" ) << endl;
-
-    off_t offset = 0;
-
     if ( !got_env ) {
         // transfer env
         struct stat buf;
@@ -250,34 +274,15 @@ static int build_remote_int(CompileJob &job, UseCSMsg *usecs, const string &envi
             throw( 4 );
         }
 
-        FILE *file = fopen( version_file.c_str(), "rb" );
-        if ( !file )
-            throw( 5 );
-
         EnvTransferMsg msg( job.targetPlatform(), job.environmentVersion() );
         if ( !cserver->send_msg( msg ) )
             throw( 6 );
 
-        offset = 0;
+        int env_fd = open( version_file.c_str(), O_RDONLY );
+        if (env_fd < 0)
+            throw ( 5 );
 
-        do {
-            ssize_t bytes = fread(buffer + offset, 1, sizeof(buffer) - offset, file );
-            offset += bytes;
-            if (!bytes || offset == sizeof( buffer ) ) {
-                if ( offset ) {
-                    FileChunkMsg fcmsg( buffer, offset );
-                    if ( !cserver->send_msg( fcmsg ) ) {
-                        log_info() << "write of source chunk failed " << offset << " " << bytes << endl;
-                        fclose( file );
-                        throw( 7 );
-                    }
-                    offset = 0;
-                }
-                if ( !bytes )
-                    break;
-            }
-        } while (1);
-        fclose( file );
+        write_server_cpp( env_fd, cserver );
 
         if ( !cserver->send_msg( EndMsg() ) ) {
             log_info() << "write of end failed" << endl;
@@ -290,8 +295,6 @@ static int build_remote_int(CompileJob &job, UseCSMsg *usecs, const string &envi
         log_info() << "write of job failed" << endl;
         throw( 9 );
     }
-
-    offset = 0;
 
     if ( !preproc_file ) {
         int sockets[2];
@@ -339,6 +342,7 @@ static int build_remote_int(CompileJob &job, UseCSMsg *usecs, const string &envi
         throw( 14 );
 
     if ( msg->type != M_COMPILE_RESULT ) {
+        log_warning() << "waited for compile result, but got " << (char)msg->type << endl;
         delete msg;
         throw( 13 );
     }
@@ -352,7 +356,7 @@ static int build_remote_int(CompileJob &job, UseCSMsg *usecs, const string &envi
     if ( status && crmsg->was_out_of_memory ) {
         delete crmsg;
         log_info() << "the server ran out of memory, recompiling locally" << endl;
-        throw( 17 ); // recompile locally
+        throw( 17 ); // recompile locally - TODO: handle this as a normal local job not an error case
     }
 
     if ( output )
@@ -421,7 +425,8 @@ static int build_remote_int(CompileJob &job, UseCSMsg *usecs, const string &envi
     return status;
 }
 
-string md5_for_file( const string & file )
+static string
+md5_for_file( const string & file )
 {
     md5_state_t state;
     string result;
@@ -452,60 +457,45 @@ string md5_for_file( const string & file )
 }
 
 static bool
-maybe_build_local (MsgChannel *scheduler, UseCSMsg *usecs, CompileJob &job,
+maybe_build_local (MsgChannel *local_daemon, UseCSMsg *usecs, CompileJob &job,
 		   int &ret)
 {
-    sockaddr_in name;
-    socklen_t len = sizeof(name);
-    int error = getsockname(scheduler->fd, (struct sockaddr*)&name, &len);
-    if ( !error ) {
-	if ( usecs->hostname == inet_ntoa( name.sin_addr ) ) {
-	    trace() << "building myself, but telling localhost\n";
-	    unsigned int port = usecs->port;
-	    int job_id = usecs->job_id;
-	    job.setJobID( job_id );
-	    job.setEnvironmentVersion( "__client" );
-	    MsgChannel *cserver = Service::createChannel( "127.0.0.1", port, 0 ); // 0 == no time out
-	    if ( !cserver ) // very unlikely as we talked before with him
-		throw ( 2 );
-	    CompileFileMsg compile_file( &job );
-	    if ( !cserver->send_msg( compile_file ) ) {
-		log_info() << "write of job failed" << endl;
-		delete cserver;
-		cserver = 0;
-		throw( 9 );
-	    }
-            struct timeval begintv,  endtv;
-            struct rusage ru;
+    if ( usecs->hostname == "127.0.0.1" ) {
+        trace() << "building myself, but telling localhost\n";
+        int job_id = usecs->job_id;
+        job.setJobID( job_id );
+        job.setEnvironmentVersion( "__client" );
+        CompileFileMsg compile_file( &job );
+        if ( !local_daemon->send_msg( compile_file ) ) {
+            log_info() << "write of job failed" << endl;
+            throw( 9 );
+        }
+        struct timeval begintv,  endtv;
+        struct rusage ru;
 
-            gettimeofday(&begintv, 0 );
-	    ret = build_local( job, &ru );
-            gettimeofday(&endtv, 0 );
+        gettimeofday(&begintv, 0 );
+        ret = build_local( job, local_daemon, &ru );
+        gettimeofday(&endtv, 0 );
 
-            // filling the stats, so the daemon can play proxy for us
-            JobDoneMsg msg( job_id, ret );
+        // filling the stats, so the daemon can play proxy for us
+        JobDoneMsg msg( job_id, ret, JobDoneMsg::FROM_SUBMITTER );
 
-            msg.real_msec = ( endtv.tv_sec - begintv.tv_sec ) * 1000 + ( endtv.tv_usec - begintv.tv_usec ) / 1000;
-            struct stat st;
-            if ( !stat( job.outputFile().c_str(), &st ) )
-                msg.out_uncompressed = st.st_size;
-            msg.user_msec = ru.ru_utime.tv_sec * 1000 + ru.ru_utime.tv_usec / 1000;
-            msg.sys_msec = ru.ru_stime.tv_sec * 1000 + ru.ru_stime.tv_usec / 1000;
-            msg.pfaults = ru.ru_majflt + ru.ru_minflt + ru.ru_nswap ;
-            msg.exitcode = ret;
+        msg.real_msec = ( endtv.tv_sec - begintv.tv_sec ) * 1000 + ( endtv.tv_usec - begintv.tv_usec ) / 1000;
+        struct stat st;
+        if ( !stat( job.outputFile().c_str(), &st ) )
+            msg.out_uncompressed = st.st_size;
+        msg.user_msec = ru.ru_utime.tv_sec * 1000 + ru.ru_utime.tv_usec / 1000;
+        msg.sys_msec = ru.ru_stime.tv_sec * 1000 + ru.ru_stime.tv_usec / 1000;
+        msg.pfaults = ru.ru_majflt + ru.ru_minflt + ru.ru_nswap ;
+        msg.exitcode = ret;
 
-            if ( IS_PROTOCOL_16( cserver ) )
-                cserver->send_msg( msg );
-            else
-                cserver->send_msg( EndMsg() );
-	    delete cserver;
-	    return true;
-	}
+        local_daemon->send_msg( msg );
+        return true;
     }
     return false;
 }
 
-int build_remote(CompileJob &job, MsgChannel *scheduler, const Environments &_envs, int permill )
+int build_remote(CompileJob &job, MsgChannel *local_daemon, const Environments &_envs, int permill )
 {
     srand( time( 0 ) + getpid() );
 
@@ -522,7 +512,7 @@ int build_remote(CompileJob &job, MsgChannel *scheduler, const Environments &_en
     map<string, string> versionfile_map, version_map;
     Environments envs = rip_out_paths( _envs, version_map, versionfile_map );
     if (!envs.size()) {
-	log_error() << "$ICECC_VERSION needs to point to .tar.bz2 files\n";
+	log_error() << "$ICECC_VERSION needs to point to .tar files\n";
 	throw(22);
     }
 
@@ -537,14 +527,14 @@ int build_remote(CompileJob &job, MsgChannel *scheduler, const Environments &_en
 */
         fake_filename += get_absfilename( job.inputFile() );
         GetCSMsg getcs (envs, fake_filename, job.language(), torepeat, job.targetPlatform(), job.argumentFlags() );
-        if (!scheduler->send_msg (getcs)) {
+        if (!local_daemon->send_msg (getcs)) {
             log_warning() << "asked for CS\n";
             throw( 0 );
         }
 
-        UseCSMsg *usecs = get_server( scheduler );
+        UseCSMsg *usecs = get_server( local_daemon );
 	int ret;
-	if (!maybe_build_local (scheduler, usecs, job, ret))
+	if (!maybe_build_local (local_daemon, usecs, job, ret))
             ret = build_remote_int( job, usecs,
 	    			    version_map[usecs->host_platform],
 				    versionfile_map[usecs->host_platform],
@@ -575,7 +565,7 @@ int build_remote(CompileJob &job, MsgChannel *scheduler, const Environments &_en
         job.appendFlag( rand_seed, Arg_Remote );
 
         GetCSMsg getcs (envs, get_absfilename( job.inputFile() ), job.language(), torepeat, job.targetPlatform(), job.argumentFlags() );
-        if (!scheduler->send_msg (getcs)) {
+        if (!local_daemon->send_msg (getcs)) {
             log_warning() << "asked for CS\n";
             throw( 0 );
         }
@@ -595,14 +585,14 @@ int build_remote(CompileJob &job, MsgChannel *scheduler, const Environments &_en
             } else
                 sprintf( buffer, job.outputFile().c_str() );
 
-            umsgs[i] = get_server( scheduler );
+            umsgs[i] = get_server( local_daemon );
             trace() << "got_server_for_job " << umsgs[i]->hostname << endl;
 
             pid_t pid = fork();
             if ( !pid ) {
                 int ret = 42;
                 try {
-		    if (!maybe_build_local (scheduler, umsgs[i], jobs[i], ret))
+		    if (!maybe_build_local (local_daemon, umsgs[i], jobs[i], ret))
 			ret = build_remote_int(
 				  jobs[i], umsgs[i],
 				  version_map[umsgs[i]->host_platform],

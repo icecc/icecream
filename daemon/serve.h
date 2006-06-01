@@ -31,6 +31,6 @@ extern int nice_level;
 
 int handle_connection( const std::string &basedir, CompileJob *job,
                        MsgChannel *serv, int & out_fd,
-                       unsigned int mem_limit, uid_t nobody_uid);
+                       unsigned int mem_limit, uid_t nobody_uid, gid_t nobody_gid);
 
 #endif

@@ -1,0 +1,19 @@
+0.7.0:
+        - WARNING: the protocol is not compatible with earlier versions, old clients
+          will refuse to connect, so update the full farm
+
+	- protocol reworked to no longer require a client->scheduler connection
+           (the daemon will proxy it all)
+        - all local jobs are now scheduled by the local daemon to make sure 
+          multiprocessor machines are handling as many jobs as they have jobs
+          configured (# processors). They used to be "scheduled" by lock file
+	- fixed grave bug that removed all daemon environments when the cache
+	  grew over limit
+	- new telnet interface command: internals to output daemon states
+	- stricter error handling to avoid suprises
+	- SIGHUP to daemon and scheduler will reopen the log file to allow logrotate
+	- a restart of the daemon and scheduler won't flush the log file, but append
+	  to it
+	- create-env will create .tar.gz now - the client allows environments to be
+	  .tar, .tar.bz2 and .tar.gz
+	

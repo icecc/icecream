@@ -22,6 +22,7 @@
 #include <iostream>
 #include "logging.h"
 #include <fstream>
+#include <signal.h>
 
 using namespace std;
 
@@ -34,14 +35,17 @@ ofstream logfile_null( "/dev/null" );
 ofstream logfile_file;
 static string logfile_filename;
 
+void reset_debug( int );
+
 void setup_debug(int level, const string &filename)
 {
     debug_level = level;
     logfile_filename = filename;
 
+    logfile_file.close();
     ostream *output = 0;
     if ( filename.length() ) {
-        logfile_file.open( filename.c_str() );
+        logfile_file.open( filename.c_str(), fstream::out | fstream::app );
         output = &logfile_file;
     } else
         output = &cerr;
@@ -65,9 +69,11 @@ void setup_debug(int level, const string &filename)
         logfile_error = output;
     else
         logfile_error = &logfile_null;
+
+    signal( SIGHUP, reset_debug );
 }
 
-void reset_debug() 
+void reset_debug( int )
 {
 	setup_debug(debug_level, logfile_filename);
 }

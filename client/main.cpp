@@ -121,19 +121,18 @@ int main(int argc, char **argv)
     if ( env ) {
         if ( !strcasecmp( env, "info" ) )  {
             debug_level |= Info|Warning;
-        } else if ( !strcasecmp( env, "debug" ) ||
-                    !strcasecmp( env, "trace" ) )  {
-            debug_level |= Info|Debug|Warning;
         } else if ( !strcasecmp( env, "warnings" ) ) {
             debug_level |= Warning; // taking out warning
-        }
+        } else // any other value
+            debug_level |= Info|Debug|Warning;
     }
+
     setup_debug(debug_level);
+
     string compiler_name = argv[0];
     dcc_client_catch_signals();
 
     if ( find_basename( compiler_name ) == rs_program_name) {
-        trace() << argc << endl;
         if ( argc > 1 ) {
             string arg = argv[1];
             if ( arg == "--help" ) {
@@ -171,43 +170,12 @@ int main(int argc, char **argv)
 
     local |= analyse_argv( argv, job );
 
-    pid_t pid = 0;
-
-    /* for local jobs, we fork off a child that tells the scheduler that we got something
-       to do and kill that child when we're done. This way we can start right away with the
-       action without any round trip delays and the scheduler can tell the monitors anyway
-    */
-    if ( local ) {
-        pid = fork();
-        if ( pid ) { // do your job and kill the rest
-            struct rusage ru;
-            int ret = build_local( job, &ru );
-            int status;
-            if ( waitpid( pid, &status, WNOHANG ) != pid && errno != ECHILD)
-                kill( pid, SIGTERM );
-            return ret; // exit the program
-        }
-    }
-
-    MsgChannel *local_daemon = Service::createChannel( "127.0.0.1", 10245, 0); // 0 == no timeout
+    MsgChannel *local_daemon = Service::createChannel( "127.0.0.1", 10245, 0/*timeout*/);
     if ( ! local_daemon ) {
         log_warning() << "no local daemon found\n";
-        delete local_daemon;
-        return local || build_local( job );
-    }
-    if ( !local_daemon->send_msg( GetSchedulerMsg( getenv( "ICECC_VERSION" ) == 0 && !local) ) ) {
-        log_warning() << "failed to write get scheduler\n";
-        delete local_daemon;
-        return local || build_local( job );
+        return build_local( job, 0 );
     }
 
-    // the timeout is high because it creates the native version
-    Msg *umsg = local_daemon->get_msg(4 * 60);
-    if ( !umsg || umsg->type != M_USE_SCHEDULER ) {
-        delete local_daemon;
-        return local || build_local( job );
-    }
-    UseSchedulerMsg *ucs = dynamic_cast<UseSchedulerMsg*>( umsg );
     Environments envs;
 
     if ( !local ) {
@@ -218,62 +186,73 @@ int main(int argc, char **argv)
                 // we just build locally
             }
         } else {
+            if ( !local_daemon->send_msg( GetNativeEnvMsg() ) ) {
+                log_warning() << "failed to write get native environment\n";
+		goto do_local_error;
+            }
+
+            // the timeout is high because it creates the native version
+            Msg *umsg = local_daemon->get_msg(4 * 60);
+            trace() << "got " << (umsg ? ( char )umsg->type : '?') << endl;
+            if ( !umsg || umsg->type != M_NATIVE_ENV ) {
+		log_warning() << "daemon can't determine native environment. Set $ICECC_VERSION to an icecream environment.\n";
+		delete umsg;
+                goto do_local_error;
+            }
+            UseNativeEnvMsg *ucs = dynamic_cast<UseNativeEnvMsg*>( umsg );
+
             string native = ucs->nativeVersion;
             if ( native.empty() || ::access( native.c_str(), R_OK ) ) {
                 log_warning() << "$ICECC_VERSION has to point to an existing file to be installed - as the local daemon didn't know any we try local." << endl;
             } else
                 envs.push_back(make_pair( job.targetPlatform(), native ) );
+
+            log_info() << "native " << native << endl;
+
+            delete umsg;
         }
-    }
 
-    bool error = ( envs.size() == 0 );
-    for ( Environments::const_iterator it = envs.begin(); it != envs.end(); ++it ) {
-        trace() << "env: " << it->first << " '" << it->second << "'" << endl;
-        if ( ::access( it->second.c_str(), R_OK ) ) {
-            log_error() << "can't read environment " << it->second << endl;
-            error = true;
-            break;
+	// we set it to local so we tell the local daemon about it - avoiding file locking
+        if ( envs.size() == 0 )
+	    local = true;
+        for ( Environments::const_iterator it = envs.begin(); it != envs.end(); ++it ) {
+            trace() << "env: " << it->first << " '" << it->second << "'" << endl;
+            if ( ::access( it->second.c_str(), R_OK ) ) {
+                log_error() << "can't read environment " << it->second << endl;
+                local = true;
+            }
         }
-    }
-
-    if ( error ) {
-        delete local_daemon;
-        delete ucs;
-        return local || build_local( job );
-    }
-
-    trace() << "contacting scheduler " << ucs->hostname << ":" << ucs->port << endl;
-
-    delete local_daemon;
-
-    MsgChannel *scheduler = Service::createChannel( ucs->hostname, ucs->port, 0 ); // 0 == no time out
-    if ( ! scheduler ) {
-        log_warning() << "no scheduler found at " << ucs->hostname << ":" << ucs->port << endl;
-        delete scheduler;
-	delete ucs;
-        return local || build_local( job );
-    }
-
-    delete ucs;
-
-    if ( local ) {
-        scheduler->send_msg( JobLocalBeginMsg( get_absfilename( job.outputFile() )) );
-        sleep( 30 * 60 ); // wait for the kill by parent - without killing the scheduler connection ;/
-        delete scheduler;
-        return 0;
     }
 
     int ret;
-    try {
-        // by default every 100th is compiled three times
-        const char *s = getenv( "ICECC_REPEAT_RATE" );
-        int rate = s ? atoi( s ) : 0;
-        ret = build_remote( job, scheduler, envs, rate);
-    } catch ( int error ) {
-        delete scheduler;
-        return build_local( job );
+    if ( local ) {
+        struct rusage ru;
+	/* Inform the daemon that we like to start a job.  */
+        local_daemon->send_msg( JobLocalBeginMsg( 0, get_absfilename( job.outputFile() )) );
+	/* Now wait until the daemon gives us the start signal.  40 minutes
+	   should be enough for all normal compile or link jobs.  */
+	Msg *startme = local_daemon->get_msg (40*60);
+	/* If we can't talk to the daemon anymore we need to fall back
+	   to lock file locking.  */
+        if (!startme || startme->type != M_JOB_LOCAL_BEGIN)
+	    goto do_local_error;
+        ret = build_local( job, local_daemon, &ru );
+    } else {
+        try {
+            // check if it should be compiled three times
+            const char *s = getenv( "ICECC_REPEAT_RATE" );
+            int rate = s ? atoi( s ) : 0;
+            ret = build_remote( job, local_daemon, envs, rate);
+        } catch ( int error ) {
+            fprintf( stderr, "got exception %d (this should be an exception!)\n", error );
+            ret = build_local( job, 0 );
+        }
     }
-    scheduler->send_msg (EndMsg());
-    delete scheduler;
+    local_daemon->send_msg (EndMsg());
+    delete local_daemon;
     return ret;
+
+do_local_error:
+    delete local_daemon;
+    return build_local( job, 0 );
 }

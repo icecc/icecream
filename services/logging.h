@@ -33,7 +33,7 @@ extern std::ostream *logfile_error;
 extern std::ostream *logfile_trace;
 
 void setup_debug(int level, const std::string &logfile = "");
-void reset_debug();
+void reset_debug(int);
 
 inline std::ostream & output_date( std::ostream &os )
 {
@@ -68,6 +68,17 @@ std::string get_backtrace();
 static inline void log_perror(const char *prefix) {
     int tmp_errno = errno;
     log_error() << prefix << " " << strerror( tmp_errno ) << std::endl;
+}
+
+#include <sstream>
+#include <iostream>
+
+template<class T>
+std::string toString(const T& val)
+{
+    std::ostringstream os;
+    os << val;
+    return os.str();
 }
 
 #endif

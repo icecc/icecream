@@ -89,7 +89,7 @@ static size_t sumup_dir( const string &dir )
         if ( !strcmp( ent->d_name, "." ) || !strcmp( ent->d_name, ".." ) )
             continue;
 
-        if ( stat( ( tdir + ent->d_name ).c_str(), &st ) ) {
+        if ( lstat( ( tdir + ent->d_name ).c_str(), &st ) ) {
             perror( "stat" );
             continue;
         }
@@ -143,7 +143,7 @@ static void list_target_dirs( const string &current_target, const string &target
     closedir( envdir );
 }
 
-bool cleanup_cache( const string &basedir, uid_t nobody_uid )
+bool cleanup_cache( const string &basedir, uid_t nobody_uid, gid_t nobody_gid )
 {
     pid_t pid = fork();
     if ( pid )
@@ -154,7 +154,15 @@ bool cleanup_cache( const string &basedir, uid_t nobody_uid )
         return status == 0;
     }
     // else
-    setuid( nobody_uid );
+    if ( setgid( nobody_gid ) < 0 ) {
+      log_perror("setgid failed");
+      exit (143);
+    }
+
+    if (!geteuid() && setuid( nobody_uid ) < 0) {
+      log_perror("setuid failed");
+      exit (142);
+    }
 
     if ( !::access( basedir.c_str(), W_OK ) ) { // it exists - removing content
 
@@ -222,7 +230,7 @@ Environments available_environmnents(const string &basedir)
     return envs;
 }
 
-size_t setup_env_cache(const string &basedir, string &native_environment, uid_t nobody_uid)
+size_t setup_env_cache(const string &basedir, string &native_environment, uid_t nobody_uid, gid_t nobody_gid)
 {
     native_environment = "";
     string nativedir = basedir + "/native/";
@@ -233,8 +241,10 @@ size_t setup_env_cache(const string &basedir, string &native_environment, uid_t 
         int status = 0;
         if ( waitpid( pid, &status, 0 ) != pid )
             status = 1;
+        trace() << "waitpid " << status << endl;
         if ( !status )
         {
+            trace() << "opendir " << nativedir << endl;
             native_environment = list_native_environment( nativedir );
             if ( native_environment.empty() )
                 status = 1;
@@ -247,7 +257,14 @@ size_t setup_env_cache(const string &basedir, string &native_environment, uid_t 
         }
     }
     // else
-    setuid( nobody_uid );
+    if ( setgid( nobody_gid ) < 0) {
+      log_perror("setgid failed");
+      exit(143);
+    }
+    if (!geteuid() && setuid( nobody_uid ) < 0) {
+      log_perror("setuid failed");
+      exit (142);
+    }
 
     if ( !::access( "/usr/bin/gcc", X_OK ) && !::access( "/usr/bin/g++", X_OK ) ) {
         if ( !mkdir ( nativedir.c_str(), 0755 ) )
@@ -273,7 +290,7 @@ error:
 }
 
 size_t install_environment( const std::string &basename, const std::string &target,
-                          const std::string &name, MsgChannel *c, uid_t nobody_uid )
+                          const std::string &name, MsgChannel *c, uid_t nobody_uid, gid_t nobody_gid )
 {
     if ( !name.size() || name[0] == '.' ) {
         log_error() << "illegal name for environment " << name << endl;
@@ -288,6 +305,22 @@ size_t install_environment( const std::string &basename, const std::string &targ
     }
 
     string dirname = basename + "/target=" + target;
+    Msg *msg = c->get_msg(30);
+    if ( !msg || msg->type != M_FILE_CHUNK )
+    {
+        trace() << "Expected first file chunk\n";
+        return 0;
+    }
+
+    FileChunkMsg *fmsg = dynamic_cast<FileChunkMsg*>( msg );
+    enum { BZip2, Gzip, None} compression = None;
+    if ( fmsg->len > 2 )
+    {
+        if ( fmsg->buffer[0] == 037 && fmsg->buffer[1] == 0213 )
+            compression = Gzip;
+        else if ( fmsg->buffer[0] == 'B' && fmsg->buffer[1] == 'Z' )
+            compression = BZip2;
+    }
 
     int fds[2];
     if ( pipe( fds ) )
@@ -301,8 +334,15 @@ size_t install_environment( const std::string &basename, const std::string &targ
         FILE *fpipe = fdopen( fds[1], "w" );
 
         bool error = false;
-        Msg *msg = 0;
         do {
+
+            maybe_stats(false);
+            int ret = fwrite( fmsg->buffer, fmsg->len, 1, fpipe );
+            if ( ret != 1 ) {
+                log_error() << "wrote " << ret << " bytes\n";
+                error = true;
+                break;
+            }
             delete msg;
             msg = c->get_msg(30);
             if (!msg) {
@@ -314,17 +354,10 @@ size_t install_environment( const std::string &basename, const std::string &targ
                 trace() << "end\n";
                 break;
             }
-            FileChunkMsg *fmsg = dynamic_cast<FileChunkMsg*>( msg );
+            fmsg = dynamic_cast<FileChunkMsg*>( msg );
+
             if ( !fmsg ) {
                 log_error() << "Expected another file chunk\n";
-                error = true;
-                break;
-            }
-            maybe_stats(false);
-            trace() << "got env share: " << fmsg->len << endl;
-            int ret = fwrite( fmsg->buffer, fmsg->len, 1, fpipe );
-            if ( ret != 1 ) {
-                log_error() << "wrote " << ret << " bytes\n";
                 error = true;
                 break;
             }
@@ -341,20 +374,20 @@ size_t install_environment( const std::string &basename, const std::string &targ
         if ( error ) {
             kill( pid, SIGTERM );
             char buffer[PATH_MAX];
-            sprintf( buffer, "rm -rf '/%s'", dirname.c_str() );
+            snprintf( buffer, PATH_MAX, "rm -rf '/%s'", dirname.c_str() );
             system( buffer );
             status = 1;
         } else {
-
             if ( waitpid( pid, &status, 0) != pid )
                 status = 1;
             dirname = dirname + "/" + name;
             mkdir( ( dirname + "/var" ).c_str(), 0755 );
-            chown( ( dirname + "/var" ).c_str(), nobody_uid, 0 );
+            chown( ( dirname + "/var" ).c_str(), nobody_uid, nobody_gid );
             mkdir( ( dirname + "/var/tmp" ).c_str(), 0755 );
-            chown( ( dirname + "/var/tmp" ).c_str(), nobody_uid, 0 );
-            mkdir( ( dirname + "/tmp" ).c_str(), 0755 );
-            chown( ( dirname + "/tmp" ).c_str(), nobody_uid, 0 );
+            chown( ( dirname + "/var/tmp" ).c_str(), nobody_uid, nobody_gid );
+            mkdir( ( dirname + "/tmp" ).c_str(), 01755 );
+            chown( ( dirname + "/tmp" ).c_str(), 0, nobody_gid );
+            chmod( ( dirname + "/tmp" ).c_str(), 01775 );
         }
 
         if ( status ) {
@@ -364,7 +397,15 @@ size_t install_environment( const std::string &basename, const std::string &targ
         }
     }
     // else
-    setuid( nobody_uid );
+    if ( setgid( nobody_gid ) < 0) {
+      log_perror("setgid fails");
+      exit(143);
+    }
+    if (!geteuid() && setuid( nobody_uid ) < 0) {
+      log_perror("setuid fails");
+      exit (142);
+    }
+
     close( 0 );
     close( fds[1] );
     dup2( fds[0], 0 );
@@ -393,14 +434,19 @@ size_t install_environment( const std::string &basename, const std::string &targ
     char **argv;
     argv = new char*[4];
     argv[0] = strdup( "/bin/tar" );
-    argv[1] = strdup( "xjf" );
+    if ( compression == BZip2 )
+        argv[1] = strdup( "xjf" );
+    else if ( compression == Gzip )
+        argv[1] = strdup( "xzf" );
+    else if ( compression == None )
+        argv[1] = strdup( "xf" );
     argv[2] = strdup( "-" );
     argv[3] = 0;
     execv( argv[0], argv );
     ::exit( 1 ); // if tar fails
 }
 
-size_t remove_environment( const string &basename, const string &env, uid_t nobody_uid )
+size_t remove_environment( const string &basename, const string &env, uid_t nobody_uid, gid_t nobody_gid )
 {
     string::size_type pos = env.find_first_of( '/' );
     if ( pos == string::npos ) // nonsense
@@ -411,7 +457,7 @@ size_t remove_environment( const string &basename, const string &env, uid_t nobo
     string dirname = basename + "/target=" + target;
     trace() << "removing " << dirname << "/" << name << endl;
 
-    size_t res = sumup_dir( dirname );
+    size_t res = sumup_dir( dirname + "/" + name );
 
     pid_t pid = fork();
     if ( pid )
@@ -421,11 +467,23 @@ size_t remove_environment( const string &basename, const string &env, uid_t nobo
             status = 1;
         return res;
     }
+    if ( chdir( dirname.c_str() ) != 0 ) {
+        log_perror( "chdir failed" );
+        exit( 144 );
+    }
+
     // else
-    setuid( nobody_uid );
+    if ( setgid(nobody_gid) < 0) {
+      log_perror("setgid fails");
+      exit(143);
+    }
+    if (!geteuid() && setuid( nobody_uid ) < 0) {
+      log_perror("setuid fails");
+      exit (142);
+    }
 
     char buffer[PATH_MAX];
-    snprintf( buffer, PATH_MAX, "rm -rf '%s'", dirname.c_str() );
+    snprintf( buffer, PATH_MAX, "rm -rfv '%s'", name.c_str() );
     if ( system( buffer ) ) {
         log_error() << "rm -rf failed\n";
         ::exit( 1 );

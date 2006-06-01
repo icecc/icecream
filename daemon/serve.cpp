@@ -84,8 +84,8 @@ public:
  * Read a request, run the compiler, and send a response.
  **/
 int handle_connection( const string &basedir, CompileJob *job,
-                       MsgChannel *serv, int &out_fd,
-                       unsigned int mem_limit, uid_t nobody_uid )
+                       MsgChannel *client, int &out_fd,
+                       unsigned int mem_limit, uid_t nobody_uid, gid_t nobody_gid )
 {
     int socket[2];
     if ( pipe( socket ) == -1)
@@ -98,7 +98,7 @@ int handle_connection( const string &basedir, CompileJob *job,
         return pid;
     }
 
-    reset_debug();
+    reset_debug(0);
     close( socket[0] );
     out_fd = socket[1];
 
@@ -122,9 +122,24 @@ int handle_connection( const string &basedir, CompileJob *job,
             }
 
             if ( getuid() == 0 ) {
-                chdir( dirname.c_str() ); // without the chdir, the chroot will escape the jail right away
-                chroot( dirname.c_str() );
-                setuid( nobody_uid );
+                // without the chdir, the chroot will escape the
+                // jail right away
+                if ( chdir( dirname.c_str() ) < 0 ) {
+                    log_perror("chdir() failed" );
+                    exit(145);
+                }
+                if ( chroot( dirname.c_str() ) < 0 ) {
+                    log_perror("chroot() failed" );
+                    exit(144);
+                }
+                if ( setgid( nobody_gid ) < 0 ) {
+                    log_perror("setgid() failed" );
+                    exit(143);
+                }
+                if ( setuid( nobody_uid ) < 0) {
+                    log_perror("setuid() failed" );
+                    exit(142);
+                }
             }
             else
                 if ( chdir( dirname.c_str() ) ) {
@@ -137,7 +152,7 @@ int handle_connection( const string &basedir, CompileJob *job,
             chdir( "/" );
 
         if ( ::access( _PATH_TMP + 1, W_OK ) ) {
-            log_error() << "can't write into " << _PATH_TMP << endl;
+            log_error() << "can't write into " << _PATH_TMP << " " << strerror( errno ) << endl;
             throw myexception( -1 );
         }
 
@@ -149,147 +164,142 @@ int handle_connection( const string &basedir, CompileJob *job,
         else
             assert(0);
 
-    int ret;
-    if ( ( ret = dcc_make_tmpnam("icecc", dot, tmp_input, 1 ) ) != 0 ) {
-        log_error() << "can't create tmpfile " << strerror( errno ) << endl;
-        throw myexception( ret );
-    }
-
-    ti = open( tmp_input, O_CREAT|O_WRONLY|O_LARGEFILE );
-    if ( ti == -1 ) {
-        log_error() << "open of " << tmp_input << " failed " << strerror( errno ) << endl;
-        throw myexception( EXIT_DISTCC_FAILED );
-    }
-
-    unsigned int in_compressed = 0;
-    unsigned int in_uncompressed = 0;
-
-    while ( 1 ) {
-        msg = serv->get_msg(60);
-
-        if ( !msg ) {
-            log_error() << "no message while reading file chunk\n";
-            throw myexception( EXIT_PROTOCOL_ERROR );
-        }
-
-        if ( msg->type == M_END ) {
-            delete msg;
-            msg = 0;
-            break;
-        }
-
-        if ( msg->type != M_FILE_CHUNK ) {
-            log_error() << "protocol error while looking for FILE_CHUNK\n";
-            throw myexception( EXIT_PROTOCOL_ERROR );
-        }
-
-        FileChunkMsg *fcmsg = dynamic_cast<FileChunkMsg*>( msg );
-        if ( !fcmsg ) {
-            log_error() << "FileChunkMsg not dynamic_castable\n";
-            throw myexception( EXIT_PROTOCOL_ERROR );
-        }
-        in_uncompressed += fcmsg->len;
-        in_compressed += fcmsg->compressed;
-
-        ssize_t len = fcmsg->len;
-        off_t off = 0;
-        while ( len ) {
-            ssize_t bytes = write( ti, fcmsg->buffer + off, len );
-            if ( bytes == -1 ) {
-                log_error() << "write to " << tmp_input << " failed. " << strerror( errno ) << endl;
-                throw myexception( EXIT_DISTCC_FAILED );
-            }
-            len -= bytes;
-            off += bytes;
-        }
-
-        delete msg;
-        msg = 0;
-    }
-    close( ti );
-    ti = -1;
-
-    struct timeval begintv;
-    gettimeofday( &begintv, 0 );
-
-    CompileResultMsg rmsg;
-
-    ret = work_it( *job, tmp_input,
-                   rmsg.out, rmsg.err, rmsg.status, obj_file, mem_limit, serv->fd );
-
-    unlink( tmp_input );
-    tmp_input[0] = 0; // unlinked
-
-    job_id = job->jobID();
-    delete job;
-    job = 0;
-
-    if ( ret ) {
-        if ( ret == EXIT_OUT_OF_MEMORY ) { // we catch that as special case
-            rmsg.was_out_of_memory = true;
-        } else {
-            if ( ret == EXIT_CLIENT_KILLED ) {
-                delete serv;
-                serv = 0;
-            }
+        int ret;
+        if ( ( ret = dcc_make_tmpnam("icecc", dot, tmp_input, 1 ) ) != 0 ) {
+            log_error() << "can't create tmpfile " << strerror( errno ) << endl;
             throw myexception( ret );
         }
-    }
 
-    if ( !serv->send_msg( rmsg ) ) {
-        log_info() << "write of result failed\n";
-        throw myexception( EXIT_DISTCC_FAILED );
-    }
-
-    if ( rmsg.status == 0 ) {
-        obj_fd = open( obj_file.c_str(), O_RDONLY|O_LARGEFILE );
-        if ( obj_fd == -1 ) {
-            log_error() << "open failed\n";
+        ti = open( tmp_input, O_CREAT|O_WRONLY|O_LARGEFILE );
+        if ( ti == -1 ) {
+            log_error() << "open of " << tmp_input << " failed " << strerror( errno ) << endl;
             throw myexception( EXIT_DISTCC_FAILED );
         }
 
-        unsigned int out_compressed = 0;
-        unsigned int out_uncompressed = 0;
+        unsigned int in_compressed = 0;
+        unsigned int in_uncompressed = 0;
 
-        unsigned char buffer[100000];
-        do {
-            ssize_t bytes = read(obj_fd, buffer, sizeof(buffer));
-            out_uncompressed += bytes;
-            if (!bytes)
+        while ( 1 ) {
+            msg = client->get_msg(60);
+
+            if ( !msg ) {
+                log_error() << "no message while reading file chunk\n";
+                throw myexception( EXIT_PROTOCOL_ERROR );
+            }
+
+            if ( msg->type == M_END ) {
+                delete msg;
+                msg = 0;
                 break;
-            FileChunkMsg fcmsg( buffer, bytes );
-            if ( !serv->send_msg( fcmsg ) ) {
-                log_info() << "write of obj chunk failed " << bytes << endl;
+            }
+
+            if ( msg->type != M_FILE_CHUNK ) {
+                log_error() << "protocol error while looking for FILE_CHUNK\n";
+                throw myexception( EXIT_PROTOCOL_ERROR );
+            }
+
+            FileChunkMsg *fcmsg = dynamic_cast<FileChunkMsg*>( msg );
+            if ( !fcmsg ) {
+                log_error() << "FileChunkMsg not dynamic_castable\n";
+                throw myexception( EXIT_PROTOCOL_ERROR );
+            }
+            in_uncompressed += fcmsg->len;
+            in_compressed += fcmsg->compressed;
+
+            ssize_t len = fcmsg->len;
+            off_t off = 0;
+            while ( len ) {
+                ssize_t bytes = write( ti, fcmsg->buffer + off, len );
+                if ( bytes == -1 ) {
+                    log_error() << "write to " << tmp_input << " failed. " << strerror( errno ) << endl;
+                    throw myexception( EXIT_DISTCC_FAILED );
+                }
+                len -= bytes;
+                off += bytes;
+            }
+
+            delete msg;
+            msg = 0;
+        }
+        close( ti );
+        ti = -1;
+
+        struct timeval begintv;
+        gettimeofday( &begintv, 0 );
+
+        CompileResultMsg rmsg;
+
+        ret = work_it( *job, tmp_input,
+                       rmsg.out, rmsg.err, rmsg.status, obj_file, mem_limit, client->fd );
+
+        unlink( tmp_input );
+        tmp_input[0] = 0; // unlinked
+
+        job_id = job->jobID();
+        delete job;
+        job = 0;
+
+        if ( ret ) {
+            if ( ret == EXIT_OUT_OF_MEMORY ) { // we catch that as special case
+                rmsg.was_out_of_memory = true;
+            } else {
+                throw myexception( ret );
+            }
+        }
+
+        if ( !client->send_msg( rmsg ) ) {
+            log_info() << "write of result failed\n";
+            throw myexception( EXIT_DISTCC_FAILED );
+        }
+
+        if ( rmsg.status == 0 ) {
+            obj_fd = open( obj_file.c_str(), O_RDONLY|O_LARGEFILE );
+            if ( obj_fd == -1 ) {
+                log_error() << "open failed\n";
                 throw myexception( EXIT_DISTCC_FAILED );
             }
-            out_compressed += fcmsg.compressed;
-        } while (1);
 
-        struct timeval endtv;
-        gettimeofday(&endtv, 0 );
-        unsigned int duration = ( endtv.tv_sec - begintv.tv_sec ) * 1000 + ( endtv.tv_usec - begintv.tv_usec ) / 1000;
-        write( out_fd, &in_compressed, sizeof( unsigned int ) );
-        write( out_fd, &in_uncompressed, sizeof( unsigned int ) );
-        write( out_fd, &out_compressed, sizeof( unsigned int ) );
-        write( out_fd, &out_uncompressed, sizeof( unsigned int ) );
-        write( out_fd, &duration, sizeof( unsigned int ) );
-    } else {
-        unsigned char buffer[10];
-        FileChunkMsg fcmsg( buffer, 0 );
-        if ( !serv->send_msg( fcmsg ) ) {
-            log_info() << "write of empty chunk failed " << endl;
-            throw myexception( EXIT_DISTCC_FAILED );
+            unsigned int out_compressed = 0;
+            unsigned int out_uncompressed = 0;
+
+            unsigned char buffer[100000];
+            do {
+                ssize_t bytes = read(obj_fd, buffer, sizeof(buffer));
+                if ( bytes < 0 )
+                {
+                    if ( errno == EINTR )
+                        continue;
+                    throw myexception( EXIT_DISTCC_FAILED );
+                }
+                if ( !bytes )
+                    break;
+                out_uncompressed += bytes;
+                FileChunkMsg fcmsg( buffer, bytes );
+                if ( !client->send_msg( fcmsg ) ) {
+                    log_info() << "write of obj chunk failed " << bytes << endl;
+                    throw myexception( EXIT_DISTCC_FAILED );
+                }
+                out_compressed += fcmsg.compressed;
+            } while (1);
+
+            struct timeval endtv;
+            gettimeofday(&endtv, 0 );
+            unsigned int duration = ( endtv.tv_sec - begintv.tv_sec ) * 1000 + ( endtv.tv_usec - begintv.tv_usec ) / 1000;
+            write( out_fd, &in_compressed, sizeof( unsigned int ) );
+            write( out_fd, &in_uncompressed, sizeof( unsigned int ) );
+            write( out_fd, &out_compressed, sizeof( unsigned int ) );
+            write( out_fd, &out_uncompressed, sizeof( unsigned int ) );
+            write( out_fd, &duration, sizeof( unsigned int ) );
         }
-    }
 
-    throw myexception( rmsg.status );
+        throw myexception( rmsg.status );
 
     } catch ( myexception e )
     {
-        if ( serv )
-            serv->send_msg( EndMsg() );
-        delete serv;
-        serv = 0;
+        if ( client && e.exitcode() == 0 )
+            client->send_msg( EndMsg() );
+        delete client;
+        client = 0;
 
         delete msg;
         delete job;
