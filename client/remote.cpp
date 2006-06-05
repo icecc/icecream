@@ -93,13 +93,13 @@ parse_icecc_version(const string &target_platform )
 
         if ( ::access( version.c_str(), R_OK ) ) {
             log_error() << "$ICECC_VERSION has to point to an existing file to be installed " << version << endl;
-            throw ( 3 );
+            continue;
         }
 
         struct stat st;
         if ( lstat( version.c_str(), &st ) || !S_ISREG( st.st_mode )) {
             log_error() << "$ICECC_VERSION has to point to an existing file to be installed " << version << endl;
-            throw ( 3 );
+            continue;
         }
 
         envs.push_back(make_pair( platform, version ) );
