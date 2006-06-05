@@ -257,7 +257,8 @@ int work_it( CompileJob &j,
                 close( sock_out[0] );
                 close( sock_out[1] );
 
-                waitpid(pid, 0, 0);
+                while ( waitpid(pid, 0, 0) < 0 && errno == EINTR)
+                    ;
                 unlink( tmp_output );
                 return EXIT_COMPILER_MISSING; // most likely cause
             }
