@@ -149,64 +149,37 @@ bool cleanup_cache( const string &basedir, uid_t nobody_uid, gid_t nobody_gid )
     if ( pid )
     {
         int status = 0;
-        if ( waitpid( pid, &status, 0 ) != pid )
-            status = 1;
-        return status == 0;
+        while ( waitpid( pid, &status, 0 ) < 0 && errno == EINTR )
+            ;
+        return WIFEXITED(status);
     }
     // else
     if ( setgid( nobody_gid ) < 0 ) {
       log_perror("setgid failed");
-      exit (143);
+      _exit (143);
     }
 
     if (!geteuid() && setuid( nobody_uid ) < 0) {
       log_perror("setuid failed");
-      exit (142);
+      _exit (142);
     }
 
     if ( !::access( basedir.c_str(), W_OK ) ) { // it exists - removing content
 
-        if ( chdir( basedir.c_str() ) ) {
-            log_error() << "chdir" << strerror( errno ) << endl;
-            ::exit( 1 );
-        }
+        char **argv;
+        argv = new char*[4];
+        argv[0] = strdup( "/bin/rm" );
+        argv[1] = strdup( "-rf" );
+        argv[2] = strdup( basedir.c_str() );
+        argv[3] = NULL;
 
-        char buffer[PATH_MAX];
-        DIR *dir = opendir( "." );
-        if ( !dir )
-            ::exit( 1 ); // very unlikely
-
-        struct dirent *subdir = readdir( dir );
-        while ( subdir ) {
-            if ( !strcmp( subdir->d_name, "." ) || !strcmp( subdir->d_name, ".." ) ) {
-                subdir = readdir( dir );
-                continue;
-            }
-            snprintf( buffer, PATH_MAX, "rm -rf '%s'", subdir->d_name );
-            if ( system( buffer ) ) {
-                log_error() << "rm -rf failed\n";
-                ::exit( 1 );
-            }
-            subdir = readdir( dir );
-        }
-        closedir( dir );
+        _exit(execv(argv[0], argv));
     }
-
-    if ( mkdir( basedir.c_str(), 0755 ) && errno != EEXIST ) {
-        if ( errno == EPERM )
-            log_error() << "cache directory can't be generated: " << basedir << endl;
-        else
-            log_perror( "Failed " );
-        ::exit( 1 );
-    }
-
-    ::exit( 0 );
+    _exit( 0 );
 }
 
 Environments available_environmnents(const string &basedir)
 {
-    assert( !::access( basedir.c_str(), W_OK ) );
-
     Environments envs;
 
     DIR *envdir = opendir( basedir.c_str() );
@@ -259,11 +232,11 @@ size_t setup_env_cache(const string &basedir, string &native_environment, uid_t 
     // else
     if ( setgid( nobody_gid ) < 0) {
       log_perror("setgid failed");
-      exit(143);
+      _exit(143);
     }
     if (!geteuid() && setuid( nobody_uid ) < 0) {
       log_perror("setuid failed");
-      exit (142);
+      _exit (142);
     }
 
     if ( !::access( "/usr/bin/gcc", X_OK ) && !::access( "/usr/bin/g++", X_OK ) ) {
@@ -279,14 +252,14 @@ size_t setup_env_cache(const string &basedir, string &native_environment, uid_t 
                 log_error() << BINDIR "/create-env failed\n";
                 goto error;
             } else {
-                exit( 0 );
+                _exit( 0 );
             }
         }
     }
 
 error:
     rmdir( nativedir.c_str() );
-    exit( 1 );
+    _exit( 1 );
 }
 
 size_t install_environment( const std::string &basename, const std::string &target,
@@ -399,11 +372,11 @@ size_t install_environment( const std::string &basename, const std::string &targ
     // else
     if ( setgid( nobody_gid ) < 0) {
       log_perror("setgid fails");
-      exit(143);
+      _exit(143);
     }
     if (!geteuid() && setuid( nobody_uid ) < 0) {
       log_perror("setuid fails");
-      exit (142);
+      _exit (142);
     }
 
     close( 0 );
@@ -412,23 +385,23 @@ size_t install_environment( const std::string &basename, const std::string &targ
 
     if( ::access( basename.c_str(), W_OK ) ) {
        log_perror( basename.c_str() );
-       ::exit( 1 );
+       _exit( 1 );
     }
 
     if ( mkdir( dirname.c_str(), 0755 ) && errno != EEXIST ) {
         log_perror( "mkdir target" );
-        ::exit( 1 );
+        _exit( 1 );
     }
 
     dirname = dirname + "/" + name;
     if ( mkdir( dirname.c_str(), 0755 ) ) {
         log_perror( "mkdir name" );
-        ::exit( 1 );
+        _exit( 1 );
     }
 
     if ( chdir( dirname.c_str() ) ) {
         log_perror( "chdir" );
-        ::exit( 1 );
+        _exit( 1 );
     }
 
     char **argv;
@@ -442,8 +415,7 @@ size_t install_environment( const std::string &basename, const std::string &targ
         argv[1] = strdup( "xf" );
     argv[2] = strdup( "-" );
     argv[3] = 0;
-    execv( argv[0], argv );
-    ::exit( 1 ); // if tar fails
+    _exit(execv( argv[0], argv ));
 }
 
 size_t remove_environment( const string &basename, const string &env, uid_t nobody_uid, gid_t nobody_gid )
@@ -463,31 +435,34 @@ size_t remove_environment( const string &basename, const string &env, uid_t nobo
     if ( pid )
     {
         int status = 0;
-        if ( waitpid( pid, &status, 0 ) != pid )
-            status = 1;
-        return res;
+        while ( waitpid( pid, &status, 0 ) < 0 && errno == EINTR )
+            ;
+         if ( WIFEXITED (status) )
+             return res;
+        // something went wrong. assume no disk space was free'd.
+        return 0;
     }
+    // else
+
     if ( chdir( dirname.c_str() ) != 0 ) {
         log_perror( "chdir failed" );
-        exit( 144 );
+        _exit( 144 );
     }
-
-    // else
     if ( setgid(nobody_gid) < 0) {
       log_perror("setgid fails");
-      exit(143);
+      _exit(143);
     }
     if (!geteuid() && setuid( nobody_uid ) < 0) {
       log_perror("setuid fails");
-      exit (142);
+      _exit (142);
     }
 
-    char buffer[PATH_MAX];
-    snprintf( buffer, PATH_MAX, "rm -rfv '%s'", name.c_str() );
-    if ( system( buffer ) ) {
-        log_error() << "rm -rf failed\n";
-        ::exit( 1 );
-    }
+    char **argv;
+    argv = new char*[4];
+    argv[0] = strdup( "/bin/rm" );
+    argv[1] = strdup( "-rf" );
+    argv[2] = strdup( name.c_str() );
+    argv[3] = NULL;
 
-    ::exit( 0 );
+    _exit(execv(argv[0], argv));
 }
