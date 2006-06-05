@@ -212,9 +212,9 @@ static void write_server_cpp(int cpp_fd, MsgChannel *cserver)
         ssize_t bytes;
         do {
           bytes = read(cpp_fd, buffer + offset, sizeof(buffer) - offset );
-          if ((int) bytes < 0 && (errno == EINTR || errno == EAGAIN))
+          if (bytes < 0 && (errno == EINTR || errno == EAGAIN))
             continue;
-          if ((int) bytes < 0) {
+          if (bytes < 0) {
             log_perror( "reading from cpp_fd" );
             close( cpp_fd );
             throw( 11 );

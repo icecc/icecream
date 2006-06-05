@@ -246,7 +246,7 @@ int work_it( CompileJob &j,
         for(;;)
         {
             char resultByte;
-            int n = ::read(main_sock[0], &resultByte, 1);
+            ssize_t n = ::read(main_sock[0], &resultByte, 1);
             if (n == 1)
             {
                 status = resultByte;

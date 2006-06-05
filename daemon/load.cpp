@@ -190,8 +190,7 @@ bool fill_stats( unsigned long &myniceload, unsigned long &myidleload, unsigned 
         return false;
     }
 
-    size_t n;
-    n = read( fd, StatBuf, sizeof( StatBuf ) -1 );
+    size_t n = read( fd, StatBuf, sizeof( StatBuf ) -1 );
     close( fd );
     if ( n < 40 ) {
         log_error() << "no enough date in /proc/stat?" << endl;
