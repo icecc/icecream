@@ -78,7 +78,7 @@ pid_t call_cpp(CompileJob &job, int fdwrite, int fdread)
 	    close (fdread);
         int ret = dcc_ignore_sigpipe(0);
         if (ret)    /* set handler back to default */
-            exit(ret);
+            _exit(ret);
 
 	char **argv;
 	if ( dcc_is_preprocessed( job.inputFile() ) ) {
@@ -122,8 +122,6 @@ pid_t call_cpp(CompileJob &job, int fdwrite, int fdread)
 
         dcc_increment_safeguard();
 
-        execvp(argv[0], argv);
-        /* !! NEVER RETURN FROM HERE !! */
-        return 0;
+        _exit(execvp(argv[0], argv));
     }
 }
