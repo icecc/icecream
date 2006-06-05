@@ -35,27 +35,26 @@
 class MsgChannel;
 
 /* in remote.cpp */
-std::string get_absfilename( const std::string &_file );
+extern std::string get_absfilename( const std::string &_file );
 
 /* In arg.cpp.  */
-bool analyse_argv (const char * const *argv,
-                   CompileJob &job);
+extern bool analyse_argv (const char * const *argv, CompileJob &job);
 
 /* In cpp.cpp.  */
-pid_t call_cpp (CompileJob &job, int fdwrite, int fdread = -1);
+extern pid_t call_cpp (CompileJob &job, int fdwrite, int fdread = -1);
 
 /* In local.cpp.  */
-int build_local (CompileJob& job, MsgChannel *daemon, struct rusage *used = 0);
-std::string find_compiler( const std::string &compiler );
-std::string get_compiler_name( const CompileJob &job );
+extern int build_local (CompileJob& job, MsgChannel *daemon, struct rusage *usage =0);
+extern std::string find_compiler( const std::string &compiler );
+extern std::string get_compiler_name( const CompileJob &job );
 
 /* In remote.cpp - permill is the probability it will be compiled three times */
-int build_remote (CompileJob &job, MsgChannel *scheduler, const Environments &envs, int permill);
+extern int build_remote (CompileJob &job, MsgChannel *scheduler, const Environments &envs, int permill);
 
 /* safeguard.cpp */
-void dcc_increment_safeguard(void);
-int dcc_recursion_safeguard(void);
+extern void dcc_increment_safeguard(void);
+extern int dcc_recursion_safeguard(void);
 
-Environments parse_icecc_version( const std::string &target );
+extern Environments parse_icecc_version( const std::string &target );
 
 #endif
