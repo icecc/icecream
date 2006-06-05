@@ -485,7 +485,7 @@ bool maybe_stats(bool force = false) {
     return true;
 }
 
-void fill_msg(int fd, JobDoneMsg *msg)
+static void fill_msg(int fd, JobDoneMsg *msg)
 {
     read( fd, &msg->in_compressed, sizeof( unsigned int ) );
     read( fd, &msg->in_uncompressed, sizeof( unsigned int ) );
