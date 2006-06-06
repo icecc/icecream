@@ -12,3 +12,6 @@ sbin_PROGRAMS = scheduler
 scheduler_SOURCES = scheduler.cpp
 scheduler_LDADD = libicecream.la
 
+pkgconfigdir = $(libdir)/pkgconfig
+pkgconfig_DATA = icecream.pc
+

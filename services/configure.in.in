@@ -1,3 +1,4 @@
+dnl AC_OUTPUT(services/icecream.pc)
 AC_MSG_CHECKING([for GLIBC function backtrace])
 AC_TRY_LINK(dnl
       [

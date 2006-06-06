@@ -1,0 +1,14 @@
+# icecream pkg-config file
+
+prefix=@prefix@
+exec_prefix=@exec_prefix@
+libdir=@libdir@
+includedir=@includedir@
+
+Name: icecream
+Description: icecream is a library for connecting to icecream schedulers
+Version: @VERSION@
+Requires:
+Conflicts:
+Libs: -L${libdir} -licecream
+Cflags: -I${includedir}
