@@ -1,11 +1,14 @@
 INCLUDES = -I$(srcdir)/../minilzo
 
-noinst_LTLIBRARIES = libcommon.la
+lib_LTLIBRARIES = libicecream.la
 
-libcommon_la_SOURCES = job.cpp comm.cpp getifaddrs.cpp logging.cpp tempfile.c
-libcommon_la_LIBADD = ../minilzo/libminilzo.la
+libicecream_la_SOURCES = job.cpp comm.cpp getifaddrs.cpp logging.cpp tempfile.c
+libicecream_la_LIBADD = ../minilzo/libminilzo.la
+
+ice_HEADERS = job.h comm.h
+icedir = $(includedir)/icecream
 
 sbin_PROGRAMS = scheduler
 scheduler_SOURCES = scheduler.cpp
-scheduler_LDADD = libcommon.la
+scheduler_LDADD = libicecream.la
 

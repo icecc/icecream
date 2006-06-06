@@ -29,7 +29,8 @@ fi
 AC_PROG_MAKE_SET
 AC_PROG_INSTALL
 AC_C_INLINE
-AC_ENABLE_STATIC([no])
+AC_DISABLE_SHARED
+AC_ENABLE_STATIC
 AC_PROG_LIBTOOL
 
 ########################################################################
