@@ -175,6 +175,14 @@ if test "$prefix" = NONE; then
   prefix=$ac_default_prefix
 fi
 
+AC_DEFUN([KDE_EXPAND_MAKEVAR], [
+savex=$exec_prefix
+test "x$exec_prefix" = xNONE && exec_prefix=$prefix
+tmp=$$2
+while $1=`eval echo "$tmp"`; test "x$$1" != "x$tmp"; do tmp=$$1; done
+exec_prefix=$savex
+])
+
 KDE_EXPAND_MAKEVAR(mybindir, bindir)
 AC_DEFINE_UNQUOTED(BINDIR, "$mybindir", [Where to look for create-env])
 
