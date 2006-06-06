@@ -18,7 +18,7 @@ PreReq:         %fillup_prereq
 %endif
 Prereq:         /usr/sbin/useradd /usr/sbin/groupadd
 Requires:       gcc-c++
-Version:        0.7.0
+Version:0.7.1
 Release:        1
 Source0:        ftp://ftp.suse.com/pub/projects/icecream/%name-%{version}.tar.bz2
 Source1:        %name-manpages.tar.bz2
@@ -36,6 +36,15 @@ Authors:
     Cornelius Schumacher <cschum@suse.de>
     Lubos Lunak <llunak@suse.cz>
     Frerich Raabe <raabe@kde.org>
+
+%package -n libicecream-devel
+Summary: libicecream-devel
+Group:          Development/Tools/Building
+Summary:        For Distributed Compile in the Network
+Requires:      libstdc++-devel
+
+%description -n libicecream-devel
+libicecream-devel
 
 %prep
 %setup -q -n %name -a 1
@@ -105,5 +114,11 @@ rm -rf ${RPM_BUILD_ROOT}
 /var/adm/fillup-templates/sysconfig.icecream
 %endif
 %attr(-,icecream,icecream) /var/cache/icecream
+
+%files -n libicecream-devel
+%defattr(-,root,root)
+%_includedir/icecream
+%_libdir/libicecream.*
+%_libdir/pkgconfig/icecream.pc
 
 %changelog -n icecream
