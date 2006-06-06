@@ -65,9 +65,6 @@ string find_compiler( const string &compiler )
     if ( compiler.at( 0 ) == '/' )
         return compiler;
 
-    if ( getenv( "ICECC_VERSION" ) == 0 )
-        return "/usr/bin/" + compiler;
-
     string path = ::getenv( "PATH" );
     string::size_type begin = 0;
     string::size_type end = 0;
@@ -133,14 +130,16 @@ void handle_user_break( int sig )
  **/
 int build_local(CompileJob &job, MsgChannel *local_daemon, struct rusage *used)
 {
-    trace() << "build_local " << local_daemon << endl;
     list<string> arguments;
 
     string compiler_name = get_compiler_name( job );
+    trace() << "build_local " << local_daemon << " compiler: " << compiler_name <<  endl;
     compiler_name = find_compiler( compiler_name );
 
-    if ( compiler_name.empty() )
+    if ( compiler_name.empty() ) {
+        log_error() << "could not find " << get_compiler_name (job ) << " in PATH." << endl;
         return EXIT_NO_SUCH_FILE;
+    }
 
     arguments.push_back( compiler_name );
     appendList( arguments, job.allFlags() );
@@ -167,7 +166,7 @@ int build_local(CompileJob &job, MsgChannel *local_daemon, struct rusage *used)
     if ( !local_daemon ) {
         int fd;
         if ( !dcc_lock_host(fd ) ) {
-            log_error() << "can't lock for local job\n";
+            log_error() << "can't lock for local job" << endl;
             return EXIT_DISTCC_FAILED;
         }
         lock_fd = fd;
@@ -202,9 +201,16 @@ int build_local(CompileJob &job, MsgChannel *local_daemon, struct rusage *used)
     } else {
         dcc_increment_safeguard();
 
-        int ret = execv( argv[0], argv ); // if it returns at all
+    int ret = execv( argv[0], argv );
+        if ( used )
+            _exit ( errno );
         if ( lock_fd )
-            dcc_unlock( lock_fd );
+            dcc_unlock( lock_fd ); 
+        if (ret) {
+            char buf[256];
+            snprintf(buf, sizeof(buf), "ICECREAM: %s:", argv[0]);
+            log_perror(buf);
+        }
         return ret;
     }
 }
