@@ -722,6 +722,7 @@ int Daemon::handle_old_request()
     Client *client = clients.get_earliest_client(Client::LINKJOB);
     if ( client )
     {
+        trace() << "send JobLocalBeginMsg to client" << endl;
         if (!client->channel->send_msg (JobLocalBeginMsg())) {
 	    log_warning() << "can't send start message to client" << endl;
 	    handle_end (client, 112);
@@ -1011,7 +1012,9 @@ int Daemon::answer_client_requests()
     tv.tv_sec = 0;
     tv.tv_usec = 400000;
 
+    trace() << "before select " << max_fd << endl;
     ret = select (max_fd + 1, &listen_set, NULL, NULL, &tv);
+    trace() << "select returned " << ret << endl;
     if ( ret == -1 && errno != EINTR ) {
         log_perror( "select" );
         return 5;

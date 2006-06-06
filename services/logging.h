@@ -25,6 +25,7 @@
 #include <string>
 #include <iostream>
 #include <cassert>
+#include <sys/time.h>
 
 enum DebugLevels { Info = 1, Warning = 2, Error = 4, Debug = 8};
 extern std::ostream *logfile_info;
@@ -44,9 +45,26 @@ inline std::ostream & output_date( std::ostream &os )
     return os;
 }
 
+inline std::ostream & output_mdate( std::ostream &os )
+{
+   static struct timeval tps;
+   static bool inited = false;
+   if (!inited) 
+   {
+	gettimeofday(&tps, 0);
+	inited = true;
+   }	
+   
+   struct timeval tp;
+   gettimeofday(&tp, 0);
+   os << "[" << tp.tv_sec << ":" << tp.tv_usec << "(" << (tp.tv_sec - tps.tv_sec) * 1000 + (tp.tv_usec - tps.tv_usec  + 500 ) / 1000 << ")] ";
+   tps = tp;
+   return os;
+}
+
 static inline std::ostream& log_info() {
     assert( logfile_info );
-    return *logfile_info;
+    return output_mdate( *logfile_info );
 }
 
 static inline std::ostream& log_warning() {
@@ -61,7 +79,7 @@ static inline std::ostream& log_error() {
 
 static inline std::ostream& trace() {
     assert( logfile_trace );
-    return *logfile_trace;
+    return output_mdate( *logfile_trace );
 }
 
 std::string get_backtrace();

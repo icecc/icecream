@@ -37,6 +37,8 @@
 #include <minilzo.h>
 #include <stdio.h>
 #include <sys/utsname.h>
+#include <netinet/tcp.h>
+
 
 #include "logging.h"
 #include "job.h"
@@ -234,8 +236,13 @@ MsgChannel::flush_writebuf (bool blocking)
 {
   const char *buf = msgbuf + msgofs;
   bool error = false;
+  int t;
   while (msgtogo)
     {
+      t = 1;
+#if defined(TCP_CORK)
+      setsockopt(fd, IPPROTO_TCP, TCP_CORK, &t, sizeof(t));
+#endif
       ssize_t ret = write (fd, buf, msgtogo);
       if (ret < 0)
         {
@@ -268,6 +275,10 @@ MsgChannel::flush_writebuf (bool blocking)
       msgtogo -= ret;
       buf += ret;
     }
+  t = 0;
+#if defined(TCP_CORK)
+  setsockopt(fd, IPPROTO_TCP, TCP_CORK, &t, sizeof(t));
+#endif
   msgofs = buf - msgbuf;
   chop_output ();
   return !error;

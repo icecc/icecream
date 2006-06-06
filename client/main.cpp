@@ -132,6 +132,8 @@ int main(int argc, char **argv)
     string compiler_name = argv[0];
     dcc_client_catch_signals();
 
+    trace() << "first\n";
+
     if ( find_basename( compiler_name ) == rs_program_name) {
         if ( argc > 1 ) {
             string arg = argv[1];
@@ -170,7 +172,10 @@ int main(int argc, char **argv)
 
     local |= analyse_argv( argv, job );
 
+    trace() << "before connect\n";
+
     MsgChannel *local_daemon = Service::createChannel( "127.0.0.1", 10245, 0/*timeout*/);
+    trace () << "after connect\n";
     if ( ! local_daemon ) {
         log_warning() << "no local daemon found\n";
         return build_local( job, 0 );
@@ -227,16 +232,20 @@ int main(int argc, char **argv)
     int ret;
     if ( local ) {
         struct rusage ru;
+	trace() << "before send_msg\n";
 	/* Inform the daemon that we like to start a job.  */
         local_daemon->send_msg( JobLocalBeginMsg( 0, get_absfilename( job.outputFile() )) );
+	trace() << "after send_msg\n";
 	/* Now wait until the daemon gives us the start signal.  40 minutes
 	   should be enough for all normal compile or link jobs.  */
 	Msg *startme = local_daemon->get_msg (40*60);
+	trace() << "after get_msg\n";
 	/* If we can't talk to the daemon anymore we need to fall back
 	   to lock file locking.  */
         if (!startme || startme->type != M_JOB_LOCAL_BEGIN)
 	    goto do_local_error;
         ret = build_local( job, local_daemon, &ru );
+	trace() << "after build\n";
     } else {
         try {
             // check if it should be compiled three times
@@ -249,6 +258,7 @@ int main(int argc, char **argv)
         }
     }
     local_daemon->send_msg (EndMsg());
+    trace() << "after endmsg\n";
     delete local_daemon;
     return ret;
 
