@@ -39,15 +39,12 @@ Authors:
 
 %prep
 %setup -q -n %name -a 1
-rm -r mon
 
 %build
 export CFLAGS="$RPM_OPT_FLAGS"
 export CXXFLAGS="$RPM_OPT_FLAGS"
 make -f Makefile.cvs
-./configure \
-  --prefix=%_prefix \
-  --mandir=%_mandir 
+./configure --prefix=%_prefix 
 make
 
 %install
