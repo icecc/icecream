@@ -1,5 +1,5 @@
 
-COMPILE_FIRST = minilzo services
+SUBDIRS = minilzo services daemon client
 AUTOMAKE_OPTIONS = foreign 1.6
 
 include admin/deps.am

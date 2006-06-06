@@ -1,3 +1,7 @@
+dnl =======================================================
+dnl FILE: configure.in.in
+dnl =======================================================
+
 # quite some macros are taken from distcc
 
 AC_PREREQ(2.53)
@@ -152,7 +156,39 @@ dnl Checks for library functions
 AC_CHECK_FUNCS(memcmp memcpy memmove memset)
 dnl === END LZO
 
-UIC_NOT_NEEDED=1
-KDE_CHECK_FINAL
+dnl =======================================================
+dnl FILE: ./services/configure.in.in
+dnl =======================================================
 
-DO_NOT_COMPILE="$DO_NOT_COMPILE mon-qt4"
+dnl AC_OUTPUT(services/icecream.pc)
+AC_MSG_CHECKING([for GLIBC function backtrace])
+AC_TRY_LINK(dnl
+      [
+        #include <execinfo.h>
+      ],
+      [
+        void* trace[256];
+        backtrace(trace, 256);
+      ],
+      [
+        AC_DEFINE(HAVE_BACKTRACE, 1, [Define if execinfo.h exists and defines backtrace (GLIBC >= 2.1)])
+	AC_MSG_RESULT(yes)
+      ],
+      AC_MSG_RESULT(no)
+)
+AC_CONFIG_FILES([ Makefile ])
+AC_CONFIG_FILES([ client/Makefile ])
+AC_CONFIG_FILES([ daemon/Makefile ])
+AC_CONFIG_FILES([ doc/Makefile ])
+AC_CONFIG_FILES([ minilzo/Makefile ])
+AC_CONFIG_FILES([ services/Makefile ])
+AC_CONFIG_FILES([ services/icecream.pc ])
+if test "$prefix" = NONE; then
+  prefix=$ac_default_prefix
+fi
+
+KDE_EXPAND_MAKEVAR(mybindir, bindir)
+AC_DEFINE_UNQUOTED(BINDIR, "$mybindir", [Where to look for create-env])
+
+AC_OUTPUT
+
