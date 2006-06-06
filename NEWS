@@ -1,4 +1,12 @@
-0.7.0:
+0.7.1 (r548846):	
+	- Monitor is an extra package now
+	- don't make non-existant cross compilers fatal, but just use
+          the other environments in ICECC_VERSION
+	- always handle aborted syscalls
+	- update minilzo
+	- never exit() or return from fork()'ed code paths,
+	 
+0.7.0 (r547196):
         - WARNING: the protocol is not compatible with earlier versions, old clients
           will refuse to connect, so update the full farm
 
