@@ -2,8 +2,6 @@
 SUBDIRS = minilzo services daemon client
 AUTOMAKE_OPTIONS = foreign 1.6
 
-include admin/deps.am
-
 .PHONY: changes
 changes:
 	sed -e "s#  *#:'#; s#\$$#>'#;" $$HOME/prod/kde-common/accounts | sed -e 's/  *\([^ ]*\)$$/ <\1/' > Changes.users

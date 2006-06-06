@@ -1,15 +1,8 @@
-dnl =======================================================
-dnl FILE: configure.in.in
-dnl =======================================================
-
 # quite some macros are taken from distcc
 
 AC_PREREQ(2.53)
 
 AC_INIT(client/main.cpp)
-
-dnl This is so we can use kde-common
-AC_CONFIG_AUX_DIR(admin)
 
 AM_INIT_AUTOMAKE(icecream, "0.7")
 AM_CONFIG_HEADER(config.h)
@@ -156,11 +149,6 @@ dnl Checks for library functions
 AC_CHECK_FUNCS(memcmp memcpy memmove memset)
 dnl === END LZO
 
-dnl =======================================================
-dnl FILE: ./services/configure.in.in
-dnl =======================================================
-
-dnl AC_OUTPUT(services/icecream.pc)
 AC_MSG_CHECKING([for GLIBC function backtrace])
 AC_TRY_LINK(dnl
       [

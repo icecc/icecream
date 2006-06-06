@@ -1,15 +1,7 @@
 
 all:
-	@echo "This Makefile is only for the SVN repository"
-	@echo ""
-	@if test ! -d admin; then \
-	   echo "Please recheckout this module!" ;\
-	   echo "for cvs: use checkout once and after that update again" ;\
-	   echo "for cvsup: checkout kde-common from cvsup and" ;\
-	   echo "   link kde-common/admin to ./admin" ;\
-	   exit 1 ;\
-	fi
-	$(MAKE) -f admin/Makefile.common cvs
+	aclocal
+	autoheader
+	autoconf
+	automake -a
 
-.SILENT:
-.PHONY: all
