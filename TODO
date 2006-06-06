@@ -26,6 +26,13 @@ Random:
 * Log problems found at some scheduler log - or even in the monitor. E.g. if a client
   can't reach a given daemon, it should be able to tell. Perhaps the scheduler can even
   disable that very host for some penalty time
+* Reduce amount of force-waits, especially if they involve network latency (scheduler queries)
+  and daemon context switches:
+    - remove the need for EndMsg
+    - do not ask the daemon about the first job (WIP dirk)
+* Add heuristic which optimises for overhead-reduction. Statistics prove ( ;) ), that for
+  e.g. linux kernel the file size varies a lot, and small jobs should be preferably compiled
+  locally and bigger ones preferably remote.
 
 Suggestions from "Wilson Snyder" sicortex.com:
 - make a debug variable that forces a job to be compiled on specific host to make
