@@ -80,28 +80,32 @@ struct JobStat {
   unsigned long compile_time_sys;
   JobStat() : osize(0), compile_time_real(0), compile_time_user(0),
 	      compile_time_sys(0) {}
-  JobStat& operator +=(const JobStat &st) {
+  JobStat& operator +=(const JobStat &st)
+  {
     osize += st.osize;
     compile_time_real += st.compile_time_real;
     compile_time_user += st.compile_time_user;
     compile_time_sys += st.compile_time_sys;
     return *this;
   }
-  JobStat& operator -=(const JobStat &st) {
+  JobStat& operator -=(const JobStat &st)
+  {
     osize -= st.osize;
     compile_time_real -= st.compile_time_real;
     compile_time_user -= st.compile_time_user;
     compile_time_sys -= st.compile_time_sys;
     return *this;
   }
-  JobStat& operator /=(int d) {
+  JobStat& operator /=(int d)
+  {
     osize /= d;
     compile_time_real /= d;
     compile_time_user /= d;
     compile_time_sys /= d;
     return *this;
   }
-  JobStat operator /(int d) const {
+  JobStat operator /(int d) const
+  {
     JobStat r = *this;
     r /= d;
     return r;
@@ -111,7 +115,8 @@ struct JobStat {
 class Job;
 
 /* One compile server (receiver, compile daemon)  */
-class CS : public MsgChannel {
+class CS : public MsgChannel
+{
 public:
   /* The listener port, on which it takes compile requests.  */
   unsigned int remote_port;
@@ -131,11 +136,13 @@ public:
   Environments compiler_versions;  // Available compilers
   CS (int fd, struct sockaddr *_addr, socklen_t _len, bool text_based)
     : MsgChannel(fd, _addr, _len, text_based), load(1000), max_jobs(0), state(CONNECTED),
-      type(UNKNOWN), chroot_possible(false) {
+      type(UNKNOWN), chroot_possible(false)
+  {
     hostid = 0;
     busy_installing = 0;
   }
-  void pick_new_id() {
+  void pick_new_id()
+  {
     assert( !hostid );
     hostid = ++hostid_counter;
   }
@@ -157,7 +164,8 @@ static bool allow_run_as_user = false;
 
 time_t starttime;
 
-class Job {
+class Job
+{
 public:
   unsigned int id;
   unsigned int local_client_id;
@@ -191,7 +199,6 @@ public:
 /*    fd2chan.erase (channel->fd);
     delete channel;*/
   }
-
 };
 
 // A subset of connected_hosts representing the compiler servers
@@ -202,7 +209,8 @@ static map<unsigned int, Job*> done_jobs;
 
 /* XXX Uah.  Don't use a queue for the job requests.  It's a hell
    to delete anything out of them (for clean up).  */
-struct UnansweredList {
+struct UnansweredList
+{
   list<Job*> l;
   CS *server;
   bool remove_job (Job *);
@@ -255,22 +263,22 @@ add_job_stats (Job *job, JobDoneMsg *msg)
   if ( job->arg_flags & CompileJob::Flag_O ||
        job->arg_flags & CompileJob::Flag_O2 ||
        job->arg_flags & CompileJob::Flag_Ol2)
-	st.osize = st.osize * 58 / 35;
+    st.osize = st.osize * 58 / 35;
 
   if ( job->server->last_compiled_jobs.size() >= 7)
     {
-    /* Smooth out spikes by not allowing one job to add more than
-       20% of the current speed.  */
-    float this_speed = (float) st.osize / (float) st.compile_time_user;
-    /* The current speed of the server, but without adjusting to the current
-       job, hence no second argument.  */
-    float cur_speed = server_speed (job->server);
+      /* Smooth out spikes by not allowing one job to add more than
+         20% of the current speed.  */
+      float this_speed = (float) st.osize / (float) st.compile_time_user;
+      /* The current speed of the server, but without adjusting to the current
+         job, hence no second argument.  */
+      float cur_speed = server_speed (job->server);
 
-    if ((this_speed / 1.2) > cur_speed)
-      st.osize = (long unsigned) (cur_speed * 1.2 * st.compile_time_user);
-    else if ((this_speed * 1.2) < cur_speed)
-      st.osize = (long unsigned) (cur_speed / 1.2 * st.compile_time_user);
-  }
+      if ((this_speed / 1.2) > cur_speed)
+        st.osize = (long unsigned) (cur_speed * 1.2 * st.compile_time_user);
+      else if ((this_speed * 1.2) < cur_speed)
+        st.osize = (long unsigned) (cur_speed / 1.2 * st.compile_time_user);
+    }
 
   job->server->last_compiled_jobs.push_back (st);
   job->server->cum_compiled += st;
@@ -377,21 +385,24 @@ handle_monitor_stats( CS *cs, StatsMsg *m = 0)
   msg += buffer;
   sprintf( buffer, "Speed:%f\n", server_speed( cs ) );
   msg += buffer;
-  if ( m ) {
-    sprintf( buffer, "Load:%d\n", m->load );
-    msg += buffer;
-    sprintf( buffer, "LoadAvg1:%d\n", m->loadAvg1 );
-    msg += buffer;
-    sprintf( buffer, "LoadAvg5:%d\n", m->loadAvg5 );
-    msg += buffer;
-    sprintf( buffer, "LoadAvg10:%d\n", m->loadAvg10 );
-    msg += buffer;
-    sprintf( buffer, "FreeMem:%d\n", m->freeMem );
-    msg += buffer;
-  } else {
-    sprintf( buffer, "Load:%d\n", cs->load );
-    msg += buffer;
-  }
+  if ( m )
+    {
+      sprintf( buffer, "Load:%d\n", m->load );
+      msg += buffer;
+      sprintf( buffer, "LoadAvg1:%d\n", m->loadAvg1 );
+      msg += buffer;
+      sprintf( buffer, "LoadAvg5:%d\n", m->loadAvg5 );
+      msg += buffer;
+      sprintf( buffer, "LoadAvg10:%d\n", m->loadAvg10 );
+      msg += buffer;
+      sprintf( buffer, "FreeMem:%d\n", m->freeMem );
+      msg += buffer;
+    }
+  else
+    {
+      sprintf( buffer, "Load:%d\n", cs->load );
+      msg += buffer;
+    }
   notify_monitors( MonStatsMsg( cs->hostid, msg ) );
 }
 
@@ -410,13 +421,16 @@ static void
 enqueue_job_request (Job *job)
 {
   if (!toanswer.empty() && toanswer.back()->server == job->submitter)
-    toanswer.back()->l.push_back (job);
-  else {
-    UnansweredList *newone = new UnansweredList();
-    newone->server = job->submitter;
-    newone->l.push_back (job);
-    toanswer.push_back (newone);
-  }
+    {
+      toanswer.back()->l.push_back (job);
+    }
+  else
+    {
+      UnansweredList *newone = new UnansweredList();
+      newone->server = job->submitter;
+      newone->l.push_back (job);
+      toanswer.push_back (newone);
+    }
 }
 
 static Job *
@@ -473,16 +487,21 @@ handle_cs_request (MsgChannel *c, Msg *_m)
       job->local_client_id = m->client_id;
       job->preferred_host = m->preferred_host;
       enqueue_job_request (job);
-      log_info() << "NEW " << job->id << " client=" << submitter->nodename << " versions=[";
-      for ( Environments::const_iterator it = job->environments.begin(); it != job->environments.end(); ++it )
+      log_info() << "NEW " << job->id << " client="
+                 << submitter->nodename << " versions=[";
+      for ( Environments::const_iterator it = job->environments.begin();
+            it != job->environments.end(); ++it )
         log_info() << it->second << "(" << it->first << "), ";
       log_info() << "] " << m->filename << " " << job->language << endl;
       notify_monitors (MonGetCSMsg (job->id, submitter->hostid, m));
       if ( !master_job )
-        master_job = job;
-      else {
-        master_job->master_job_for.push_back( job );
-      }
+        {
+          master_job = job;
+        }
+      else
+        {
+          master_job->master_job_for.push_back( job );
+        }
     }
   return true;
 
@@ -583,12 +602,13 @@ static string
 can_install( CS* cs, const Job *job )
 {
   // trace() << "can_install host: '" << cs->host_platform << "' target: '" << job->target_platform << "'" << endl;
-  if ( cs->busy_installing ) {
+  if ( cs->busy_installing )
+    {
 #if DEBUG_SCHEDULER > 0
-    trace() << cs->nodename << " is busy installing since " << time(0) - cs->busy_installing << " seconds." << endl;
+      trace() << cs->nodename << " is busy installing since " << time(0) - cs->busy_installing << " seconds." << endl;
 #endif
-    return string();
-  }
+      return string();
+    }
 
   for ( Environments::const_iterator it = job->environments.begin(); it != job->environments.end(); ++it )
     {
@@ -631,14 +651,14 @@ pick_server(Job *job)
 #endif
 
   /* if the user wants to test/prefer one specific daemon, we look for that one first */
-  if (!job->preferred_host.empty()) 
+  if (!job->preferred_host.empty())
     {
 	for (it = css.begin(); it != css.end(); ++it)
           {
              CS *cs = *it;
 	     if (cs->nodename == job->preferred_host)
 	       return cs;
-	  }	
+	  }
     }
 
   /* If we have no statistics simply use the first server which is usable.  */
@@ -681,29 +701,32 @@ pick_server(Job *job)
     {
       CS *cs = *it;
       /* For now ignore overloaded servers.  */
-      if (int( cs->joblist.size() ) >= cs->max_jobs || cs->load >= 1000) {
+      if (int( cs->joblist.size() ) >= cs->max_jobs || cs->load >= 1000)
+        {
 #if DEBUG_SCHEDULER > 1
-        trace() << "overloaded " << cs->nodename << " " << cs->joblist.size() << "/" <<  cs->max_jobs << " jobs, load:" << cs->load << endl;
+          trace() << "overloaded " << cs->nodename << " " << cs->joblist.size() << "/" <<  cs->max_jobs << " jobs, load:" << cs->load << endl;
 #endif
-        continue;
+          continue;
       }
 
       /* Servers that are already compiling jobs but got no environments
          are currently installing new environments - ignore so far */
-      if ( cs->joblist.size() != 0 && cs->compiler_versions.size() == 0 ) {
+      if ( cs->joblist.size() != 0 && cs->compiler_versions.size() == 0 )
+        {
 #if DEBUG_SCHEDULER > 0
-        trace() << cs->nodename << " is currently installing\n";
+          trace() << cs->nodename << " is currently installing\n";
 #endif
-        continue;
-      }
+          continue;
+        }
 
       // incompatible architecture
-      if ( !can_install( cs, job ).size() ) {
+      if ( !can_install( cs, job ).size() )
+        {
 #if DEBUG_SCHEDULER > 2
-        trace() << cs->nodename << " can't install " << job->id << endl;
+          trace() << cs->nodename << " can't install " << job->id << endl;
 #endif
-        continue;
-      }
+          continue;
+        }
 
       /* Don't use non-chroot-able daemons for remote jobs.  XXX */
       if (!allow_run_as_user && !cs->chroot_possible)
@@ -715,7 +738,8 @@ pick_server(Job *job)
 
 #if DEBUG_SCHEDULER > 1
       trace() << cs->nodename << " compiled " << cs->last_compiled_jobs.size() << " got now: " <<
-        cs->joblist.size() << " speed: " << server_speed (cs) << " compile time " << cs->cum_compiled.compile_time_user << " produced code " << cs->cum_compiled.osize << endl;
+        cs->joblist.size() << " speed: " << server_speed (cs) << " compile time " <<
+        cs->cum_compiled.compile_time_user << " produced code " << cs->cum_compiled.osize << endl;
 #endif
 
       if ( cs->last_compiled_jobs.size() == 0 && cs->joblist.size() == 0)
@@ -769,10 +793,11 @@ pick_server(Job *job)
   if ( best )
     {
 #if DEBUG_SCHEDULER > 1
-    trace() << "taking best installed " << best->nodename << " " <<  server_speed (best) << endl;
+      trace() << "taking best installed " << best->nodename << " " <<  server_speed (best) << endl;
 #endif
-    return best;
-  }
+      return best;
+    }
+
 #if DEBUG_SCHEDULER > 1
   if ( bestui )
     trace() << "taking best uninstalled " << bestui->nodename << " " <<  server_speed (bestui) << endl;
@@ -788,34 +813,39 @@ prune_servers ()
   list<CS*>::iterator it;
 
   time_t now = time( 0 );
-  for (it = css.begin(); it != css.end(); ) {
-    if ( now - ( *it )->last_talk > 35 ) {
-      if ( ( *it )->max_jobs > 0 ) {
-        trace() << "send ping " << ( *it )->nodename << endl;
-        ( *it )->send_msg( PingMsg() );
-        ( *it )->max_jobs *= -1; // better not give it away
-        ( *it )->last_talk = time( 0 ); // now wait another 15s
-      } else { // R.I.P.
-        trace() << "removing " << ( *it )->nodename << endl;
-	CS *old = *it;
-	++it;
-	handle_end (old, 0);
-        continue;
-      }
-    }
+  for (it = css.begin(); it != css.end(); )
+    {
+      if ( now - ( *it )->last_talk > 35 )
+        {
+          if ( ( *it )->max_jobs > 0 )
+            {
+              trace() << "send ping " << ( *it )->nodename << endl;
+              ( *it )->send_msg( PingMsg() );
+              ( *it )->max_jobs *= -1; // better not give it away
+              ( *it )->last_talk = time( 0 ); // now wait another 15s
+            }
+          else
+            { // R.I.P.
+              trace() << "removing " << ( *it )->nodename << endl;
+              CS *old = *it;
+              ++it;
+              handle_end (old, 0);
+              continue;
+            }
+        }
 #if DEBUG_SCHEDULER > 1
-    if ((random() % 400) < 0)
-      { // R.I.P.
-        trace() << "FORCED removing " << ( *it )->nodename << endl;
-	CS *old = *it;
-	++it;
-	handle_end (old, 0);
-        continue;
-      }
+      if ((random() % 400) < 0)
+        { // R.I.P.
+          trace() << "FORCED removing " << ( *it )->nodename << endl;
+          CS *old = *it;
+          ++it;
+          handle_end (old, 0);
+          continue;
+        }
 #endif
 
-    ++it;
-  }
+      ++it;
+    }
 
 
   /**
@@ -836,9 +866,7 @@ prune_servers ()
           */
           break;
         }
-
     }
-
 }
 
 static Job*
@@ -847,6 +875,7 @@ delay_current_job()
   assert (!toanswer.empty());
   if ( toanswer.size() == 1 )
     return 0;
+
   UnansweredList *first = toanswer.front();
   toanswer.pop_front();
   toanswer.push_back( first );
@@ -879,49 +908,50 @@ empty_queue()
   Job *first_job = job;
   CS *cs = 0;
 
-  while ( true ) {
-    cs = pick_server (job);
+  while ( true )
+    {
+      cs = pick_server (job);
 
-    if (cs)
-      break;
+      if (cs)
+        break;
 
 #if DEBUG_SCHEDULER > 0
-    trace() << "tried to pick a server for " << job->id;
+      trace() << "tried to pick a server for " << job->id;
 #endif
 
-    /* Ignore the load on the submitter itself if no other host could
-       be found.  We only obey to its max job number.  */
-    cs = job->submitter;
-    if (! (int( cs->joblist.size() ) < cs->max_jobs
-           /* This should be trivially true.  */
-           && can_install (cs, job).size()))
-      {
+      /* Ignore the load on the submitter itself if no other host could
+         be found.  We only obey to its max job number.  */
+      cs = job->submitter;
+      if (! (int( cs->joblist.size() ) < cs->max_jobs
+             /* This should be trivially true.  */
+             && can_install (cs, job).size()))
+        {
 #if DEBUG_SCHEDULER > 0
-        trace() << " and failed ";
+          trace() << " and failed ";
 #endif
 
 #if DEBUG_SCHEDULER > 1
-        list<UnansweredList*>::iterator it;
-        for (it = toanswer.begin(); it != toanswer.end(); ++it)
-		trace() << (*it)->server->nodename << " ";
+          list<UnansweredList*>::iterator it;
+          for (it = toanswer.begin(); it != toanswer.end(); ++it)
+            trace() << (*it)->server->nodename << " ";
 #endif
 
 #if DEBUG_SCHEDULER > 0
-	trace() << endl;
+          trace() << endl;
 #endif
 
-        job = delay_current_job();
-        if ( job == first_job || !job ) // no job found in the whole toanswer list
-          return false;
-      }
-    else
-      {
+          job = delay_current_job();
+          if ( job == first_job || !job ) // no job found in the whole toanswer list
+            return false;
+        }
+      else
+        {
 #if DEBUG_SCHEDULER > 0
-        trace () << " and had to use submitter\n";
+          trace () << " and had to use submitter\n";
 #endif
-        break;
-      }
-  }
+          break;
+        }
+    }
 
   remove_job_request ();
 
@@ -947,10 +977,10 @@ empty_queue()
 #endif
       cs->joblist.push_back( job );
       if ( !gotit ) // if we made the environment transfer, don't rely on the list
-      {
-	cs->compiler_versions.clear();
-        cs->busy_installing = time(0);
-      }
+        {
+          cs->compiler_versions.clear();
+          cs->busy_installing = time(0);
+        }
       string env;
       if ( !job->master_job_for.empty() )
         {
@@ -1061,18 +1091,21 @@ handle_job_begin (MsgChannel *c, Msg *_m)
     return false;
   }
   Job *job = jobs[m->job_id];
-  if (job->server != c) {
-    trace() << "that job isn't handled by " << c->name << endl;
-    return false;
-  }
+  if (job->server != c)
+    {
+      trace() << "that job isn't handled by " << c->name << endl;
+      return false;
+    }
   job->state = Job::COMPILING;
   job->starttime = m->stime;
   job->start_on_scheduler = time(0);
   CS *cs = dynamic_cast<CS*>( c );
   notify_monitors (MonJobBeginMsg (m->job_id, m->stime, cs->hostid));
 #if DEBUG_SCHEDULER >= 0
-  trace() << "BEGIN: " << m->job_id << " client=" << job->submitter->nodename << "(" << job->target_platform
-          << ")" << " server=" << job->server->nodename << "(" << job->server->host_platform << ")" << endl;
+  trace() << "BEGIN: " << m->job_id << " client=" << job->submitter->nodename
+          << "(" << job->target_platform << ")" << " server="
+          << job->server->nodename << "(" << job->server->host_platform
+          << ")" << endl;
 #endif
 
   return true;
@@ -1176,7 +1209,7 @@ handle_stats (MsgChannel * c, Msg * _m)
     cs->max_jobs *= -1;
 
   for (list<CS*>::iterator it = css.begin(); it != css.end(); ++it)
-    if ( *it == c)
+    if ( *it == c )
       {
         ( *it )->load = m->load;
         handle_monitor_stats( *it, m );
@@ -1710,23 +1743,23 @@ main (int argc, char * argv[])
       FD_SET (broad_fd, &read_set);
       for (map<int, MsgChannel *>::const_iterator it = fd2chan.begin();
            it != fd2chan.end();)
-	 {
-	   int i = it->first;
-	   MsgChannel *c = it->second;
-	   bool ok = true;
-	   ++it;
-	   /* handle_activity() can delete c and make the iterator
-	      invalid.  */
-	   while (ok && c->has_msg ())
-	     if (!handle_activity (c))
-	       ok = false;
-	   if (ok)
-	     {
-	       if (i > max_fd)
-	         max_fd = i;
-	       FD_SET (i, &read_set);
-	     }
-	 }
+        {
+          int i = it->first;
+          MsgChannel *c = it->second;
+          bool ok = true;
+          ++it;
+          /* handle_activity() can delete c and make the iterator
+             invalid.  */
+          while (ok && c->has_msg ())
+            if (!handle_activity (c))
+              ok = false;
+          if (ok)
+            {
+              if (i > max_fd)
+                max_fd = i;
+              FD_SET (i, &read_set);
+            }
+        }
       max_fd = select (max_fd + 1, &read_set, NULL, NULL, NULL);
       if (max_fd < 0 && errno == EINTR)
         continue;
@@ -1826,20 +1859,20 @@ main (int argc, char * argv[])
 	}
       for (map<int, MsgChannel *>::const_iterator it = fd2chan.begin();
            max_fd && it != fd2chan.end();)
-	 {
-	   int i = it->first;
-	   MsgChannel *c = it->second;
-	   /* handle_activity can delete the channel from the fd2chan list,
-	      hence advance the iterator right now, so it doesn't become
-	      invalid.  */
-	   ++it;
-	   if (FD_ISSET (i, &read_set))
-	     {
-	       if (!c->read_a_bit () || c->has_msg ())
-	         handle_activity (c);
-	       max_fd--;
-	     }
-	 }
+        {
+          int i = it->first;
+          MsgChannel *c = it->second;
+          /* handle_activity can delete the channel from the fd2chan list,
+             hence advance the iterator right now, so it doesn't become
+             invalid.  */
+          ++it;
+          if (FD_ISSET (i, &read_set))
+            {
+              if (!c->read_a_bit () || c->has_msg ())
+                handle_activity (c);
+              max_fd--;
+            }
+        }
     }
   close (broad_fd);
   return 0;
