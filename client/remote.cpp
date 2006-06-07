@@ -526,7 +526,10 @@ int build_remote(CompileJob &job, MsgChannel *local_daemon, const Environments &
             fake_filename += "/" + *it;
 */
         fake_filename += get_absfilename( job.inputFile() );
-        GetCSMsg getcs (envs, fake_filename, job.language(), torepeat, job.targetPlatform(), job.argumentFlags() );
+	string prefered_host = getenv("ICECC_PREFERRED_HOST");
+        GetCSMsg getcs (envs, fake_filename, job.language(), torepeat, 
+			job.targetPlatform(), job.argumentFlags(), 
+		        prefered_host );
         if (!local_daemon->send_msg (getcs)) {
             log_warning() << "asked for CS\n";
             throw( 0 );
@@ -564,7 +567,8 @@ int build_remote(CompileJob &job, MsgChannel *local_daemon, const Environments &
         sprintf( rand_seed, "-frandom-seed=%d", rand() );
         job.appendFlag( rand_seed, Arg_Remote );
 
-        GetCSMsg getcs (envs, get_absfilename( job.inputFile() ), job.language(), torepeat, job.targetPlatform(), job.argumentFlags() );
+        GetCSMsg getcs (envs, get_absfilename( job.inputFile() ), job.language(), torepeat, 
+			job.targetPlatform(), job.argumentFlags(), getenv("ICECC_PREFERRED_HOST") );
         if (!local_daemon->send_msg (getcs)) {
             log_warning() << "asked for CS\n";
             throw( 0 );

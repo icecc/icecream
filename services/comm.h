@@ -33,9 +33,11 @@
 #include "job.h"
 
 // if you increase the PROTOCOL_VERSION, add a macro below and use that
-#define PROTOCOL_VERSION 21
+#define PROTOCOL_VERSION 22
 // if you increase the MIN_PROTOCOL_VERSION, comment out macros below and clean up the code
 #define MIN_PROTOCOL_VERSION 21
+
+#define IS_PROTOCOL_22( c ) ( c->protocol >= 22 )
 
 enum MsgType {
   // so far unknown
@@ -229,9 +231,15 @@ public:
   std::string target;
   uint32_t arg_flags;
   uint32_t client_id;
+  std::string preferred_host;
   GetCSMsg () : Msg(M_GET_CS), count( 1 ),arg_flags( 0 ), client_id( 0 ) {}
-  GetCSMsg (const Environments &envs, const std::string &f, CompileJob::Language _lang, unsigned int _count, std::string _target, unsigned int _arg_flags)
-    : Msg(M_GET_CS), versions( envs ), filename(f), lang(_lang), count( _count ), target( _target ), arg_flags( _arg_flags ), client_id( 0 )
+  GetCSMsg (const Environments &envs, const std::string &f, 
+            CompileJob::Language _lang, unsigned int _count, 
+	    std::string _target, unsigned int _arg_flags, 
+            const std::string &host)
+    : Msg(M_GET_CS), versions( envs ), filename(f), lang(_lang), 
+            count( _count ), target( _target ), arg_flags( _arg_flags ), 
+            client_id( 0 ), preferred_host(host)
   {}
   virtual void fill_from_channel (MsgChannel * c);
   virtual void send_to_channel (MsgChannel * c) const;
@@ -438,7 +446,7 @@ public:
     clientid = job_id = 0;
   }
   MonGetCSMsg( int jobid, int hostid, GetCSMsg *m )
-    : GetCSMsg( Environments(), m->filename, m->lang, 1, m->target, 0 ), job_id( jobid ), clientid( hostid )
+    : GetCSMsg( Environments(), m->filename, m->lang, 1, m->target, 0, std::string() ), job_id( jobid ), clientid( hostid )
   {
     type = M_MON_GET_CS;
   }

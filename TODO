@@ -8,8 +8,6 @@ Release Critical:
    This would simplify some things and avoid the above bugs (and it would make it more
    convenient for users of /opt/gcc-cvs/bin too)
 * Improve Documentation (cschum)
-* I'm not sure but I think we need to lock the local host _before_ we fork off the notification
-  child. Otherwise the gantt view explodes :)
 * make the protocol version an uint32, not a hand-build array.
 * let the client specify it was compiled with recent compiler (supporting -param). If so,
   let the daemon compile with the options, otherwise leave them out. 
@@ -35,8 +33,6 @@ Random:
   locally and bigger ones preferably remote.
 
 Suggestions from "Wilson Snyder" sicortex.com:
-- make a debug variable that forces a job to be compiled on specific host to make
-  debugging a farm easier (to be used with care :)
 - Add ICECREAM_RUN_ICECCD to make the scheduler machine not run iceccd
 - Have schedulers redudant - e.g. as in nmbd
 

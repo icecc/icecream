@@ -179,6 +179,7 @@ public:
   list<Job*> master_job_for;
   unsigned int arg_flags;
   string language; // for debugging
+  string preferred_host; // for debugging daemons
   Job (unsigned int _id, CS *subm)
     : id(_id), local_client_id( 0 ), state(PENDING), server(0),
       submitter(subm),
@@ -469,6 +470,7 @@ handle_cs_request (MsgChannel *c, Msg *_m)
       job->language = ( m->lang == CompileJob::Lang_C ? "C" : "C++" );
       job->filename = m->filename;
       job->local_client_id = m->client_id;
+      job->preferred_host = m->preferred_host;
       enqueue_job_request (job);
       log_info() << "NEW " << job->id << " client=" << submitter->nodename << " versions=[";
       for ( Environments::const_iterator it = job->environments.begin(); it != job->environments.end(); ++it )
@@ -626,6 +628,17 @@ pick_server(Job *job)
                     cs->joblist.end(), j ) != cs->joblist.end() );
     }
 #endif
+
+  /* if the user wants to test/prefer one specific daemon, we look for that one first */
+  if (!job->preferred_host.empty()) 
+    {
+	for (it = css.begin(); it != css.end(); ++it)
+          {
+             CS *cs = *it;
+	     if (cs->nodename == job->preferred_host)
+	       return cs;
+	  }	
+    }
 
   /* If we have no statistics simply use the first server which is usable.  */
   if (!all_job_stats.size ())
