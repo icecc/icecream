@@ -69,6 +69,7 @@ string find_compiler( const string &compiler )
     string::size_type begin = 0;
     string::size_type end = 0;
     struct stat s;
+    bool after_selflink = false;
 
     while ( end != string::npos ) {
         end = path.find_first_of( ':', begin );
@@ -90,12 +91,17 @@ string find_compiler( const string &compiler )
                 }
                 buffer[ret] = 0;
                 string target = find_basename( buffer );
-                if ( target == rs_program_name || target == "tbcompiler" || target == "distcc" || target == "colorgcc" ) {
+                if ( target == rs_program_name 
+                     || after_selflink
+                        && (target == "tbcompiler" || target == "distcc"
+                            || target == "colorgcc") ) {
                     // this is a link pointing to us, ignore it
+                    after_selflink = true;
                     continue;
                 }
             }
-            return part;
+            if(after_selflink)
+                return part;
         }
     }
     log_error() << "couldn't find any " << compiler << endl;
