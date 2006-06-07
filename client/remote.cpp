@@ -526,10 +526,10 @@ int build_remote(CompileJob &job, MsgChannel *local_daemon, const Environments &
             fake_filename += "/" + *it;
 */
         fake_filename += get_absfilename( job.inputFile() );
-	string prefered_host = getenv("ICECC_PREFERRED_HOST");
+        const char *preferred_host = getenv("ICECC_PREFERRED_HOST");
         GetCSMsg getcs (envs, fake_filename, job.language(), torepeat, 
 			job.targetPlatform(), job.argumentFlags(), 
-		        prefered_host );
+		        preferred_host ? preferred_host : string() );
         if (!local_daemon->send_msg (getcs)) {
             log_warning() << "asked for CS\n";
             throw( 0 );
