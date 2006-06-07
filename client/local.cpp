@@ -90,7 +90,7 @@ string find_compiler( const string &compiler )
                 }
                 buffer[ret] = 0;
                 string target = find_basename( buffer );
-                if ( target == rs_program_name || target == "tbcompiler" ) {
+                if ( target == rs_program_name || target == "tbcompiler" || target == "distcc" || target == "colorgcc" ) {
                     // this is a link pointing to us, ignore it
                     continue;
                 }
