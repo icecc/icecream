@@ -52,30 +52,27 @@ add_file ()
   fi
 }
 
-test -n "$CC" || CC=gcc
-test -n "$CXX" || CXX=g++
-
-# prefer /usr/bin installations over colorgcc
-if test "$1" != "--respect-path"; then
-   PATH=/usr/bin:$PATH
-# Perhaps we are on Gentoo.  They provide a wrapper for GCC.
-elif test -x /usr/bin/gcc-config; then
-  gccpath=`/usr/bin/gcc-config -B`
-  if test -d "$gccpath" && test -x "$gccpath/gcc"; then
-    PATH=$gccpath:$PATH
-  fi
+# backward compat
+if test "$1" = "--respect-path"; then
+  shift
 fi
 
-added_gcc=`which $CC`
-added_gxx=`which $CXX`
+added_gcc=$1
+shift
+added_gxx=$1
 
-if test -z "$added_gcc" ; then
-  echo "No gcc found in path."
+if test -z "$added_gcc" || test -z "$added_gxx"; then
+	echo "usage: $0 <gcc_path> <g++_path>"
+	exit 1
+fi
+	
+if ! test -x "$added_gcc" ; then
+  echo "'$added_gcc' is no executable."
   exit 1
 fi
 
-if test -z "$added_gxx" ; then
-  echo "No g++ found in path."
+if ! test -x "$added_gxx" ; then
+  echo "'$added_gcc' is no executable."
   exit 1
 fi
 

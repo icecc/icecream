@@ -272,8 +272,8 @@ size_t setup_env_cache(const string &basedir, string &native_environment, uid_t 
                 goto error;
             }
 
-            if ( system( BINDIR "/create-env" ) ) {
-                log_error() << BINDIR "/create-env failed\n";
+            if ( system( BINDIR "/icecc --build-native" ) ) {
+                log_error() << BINDIR "/icecc --build-native failed\n";
                 goto error;
             } else {
                 _exit( 0 );

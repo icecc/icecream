@@ -105,6 +105,55 @@ static void dcc_client_catch_signals(void)
     signal(SIGHUP, &dcc_client_signalled);
 }
 
+static string read_output( const char *command )
+{
+    FILE *f = popen( command, "rt" );
+    string output;
+    if ( !f ) {
+        log_error() << "no pipe " << strerror( errno ) << endl;
+        return output;
+    }
+    char buffer[PATH_MAX];
+    while ( !feof( f ) ) {
+        size_t bytes = fread( buffer, 1, PATH_MAX - 1, f );
+        buffer[bytes] = 0;
+        output += buffer;
+    }
+    pclose( f );
+    return output;
+}
+
+static int create_native()
+{
+    const char *value = getenv("CC");
+    string gcc = "gcc";
+    if (value)
+        gcc = value;
+    string gpp = "g++";
+    value = getenv("CXX");
+    if (value)
+        gpp = value;
+
+    struct stat st;
+    // perhaps we're on gentoo
+    if ( !lstat("/usr/bin/gcc-config", &st) ) {
+        string gccpath=read_output("/usr/bin/gcc-config -B") + "/";
+        gcc=gccpath + "gcc";
+        gpp=gccpath + "g++";
+    }
+
+    gcc = find_compiler(gcc);
+    gpp = find_compiler(gpp);
+
+    char **argv = new char*[4];
+    argv[0] = strdup( BINDIR "/icecc-create-env"  );
+    argv[1] = strdup( gcc.c_str() );
+    argv[2] = strdup( gpp.c_str() );
+    argv[3] = NULL;
+
+    return execv(argv[0], argv);
+
+}
 
 /**
  * distcc client entry point.
@@ -145,6 +194,8 @@ int main(int argc, char **argv)
                 printf( "ICECREAM " VERSION "\n" );
                 return 0;
             }
+	    if ( arg == "--build-native" )
+                return create_native();
         }
     }
 
