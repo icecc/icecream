@@ -8,7 +8,7 @@ svn export svn+ssh://svn.kde.org/home/kde/trunk/icecream
 rm icecream/suse/update_rpm
 version=`grep INIT_AUTOMAKE icecream/configure.in  | cut -d, -f2 | sed -e 's,[^"]*",,; s,".*,,'`
 tar -cvj -f $opwd/icecream-$version.tar.bz2 icecream
-sed -e "s,Version:.*,Version:$version," icecream/suse/icecream.spec > $opwd/icecream.spec
+sed -e "s,Version:.*,Version:$version," icecream/suse/icecream.spec.in > $opwd/icecream.spec
 mkdir mans
 omans=$PWD/mans
 cd icecream/doc
