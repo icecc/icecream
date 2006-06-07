@@ -100,7 +100,7 @@ string find_compiler( const string &compiler )
                     continue;
                 }
             }
-            if(after_selflink)
+            if ( after_selflink )
                 return part;
         }
     }
