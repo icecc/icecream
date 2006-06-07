@@ -166,14 +166,38 @@ bool cleanup_cache( const string &basedir, uid_t nobody_uid, gid_t nobody_gid )
 
     if ( !::access( basedir.c_str(), W_OK ) ) { // it exists - removing content
 
-        char **argv;
-        argv = new char*[4];
-        argv[0] = strdup( "/bin/rm" );
-        argv[1] = strdup( "-rf" );
-        argv[2] = strdup( basedir.c_str() );
-        argv[3] = NULL;
+        if ( chdir( basedir.c_str() ) ) {
+            log_error() << "chdir" << strerror( errno ) << endl;
+            _exit( 1 );
+        }
 
-        _exit(execv(argv[0], argv));
+        char buffer[PATH_MAX];
+        DIR *dir = opendir( "." );
+        if ( !dir )
+            _exit( 1 ); // very unlikely
+
+        struct dirent *subdir = readdir( dir );
+        while ( subdir ) {
+            if ( !strcmp( subdir->d_name, "." ) || !strcmp( subdir->d_name, ".." ) ) {
+                subdir = readdir( dir );
+                continue;
+            }
+            snprintf( buffer, PATH_MAX, "rm -rf '%s'", subdir->d_name );
+            if ( system( buffer ) ) {
+                log_error() << "rm -rf failed\n";
+                _exit( 1 );
+            }
+            subdir = readdir( dir );
+        }
+        closedir( dir );
+    }
+
+    if ( mkdir( basedir.c_str(), 0755 ) && errno != EEXIST ) {
+        if ( errno == EPERM )
+            log_error() << "cache directory can't be generated: " << basedir << endl;
+        else
+            log_perror( "Failed " );
+        _exit( 1 );
     }
     _exit( 0 );
 }
