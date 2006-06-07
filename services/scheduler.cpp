@@ -46,6 +46,7 @@
 #include "comm.h"
 #include "logging.h"
 #include "job.h"
+#include "config.h"
 
 #define DEBUG_SCHEDULER 2
 
@@ -1569,6 +1570,7 @@ usage(const char* reason = 0)
   if (reason)
      cerr << reason << endl;
 
+  cerr << "ICECREAM scheduler " VERSION "\n";
   cerr << "usage: scheduler [options] \n"
        << "Options:\n"
        << "  -n, --netname <name>\n"
