@@ -1,3 +1,11 @@
+0.7.2 (r549439): 
+	- split out libicecream-devel for the monitor
+	- introducing ICECC_PREFERRED_HOST (=mybigfathost) to let the scheduler
+          ignore all rules - this is meant to be a debugging aid
+	- fix network performance between client and local daemon
+	- replaced create-env with icecc --build-native (respecting the user's 
+          $PATH by default)
+
 0.7.1 (r548846):	
 	- Monitor is an extra package now
 	- don't make non-existant cross compilers fatal, but just use
