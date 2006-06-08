@@ -185,7 +185,11 @@ exec_prefix=$savex
 ])
 
 KDE_EXPAND_MAKEVAR(mybindir, bindir)
-AC_DEFINE_UNQUOTED(BINDIR, "$mybindir", [Where to look for create-env])
+AC_DEFINE_UNQUOTED(BINDIR, "$mybindir", [Where to look for icecc])
+
+myopkglibdir='${libdir}/'"$PACKAGE"
+KDE_EXPAND_MAKEVAR(mypkglibdir, myopkglibdir)
+AC_DEFINE_UNQUOTED(PLIBDIR, "$mypkglibdir", [Where to look for icecc-create-env])
 
 AC_OUTPUT
 
