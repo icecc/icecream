@@ -105,7 +105,7 @@ rm -rf ${RPM_BUILD_ROOT}
 %config /etc/init.d/icecream
 %_bindir/icecc
 %_sbindir/scheduler
-%_bindir/create-env
+%_libdir/icecream
 %_sbindir/iceccd
 %_sbindir/rcicecream
 %_mandir/man*/*
