@@ -70,6 +70,7 @@ string find_compiler( const string &compiler )
     string::size_type end = 0;
     struct stat s;
     bool after_selflink = false;
+    string best_match;
 
     while ( end != string::npos ) {
         end = path.find_first_of( ':', begin );
@@ -99,13 +100,16 @@ string find_compiler( const string &compiler )
                     after_selflink = true;
                     continue;
                 }
-            }
+            } else
+		best_match = part;
+
             if ( after_selflink )
                 return part;
         }
     }
-    log_error() << "couldn't find any " << compiler << endl;
-    return string();
+    if ( best_match.empty() ) 
+    	log_error() << "couldn't find any " << compiler << endl;
+    return best_match;
 }
 
 static volatile int lock_fd = 0;

@@ -145,6 +145,9 @@ static int create_native()
     gcc = find_compiler(gcc);
     gpp = find_compiler(gpp);
 
+    if ( gcc.empty() || gpp.empty())
+	return 1;
+
     if ( lstat( PLIBDIR "/icecc-create-env", &st ) ) {
 	log_error() << PLIBDIR "/icecc-create-env does not exist\n";
         return 1;
