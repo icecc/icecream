@@ -74,11 +74,12 @@ static void dcc_show_usage(void)
 "   --build-native             create icecc environment\n"
 "Environment Variables:\n"
 "   ICECC_VERSION              use a specific icecc environment, see create-env\n"
-"   ICECC_DEBUG                [ info | warnings | debug]\n"
+"   ICECC_DEBUG                [info | warnings | debug]\n"
 "                              sets verboseness of icecream client.\n"
 "   ICECC_REPEAT_RATE          the number of jobs out of 1000 that should be\n"
 "                              compiled on multiple hosts to ensure that they're\n"
 "                              producing the same output.  The default is 10.\n"
+"   ICECC_PREFERRED_HOST       Always compile jobs on the given remote host.\n"
 "\n");
 }
 
