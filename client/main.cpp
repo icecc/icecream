@@ -71,8 +71,11 @@ static void dcc_show_usage(void)
 "Options:\n"
 "   --help                     explain usage and exit\n"
 "   --version                  show version and exit\n"
+"   --build-native             create icecc environment\n"
 "Environment Variables:\n"
 "   ICECC_VERSION              use a specific icecc environment, see create-env\n"
+"   ICECC_DEBUG                [ info | warnings | debug]\n"
+"                              sets verboseness of icecream client.\n"
 "   ICECC_REPEAT_RATE          the number of jobs out of 1000 that should be\n"
 "                              compiled on multiple hosts to ensure that they're\n"
 "                              producing the same output.  The default is 10.\n"
@@ -189,8 +192,6 @@ int main(int argc, char **argv)
     string compiler_name = argv[0];
     dcc_client_catch_signals();
 
-    trace() << "first\n";
-
     if ( find_basename( compiler_name ) == rs_program_name) {
         if ( argc > 1 ) {
             string arg = argv[1];
@@ -231,10 +232,7 @@ int main(int argc, char **argv)
 
     local |= analyse_argv( argv, job );
 
-    trace() << "before connect\n";
-
     MsgChannel *local_daemon = Service::createChannel( "127.0.0.1", 10245, 0/*timeout*/);
-    trace () << "after connect\n";
     if ( ! local_daemon ) {
         log_warning() << "no local daemon found\n";
         return build_local( job, 0 );
@@ -259,7 +257,7 @@ int main(int argc, char **argv)
             Msg *umsg = local_daemon->get_msg(4 * 60);
             trace() << "got " << (umsg ? ( char )umsg->type : '?') << endl;
             if ( !umsg || umsg->type != M_NATIVE_ENV ) {
-		log_warning() << "daemon can't determine native environment. Set $ICECC_VERSION to an icecream environment.\n";
+		log_warning() << "daemon can't determine native environment. Set $ICECC_VERSION to an icecc environment.\n";
 		delete umsg;
                 goto do_local_error;
             }
