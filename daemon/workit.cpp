@@ -323,14 +323,14 @@ int work_it( CompileJob &j,
                 break;
             default:
                 if ( FD_ISSET(sock_out[0], &rfds) ) {
-                    ssize_t bytes = read( sock_out[0], buffer, 4096 );
+                    ssize_t bytes = read( sock_out[0], buffer, sizeof(buffer)-1 );
                     if ( bytes > 0 ) {
                         buffer[bytes] = 0;
                         str_out.append( buffer );
                     }
                 }
                 if ( FD_ISSET(sock_err[0], &rfds) ) {
-                    ssize_t bytes = read( sock_err[0], buffer, 4096 );
+                    ssize_t bytes = read( sock_err[0], buffer, sizeof(buffer)-1 );
                     if ( bytes > 0 ) {
                         buffer[bytes] = 0;
                         str_err.append( buffer );
