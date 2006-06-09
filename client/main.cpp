@@ -79,7 +79,9 @@ static void dcc_show_usage(void)
 "   ICECC_REPEAT_RATE          the number of jobs out of 1000 that should be\n"
 "                              compiled on multiple hosts to ensure that they're\n"
 "                              producing the same output.  The default is 10.\n"
-"   ICECC_PREFERRED_HOST       Always compile jobs on the given remote host.\n"
+"   ICECC_PREFERRED_HOST       overrides scheduler decisions if set.\n"
+"   IECCC_CC                   set C compiler name (default gcc).\n"
+"   ICECC_CXX                  set C++ compiler name (default g++).\n"
 "\n");
 }
 
@@ -129,25 +131,18 @@ static string read_output( const char *command )
 
 static int create_native()
 {
-    const char *value = getenv("CC");
-    string gcc = "gcc";
-    if (value)
-        gcc = value;
-    string gpp = "g++";
-    value = getenv("CXX");
-    if (value)
-        gpp = value;
-
     struct stat st;
+    string gcc, gpp;
+
     // perhaps we're on gentoo
     if ( !lstat("/usr/bin/gcc-config", &st) ) {
         string gccpath=read_output("/usr/bin/gcc-config -B") + "/";
         gcc=gccpath + "gcc";
         gpp=gccpath + "g++";
+    } else {
+        gcc = find_compiler( CompileJob::Lang_C );
+        gpp = find_compiler( CompileJob::Lang_CXX );
     }
-
-    gcc = find_compiler(gcc);
-    gpp = find_compiler(gpp);
 
     if ( gcc.empty() || gpp.empty())
 	return 1;

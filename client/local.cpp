@@ -47,21 +47,22 @@ extern const char * rs_program_name;
  * variable set. This is useful for native cross-compilers.
  * (arm-linux-gcc for example)
  */
-string get_compiler_name( const CompileJob &job ) {
+static string get_compiler_name( CompileJob::Language lang ) {
     string compiler_name = "gcc";
 
     if ( getenv( "ICECC_CC" ) != 0 )
         compiler_name = getenv( "ICECC_CC" );
 
-    if ( job.language() == CompileJob::Lang_CXX )
+    if ( lang == CompileJob::Lang_CXX )
         compiler_name = getenv( "ICECC_CXX" ) != 0 ?
                         getenv( "ICECC_CXX" ) : "g++";
 
     return compiler_name;
 }
 
-string find_compiler( const string &compiler )
+string find_compiler( CompileJob::Language lang )
 {
+    string compiler = get_compiler_name( lang );
     if ( compiler.at( 0 ) == '/' )
         return compiler;
 
@@ -142,12 +143,11 @@ int build_local(CompileJob &job, MsgChannel *local_daemon, struct rusage *used)
 {
     list<string> arguments;
 
-    string compiler_name = get_compiler_name( job );
-    compiler_name = find_compiler( compiler_name );
+    string compiler_name = find_compiler( job.language() );
     trace() << "build_local " << local_daemon << " compiler: " << compiler_name <<  endl;
 
     if ( compiler_name.empty() ) {
-        log_error() << "could not find " << get_compiler_name (job ) << " in PATH." << endl;
+        log_error() << "could not find " << get_compiler_name (job.language() ) << " in PATH." << endl;
         return EXIT_NO_SUCH_FILE;
     }
 
