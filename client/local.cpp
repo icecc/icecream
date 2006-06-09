@@ -143,8 +143,8 @@ int build_local(CompileJob &job, MsgChannel *local_daemon, struct rusage *used)
     list<string> arguments;
 
     string compiler_name = get_compiler_name( job );
-    trace() << "build_local " << local_daemon << " compiler: " << compiler_name <<  endl;
     compiler_name = find_compiler( compiler_name );
+    trace() << "build_local " << local_daemon << " compiler: " << compiler_name <<  endl;
 
     if ( compiler_name.empty() ) {
         log_error() << "could not find " << get_compiler_name (job ) << " in PATH." << endl;
