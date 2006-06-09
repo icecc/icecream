@@ -1,4 +1,4 @@
-0.7.2 (r549439): 
+0.7.2 (r549574): 
 	- split out libicecream-devel for the monitor
 	- introducing ICECC_PREFERRED_HOST (=mybigfathost) to let the scheduler
           ignore all rules - this is meant to be a debugging aid
