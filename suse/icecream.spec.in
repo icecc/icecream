@@ -53,7 +53,7 @@ libicecream-devel
 export CFLAGS="$RPM_OPT_FLAGS"
 export CXXFLAGS="$RPM_OPT_FLAGS"
 make -f Makefile.cvs
-./configure --prefix=%_prefix 
+./configure --prefix=%_prefix  --libdir=%_libdir
 make
 
 %install
