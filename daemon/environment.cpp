@@ -143,7 +143,7 @@ static void list_target_dirs( const string &current_target, const string &target
     closedir( envdir );
 }
 
-bool cleanup_cache( const string &basedir, uid_t nobody_uid, gid_t nobody_gid )
+bool cleanup_cache( const string &basedir )
 {
     pid_t pid = fork();
     if ( pid )
@@ -166,8 +166,10 @@ bool cleanup_cache( const string &basedir, uid_t nobody_uid, gid_t nobody_gid )
     argv = new char*[5];
     argv[0] = strdup( "/bin/rm" );
     argv[1] = strdup( "-rf" );
-    argv[2] = "--";
-    argv[3] = strdup( basedir.c_str()  );
+    argv[2] = strdup( "--" );
+    // make sure it ends with '/' to not fall into symlink traps
+    string bdir = basedir + '/';
+    argv[3] = strdup( bdir.c_str()  );
     argv[4] = NULL;
 
     _exit(execv(argv[0], argv));
@@ -395,7 +397,7 @@ size_t install_environment( const std::string &basename, const std::string &targ
     char **argv;
     argv = new char*[6];
     argv[0] = strdup( "/bin/tar" );
-    argv[1] = "-C";
+    argv[1] = strdup ("-C");
     argv[2] = strdup ( dirname.c_str() );
     if ( compression == BZip2 )
         argv[3] = strdup( "-xjf" );

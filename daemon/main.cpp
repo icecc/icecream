@@ -1303,7 +1303,7 @@ int main( int argc, char ** argv )
      * not.  */
     dcc_master_pid = getpid();
 
-    if ( !cleanup_cache( d.envbasedir, d.nobody_uid, d.nobody_gid ) )
+    if ( !cleanup_cache( d.envbasedir ) )
         return 1;
 
     list<string> nl = get_netnames (200);
