@@ -100,6 +100,7 @@ public:
      * WAITFORCS: Client asked for a CS and we asked the scheduler - waiting for its answer
      * WAITCOMPILE: Client got a CS and will ask him now (it's now me)
      * CLIENTWORK: Client is busy working and we reserve the spot (job_id is set if it's a scheduler job)
+     * WAITFORCHILD: Client is waiting for the compile job to finish.
      */
     enum Status { UNKNOWN, GOTNATIVE, PENDING_USE_CS, JOBDONE, LINKJOB, TOCOMPILE, WAITFORCS,
                   WAITCOMPILE, CLIENTWORK, WAITFORCHILD } status;
@@ -937,6 +938,16 @@ bool Daemon::handle_activity( MsgChannel *c )
 {
     Client *client = clients.find_by_channel( c );
     assert( client );
+
+    if (client->status == Client::TOCOMPILE) {
+        /* we can get get activity on a channel for a client
+           that is still waiting for a free kid. Let the
+           messages queue up, we can't handle them right now
+           anyway, and we don't want to end the client because
+           of a protocol error. */
+        return true;
+    }
+
     Msg *msg = c->get_msg();
     if ( !msg ) {
         log_error() << "no message from client\n";
