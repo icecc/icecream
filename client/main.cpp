@@ -310,8 +310,6 @@ int main(int argc, char **argv)
             ret = build_local( job, 0 );
         }
     }
-    local_daemon->send_msg (EndMsg());
-    trace() << "after endmsg\n";
     delete local_daemon;
     return ret;
 
