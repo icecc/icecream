@@ -151,6 +151,14 @@ bool cleanup_cache( const string &basedir, uid_t nobody_uid, gid_t nobody_gid )
         int status = 0;
         while ( waitpid( pid, &status, 0 ) < 0 && errno == EINTR )
             ;
+
+        if ( mkdir( basedir.c_str(), 0755 ) && errno != EEXIST ) {
+            if ( errno == EPERM )
+                log_error() << "permission denied on mkdir " << basedir << endl;
+            else
+                log_perror( "mkdir in cleanup_cache() failed" );
+            return false;
+        }
         return WIFEXITED(status);
     }
     // else
@@ -171,35 +179,16 @@ bool cleanup_cache( const string &basedir, uid_t nobody_uid, gid_t nobody_gid )
             _exit( 1 );
         }
 
-        char buffer[PATH_MAX];
-        DIR *dir = opendir( "." );
-        if ( !dir )
-            _exit( 1 ); // very unlikely
+        char **argv;
+        argv = new char*[4];
+        argv[0] = strdup( "/bin/rm" );
+        argv[1] = strdup( "-rf" );
+        argv[2] = strdup( basedir.c_str()  );
+        argv[3] = NULL;
 
-        struct dirent *subdir = readdir( dir );
-        while ( subdir ) {
-            if ( !strcmp( subdir->d_name, "." ) || !strcmp( subdir->d_name, ".." ) ) {
-                subdir = readdir( dir );
-                continue;
-            }
-            snprintf( buffer, PATH_MAX, "rm -rf '%s'", subdir->d_name );
-            if ( system( buffer ) ) {
-                log_error() << "rm -rf failed\n";
-                _exit( 1 );
-            }
-            subdir = readdir( dir );
-        }
-        closedir( dir );
+        _exit(execv(argv[0], argv));
     }
-
-    if ( mkdir( basedir.c_str(), 0755 ) && errno != EEXIST ) {
-        if ( errno == EPERM )
-            log_error() << "cache directory can't be generated: " << basedir << endl;
-        else
-            log_perror( "Failed " );
-        _exit( 1 );
-    }
-    _exit( 0 );
+    _exit(0);
 }
 
 Environments available_environmnents(const string &basedir)
