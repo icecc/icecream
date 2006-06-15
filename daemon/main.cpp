@@ -939,7 +939,7 @@ bool Daemon::handle_activity( MsgChannel *c )
     assert( client );
     Msg *msg = c->get_msg();
     if ( !msg ) {
-        log_error() << "no message\n";
+        log_error() << "no message from client\n";
         handle_end( client, 118 );
         return false;
     }
