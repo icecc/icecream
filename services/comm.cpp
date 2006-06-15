@@ -720,10 +720,16 @@ MsgChannel::wait_for_protocol ()
       struct timeval tv;
       tv.tv_sec = 5;
       tv.tv_usec = 0;
-      if (select (fd + 1, &set, NULL, NULL, &tv) <= 0)
-	return false;
-      if (!read_a_bit () || eof )
-	return false;
+      int ret = select (fd + 1, &set, NULL, NULL, &tv);
+      if (ret < 0 && errno == EINTR)
+        continue;
+      if (ret <= 0)
+        {
+          log_perror("select in wait_for_protocol()");
+          return false;
+        }
+      if (!read_a_bit () || eof)
+        return false;
     }
   return true;
 }
