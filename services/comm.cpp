@@ -600,6 +600,8 @@ MsgChannel *Service::createChannel (const string &hostname, unsigned short p, in
     }
   else
     {
+      i = 2048;
+      setsockopt(remote_fd, SOL_SOCKET, SO_SNDBUF, &i, sizeof(i));
       if (connect (remote_fd, (struct sockaddr *) &remote_addr, sizeof (remote_addr)) < 0)
         {
           close( remote_fd );
