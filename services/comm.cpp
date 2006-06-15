@@ -238,7 +238,7 @@ MsgChannel::flush_writebuf (bool blocking)
   bool error = false;
   while (msgtogo)
     {
-      ssize_t ret = write (fd, buf, msgtogo);
+      ssize_t ret = send (fd, buf, msgtogo, MSG_NOSIGNAL);
       if (ret < 0)
         {
 	  if (errno == EINTR)
@@ -247,17 +247,25 @@ MsgChannel::flush_writebuf (bool blocking)
 	     select on the fd.  */
 	  if (blocking && errno == EAGAIN)
 	    {
-	      fd_set write_set;
-	      FD_ZERO (&write_set);
-	      FD_SET (fd, &write_set);
-	      struct timeval tv;
-	      tv.tv_sec = 10;
-	      tv.tv_usec = 0;
-	      if (select (fd + 1, NULL, &write_set, NULL, &tv) > 0)
+              int ready;
+              for(;;)
+                {
+                    fd_set write_set;
+                    FD_ZERO (&write_set);
+                    FD_SET (fd, &write_set);
+                    struct timeval tv;
+                    tv.tv_sec = 20;
+                    tv.tv_usec = 0;
+                    ready = select (fd + 1, NULL, &write_set, NULL, &tv);
+                    if ( ready < 0 && errno == EINTR)
+                        continue;
+                    break;
+                }
+              /* socket ready now for writing ? */
+              if (ready > 0)
 	        continue;
 	      /* Timeout or real error --> error.  */
 	    }
-	  // XXX handle EPIPE ?
 	  error = true;
 	  break;
 	}
@@ -723,7 +731,9 @@ MsgChannel::wait_for_protocol ()
       int ret = select (fd + 1, &set, NULL, NULL, &tv);
       if (ret < 0 && errno == EINTR)
         continue;
-      if (ret <= 0)
+      if (ret == 0)
+          return false; /* timeout. Consider it a fatal error. */
+      if (ret < 0)
         {
           log_perror("select in wait_for_protocol()");
           return false;
