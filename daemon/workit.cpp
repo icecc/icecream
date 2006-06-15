@@ -60,7 +60,7 @@ using namespace std;
 // code based on gcc - Copyright (C) 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
 
 /* Heuristic to set a default for GGC_MIN_EXPAND.  */
-int
+static int
 ggc_min_expand_heuristic(unsigned int mem_limit)
 {
     double min_expand = mem_limit;
@@ -76,7 +76,7 @@ ggc_min_expand_heuristic(unsigned int mem_limit)
 }
 
 /* Heuristic to set a default for GGC_MIN_HEAPSIZE.  */
-unsigned int
+static unsigned int
 ggc_min_heapsize_heuristic(unsigned int mem_limit)
 {
     /* The heuristic is RAM/8, with a lower bound of 4M and an upper
@@ -89,9 +89,9 @@ ggc_min_heapsize_heuristic(unsigned int mem_limit)
 }
 
 
-volatile bool must_reap = false;
+volatile static bool must_reap = false;
 
-void theSigCHLDHandler( int )
+static void theSigCHLDHandler( int )
 {
     must_reap = true;
 }
@@ -173,8 +173,9 @@ int work_it( CompileJob &j,
         close( main_sock[0] );
         fcntl(main_sock[1], F_SETFD, FD_CLOEXEC);
         setenv( "PATH", "usr/bin", 1 );
-	if (getuid() == 0)
-            setenv( "LD_LIBRARY_PATH", "usr/lib:lib", 1 );
+        // Safety check
+        if (getuid() == 0 || getgid() == 0)
+            _exit(142);
 
 #ifdef RLIMIT_AS
         struct rlimit rlim;
