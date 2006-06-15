@@ -247,7 +247,7 @@ int work_it( CompileJob &j,
         dup2( sock_err[1], STDERR_FILENO );
 
         ret = execv( argv[0], const_cast<char *const*>( argv ) ); // no return
-        printf( "all failed\n" );
+        printf( "execv failed: %s\n", strerror(errno) );
 
         char resultByte = 1;
         write(main_sock[1], &resultByte, 1);
@@ -368,9 +368,7 @@ int work_it( CompileJob &j,
                     return EXIT_DISTCC_FAILED;
                 // fall through; should happen if tvp->tv_sec < 0
             case 0:
-            {
                 struct rusage ru;
-                log_block bwait4("wait4 block..");
                 if (wait4(pid, &status, must_reap ? WUNTRACED : WNOHANG, &ru) != 0) // error finishes, too
                 {
                     close( sock_err[0] );
@@ -395,9 +393,7 @@ int work_it( CompileJob &j,
                     return 0;
                 }
                 break;
-            }
             default:
-                log_block bdef("default block");
                 if ( FD_ISSET(sock_out[0], &rfds) ) {
                     ssize_t bytes = read( sock_out[0], buffer, sizeof(buffer)-1 );
                     if ( bytes > 0 ) {
