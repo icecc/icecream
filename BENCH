@@ -45,7 +45,7 @@ improvement of icecream is 27% (LAN: 36%) out of the theoretical 50%.
 ======================================================================
 
 Qt 3.3.6's src/ subdirectory. This is a bunch of medium and large C++ files. It
-gives icecream good opportunities because compilation time is comparatively slow
+gives icecream good opportunities because compilation time is comparatively low
 and the preprocessed files are not too large (low STL usage).
 
 
