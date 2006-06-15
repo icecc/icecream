@@ -321,6 +321,20 @@ pid_t dcc_master_pid;
 
 MsgChannel *scheduler = 0;
 
+static bool send_scheduler(const Msg& msg)
+{
+    if (!scheduler)
+        return false;
+
+    if (!scheduler->send_msg(msg)) {
+        delete scheduler;
+        scheduler = 0;
+        return false;
+    }
+
+    return true;
+}
+
 /**
  * Just log, remove pidfile, and exit.
  *
@@ -349,7 +363,7 @@ static void dcc_daemon_terminate(int whichsig)
 
     if (am_parent) {
         if ( scheduler ) {
-            scheduler->send_msg( EndMsg() ); /// TODO: what happens if it's already in send_msg?
+            send_scheduler( EndMsg() ); /// TODO: what happens if it's already in send_msg?
             scheduler = 0;
         }
 
@@ -377,7 +391,7 @@ void reannounce_environments(const string &envbasedir, const string &nodename)
 {
     LoginMsg lmsg( 0, nodename, "");
     lmsg.envs = available_environmnents(envbasedir);
-    scheduler->send_msg( lmsg );
+    send_scheduler( lmsg );
 }
 
 int setup_listen_fd()
@@ -467,7 +481,7 @@ bool maybe_stats(bool force = false) {
         // Matz got in the urine that not all CPUs are always feed
         mem_limit = std::max( msg.freeMem / std::min( std::max( max_kids, 1U ), 4U ), 100U );
 
-        if ( !scheduler->send_msg( msg ) )
+        if ( !send_scheduler( msg ) )
             return false;
         last_sent = now;
         myidleload = 0;
@@ -597,7 +611,7 @@ string Daemon::dump_internals() const
 int Daemon::scheduler_get_internals( )
 {
     trace() << "handle_get_internals " << dump_internals() << endl;
-    scheduler->send_msg( StatusTextMsg( dump_internals() ) );
+    send_scheduler( StatusTextMsg( dump_internals() ) );
     return 0;
 }
 
@@ -607,7 +621,7 @@ int Daemon::scheduler_use_cs( UseCSMsg *msg )
     trace() << "handle_use_cs " << msg->job_id << " " << msg->client_id
             << " " << c << " " << msg->hostname << " " << remote_name <<  endl;
     if ( !c ) {
-        scheduler->send_msg( JobDoneMsg( msg->job_id, 107, JobDoneMsg::FROM_SUBMITTER ) );
+        send_scheduler( JobDoneMsg( msg->job_id, 107, JobDoneMsg::FROM_SUBMITTER ) );
         return 1;
     }
     if ( msg->hostname == remote_name ) {
@@ -710,7 +724,7 @@ bool Daemon::handle_job_done( MsgChannel *c, Msg *m )
     cl->status = Client::JOBDONE;
     JobDoneMsg *msg = static_cast<JobDoneMsg*>( m );
     trace() << "handle_job_done " << msg->job_id << " " << msg->exitcode << endl;
-    scheduler->send_msg( *msg );
+    send_scheduler( *msg );
     cl->job_id = 0; // the scheduler doesn't have it anymore
     return true;
 }
@@ -731,7 +745,7 @@ int Daemon::handle_old_request()
             client->status = Client::CLIENTWORK;
             clients.active_processes++;
             trace() << "pushed local job " << client->client_id << endl;
-            scheduler->send_msg( JobLocalBeginMsg( client->client_id, client->outfile ) );
+            send_scheduler( JobLocalBeginMsg( client->client_id, client->outfile ) );
 	}
     }
 
@@ -766,12 +780,13 @@ int Daemon::handle_old_request()
     string envforjob = job->targetPlatform() + "/" + job->environmentVersion();
     envs_last_use[envforjob] = time( NULL );
     pid = handle_connection( envbasedir, job, client->channel, sock, mem_limit, nobody_uid, nobody_gid );
+    trace() << "handle connection returned " << pid << endl;
     envmap[pid] = envforjob;
 
     if ( pid > 0) { // forked away
         current_kids++;
         trace() << "sending scheduler about " << job->jobID() << endl;
-        if ( !scheduler || !scheduler->send_msg( JobBeginMsg( job->jobID() ) ) ) {
+        if ( !scheduler || !send_scheduler( JobBeginMsg( job->jobID() ) ) ) {
             log_warning() << "can't reach scheduler to tell him about job start of "
                           << job->jobID() << endl;
             handle_end( client, 114 );
@@ -813,7 +828,7 @@ void Daemon::fetch_children()
             msg->user_msec = ru.ru_utime.tv_sec * 1000 + ru.ru_utime.tv_usec / 1000;
             msg->sys_msec = ru.ru_stime.tv_sec * 1000 + ru.ru_stime.tv_usec / 1000;
             msg->pfaults = ru.ru_majflt + ru.ru_nswap + ru.ru_minflt;
-            scheduler->send_msg( *msg );
+            send_scheduler( *msg );
         }
         envs_last_use[envmap[child]] = time( NULL );
         envmap.erase(child);
@@ -832,7 +847,7 @@ bool Daemon::handle_compile_file( MsgChannel *c, Msg *msg )
     {
         assert( job->environmentVersion() == "__client" );
         assert( scheduler );
-        if ( !scheduler->send_msg( JobBeginMsg( job->jobID() ) ) )
+        if ( !send_scheduler( JobBeginMsg( job->jobID() ) ) )
         {
             log_warning() << "can't reach scheduler to tell him about job start of "
                           << job->jobID() << endl;
@@ -846,8 +861,8 @@ bool Daemon::handle_compile_file( MsgChannel *c, Msg *msg )
 
 void Daemon::handle_end( Client *client, int exitcode )
 {
-    trace() << "handle_end " << client->dump() << endl;
-//    trace() << dump_internals() << endl;
+    log_error() << "handle_end " << client->dump() << endl;
+//    log_error() << dump_internals() << endl;
     fd2chan.erase (client->channel->fd);
 
     if ( client->status == Client::CLIENTWORK )
@@ -875,11 +890,11 @@ void Daemon::handle_end( Client *client, int exitcode )
                 break;
             }
             trace() << "scheduler->send_msg( JobDoneMsg( " << client->dump() << ", " << exitcode << "))\n";
-            scheduler->send_msg( JobDoneMsg( client->job_id, exitcode, flag) );
+            send_scheduler( JobDoneMsg( client->job_id, exitcode, flag) );
         } else if ( client->status == Client::CLIENTWORK ) {
             // Clientwork && !job_id == LINK
             trace() << "scheduler->send_msg( JobLocalDoneMsg( " << client->client_id << ") );\n";
-            scheduler->send_msg( JobLocalDoneMsg( client->client_id ) );
+            send_scheduler( JobLocalDoneMsg( client->client_id ) );
         }
     }
 
@@ -920,7 +935,7 @@ bool Daemon::handle_get_cs( MsgChannel *c, Msg *msg )
     cl->status = Client::WAITFORCS;
     umsg->client_id = cl->client_id;
     trace() << "handle_get_cs " << umsg->client_id << endl;
-    scheduler->send_msg( *umsg );
+    send_scheduler( *umsg );
     return true;
 }
 
@@ -966,7 +981,7 @@ bool Daemon::handle_activity( MsgChannel *c )
     case M_JOB_LOCAL_BEGIN: ret = handle_local_job (c, msg); break;
     case M_JOB_DONE: ret = handle_job_done( c, msg ); break;
     default:
-        log_error() << "not compile: " << ( char )msg->type << endl;
+        log_error() << "not compile: " << ( char )msg->type << "protocol error on client " << client->dump() << endl;
         c->send_msg( EndMsg() );
         handle_end( client, 120 );
         ret = false;
@@ -1016,6 +1031,8 @@ int Daemon::answer_client_requests()
         }
     }
 
+    assert(scheduler);
+
     FD_SET( scheduler->fd, &listen_set );
     if ( max_fd < scheduler->fd )
         max_fd = scheduler->fd;
@@ -1023,10 +1040,8 @@ int Daemon::answer_client_requests()
     tv.tv_sec = 0;
     tv.tv_usec = 400000;
 
-    trace() << "before select " << max_fd << endl;
     ret = select (max_fd + 1, &listen_set, NULL, NULL, &tv);
-    trace() << "select returned " << ret << endl;
-    if ( ret == -1 && errno != EINTR ) {
+    if ( ret < 0 && errno != EINTR ) {
         log_perror( "select" );
         return 5;
     }
@@ -1039,6 +1054,7 @@ int Daemon::answer_client_requests()
                 return 1;
             } else {
                 ret = 0;
+                trace() << "message from scheduler: " << msg->type << endl;
                 switch ( msg->type )
                 {
                 case M_PING:
@@ -1063,6 +1079,8 @@ int Daemon::answer_client_requests()
             struct sockaddr cli_addr;
             socklen_t cli_len = sizeof cli_addr;
             int acc_fd = accept(listen_fd, &cli_addr, &cli_len);
+            if (acc_fd < 0)
+                log_perror("accept error");
             if (acc_fd == -1 && errno != EINTR) {
                 log_perror("accept failed:");
                 return EXIT_CONNECT_FAILED;
@@ -1366,7 +1384,7 @@ int main( int argc, char ** argv )
         lmsg.max_kids = max_kids;
         scheduler->send_msg( lmsg );
 
-        while (true) {
+        for (;;) {
             int ret = d.answer_client_requests();
             if ( ret ) {
                 trace() << "answer_client_requests returned " << ret << endl;
