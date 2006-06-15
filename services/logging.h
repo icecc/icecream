@@ -21,6 +21,7 @@
 #ifndef _LOGGING_H
 #define _LOGGING_H
 
+#include <sys/time.h>
 #include <errno.h>
 #include <string>
 #include <iostream>
@@ -36,7 +37,7 @@ extern std::ostream *logfile_trace;
 void setup_debug(int level, const std::string &logfile = "");
 void reset_debug(int);
 
-inline std::ostream & output_date( std::ostream &os )
+static inline std::ostream & output_date( std::ostream &os )
 {
     time_t t = time( 0 );
     char *buf = ctime( &t );
@@ -64,7 +65,7 @@ inline std::ostream & output_mdate( std::ostream &os )
 
 static inline std::ostream& log_info() {
     assert( logfile_info );
-    return output_mdate( *logfile_info );
+    return *logfile_info;
 }
 
 static inline std::ostream& log_warning() {
@@ -79,7 +80,7 @@ static inline std::ostream& log_error() {
 
 static inline std::ostream& trace() {
     assert( logfile_trace );
-    return output_mdate( *logfile_trace );
+    return *logfile_trace;
 }
 
 std::string get_backtrace();
@@ -87,6 +88,43 @@ static inline void log_perror(const char *prefix) {
     int tmp_errno = errno;
     log_error() << prefix << " " << strerror( tmp_errno ) << std::endl;
 }
+
+class log_block 
+{
+    static uint nesting;
+    timeval m_start;
+    char* m_label;
+public:
+    log_block(const char* label =0)
+    {
+#ifndef NDEBUG
+        for (unsigned i = 0; i < nesting; ++i) 
+            log_info() << "  "; 
+
+        log_info() << "  <" << (label ? label : "") << ">\n";
+
+        m_label = strdup(label ? label : "");
+        ++nesting;
+        gettimeofday( &m_start, 0);
+#endif
+    }
+
+    ~log_block()
+    {
+#ifndef NDEBUG
+        timeval end;
+        gettimeofday (&end, 0);
+
+        --nesting;
+        for (unsigned i = 0; i < nesting; ++i) 
+            log_info() << "  "; 
+        log_info() << "  </" << m_label << ": "
+            << (end.tv_sec - m_start.tv_sec ) * 1000 + ( end.tv_usec - m_start.tv_usec ) / 1000 << "ms>\n";
+
+        free(m_label);
+#endif
+    }
+};
 
 #include <sstream>
 #include <iostream>

@@ -558,6 +558,7 @@ static bool connect_async( int remote_fd, struct sockaddr *remote_addr, size_t r
 MsgChannel *Service::createChannel (const string &hostname, unsigned short p, int timeout)
 {
   int remote_fd;
+  int i = 1;
   struct sockaddr_in remote_addr;
 
   if ((remote_fd = socket (PF_INET, SOCK_STREAM, 0)) < 0)
@@ -582,6 +583,7 @@ MsgChannel *Service::createChannel (const string &hostname, unsigned short p, in
   remote_addr.sin_family = AF_INET;
   remote_addr.sin_port = htons (p);
   memcpy (&remote_addr.sin_addr.s_addr, host->h_addr_list[0], host->h_length);
+  setsockopt(remote_fd, IPPROTO_TCP, TCP_NODELAY, (char*) &i, sizeof(i));
 
   if ( timeout )
     {
@@ -590,8 +592,6 @@ MsgChannel *Service::createChannel (const string &hostname, unsigned short p, in
     }
   else
     {
-      int i = 1;
-      setsockopt(remote_fd, IPPROTO_TCP, TCP_NODELAY, (char*) &i, sizeof(i));
       if (connect (remote_fd, (struct sockaddr *) &remote_addr, sizeof (remote_addr)) < 0)
         {
           close( remote_fd );
