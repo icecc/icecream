@@ -39,6 +39,7 @@
 #include <sys/fcntl.h>
 #include <sys/wait.h>
 #include <sys/user.h>
+#include <sys/socket.h>
 
 #ifdef __FreeBSD__
 #include <signal.h>
@@ -54,6 +55,8 @@
 #include <stdio.h>
 #include <errno.h>
 #include <string>
+
+#include "comm.h"
 
 using namespace std;
 
@@ -97,7 +100,7 @@ static void theSigCHLDHandler( int )
 }
 
 int work_it( CompileJob &j,
-             const string& infilename,
+             unsigned int& in_compressed, unsigned int& in_uncompressed, MsgChannel* client,
              string &str_out, string &str_err,
              int &status, string &outfilename, unsigned long int mem_limit, int client_fd )
 {
@@ -116,6 +119,7 @@ int work_it( CompileJob &j,
 
     int sock_err[2];
     int sock_out[2];
+    int sock_in[2];
     int main_sock[2];
 
     if ( pipe( sock_err ) )
@@ -138,6 +142,14 @@ int work_it( CompileJob &j,
 	return EXIT_DISTCC_FAILED;
     if ( fcntl( sock_err[1], F_SETFD, FD_CLOEXEC ) )
 	return EXIT_DISTCC_FAILED;
+
+    if (socketpair(AF_UNIX, SOCK_STREAM, 0, sock_in) < 0)
+        return EXIT_DISTCC_FAILED;
+
+    int maxsize = 2*1024*2024;
+    if (setsockopt(sock_in[1], SOL_SOCKET, SO_SNDBUFFORCE, &maxsize, sizeof(maxsize)) < 0) {
+        setsockopt(sock_in[1], SOL_SOCKET, SO_SNDBUF, &maxsize, sizeof(maxsize));
+    }
 
     must_reap = false;
 
@@ -166,16 +178,21 @@ int work_it( CompileJob &j,
         close( main_sock[1] );
         close( sock_out[0] );
         close( sock_out[1] );
+        close( sock_in[0] );
+        close( sock_in[1] );
         unlink( tmp_output );
         return EXIT_OUT_OF_MEMORY;
     } else if ( pid == 0 ) {
 
         close( main_sock[0] );
+        close( sock_in[1] );
+        dup2( sock_in[0], 0);
         fcntl(main_sock[1], F_SETFD, FD_CLOEXEC);
         setenv( "PATH", "usr/bin", 1 );
         // Safety check
         if (getuid() == 0 || getgid() == 0)
             _exit(142);
+
 
 #ifdef RLIMIT_AS
         struct rlimit rlim;
@@ -190,24 +207,19 @@ int work_it( CompileJob &j,
 
         int argc = list.size();
         argc++; // the program
-        argc += 3; // file.i -o file.o
+        argc += 5; // -x c file.i -o file.o
         argc += 4; // gpc parameters
         char **argv = new char*[argc + 1];
 	int i = 0;
-        if (j.language() == CompileJob::Lang_C)
-            argv[i++] = strdup( "usr/bin/gcc" );
-        else if (j.language() == CompileJob::Lang_CXX)
-            argv[i++] = strdup( "usr/bin/g++" );
-        else
-            assert(0);
-
-        //TODOlist.push_back( "-Busr/lib/gcc-lib/i586-suse-linux/3.3.1/" );
+        argv[i++] = strdup( "usr/bin/gcc" );
 
         for ( std::list<string>::const_iterator it = list.begin();
               it != list.end(); ++it) {
             argv[i++] = strdup( it->c_str() );
         }
-        argv[i++] = strdup( infilename.c_str() );
+        argv[i++] = strdup("-x");
+        argv[i++] = strdup((j.language() == CompileJob::Lang_CXX) ? "c++" : "c");
+        argv[i++] = strdup("-");
         argv[i++] = strdup( "-o" );
         argv[i++] = tmp_output;
         argv[i++] = strdup( "--param" );
@@ -234,15 +246,63 @@ int work_it( CompileJob &j,
         close( sock_err[0] );
         dup2( sock_err[1], STDERR_FILENO );
 
-        ret = execvp( argv[0], const_cast<char *const*>( argv ) ); // no return
+        ret = execv( argv[0], const_cast<char *const*>( argv ) ); // no return
         printf( "all failed\n" );
 
         char resultByte = 1;
         write(main_sock[1], &resultByte, 1);
-        exit(-1);
+        _exit(-1);
     } else {
         close( main_sock[1] );
+        close( sock_in[0] );
 
+        for (;;) {
+            Msg* msg  = client->get_msg(60);
+
+            if ( !msg || (msg->type != M_FILE_CHUNK && msg->type != M_END) ) 
+              {
+                log_error() << "protocol error while reading preprocessed file\n";
+                delete msg;
+                msg = 0;
+                throw myexception (EXIT_IO_ERROR);
+              }
+
+            if ( msg->type == M_END )
+              {
+                delete msg;
+                msg = 0;
+                break;
+              }
+
+            FileChunkMsg *fcmsg = static_cast<FileChunkMsg*>( msg );
+            in_uncompressed += fcmsg->len;
+            in_compressed += fcmsg->compressed;
+
+            ssize_t len = fcmsg->len;
+            off_t off = 0;
+            while ( len ) {
+                log_block p_write("parent, write datea..");
+                ssize_t bytes = write( sock_in[1], fcmsg->buffer + off, len );
+                if ( bytes < 0 && errno == EINTR )
+                    continue;
+
+                if ( bytes == -1 ) {
+                    log_perror("write to caching socket failed. ");
+                    delete msg;
+                    msg = 0;
+                    throw myexception (EXIT_COMPILER_CRASHED);
+                    break;
+                }
+                len -= bytes;
+                off += bytes;
+            }
+
+            delete msg;
+            msg = 0;
+        }
+        close (sock_in[1]);
+
+        log_block parent_wait("parent, waiting");
         // idea borrowed from kprocess
         for(;;)
         {
@@ -257,6 +317,10 @@ int work_it( CompileJob &j,
                 close( sock_err[1] );
                 close( sock_out[0] );
                 close( sock_out[1] );
+                close( sock_out[0] );
+                close( sock_out[1] );
+                close( sock_in[0] );
+                close( sock_in[1] );
 
                 while ( waitpid(pid, 0, 0) < 0 && errno == EINTR)
                     ;
@@ -272,8 +336,11 @@ int work_it( CompileJob &j,
         }
         close( main_sock[0] );
 
+        log_block bwrite("write block");
+
         for(;;)
         {
+            log_block bfor("for writing loop");
             fd_set rfds;
             FD_ZERO( &rfds );
             FD_SET( sock_out[0], &rfds );
@@ -289,7 +356,11 @@ int work_it( CompileJob &j,
             tv.tv_sec = 5;
             tv.tv_usec = 0;
 
-            ret =  select( max_fd+1, &rfds, 0, 0, &tv );
+            {
+                log_block bselect("waiting in select");
+                ret =  select( max_fd+1, &rfds, 0, 0, &tv );
+            }
+
             switch( ret )
             {
             case -1:
@@ -297,7 +368,9 @@ int work_it( CompileJob &j,
                     return EXIT_DISTCC_FAILED;
                 // fall through; should happen if tvp->tv_sec < 0
             case 0:
+            {
                 struct rusage ru;
+                log_block bwait4("wait4 block..");
                 if (wait4(pid, &status, must_reap ? WUNTRACED : WNOHANG, &ru) != 0) // error finishes, too
                 {
                     close( sock_err[0] );
@@ -322,7 +395,9 @@ int work_it( CompileJob &j,
                     return 0;
                 }
                 break;
+            }
             default:
+                log_block bdef("default block");
                 if ( FD_ISSET(sock_out[0], &rfds) ) {
                     ssize_t bytes = read( sock_out[0], buffer, sizeof(buffer)-1 );
                     if ( bytes > 0 ) {
