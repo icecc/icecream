@@ -655,9 +655,11 @@ pick_server(Job *job)
     {
 	for (it = css.begin(); it != css.end(); ++it)
           {
-             CS *cs = *it;
-	     if (cs->nodename == job->preferred_host)
-	       return cs;
+	     if ((*it)->nodename == job->preferred_host
+                 && int( (*it)->joblist.size() ) < (*it)->max_jobs
+                 && (*it)->chroot_possible
+                 && (*it)->load < 1000 && can_install( *it, job ).size() )
+	       return *it;
 	  }
     }
 
