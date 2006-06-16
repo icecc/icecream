@@ -37,6 +37,9 @@
 // if you increase the MIN_PROTOCOL_VERSION, comment out macros below and clean up the code
 #define MIN_PROTOCOL_VERSION 21
 
+#define MIN_SCHEDULER_PING 2
+#define MAX_SCHEDULER_PING 30
+
 #define IS_PROTOCOL_22( c ) ( c->protocol >= 22 )
 
 enum MsgType {
