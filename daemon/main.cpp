@@ -442,63 +442,8 @@ struct timeval last_sent;
 int mem_limit = 100;
 unsigned int max_kids = 0;
 int current_kids = 0;
-unsigned long myniceload = 0;
-unsigned long myidleload = 0;
 
 size_t cache_size_limit = 100 * 1024 * 1024;
-
-bool maybe_stats(bool force = false) {
-    struct timeval now;
-    gettimeofday( &now, 0 );
-
-    time_t diff_stat = ( now.tv_sec - last_stat.tv_sec ) * 1000 + ( now.tv_usec - last_stat.tv_usec ) / 1000;
-    time_t diff_sent = ( now.tv_sec - last_sent.tv_sec ) * 1000 + ( now.tv_usec - last_sent.tv_usec ) / 1000;
-
-    unsigned int memory_fillgrade;
-    unsigned long niceLoad = 0;
-    unsigned long idleLoad = 0;
-
-    if ( diff_sent > 6000 || force ) {
-        StatsMsg msg;
-
-        if ( !fill_stats( niceLoad, idleLoad, memory_fillgrade, &msg ) )
-            return false;
-
-        gettimeofday( &last_stat, 0 );
-
-        myniceload += niceLoad * diff_stat;
-        myidleload += idleLoad * diff_stat;
-
-        unsigned int realLoad = diff_sent ? ( 1000 - myidleload / diff_sent ) : 1000;
-        msg.load = ( 700 * realLoad + 300 * memory_fillgrade ) / 1000;
-        if ( memory_fillgrade > 600 )
-            msg.load = 1000;
-        if ( realLoad > 800 )
-            msg.load = 1000;
-
-        //trace() << "load load=" << realLoad << " mem=" << memory_fillgrade << endl;
-
-        // Matz got in the urine that not all CPUs are always feed
-        mem_limit = std::max( msg.freeMem / std::min( std::max( max_kids, 1U ), 4U ), 100U );
-
-        if ( !send_scheduler( msg ) )
-            return false;
-        last_sent = now;
-        myidleload = 0;
-        myniceload = 0;
-    } else {
-
-        fill_stats( niceLoad, idleLoad, memory_fillgrade, 0);
-        myniceload += niceLoad * diff_stat;
-        if ( max_kids )
-            myidleload += max( 0LU, niceLoad * diff_stat * current_kids / max_kids );
-        myidleload += idleLoad * diff_stat;
-
-        gettimeofday( &last_stat, 0 );
-    }
-
-    return true;
-}
 
 static void fill_msg(int fd, JobDoneMsg *msg)
 {
@@ -536,6 +481,8 @@ struct Daemon
     int new_client_id;
     string remote_name;
     time_t next_check;
+    unsigned long icecream_load;
+    int num_cpus;
 
     Daemon() {
         envbasedir = "/tmp/icecc-envs";
@@ -545,6 +492,8 @@ struct Daemon
         new_client_id = 0;
         next_check = 0;
         cache_size = 0;
+        icecream_load = 0;
+        num_cpus = 0;
     }
     int answer_client_requests();
     bool handle_transfer_env( MsgChannel *c, Msg *msg );
@@ -558,10 +507,64 @@ struct Daemon
     int scheduler_use_cs( UseCSMsg *msg );
     bool handle_get_cs( MsgChannel *c, Msg *msg );
     bool handle_local_job( MsgChannel *c, Msg *msg );
-    bool handle_job_done( MsgChannel *c, Msg *m );
+    bool handle_job_done( MsgChannel *c, JobDoneMsg *m );
     string dump_internals() const;
     void fetch_children();
+    bool maybe_stats(bool force = false);
 };
+
+bool Daemon::maybe_stats(bool force)
+{
+    struct timeval now;
+    gettimeofday( &now, 0 );
+
+    time_t diff_stat = ( now.tv_sec - last_stat.tv_sec ) * 1000 + ( now.tv_usec - last_stat.tv_usec ) / 1000;
+    time_t diff_sent = ( now.tv_sec - last_sent.tv_sec ) * 1000 + ( now.tv_usec - last_sent.tv_usec ) / 1000;
+
+    unsigned int memory_fillgrade;
+    unsigned long idleLoad = 0;
+
+    if ( diff_sent > 6000 || force ) {
+        StatsMsg msg;
+
+        if ( !fill_stats( idleLoad, memory_fillgrade, &msg ) )
+            return false;
+
+        gettimeofday( &last_stat, 0 );
+
+        /* any idle time is time icecream *could* have used */
+        icecream_load += idleLoad * diff_stat;
+        if (diff_sent)
+            icecream_load /= diff_sent;
+        if (icecream_load > 1000)
+            icecream_load = 1000;
+
+        msg.load = ( 700 * (1000 - icecream_load) + 300 * memory_fillgrade ) / 1000;
+        if ( memory_fillgrade > 600 )
+            msg.load = 1000;
+        if ( icecream_load < 100 )
+            msg.load = 1000;
+
+        trace() << "sending load realLoad=" << 1000-icecream_load << " mem=" << memory_fillgrade << " msg.load=" << msg.load << endl;
+
+        // Matz got in the urine that not all CPUs are always feed
+        mem_limit = std::max( msg.freeMem / std::min( std::max( max_kids, 1U ), 4U ), 100U );
+
+        if ( !send_scheduler( msg ) )
+            return false;
+
+        last_sent = now;
+        icecream_load = 0;
+    } else {
+
+        fill_stats( idleLoad, memory_fillgrade, 0);
+        icecream_load += idleLoad * diff_stat;
+
+        gettimeofday( &last_stat, 0 );
+    }
+
+    return true;
+}
 
 string Daemon::dump_internals() const
 {
@@ -687,6 +690,7 @@ bool Daemon::handle_transfer_env( MsgChannel *c, Msg *msg )
 
         reannounce_environments(envbasedir, nodename); // do that before the file compiles
     }
+    maybe_stats();
     return true;
 }
 
@@ -715,7 +719,7 @@ bool Daemon::handle_get_native_env( MsgChannel *c )
     return true;
 }
 
-bool Daemon::handle_job_done( MsgChannel *c, Msg *m )
+bool Daemon::handle_job_done( MsgChannel *c, JobDoneMsg *m )
 {
     Client *cl = clients.find_by_channel( c );
     assert( cl );
@@ -724,6 +728,11 @@ bool Daemon::handle_job_done( MsgChannel *c, Msg *m )
     cl->status = Client::JOBDONE;
     JobDoneMsg *msg = static_cast<JobDoneMsg*>( m );
     trace() << "handle_job_done " << msg->job_id << " " << msg->exitcode << endl;
+
+    if(!m->is_from_server()
+       && m->user_msec + m->sys_msec < m->real_msec)
+     icecream_load += (m->user_msec + m->sys_msec) * m->real_msec / num_cpus;
+
     send_scheduler( *msg );
     cl->job_id = 0; // the scheduler doesn't have it anymore
     return true;
@@ -786,7 +795,7 @@ int Daemon::handle_old_request()
     if ( pid > 0) { // forked away
         current_kids++;
         trace() << "sending scheduler about " << job->jobID() << endl;
-        if ( !scheduler || !send_scheduler( JobBeginMsg( job->jobID() ) ) ) {
+        if ( !send_scheduler( JobBeginMsg( job->jobID() ) ) ) {
             log_warning() << "can't reach scheduler to tell him about job start of "
                           << job->jobID() << endl;
             handle_end( client, 114 );
@@ -801,6 +810,11 @@ int Daemon::handle_old_request()
 	fd2chan.erase (client->channel->fd);
 	client->channel->fd = -1;
         jobmap[pid] = new JobDoneMsg( job->jobID(), -1, JobDoneMsg::FROM_SERVER ) ;
+        /* store the time so that we can calculate real time later */
+        struct timeval begintv;
+        gettimeofday(&begintv, 0);
+        jobmap[pid]->user_msec = begintv.tv_sec;
+        jobmap[pid]->sys_msec = begintv.tv_usec;
     }
 
     return 0;
@@ -815,8 +829,10 @@ void Daemon::fetch_children()
         JobDoneMsg *msg = jobmap[child];
         if ( msg )
             current_kids--;
-        else
+        else {
             log_error() << "catched child pid " << child << " not in my map\n";
+            assert(0);
+        }
         jobmap.erase( child );
 	Client *client = clients.find_by_pid( child );
         if (client) {
@@ -824,10 +840,17 @@ void Daemon::fetch_children()
 	    handle_end (client, WEXITSTATUS( status ));
         }
         if (msg && scheduler) {
+            struct timeval endtv;
+            gettimeofday(&endtv, 0);
             msg->exitcode = WEXITSTATUS( status );
+            msg->real_msec = (endtv.tv_sec - msg->user_msec) * 1000 + (endtv.tv_usec - msg->sys_msec) / 1000;
             msg->user_msec = ru.ru_utime.tv_sec * 1000 + ru.ru_utime.tv_usec / 1000;
             msg->sys_msec = ru.ru_stime.tv_sec * 1000 + ru.ru_stime.tv_usec / 1000;
             msg->pfaults = ru.ru_majflt + ru.ru_nswap + ru.ru_minflt;
+
+            if (msg->user_msec + msg->sys_msec < msg->real_msec)
+                icecream_load += (msg->user_msec + msg->sys_msec) * msg->real_msec / num_cpus;
+
             send_scheduler( *msg );
         }
         envs_last_use[envmap[child]] = time( NULL );
@@ -861,7 +884,7 @@ bool Daemon::handle_compile_file( MsgChannel *c, Msg *msg )
 
 void Daemon::handle_end( Client *client, int exitcode )
 {
-    log_error() << "handle_end " << client->dump() << endl;
+    trace() << "handle_end " << client->dump() << endl;
 //    log_error() << dump_internals() << endl;
     fd2chan.erase (client->channel->fd);
 
@@ -965,7 +988,6 @@ bool Daemon::handle_activity( MsgChannel *c )
 
     Msg *msg = c->get_msg();
     if ( !msg ) {
-        log_error() << "no message from client\n";
         handle_end( client, 118 );
         return false;
     }
@@ -979,7 +1001,7 @@ bool Daemon::handle_activity( MsgChannel *c )
     case M_GET_CS: ret = handle_get_cs( c, msg ); break;
     case M_END: handle_end( client, 119 ); ret = false; break;
     case M_JOB_LOCAL_BEGIN: ret = handle_local_job (c, msg); break;
-    case M_JOB_DONE: ret = handle_job_done( c, msg ); break;
+    case M_JOB_DONE: ret = handle_job_done( c, dynamic_cast<JobDoneMsg*>(msg) ); break;
     default:
         log_error() << "not compile: " << ( char )msg->type << "protocol error on client " << client->dump() << endl;
         c->send_msg( EndMsg() );
@@ -999,12 +1021,14 @@ int Daemon::answer_client_requests()
     int ret = handle_old_request();
     if ( ret )
         return ret;
+
+    /* collect the stats before we remove the children to account myidleload */
+    maybe_stats();
+
     fetch_children();
 
-    if ( !maybe_stats() ) {
-        log_error() << "lost connection to scheduler. Trying again.\n";
-        return 2;
-    }
+    if(!scheduler)
+       return 2;
 
     fd_set listen_set;
     struct timeval tv;
@@ -1051,6 +1075,8 @@ int Daemon::answer_client_requests()
             Msg *msg = scheduler->get_msg();
             if ( !msg ) {
                 log_error() << "no message from scheduler\n";
+                delete scheduler;
+                scheduler = 0;
                 return 1;
             } else {
                 ret = 0;
@@ -1288,12 +1314,11 @@ int main( int argc, char ** argv )
     if ( detach )
         daemon(0, 0);
 
-    int n_cpus;
-    if (dcc_ncpus(&n_cpus) == 0)
-        log_info() << n_cpus << " CPU(s) online on this server" << endl;
+    if (dcc_ncpus(&d.num_cpus) == 0)
+        log_info() << d.num_cpus << " CPU(s) online on this server" << endl;
 
     if ( max_processes < 0 )
-      max_kids = n_cpus;
+      max_kids = d.num_cpus;
     else
       max_kids = max_processes;
 
