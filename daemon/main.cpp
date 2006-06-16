@@ -526,8 +526,12 @@ bool Daemon::maybe_stats(bool force)
     unsigned int memory_fillgrade;
     unsigned long idleLoad = 0;
 
-    if (diff_sent >= MAX_SCHEDULER_PING * 1000 + (MIN_SCHEDULER_PING * 1000)/2)
+    /* the scheduler didn't ping us for a long time, assume dead connection and recover */
+    if (diff_sent >= MAX_SCHEDULER_PING * 1000 + 2 * MIN_SCHEDULER_PING * 1000) {
        force = true;
+       delete scheduler;
+       scheduler = 0;
+    }
 
     if ( diff_sent >= MIN_SCHEDULER_PING * 1000 || force ) {
         StatsMsg msg;
@@ -558,16 +562,15 @@ bool Daemon::maybe_stats(bool force)
         // Matz got in the urine that not all CPUs are always feed
         mem_limit = std::max( msg.freeMem / std::min( std::max( max_kids, 1U ), 4U ), 100U );
 
-        if ( scheduler && (abs(int(msg.load)-current_load) >= 100 || force ) ) {
+        if ( abs(int(msg.load)-current_load) >= 100 || force ) {
             log_error() << "non icecream_load=" << 1000-idle_average << " mem=" << memory_fillgrade << " msg.load=" << msg.load << endl;
-            if ( !send_scheduler( msg ) )
+            if ( scheduler && !send_scheduler( msg ) )
                 return false;
 
             last_sent = now;
             icecream_load = 0;
             current_load = msg.load;
         }
-
     }
 
     return true;
