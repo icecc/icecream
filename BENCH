@@ -83,3 +83,10 @@ It is remarkable, that 0.7 does not provide much advantage over compiling locall
 in a WLAN, while providing the expected 36% speedup for LAN. This proves that no-latency
 provides significant wins for unstable/bad network connections and does not regress
 performance for good networking setups. The overall 20% improvement is not bad at all.
+
+2006-06-16 make-it-cool-branch:
+
+make -j10/100:  244s
+make -j1:       376s
+
+result: correcting process accounting for local jobs makes -j1 fast again (just 2% overhead)
