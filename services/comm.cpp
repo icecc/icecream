@@ -60,7 +60,7 @@ using namespace std;
 
 /* Tries to fill the inbuf completely.  */
 bool
-MsgChannel::read_a_bit (void)
+MsgChannel::read_a_bit ()
 {
   chop_input ();
   size_t count = inbuflen - inofs;
@@ -192,7 +192,7 @@ MsgChannel::update_state (void)
 }
 
 void
-MsgChannel::chop_input (void)
+MsgChannel::chop_input ()
 {
   /* Make buffer smaller, if there's much already read in front
      of it, or it is cheap to do.  */
@@ -207,7 +207,7 @@ MsgChannel::chop_input (void)
 }
 
 void
-MsgChannel::chop_output (void)
+MsgChannel::chop_output ()
 {
   if (msgofs > 8192
       || msgtogo <= 16)
