@@ -482,6 +482,7 @@ struct Daemon
     string remote_name;
     time_t next_check;
     unsigned long icecream_load;
+    int current_load;
     int num_cpus;
 
     Daemon() {
@@ -493,6 +494,7 @@ struct Daemon
         next_check = 0;
         cache_size = 0;
         icecream_load = 0;
+        current_load = - 1000;
         num_cpus = 0;
     }
     int answer_client_requests();
@@ -524,43 +526,45 @@ bool Daemon::maybe_stats(bool force)
     unsigned int memory_fillgrade;
     unsigned long idleLoad = 0;
 
-    if ( diff_sent > 6000 || force ) {
+    if ( diff_sent >= MIN_SCHEDULER_PING * 1000 || force ) {
         StatsMsg msg;
 
         if ( !fill_stats( idleLoad, memory_fillgrade, &msg ) )
             return false;
 
-        gettimeofday( &last_stat, 0 );
+        last_stat = now;
 
-        /* any idle time is time icecream *could* have used */
-        icecream_load += idleLoad * diff_stat;
+        /* icecream_load contains time in milliseconds we have used for icecream */
+        /* idle time could have been used for icecream, so claim it */
+        icecream_load += idleLoad * diff_stat / 1000;
+
+        int idle_average = icecream_load;
+
         if (diff_sent)
-            icecream_load /= diff_sent;
-        if (icecream_load > 1000)
-            icecream_load = 1000;
+            idle_average = icecream_load * 1000 / diff_sent;
 
-        msg.load = ( 700 * (1000 - icecream_load) + 300 * memory_fillgrade ) / 1000;
+        if (idle_average > 1000)
+            idle_average = 1000;
+
+        msg.load = ( 700 * (1000 - idle_average) + 300 * memory_fillgrade ) / 1000;
         if ( memory_fillgrade > 600 )
             msg.load = 1000;
-        if ( icecream_load < 100 )
+        if ( idle_average < 100 )
             msg.load = 1000;
-
-        trace() << "sending load realLoad=" << 1000-icecream_load << " mem=" << memory_fillgrade << " msg.load=" << msg.load << endl;
 
         // Matz got in the urine that not all CPUs are always feed
         mem_limit = std::max( msg.freeMem / std::min( std::max( max_kids, 1U ), 4U ), 100U );
 
-        if ( !send_scheduler( msg ) )
-            return false;
+        if ( scheduler && (abs(int(msg.load)-current_load) >= 100 || force ) ) {
+            log_error() << "non icecream_load=" << 1000-idle_average << " mem=" << memory_fillgrade << " msg.load=" << msg.load << endl;
+            if ( !send_scheduler( msg ) )
+                return false;
 
-        last_sent = now;
-        icecream_load = 0;
-    } else {
+            last_sent = now;
+            icecream_load = 0;
+            current_load = msg.load;
+        }
 
-        fill_stats( idleLoad, memory_fillgrade, 0);
-        icecream_load += idleLoad * diff_stat;
-
-        gettimeofday( &last_stat, 0 );
     }
 
     return true;
@@ -690,7 +694,6 @@ bool Daemon::handle_transfer_env( MsgChannel *c, Msg *msg )
 
         reannounce_environments(envbasedir, nodename); // do that before the file compiles
     }
-    maybe_stats();
     return true;
 }
 
@@ -730,8 +733,8 @@ bool Daemon::handle_job_done( MsgChannel *c, JobDoneMsg *m )
     trace() << "handle_job_done " << msg->job_id << " " << msg->exitcode << endl;
 
     if(!m->is_from_server()
-       && m->user_msec + m->sys_msec < m->real_msec)
-     icecream_load += (m->user_msec + m->sys_msec) * m->real_msec / num_cpus;
+       && m->user_msec + m->sys_msec <= m->real_msec)
+     icecream_load += (m->user_msec + m->sys_msec) / num_cpus;
 
     send_scheduler( *msg );
     cl->job_id = 0; // the scheduler doesn't have it anymore
@@ -848,8 +851,8 @@ void Daemon::fetch_children()
             msg->sys_msec = ru.ru_stime.tv_sec * 1000 + ru.ru_stime.tv_usec / 1000;
             msg->pfaults = ru.ru_majflt + ru.ru_nswap + ru.ru_minflt;
 
-            if (msg->user_msec + msg->sys_msec < msg->real_msec)
-                icecream_load += (msg->user_msec + msg->sys_msec) * msg->real_msec / num_cpus;
+            if (msg->user_msec + msg->sys_msec <= msg->real_msec)
+                icecream_load += (msg->user_msec + msg->sys_msec) / num_cpus;
 
             send_scheduler( *msg );
         }
@@ -869,7 +872,6 @@ bool Daemon::handle_compile_file( MsgChannel *c, Msg *msg )
     if ( cl->status == Client::CLIENTWORK )
     {
         assert( job->environmentVersion() == "__client" );
-        assert( scheduler );
         if ( !send_scheduler( JobBeginMsg( job->jobID() ) ) )
         {
             log_warning() << "can't reach scheduler to tell him about job start of "
@@ -1022,10 +1024,10 @@ int Daemon::answer_client_requests()
     if ( ret )
         return ret;
 
-    /* collect the stats before we remove the children to account myidleload */
-    maybe_stats();
-
     fetch_children();
+
+    /* collect the stats after the children exited icecream_load */
+    maybe_stats();
 
     if(!scheduler)
        return 2;
@@ -1061,8 +1063,8 @@ int Daemon::answer_client_requests()
     if ( max_fd < scheduler->fd )
         max_fd = scheduler->fd;
 
-    tv.tv_sec = 0;
-    tv.tv_usec = 400000;
+    tv.tv_sec = MIN_SCHEDULER_PING;
+    tv.tv_usec = 0;
 
     ret = select (max_fd + 1, &listen_set, NULL, NULL, &tv);
     if ( ret < 0 && errno != EINTR ) {
@@ -1162,8 +1164,7 @@ int main( int argc, char ** argv )
     bool runasuser = false;
 
     gettimeofday( &last_stat, 0 );
-    last_sent = last_stat;
-    last_sent.tv_sec -= 6;
+    last_sent.tv_sec = last_stat.tv_sec - MAX_SCHEDULER_PING;
 
     while ( true ) {
         int option_index = 0;
@@ -1397,6 +1398,8 @@ int main( int argc, char ** argv )
                 d.remote_name = inet_ntoa( name.sin_addr );
             else
                 d.remote_name = string();
+            log_info() << "Connected to scheduler (" << d.remote_name << ")\n";
+            d.current_load = -1000;
         }
 
         d.listen_fd = setup_listen_fd();
