@@ -36,8 +36,6 @@
 
 using namespace std;
 
-extern bool maybe_stats(bool forced);
-
 #if 0
 static string read_fromFILE( FILE *f )
 {
@@ -324,8 +322,6 @@ size_t install_environment( const std::string &basename, const std::string &targ
 
         bool error = false;
         do {
-
-            maybe_stats(false);
             int ret = fwrite( fmsg->buffer, fmsg->len, 1, fpipe );
             if ( ret != 1 ) {
                 log_error() << "wrote " << ret << " bytes\n";
@@ -351,8 +347,6 @@ size_t install_environment( const std::string &basename, const std::string &targ
                 break;
             }
         } while ( true );
-
-        maybe_stats(false);
 
         delete msg;
 
