@@ -526,6 +526,9 @@ bool Daemon::maybe_stats(bool force)
     unsigned int memory_fillgrade;
     unsigned long idleLoad = 0;
 
+    if (diff_sent >= MIN_SCHEDULER_PING * 1000 + (MAX_SCHEDULER_PING * 1000)/2)
+       force = true;
+
     if ( diff_sent >= MIN_SCHEDULER_PING * 1000 || force ) {
         StatsMsg msg;
 
