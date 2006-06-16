@@ -438,6 +438,7 @@ int setup_listen_fd()
 
 
 struct timeval last_stat;
+time_t last_scheduler;
 struct timeval last_sent;
 int mem_limit = 100;
 unsigned int max_kids = 0;
@@ -527,7 +528,7 @@ bool Daemon::maybe_stats(bool force)
     unsigned long idleLoad = 0;
 
     /* the scheduler didn't ping us for a long time, assume dead connection and recover */
-    if (diff_sent >= MAX_SCHEDULER_PING * 1000 + 2 * MIN_SCHEDULER_PING * 1000) {
+    if (now.tv_usec - last_scheduler >= MAX_SCHEDULER_PING + 2 * MIN_SCHEDULER_PING) {
        force = true;
        delete scheduler;
        scheduler = 0;
@@ -1105,6 +1106,7 @@ int Daemon::answer_client_requests()
                     log_error() << "unknown scheduler type " << ( char )msg->type << endl;
                 }
             }
+            last_scheduler = time(0);
             delete msg;
             return ret;
         }
@@ -1168,9 +1170,6 @@ int main( int argc, char ** argv )
     nice_level = 5; // defined in serve.h
     string schedname;
     bool runasuser = false;
-
-    gettimeofday( &last_stat, 0 );
-    last_sent.tv_sec = last_stat.tv_sec - MAX_SCHEDULER_PING;
 
     while ( true ) {
         int option_index = 0;
@@ -1406,6 +1405,10 @@ int main( int argc, char ** argv )
                 d.remote_name = string();
             log_info() << "Connected to scheduler (" << d.remote_name << ")\n";
             d.current_load = -1000;
+            gettimeofday( &last_stat, 0 );
+            last_sent.tv_sec = last_stat.tv_sec - MAX_SCHEDULER_PING;
+            last_scheduler = last_stat.tv_sec;
+            d.icecream_load = 0;
         }
 
         d.listen_fd = setup_listen_fd();
