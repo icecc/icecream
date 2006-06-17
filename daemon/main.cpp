@@ -527,7 +527,7 @@ bool Daemon::maybe_stats(bool force)
     unsigned long idleLoad = 0;
 
     /* we didn't talk with the scheduler for a long time, try if connection is dead */
-    if (now.tv_usec - std::max(last_scheduler, last_sent.tv_sec) >= MAX_SCHEDULER_PING - MIN_SCHEDULER_PING) 
+    if (now.tv_sec - std::max(last_scheduler, last_sent.tv_sec) >= MAX_SCHEDULER_PING - MIN_SCHEDULER_PING) 
        force = true;
 
     if ( diff_sent >= MIN_SCHEDULER_PING * 1000 || force ) {
