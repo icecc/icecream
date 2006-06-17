@@ -521,18 +521,14 @@ bool Daemon::maybe_stats(bool force)
     struct timeval now;
     gettimeofday( &now, 0 );
 
-    time_t diff_stat = ( now.tv_sec - last_stat.tv_sec ) * 1000 + ( now.tv_usec - last_stat.tv_usec ) / 1000;
     time_t diff_sent = ( now.tv_sec - last_sent.tv_sec ) * 1000 + ( now.tv_usec - last_sent.tv_usec ) / 1000;
 
     unsigned int memory_fillgrade;
     unsigned long idleLoad = 0;
 
-    /* the scheduler didn't ping us for a long time, assume dead connection and recover */
-    if (now.tv_usec - last_scheduler >= MAX_SCHEDULER_PING + 2 * MIN_SCHEDULER_PING) {
+    /* we didn't talk with the scheduler for a long time, try if connection is dead */
+    if (now.tv_usec - std::max(last_scheduler, last_sent.tv_sec) >= MAX_SCHEDULER_PING - MIN_SCHEDULER_PING) 
        force = true;
-       delete scheduler;
-       scheduler = 0;
-    }
 
     if ( diff_sent >= MIN_SCHEDULER_PING * 1000 || force ) {
         StatsMsg msg;
@@ -540,6 +536,7 @@ bool Daemon::maybe_stats(bool force)
         if ( !fill_stats( idleLoad, memory_fillgrade, &msg ) )
             return false;
 
+        time_t diff_stat = ( now.tv_sec - last_stat.tv_sec ) * 1000 + ( now.tv_usec - last_stat.tv_usec ) / 1000;
         last_stat = now;
 
         /* icecream_load contains time in milliseconds we have used for icecream */
@@ -1373,7 +1370,7 @@ int main( int argc, char ** argv )
 
     int tosleep = 0;
 
-    while ( 1 ) {
+    for (;;) {
         if ( d.listen_fd > -1 ) {
             // as long as we have no scheduler, don't listen for clients
             shutdown( d.listen_fd, SHUT_RDWR ); // Dirk's suggestion
