@@ -203,15 +203,24 @@ size_t setup_env_cache(const string &basedir, string &native_environment, uid_t 
     native_environment = "";
     string nativedir = basedir + "/native/";
 
+    if ( ::access( "/usr/bin/gcc", X_OK ) || ::access( "/usr/bin/g++", X_OK ) ) 
+	return 0;
+
+    if ( mkdir( nativedir.c_str(), 0755 ) )
+   	return 0; 
+
+    if ( chown( nativedir.c_str(), nobody_uid, nobody_gid) ) {
+	rmdir( nativedir.c_str() );
+	return 0;
+    }
+
     pid_t pid = fork();
-    if ( pid )
-    {
+    if ( pid ) {
         int status = 0;
         if ( waitpid( pid, &status, 0 ) != pid )
             status = 1;
         trace() << "waitpid " << status << endl;
-        if ( !status )
-        {
+        if ( !status ) {
             trace() << "opendir " << nativedir << endl;
             native_environment = list_native_environment( nativedir );
             if ( native_environment.empty() )
@@ -234,22 +243,17 @@ size_t setup_env_cache(const string &basedir, string &native_environment, uid_t 
       _exit (142);
     }
 
-    if ( !::access( "/usr/bin/gcc", X_OK ) && !::access( "/usr/bin/g++", X_OK ) ) {
-        if ( !mkdir ( nativedir.c_str(), 0755 ) )
-        {
-            if ( chdir( nativedir.c_str() ) ) {
-                log_perror( "chdir" );
-                rmdir( nativedir.c_str() );
-                goto error;
-            }
+    if ( chdir( nativedir.c_str() ) ) {
+         log_perror( "chdir" );
+         rmdir( nativedir.c_str() );
+         goto error;
+    }
 
-            if ( system( BINDIR "/icecc --build-native" ) ) {
-                log_error() << BINDIR "/icecc --build-native failed\n";
-                goto error;
-            } else {
-                _exit( 0 );
-            }
-        }
+    if ( system( BINDIR "/icecc --build-native" ) ) {
+        log_error() << BINDIR "/icecc --build-native failed\n";
+        goto error;
+    } else {
+        _exit( 0 );
     }
 
 error:
