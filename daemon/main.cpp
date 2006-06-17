@@ -1089,7 +1089,7 @@ int Daemon::answer_client_requests()
                 return 1;
             } else {
                 ret = 0;
-                trace() << "message from scheduler: " << msg->type << endl;
+                trace() << "message from scheduler: " << (char)msg->type << endl;
                 switch ( msg->type )
                 {
                 case M_PING:
