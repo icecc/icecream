@@ -207,19 +207,24 @@ int work_it( CompileJob &j,
 
         int argc = list.size();
         argc++; // the program
-        argc += 5; // -x c file.i -o file.o
+        argc += 3; // file.i -o file.o
         argc += 4; // gpc parameters
         char **argv = new char*[argc + 1];
 	int i = 0;
-        argv[i++] = strdup( "usr/bin/gcc" );
+        if (j.language() == CompileJob::Lang_C)
+            argv[i++] = strdup( "usr/bin/gcc" );
+        else if (j.language() == CompileJob::Lang_CXX)
+            argv[i++] = strdup( "usr/bin/g++" );
+        else
+            assert(0);
+
+        //TODOlist.push_back( "-Busr/lib/gcc-lib/i586-suse-linux/3.3.1/" );
 
         for ( std::list<string>::const_iterator it = list.begin();
               it != list.end(); ++it) {
             argv[i++] = strdup( it->c_str() );
         }
-        argv[i++] = strdup("-x");
-        argv[i++] = strdup((j.language() == CompileJob::Lang_CXX) ? "c++" : "c");
-        argv[i++] = strdup("-");
+        argv[i++] = strdup( infilename.c_str() );
         argv[i++] = strdup( "-o" );
         argv[i++] = tmp_output;
         argv[i++] = strdup( "--param" );
