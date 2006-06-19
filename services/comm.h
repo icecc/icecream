@@ -65,7 +65,7 @@ enum MsgType {
   // C --> S
   M_GET_CS,
   // S --> C
-  M_USE_CS,
+  M_USE_CS,  // = 'G'
 
   // C --> CS
   M_COMPILE_FILE, // = 'I'
@@ -76,7 +76,7 @@ enum MsgType {
 
   // CS --> S (after the C got the CS from the S, the CS tells the S when the C asks him)
   M_JOB_BEGIN,
-  M_JOB_DONE,
+  M_JOB_DONE,     // = 'M'
 
   // C --> CS, CS --> S (forwarded from C), _and_ CS -> C as start ping
   M_JOB_LOCAL_BEGIN, // = 'N'

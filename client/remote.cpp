@@ -89,8 +89,6 @@ parse_icecc_version(const string &target_platform )
 		continue;
         }
 
-        trace() << "platform '" << platform << "' '" << version << "'" << endl;
-
         if ( ::access( version.c_str(), R_OK ) ) {
             log_error() << "$ICECC_VERSION has to point to an existing file to be installed " << version << endl;
             continue;
@@ -381,7 +379,11 @@ static int build_remote_int(CompileJob &job, UseCSMsg *usecs, const string &envi
     if ( output )
     {
         fprintf( stdout, "%s", crmsg->out.c_str() );
-        fprintf( stderr, "%s", crmsg->err.c_str() );
+
+        if(colorify_wanted())
+            colorify_output(crmsg->err);
+        else
+            fprintf( stderr, "%s", crmsg->err.c_str() );
 
         if ( status && ( crmsg->err.length() || crmsg->out.length() ) )
         {
@@ -507,6 +509,9 @@ maybe_build_local (MsgChannel *local_daemon, UseCSMsg *usecs, CompileJob &job,
         msg.sys_msec = ru.ru_stime.tv_sec * 1000 + ru.ru_stime.tv_usec / 1000;
         msg.pfaults = ru.ru_majflt + ru.ru_minflt + ru.ru_nswap ;
         msg.exitcode = ret;
+
+        if (msg.user_msec > 50 && msg.out_uncompressed > 1024)
+          trace() << "speed=" << float(msg.out_uncompressed / msg.user_msec) << endl;
 
         local_daemon->send_msg( msg );
         return true;

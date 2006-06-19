@@ -90,3 +90,10 @@ make -j10/100:  244s
 make -j1:       376s
 
 result: correcting process accounting for local jobs makes -j1 fast again (just 2% overhead)
+
+icecream, always compile remote even though host is not faster:
+
+make -j10:       538s
+make -j10/sched: 389s
+
+As we can see, the scheduler improves performance by 38%.

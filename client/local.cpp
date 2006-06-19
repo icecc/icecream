@@ -115,12 +115,18 @@ string find_compiler( CompileJob::Language lang )
 
 static volatile int lock_fd = 0;
 static volatile int user_break_signal = 0;
-void handle_user_break( int sig )
+static volatile pid_t child_pid;
+
+static void handle_user_break( int sig )
 {
     if ( lock_fd )
         dcc_unlock( lock_fd );
     lock_fd = 0;
     user_break_signal = sig;
+
+    if (child_pid != 0)
+      kill ( sig, child_pid);
+
     signal( sig, handle_user_break );
 }
 
@@ -144,7 +150,6 @@ int build_local(CompileJob &job, MsgChannel *local_daemon, struct rusage *used)
     list<string> arguments;
 
     string compiler_name = find_compiler( job.language() );
-    trace() << "build_local " << local_daemon << " compiler: " << compiler_name <<  endl;
 
     if ( compiler_name.empty() ) {
         log_error() << "could not find " << get_compiler_name (job.language() ) << " in PATH." << endl;
@@ -182,12 +187,19 @@ int build_local(CompileJob &job, MsgChannel *local_daemon, struct rusage *used)
         lock_fd = fd;
     }
 
-    pid_t child = 0;
+    bool color_output = colorify_wanted();
+    int pf[2];
 
-    if ( used )
-        child = fork();
+    if (color_output && pipe(pf))
+        color_output = false;
 
-    if ( child ) {
+    if ( used || color_output )
+        child_pid = fork();
+
+    if ( child_pid ) {
+        if (color_output)
+            close(pf[1]);
+
         // setup interrupt signals, so that the JobLocalBeginMsg will
         // have a matching JobLocalDoneMsg
         void (*old_sigint)(int) = signal( SIGINT, handle_user_break );
@@ -195,9 +207,28 @@ int build_local(CompileJob &job, MsgChannel *local_daemon, struct rusage *used)
         void (*old_sigquit)(int) = signal( SIGQUIT, handle_user_break );
         void (*old_sighup)(int) = signal( SIGHUP, handle_user_break );
 
+        if (color_output) {
+            string s_ccout;
+            char buf[250];
+            int r;
+            for(;;) {
+                while((r = read(pf[0], buf, sizeof(buf)-1)) > 0) {
+                    buf[r] = '\0';
+                    s_ccout.append(buf);
+                }
+                if (r == 0)
+                    break;
+                if ( r < 0 && errno != EINTR)
+                    break;
+            }
+            colorify_output(s_ccout);
+        }
+
         int status = 1;
-        if( wait4( child, &status, 0, used ) > 0 )
-            status = WEXITSTATUS(status);
+        while( wait4( child_pid, &status, 0, used ) < 0 && errno == EINTR)
+            ;
+
+        status = WEXITSTATUS(status);
 
         signal( SIGINT, old_sigint );
         signal( SIGTERM, old_sigterm );
@@ -211,9 +242,13 @@ int build_local(CompileJob &job, MsgChannel *local_daemon, struct rusage *used)
     } else {
         dcc_increment_safeguard();
 
-    int ret = execv( argv[0], argv );
-        if ( used )
-            _exit ( errno );
+        if (color_output) {
+            close(pf[0]);
+            close(2);
+            dup2(pf[1], 2);
+        }
+
+        int ret = execv( argv[0], argv );
         if ( lock_fd )
             dcc_unlock( lock_fd ); 
         if (ret) {
@@ -221,6 +256,6 @@ int build_local(CompileJob &job, MsgChannel *local_daemon, struct rusage *used)
             snprintf(buf, sizeof(buf), "ICECREAM: %s:", argv[0]);
             log_perror(buf);
         }
-        return ret;
+        _exit ( ret );
     }
 }
