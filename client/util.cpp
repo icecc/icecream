@@ -200,3 +200,32 @@ bool dcc_lock_host(int &lock_fd)
         return false;
     }
 }
+
+bool colorify_wanted()
+{
+  const char* term_env = getenv("TERM");
+
+  return isatty(2) && !getenv("EMACS") && term_env && strcmp(term_env, "DUMB");
+}
+
+void colorify_output(const string& _s_ccout)
+{
+    string s_ccout(_s_ccout);
+    string::size_type end;
+
+    while ( (end = s_ccout.find('\n')) !=  string::npos ) {
+
+        string cline = s_ccout.substr(string::size_type(0), end );
+        s_ccout = s_ccout.substr(end+1);
+
+        if (cline.find(": error:") != string::npos)
+            fprintf(stderr, "\x1b[1;31m%s\x1b[0m\n", cline.c_str());
+        else if (cline.find(": warning:") != string::npos)
+            fprintf(stderr, "\x1b[34m%s\x1b[0m\n", cline.c_str());
+        else
+            fprintf(stderr, "%s\n", cline.c_str());
+    }
+    fprintf(stderr, s_ccout.c_str());
+}
+
+
