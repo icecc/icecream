@@ -354,7 +354,7 @@ server_speed (CS *cs, Job *job)
            to compile the job.  Then this can be done locally without
            needing the preprocessor.  */
         if (job->submitter == cs)
-          f *= 1.2;
+          f *= 1.1;
         else // ignoring load for submitter - assuming the load is our own
           f *= float(1000 - cs->load) / 1000;
       }
@@ -661,6 +661,7 @@ pick_server(Job *job)
                  && (*it)->load < 1000 && can_install( *it, job ).size() )
 	       return *it;
 	  }
+        return 0;
     }
 
   /* If we have no statistics simply use the first server which is usable.  */
@@ -933,6 +934,7 @@ empty_queue()
          be found.  We only obey to its max job number.  */
       cs = job->submitter;
       if (! (int( cs->joblist.size() ) < cs->max_jobs
+             && job->preferred_host.empty()
              /* This should be trivially true.  */
              && can_install (cs, job).size()))
         {
