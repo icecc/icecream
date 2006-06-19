@@ -26,7 +26,7 @@
 #include <string>
 
 class MsgChannel;
-extern bool cleanup_cache( const std::string &basedir, uid_t nobody_uid, gid_t nobody_gid );
+extern bool cleanup_cache( const std::string &basedir );
 extern size_t setup_env_cache(const std::string &basedir,
                      std::string &native_environment, uid_t nobody_uid, gid_t nobody_gid);
 Environments available_environmnents(const std::string &basename);

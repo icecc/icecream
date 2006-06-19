@@ -106,3 +106,5 @@ string get_backtrace() {
 
     return s;
 }
+
+unsigned log_block::nesting;

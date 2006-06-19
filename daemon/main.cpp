@@ -100,6 +100,7 @@ public:
      * WAITFORCS: Client asked for a CS and we asked the scheduler - waiting for its answer
      * WAITCOMPILE: Client got a CS and will ask him now (it's now me)
      * CLIENTWORK: Client is busy working and we reserve the spot (job_id is set if it's a scheduler job)
+     * WAITFORCHILD: Client is waiting for the compile job to finish.
      */
     enum Status { UNKNOWN, GOTNATIVE, PENDING_USE_CS, JOBDONE, LINKJOB, TOCOMPILE, WAITFORCS,
                   WAITCOMPILE, CLIENTWORK, WAITFORCHILD } status;
@@ -320,6 +321,20 @@ pid_t dcc_master_pid;
 
 MsgChannel *scheduler = 0;
 
+static bool send_scheduler(const Msg& msg)
+{
+    if (!scheduler)
+        return false;
+
+    if (!scheduler->send_msg(msg)) {
+        delete scheduler;
+        scheduler = 0;
+        return false;
+    }
+
+    return true;
+}
+
 /**
  * Just log, remove pidfile, and exit.
  *
@@ -348,7 +363,7 @@ static void dcc_daemon_terminate(int whichsig)
 
     if (am_parent) {
         if ( scheduler ) {
-            scheduler->send_msg( EndMsg() ); /// TODO: what happens if it's already in send_msg?
+            send_scheduler( EndMsg() ); /// TODO: what happens if it's already in send_msg?
             scheduler = 0;
         }
 
@@ -376,7 +391,7 @@ void reannounce_environments(const string &envbasedir, const string &nodename)
 {
     LoginMsg lmsg( 0, nodename, "");
     lmsg.envs = available_environmnents(envbasedir);
-    scheduler->send_msg( lmsg );
+    send_scheduler( lmsg );
 }
 
 int setup_listen_fd()
@@ -423,67 +438,13 @@ int setup_listen_fd()
 
 
 struct timeval last_stat;
+time_t last_scheduler;
 struct timeval last_sent;
 int mem_limit = 100;
 unsigned int max_kids = 0;
 int current_kids = 0;
-unsigned long myniceload = 0;
-unsigned long myidleload = 0;
 
 size_t cache_size_limit = 100 * 1024 * 1024;
-
-bool maybe_stats(bool force = false) {
-    struct timeval now;
-    gettimeofday( &now, 0 );
-
-    time_t diff_stat = ( now.tv_sec - last_stat.tv_sec ) * 1000 + ( now.tv_usec - last_stat.tv_usec ) / 1000;
-    time_t diff_sent = ( now.tv_sec - last_sent.tv_sec ) * 1000 + ( now.tv_usec - last_sent.tv_usec ) / 1000;
-
-    unsigned int memory_fillgrade;
-    unsigned long niceLoad = 0;
-    unsigned long idleLoad = 0;
-
-    if ( diff_sent > 6000 || force ) {
-        StatsMsg msg;
-
-        if ( !fill_stats( niceLoad, idleLoad, memory_fillgrade, &msg ) )
-            return false;
-
-        gettimeofday( &last_stat, 0 );
-
-        myniceload += niceLoad * diff_stat;
-        myidleload += idleLoad * diff_stat;
-
-        unsigned int realLoad = diff_sent ? ( 1000 - myidleload / diff_sent ) : 1000;
-        msg.load = ( 700 * realLoad + 300 * memory_fillgrade ) / 1000;
-        if ( memory_fillgrade > 600 )
-            msg.load = 1000;
-        if ( realLoad > 800 )
-            msg.load = 1000;
-
-        //trace() << "load load=" << realLoad << " mem=" << memory_fillgrade << endl;
-
-        // Matz got in the urine that not all CPUs are always feed
-        mem_limit = std::max( msg.freeMem / std::min( std::max( max_kids, 1U ), 4U ), 100U );
-
-        if ( !scheduler->send_msg( msg ) )
-            return false;
-        last_sent = now;
-        myidleload = 0;
-        myniceload = 0;
-    } else {
-
-        fill_stats( niceLoad, idleLoad, memory_fillgrade, 0);
-        myniceload += niceLoad * diff_stat;
-        if ( max_kids )
-            myidleload += max( 0LU, niceLoad * diff_stat * current_kids / max_kids );
-        myidleload += idleLoad * diff_stat;
-
-        gettimeofday( &last_stat, 0 );
-    }
-
-    return true;
-}
 
 static void fill_msg(int fd, JobDoneMsg *msg)
 {
@@ -521,6 +482,9 @@ struct Daemon
     int new_client_id;
     string remote_name;
     time_t next_check;
+    unsigned long icecream_load;
+    int current_load;
+    int num_cpus;
 
     Daemon() {
         envbasedir = "/tmp/icecc-envs";
@@ -530,6 +494,9 @@ struct Daemon
         new_client_id = 0;
         next_check = 0;
         cache_size = 0;
+        icecream_load = 0;
+        current_load = - 1000;
+        num_cpus = 0;
     }
     int answer_client_requests();
     bool handle_transfer_env( MsgChannel *c, Msg *msg );
@@ -543,10 +510,69 @@ struct Daemon
     int scheduler_use_cs( UseCSMsg *msg );
     bool handle_get_cs( MsgChannel *c, Msg *msg );
     bool handle_local_job( MsgChannel *c, Msg *msg );
-    bool handle_job_done( MsgChannel *c, Msg *m );
+    bool handle_job_done( MsgChannel *c, JobDoneMsg *m );
     string dump_internals() const;
     void fetch_children();
+    bool maybe_stats(bool force = false);
 };
+
+bool Daemon::maybe_stats(bool force)
+{
+    struct timeval now;
+    gettimeofday( &now, 0 );
+
+    time_t diff_sent = ( now.tv_sec - last_sent.tv_sec ) * 1000 + ( now.tv_usec - last_sent.tv_usec ) / 1000;
+
+    unsigned int memory_fillgrade;
+    unsigned long idleLoad = 0;
+
+    /* we didn't talk with the scheduler for a long time, try if connection is dead */
+    if (now.tv_sec - std::max(last_scheduler, last_sent.tv_sec) >= MAX_SCHEDULER_PING - MIN_SCHEDULER_PING) 
+       force = true;
+
+    if ( diff_sent >= MIN_SCHEDULER_PING * 1000 || force ) {
+        StatsMsg msg;
+
+        if ( !fill_stats( idleLoad, memory_fillgrade, &msg ) )
+            return false;
+
+        time_t diff_stat = ( now.tv_sec - last_stat.tv_sec ) * 1000 + ( now.tv_usec - last_stat.tv_usec ) / 1000;
+        last_stat = now;
+
+        /* icecream_load contains time in milliseconds we have used for icecream */
+        /* idle time could have been used for icecream, so claim it */
+        icecream_load += idleLoad * diff_stat / 1000;
+
+        int idle_average = icecream_load;
+
+        if (diff_sent)
+            idle_average = icecream_load * 1000 / diff_sent;
+
+        if (idle_average > 1000)
+            idle_average = 1000;
+
+        msg.load = ( 700 * (1000 - idle_average) + 300 * memory_fillgrade ) / 1000;
+        if ( memory_fillgrade > 600 )
+            msg.load = 1000;
+        if ( idle_average < 100 )
+            msg.load = 1000;
+
+        // Matz got in the urine that not all CPUs are always feed
+        mem_limit = std::max( msg.freeMem / std::min( std::max( max_kids, 1U ), 4U ), 100U );
+
+        if ( abs(int(msg.load)-current_load) >= 100 || force ) {
+            log_error() << "non icecream_load=" << 1000-idle_average << " mem=" << memory_fillgrade << " msg.load=" << msg.load << endl;
+            if ( scheduler && !send_scheduler( msg ) )
+                return false;
+
+            last_sent = now;
+            icecream_load = 0;
+            current_load = msg.load;
+        }
+    }
+
+    return true;
+}
 
 string Daemon::dump_internals() const
 {
@@ -596,7 +622,7 @@ string Daemon::dump_internals() const
 int Daemon::scheduler_get_internals( )
 {
     trace() << "handle_get_internals " << dump_internals() << endl;
-    scheduler->send_msg( StatusTextMsg( dump_internals() ) );
+    send_scheduler( StatusTextMsg( dump_internals() ) );
     return 0;
 }
 
@@ -606,7 +632,7 @@ int Daemon::scheduler_use_cs( UseCSMsg *msg )
     trace() << "handle_use_cs " << msg->job_id << " " << msg->client_id
             << " " << c << " " << msg->hostname << " " << remote_name <<  endl;
     if ( !c ) {
-        scheduler->send_msg( JobDoneMsg( msg->job_id, 107, JobDoneMsg::FROM_SUBMITTER ) );
+        send_scheduler( JobDoneMsg( msg->job_id, 107, JobDoneMsg::FROM_SUBMITTER ) );
         return 1;
     }
     if ( msg->hostname == remote_name ) {
@@ -700,7 +726,7 @@ bool Daemon::handle_get_native_env( MsgChannel *c )
     return true;
 }
 
-bool Daemon::handle_job_done( MsgChannel *c, Msg *m )
+bool Daemon::handle_job_done( MsgChannel *c, JobDoneMsg *m )
 {
     Client *cl = clients.find_by_channel( c );
     assert( cl );
@@ -709,7 +735,12 @@ bool Daemon::handle_job_done( MsgChannel *c, Msg *m )
     cl->status = Client::JOBDONE;
     JobDoneMsg *msg = static_cast<JobDoneMsg*>( m );
     trace() << "handle_job_done " << msg->job_id << " " << msg->exitcode << endl;
-    scheduler->send_msg( *msg );
+
+    if(!m->is_from_server()
+       && m->user_msec + m->sys_msec <= m->real_msec)
+     icecream_load += (m->user_msec + m->sys_msec) / num_cpus;
+
+    send_scheduler( *msg );
     cl->job_id = 0; // the scheduler doesn't have it anymore
     return true;
 }
@@ -730,7 +761,7 @@ int Daemon::handle_old_request()
             client->status = Client::CLIENTWORK;
             clients.active_processes++;
             trace() << "pushed local job " << client->client_id << endl;
-            scheduler->send_msg( JobLocalBeginMsg( client->client_id, client->outfile ) );
+            send_scheduler( JobLocalBeginMsg( client->client_id, client->outfile ) );
 	}
     }
 
@@ -765,12 +796,13 @@ int Daemon::handle_old_request()
     string envforjob = job->targetPlatform() + "/" + job->environmentVersion();
     envs_last_use[envforjob] = time( NULL );
     pid = handle_connection( envbasedir, job, client->channel, sock, mem_limit, nobody_uid, nobody_gid );
+    trace() << "handle connection returned " << pid << endl;
     envmap[pid] = envforjob;
 
     if ( pid > 0) { // forked away
         current_kids++;
         trace() << "sending scheduler about " << job->jobID() << endl;
-        if ( !scheduler || !scheduler->send_msg( JobBeginMsg( job->jobID() ) ) ) {
+        if ( !send_scheduler( JobBeginMsg( job->jobID() ) ) ) {
             log_warning() << "can't reach scheduler to tell him about job start of "
                           << job->jobID() << endl;
             handle_end( client, 114 );
@@ -785,6 +817,11 @@ int Daemon::handle_old_request()
 	fd2chan.erase (client->channel->fd);
 	client->channel->fd = -1;
         jobmap[pid] = new JobDoneMsg( job->jobID(), -1, JobDoneMsg::FROM_SERVER ) ;
+        /* store the time so that we can calculate real time later */
+        struct timeval begintv;
+        gettimeofday(&begintv, 0);
+        jobmap[pid]->user_msec = begintv.tv_sec;
+        jobmap[pid]->sys_msec = begintv.tv_usec;
     }
 
     return 0;
@@ -799,8 +836,10 @@ void Daemon::fetch_children()
         JobDoneMsg *msg = jobmap[child];
         if ( msg )
             current_kids--;
-        else
+        else {
             log_error() << "catched child pid " << child << " not in my map\n";
+            assert(0);
+        }
         jobmap.erase( child );
 	Client *client = clients.find_by_pid( child );
         if (client) {
@@ -808,11 +847,18 @@ void Daemon::fetch_children()
 	    handle_end (client, WEXITSTATUS( status ));
         }
         if (msg && scheduler) {
+            struct timeval endtv;
+            gettimeofday(&endtv, 0);
             msg->exitcode = WEXITSTATUS( status );
+            msg->real_msec = (endtv.tv_sec - msg->user_msec) * 1000 + (endtv.tv_usec - msg->sys_msec) / 1000;
             msg->user_msec = ru.ru_utime.tv_sec * 1000 + ru.ru_utime.tv_usec / 1000;
             msg->sys_msec = ru.ru_stime.tv_sec * 1000 + ru.ru_stime.tv_usec / 1000;
             msg->pfaults = ru.ru_majflt + ru.ru_nswap + ru.ru_minflt;
-            scheduler->send_msg( *msg );
+
+            if (msg->user_msec + msg->sys_msec <= msg->real_msec)
+                icecream_load += (msg->user_msec + msg->sys_msec) / num_cpus;
+
+            send_scheduler( *msg );
         }
         envs_last_use[envmap[child]] = time( NULL );
         envmap.erase(child);
@@ -830,8 +876,7 @@ bool Daemon::handle_compile_file( MsgChannel *c, Msg *msg )
     if ( cl->status == Client::CLIENTWORK )
     {
         assert( job->environmentVersion() == "__client" );
-        assert( scheduler );
-        if ( !scheduler->send_msg( JobBeginMsg( job->jobID() ) ) )
+        if ( !send_scheduler( JobBeginMsg( job->jobID() ) ) )
         {
             log_warning() << "can't reach scheduler to tell him about job start of "
                           << job->jobID() << endl;
@@ -846,7 +891,7 @@ bool Daemon::handle_compile_file( MsgChannel *c, Msg *msg )
 void Daemon::handle_end( Client *client, int exitcode )
 {
     trace() << "handle_end " << client->dump() << endl;
-//    trace() << dump_internals() << endl;
+//    log_error() << dump_internals() << endl;
     fd2chan.erase (client->channel->fd);
 
     if ( client->status == Client::CLIENTWORK )
@@ -874,11 +919,11 @@ void Daemon::handle_end( Client *client, int exitcode )
                 break;
             }
             trace() << "scheduler->send_msg( JobDoneMsg( " << client->dump() << ", " << exitcode << "))\n";
-            scheduler->send_msg( JobDoneMsg( client->job_id, exitcode, flag) );
+            send_scheduler( JobDoneMsg( client->job_id, exitcode, flag) );
         } else if ( client->status == Client::CLIENTWORK ) {
             // Clientwork && !job_id == LINK
             trace() << "scheduler->send_msg( JobLocalDoneMsg( " << client->client_id << ") );\n";
-            scheduler->send_msg( JobLocalDoneMsg( client->client_id ) );
+            send_scheduler( JobLocalDoneMsg( client->client_id ) );
         }
     }
 
@@ -919,7 +964,7 @@ bool Daemon::handle_get_cs( MsgChannel *c, Msg *msg )
     cl->status = Client::WAITFORCS;
     umsg->client_id = cl->client_id;
     trace() << "handle_get_cs " << umsg->client_id << endl;
-    scheduler->send_msg( *umsg );
+    send_scheduler( *umsg );
     return true;
 }
 
@@ -937,9 +982,18 @@ bool Daemon::handle_activity( MsgChannel *c )
 {
     Client *client = clients.find_by_channel( c );
     assert( client );
+
+    if (client->status == Client::TOCOMPILE) {
+        /* we can get get activity on a channel for a client
+           that is still waiting for a free kid. Let the
+           messages queue up, we can't handle them right now
+           anyway, and we don't want to end the client because
+           of a protocol error. */
+        return true;
+    }
+
     Msg *msg = c->get_msg();
     if ( !msg ) {
-        log_error() << "no message\n";
         handle_end( client, 118 );
         return false;
     }
@@ -953,9 +1007,9 @@ bool Daemon::handle_activity( MsgChannel *c )
     case M_GET_CS: ret = handle_get_cs( c, msg ); break;
     case M_END: handle_end( client, 119 ); ret = false; break;
     case M_JOB_LOCAL_BEGIN: ret = handle_local_job (c, msg); break;
-    case M_JOB_DONE: ret = handle_job_done( c, msg ); break;
+    case M_JOB_DONE: ret = handle_job_done( c, dynamic_cast<JobDoneMsg*>(msg) ); break;
     default:
-        log_error() << "not compile: " << ( char )msg->type << endl;
+        log_error() << "not compile: " << ( char )msg->type << "protocol error on client " << client->dump() << endl;
         c->send_msg( EndMsg() );
         handle_end( client, 120 );
         ret = false;
@@ -973,12 +1027,14 @@ int Daemon::answer_client_requests()
     int ret = handle_old_request();
     if ( ret )
         return ret;
+
     fetch_children();
 
-    if ( !maybe_stats() ) {
-        log_error() << "lost connection to scheduler. Trying again.\n";
-        return 2;
-    }
+    /* collect the stats after the children exited icecream_load */
+    maybe_stats();
+
+    if(!scheduler)
+       return 2;
 
     fd_set listen_set;
     struct timeval tv;
@@ -1005,17 +1061,17 @@ int Daemon::answer_client_requests()
         }
     }
 
+    assert(scheduler);
+
     FD_SET( scheduler->fd, &listen_set );
     if ( max_fd < scheduler->fd )
         max_fd = scheduler->fd;
 
-    tv.tv_sec = 0;
-    tv.tv_usec = 400000;
+    tv.tv_sec = MIN_SCHEDULER_PING;
+    tv.tv_usec = 0;
 
-    trace() << "before select " << max_fd << endl;
     ret = select (max_fd + 1, &listen_set, NULL, NULL, &tv);
-    trace() << "select returned " << ret << endl;
-    if ( ret == -1 && errno != EINTR ) {
+    if ( ret < 0 && errno != EINTR ) {
         log_perror( "select" );
         return 5;
     }
@@ -1025,9 +1081,12 @@ int Daemon::answer_client_requests()
             Msg *msg = scheduler->get_msg();
             if ( !msg ) {
                 log_error() << "no message from scheduler\n";
+                delete scheduler;
+                scheduler = 0;
                 return 1;
             } else {
                 ret = 0;
+                trace() << "message from scheduler: " << (char)msg->type << endl;
                 switch ( msg->type )
                 {
                 case M_PING:
@@ -1044,6 +1103,7 @@ int Daemon::answer_client_requests()
                     log_error() << "unknown scheduler type " << ( char )msg->type << endl;
                 }
             }
+            last_scheduler = time(0);
             delete msg;
             return ret;
         }
@@ -1052,6 +1112,8 @@ int Daemon::answer_client_requests()
             struct sockaddr cli_addr;
             socklen_t cli_len = sizeof cli_addr;
             int acc_fd = accept(listen_fd, &cli_addr, &cli_len);
+            if (acc_fd < 0)
+                log_perror("accept error");
             if (acc_fd == -1 && errno != EINTR) {
                 log_perror("accept failed:");
                 return EXIT_CONNECT_FAILED;
@@ -1105,10 +1167,6 @@ int main( int argc, char ** argv )
     nice_level = 5; // defined in serve.h
     string schedname;
     bool runasuser = false;
-
-    gettimeofday( &last_stat, 0 );
-    last_sent = last_stat;
-    last_sent.tv_sec -= 6;
 
     while ( true ) {
         int option_index = 0;
@@ -1259,12 +1317,11 @@ int main( int argc, char ** argv )
     if ( detach )
         daemon(0, 0);
 
-    int n_cpus;
-    if (dcc_ncpus(&n_cpus) == 0)
-        log_info() << n_cpus << " CPU(s) online on this server" << endl;
+    if (dcc_ncpus(&d.num_cpus) == 0)
+        log_info() << d.num_cpus << " CPU(s) online on this server" << endl;
 
     if ( max_processes < 0 )
-      max_kids = n_cpus;
+      max_kids = d.num_cpus;
     else
       max_kids = max_processes;
 
@@ -1303,7 +1360,7 @@ int main( int argc, char ** argv )
      * not.  */
     dcc_master_pid = getpid();
 
-    if ( !cleanup_cache( d.envbasedir, d.nobody_uid, d.nobody_gid ) )
+    if ( !cleanup_cache( d.envbasedir ) )
         return 1;
 
     list<string> nl = get_netnames (200);
@@ -1313,7 +1370,7 @@ int main( int argc, char ** argv )
 
     int tosleep = 0;
 
-    while ( 1 ) {
+    for (;;) {
         if ( d.listen_fd > -1 ) {
             // as long as we have no scheduler, don't listen for clients
             shutdown( d.listen_fd, SHUT_RDWR ); // Dirk's suggestion
@@ -1343,6 +1400,12 @@ int main( int argc, char ** argv )
                 d.remote_name = inet_ntoa( name.sin_addr );
             else
                 d.remote_name = string();
+            log_info() << "Connected to scheduler (" << d.remote_name << ")\n";
+            d.current_load = -1000;
+            gettimeofday( &last_stat, 0 );
+            last_sent.tv_sec = last_stat.tv_sec - MAX_SCHEDULER_PING;
+            last_scheduler = last_stat.tv_sec;
+            d.icecream_load = 0;
         }
 
         d.listen_fd = setup_listen_fd();
@@ -1355,7 +1418,7 @@ int main( int argc, char ** argv )
         lmsg.max_kids = max_kids;
         scheduler->send_msg( lmsg );
 
-        while (true) {
+        for (;;) {
             int ret = d.answer_client_requests();
             if ( ret ) {
                 trace() << "answer_client_requests returned " << ret << endl;

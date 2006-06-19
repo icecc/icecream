@@ -122,6 +122,6 @@ pid_t call_cpp(CompileJob &job, int fdwrite, int fdread)
 
         dcc_increment_safeguard();
 
-        _exit(execvp(argv[0], argv));
+        _exit(execv(argv[0], argv));
     }
 }

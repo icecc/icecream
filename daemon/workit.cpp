@@ -39,6 +39,7 @@
 #include <sys/fcntl.h>
 #include <sys/wait.h>
 #include <sys/user.h>
+#include <sys/socket.h>
 
 #ifdef __FreeBSD__
 #include <signal.h>
@@ -55,12 +56,14 @@
 #include <errno.h>
 #include <string>
 
+#include "comm.h"
+
 using namespace std;
 
 // code based on gcc - Copyright (C) 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
 
 /* Heuristic to set a default for GGC_MIN_EXPAND.  */
-int
+static int
 ggc_min_expand_heuristic(unsigned int mem_limit)
 {
     double min_expand = mem_limit;
@@ -76,7 +79,7 @@ ggc_min_expand_heuristic(unsigned int mem_limit)
 }
 
 /* Heuristic to set a default for GGC_MIN_HEAPSIZE.  */
-unsigned int
+static unsigned int
 ggc_min_heapsize_heuristic(unsigned int mem_limit)
 {
     /* The heuristic is RAM/8, with a lower bound of 4M and an upper
@@ -89,15 +92,15 @@ ggc_min_heapsize_heuristic(unsigned int mem_limit)
 }
 
 
-volatile bool must_reap = false;
+volatile static bool must_reap = false;
 
-void theSigCHLDHandler( int )
+static void theSigCHLDHandler( int )
 {
     must_reap = true;
 }
 
 int work_it( CompileJob &j,
-             const string& infilename,
+             unsigned int& in_compressed, unsigned int& in_uncompressed, MsgChannel* client,
              string &str_out, string &str_err,
              int &status, string &outfilename, unsigned long int mem_limit, int client_fd )
 {
@@ -116,6 +119,7 @@ int work_it( CompileJob &j,
 
     int sock_err[2];
     int sock_out[2];
+    int sock_in[2];
     int main_sock[2];
 
     if ( pipe( sock_err ) )
@@ -138,6 +142,14 @@ int work_it( CompileJob &j,
 	return EXIT_DISTCC_FAILED;
     if ( fcntl( sock_err[1], F_SETFD, FD_CLOEXEC ) )
 	return EXIT_DISTCC_FAILED;
+
+    if (socketpair(AF_UNIX, SOCK_STREAM, 0, sock_in) < 0)
+        return EXIT_DISTCC_FAILED;
+
+    int maxsize = 2*1024*2024;
+    if (setsockopt(sock_in[1], SOL_SOCKET, SO_SNDBUFFORCE, &maxsize, sizeof(maxsize)) < 0) {
+        setsockopt(sock_in[1], SOL_SOCKET, SO_SNDBUF, &maxsize, sizeof(maxsize));
+    }
 
     must_reap = false;
 
@@ -166,15 +178,21 @@ int work_it( CompileJob &j,
         close( main_sock[1] );
         close( sock_out[0] );
         close( sock_out[1] );
+        close( sock_in[0] );
+        close( sock_in[1] );
         unlink( tmp_output );
         return EXIT_OUT_OF_MEMORY;
     } else if ( pid == 0 ) {
 
         close( main_sock[0] );
+        close( sock_in[1] );
+        dup2( sock_in[0], 0);
         fcntl(main_sock[1], F_SETFD, FD_CLOEXEC);
         setenv( "PATH", "usr/bin", 1 );
-	if (getuid() == 0)
-            setenv( "LD_LIBRARY_PATH", "usr/lib:lib", 1 );
+        // Safety check
+        if (getuid() == 0 || getgid() == 0)
+            _exit(142);
+
 
 #ifdef RLIMIT_AS
         struct rlimit rlim;
@@ -233,15 +251,63 @@ int work_it( CompileJob &j,
         close( sock_err[0] );
         dup2( sock_err[1], STDERR_FILENO );
 
-        ret = execvp( argv[0], const_cast<char *const*>( argv ) ); // no return
-        printf( "all failed\n" );
+        ret = execv( argv[0], const_cast<char *const*>( argv ) ); // no return
+        printf( "execv failed: %s\n", strerror(errno) );
 
         char resultByte = 1;
         write(main_sock[1], &resultByte, 1);
-        exit(-1);
+        _exit(-1);
     } else {
         close( main_sock[1] );
+        close( sock_in[0] );
 
+        for (;;) {
+            Msg* msg  = client->get_msg(60);
+
+            if ( !msg || (msg->type != M_FILE_CHUNK && msg->type != M_END) ) 
+              {
+                log_error() << "protocol error while reading preprocessed file\n";
+                delete msg;
+                msg = 0;
+                throw myexception (EXIT_IO_ERROR);
+              }
+
+            if ( msg->type == M_END )
+              {
+                delete msg;
+                msg = 0;
+                break;
+              }
+
+            FileChunkMsg *fcmsg = static_cast<FileChunkMsg*>( msg );
+            in_uncompressed += fcmsg->len;
+            in_compressed += fcmsg->compressed;
+
+            ssize_t len = fcmsg->len;
+            off_t off = 0;
+            while ( len ) {
+                log_block p_write("parent, write datea..");
+                ssize_t bytes = write( sock_in[1], fcmsg->buffer + off, len );
+                if ( bytes < 0 && errno == EINTR )
+                    continue;
+
+                if ( bytes == -1 ) {
+                    log_perror("write to caching socket failed. ");
+                    delete msg;
+                    msg = 0;
+                    throw myexception (EXIT_COMPILER_CRASHED);
+                    break;
+                }
+                len -= bytes;
+                off += bytes;
+            }
+
+            delete msg;
+            msg = 0;
+        }
+        close (sock_in[1]);
+
+        log_block parent_wait("parent, waiting");
         // idea borrowed from kprocess
         for(;;)
         {
@@ -256,6 +322,10 @@ int work_it( CompileJob &j,
                 close( sock_err[1] );
                 close( sock_out[0] );
                 close( sock_out[1] );
+                close( sock_out[0] );
+                close( sock_out[1] );
+                close( sock_in[0] );
+                close( sock_in[1] );
 
                 while ( waitpid(pid, 0, 0) < 0 && errno == EINTR)
                     ;
@@ -271,8 +341,11 @@ int work_it( CompileJob &j,
         }
         close( main_sock[0] );
 
+        log_block bwrite("write block");
+
         for(;;)
         {
+            log_block bfor("for writing loop");
             fd_set rfds;
             FD_ZERO( &rfds );
             FD_SET( sock_out[0], &rfds );
@@ -288,7 +361,11 @@ int work_it( CompileJob &j,
             tv.tv_sec = 5;
             tv.tv_usec = 0;
 
-            ret =  select( max_fd+1, &rfds, 0, 0, &tv );
+            {
+                log_block bselect("waiting in select");
+                ret =  select( max_fd+1, &rfds, 0, 0, &tv );
+            }
+
             switch( ret )
             {
             case -1:

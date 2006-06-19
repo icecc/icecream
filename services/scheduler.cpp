@@ -655,9 +655,11 @@ pick_server(Job *job)
     {
 	for (it = css.begin(); it != css.end(); ++it)
           {
-             CS *cs = *it;
-	     if (cs->nodename == job->preferred_host)
-	       return cs;
+	     if ((*it)->nodename == job->preferred_host
+                 && int( (*it)->joblist.size() ) < (*it)->max_jobs
+                 && (*it)->chroot_possible
+                 && (*it)->load < 1000 && can_install( *it, job ).size() )
+	       return *it;
 	  }
     }
 
@@ -806,23 +808,27 @@ pick_server(Job *job)
 }
 
 /* Prunes the list of connected servers by those which haven't
-   answered for a long time.  */
-static void
+   answered for a long time. Return the number of seconds when
+   we have to cleanup next time. */
+static time_t
 prune_servers ()
 {
   list<CS*>::iterator it;
 
   time_t now = time( 0 );
+  time_t min_time = MAX_SCHEDULER_PING;
+
   for (it = css.begin(); it != css.end(); )
     {
-      if ( now - ( *it )->last_talk > 35 )
+      if ( now - ( *it )->last_talk >= MAX_SCHEDULER_PING )
         {
-          if ( ( *it )->max_jobs > 0 )
+          if ( ( *it )->max_jobs >= 0 )
             {
               trace() << "send ping " << ( *it )->nodename << endl;
               ( *it )->send_msg( PingMsg() );
               ( *it )->max_jobs *= -1; // better not give it away
-              ( *it )->last_talk = time( 0 ); // now wait another 15s
+              // give it a few seconds to answer a ping
+              ( *it )->last_talk = time( 0 ) - MAX_SCHEDULER_PING + MIN_SCHEDULER_PING;
             }
           else
             { // R.I.P.
@@ -833,6 +839,8 @@ prune_servers ()
               continue;
             }
         }
+      else 
+        min_time = min (min_time, MAX_SCHEDULER_PING - now + ( *it )->last_talk);
 #if DEBUG_SCHEDULER > 1
       if ((random() % 400) < 0)
         { // R.I.P.
@@ -867,6 +875,8 @@ prune_servers ()
           break;
         }
     }
+
+    return min_time;
 }
 
 static Job*
@@ -1722,7 +1732,9 @@ main (int argc, char * argv[])
 
   while (1)
     {
-      prune_servers ();
+      struct timeval tv;
+      tv.tv_usec = 0;
+      tv.tv_sec = prune_servers ();
 
       while (empty_queue())
 	continue;
@@ -1760,7 +1772,7 @@ main (int argc, char * argv[])
               FD_SET (i, &read_set);
             }
         }
-      max_fd = select (max_fd + 1, &read_set, NULL, NULL, NULL);
+      max_fd = select (max_fd + 1, &read_set, NULL, NULL, &tv);
       if (max_fd < 0 && errno == EINTR)
         continue;
       if (max_fd < 0)

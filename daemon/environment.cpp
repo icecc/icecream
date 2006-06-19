@@ -36,8 +36,6 @@
 
 using namespace std;
 
-extern bool maybe_stats(bool forced);
-
 #if 0
 static string read_fromFILE( FILE *f )
 {
@@ -143,7 +141,7 @@ static void list_target_dirs( const string &current_target, const string &target
     closedir( envdir );
 }
 
-bool cleanup_cache( const string &basedir, uid_t nobody_uid, gid_t nobody_gid )
+bool cleanup_cache( const string &basedir )
 {
     pid_t pid = fork();
     if ( pid )
@@ -151,55 +149,28 @@ bool cleanup_cache( const string &basedir, uid_t nobody_uid, gid_t nobody_gid )
         int status = 0;
         while ( waitpid( pid, &status, 0 ) < 0 && errno == EINTR )
             ;
+
+        if ( mkdir( basedir.c_str(), 0755 ) && errno != EEXIST ) {
+            if ( errno == EPERM )
+                log_error() << "permission denied on mkdir " << basedir << endl;
+            else
+                log_perror( "mkdir in cleanup_cache() failed" );
+            return false;
+        }
         return WIFEXITED(status);
     }
     // else
-    if ( setgid( nobody_gid ) < 0 ) {
-      log_perror("setgid failed");
-      _exit (143);
-    }
+    char **argv;
+    argv = new char*[5];
+    argv[0] = strdup( "/bin/rm" );
+    argv[1] = strdup( "-rf" );
+    argv[2] = strdup( "--" );
+    // make sure it ends with '/' to not fall into symlink traps
+    string bdir = basedir + '/';
+    argv[3] = strdup( bdir.c_str()  );
+    argv[4] = NULL;
 
-    if (!geteuid() && setuid( nobody_uid ) < 0) {
-      log_perror("setuid failed");
-      _exit (142);
-    }
-
-    if ( !::access( basedir.c_str(), W_OK ) ) { // it exists - removing content
-
-        if ( chdir( basedir.c_str() ) ) {
-            log_error() << "chdir" << strerror( errno ) << endl;
-            _exit( 1 );
-        }
-
-        char buffer[PATH_MAX];
-        DIR *dir = opendir( "." );
-        if ( !dir )
-            _exit( 1 ); // very unlikely
-
-        struct dirent *subdir = readdir( dir );
-        while ( subdir ) {
-            if ( !strcmp( subdir->d_name, "." ) || !strcmp( subdir->d_name, ".." ) ) {
-                subdir = readdir( dir );
-                continue;
-            }
-            snprintf( buffer, PATH_MAX, "rm -rf '%s'", subdir->d_name );
-            if ( system( buffer ) ) {
-                log_error() << "rm -rf failed\n";
-                _exit( 1 );
-            }
-            subdir = readdir( dir );
-        }
-        closedir( dir );
-    }
-
-    if ( mkdir( basedir.c_str(), 0755 ) && errno != EEXIST ) {
-        if ( errno == EPERM )
-            log_error() << "cache directory can't be generated: " << basedir << endl;
-        else
-            log_perror( "Failed " );
-        _exit( 1 );
-    }
-    _exit( 0 );
+    _exit(execv(argv[0], argv));
 }
 
 Environments available_environmnents(const string &basedir)
@@ -232,15 +203,24 @@ size_t setup_env_cache(const string &basedir, string &native_environment, uid_t 
     native_environment = "";
     string nativedir = basedir + "/native/";
 
+    if ( ::access( "/usr/bin/gcc", X_OK ) || ::access( "/usr/bin/g++", X_OK ) ) 
+	return 0;
+
+    if ( mkdir( nativedir.c_str(), 0755 ) )
+   	return 0; 
+
+    if ( chown( nativedir.c_str(), nobody_uid, nobody_gid) ) {
+	rmdir( nativedir.c_str() );
+	return 0;
+    }
+
     pid_t pid = fork();
-    if ( pid )
-    {
+    if ( pid ) {
         int status = 0;
         if ( waitpid( pid, &status, 0 ) != pid )
             status = 1;
         trace() << "waitpid " << status << endl;
-        if ( !status )
-        {
+        if ( !status ) {
             trace() << "opendir " << nativedir << endl;
             native_environment = list_native_environment( nativedir );
             if ( native_environment.empty() )
@@ -263,22 +243,17 @@ size_t setup_env_cache(const string &basedir, string &native_environment, uid_t 
       _exit (142);
     }
 
-    if ( !::access( "/usr/bin/gcc", X_OK ) && !::access( "/usr/bin/g++", X_OK ) ) {
-        if ( !mkdir ( nativedir.c_str(), 0755 ) )
-        {
-            if ( chdir( nativedir.c_str() ) ) {
-                log_perror( "chdir" );
-                rmdir( nativedir.c_str() );
-                goto error;
-            }
+    if ( chdir( nativedir.c_str() ) ) {
+         log_perror( "chdir" );
+         rmdir( nativedir.c_str() );
+         goto error;
+    }
 
-            if ( system( BINDIR "/icecc --build-native" ) ) {
-                log_error() << BINDIR "/icecc --build-native failed\n";
-                goto error;
-            } else {
-                _exit( 0 );
-            }
-        }
+    if ( system( BINDIR "/icecc --build-native" ) ) {
+        log_error() << BINDIR "/icecc --build-native failed\n";
+        goto error;
+    } else {
+        _exit( 0 );
     }
 
 error:
@@ -319,6 +294,25 @@ size_t install_environment( const std::string &basename, const std::string &targ
             compression = BZip2;
     }
 
+    if( ::access( basename.c_str(), W_OK ) ) {
+       log_error() << "access for basename " <<  basename.c_str() << " gives " << strerror(errno) << endl;
+       return 0;
+    }
+
+    if ( mkdir( dirname.c_str(), 0755 ) && errno != EEXIST ) {
+        log_perror( "mkdir target" );
+        return 0;
+    }
+
+    dirname = dirname + "/" + name;
+    if ( mkdir( dirname.c_str(), 0700 ) ) {
+        log_perror( "mkdir name" );
+        return 0;
+    }
+
+    chown( dirname.c_str(), 0, nobody_gid );
+    chmod( dirname.c_str(), 0770 );
+
     int fds[2];
     if ( pipe( fds ) )
         return 0;
@@ -332,8 +326,6 @@ size_t install_environment( const std::string &basename, const std::string &targ
 
         bool error = false;
         do {
-
-            maybe_stats(false);
             int ret = fwrite( fmsg->buffer, fmsg->len, 1, fpipe );
             if ( ret != 1 ) {
                 log_error() << "wrote " << ret << " bytes\n";
@@ -360,8 +352,6 @@ size_t install_environment( const std::string &basename, const std::string &targ
             }
         } while ( true );
 
-        maybe_stats(false);
-
         delete msg;
 
         fclose( fpipe );
@@ -377,12 +367,7 @@ size_t install_environment( const std::string &basename, const std::string &targ
         } else {
             if ( waitpid( pid, &status, 0) != pid )
                 status = 1;
-            dirname = dirname + "/" + name;
-            mkdir( ( dirname + "/var" ).c_str(), 0755 );
-            chown( ( dirname + "/var" ).c_str(), nobody_uid, nobody_gid );
-            mkdir( ( dirname + "/var/tmp" ).c_str(), 0755 );
-            chown( ( dirname + "/var/tmp" ).c_str(), nobody_uid, nobody_gid );
-            mkdir( ( dirname + "/tmp" ).c_str(), 01755 );
+            mkdir( ( dirname + "/tmp" ).c_str(), 01775 );
             chown( ( dirname + "/tmp" ).c_str(), 0, nobody_gid );
             chmod( ( dirname + "/tmp" ).c_str(), 01775 );
         }
@@ -407,38 +392,19 @@ size_t install_environment( const std::string &basename, const std::string &targ
     close( fds[1] );
     dup2( fds[0], 0 );
 
-    if( ::access( basename.c_str(), W_OK ) ) {
-       log_perror( basename.c_str() );
-       _exit( 1 );
-    }
-
-    if ( mkdir( dirname.c_str(), 0755 ) && errno != EEXIST ) {
-        log_perror( "mkdir target" );
-        _exit( 1 );
-    }
-
-    dirname = dirname + "/" + name;
-    if ( mkdir( dirname.c_str(), 0755 ) ) {
-        log_perror( "mkdir name" );
-        _exit( 1 );
-    }
-
-    if ( chdir( dirname.c_str() ) ) {
-        log_perror( "chdir" );
-        _exit( 1 );
-    }
-
     char **argv;
-    argv = new char*[4];
+    argv = new char*[6];
     argv[0] = strdup( "/bin/tar" );
+    argv[1] = strdup ("-C");
+    argv[2] = strdup ( dirname.c_str() );
     if ( compression == BZip2 )
-        argv[1] = strdup( "xjf" );
+        argv[3] = strdup( "-xjf" );
     else if ( compression == Gzip )
-        argv[1] = strdup( "xzf" );
+        argv[3] = strdup( "-xzf" );
     else if ( compression == None )
-        argv[1] = strdup( "xf" );
-    argv[2] = strdup( "-" );
-    argv[3] = 0;
+        argv[3] = strdup( "-xf" );
+    argv[4] = strdup( "-" );
+    argv[5] = 0;
     _exit(execv( argv[0], argv ));
 }
 
@@ -482,11 +448,12 @@ size_t remove_environment( const string &basename, const string &env, uid_t nobo
     }
 
     char **argv;
-    argv = new char*[4];
+    argv = new char*[5];
     argv[0] = strdup( "/bin/rm" );
     argv[1] = strdup( "-rf" );
-    argv[2] = strdup( name.c_str() );
-    argv[3] = NULL;
+    argv[2] = strdup("--");
+    argv[3] = strdup( name.c_str() );
+    argv[4] = NULL;
 
     _exit(execv(argv[0], argv));
 }

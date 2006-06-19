@@ -52,7 +52,6 @@
 #include <sys/sendfile.h>
 #endif
 
-#include <exception>
 #include <sys/time.h>
 
 #ifdef __FreeBSD__
@@ -71,14 +70,6 @@
 using namespace std;
 
 int nice_level = 5;
-
-class myexception: public exception
-{
-    int code;
-public:
-    myexception( int _exitcode ) : exception(), code( _exitcode ) {}
-    int exitcode() const { return code; }
-};
 
 /**
  * Read a request, run the compiler, and send a response.
@@ -105,9 +96,6 @@ int handle_connection( const string &basedir, CompileJob *job,
     nice( nice_level );
 
     Msg *msg = 0; // The current read message
-    char tmp_input[PATH_MAX];
-    tmp_input[0] = 0;
-    int ti = 0; // the socket
     unsigned int job_id = 0;
     int obj_fd = -1; // the obj_fd
     string obj_file;
@@ -165,75 +153,16 @@ int handle_connection( const string &basedir, CompileJob *job,
             assert(0);
 
         int ret;
-        if ( ( ret = dcc_make_tmpnam("icecc", dot, tmp_input, 1 ) ) != 0 ) {
-            log_error() << "can't create tmpfile " << strerror( errno ) << endl;
-            throw myexception( ret );
-        }
-
-        ti = open( tmp_input, O_CREAT|O_WRONLY|O_LARGEFILE );
-        if ( ti == -1 ) {
-            log_error() << "open of " << tmp_input << " failed " << strerror( errno ) << endl;
-            throw myexception( EXIT_DISTCC_FAILED );
-        }
 
         unsigned int in_compressed = 0;
         unsigned int in_uncompressed = 0;
-
-        while ( 1 ) {
-            msg = client->get_msg(60);
-
-            if ( !msg ) {
-                log_error() << "no message while reading file chunk\n";
-                throw myexception( EXIT_PROTOCOL_ERROR );
-            }
-
-            if ( msg->type == M_END ) {
-                delete msg;
-                msg = 0;
-                break;
-            }
-
-            if ( msg->type != M_FILE_CHUNK ) {
-                log_error() << "protocol error while looking for FILE_CHUNK\n";
-                throw myexception( EXIT_PROTOCOL_ERROR );
-            }
-
-            FileChunkMsg *fcmsg = dynamic_cast<FileChunkMsg*>( msg );
-            if ( !fcmsg ) {
-                log_error() << "FileChunkMsg not dynamic_castable\n";
-                throw myexception( EXIT_PROTOCOL_ERROR );
-            }
-            in_uncompressed += fcmsg->len;
-            in_compressed += fcmsg->compressed;
-
-            ssize_t len = fcmsg->len;
-            off_t off = 0;
-            while ( len ) {
-                ssize_t bytes = write( ti, fcmsg->buffer + off, len );
-                if ( bytes == -1 ) {
-                    log_error() << "write to " << tmp_input << " failed. " << strerror( errno ) << endl;
-                    throw myexception( EXIT_DISTCC_FAILED );
-                }
-                len -= bytes;
-                off += bytes;
-            }
-
-            delete msg;
-            msg = 0;
-        }
-        close( ti );
-        ti = -1;
-
         struct timeval begintv;
         gettimeofday( &begintv, 0 );
 
         CompileResultMsg rmsg;
 
-        ret = work_it( *job, tmp_input,
+        ret = work_it( *job, in_compressed, in_uncompressed, client,
                        rmsg.out, rmsg.err, rmsg.status, obj_file, mem_limit, client->fd );
-
-        unlink( tmp_input );
-        tmp_input[0] = 0; // unlinked
 
         job_id = job->jobID();
         delete job;
@@ -303,12 +232,6 @@ int handle_connection( const string &basedir, CompileJob *job,
 
         delete msg;
         delete job;
-
-        if ( *tmp_input )
-            unlink( tmp_input );
-
-        if ( ti > -1 )
-            close( ti );
 
         if ( obj_fd > -1)
             close( obj_fd );

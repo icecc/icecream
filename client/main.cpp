@@ -307,11 +307,12 @@ int main(int argc, char **argv)
             ret = build_remote( job, local_daemon, envs, rate);
         } catch ( int error ) {
             fprintf( stderr, "got exception %d (this should be an exception!)\n", error );
+            /* currently debugging a client ? throw an error then */
+            if (debug_level != Error)
+                return error;
             ret = build_local( job, 0 );
         }
     }
-    local_daemon->send_msg (EndMsg());
-    trace() << "after endmsg\n";
     delete local_daemon;
     return ret;
 

@@ -217,7 +217,7 @@ static void write_server_cpp(int cpp_fd, MsgChannel *cserver)
           if (bytes < 0) {
             log_perror( "reading from cpp_fd" );
             close( cpp_fd );
-            throw( 11 );
+            throw( 16 );
           }
           break;
         } while ( 1 );
@@ -229,9 +229,9 @@ static void write_server_cpp(int cpp_fd, MsgChannel *cserver)
                 FileChunkMsg fcmsg( buffer, offset );
                 if ( !cserver->send_msg( fcmsg ) )
                 {
-                    log_info() << "write of source chunk failed " << offset << " " << bytes << endl;
+                    log_perror("write of source chunk failed ");
                     close( cpp_fd );
-                    throw( 11 );
+                    throw( 15 );
                 }
                 offset = 0;
             }
@@ -260,13 +260,18 @@ static int build_remote_int(CompileJob &job, UseCSMsg *usecs, const string &envi
     MsgChannel *cserver = 0;
 
     try {
-         cserver = Service::createChannel(hostname, port, 10);
-    if ( !cserver ) {
-        log_warning() << "no server found behind given hostname " << hostname << ":" << port << endl;
-        throw ( 2 );
-    }
+        {
+            log_block b1("create CS channel");
+
+            cserver = Service::createChannel(hostname, port, 10);
+            if ( !cserver ) {
+                log_error() << "no server found behind given hostname " << hostname << ":" << port << endl;
+                throw ( 2 );
+            }
+        }
 
     if ( !got_env ) {
+        log_block b("Transfer Environment");
         // transfer env
         struct stat buf;
         if ( stat( version_file.c_str(), &buf ) ) {
@@ -285,15 +290,19 @@ static int build_remote_int(CompileJob &job, UseCSMsg *usecs, const string &envi
         write_server_cpp( env_fd, cserver );
 
         if ( !cserver->send_msg( EndMsg() ) ) {
-            log_info() << "write of end failed" << endl;
+            log_error() << "write of environment failed" << endl;
             throw( 8 );
         }
     }
 
+
     CompileFileMsg compile_file( &job );
-    if ( !cserver->send_msg( compile_file ) ) {
-        log_info() << "write of job failed" << endl;
-        throw( 9 );
+    {
+        log_block b("send compile_file");
+        if ( !cserver->send_msg( compile_file ) ) {
+            log_info() << "write of job failed" << endl;
+            throw( 9 );
+        }
     }
 
     if ( !preproc_file ) {
@@ -311,12 +320,14 @@ static int build_remote_int(CompileJob &job, UseCSMsg *usecs, const string &envi
             throw( 10 );
 
         try {
+            log_block bl2("write_server_cpp from cpp");
             write_server_cpp( sockets[0], cserver );
         } catch ( int error ) {
             kill( cpp_pid, SIGTERM );
             throw ( error );
         }
 
+        log_block wait_cpp("wait for cpp");
         waitpid( cpp_pid, &status, 0);
 
         if ( status ) { // failure
@@ -329,17 +340,25 @@ static int build_remote_int(CompileJob &job, UseCSMsg *usecs, const string &envi
         if ( cpp_fd < 0 )
             throw ( 11 );
 
+        log_block cpp_block("write_server_cpp");
         write_server_cpp( cpp_fd, cserver );
     }
 
-    if ( !cserver->send_msg( EndMsg() ) ) {
-        log_info() << "write of end failed" << endl;
-        throw( 12 );
+    {
+        log_block write_end("write of end msg");
+        if ( !cserver->send_msg( EndMsg() ) ) {
+            log_info() << "write of end failed" << endl;
+            throw( 12 );
+        }
     }
 
-    Msg *msg = cserver->get_msg( 12 * 60 );
-    if ( !msg )
-        throw( 14 );
+    Msg *msg;
+    {
+        log_block wait_cs("wait for cs");
+        msg = cserver->get_msg( 12 * 60 );
+        if ( !msg )
+            throw( 14 );
+    }
 
     if ( msg->type != M_COMPILE_RESULT ) {
         log_warning() << "waited for compile result, but got " << (char)msg->type << endl;
@@ -518,13 +537,12 @@ int build_remote(CompileJob &job, MsgChannel *local_daemon, const Environments &
 
     if ( torepeat == 1 ) {
         string fake_filename;
-/*        list<string> args = job.remoteFlags();
+        list<string> args = job.remoteFlags();
         for ( list<string>::const_iterator it = args.begin(); it != args.end(); ++it )
             fake_filename += "/" + *it;
         args = job.restFlags();
         for ( list<string>::const_iterator it = args.begin(); it != args.end(); ++it )
             fake_filename += "/" + *it;
-*/
         fake_filename += get_absfilename( job.inputFile() );
         const char *preferred_host = getenv("ICECC_PREFERRED_HOST");
         GetCSMsg getcs (envs, fake_filename, job.language(), torepeat, 

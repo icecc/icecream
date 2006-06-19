@@ -60,7 +60,7 @@ using namespace std;
 
 /* Tries to fill the inbuf completely.  */
 bool
-MsgChannel::read_a_bit (void)
+MsgChannel::read_a_bit ()
 {
   chop_input ();
   size_t count = inbuflen - inofs;
@@ -192,7 +192,7 @@ MsgChannel::update_state (void)
 }
 
 void
-MsgChannel::chop_input (void)
+MsgChannel::chop_input ()
 {
   /* Make buffer smaller, if there's much already read in front
      of it, or it is cheap to do.  */
@@ -207,7 +207,7 @@ MsgChannel::chop_input (void)
 }
 
 void
-MsgChannel::chop_output (void)
+MsgChannel::chop_output ()
 {
   if (msgofs > 8192
       || msgtogo <= 16)
@@ -238,7 +238,7 @@ MsgChannel::flush_writebuf (bool blocking)
   bool error = false;
   while (msgtogo)
     {
-      ssize_t ret = write (fd, buf, msgtogo);
+      ssize_t ret = send (fd, buf, msgtogo, MSG_NOSIGNAL);
       if (ret < 0)
         {
 	  if (errno == EINTR)
@@ -247,17 +247,25 @@ MsgChannel::flush_writebuf (bool blocking)
 	     select on the fd.  */
 	  if (blocking && errno == EAGAIN)
 	    {
-	      fd_set write_set;
-	      FD_ZERO (&write_set);
-	      FD_SET (fd, &write_set);
-	      struct timeval tv;
-	      tv.tv_sec = 10;
-	      tv.tv_usec = 0;
-	      if (select (fd + 1, NULL, &write_set, NULL, &tv) > 0)
+              int ready;
+              for(;;)
+                {
+                    fd_set write_set;
+                    FD_ZERO (&write_set);
+                    FD_SET (fd, &write_set);
+                    struct timeval tv;
+                    tv.tv_sec = 20;
+                    tv.tv_usec = 0;
+                    ready = select (fd + 1, NULL, &write_set, NULL, &tv);
+                    if ( ready < 0 && errno == EINTR)
+                        continue;
+                    break;
+                }
+              /* socket ready now for writing ? */
+              if (ready > 0)
 	        continue;
 	      /* Timeout or real error --> error.  */
 	    }
-	  // XXX handle EPIPE ?
 	  error = true;
 	  break;
 	}
@@ -558,6 +566,7 @@ static bool connect_async( int remote_fd, struct sockaddr *remote_addr, size_t r
 MsgChannel *Service::createChannel (const string &hostname, unsigned short p, int timeout)
 {
   int remote_fd;
+  int i = 1;
   struct sockaddr_in remote_addr;
 
   if ((remote_fd = socket (PF_INET, SOCK_STREAM, 0)) < 0)
@@ -582,6 +591,7 @@ MsgChannel *Service::createChannel (const string &hostname, unsigned short p, in
   remote_addr.sin_family = AF_INET;
   remote_addr.sin_port = htons (p);
   memcpy (&remote_addr.sin_addr.s_addr, host->h_addr_list[0], host->h_length);
+  setsockopt(remote_fd, IPPROTO_TCP, TCP_NODELAY, (char*) &i, sizeof(i));
 
   if ( timeout )
     {
@@ -590,8 +600,8 @@ MsgChannel *Service::createChannel (const string &hostname, unsigned short p, in
     }
   else
     {
-      int i = 1;
-      setsockopt(remote_fd, IPPROTO_TCP, TCP_NODELAY, (char*) &i, sizeof(i));
+      i = 2048;
+      setsockopt(remote_fd, SOL_SOCKET, SO_SNDBUF, &i, sizeof(i));
       if (connect (remote_fd, (struct sockaddr *) &remote_addr, sizeof (remote_addr)) < 0)
         {
           close( remote_fd );
@@ -720,10 +730,18 @@ MsgChannel::wait_for_protocol ()
       struct timeval tv;
       tv.tv_sec = 5;
       tv.tv_usec = 0;
-      if (select (fd + 1, &set, NULL, NULL, &tv) <= 0)
-	return false;
-      if (!read_a_bit () || eof )
-	return false;
+      int ret = select (fd + 1, &set, NULL, NULL, &tv);
+      if (ret < 0 && errno == EINTR)
+        continue;
+      if (ret == 0)
+          return false; /* timeout. Consider it a fatal error. */
+      if (ret < 0)
+        {
+          log_perror("select in wait_for_protocol()");
+          return false;
+        }
+      if (!read_a_bit () || eof)
+        return false;
     }
   return true;
 }

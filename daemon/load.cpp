@@ -52,19 +52,21 @@ struct CPULoadInfo
     unsigned long niceTicks;
     unsigned long sysTicks;
     unsigned long idleTicks;
+    unsigned long waitTicks;
 
     CPULoadInfo() {
         userTicks = 0;
         niceTicks = 0;
         sysTicks = 0;
         idleTicks = 0;
+        waitTicks = 0;
     }
 };
 
-static void updateCPULoad( const char* line, CPULoadInfo* load )
+static void updateCPULoad( CPULoadInfo* load )
 {
   unsigned long totalTicks;
-  unsigned long currUserTicks, currSysTicks, currNiceTicks, currIdleTicks;
+  unsigned long currUserTicks, currSysTicks, currNiceTicks, currIdleTicks, currWaitTicks;
 
 #ifdef USE_SYSCTL
   static int mibs[4] = { 0,0,0,0 };
@@ -93,14 +95,39 @@ static void updateCPULoad( const char* line, CPULoadInfo* load )
   (void)(line);
 
 #else
-  sscanf( line, "%*s %lu %lu %lu %lu", &currUserTicks, &currNiceTicks,
-          &currSysTicks, &currIdleTicks );
+    char buf[ 256 ];
+    static int fd = -1;
+
+    if ( fd < 0 && ( fd = open( "/proc/stat", O_RDONLY ) ) < 0 ) {
+        log_error() << "Cannot open file \'/proc/stat\'!\n"
+            "The kernel needs to be compiled with support\n"
+            "for /proc filesystem enabled!" << endl;
+        return;
+    }
+
+    lseek(fd, 0, SEEK_SET);
+    ssize_t n;
+
+    while ( (n = read( fd, buf, sizeof(buf) -1 )) < 0 && errno == EINTR)
+        ;
+
+    if ( n < 20 ) {
+        log_error() << "no enough data in /proc/stat?" << endl;
+        return;
+    }
+    buf[n] = 0;
+
+    /* wait ticks only exist with Linux >= 2.6.0. treat as 0 otherwise */
+    currWaitTicks = 0;
+    sscanf( buf, "%*s %lu %lu %lu %lu %lu", &currUserTicks, &currNiceTicks,
+            &currSysTicks, &currIdleTicks, &currWaitTicks );
 #endif
 
   totalTicks = ( currUserTicks - load->userTicks ) +
                ( currSysTicks - load->sysTicks ) +
                ( currNiceTicks - load->niceTicks ) +
-               ( currIdleTicks - load->idleTicks );
+               ( currIdleTicks - load->idleTicks ) +
+               ( currWaitTicks - load->waitTicks );
 
   if ( totalTicks > 10 ) {
     load->userLoad = ( 1000 * ( currUserTicks - load->userTicks ) ) / totalTicks;
@@ -118,6 +145,7 @@ static void updateCPULoad( const char* line, CPULoadInfo* load )
   load->sysTicks = currSysTicks;
   load->niceTicks = currNiceTicks;
   load->idleTicks = currIdleTicks;
+  load->waitTicks = currWaitTicks;
 }
 
 static unsigned long int scan_one( const char* buff, const char *key )
@@ -131,7 +159,7 @@ static unsigned long int scan_one( const char* buff, const char *key )
   return val;
 }
 
-static unsigned int calculateMemLoad( const char* MemInfoBuf, unsigned long int &NetMemFree )
+static unsigned int calculateMemLoad( unsigned long int &NetMemFree )
 {
     unsigned long int MemFree;
 
@@ -149,11 +177,28 @@ static unsigned int calculateMemLoad( const char* MemInfoBuf, unsigned long int 
     len = sizeof (Cached);
     if ((sysctlbyname("vm.stats.vm.v_cache_count", &Cached, &len, NULL, 0) == -1) || !len)
             Cached = 0; /* Doesn't work under FreeBSD v2.2.x */
-    (void)(MemInfoBuf);
 #else
-    MemFree = scan_one( MemInfoBuf, "MemFree" );
-    unsigned long int Buffers = scan_one( MemInfoBuf, "Buffers" );
-    unsigned long int Cached = scan_one( MemInfoBuf, "Cached" );
+    /* The interesting information is definitely within the first 256 bytes */
+    char buf[256];
+    static int fd = -1;
+
+    if ( fd < 0 && ( fd = open( "/proc/meminfo", O_RDONLY ) ) < 0 ) {
+        log_error() << "Cannot open file \'/proc/meminfo\'!\n"
+            "The kernel needs to be compiled with support\n"
+            "for /proc filesystem enabled!" << endl;
+        return 0;
+    }
+    lseek (fd, 0, SEEK_SET);
+    ssize_t n;
+    while ((n = read( fd, buf, sizeof( buf ) -1 )) < 0 && errno == EINTR)
+        ;
+    if (n < 20)
+        return 0;
+
+    buf[n] = '\0';
+    MemFree = scan_one( buf, "MemFree" );
+    unsigned long int Buffers = scan_one( buf, "Buffers" );
+    unsigned long int Cached = scan_one( buf, "Cached" );
 #endif
 
     if ( Buffers > 50 * 1024 )
@@ -173,58 +218,18 @@ static unsigned int calculateMemLoad( const char* MemInfoBuf, unsigned long int 
         return 1000 - ( NetMemFree * 1000 / ( 128 * 1024 ) );
 }
 
-bool fill_stats( unsigned long &myniceload, unsigned long &myidleload, unsigned int &memory_fillgrade, StatsMsg *msg )
+bool fill_stats( unsigned long &myidleload, unsigned int &memory_fillgrade, StatsMsg *msg )
 {
     static CPULoadInfo load;
 
-#ifdef USE_SYSCTL
-    updateCPULoad( 0, &load );
-#else
-    static char StatBuf[ 32 * 1024 ];
-    int fd;
-
-    if ( ( fd = open( "/proc/stat", O_RDONLY ) ) < 0 ) {
-        log_error() << "Cannot open file \'/proc/stat\'!\n"
-            "The kernel needs to be compiled with support\n"
-            "for /proc filesystem enabled!" << endl;
-        return false;
-    }
-
-    ssize_t n = read( fd, StatBuf, sizeof( StatBuf ) -1 );
-    close( fd );
-    if ( n < 40 ) {
-        log_error() << "no enough date in /proc/stat?" << endl;
-        return false;
-    }
-    StatBuf[n] = 0;
-    updateCPULoad( StatBuf, &load );
-#endif
+    updateCPULoad( &load );
 
     myidleload = load.idleLoad;
-    myniceload = load.niceLoad;
 
     if ( msg ) {
         unsigned long int MemFree = 0;
 
-#ifdef USE_SYSCTL
-        memory_fillgrade = calculateMemLoad( 0, MemFree );
-#else
-        if ( ( fd = open( "/proc/meminfo", O_RDONLY ) ) < 0 ) {
-            log_error() << "Cannot open file \'/proc/meminfo\'!\n"
-                "The kernel needs to be compiled with support\n"
-                "for /proc filesystem enabled!" << endl;
-            return false;
-        }
-
-        n = read( fd, StatBuf, sizeof( StatBuf ) -1 );
-        close( fd );
-        if ( n < 40 ) {
-            log_error() << "no enough data in /proc/meminfo?" << endl;
-            return false;
-        }
-        StatBuf[n] = 0;
-        memory_fillgrade = calculateMemLoad( StatBuf, MemFree );
-#endif
+        memory_fillgrade = calculateMemLoad( MemFree );
 
         double avg[3];
         getloadavg( avg, 3 );

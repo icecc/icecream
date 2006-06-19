@@ -23,6 +23,6 @@
 
 #include <comm.h>
 
-bool fill_stats( unsigned long &myniceload, unsigned long &myidleload,  unsigned int &memory_fillgrade, StatsMsg *msg );
+bool fill_stats( unsigned long &myidleload,  unsigned int &memory_fillgrade, StatsMsg *msg );
 
 #endif

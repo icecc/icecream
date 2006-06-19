@@ -25,7 +25,20 @@
 #include <sys/types.h>
 #include <string>
 
-int work_it( CompileJob &j, const std::string &infilename,
+#include <exception>
+
+class MsgChannel;
+
+// No icecream ;(
+class myexception : public std::exception
+{
+    int code;
+public:
+    myexception( int _exitcode ) : exception(), code( _exitcode ) {}
+    int exitcode() const { return code; }
+};
+
+extern int work_it( CompileJob &j, unsigned int& in_compressed, unsigned int& in_uncompressed, MsgChannel* client,
              std::string &str_out, std::string &str_err,
              int &status, std::string &outfilename,
              unsigned long int mem_limit, int client_fd );
