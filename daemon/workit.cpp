@@ -207,7 +207,7 @@ int work_it( CompileJob &j,
 
         int argc = list.size();
         argc++; // the program
-        argc += 3; // file.i -o file.o
+        argc += 3; // - -o file.o
         argc += 4; // gpc parameters
         char **argv = new char*[argc + 1];
 	int i = 0;
@@ -224,7 +224,7 @@ int work_it( CompileJob &j,
               it != list.end(); ++it) {
             argv[i++] = strdup( it->c_str() );
         }
-        argv[i++] = strdup( infilename.c_str() );
+        argv[i++] = strdup( "-" );
         argv[i++] = strdup( "-o" );
         argv[i++] = tmp_output;
         argv[i++] = strdup( "--param" );
