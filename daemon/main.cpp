@@ -319,22 +319,6 @@ void dcc_daemon_catch_signals(void)
 
 pid_t dcc_master_pid;
 
-MsgChannel *scheduler = 0;
-
-static bool send_scheduler(const Msg& msg)
-{
-    if (!scheduler)
-        return false;
-
-    if (!scheduler->send_msg(msg)) {
-        delete scheduler;
-        scheduler = 0;
-        return false;
-    }
-
-    return true;
-}
-
 /**
  * Just log, remove pidfile, and exit.
  *
@@ -345,7 +329,7 @@ static bool send_scheduler(const Msg& msg)
 static void dcc_daemon_terminate(int whichsig)
 {
     bool am_parent = ( getpid() == dcc_master_pid );
-    printf( "term %d %d %p\n", whichsig, am_parent, scheduler );
+    printf( "term %d %d\n", whichsig, am_parent );
 
     if (am_parent) {
 #ifdef HAVE_STRSIGNAL
@@ -362,11 +346,6 @@ static void dcc_daemon_terminate(int whichsig)
     // dcc_cleanup_tempfiles();
 
     if (am_parent) {
-        if ( scheduler ) {
-            send_scheduler( EndMsg() ); /// TODO: what happens if it's already in send_msg?
-            scheduler = 0;
-        }
-
         /* kill whole group */
         kill(0, whichsig);
     }
@@ -385,13 +364,6 @@ void usage(const char* reason = 0)
 
   cerr << "usage: iceccd [-n <netname>] [-m <max_processes>] [-w] [-d|--daemonize] [-l logfile] [-s <schedulerhost>] [-v[v[v]]] [-r|--run-as-user] [-b <env-basedir>] [-u|--nobody-uid <nobody_uid>] [--cache-limit <MB>] [-N <node_name>]" << endl;
   exit(1);
-}
-
-void reannounce_environments(const string &envbasedir, const string &nodename)
-{
-    LoginMsg lmsg( 0, nodename, "");
-    lmsg.envs = available_environmnents(envbasedir);
-    send_scheduler( lmsg );
 }
 
 int setup_listen_fd()
@@ -485,6 +457,10 @@ struct Daemon
     unsigned long icecream_load;
     int current_load;
     int num_cpus;
+    MsgChannel *scheduler;
+    time_t last_connect;
+    string netname;
+    string schedname;
 
     Daemon() {
         envbasedir = "/tmp/icecc-envs";
@@ -497,7 +473,11 @@ struct Daemon
         icecream_load = 0;
         current_load = - 1000;
         num_cpus = 0;
+        scheduler = 0;
+        last_connect = 0;
     }
+
+    void reannounce_environments(const string &envbasedir, const string &nodename);
     int answer_client_requests();
     bool handle_transfer_env( MsgChannel *c, Msg *msg );
     bool handle_get_native_env( MsgChannel *c );
@@ -514,7 +494,41 @@ struct Daemon
     string dump_internals() const;
     void fetch_children();
     bool maybe_stats(bool force = false);
+    bool send_scheduler(const Msg& msg);
+    void close_scheduler();
+    bool reconnect();
+    int working_loop();
 };
+
+bool Daemon::send_scheduler(const Msg& msg)
+{
+    if (!scheduler)
+        return false;
+
+    if (!scheduler->send_msg(msg)) {
+        close_scheduler();
+        return false;
+    }
+
+    return true;
+}
+
+void Daemon::reannounce_environments(const string &envbasedir, const string &nodename)
+{
+    LoginMsg lmsg( 0, nodename, "");
+    lmsg.envs = available_environmnents(envbasedir);
+    send_scheduler( lmsg );
+}
+
+void Daemon::close_scheduler()
+{
+    if ( !scheduler )
+        return;
+
+    delete scheduler;
+    scheduler = 0;
+    clear_children();
+}
 
 bool Daemon::maybe_stats(bool force)
 {
@@ -527,7 +541,7 @@ bool Daemon::maybe_stats(bool force)
     unsigned long idleLoad = 0;
 
     /* we didn't talk with the scheduler for a long time, try if connection is dead */
-    if (now.tv_sec - std::max(last_scheduler, last_sent.tv_sec) >= MAX_SCHEDULER_PING - MIN_SCHEDULER_PING) 
+    if (now.tv_sec - std::max(last_scheduler, last_sent.tv_sec) >= MAX_SCHEDULER_PING - MIN_SCHEDULER_PING)
        force = true;
 
     if ( diff_sent >= MIN_SCHEDULER_PING * 1000 || force ) {
@@ -636,7 +650,7 @@ int Daemon::scheduler_use_cs( UseCSMsg *msg )
         return 1;
     }
     if ( msg->hostname == remote_name ) {
-        c->usecsmsg = new UseCSMsg( msg->host_platform, "127.0.0.1", msg->port, msg->job_id, true, 1 );
+        c->usecsmsg = new UseCSMsg( msg->host_platform, "127.0.0.1", PORT, msg->job_id, true, 1 );
         c->status = Client::PENDING_USE_CS;
     } else {
         c->usecsmsg = new UseCSMsg( msg->host_platform, msg->hostname, msg->port, msg->job_id, true, 1 );
@@ -803,7 +817,7 @@ int Daemon::handle_old_request()
         current_kids++;
         trace() << "sending scheduler about " << job->jobID() << endl;
         if ( !send_scheduler( JobBeginMsg( job->jobID() ) ) ) {
-            log_warning() << "can't reach scheduler to tell him about job start of "
+            log_info() << "can't reach scheduler to tell him about job start of "
                           << job->jobID() << endl;
             handle_end( client, 114 );
             return 2;
@@ -878,7 +892,7 @@ bool Daemon::handle_compile_file( MsgChannel *c, Msg *msg )
         assert( job->environmentVersion() == "__client" );
         if ( !send_scheduler( JobBeginMsg( job->jobID() ) ) )
         {
-            log_warning() << "can't reach scheduler to tell him about job start of "
+            log_info() << "can't reach scheduler to tell him about job start of "
                           << job->jobID() << endl;
             handle_end( cl, 114 );
             return false; // pretty unlikely after all
@@ -964,6 +978,15 @@ bool Daemon::handle_get_cs( MsgChannel *c, Msg *msg )
     cl->status = Client::WAITFORCS;
     umsg->client_id = cl->client_id;
     trace() << "handle_get_cs " << umsg->client_id << endl;
+    if ( !scheduler )
+    {
+        /* now the thing is this: if there is no scheduler
+           there is no point in trying to ask him. So we just
+           redefine this as local job */
+        cl->usecsmsg = new UseCSMsg( umsg->target, "127.0.0.1", PORT, umsg->client_id, true, 1 );
+        cl->status = Client::PENDING_USE_CS;
+        cl->job_id = umsg->client_id;
+    }
     send_scheduler( *umsg );
     return true;
 }
@@ -1031,10 +1054,8 @@ int Daemon::answer_client_requests()
     fetch_children();
 
     /* collect the stats after the children exited icecream_load */
-    maybe_stats();
-
-    if(!scheduler)
-       return 2;
+    if ( scheduler )
+        maybe_stats();
 
     fd_set listen_set;
     struct timeval tv;
@@ -1061,11 +1082,11 @@ int Daemon::answer_client_requests()
         }
     }
 
-    assert(scheduler);
-
-    FD_SET( scheduler->fd, &listen_set );
-    if ( max_fd < scheduler->fd )
-        max_fd = scheduler->fd;
+    if ( scheduler ) {
+        FD_SET( scheduler->fd, &listen_set );
+        if ( max_fd < scheduler->fd )
+            max_fd = scheduler->fd;
+    }
 
     tv.tv_sec = MIN_SCHEDULER_PING;
     tv.tv_usec = 0;
@@ -1077,12 +1098,11 @@ int Daemon::answer_client_requests()
     }
 
     if ( ret > 0 ) {
-        if ( FD_ISSET( scheduler->fd, &listen_set ) ) {
+        if ( scheduler && FD_ISSET( scheduler->fd, &listen_set ) ) {
             Msg *msg = scheduler->get_msg();
             if ( !msg ) {
                 log_error() << "no message from scheduler\n";
-                delete scheduler;
-                scheduler = 0;
+                close_scheduler();
                 return 1;
             } else {
                 ret = 0;
@@ -1153,19 +1173,65 @@ int Daemon::answer_client_requests()
     return 0;
 }
 
+bool Daemon::reconnect()
+{
+    trace() << dump_internals() << endl;
+    if ( scheduler || time( 0 ) < last_connect )
+        return true;
+
+    scheduler = connect_scheduler (netname, 2000, schedname);
+    if ( !scheduler ) {
+        log_warning() << "no scheduler found. Sleeping.\n";
+        last_connect = time( 0 );
+        return false;
+    }
+    sockaddr_in name;
+    socklen_t len = sizeof(name);
+    int error = getsockname(scheduler->fd, (struct sockaddr*)&name, &len);
+    if ( !error )
+        remote_name = inet_ntoa( name.sin_addr );
+    else
+        remote_name = string();
+    log_info() << "Connected to scheduler (" << remote_name << ")\n";
+    current_load = -1000;
+    gettimeofday( &last_stat, 0 );
+    last_sent.tv_sec = last_stat.tv_sec - MAX_SCHEDULER_PING;
+    last_scheduler = last_stat.tv_sec;
+    icecream_load = 0;
+
+    trace() << "login as " << machine_name << endl;
+    LoginMsg lmsg( PORT, nodename, machine_name );
+    lmsg.envs = available_environmnents(envbasedir);
+    lmsg.max_kids = max_kids;
+    scheduler->send_msg( lmsg );
+
+    return true;
+}
+
+int Daemon::working_loop()
+{
+    for (;;) {
+        reconnect();
+
+        int ret = answer_client_requests();
+        if ( ret ) {
+            trace() << "answer_client_requests returned " << ret << endl;
+            close_scheduler();
+        }
+    }
+
+}
 
 int main( int argc, char ** argv )
 {
     int max_processes = -1;
 
     Daemon d;
-    string netname;
 
     int debug_level = Error;
     string logfile;
     bool detach = false;
     nice_level = 5; // defined in serve.h
-    string schedname;
     bool runasuser = false;
 
     while ( true ) {
@@ -1245,7 +1311,7 @@ int main( int argc, char ** argv )
                 break;
             case 'n':
                 if ( optarg && *optarg )
-                    netname = optarg;
+                    d.netname = optarg;
                 else
                     usage("Error: -n requires argument");
                 break;
@@ -1257,7 +1323,7 @@ int main( int argc, char ** argv )
                 break;
             case 's':
                 if ( optarg && *optarg )
-                    schedname = optarg;
+                    d.schedname = optarg;
                 else
                     usage("Error: -s requires hostname argument");
                 break;
@@ -1368,67 +1434,9 @@ int main( int argc, char ** argv )
     for (list<string>::const_iterator it = nl.begin(); it != nl.end(); ++it)
       trace() << *it << endl;
 
-    int tosleep = 0;
+    d.listen_fd = setup_listen_fd();
+    if ( d.listen_fd == -1 ) // error
+        return 1;
 
-    for (;;) {
-        if ( d.listen_fd > -1 ) {
-            // as long as we have no scheduler, don't listen for clients
-            shutdown( d.listen_fd, SHUT_RDWR ); // Dirk's suggestion
-            close( d.listen_fd );
-            d.listen_fd = -1;
-        }
-
-        if ( tosleep )
-            sleep( tosleep );
-
-        tosleep = 0;
-
-        if ( !scheduler ) {
-            d.clear_children();
-
-            trace() << "connect_scheduler\n";
-            scheduler = connect_scheduler (netname, 2000, schedname);
-            if ( !scheduler ) {
-                log_warning() << "no scheduler found. Sleeping.\n";
-                tosleep = 1;
-                continue;
-            }
-            sockaddr_in name;
-            socklen_t len = sizeof(name);
-            int error = getsockname(scheduler->fd, (struct sockaddr*)&name, &len);
-            if ( !error )
-                d.remote_name = inet_ntoa( name.sin_addr );
-            else
-                d.remote_name = string();
-            log_info() << "Connected to scheduler (" << d.remote_name << ")\n";
-            d.current_load = -1000;
-            gettimeofday( &last_stat, 0 );
-            last_sent.tv_sec = last_stat.tv_sec - MAX_SCHEDULER_PING;
-            last_scheduler = last_stat.tv_sec;
-            d.icecream_load = 0;
-        }
-
-        d.listen_fd = setup_listen_fd();
-        if ( d.listen_fd == -1 ) // error
-            return 1;
-
-        trace() << "login as " << uname_buf.machine << endl;
-        LoginMsg lmsg( PORT, d.nodename, d.machine_name );
-        lmsg.envs = available_environmnents(d.envbasedir);
-        lmsg.max_kids = max_kids;
-        scheduler->send_msg( lmsg );
-
-        for (;;) {
-            int ret = d.answer_client_requests();
-            if ( ret ) {
-                trace() << "answer_client_requests returned " << ret << endl;
-                tosleep = ret;
-                break;
-            }
-        }
-
-        delete scheduler;
-        scheduler = 0;
-
-    }
+    return d.working_loop();
 }
