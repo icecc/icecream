@@ -1,4 +1,4 @@
-0.7.3 (r552850):
+0.7.3 (r552930):
 	- more work on error handling
 	- corrected icecc --help output
 	- handle local icecream load correctly
@@ -6,6 +6,9 @@
 	- early launch the compiler even before the whole preprocessed 
           file has been received
 	- handle low-latency networks better
+	- builtin colorgcc
+	- let the daemon schedule local load even without scheduler (important
+	  for multi processor machines)
 
 0.7.2 (r549574): 
 	- split out libicecream-devel for the monitor
