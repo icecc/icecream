@@ -4,7 +4,7 @@ AC_PREREQ(2.53)
 
 AC_INIT(client/main.cpp)
 
-AM_INIT_AUTOMAKE(icecream, "0.7.3")
+AM_INIT_AUTOMAKE(icecream, "0.7.3a")
 AM_CONFIG_HEADER(config.h)
 AC_CANONICAL_HOST
 
