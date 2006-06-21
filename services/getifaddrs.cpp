@@ -211,9 +211,16 @@ kde_getifaddrs (struct kde_ifaddrs **ifap)
 	  else if (ifr->ifr_flags & IFF_POINTOPOINT)
 	    {
 	      ifr->ifr_addr = storage[i].addr;
+// Needed on Cygwin
+#ifndef SIOCGIFDSTADDR 
+  #define SIOCGIFDSTADDR 0x8917
+#endif
 	      if (ioctl (fd, SIOCGIFDSTADDR, ifr) < 0)
 		break;
 	      storage[i].broadaddr = ifr->ifr_dstaddr;
+	      // FIXME on Cygwin you need to comment the line above
+              // and uncomment the line below
+	      // storage[i].broadaddr = ifr->ifr_broadaddr;
 	    }
 	  else
 	    /* Just 'cause.  */
