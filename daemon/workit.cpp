@@ -147,7 +147,10 @@ int work_it( CompileJob &j,
         return EXIT_DISTCC_FAILED;
 
     int maxsize = 2*1024*2024;
-    if (setsockopt(sock_in[1], SOL_SOCKET, SO_SNDBUFFORCE, &maxsize, sizeof(maxsize)) < 0) {
+#ifdef SO_SNDBUFFORCE
+    if (setsockopt(sock_in[1], SOL_SOCKET, SO_SNDBUFFORCE, &maxsize, sizeof(maxsize)) < 0)
+#endif
+    {
         setsockopt(sock_in[1], SOL_SOCKET, SO_SNDBUF, &maxsize, sizeof(maxsize));
     }
 
