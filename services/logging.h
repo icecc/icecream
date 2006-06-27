@@ -43,6 +43,7 @@ static inline std::ostream & output_date( std::ostream &os )
     char *buf = ctime( &t );
     buf[strlen( buf )-1] = 0;
     os << "[" << buf << "] ";
+   os << " " << getpid() << ": " ;
     return os;
 }
 
@@ -60,6 +61,7 @@ inline std::ostream & output_mdate( std::ostream &os )
    gettimeofday(&tp, 0);
    os << "[" << tp.tv_sec << ":" << tp.tv_usec << "(" << (tp.tv_sec - tps.tv_sec) * 1000 + (tp.tv_usec - tps.tv_usec  + 500 ) / 1000 << ")] ";
    tps = tp;
+
    return os;
 }
 
@@ -101,7 +103,7 @@ public:
         for (unsigned i = 0; i < nesting; ++i) 
             log_info() << "  "; 
 
-        log_info() << "  <" << (label ? label : "") << ">\n";
+        log_info() << getpid() << "  <" << (label ? label : "") << ">\n";
 
         m_label = strdup(label ? label : "");
         ++nesting;
@@ -118,7 +120,7 @@ public:
         --nesting;
         for (unsigned i = 0; i < nesting; ++i) 
             log_info() << "  "; 
-        log_info() << "  </" << m_label << ": "
+        log_info() << getpid() << "  </" << m_label << ": "
             << (end.tv_sec - m_start.tv_sec ) * 1000 + ( end.tv_usec - m_start.tv_usec ) / 1000 << "ms>\n";
 
         free(m_label);
