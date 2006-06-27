@@ -490,7 +490,7 @@ struct Daemon
     bool handle_get_cs( MsgChannel *c, Msg *msg );
     bool handle_local_job( MsgChannel *c, Msg *msg );
     bool handle_job_done( MsgChannel *c, JobDoneMsg *m );
-    bool handle_cs_conf( ConfCSMsg *msg);
+    int handle_cs_conf( ConfCSMsg *msg);
     string dump_internals() const;
     void fetch_children();
     bool maybe_stats(bool force = false);
@@ -994,13 +994,13 @@ bool Daemon::handle_get_cs( MsgChannel *c, Msg *msg )
     return true;
 }
 
-bool Daemon::handle_cs_conf(ConfCSMsg* msg)
+int Daemon::handle_cs_conf(ConfCSMsg* msg)
 {
     min_scheduler_ping = msg->min_scheduler_ping;
     max_scheduler_ping = msg->max_scheduler_ping;
     bench_source = msg->bench_source;
 
-    return true;
+    return 0;
 }
 
 bool Daemon::handle_local_job( MsgChannel *c, Msg *msg )
