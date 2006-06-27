@@ -320,30 +320,22 @@ void dcc_daemon_catch_signals(void)
 pid_t dcc_master_pid;
 
 /**
- * Just log, remove pidfile, and exit.
- *
  * Called when a daemon gets a fatal signal.
  *
  * Some cleanup is done only if we're the master/parent daemon.
  **/
 static void dcc_daemon_terminate(int whichsig)
 {
-    bool am_parent = ( getpid() == dcc_master_pid );
-    printf( "term %d %d\n", whichsig, am_parent );
+   /**
+    * This is a signal handler. don't do stupid stuff.
+    * Don't call printf. and especially don't call the log_*() functions.
+    */
 
-    if (am_parent) {
-#ifdef HAVE_STRSIGNAL
-        log_info() << strsignal(whichsig) << endl;
-#else
-        log_info() << "terminated by signal " << whichsig << endl;
-#endif
-    }
+    bool am_parent = ( getpid() == dcc_master_pid );
 
     /* Make sure to remove handler before re-raising signal, or
      * Valgrind gets its kickers in a knot. */
     signal(whichsig, SIG_DFL);
-
-    // dcc_cleanup_tempfiles();
 
     if (am_parent) {
         /* kill whole group */
@@ -552,7 +544,7 @@ bool Daemon::maybe_stats(bool force)
     if (now.tv_usec - last_scheduler >= max_scheduler_ping + 2 * min_scheduler_ping) {
        force = true;
        delete scheduler;
-       scheduler;
+       scheduler = 0;
     }
 
     if ( diff_sent >= min_scheduler_ping * 1000 || force ) {
