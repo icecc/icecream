@@ -84,6 +84,8 @@ enum MsgType {
 
   // CS --> S, first message sent
   M_LOGIN,
+  // S --> CS, answered by M_LOGIN
+  M_CS_CONF,
 
   // CS --> S (periodic)
   M_STATS,
@@ -91,12 +93,12 @@ enum MsgType {
   // messages between monitor and scheduler
   M_MON_LOGIN,
   M_MON_GET_CS,
-  M_MON_JOB_BEGIN, // = 'T'
+  M_MON_JOB_BEGIN, // = 'U'
   M_MON_JOB_DONE,
   M_MON_LOCAL_JOB_BEGIN,
   M_MON_STATS,
 
-  M_TRANFER_ENV, // = 'X'
+  M_TRANFER_ENV, // = 'Y'
 
   M_TEXT,
   M_STATUS_TEXT,
@@ -389,6 +391,22 @@ public:
   std::string host_platform;
   LoginMsg (unsigned int myport, const std::string &_nodename, const std::string _host_platform);
   LoginMsg () : Msg(M_LOGIN), port( 0 ) {}
+
+  virtual void fill_from_channel (MsgChannel * c);
+  virtual void send_to_channel (MsgChannel * c) const;
+};
+
+class ConfCSMsg : public Msg {
+public:
+  uint32_t min_scheduler_ping;
+  uint32_t max_scheduler_ping;
+  std::string bench_source;
+
+  ConfCSMsg (const char* bench) 
+    : Msg(M_CS_CONF), min_scheduler_ping(MIN_SCHEDULER_PING), max_scheduler_ping(MAX_SCHEDULER_PING), bench_source(bench) {}
+  ConfCSMsg ()
+    : Msg(M_CS_CONF), min_scheduler_ping(MIN_SCHEDULER_PING), max_scheduler_ping(MAX_SCHEDULER_PING) {}
+
 
   virtual void fill_from_channel (MsgChannel * c);
   virtual void send_to_channel (MsgChannel * c) const;

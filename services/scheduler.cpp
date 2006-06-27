@@ -47,6 +47,7 @@
 #include "logging.h"
 #include "job.h"
 #include "config.h"
+#include "bench.h"
 
 #define DEBUG_SCHEDULER 2
 
@@ -1053,6 +1054,10 @@ handle_login (MsgChannel *c, Msg *_m)
   trace() << "]\n";
 #endif
 
+  /* Configure the daemon */
+  if (IS_PROTOCOL_22( c ))
+    c->send_msg (ConfCSMsg(icecream_bench_code));
+
   return true;
 }
 
@@ -1072,6 +1077,10 @@ handle_relogin (MsgChannel *c, Msg *_m)
        it != m->envs.end(); ++it)
     trace() << it->second << "(" << it->first << "), ";
   trace() << "]\n";
+
+  /* Configure the daemon */
+  if (IS_PROTOCOL_22( c ))
+    c->send_msg (ConfCSMsg(icecream_bench_code));
 
   return true;
 }

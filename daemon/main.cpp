@@ -462,6 +462,10 @@ struct Daemon
     string netname;
     string schedname;
 
+    int min_scheduler_ping;
+    int max_scheduler_ping;
+    string bench_source;
+
     Daemon() {
         envbasedir = "/tmp/icecc-envs";
         nobody_uid = 65534;
@@ -475,6 +479,9 @@ struct Daemon
         num_cpus = 0;
         scheduler = 0;
         last_connect = 0;
+        min_scheduler_ping = MIN_SCHEDULER_PING;
+        max_scheduler_ping = MAX_SCHEDULER_PING;
+        bench_source = "";
     }
 
     void reannounce_environments(const string &envbasedir, const string &nodename);
@@ -491,6 +498,7 @@ struct Daemon
     bool handle_get_cs( MsgChannel *c, Msg *msg );
     bool handle_local_job( MsgChannel *c, Msg *msg );
     bool handle_job_done( MsgChannel *c, JobDoneMsg *m );
+    bool handle_cs_conf( ConfCSMsg *msg);
     string dump_internals() const;
     void fetch_children();
     bool maybe_stats(bool force = false);
@@ -540,11 +548,14 @@ bool Daemon::maybe_stats(bool force)
     unsigned int memory_fillgrade;
     unsigned long idleLoad = 0;
 
-    /* we didn't talk with the scheduler for a long time, try if connection is dead */
-    if (now.tv_sec - std::max(last_scheduler, last_sent.tv_sec) >= MAX_SCHEDULER_PING - MIN_SCHEDULER_PING)
+    /* the scheduler didn't ping us for a long time, assume dead connection and recover */
+    if (now.tv_usec - last_scheduler >= max_scheduler_ping + 2 * min_scheduler_ping) {
        force = true;
+       delete scheduler;
+       scheduler;
+    }
 
-    if ( diff_sent >= MIN_SCHEDULER_PING * 1000 || force ) {
+    if ( diff_sent >= min_scheduler_ping * 1000 || force ) {
         StatsMsg msg;
 
         if ( !fill_stats( idleLoad, memory_fillgrade, &msg ) )
@@ -991,6 +1002,15 @@ bool Daemon::handle_get_cs( MsgChannel *c, Msg *msg )
     return true;
 }
 
+bool Daemon::handle_cs_conf(ConfCSMsg* msg)
+{
+    min_scheduler_ping = msg->min_scheduler_ping;
+    max_scheduler_ping = msg->max_scheduler_ping;
+    bench_source = msg->bench_source;
+
+    return true;
+}
+
 bool Daemon::handle_local_job( MsgChannel *c, Msg *msg )
 {
     trace() << "handle_local_job " << c << endl;
@@ -1088,7 +1108,7 @@ int Daemon::answer_client_requests()
             max_fd = scheduler->fd;
     }
 
-    tv.tv_sec = MIN_SCHEDULER_PING;
+    tv.tv_sec = min_scheduler_ping;
     tv.tv_usec = 0;
 
     ret = select (max_fd + 1, &listen_set, NULL, NULL, &tv);
@@ -1118,6 +1138,9 @@ int Daemon::answer_client_requests()
 		    break;
                 case M_GET_INTERNALS:
                     ret = scheduler_get_internals( );
+                    break;
+                case M_CS_CONF:
+                    ret = handle_cs_conf(dynamic_cast<ConfCSMsg*>( msg ));
                     break;
                 default:
                     log_error() << "unknown scheduler type " << ( char )msg->type << endl;
