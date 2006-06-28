@@ -1055,7 +1055,7 @@ handle_login (MsgChannel *c, Msg *_m)
 #endif
 
   /* Configure the daemon */
-  if (IS_PROTOCOL_22( c ))
+  if (IS_PROTOCOL_23( c ))
     c->send_msg (ConfCSMsg(icecream_bench_code));
 
   return true;
@@ -1079,7 +1079,7 @@ handle_relogin (MsgChannel *c, Msg *_m)
   trace() << "]\n";
 
   /* Configure the daemon */
-  if (IS_PROTOCOL_22( c ))
+  if (IS_PROTOCOL_23( c ))
     c->send_msg (ConfCSMsg(icecream_bench_code));
 
   return true;

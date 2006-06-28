@@ -33,7 +33,7 @@
 #include "job.h"
 
 // if you increase the PROTOCOL_VERSION, add a macro below and use that
-#define PROTOCOL_VERSION 22
+#define PROTOCOL_VERSION 23
 // if you increase the MIN_PROTOCOL_VERSION, comment out macros below and clean up the code
 #define MIN_PROTOCOL_VERSION 21
 
@@ -41,6 +41,7 @@
 #define MAX_SCHEDULER_PING 30
 
 #define IS_PROTOCOL_22( c ) ( c->protocol >= 22 )
+#define IS_PROTOCOL_23( c ) ( c->protocol >= 23 )
 
 enum MsgType {
   // so far unknown
@@ -84,25 +85,25 @@ enum MsgType {
 
   // CS --> S, first message sent
   M_LOGIN,
-  // S --> CS, answered by M_LOGIN
-  M_CS_CONF,
-
   // CS --> S (periodic)
   M_STATS,
 
   // messages between monitor and scheduler
   M_MON_LOGIN,
   M_MON_GET_CS,
-  M_MON_JOB_BEGIN, // = 'U'
+  M_MON_JOB_BEGIN, // = 'T'
   M_MON_JOB_DONE,
   M_MON_LOCAL_JOB_BEGIN,
   M_MON_STATS,
 
-  M_TRANFER_ENV, // = 'Y'
+  M_TRANFER_ENV, // = 'X'
 
   M_TEXT,
   M_STATUS_TEXT,
-  M_GET_INTERNALS
+  M_GET_INTERNALS,
+
+  // S --> CS, answered by M_LOGIN
+  M_CS_CONF
 };
 
 class MsgChannel;
