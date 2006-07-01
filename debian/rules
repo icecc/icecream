@@ -159,7 +159,6 @@ install-arch:
 	ln -s /usr/bin/icecc $(CURDIR)/debian/tmp/usr/lib/icecc/bin/gcc 
 	ln -s /usr/bin/icecc $(CURDIR)/debian/tmp/usr/lib/icecc/bin/g++
 
-	(cd $(CURDIR)/debian/tmp/usr/lib ; mv icecream/icecc-create-env icecc)
 	(cd $(CURDIR)/debian/tmp/usr/sbin ; mv scheduler icecc-scheduler)
 
 	dh_install -s

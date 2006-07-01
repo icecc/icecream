@@ -1,3 +1,9 @@
+icecc (0.7.3-2) unstable; urgency=low
+
+  * Made icecc --build-native work.
+
+ -- Andre Woebbeking <Woebbeking@web.de>  Sat, 01 Jun 2006 21:30:51 +0200
+
 icecc (0.7.3-1) unstable; urgency=low
 
   * New upstream version with new protocol (changed in 0.7.0).
