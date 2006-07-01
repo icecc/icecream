@@ -1,3 +1,11 @@
+icecc (0.7.3-1) unstable; urgency=low
+
+  * New upstream version with new protocol (changed in 0.7.0).
+
+    /usr/bin/create-env is now /usr/lib/icecc/icecc-create-env
+
+ -- Andre Woebbeking <Woebbeking@web.de>  Sat, 01 Jun 2006 20:36:15 +0200
+
 icecc (0.6.1-1) unstable; urgency=low
 
   * It still builds at the new location so just bump the version number.
