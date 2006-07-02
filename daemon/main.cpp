@@ -1006,13 +1006,13 @@ bool Daemon::handle_activity( MsgChannel *c )
     Client *client = clients.find_by_channel( c );
     assert( client );
 
-    if (client->status == Client::TOCOMPILE) {
+    if (!c->at_eof() && client->status == Client::TOCOMPILE) {
         /* we can get get activity on a channel for a client
            that is still waiting for a free kid. Let the
            messages queue up, we can't handle them right now
            anyway, and we don't want to end the client because
            of a protocol error. */
-        return true;
+        return false;
     }
 
     Msg *msg = c->get_msg();
