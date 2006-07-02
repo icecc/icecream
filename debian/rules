@@ -49,7 +49,7 @@ configure-stamp:
 
 	# run configure with build tree $(objdir)
 	cd $(objdir) && \
-	../configure $(configkde) --enable-final
+	 ../configure $(configkde)
 
 	touch configure-stamp
 
