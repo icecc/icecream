@@ -1095,6 +1095,7 @@ GetCSMsg::fill_from_channel (MsgChannel *c)
   lang = static_cast<CompileJob::Language>( _lang );
   c->readuint32( arg_flags );
   c->readuint32( client_id );
+  preferred_host = string();
   if (IS_PROTOCOL_22(c))
 	c->read_string( preferred_host );
 }
