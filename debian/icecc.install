@@ -1,6 +1,4 @@
-debian/tmp/usr/bin/icecc
-debian/tmp/usr/lib/icecc/bin/g++
-debian/tmp/usr/lib/icecc/bin/gcc
-debian/tmp/usr/lib/icecc/icecc-create-env
-debian/tmp/usr/sbin/icecc-scheduler
-debian/tmp/usr/sbin/iceccd
+usr/bin/icecc
+usr/lib/icecc/icecc-create-env
+usr/sbin/icecc-scheduler
+usr/sbin/iceccd

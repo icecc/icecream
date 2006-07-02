@@ -1,3 +1,11 @@
+icecc (0.7.3-3) unstable; urgency=low
+
+  * Create libicecc-dev package.
+
+  * Simplified debian files.
+
+ -- Andre Woebbeking <Woebbeking@web.de>  Sun, 02 Jun 2006 19:00:51 +0200
+
 icecc (0.7.3-2) unstable; urgency=low
 
   * Made icecc --build-native work.
@@ -8,7 +16,7 @@ icecc (0.7.3-1) unstable; urgency=low
 
   * New upstream version with new protocol (changed in 0.7.0).
 
-    /usr/bin/create-env is now /usr/lib/icecc/icecc-create-env
+  * /usr/bin/create-env is now /usr/lib/icecc/icecc-create-env
 
  -- Andre Woebbeking <Woebbeking@web.de>  Sat, 01 Jun 2006 20:36:15 +0200
 

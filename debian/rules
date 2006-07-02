@@ -1,7 +1,6 @@
 #!/usr/bin/make -f
-# -*- makefile -*-
 # Sample debian/rules that uses debhelper.
-# GNU copyright 1997 to 1999 by Joey Hess.
+# This file is public domain software, originally written by Joey Hess. 
 #
 # Modified to make a template file for a multi-binary package with separated
 # build-arch and build-indep targets  by Bill Allombert 2001
@@ -9,26 +8,7 @@
 # Uncomment this to turn on verbose mode.
 #export DH_VERBOSE=1
 
-# This has to be exported to make some magic below work.
-export DH_OPTIONS
-
-# These are used for cross-compiling and for saving the configure script
-# from having to guess our platform (since we know it already)
-DEB_HOST_GNU_TYPE	?= $(shell dpkg-architecture -qDEB_HOST_GNU_TYPE)
-DEB_BUILD_GNU_TYPE	?= $(shell dpkg-architecture -qDEB_BUILD_GNU_TYPE)
-
-CFLAGS = -Wall -g
-
-ifneq (,$(findstring noopt,$(DEB_BUILD_OPTIONS)))
-	CFLAGS += -O0
-else
-	CFLAGS += -O2
-endif
-ifeq (,$(findstring nostrip,$(DEB_BUILD_OPTIONS)))
-	INSTALL_PROGRAM += -s
-endif
-
-objdir = $(CURDIR)/obj-$(DEB_BUILD_GNU_TYPE)
+objdir = $(CURDIR)/obj
 
 -include debian/debiandirs
 
@@ -59,7 +39,7 @@ configure-stamp:
 		touch patch-stamp ;\
 	fi
 
-	$(MAKE) -f Makefile.cvs ;\
+	$(MAKE) -f Makefile.cvs
 
 	# ensure configure is executable
 	chmod +x configure
@@ -74,7 +54,7 @@ configure-stamp:
 	touch configure-stamp
 
 #Architecture
-build: build-arch build-indep
+build: build-arch
 
 build-arch: build-arch-stamp
 build-arch-stamp: configure-stamp
@@ -90,18 +70,6 @@ build-arch-stamp: configure-stamp
 
 	touch build-arch-stamp
 
-build-indep: build-indep-stamp
-build-indep-stamp: configure-stamp
-	dh_testdir
-
-	#cd $(objdir) && \
-	#$(MAKE)
-
-	#cd $(objdir) && \
-	#$(MAKE) apidox
-
-	touch build-indep-stamp
-
 debian-clean:
 	dh_testdir
 	dh_testroot
@@ -111,7 +79,7 @@ debian-clean:
 clean:
 	dh_testdir
 	dh_testroot
-	rm -f build-arch-stamp build-indep-stamp configure-stamp \
+	rm -f build-arch-stamp configure-stamp \
 		debian/debiandirs debian/man/*.1
 
 	# Remove Debian specific patches
@@ -142,45 +110,22 @@ clean:
 
 	dh_clean
 
-install: install-arch install-indep
-
-install-arch:
+install: build
 	dh_testdir
 	dh_testroot
-	dh_clean -k -s
-	dh_installdirs -s
+	dh_clean -k
+	dh_installdirs
 
 	cd $(objdir) && \
 	$(MAKE) install DESTDIR=$(CURDIR)/debian/tmp
 
-	mkdir -p $(CURDIR)/debian/tmp/usr/lib/icecc/bin
-	ln -s /usr/bin/icecc $(CURDIR)/debian/tmp/usr/lib/icecc/bin/cc 
-	ln -s /usr/bin/icecc $(CURDIR)/debian/tmp/usr/lib/icecc/bin/c++
-	ln -s /usr/bin/icecc $(CURDIR)/debian/tmp/usr/lib/icecc/bin/gcc 
-	ln -s /usr/bin/icecc $(CURDIR)/debian/tmp/usr/lib/icecc/bin/g++
-
 	(cd $(CURDIR)/debian/tmp/usr/sbin ; mv scheduler icecc-scheduler)
+	(cd $(CURDIR)/debian/tmp/usr/lib/pkgconfig ; mv icecream.pc icecc.pc)
 
-	dh_install -s
+	dh_install --sourcedir=debian/tmp
 
-install-indep:
-	dh_testdir
-	dh_testroot
-	dh_clean -k -i
-	dh_installdirs -i
-
-	#cd $(objdir) && \
-	#$(MAKE) install DESTDIR=$(CURDIR)/debian/tmp
-
-	#cd $(objdir) && \
-	#$(MAKE) install-apidox DESTDIR=$(CURDIR)/debian/tmp
-
-	#dh_install -i
-
-# Must not depend on anything. This is to be called by
-# binary-arch/binary-indep
-# in another 'make' thread.
-binary-common:
+# Build architecture-dependent files here.
+binary-arch: build-arch install
 	dh_testdir
 	dh_testroot
 	dh_installchangelogs
@@ -209,13 +154,5 @@ binary-common:
 	dh_md5sums
 	dh_builddeb
 
-# Build architecture independant packages using the common target.
-binary-indep: build-indep install-indep
-	$(MAKE) -f debian/rules DH_OPTIONS=-i binary-common
-
-# Build architecture dependant packages using the common target.
-binary-arch: build-arch install-arch
-	$(MAKE) -f debian/rules DH_OPTIONS=-s binary-common
-
 binary: binary-arch
-.PHONY: build clean binary-indep binary-arch binary install install-indep install-arch configure
+.PHONY: build clean binary-arch binary install configure
