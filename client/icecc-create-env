@@ -44,7 +44,7 @@ add_file ()
       for lib in `ldd "$path" | sed -n 's,^[^/]*\(/[^ ]*\).*,\1,p'`; do
 	# Check wether the same library also exists in the parent directory,
 	# and prefer that on the assumption that it is a more generic one.
-	local baselib=`echo "$lib" | sed 's,/[^/]*\(/[^/]*\)$,\1,'`
+	local baselib=`echo "$lib" | sed 's,\(/[^/]*\)/.*\(/[^/]*\)$,\1\2,'`
 	test -f "$baselib" && lib=$baselib
 	add_file "$lib"
       done
