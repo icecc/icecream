@@ -575,7 +575,7 @@ bool Daemon::maybe_stats(bool force)
         mem_limit = std::max( msg.freeMem / std::min( std::max( max_kids, 1U ), 4U ), 100U );
 
         if ( abs(int(msg.load)-current_load) >= 100 || force ) {
-            log_error() << "non icecream_load=" << 1000-idle_average << " mem=" << memory_fillgrade << " msg.load=" << msg.load << endl;
+            trace() << "non icecream_load=" << 1000-idle_average << " mem=" << memory_fillgrade << " msg.load=" << msg.load << endl;
             if ( scheduler && !send_scheduler( msg ) )
                 return false;
 
