@@ -8,6 +8,9 @@
 # Uncomment this to turn on verbose mode.
 #export DH_VERBOSE=1
 
+export CFLAGS=-O2
+export CXXFLAGS=-O2
+
 objdir = $(CURDIR)/obj
 
 -include debian/debiandirs

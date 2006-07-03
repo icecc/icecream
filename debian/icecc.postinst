@@ -109,15 +109,22 @@ EOF
 		update_config_file icecc/daemon START_ICECC
 		update_config_file icecc/scheduler START_ICECC_SCHEDULER 
 
+		ICECC_GROUP=icecc
 		ICECC_USER=icecc
+		ICECC_HOME=/var/cache/icecc
+
+		# Create group
+		grep -q $ICECC_GROUP /etc/group || \
+		( echo Creating $ICECC_GROUP group... ; \
+		addgroup --quiet --system $ICECC_GROUP)
 
 		# Create user
-		id $ICECC_USER > /dev/null 2>&1 ||
-		( echo Creating $ICECC_USER user... ;
-		adduser --quiet --system --ingroup nogroup \
-		--home / --no-create-home $ICECC_USER )
+		grep -q $ICECC_USER /etc/passwd || \
+		( echo Creating $ICECC_USER user... ; \
+		adduser --quiet --system --ingroup $ICECC_GROUP \
+		--home $ICECC_HOME --no-create-home $ICECC_USER )
 
-		chown $ICECC_USER /var/cache/icecc
+		chown $ICECC_USER:$ICECC_GROUP $ICECC_HOME
 
 		db_stop
 		;;

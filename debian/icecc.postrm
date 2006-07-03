@@ -5,10 +5,21 @@ conffile="/etc/default/icecc"
 
 case "$1" in
 	purge)
-		rm -rf /var/cache/icecc
+		ICECC_GROUP=icecc
+		ICECC_USER=icecc
+		ICECC_HOME=/var/cache/icecc
+
 		rm -f $conffile
-		echo Deleting icecc user...
-		deluser --quiet --system icecc
+
+		grep -q $ICECC_USER /etc/passwd && \
+		(echo Deleting $ICECC_USER user... ; \
+		deluser --quiet --system $ICECC_USER)
+
+		grep -q $ICECC_GROUP /etc/group && \
+		(echo Deleting $ICECC_GROUP group... ; \
+		delgroup --quiet --system $ICECC_GROUP)
+
+		rm -rf $ICECC_HOME
 		;;
 	remove)
 		;;	
