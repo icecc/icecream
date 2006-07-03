@@ -64,22 +64,22 @@ inline std::ostream & output_mdate( std::ostream &os )
 }
 
 static inline std::ostream& log_info() {
-    assert( logfile_info );
+    if(!logfile_info) return std::cerr;
     return *logfile_info;
 }
 
 static inline std::ostream& log_warning() {
-    assert( logfile_warning );
+    if(!logfile_warning) return std::cerr;
     return output_date( *logfile_warning );
 }
 
 static inline std::ostream& log_error() {
-    assert( logfile_error );
+    if(!logfile_error) return std::cerr;
     return output_date( *logfile_error );
 }
 
 static inline std::ostream& trace() {
-    assert( logfile_trace );
+    if(!logfile_trace) return std::cerr;
     return *logfile_trace;
 }
 
