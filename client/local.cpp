@@ -101,8 +101,8 @@ string find_compiler( CompileJob::Language lang )
                     after_selflink = true;
                     continue;
                 }
-            } else
-		best_match = part;
+            }
+            best_match = part;
 
             if ( after_selflink )
                 return part;
