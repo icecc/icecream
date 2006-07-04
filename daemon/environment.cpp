@@ -416,10 +416,9 @@ size_t remove_environment( const string &basename, const string &env, uid_t nobo
 
     string target = env.substr( 0, pos );
     string name = env.substr( pos + 1 );
-    string dirname = basename + "/target=" + target;
-    trace() << "removing " << dirname << "/" << name << endl;
+    string dirname = basename + "/target=" + target + "/" + name;
 
-    size_t res = sumup_dir( dirname + "/" + name );
+    size_t res = sumup_dir( dirname );
 
     pid_t pid = fork();
     if ( pid )
@@ -434,25 +433,12 @@ size_t remove_environment( const string &basename, const string &env, uid_t nobo
     }
     // else
 
-    if ( chdir( dirname.c_str() ) != 0 ) {
-        log_perror( "chdir failed" );
-        _exit( 144 );
-    }
-    if ( setgid(nobody_gid) < 0) {
-      log_perror("setgid fails");
-      _exit(143);
-    }
-    if (!geteuid() && setuid( nobody_uid ) < 0) {
-      log_perror("setuid fails");
-      _exit (142);
-    }
-
     char **argv;
     argv = new char*[5];
     argv[0] = strdup( "/bin/rm" );
     argv[1] = strdup( "-rf" );
     argv[2] = strdup("--");
-    argv[3] = strdup( name.c_str() );
+    argv[3] = strdup( dirname.c_str() );
     argv[4] = NULL;
 
     _exit(execv(argv[0], argv));
