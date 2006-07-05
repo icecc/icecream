@@ -1021,7 +1021,7 @@ bool Daemon::handle_activity( MsgChannel *c )
            messages queue up, we can't handle them right now
            anyway, and we don't want to end the client because
            of a protocol error. */
-        return false;
+        return true;
     }
 
     Msg *msg = c->get_msg();
@@ -1077,14 +1077,10 @@ int Daemon::answer_client_requests()
          it != fd2chan.end();) {
         int i = it->first;
         MsgChannel *c = it->second;
-        bool ok = true;
         ++it;
         /* handle_activity() can delete c and make the iterator
            invalid.  */
-        while (ok && c->has_msg ())
-            if (!handle_activity (c))
-                ok = false;
-        if (ok)  {
+        if (!c->has_msg() || handle_activity(c)) {
             if (i > max_fd)
                 max_fd = i;
             FD_SET (i, &listen_set);
