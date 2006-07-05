@@ -541,6 +541,7 @@ int build_remote(CompileJob &job, MsgChannel *local_daemon, const Environments &
 	throw(22);
     }
 
+    const char *preferred_host = getenv("ICECC_PREFERRED_HOST");
     if ( torepeat == 1 ) {
         string fake_filename;
         list<string> args = job.remoteFlags();
@@ -550,7 +551,6 @@ int build_remote(CompileJob &job, MsgChannel *local_daemon, const Environments &
         for ( list<string>::const_iterator it = args.begin(); it != args.end(); ++it )
             fake_filename += "/" + *it;
         fake_filename += get_absfilename( job.inputFile() );
-        const char *preferred_host = getenv("ICECC_PREFERRED_HOST");
         GetCSMsg getcs (envs, fake_filename, job.language(), torepeat, 
 			job.targetPlatform(), job.argumentFlags(), 
 		        preferred_host ? preferred_host : string() );
@@ -592,7 +592,9 @@ int build_remote(CompileJob &job, MsgChannel *local_daemon, const Environments &
         job.appendFlag( rand_seed, Arg_Remote );
 
         GetCSMsg getcs (envs, get_absfilename( job.inputFile() ), job.language(), torepeat, 
-			job.targetPlatform(), job.argumentFlags(), getenv("ICECC_PREFERRED_HOST") );
+			job.targetPlatform(), job.argumentFlags(), preferred_host ? preferred_host : string() );
+
+
         if (!local_daemon->send_msg (getcs)) {
             log_warning() << "asked for CS\n";
             throw( 0 );
@@ -603,6 +605,10 @@ int build_remote(CompileJob &job, MsgChannel *local_daemon, const Environments &
         UseCSMsg **umsgs = new UseCSMsg*[torepeat];
 
         bool misc_error = false;
+        int *exit_codes = new int[torepeat];
+	for ( int i = 0; i < torepeat; i++ ) // init
+		exit_codes[i] = 42;
+
 
         for ( int i = 0; i < torepeat; i++ ) {
             jobs[i] = job;
@@ -631,16 +637,12 @@ int build_remote(CompileJob &job, MsgChannel *local_daemon, const Environments &
                     kill( getpid(), SIGTERM );
                     return 0; // shouldn't matter
                 }
-                ::exit( ret );
+                _exit( ret );
                 return 0; // doesn't matter
             } else {
                 jobmap[pid] = i;
             }
         }
-        int *exit_codes = new int[torepeat];
-	for ( int i = 0; i < torepeat; i++ ) // init
-		exit_codes[i] = 42;
-
         for ( int i = 0; i < torepeat; i++ ) {
             pid_t pid = wait( &status );
             if ( pid < 0 ) {
@@ -711,6 +713,7 @@ int build_remote(CompileJob &job, MsgChannel *local_daemon, const Environments &
 
         return ret;
     }
+
 
     return 0;
 }
