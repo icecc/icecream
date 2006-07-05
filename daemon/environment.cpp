@@ -408,7 +408,7 @@ size_t install_environment( const std::string &basename, const std::string &targ
     _exit(execv( argv[0], argv ));
 }
 
-size_t remove_environment( const string &basename, const string &env, uid_t nobody_uid, gid_t nobody_gid )
+size_t remove_environment( const string &basename, const string &env )
 {
     string::size_type pos = env.find_first_of( '/' );
     if ( pos == string::npos ) // nonsense

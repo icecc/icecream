@@ -34,6 +34,6 @@ extern size_t install_environment( const std::string &basename,
                             const std::string &target,
                             const std::string &name,
                             MsgChannel *c, uid_t nobody_uid, gid_t nobody_gid );
-extern size_t remove_environment( const std::string &basedir, const std::string &env, uid_t nobody_uid, gid_t nobody_gid );
+extern size_t remove_environment( const std::string &basedir, const std::string &env);
 
 #endif

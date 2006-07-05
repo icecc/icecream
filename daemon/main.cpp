@@ -654,7 +654,10 @@ int Daemon::scheduler_use_cs( UseCSMsg *msg )
         c->status = Client::PENDING_USE_CS;
     } else {
         c->usecsmsg = new UseCSMsg( msg->host_platform, msg->hostname, msg->port, msg->job_id, true, 1 );
-        c->channel->send_msg( *msg );
+        if (!c->channel->send_msg( *msg )) {
+          handle_end(c, 143);
+          return 0;
+        }
         c->status = Client::WAITCOMPILE;
     }
     c->job_id = msg->job_id;
@@ -704,7 +707,7 @@ bool Daemon::handle_transfer_env( MsgChannel *c, Msg *msg )
             }
             if ( oldest.empty() || oldest == current )
                 break;
-            size_t removed = remove_environment( envbasedir, oldest, nobody_uid, nobody_gid );
+            size_t removed = remove_environment( envbasedir, oldest );
             trace() << "removing " << envbasedir << " " << oldest << " " << oldest_time << " " << removed << endl;
             cache_size -= min( removed, cache_size );
             envs_last_use.erase( oldest );
@@ -734,9 +737,12 @@ bool Daemon::handle_get_native_env( MsgChannel *c )
             return false;
         }
     }
-    client->status = Client::GOTNATIVE;
     UseNativeEnvMsg m( native_environment );
-    c->send_msg( m );
+    if (!c->send_msg( m )) {
+      handle_end(client, 138);
+      return false;
+    }
+    client->status = Client::GOTNATIVE;
     return true;
 }
 
@@ -786,11 +792,14 @@ int Daemon::handle_old_request()
     if ( client )
     {
         trace() << "pending " << client->dump() << endl;
-        client->channel->send_msg( *client->usecsmsg );
-        client->status = Client::CLIENTWORK;
-        /* we make sure we reserve a spot and the rest is done if the
-         * client contacts as back with a Compile request */
-        clients.active_processes++;
+        if(client->channel->send_msg( *client->usecsmsg )) {
+            client->status = Client::CLIENTWORK;
+            /* we make sure we reserve a spot and the rest is done if the
+             * client contacts as back with a Compile request */
+            clients.active_processes++;
+        }
+        else 
+            handle_end(client, 129);
     }
 
     if ( current_kids + clients.active_processes >= max_kids )
@@ -1203,9 +1212,7 @@ bool Daemon::reconnect()
     LoginMsg lmsg( PORT, nodename, machine_name );
     lmsg.envs = available_environmnents(envbasedir);
     lmsg.max_kids = max_kids;
-    scheduler->send_msg( lmsg );
-
-    return true;
+    return scheduler->send_msg( lmsg );
 }
 
 int Daemon::working_loop()
