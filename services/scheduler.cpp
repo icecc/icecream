@@ -826,10 +826,11 @@ prune_servers ()
           if ( ( *it )->max_jobs >= 0 )
             {
               trace() << "send ping " << ( *it )->nodename << endl;
-              ( *it )->send_msg( PingMsg() );
               ( *it )->max_jobs *= -1; // better not give it away
-              // give it a few seconds to answer a ping
-              ( *it )->last_talk = time( 0 ) - MAX_SCHEDULER_PING + MIN_SCHEDULER_PING;
+              if(( *it )->send_msg( PingMsg() )) {
+                  // give it a few seconds to answer a ping
+                  ( *it )->last_talk = time( 0 ) - MAX_SCHEDULER_PING + MIN_SCHEDULER_PING;
+              }
             }
           else
             { // R.I.P.
@@ -1313,16 +1314,19 @@ handle_line (MsgChannel *c, Msg *_m)
               sprintf( buffer, " busy installing since %ld s",  time(0) - cs->busy_installing );
               line += buffer;
             }
-	  c->send_msg (TextMsg (line));
+	  if(!c->send_msg (TextMsg (line)))
+            return false;
           for ( list<Job*>::const_iterator it2 = cs->joblist.begin(); it2 != cs->joblist.end(); ++it2 )
-            c->send_msg (TextMsg ("   " + dump_job (*it2) ) );
+            if(!c->send_msg (TextMsg ("   " + dump_job (*it2) ) ))
+              break;
 	}
     }
   else if (cmd == "listjobs")
     {
       for (map<unsigned int, Job*>::const_iterator it = jobs.begin();
 	   it != jobs.end(); ++it)
-	c->send_msg( TextMsg( " " + dump_job (it->second) ) );
+	if(!c->send_msg( TextMsg( " " + dump_job (it->second) ) ))
+          return false;
     }
   else if (cmd == "quit")
     {
@@ -1331,15 +1335,17 @@ handle_line (MsgChannel *c, Msg *_m)
     }
   else if (cmd == "removecs")
     {
-      if (l.empty())
-        c->send_msg (TextMsg (string ("Sure.  But which hosts?")));
+      if (l.empty()) {
+        if(!c->send_msg (TextMsg (string ("Sure.  But which hosts?"))))
+          return false;
+      }
       else
         for (list<string>::const_iterator si = l.begin(); si != l.end(); ++si)
 	  for (list<CS*>::iterator it = css.begin(); it != css.end(); ++it)
 	    if ((*it)->nodename == *si || (*it)->name == *si)
 	      {
-                c->send_msg (TextMsg (string ("removing host ") + *si));
-		handle_end ( *it, 0);
+                if (c->send_msg (TextMsg (string ("removing host ") + *si)))
+                    handle_end ( *it, 0);
 		break;
 	      }
     }
@@ -1351,29 +1357,35 @@ handle_line (MsgChannel *c, Msg *_m)
     {
       for (list<CS*>::iterator it = css.begin(); it != css.end(); ++it)
         {
-          ( *it )->send_msg( GetInternalStatus() );
-          Msg *msg = ( *it )->get_msg();
-          if ( msg && msg->type == M_STATUS_TEXT )
-            c->send_msg( TextMsg( dynamic_cast<StatusTextMsg*>( msg )->text ) );
-          else
-            c->send_msg( TextMsg( ( *it )->nodename + " not reporting\n" ) );
+          Msg *msg = NULL;
+          if(( *it )->send_msg( GetInternalStatus() ))
+              msg = ( *it )->get_msg();
+          if ( msg && msg->type == M_STATUS_TEXT ) {
+            if (!c->send_msg( TextMsg( dynamic_cast<StatusTextMsg*>( msg )->text ) ))
+              return false;
+          }
+          else {
+            if (!c->send_msg( TextMsg( ( *it )->nodename + " not reporting\n" ) ))
+              return false;
+          }
 	  delete msg;
         }
     }
   else if (cmd == "help")
     {
-      c->send_msg (TextMsg (
-        "listcs\nlistjobs\nremovecs\ninternals\nhelp\nquit"));
+      if (!c->send_msg (TextMsg (
+        "listcs\nlistjobs\nremovecs\ninternals\nhelp\nquit")))
+        return false;
     }
   else
     {
       string txt = "Invalid command '";
       txt += m->text;
       txt += "'";
-      c->send_msg (TextMsg (txt));
+      if(!c->send_msg (TextMsg (txt)))
+        return false;
     }
-  c->send_msg (TextMsg (string ("done")));
-  return true;
+  return c->send_msg (TextMsg (string ("done")));
 }
 
 // return false if some error occured, leaves C open.  */
@@ -1493,7 +1505,8 @@ handle_end (MsgChannel *c, Msg *m)
     }
   else if (toremove->type == CS::LINE)
     {
-      c->send_msg (TextMsg ("Good Bye!"));
+      if (!c->send_msg (TextMsg ("Good Bye!"))) {
+      }
     }
   else
     trace() << "remote end had UNKNOWN type?" << endl;
