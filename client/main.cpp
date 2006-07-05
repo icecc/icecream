@@ -114,7 +114,7 @@ static void dcc_client_catch_signals(void)
 
 static string read_output( const char *command )
 {
-    FILE *f = popen( command, "rt" );
+    FILE *f = popen( command, "r" );
     string output;
     if ( !f ) {
         log_error() << "no pipe " << strerror( errno ) << endl;
@@ -126,8 +126,10 @@ static string read_output( const char *command )
         buffer[bytes] = 0;
         output += buffer;
     }
+
     pclose( f );
-    return output;
+    // get rid of the endline
+    return output.substr(0, output.length()-1);
 }
 
 static int create_native()
