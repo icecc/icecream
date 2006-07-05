@@ -514,8 +514,7 @@ maybe_build_local (MsgChannel *local_daemon, UseCSMsg *usecs, CompileJob &job,
         if (msg.user_msec > 50 && msg.out_uncompressed > 1024)
           trace() << "speed=" << float(msg.out_uncompressed / msg.user_msec) << endl;
 
-        local_daemon->send_msg( msg );
-        return true;
+        return local_daemon->send_msg( msg );
     }
     return false;
 }
