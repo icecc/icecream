@@ -244,7 +244,7 @@ add_job_stats (Job *job, JobDoneMsg *msg)
 {
   JobStat st;
   /* We don't want to base our timings on failed or too small jobs.  */
-  if (msg->out_uncompressed < 512
+  if (msg->out_uncompressed < 4096
       || msg->exitcode != 0)
     return;
 
