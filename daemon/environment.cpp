@@ -363,14 +363,15 @@ size_t install_environment( const std::string &basename, const std::string &targ
             char buffer[PATH_MAX];
             snprintf( buffer, PATH_MAX, "rm -rf '/%s'", dirname.c_str() );
             system( buffer );
-            status = 1;
         } else {
-            if ( waitpid( pid, &status, 0) != pid )
-                status = 1;
-            mkdir( ( dirname + "/tmp" ).c_str(), 01775 );
+           mkdir( ( dirname + "/tmp" ).c_str(), 01775 );
             chown( ( dirname + "/tmp" ).c_str(), 0, nobody_gid );
             chmod( ( dirname + "/tmp" ).c_str(), 01775 );
         }
+
+        status = 1;
+        while ( waitpid( pid, &status, 0) < 0 && errno == EINTR) 
+            ;
 
         if ( status ) {
             return 0;

@@ -854,7 +854,10 @@ void Daemon::fetch_children()
 {
     struct rusage ru;
     int status;
-    pid_t child = wait3(&status, WNOHANG, &ru);
+    pid_t child;
+
+    while((child = wait3(&status, WNOHANG, &ru)) < 0 && errno == EINTR)
+        ;
     if ( child > 0 ) {
         JobDoneMsg *msg = jobmap[child];
         if ( msg )
