@@ -216,9 +216,9 @@ size_t setup_env_cache(const string &basedir, string &native_environment, uid_t 
 
     pid_t pid = fork();
     if ( pid ) {
-        int status = 0;
-        if ( waitpid( pid, &status, 0 ) != pid )
-            status = 1;
+        int status = 1;
+        while ( waitpid( pid, &status, 0 ) < 0 && errno == EINTR )
+           ;
         trace() << "waitpid " << status << endl;
         if ( !status ) {
             trace() << "opendir " << nativedir << endl;
@@ -364,7 +364,7 @@ size_t install_environment( const std::string &basename, const std::string &targ
             snprintf( buffer, PATH_MAX, "rm -rf '/%s'", dirname.c_str() );
             system( buffer );
         } else {
-           mkdir( ( dirname + "/tmp" ).c_str(), 01775 );
+            mkdir( ( dirname + "/tmp" ).c_str(), 01775 );
             chown( ( dirname + "/tmp" ).c_str(), 0, nobody_gid );
             chmod( ( dirname + "/tmp" ).c_str(), 01775 );
         }
@@ -373,7 +373,7 @@ size_t install_environment( const std::string &basename, const std::string &targ
         while ( waitpid( pid, &status, 0) < 0 && errno == EINTR) 
             ;
 
-        if ( status ) {
+        if ( WEXITSTATUS(status) ) {
             return 0;
         } else {
             return sumup_dir( dirname );
