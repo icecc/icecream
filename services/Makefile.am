@@ -4,6 +4,7 @@ lib_LTLIBRARIES = libicecream.la
 
 libicecream_la_SOURCES = job.cpp comm.cpp getifaddrs.cpp logging.cpp tempfile.c
 libicecream_la_LIBADD = ../minilzo/libminilzo.la
+libicecream_la_CFLAGS = -fPIC -DPIC
 libicecream_la_CXXFLAGS = -fPIC -DPIC
 
 ice_HEADERS = job.h comm.h
