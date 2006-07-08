@@ -23,9 +23,9 @@ Index: icecream/daemon/Makefile.am
 +iceccd_LDADD = ../services/libicecc.la
 Index: icecream/services/Makefile.am
 ===================================================================
---- icecream/services/Makefile.am	(revision 556877)
+--- icecream/services/Makefile.am	(revision 559754)
 +++ icecream/services/Makefile.am	(working copy)
-@@ -1,17 +1,17 @@
+@@ -1,18 +1,18 @@
  INCLUDES = -I$(srcdir)/../minilzo
  
 -lib_LTLIBRARIES = libicecream.la
@@ -33,9 +33,11 @@ Index: icecream/services/Makefile.am
  
 -libicecream_la_SOURCES = job.cpp comm.cpp getifaddrs.cpp logging.cpp tempfile.c
 -libicecream_la_LIBADD = ../minilzo/libminilzo.la
+-libicecream_la_CFLAGS = -fPIC -DPIC
 -libicecream_la_CXXFLAGS = -fPIC -DPIC
 +libicecc_la_SOURCES = job.cpp comm.cpp getifaddrs.cpp logging.cpp tempfile.c
 +libicecc_la_LIBADD = ../minilzo/libminilzo.la
++libicecc_la_CFLAGS = -fPIC -DPIC
 +libicecc_la_CXXFLAGS = -fPIC -DPIC
  
  ice_HEADERS = job.h comm.h
