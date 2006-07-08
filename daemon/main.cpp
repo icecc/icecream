@@ -98,7 +98,7 @@ public:
      *          and await the finish of it
      * TOCOMPILE: We're supposed to compile it ourselves
      * WAITFORCS: Client asked for a CS and we asked the scheduler - waiting for its answer
-     * WAITCOMPILE: Client got a CS and will ask him now (it's now me)
+     * WAITCOMPILE: Client got a CS and will ask him now (it's not me)
      * CLIENTWORK: Client is busy working and we reserve the spot (job_id is set if it's a scheduler job)
      * WAITFORCHILD: Client is waiting for the compile job to finish.
      */
@@ -678,7 +678,7 @@ bool Daemon::handle_transfer_env( MsgChannel *c, Msg *msg )
         c->send_msg(EndMsg()); // shut up, we had an error
         reannounce_environments(envbasedir, nodename);
     } else {
-        trace() << dump_internals() << endl;
+        trace() << "envs " << dump_internals() << endl;
         cache_size += installed_size;
         string current = emsg->target + "/" + emsg->name;
         envs_last_use[current] = time( NULL );
@@ -922,6 +922,11 @@ void Daemon::handle_end( Client *client, int exitcode )
 
     if ( client->status == Client::CLIENTWORK )
         clients.active_processes--;
+
+    if ( client->status == Client::WAITCOMPILE && exitcode == 119 ) {
+        /* the client sent us a real good bye, so forget about the scheduler */
+ 	client->job_id = 0;
+    }
 
     if ( scheduler && client->status != Client::WAITFORCHILD) {
         if ( client->job_id > 0 ) {
@@ -1183,9 +1188,10 @@ int Daemon::answer_client_requests()
 
 bool Daemon::reconnect()
 {
-    trace() << dump_internals() << endl;
     if ( scheduler || time( 0 ) < last_connect )
         return true;
+
+    trace() << "reconn " << dump_internals() << endl;
 
     scheduler = connect_scheduler (netname, 2000, schedname);
     if ( !scheduler ) {
