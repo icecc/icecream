@@ -6,7 +6,7 @@ form of process accounting in there.
 How to install icecream
 =======================
 
-cd kdenonbeta/icecream/icecream
+cd icecream
 (make -f Makefile.cvs)
 ./configure --prefix=/opt/icecream
 make
