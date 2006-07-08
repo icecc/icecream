@@ -15,5 +15,5 @@ scheduler_SOURCES = scheduler.cpp
 scheduler_LDADD = libicecc.la
 
 pkgconfigdir = $(libdir)/pkgconfig
-pkgconfig_DATA = icecream.pc
+pkgconfig_DATA = icecc.pc
 

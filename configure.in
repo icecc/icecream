@@ -171,7 +171,7 @@ AC_CONFIG_FILES([ doc/Makefile ])
 AC_CONFIG_FILES([ minilzo/Makefile ])
 AC_CONFIG_FILES([ services/Makefile ])
 AC_CONFIG_FILES([ services/icecream.pc ])
-AC_OUTPUT([ suse/icecream.spec ])
+AC_OUTPUT([ suse/icecc.spec ])
 if test "$prefix" = NONE; then
   prefix=$ac_default_prefix
 fi

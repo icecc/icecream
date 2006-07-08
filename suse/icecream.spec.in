@@ -119,6 +119,6 @@ rm -rf ${RPM_BUILD_ROOT}
 %defattr(-,root,root)
 %_includedir/icecc
 %_libdir/libicecc.*
-%_libdir/pkgconfig/icecream.pc
+%_libdir/pkgconfig/icecc.pc
 
 %changelog -n icecream
