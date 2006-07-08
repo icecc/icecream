@@ -757,7 +757,7 @@ bool Daemon::handle_job_done( MsgChannel *c, JobDoneMsg *m )
     trace() << "handle_job_done " << msg->job_id << " " << msg->exitcode << endl;
 
     if(!m->is_from_server()
-       && m->user_msec + m->sys_msec <= m->real_msec)
+       && ( m->user_msec + m->sys_msec ) <= m->real_msec)
      icecream_load += (m->user_msec + m->sys_msec) / num_cpus;
 
     send_scheduler( *msg );
@@ -876,7 +876,8 @@ void Daemon::fetch_children()
             struct timeval endtv;
             gettimeofday(&endtv, 0);
             msg->exitcode = WEXITSTATUS( status );
-            msg->real_msec = (endtv.tv_sec - msg->user_msec) * 1000 + (endtv.tv_usec - msg->sys_msec) / 1000;
+            msg->real_msec = (endtv.tv_sec - msg->user_msec) * 1000 + 
+			(long(endtv.tv_usec) - long(msg->sys_msec)) / 1000;
             msg->user_msec = ru.ru_utime.tv_sec * 1000 + ru.ru_utime.tv_usec / 1000;
             msg->sys_msec = ru.ru_stime.tv_sec * 1000 + ru.ru_stime.tv_usec / 1000;
             msg->pfaults = ru.ru_majflt + ru.ru_nswap + ru.ru_minflt;
