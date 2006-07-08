@@ -1,3 +1,17 @@
+0.7.4 (r559927):
+	- Add -fpreprocessed argument
+	- Fix daemons getting stuck after a while with 100% CPU
+	- fix for kubuntu where libs are deeply nested 
+          such as /lib/tls/i686/cmov/libc.so.6
+	- find the compiler even though icecc wasn't in the path
+	- fix deletion of old environments
+	- a lot more error handling
+	- fix assertion failures in daemon upon sigchild delivery
+	- use -fPIC also for C files
+	- avoid race between local and remote daemon about who has
+	  the right exit status
+	- rename the package to icecc
+
 0.7.3 (r552930):
 	- more work on error handling
 	- corrected icecc --help output
