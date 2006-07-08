@@ -105,7 +105,7 @@ rm -rf ${RPM_BUILD_ROOT}
 %config /etc/init.d/icecream
 %_bindir/icecc
 %_sbindir/scheduler
-%_libdir/icecream
+%_libdir/icecc
 %_sbindir/iceccd
 %_sbindir/rcicecream
 %_mandir/man*/*
@@ -117,8 +117,8 @@ rm -rf ${RPM_BUILD_ROOT}
 
 %files -n libicecream-devel
 %defattr(-,root,root)
-%_includedir/icecream
-%_libdir/libicecream.*
-%_libdir/pkgconfig/icecream.pc
+%_includedir/icecc
+%_libdir/libicecc.*
+%_libdir/pkgconfig/icecc.pc
 
 %changelog -n icecream
