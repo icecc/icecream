@@ -1,10 +1,18 @@
+icecc (0.7.4-1) unstable; urgency=low
+
+  * New upstream version.
+
+  * Patches are applied upstream (rename from icecream to icecc).
+
+ -- Andre Woebbeking <Woebbeking@web.de>  Sun, 09 Jul 2006 10:01:12 +0200
+
 icecc (0.7.3-4) unstable; urgency=low
 
   * Also create a group icecc for the user icecc.
 
   * Build with -O2.
 
- -- Andre Woebbeking <Woebbeking@web.de>  Mon, 03 Jun 2006 23:50:12 +0200
+ -- Andre Woebbeking <Woebbeking@web.de>  Mon, 03 Jul 2006 23:50:12 +0200
 
 icecc (0.7.3-3) unstable; urgency=low
 
@@ -12,13 +20,13 @@ icecc (0.7.3-3) unstable; urgency=low
 
   * Simplified debian files.
 
- -- Andre Woebbeking <Woebbeking@web.de>  Sun, 02 Jun 2006 19:00:51 +0200
+ -- Andre Woebbeking <Woebbeking@web.de>  Sun, 02 Jul 2006 19:00:51 +0200
 
 icecc (0.7.3-2) unstable; urgency=low
 
   * Made icecc --build-native work.
 
- -- Andre Woebbeking <Woebbeking@web.de>  Sat, 01 Jun 2006 21:30:51 +0200
+ -- Andre Woebbeking <Woebbeking@web.de>  Sat, 01 Jul 2006 21:30:51 +0200
 
 icecc (0.7.3-1) unstable; urgency=low
 
@@ -26,7 +34,7 @@ icecc (0.7.3-1) unstable; urgency=low
 
   * /usr/bin/create-env is now /usr/lib/icecc/icecc-create-env
 
- -- Andre Woebbeking <Woebbeking@web.de>  Sat, 01 Jun 2006 20:36:15 +0200
+ -- Andre Woebbeking <Woebbeking@web.de>  Sat, 01 Jul 2006 20:36:15 +0200
 
 icecc (0.6.1-1) unstable; urgency=low
 

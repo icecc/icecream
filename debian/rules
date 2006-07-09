@@ -123,7 +123,6 @@ install: build
 	$(MAKE) install DESTDIR=$(CURDIR)/debian/tmp
 
 	(cd $(CURDIR)/debian/tmp/usr/sbin ; mv scheduler icecc-scheduler)
-	(cd $(CURDIR)/debian/tmp/usr/lib/pkgconfig ; mv icecream.pc icecc.pc)
 
 	dh_install --sourcedir=debian/tmp
 
