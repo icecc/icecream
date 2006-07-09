@@ -31,8 +31,8 @@ ostream *logfile_trace = 0;
 ostream *logfile_info = 0;
 ostream *logfile_warning = 0;
 ostream *logfile_error = 0;
-ofstream logfile_null( "/dev/null" );
-ofstream logfile_file;
+static ofstream logfile_null( "/dev/null" );
+static ofstream logfile_file;
 static string logfile_filename;
 
 void reset_debug( int );
