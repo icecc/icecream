@@ -32,7 +32,7 @@ ostream *logfile_info = 0;
 ostream *logfile_warning = 0;
 ostream *logfile_error = 0;
 static ofstream logfile_null( "/dev/null" );
-static ofstream logfile_file;
+static ofstream *logfile_file = 0;
 static string logfile_filename;
 
 void reset_debug( int );
@@ -42,11 +42,13 @@ void setup_debug(int level, const string &filename)
     debug_level = level;
     logfile_filename = filename;
 
-    logfile_file.close();
+    delete logfile_file;
+    logfile_file = 0;
     ostream *output = 0;
     if ( filename.length() ) {
-        logfile_file.open( filename.c_str(), fstream::out | fstream::app );
-        output = &logfile_file;
+	logfile_file = new ofstream();
+        logfile_file->open( filename.c_str(), fstream::out | fstream::app );
+        output = logfile_file;
     } else
         output = &cerr;
 
