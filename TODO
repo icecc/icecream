@@ -11,6 +11,8 @@ Release Critical:
 * make the protocol version an uint32, not a hand-build array.
 * let the client specify it was compiled with recent compiler (supporting -param). If so,
   let the daemon compile with the options, otherwise leave them out. 
+* The daemon always tries to find the scheduler and blocks for 2s each time while clients
+  try to reach it to get local load balancing. 
 
 Random:
 * Option -iiface to specify the interface[s] to listen on for the scheduler, or
