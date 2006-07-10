@@ -5,9 +5,9 @@ Description: Start the icecc daemon on startup?
  icecc can be run as a daemon, listening for incoming connections.
  .
  You have the option of starting the icecc daemon automatically on the
- computer startup. If in doubt, I suggest you not to start automatically it
- on startup. If you later change your mind, you can run: 'dpkg-reconfigure
- icecc'.
+ computer startup. You need a running daemon on every computer which should
+ be part of the compile farm. If you later change your mind, you can run: 
+ 'dpkg-reconfigure icecc'.
 
 Template: icecc/scheduler
 Type: boolean
@@ -16,6 +16,6 @@ Description: Start the icecc scheduler on startup?
  scheduler can be run as a daemon, listening for incoming connections.
  .
  You have the option of starting the icecc scheduler automatically on the
- computer startup. If in doubt, I suggest you not to start automatically it
- on startup. If you later change your mind, you can run: 'dpkg-reconfigure
- icecc'.
+ computer startup. You need one scheduler in your compile farm. If in doubt, 
+ you should not start it automatically on startup. If you later change your
+ mind, you can run: 'dpkg-reconfigure icecc'.

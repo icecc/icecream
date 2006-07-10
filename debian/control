@@ -3,13 +3,13 @@ Section: kde
 Priority: optional
 Maintainer: Andre Woebbeking <Woebbeking@web.de>
 Uploaders:
-Build-Depends: automake1.7, debhelper (>> 4.0.0), kdelibs4-dev (>= 4:3.3.0) kdebase-dev (>= 4:3.3.0)
+Build-Depends: automake1.9, debhelper (>> 5.0.0), libtool
 Standards-Version: 3.6.1.0
 
 Package: icecc
 Architecture: any
 Section: devel
-Depends: ${shlibs:Depends}
+Depends: ${shlibs:Depends}, adduser, coreutils, debconf, grep
 Suggests: icecc-monitor
 Description: Simple distributed compiler client and server
  icecc is a program to distribute compilation of C or C++ code across
@@ -21,12 +21,11 @@ Description: Simple distributed compiler client and server
  .
  This package is part of the KDE Software Development Kit.
 
-Package: icecc-monitor
+Package: libicecc-dev
 Architecture: any
 Section: devel
 Depends: ${shlibs:Depends}
-Suggests: icecc
-Description: KDE monitor for icecc a distributed client and server
+Description: Simple distributed compiler client and server
  icecc is a program to distribute compilation of C or C++ code across
  several machines on a network. icecc should always generate the same
  results as a local compile, is simple to install and use, and is often
@@ -34,4 +33,4 @@ Description: KDE monitor for icecc a distributed client and server
  machines to share a filesystem, have synchronized clocks, or to have
  the same libraries or header files installed.
  .
- This package is part of the KDE Software Development Kit.
+ This package provides files which are necessary to build icecc-monitor.
