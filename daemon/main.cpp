@@ -313,7 +313,6 @@ void dcc_daemon_catch_signals(void)
 
     signal(SIGTERM, &dcc_daemon_terminate);
     signal(SIGINT, &dcc_daemon_terminate);
-    signal(SIGHUP, &dcc_daemon_terminate);
     signal(SIGALRM, &dcc_daemon_terminate);
 }
 
