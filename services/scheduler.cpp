@@ -827,19 +827,21 @@ prune_servers ()
             {
               trace() << "send ping " << ( *it )->nodename << endl;
               ( *it )->max_jobs *= -1; // better not give it away
-              if(( *it )->send_msg( PingMsg() )) {
+              if(( *it )->send_msg( PingMsg() )) 
+		{
                   // give it a few seconds to answer a ping
-                  ( *it )->last_talk = time( 0 ) - MAX_SCHEDULER_PING + MIN_SCHEDULER_PING;
-              }
-            }
-          else
-            { // R.I.P.
-              trace() << "removing " << ( *it )->nodename << endl;
-              CS *old = *it;
-              ++it;
-              handle_end (old, 0);
-              continue;
-            }
+                  ( *it )->last_talk = time( 0 ) - MAX_SCHEDULER_PING 
+		                       + MIN_SCHEDULER_PING;
+		  ++it;
+		  continue;
+		}
+	    }
+	  // R.I.P.
+	  trace() << "removing " << ( *it )->nodename << endl;
+	  CS *old = *it;
+	  ++it;
+	  handle_end (old, 0);
+	  continue;
         }
       else 
         min_time = min (min_time, MAX_SCHEDULER_PING - now + ( *it )->last_talk);
@@ -856,7 +858,6 @@ prune_servers ()
 
       ++it;
     }
-
 
   /**
    * check the jobs that were not cared about even though they are done
