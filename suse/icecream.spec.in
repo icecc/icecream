@@ -20,7 +20,7 @@ Prereq:         /usr/sbin/useradd /usr/sbin/groupadd
 Requires:       gcc-c++
 Version:        @VERSION@
 Release:        1
-Source0:        ftp://ftp.suse.com/pub/projects/icecream/%name-%{version}.tar.bz2
+Source0:        ftp://ftp.suse.com/pub/projects/icecream/icecc-%{version}.tar.bz2
 Source1:        %name-manpages.tar.bz2
 BuildRoot:      %{_tmppath}/%{name}-%{version}-build
 
@@ -105,7 +105,7 @@ rm -rf ${RPM_BUILD_ROOT}
 %config /etc/init.d/icecream
 %_bindir/icecc
 %_sbindir/scheduler
-%_libdir/icecream
+%_libdir/icecc
 %_sbindir/iceccd
 %_sbindir/rcicecream
 %_mandir/man*/*
@@ -117,8 +117,8 @@ rm -rf ${RPM_BUILD_ROOT}
 
 %files -n libicecream-devel
 %defattr(-,root,root)
-%_includedir/icecream
-%_libdir/libicecream.*
-%_libdir/pkgconfig/icecream.pc
+%_includedir/icecc
+%_libdir/libicecc.*
+%_libdir/pkgconfig/icecc.pc
 
 %changelog -n icecream

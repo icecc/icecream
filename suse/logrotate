@@ -2,6 +2,7 @@
     compress
     dateext
     maxage 30
+    rotate 99
     missingok
     notifempty
     size +4096k

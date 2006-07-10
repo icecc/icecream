@@ -98,7 +98,7 @@ public:
      *          and await the finish of it
      * TOCOMPILE: We're supposed to compile it ourselves
      * WAITFORCS: Client asked for a CS and we asked the scheduler - waiting for its answer
-     * WAITCOMPILE: Client got a CS and will ask him now (it's now me)
+     * WAITCOMPILE: Client got a CS and will ask him now (it's not me)
      * CLIENTWORK: Client is busy working and we reserve the spot (job_id is set if it's a scheduler job)
      * WAITFORCHILD: Client is waiting for the compile job to finish.
      */
@@ -313,7 +313,6 @@ void dcc_daemon_catch_signals(void)
 
     signal(SIGTERM, &dcc_daemon_terminate);
     signal(SIGINT, &dcc_daemon_terminate);
-    signal(SIGHUP, &dcc_daemon_terminate);
     signal(SIGALRM, &dcc_daemon_terminate);
 }
 
@@ -681,7 +680,7 @@ bool Daemon::handle_transfer_env( MsgChannel *c, Msg *msg )
         c->send_msg(EndMsg()); // shut up, we had an error
         reannounce_environments(envbasedir, nodename);
     } else {
-        trace() << dump_internals() << endl;
+        trace() << "envs " << dump_internals() << endl;
         cache_size += installed_size;
         string current = emsg->target + "/" + emsg->name;
         envs_last_use[current] = time( NULL );
@@ -760,7 +759,7 @@ bool Daemon::handle_job_done( MsgChannel *c, JobDoneMsg *m )
     trace() << "handle_job_done " << msg->job_id << " " << msg->exitcode << endl;
 
     if(!m->is_from_server()
-       && m->user_msec + m->sys_msec <= m->real_msec)
+       && ( m->user_msec + m->sys_msec ) <= m->real_msec)
      icecream_load += (m->user_msec + m->sys_msec) / num_cpus;
 
     send_scheduler( *msg );
@@ -879,7 +878,8 @@ void Daemon::fetch_children()
             struct timeval endtv;
             gettimeofday(&endtv, 0);
             msg->exitcode = WEXITSTATUS( status );
-            msg->real_msec = (endtv.tv_sec - msg->user_msec) * 1000 + (endtv.tv_usec - msg->sys_msec) / 1000;
+            msg->real_msec = (endtv.tv_sec - msg->user_msec) * 1000 + 
+			(long(endtv.tv_usec) - long(msg->sys_msec)) / 1000;
             msg->user_msec = ru.ru_utime.tv_sec * 1000 + ru.ru_utime.tv_usec / 1000;
             msg->sys_msec = ru.ru_stime.tv_sec * 1000 + ru.ru_stime.tv_usec / 1000;
             msg->pfaults = ru.ru_majflt + ru.ru_nswap + ru.ru_minflt;
@@ -925,6 +925,11 @@ void Daemon::handle_end( Client *client, int exitcode )
 
     if ( client->status == Client::CLIENTWORK )
         clients.active_processes--;
+
+    if ( client->status == Client::WAITCOMPILE && exitcode == 119 ) {
+        /* the client sent us a real good bye, so forget about the scheduler */
+ 	client->job_id = 0;
+    }
 
     if ( scheduler && client->status != Client::WAITFORCHILD) {
         if ( client->job_id > 0 ) {
@@ -1202,9 +1207,10 @@ int Daemon::answer_client_requests()
 
 bool Daemon::reconnect()
 {
-    trace() << dump_internals() << endl;
     if ( scheduler || time( 0 ) < last_connect )
         return true;
+
+    trace() << "reconn " << dump_internals() << endl;
 
     scheduler = connect_scheduler (netname, 2000, schedname);
     if ( !scheduler ) {

@@ -65,7 +65,7 @@ case "$1" in
         if test -n "$ICECREAM_MAX_JOBS"; then
 	    maxjobs="-m $ICECREAM_MAX_JOBS"
         fi
-	startproc /usr/sbin/iceccd -d "$logfile" $nice $scheduler $netname -u icecream -b "$ICECREAM_BASEDIR" $maxjobs
+	startproc /usr/sbin/iceccd -d $logfile $nice $scheduler $netname -u icecream -b "$ICECREAM_BASEDIR" $maxjobs
 	rc_status -v
 	;;
     stop)
