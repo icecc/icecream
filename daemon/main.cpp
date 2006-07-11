@@ -1101,7 +1101,7 @@ int Daemon::answer_client_requests()
         FD_SET( scheduler->fd, &listen_set );
         if ( max_fd < scheduler->fd )
             max_fd = scheduler->fd;
-    } else if ( discover ) {
+    } else if ( discover && discover->get_fd() >= 0) {
         /* We don't explicitely check for discover->get_fd() being in
 	   the selected set below.  If it's set, we simply will return
 	   and our call will make sure we try to get the scheduler.  */
