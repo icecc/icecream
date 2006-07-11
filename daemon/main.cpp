@@ -542,7 +542,7 @@ bool Daemon::maybe_stats(bool force)
     unsigned long idleLoad = 0;
 
     /* the scheduler didn't ping us for a long time, assume dead connection and recover */
-    if (now.tv_usec - last_scheduler >= max_scheduler_ping + 2 * min_scheduler_ping) {
+    if (now.tv_sec - last_scheduler >= max_scheduler_ping + 2 * min_scheduler_ping) {
        force = true;
        delete scheduler;
        scheduler = 0;
