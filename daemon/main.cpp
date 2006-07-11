@@ -457,7 +457,7 @@ struct Daemon
     int current_load;
     int num_cpus;
     MsgChannel *scheduler;
-    time_t last_connect;
+    DiscoverSched *discover;
     string netname;
     string schedname;
 
@@ -473,7 +473,7 @@ struct Daemon
         current_load = - 1000;
         num_cpus = 0;
         scheduler = 0;
-        last_connect = 0;
+	discover = 0;
     }
 
     void reannounce_environments(const string &envbasedir, const string &nodename);
@@ -526,6 +526,8 @@ void Daemon::close_scheduler()
 
     delete scheduler;
     scheduler = 0;
+    delete discover;
+    discover = 0;
     clear_children();
 }
 
@@ -1099,6 +1101,13 @@ int Daemon::answer_client_requests()
         FD_SET( scheduler->fd, &listen_set );
         if ( max_fd < scheduler->fd )
             max_fd = scheduler->fd;
+    } else if ( discover ) {
+        /* We don't explicitely check for discover->get_fd() being in
+	   the selected set below.  If it's set, we simply will return
+	   and our call will make sure we try to get the scheduler.  */
+        FD_SET( discover->get_fd(), &listen_set);
+	if ( max_fd < discover->get_fd() )
+	    max_fd = discover->get_fd();
     }
 
     tv.tv_sec = MIN_SCHEDULER_PING;
@@ -1188,15 +1197,21 @@ int Daemon::answer_client_requests()
 
 bool Daemon::reconnect()
 {
-    if ( scheduler || time( 0 ) < last_connect )
+    if ( scheduler )
         return true;
 
     trace() << "reconn " << dump_internals() << endl;
 
-    scheduler = connect_scheduler (netname, 2000, schedname);
+    if (!discover
+	|| discover->timed_out())
+      {
+        delete discover;
+	discover = new DiscoverSched (netname, 3000, schedname);
+      }
+
+    scheduler = discover->try_get_scheduler ();
     if ( !scheduler ) {
-        log_warning() << "no scheduler found. Sleeping.\n";
-        last_connect = time( 0 );
+        log_warning() << "scheduler not yet found.\n";
         return false;
     }
     sockaddr_in name;
@@ -1231,7 +1246,6 @@ int Daemon::working_loop()
             close_scheduler();
         }
     }
-
 }
 
 int main( int argc, char ** argv )

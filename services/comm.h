@@ -199,12 +199,24 @@ public:
   static MsgChannel *createChannel( int remote_fd, struct sockaddr *, socklen_t );
 };
 
-/* Connect to a scheduler waiting max. TIMEOUT milliseconds.
- * schedname can be the hostname of a box running a scheduler, to avoid
- * broadcasting. */
-MsgChannel *connect_scheduler (const std::string &netname = std::string(),
-			       int timeout = 2000,
-			       const std::string &schedname = std::string());
+class DiscoverSched {
+  std::string netname, schedname;
+  int timeout;
+  int ask_fd;
+  time_t time0;
+  unsigned int sport;
+public:
+  /* Connect to a scheduler waiting max. TIMEOUT milliseconds.
+     schedname can be the hostname of a box running a scheduler, to avoid
+     broadcasting. */
+  DiscoverSched (const std::string &_netname = std::string(),
+		 int _timeout = 2000,
+		 const std::string &_schedname = std::string());
+  ~DiscoverSched();
+  bool timed_out();
+  int get_fd() const { return ask_fd; }
+  MsgChannel *try_get_scheduler();
+};
 
 /* Return a list of all reachable netnames.  We wait max. WAITTIME
    milliseconds for answers.  */

@@ -982,63 +982,65 @@ get_broad_answer (int ask_fd, int timeout, char *buf2,
   return true;
 }
 
-MsgChannel *
-connect_scheduler (const string &_netname, int timeout, const string &schedname)
+DiscoverSched::DiscoverSched (const std::string &_netname,
+			      int _timeout,
+			      const std::string &_schedname)
+  : netname(_netname), schedname(_schedname), timeout(_timeout), ask_fd(-1),
+    sport(8765)
 {
-  const char *get = 0;
+  time0 = time (0);
   if (schedname.empty())
-    get = getenv( "USE_SCHEDULER" );
-  else
-    get = schedname.c_str();
-  string hostname;
-  unsigned int sport = 8765;
-  char buf2[BROAD_BUFLEN];
+    {
+      const char *get = getenv( "USE_SCHEDULER" );
+      if (get)
+	schedname = get;
+    }
 
-  string netname = _netname;
   if (netname.empty())
     netname = "ICECREAM";
 
-  if (get)
-    {
-      hostname = get;
-      netname = "";
-    }
+  if (!schedname.empty())
+    netname = ""; // take whatever the machine is giving us
   else
+    ask_fd = open_send_broadcast ();
+}
+
+DiscoverSched::~DiscoverSched ()
+{
+  if (ask_fd >= 0)
+    close (ask_fd);
+}
+
+bool
+DiscoverSched::timed_out ()
+{
+  return (time (0) - time0 >= (timeout / 1000));
+}
+
+MsgChannel *
+DiscoverSched::try_get_scheduler ()
+{
+  if (schedname.empty())
     {
-      int ask_fd;
       struct sockaddr_in remote_addr;
       socklen_t remote_len;
-      time_t time0 = time (0);
       bool found = false;
+      char buf2[BROAD_BUFLEN];
 
-      ask_fd = open_send_broadcast ();
-
-      do
-        {
-	  bool first = true;
-	  /* Read/test all arriving packages.  */
-	  while (!found
-	  	 && get_broad_answer (ask_fd, first ? timeout : 0, buf2,
-	  			      &remote_addr, &remote_len))
-	    {
-	      first = false;
-	      if (strcasecmp (netname.c_str(), buf2 + 1) == 0)
-	        found = true;
-	    }
-	  if (found)
-	    break;
-	}
-      while (time (0) - time0 < (timeout / 1000));
-      close (ask_fd);
+      /* Read/test all packages arrived until now.  */
+      while (!found
+	     && get_broad_answer (ask_fd, 0/*timeout*/, buf2,
+				  &remote_addr, &remote_len))
+	if (strcasecmp (netname.c_str(), buf2 + 1) == 0)
+	  found = true;
       if (!found)
         return 0;
-      hostname = inet_ntoa (remote_addr.sin_addr);
+      schedname = inet_ntoa (remote_addr.sin_addr);
       sport = ntohs (remote_addr.sin_port);
       netname = buf2 + 1;
     }
-
-  log_info() << "scheduler is on " << hostname << ":" << sport << " (net " << netname << ")\n";
-  return Service::createChannel( hostname, sport, 0); // 0 == no timeout
+  log_info() << "scheduler is on " << schedname << ":" << sport << " (net " << netname << ")\n";
+  return Service::createChannel( schedname, sport, 0/*timeout*/);
 }
 
 list<string>
