@@ -48,7 +48,7 @@
 #include "job.h"
 #include "config.h"
 
-#define DEBUG_SCHEDULER 2
+#define DEBUG_SCHEDULER 0
 
 /* TODO:
    * leak check
