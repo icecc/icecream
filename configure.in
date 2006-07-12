@@ -4,7 +4,7 @@ AC_PREREQ(2.53)
 
 AC_INIT(client/main.cpp)
 
-AM_INIT_AUTOMAKE(icecc, "0.7.4")
+AM_INIT_AUTOMAKE(icecc, "0.7.5")
 AM_CONFIG_HEADER(config.h)
 AC_CANONICAL_HOST
 

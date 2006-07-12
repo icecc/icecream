@@ -1,3 +1,8 @@
+0.7.5 (r561480):
+	- Don't block while looking for a scheduler over broadcast search.
+	- Fix logrotate
+	- immediately kick broken daemon connections
+
 0.7.4 (r559927):
 	- Add -fpreprocessed argument
 	- Fix daemons getting stuck after a while with 100% CPU
