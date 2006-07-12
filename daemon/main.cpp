@@ -1369,6 +1369,9 @@ int main( int argc, char ** argv )
                     } else {
                         d.nobody_uid = pw->pw_uid;
                         d.nobody_gid = pw->pw_gid;
+                        if (!d.nobody_gid || !d.nobody_uid) {
+                          usage( "Error: -u <username> must not be root");
+                        }
                     }
                 } else
                     usage( "Error: -u requires a valid username" );
