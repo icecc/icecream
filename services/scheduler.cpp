@@ -57,6 +57,15 @@
      of each other and sometimes take over ownership)
  */
 
+/* TODO:
+  - iron out differences in code size between architectures
+   + ia64/i686: 1.63
+   + x86_64/i686: 1.48
+   + ppc/i686: 1.22
+   + ppc64/i686: 1.59
+  (missing data for others atm)
+*/
+
 /* The typical flow of messages for a remote job should be like this:
      prereq: daemon is connected to scheduler
      * client does GET_CS
