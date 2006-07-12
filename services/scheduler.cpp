@@ -855,10 +855,10 @@ prune_servers ()
             {
               trace() << "send ping " << ( *it )->nodename << endl;
               ( *it )->max_jobs *= -1; // better not give it away
-              if(( *it )->send_msg( PingMsg() )) 
+              if(( *it )->send_msg( PingMsg() ))
 		{
                   // give it a few seconds to answer a ping
-                  ( *it )->last_talk = time( 0 ) - MAX_SCHEDULER_PING 
+                  ( *it )->last_talk = time( 0 ) - MAX_SCHEDULER_PING
 		                       + MIN_SCHEDULER_PING;
 		  ++it;
 		  continue;
@@ -871,7 +871,7 @@ prune_servers ()
 	  handle_end (old, 0);
 	  continue;
         }
-      else 
+      else
         min_time = min (min_time, MAX_SCHEDULER_PING - now + ( *it )->last_talk);
 #if DEBUG_SCHEDULER > 1
       if ((random() % 400) < 0)
@@ -1007,7 +1007,7 @@ empty_queue()
       gotit = false;
       host_platform = can_install (cs, job);
     }
-  
+
   UseCSMsg m2(host_platform, cs->name, cs->remote_port, job->id,
 	      gotit, job->local_client_id );
 
@@ -1466,6 +1466,8 @@ handle_end (MsgChannel *c, Msg *m)
 {
 #if DEBUG_SCHEDULER > 1
   trace() << "Handle_end " << c << " " << m << endl;
+#else
+  ( void )m;
 #endif
 
   CS *toremove = static_cast<CS *>(c);

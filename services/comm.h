@@ -33,7 +33,7 @@
 #include "job.h"
 
 // if you increase the PROTOCOL_VERSION, add a macro below and use that
-#define PROTOCOL_VERSION 22
+#define PROTOCOL_VERSION 23
 // if you increase the MIN_PROTOCOL_VERSION, comment out macros below and clean up the code
 #define MIN_PROTOCOL_VERSION 21
 
@@ -41,6 +41,7 @@
 #define MAX_SCHEDULER_PING 30
 
 #define IS_PROTOCOL_22( c ) ( c->protocol >= 22 )
+#define IS_PROTOCOL_23( c ) ( c->protocol >= 23 )
 
 enum MsgType {
   // so far unknown
@@ -248,12 +249,12 @@ public:
   uint32_t client_id;
   std::string preferred_host;
   GetCSMsg () : Msg(M_GET_CS), count( 1 ),arg_flags( 0 ), client_id( 0 ) {}
-  GetCSMsg (const Environments &envs, const std::string &f, 
-            CompileJob::Language _lang, unsigned int _count, 
-	    std::string _target, unsigned int _arg_flags, 
+  GetCSMsg (const Environments &envs, const std::string &f,
+            CompileJob::Language _lang, unsigned int _count,
+	    std::string _target, unsigned int _arg_flags,
             const std::string &host)
-    : Msg(M_GET_CS), versions( envs ), filename(f), lang(_lang), 
-            count( _count ), target( _target ), arg_flags( _arg_flags ), 
+    : Msg(M_GET_CS), versions( envs ), filename(f), lang(_lang),
+            count( _count ), target( _target ), arg_flags( _arg_flags ),
             client_id( 0 ), preferred_host(host)
   {}
   virtual void fill_from_channel (MsgChannel * c);

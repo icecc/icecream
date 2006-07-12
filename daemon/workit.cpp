@@ -99,6 +99,14 @@ static void theSigCHLDHandler( int )
     must_reap = true;
 }
 
+
+static void
+error_client( MsgChannel *client, string error )
+{
+    if ( IS_PROTOCOL_23( client ) )
+        client->send_msg( StatusTextMsg( error ) );
+}
+
 int work_it( CompileJob &j,
              unsigned int& in_compressed, unsigned int& in_uncompressed, MsgChannel* client,
              string &str_out, string &str_err,
@@ -193,19 +201,25 @@ int work_it( CompileJob &j,
         fcntl(main_sock[1], F_SETFD, FD_CLOEXEC);
         setenv( "PATH", "usr/bin", 1 );
         // Safety check
-        if (getuid() == 0 || getgid() == 0)
+        if (getuid() == 0 || getgid() == 0) {
+            error_client( client, "UID is 0 - aborting." );
             _exit(142);
+        }
 
 
 #ifdef RLIMIT_AS
         struct rlimit rlim;
-        if ( getrlimit( RLIMIT_AS, &rlim ) )
+        if ( getrlimit( RLIMIT_AS, &rlim ) ) {
+            error_client( client, "getrlimit failed." );
             log_perror( "getrlimit" );
+        }
 
         rlim.rlim_cur = mem_limit*1024*1024;
         rlim.rlim_max = mem_limit*1024*1024;
-        if ( setrlimit( RLIMIT_AS, &rlim ) )
+        if ( setrlimit( RLIMIT_AS, &rlim ) ) {
+            error_client( client, "setrlimit failed." );
             log_perror( "setrlimit" );
+        }
 #endif
 
         int argc = list.size();
@@ -270,7 +284,7 @@ int work_it( CompileJob &j,
         for (;;) {
             Msg* msg  = client->get_msg(60);
 
-            if ( !msg || (msg->type != M_FILE_CHUNK && msg->type != M_END) ) 
+            if ( !msg || (msg->type != M_FILE_CHUNK && msg->type != M_END) )
               {
                 log_error() << "protocol error while reading preprocessed file\n";
                 delete msg;
@@ -299,6 +313,33 @@ int work_it( CompileJob &j,
 
                 if ( bytes == -1 ) {
                     log_perror("write to caching socket failed. ");
+
+                    fd_set rfds;
+                    FD_ZERO( &rfds );
+                    FD_SET( sock_err[0], &rfds );
+
+                    struct timeval tv;
+                    tv.tv_sec = 1;
+                    tv.tv_usec = 0;
+
+                    ret =  select( sock_err[0]+1, &rfds, 0, 0, &tv );
+
+                    if ( ret > 0 && FD_ISSET(sock_err[0], &rfds) ) {
+                        ssize_t bytes = read( sock_err[0], buffer, sizeof(buffer)-1 );
+                        if ( bytes > 0 ) {
+
+                            while ( bytes > 0 && buffer[bytes - 1] == '\n' )
+                                bytes--;
+                            buffer[bytes] = 0;
+
+                            str_err = buffer;
+                        }
+                    }
+
+                    if ( str_err.size() )
+                        error_client( client, "compiler failed: " + str_err );
+                    else
+                        error_client( client, "compiler failed." );
                     delete msg;
                     msg = 0;
                     throw myexception (EXIT_COMPILER_CRASHED);
@@ -336,6 +377,7 @@ int work_it( CompileJob &j,
                 while ( waitpid(pid, 0, 0) < 0 && errno == EINTR)
                     ;
                 unlink( tmp_output );
+                error_client( client, "compiler did not start" );
                 return EXIT_COMPILER_MISSING; // most likely cause
             }
             if (n == -1)
@@ -367,16 +409,15 @@ int work_it( CompileJob &j,
             tv.tv_sec = 5;
             tv.tv_usec = 0;
 
-            {
-                log_block bselect("waiting in select");
-                ret =  select( max_fd+1, &rfds, 0, 0, &tv );
-            }
+            ret =  select( max_fd+1, &rfds, 0, 0, &tv );
 
             switch( ret )
             {
             case -1:
-		if ( errno != EINTR ) // this usually means the logic broke
+		if ( errno != EINTR ) { // this usually means the logic broke
+                    error_client( client, string( "select returned " ) + strerror( errno ) );
                     return EXIT_DISTCC_FAILED;
+                }
                 // fall through; should happen if tvp->tv_sec < 0
             case 0:
                 struct rusage ru;

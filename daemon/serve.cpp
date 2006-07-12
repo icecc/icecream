@@ -71,6 +71,13 @@ using namespace std;
 
 int nice_level = 5;
 
+static void
+error_client( MsgChannel *client, string error )
+{
+    if ( IS_PROTOCOL_22( client ) )
+        client->send_msg( StatusTextMsg( error ) );
+}
+
 /**
  * Read a request, run the compiler, and send a response.
  **/
@@ -105,6 +112,7 @@ int handle_connection( const string &basedir, CompileJob *job,
 	    log_info() << "should use " << job->environmentVersion() << "(" << job->targetPlatform() << ") " << job->jobID() << endl;
             string dirname = basedir + "/target=" + job->targetPlatform() + "/" + job->environmentVersion();
             if ( ::access( string( dirname + "/usr/bin/gcc" ).c_str(), X_OK ) ) {
+                error_client( client, dirname + "/usr/bin/gcc is not exexutable" );
                 log_error() << "I don't have environment " << job->environmentVersion() << "(" << job->targetPlatform() << ") " << job->jobID() << endl;
                 throw myexception( EXIT_DISTCC_FAILED ); // the scheduler didn't listen to us!
             }
@@ -113,18 +121,22 @@ int handle_connection( const string &basedir, CompileJob *job,
                 // without the chdir, the chroot will escape the
                 // jail right away
                 if ( chdir( dirname.c_str() ) < 0 ) {
+                    error_client( client, string( "chdir to " ) + dirname + "failed" );
                     log_perror("chdir() failed" );
                     exit(145);
                 }
                 if ( chroot( dirname.c_str() ) < 0 ) {
+                    error_client( client, string( "chroot to " ) + dirname + "failed" );
                     log_perror("chroot() failed" );
                     exit(144);
                 }
                 if ( setgid( nobody_gid ) < 0 ) {
+                    error_client( client, "setgid failed" );
                     log_perror("setgid() failed" );
                     exit(143);
                 }
                 if ( setuid( nobody_uid ) < 0) {
+                    error_client( client, "setuid failed" );
                     log_perror("setuid() failed" );
                     exit(142);
                 }
@@ -140,6 +152,7 @@ int handle_connection( const string &basedir, CompileJob *job,
             chdir( "/" );
 
         if ( ::access( _PATH_TMP + 1, W_OK ) ) {
+            error_client( client, "can't write to " _PATH_TMP );
             log_error() << "can't write into " << _PATH_TMP << " " << strerror( errno ) << endl;
             throw myexception( -1 );
         }
@@ -185,6 +198,7 @@ int handle_connection( const string &basedir, CompileJob *job,
             obj_fd = open( obj_file.c_str(), O_RDONLY|O_LARGEFILE );
             if ( obj_fd == -1 ) {
                 log_error() << "open failed\n";
+                error_client( client, "open of object file failed" );
                 throw myexception( EXIT_DISTCC_FAILED );
             }
 
