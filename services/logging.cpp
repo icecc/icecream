@@ -42,9 +42,11 @@ void setup_debug(int level, const string &filename)
     debug_level = level;
     logfile_filename = filename;
 
-    logfile_file.close();
+    if ( logfile_file.is_open() )
+        logfile_file.close();
     ostream *output = 0;
     if ( filename.length() ) {
+	logfile_file.clear();
         logfile_file.open( filename.c_str(), fstream::out | fstream::app );
         output = &logfile_file;
     } else
