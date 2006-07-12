@@ -58,6 +58,15 @@
      of each other and sometimes take over ownership)
  */
 
+/* TODO:
+  - iron out differences in code size between architectures
+   + ia64/i686: 1.63
+   + x86_64/i686: 1.48
+   + ppc/i686: 1.22
+   + ppc64/i686: 1.59
+  (missing data for others atm)
+*/
+
 /* The typical flow of messages for a remote job should be like this:
      prereq: daemon is connected to scheduler
      * client does GET_CS
@@ -579,26 +588,45 @@ platforms_compatible( const string &target, const string &platform )
   return false;
 }
 
-static bool
+/* Given a candidate CS and a JOB, check all installed environments
+   on the CS for a match.  Return an empty string if none of the required
+   environments for this job is installed.  Otherwise return the
+   host platform of the first found installed environment which is among
+   the requested.  That can be send to the client, which then completely
+   specifies which environment to use (name, host platform and target
+   platform).  */
+static string
 envs_match( CS* cs, const Job *job )
 {
   if ( job->submitter == cs)
-    return true; // it will compile itself
+    return cs->host_platform; // it will compile itself
 
+  /* Check all installed envs on the candidate CS ...  */
   for ( Environments::const_iterator it = cs->compiler_versions.begin(); it != cs->compiler_versions.end(); ++it )
     {
-      if ( platforms_compatible( it->first, job->target_platform ) )
+      if ( it->first == job->target_platform )
         {
+	  /* ... IT now is an installed environment which produces code for
+	     the requested target platform.  Now look at each env which
+	     could be installed from the client (i.e. those coming with the
+	     job) if it matches in name and additionally could be run
+	     by the candidate CS.  */
           for ( Environments::const_iterator it2 = job->environments.begin(); it2 != job->environments.end(); ++it2 )
             {
               if ( it->second == it2->second && platforms_compatible( it2->first, cs->host_platform ) )
-                return true;
+                return it2->first;
             }
         }
     }
-  return false;
+  return string();
 }
 
+/* Given a candidate CS and a JOB, check if any of the requested
+   environments could be installed on the CS.  This is the case if that
+   env can be run there, i.e. if the host platforms of the CS and of the
+   environment are compatible.  Return an empty string if none can be
+   installed, otherwise return the platform of the first found
+   environments which can be installed.  */
 static string
 can_install( CS* cs, const Job *job )
 {
@@ -750,7 +778,7 @@ pick_server(Job *job)
 	{
 	  /* Make all servers compile a job at least once, so we'll get an
 	     idea about their speed.  */
-	  if (envs_match (cs, job))
+	  if (!envs_match (cs, job).empty())
             {
               best = cs;
               matches++;
@@ -764,7 +792,7 @@ pick_server(Job *job)
 	  break;
 	}
 
-      if ( envs_match( cs, job ) )
+      if (!envs_match (cs, job).empty())
         {
           if ( !best )
             best = cs;
@@ -973,8 +1001,16 @@ empty_queue()
   job->state = Job::WAITINGFORCS;
   job->server = cs;
 
-  bool gotit = envs_match( cs, job );
-  UseCSMsg m2(can_install( cs, job ), cs->name, cs->remote_port, job->id, gotit, job->local_client_id );
+  string host_platform = envs_match (cs, job);
+  bool gotit = true;
+  if (host_platform.empty ())
+    {
+      gotit = false;
+      host_platform = can_install (cs, job);
+    }
+  
+  UseCSMsg m2(host_platform, cs->name, cs->remote_port, job->id,
+	      gotit, job->local_client_id );
 
   if (!job->submitter->send_msg (m2))
     {
