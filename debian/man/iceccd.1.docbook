@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+"http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd" [
+]>
+<refentry>
+  <refentryinfo>
+    <author>
+      <firstname>Jonathan</firstname>
+      <surname>Riddell</surname>
+      <email>jriddell@ubuntu.com</email>
+    </author>
+    <copyright>
+      <year>2006</year>
+      <holder>Jonathan Riddell</holder>
+    </copyright>
+    <!-- XXX IMPORTANT XXX -->
+    <!-- Keep this date up to date: -->
+    <date>2006-05-01</date>
+    <!--  ^^^^^^^^^^ -->
+  </refentryinfo>
+  <refmeta>
+    <refentrytitle>iceccd</refentrytitle>
+    <manvolnum>1</manvolnum>
+  </refmeta>
+  <refnamediv>
+    <refname>iceccd</refname>
+    <refpurpose>Server for an icecream compile cluster</refpurpose>
+  </refnamediv>
+  <refsynopsisdiv>
+    <cmdsynopsis>
+      <command>iceccd  [-n &lt;netname&gt;] [-m &lt;max_processes&gt;] [-w] [-d|--daemonize] [-l logfile] [-s &lt;schedulerhost&gt;] [-v[v[v]]] [-r|--run-as-user] [-b &lt;env-basedir&gt;] [-u|--nobody-uid &lt;nobody_uid&gt;] [--cache-limit &lt;MB&gt;] [-N &lt;node_name&gt;]</command>
+    </cmdsynopsis>
+  </refsynopsisdiv>
+  <refsect1>
+    <title>DESCRIPTION</title>
+    <para>
+      iceccd is a server for your icecream compile cluster, it must be run on every computer in the cluster.
+    </para>
+    <para>
+     You must also run icecc-scheduler on one computer in the cluster.
+    </para>
+    <para>
+      To use iceccd make sure START_ICECC="true" is set in /etc/default/icecc and run sudo /etc/init.d/icecc start (it will also start at boot).
+    </para>
+  </refsect1>
+  <refsect1>
+    <title>COPYRIGHT</title>
+    <para>
+      This manual page was written by Jonathan Riddell
+      <email>jriddell@ubuntu.com</email> for the
+      <productname>Kubuntu</productname> system (but may be used by others).
+      Permission is granted to copy, distribute and/or modify this document
+      under the terms of the <acronym>GNU</acronym> General Public License,
+      Version 2 or any later version published by the Free Software Foundation.
+    </para>
+    <para>
+      On Debian systems, the complete text of the GNU General Public
+      License can be found in
+      <filename>/usr/share/common-licenses/GPL</filename>.
+    </para>
+  </refsect1>
+</refentry>
