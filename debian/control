@@ -3,7 +3,7 @@ Section: kde
 Priority: optional
 Maintainer: Andre Woebbeking <Woebbeking@web.de>
 Uploaders:
-Build-Depends: automake1.9, debhelper (>> 5.0.0), libtool, docbook2x
+Build-Depends: automake1.9, debhelper (>> 5.0.0), libtool
 Standards-Version: 3.6.1.0
 
 Package: icecc
