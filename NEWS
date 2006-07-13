@@ -1,6 +1,14 @@
+0.7.6 (r561764):
+	- report all daemon error message to the client
+	- fix support for biarch machines that have only one
+	  environment installed with another environment with
+          the same name and different architecture being around
+        - work-around a bug in older libstdc++
+        - ensure nobody uses -u root
+
 0.7.5 (r561480):
-	- Don't block while looking for a scheduler over broadcast search.
-	- Fix logrotate
+	- don't block while looking for a scheduler over broadcast search.
+	- fix logrotate
 	- immediately kick broken daemon connections
 
 0.7.4 (r559927):
