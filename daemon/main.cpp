@@ -984,6 +984,7 @@ void Daemon::clear_children()
     // they should be all in clients too
     assert( fd2chan.empty() );
 
+    envmap.clear();
     fd2chan.clear();
     new_client_id = 0;
     trace() << "cleared children\n";
