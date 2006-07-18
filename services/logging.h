@@ -43,26 +43,8 @@ static inline std::ostream & output_date( std::ostream &os )
     char *buf = ctime( &t );
     buf[strlen( buf )-1] = 0;
     os << "[" << buf << "] ";
-   os << " " << getpid() << ": " ;
+    os << " " << getpid() << ": " ;
     return os;
-}
-
-inline std::ostream & output_mdate( std::ostream &os )
-{
-   static struct timeval tps;
-   static bool inited = false;
-   if (!inited) 
-   {
-	gettimeofday(&tps, 0);
-	inited = true;
-   }	
-   
-   struct timeval tp;
-   gettimeofday(&tp, 0);
-   os << "[" << tp.tv_sec << ":" << tp.tv_usec << "(" << (tp.tv_sec - tps.tv_sec) * 1000 + (tp.tv_usec - tps.tv_usec  + 500 ) / 1000 << ")] ";
-   tps = tp;
-
-   return os;
 }
 
 static inline std::ostream& log_info() {
@@ -74,6 +56,7 @@ static inline std::ostream& log_warning() {
     if(!logfile_warning) return std::cerr;
     return output_date( *logfile_warning );
 }
+
 
 static inline std::ostream& log_error() {
     if(!logfile_error) return std::cerr;
