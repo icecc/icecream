@@ -92,7 +92,6 @@ static void updateCPULoad( CPULoadInfo* load )
       currSysTicks = ticks[CP_SYS];
       currIdleTicks = ticks[CP_IDLE];
   }
-  (void)(line);
 
 #else
     char buf[ 256 ];

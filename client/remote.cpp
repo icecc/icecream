@@ -200,6 +200,15 @@ static UseCSMsg *get_server( MsgChannel *local_daemon )
     return usecs;
 }
 
+static void check_for_failure( Msg *msg, MsgChannel *cserver )
+{
+    if ( msg && msg->type == M_STATUS_TEXT)
+    {
+      log_error() << static_cast<StatusTextMsg*>(msg)->text << " - compiled on " << cserver->name <<endl;
+      throw( 23 );
+    }
+}
+
 static void write_server_cpp(int cpp_fd, MsgChannel *cserver)
 {
     unsigned char buffer[100000]; // some random but huge number
@@ -359,6 +368,7 @@ static int build_remote_int(CompileJob &job, UseCSMsg *usecs, const string &envi
             throw( 14 );
     }
 
+    check_for_failure( msg, cserver );
     if ( msg->type != M_COMPILE_RESULT ) {
         log_warning() << "waited for compile result, but got " << (char)msg->type << endl;
         delete msg;
@@ -413,6 +423,8 @@ static int build_remote_int(CompileJob &job, UseCSMsg *usecs, const string &envi
                 unlink( tmp_file.c_str());
                 throw ( 19 );
             }
+
+	    check_for_failure( msg, cserver );
 
             if ( msg->type == M_END )
                 break;

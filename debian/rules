@@ -67,9 +67,9 @@ build-arch-stamp: configure-stamp
 	$(MAKE)
 
 	# generate manpages
-	#for i in debian/man/*.sgml; do \
-	#	docbook-to-man $$i > `dirname $$i`/`basename $$i .sgml`.1 ;\
-	#done
+	for i in debian/man/*.docbook; do \
+		docbook2x-man $$i; \
+	done
 
 	touch build-arch-stamp
 

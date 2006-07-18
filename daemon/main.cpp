@@ -60,11 +60,15 @@
 #include <netdb.h>
 
 #ifdef __FreeBSD__
-#include <signal.h> // for kill(2)
-#include <sys/time.h>
-#include <sys/resource.h>
-#define RUSAGE_SELF (0)
-#define RUSAGE_CHILDREN (-1)
+#  include <signal.h> // for kill(2)
+#  include <sys/time.h>
+#  include <sys/resource.h>
+#  ifndef RUSAGE_SELF
+#    define RUSAGE_SELF (0)
+#  endif
+#  ifndef RUSAGE_CHILDREN
+#    define RUSAGE_CHILDREN (-1)
+#  endif
 #endif
 
 #include <deque>
@@ -987,6 +991,7 @@ void Daemon::clear_children()
     // they should be all in clients too
     assert( fd2chan.empty() );
 
+    envmap.clear();
     fd2chan.clear();
     new_client_id = 0;
     trace() << "cleared children\n";

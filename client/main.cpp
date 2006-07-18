@@ -52,6 +52,9 @@
 #include <sys/time.h>
 #include <comm.h>
 #include <sys/types.h>
+#ifdef __FreeBSD__
+#  include <sys/stat.h>
+#endif
 #include <sys/wait.h>
 
 #include "client.h"
