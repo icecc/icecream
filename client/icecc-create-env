@@ -1,4 +1,4 @@
-#! /bin/sh
+#! /usr/bin/env bash
 # icecc -- A simple distributed compiler system
 #
 # Copyright (C) 2004 by the Icecream Authors
@@ -23,7 +23,9 @@ add_file ()
     name="$2"
   fi
   test -z "$name" && return
-  path=$(readlink -f $path)
+  # ls -H isn't really the same as readlink, but
+  # readlink is not portable enough. 
+  path=`ls -H $path`
   toadd="$name=$path"
   if test "$name" = "$path"; then
     toadd=$path
@@ -33,7 +35,8 @@ add_file ()
   target_files="$target_files $toadd"
   if test -x "$path"; then
     # Only call ldd when it makes sense
-    if file "$path" | grep 'ELF' > /dev/null 2>&1 ; then
+    if file "$path" | grep 'ELF' > /dev/null 2>&1; then
+	if ! file "$path" | grep 'static' > /dev/null 2>&1; then
 	   # ldd now outputs ld as /lib/ld-linux.so.xx on current nptl based glibc
 		# this regexp parse the outputs like:
 		# ldd /usr/bin/gcc
@@ -41,13 +44,14 @@ add_file ()
 		#         libc.so.6 => /lib/tls/libc.so.6 (0xb7e81000)
 		#         /lib/ld-linux.so.2 (0xb7fe8000)
 		# covering both situations ( with => and without )
-      for lib in `ldd "$path" | sed -n 's,^[^/]*\(/[^ ]*\).*,\1,p'`; do
-	# Check wether the same library also exists in the parent directory,
-	# and prefer that on the assumption that it is a more generic one.
-	local baselib=`echo "$lib" | sed 's,\(/[^/]*\)/.*\(/[^/]*\)$,\1\2,'`
-	test -f "$baselib" && lib=$baselib
-	add_file "$lib"
-      done
+          for lib in `ldd "$path" | tail -n +2 | sed -n 's,^[^/]*\(/[^ ]*\).*,\1,p'`; do
+	    # Check wether the same library also exists in the parent directory,
+	    # and prefer that on the assumption that it is a more generic one.
+	    local baselib=`echo "$lib" | sed 's,\(/[^/]*\)/.*\(/[^/]*\)$,\1\2,'`
+	    test -f "$baselib" && lib=$baselib
+	  add_file "$lib"
+        done
+      fi
     fi
   fi
 }
@@ -109,10 +113,18 @@ for i in $target_files; do
   new_target_files="$new_target_files $target"
 done
 
+md5sum=NONE
+for file in /usr/bin/md5sum /bin/md5 /usr/bin/md5; do
+   if test -x $file; then
+	md5sum=$file
+        break
+   fi
+done
+
 # now sort the files in order to make the md5sums independent
 # of ordering
 target_files=`for i in $new_target_files; do echo $i; done | sort`
-md5=`for i in $target_files; do md5sum $tempdir/$i; done | sed -e 's/ .*$//' | md5sum | sed -e 's/ .*$//'` || {
+md5=`for i in $target_files; do $md5sum $tempdir/$i; done | sed -e 's/ .*$//' | $md5sum | sed -e 's/ .*$//'` || {
   echo "Couldn't compute MD5 sum."
   exit 2
 }
