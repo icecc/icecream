@@ -336,7 +336,8 @@ static int build_remote_int(CompileJob &job, UseCSMsg *usecs, const string &envi
         }
 
         log_block wait_cpp("wait for cpp");
-        waitpid( cpp_pid, &status, 0);
+        while(waitpid( cpp_pid, &status, 0) < 0 && errno == EINTR)
+            ;
 
         if ( status ) { // failure
             delete cserver;
