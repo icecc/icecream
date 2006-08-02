@@ -320,7 +320,8 @@ int main(int argc, char **argv)
                If we don't, the local daemon will have to assume the job failed
                and tell the scheduler - and that fail message may arrive earlier
                than the remote daemon's success msg. */
-            local_daemon->send_msg (EndMsg());
+            if (ret == 0) 
+                local_daemon->send_msg (EndMsg());
         } catch ( int error ) {
             fprintf( stderr, "got exception %d (this should be an exception!)\n", error );
             /* currently debugging a client ? throw an error then */
