@@ -326,7 +326,7 @@ int main(int argc, char **argv)
             /* currently debugging a client ? throw an error then */
             if (debug_level != Error)
                 return error;
-            ret = build_local( job, 0 );
+            goto do_local_error;
         }
     }
     delete local_daemon;
