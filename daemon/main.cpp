@@ -940,7 +940,11 @@ void Daemon::handle_end( Client *client, int exitcode )
     }
 
     if ( scheduler && client->status != Client::WAITFORCHILD) {
-        if ( client->job_id > 0 ) {
+        int job_id = client->job_id;
+        if ( client->status == Client::TOCOMPILE )
+            job_id = client->job->jobID();
+
+        if ( job_id > 0 ) {
             JobDoneMsg::from_type flag = JobDoneMsg::FROM_SUBMITTER;
             switch ( client->status ) {
             case Client::TOCOMPILE:
@@ -961,7 +965,7 @@ void Daemon::handle_end( Client *client, int exitcode )
                 break;
             }
             trace() << "scheduler->send_msg( JobDoneMsg( " << client->dump() << ", " << exitcode << "))\n";
-            send_scheduler( JobDoneMsg( client->job_id, exitcode, flag) );
+            send_scheduler( JobDoneMsg( job_id, exitcode, flag) );
         } else if ( client->status == Client::CLIENTWORK ) {
             // Clientwork && !job_id == LINK
             trace() << "scheduler->send_msg( JobLocalDoneMsg( " << client->client_id << ") );\n";
