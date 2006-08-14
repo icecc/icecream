@@ -768,9 +768,12 @@ bool Daemon::handle_job_done( MsgChannel *c, JobDoneMsg *m )
        && ( m->user_msec + m->sys_msec ) <= m->real_msec)
      icecream_load += (m->user_msec + m->sys_msec) / num_cpus;
 
-    send_scheduler( *msg );
+    assert(msg->job_id == cl->job_id);
+    if(send_scheduler( *msg )) {
     cl->job_id = 0; // the scheduler doesn't have it anymore
     return true;
+    }
+    return false;
 }
 
 int Daemon::handle_old_request()
@@ -913,13 +916,12 @@ bool Daemon::handle_compile_file( MsgChannel *c, Msg *msg )
     if ( cl->status == Client::CLIENTWORK )
     {
         assert( job->environmentVersion() == "__client" );
-        if ( !send_scheduler( JobBeginMsg( job->jobID() ) ) )
+        if ( scheduler && !send_scheduler( JobBeginMsg( job->jobID() ) ) )
         {
-            log_info() << "can't reach scheduler to tell him about job start of "
+            trace() << "can't reach scheduler to tell him about compile file job "
                           << job->jobID() << endl;
-            handle_end( cl, 114 );
-            return false; // pretty unlikely after all
         }
+        // no scheduler is not an error case!
     } else
         cl->status = Client::TOCOMPILE;
     return true;
@@ -1022,7 +1024,8 @@ bool Daemon::handle_get_cs( MsgChannel *c, Msg *msg )
         cl->status = Client::PENDING_USE_CS;
         cl->job_id = umsg->client_id;
     }
-    send_scheduler( *umsg );
+    else
+        send_scheduler( *umsg );
     return true;
 }
 
