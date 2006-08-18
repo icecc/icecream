@@ -1395,6 +1395,18 @@ handle_line (MsgChannel *c, Msg *_m)
       for (list<CS*>::iterator it = css.begin(); it != css.end(); ++it)
         {
           Msg *msg = NULL;
+
+	  if (!l.empty()) 
+	    {
+	      list<string>::const_iterator si;
+	      for (si = l.begin(); si != l.end(); ++si) {
+	        if ((*it)->nodename == *si || (*it)->name == *si)
+		  break;
+              }
+	      if(si == l.end())
+		continue;
+	    }
+
           if(( *it )->send_msg( GetInternalStatus() ))
               msg = ( *it )->get_msg();
           if ( msg && msg->type == M_STATUS_TEXT ) {

@@ -48,10 +48,6 @@
 #include "logging.h"
 #include "serve.h"
 
-#ifdef __linux__
-#include <sys/sendfile.h>
-#endif
-
 #include <sys/time.h>
 
 #ifdef __FreeBSD__
@@ -123,22 +119,22 @@ int handle_connection( const string &basedir, CompileJob *job,
                 if ( chdir( dirname.c_str() ) < 0 ) {
                     error_client( client, string( "chdir to " ) + dirname + "failed" );
                     log_perror("chdir() failed" );
-                    exit(145);
+                    _exit(145);
                 }
                 if ( chroot( dirname.c_str() ) < 0 ) {
                     error_client( client, string( "chroot to " ) + dirname + "failed" );
                     log_perror("chroot() failed" );
-                    exit(144);
+                    _exit(144);
                 }
                 if ( setgid( nobody_gid ) < 0 ) {
                     error_client( client, "setgid failed" );
                     log_perror("setgid() failed" );
-                    exit(143);
+                    _exit(143);
                 }
                 if ( setuid( nobody_uid ) < 0) {
                     error_client( client, "setuid failed" );
                     log_perror("setuid() failed" );
-                    exit(142);
+                    _exit(142);
                 }
             }
             else
@@ -256,6 +252,6 @@ int handle_connection( const string &basedir, CompileJob *job,
         if ( out_fd > -1)
             close( out_fd );
 
-        exit( e.exitcode() );
+        _exit( e.exitcode() );
     }
 }

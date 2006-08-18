@@ -147,7 +147,7 @@ public:
   bool write_a_bit (void) {
     return need_write () ? flush_writebuf (false) : true;
   }
-  bool at_eof (void) const { return eof; }
+  bool at_eof (void) const { return instate != HAS_MSG && eof; }
   bool is_text_based(void) const { return text_based; }
 
   void readuint32 (uint32_t &buf);

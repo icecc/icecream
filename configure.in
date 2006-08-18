@@ -9,8 +9,6 @@ AM_CONFIG_HEADER(config.h)
 AC_CANONICAL_HOST
 
 dnl Checks for programs
-CFLAGS=-g
-CXXFLAGS=-g
 AC_PROG_CC
 AC_PROG_CXX
 if test "$GCC" = yes 

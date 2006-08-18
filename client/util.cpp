@@ -221,7 +221,7 @@ void colorify_output(const string& _s_ccout)
         if (cline.find(": error:") != string::npos)
             fprintf(stderr, "\x1b[1;31m%s\x1b[0m\n", cline.c_str());
         else if (cline.find(": warning:") != string::npos)
-            fprintf(stderr, "\x1b[34m%s\x1b[0m\n", cline.c_str());
+            fprintf(stderr, "\x1b[36m%s\x1b[0m\n", cline.c_str());
         else
             fprintf(stderr, "%s\n", cline.c_str());
     }

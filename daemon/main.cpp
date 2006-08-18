@@ -765,9 +765,12 @@ bool Daemon::handle_job_done( MsgChannel *c, JobDoneMsg *m )
        && ( m->user_msec + m->sys_msec ) <= m->real_msec)
      icecream_load += (m->user_msec + m->sys_msec) / num_cpus;
 
-    send_scheduler( *msg );
-    cl->job_id = 0; // the scheduler doesn't have it anymore
-    return true;
+    assert(msg->job_id == cl->job_id);
+    if(send_scheduler( *msg )) {
+        cl->job_id = 0; // the scheduler doesn't have it anymore
+        return true;
+    }
+    return false;
 }
 
 int Daemon::handle_old_request()
@@ -865,8 +868,10 @@ void Daemon::fetch_children()
         ;
     if ( child > 0 ) {
         JobDoneMsg *msg = jobmap[child];
-        if ( msg )
+        if ( msg ) {
             current_kids--;
+            log_error() << "reaped child pid " << child << " current kids: " << current_kids << endl;
+        } 
         else {
             log_error() << "catched child pid " << child << " not in my map\n";
             assert(0);
@@ -908,13 +913,12 @@ bool Daemon::handle_compile_file( MsgChannel *c, Msg *msg )
     if ( cl->status == Client::CLIENTWORK )
     {
         assert( job->environmentVersion() == "__client" );
-        if ( !send_scheduler( JobBeginMsg( job->jobID() ) ) )
+        if ( scheduler && !send_scheduler( JobBeginMsg( job->jobID() ) ) )
         {
-            log_info() << "can't reach scheduler to tell him about job start of "
+            trace() << "can't reach scheduler to tell him about compile file job "
                           << job->jobID() << endl;
-            handle_end( cl, 114 );
-            return false; // pretty unlikely after all
         }
+        // no scheduler is not an error case!
     } else
         cl->status = Client::TOCOMPILE;
     return true;
@@ -977,7 +981,9 @@ void Daemon::clear_children()
 
     while ( current_kids > 0 ) {
         int status;
-        pid_t child = wait(&status);
+        pid_t child;
+        while ( (child = waitpid( -1, &status, 0 )) < 0 && errno == EINTR )
+            ;
         current_kids--;
         if ( child > 0 )
             jobmap.erase( child );
@@ -1011,7 +1017,8 @@ bool Daemon::handle_get_cs( MsgChannel *c, Msg *msg )
         cl->status = Client::PENDING_USE_CS;
         cl->job_id = umsg->client_id;
     }
-    send_scheduler( *umsg );
+    else
+        send_scheduler( *umsg );
     return true;
 }
 
@@ -1030,7 +1037,7 @@ bool Daemon::handle_activity( MsgChannel *c )
     Client *client = clients.find_by_channel( c );
     assert( client );
 
-    if (client->status == Client::TOCOMPILE) {
+    if (!c->at_eof() && client->status == Client::TOCOMPILE) {
         /* we can get get activity on a channel for a client
            that is still waiting for a free kid. Let the
            messages queue up, we can't handle them right now
