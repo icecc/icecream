@@ -1,3 +1,10 @@
+0.7.7 (r574260):
+	- clear all internal maps
+	- patches by Frerich to support FreeBSD
+	- avoid busy loop in bizarre conditions
+	- found another case of endless hanging jobs
+	- some process fixes
+
 0.7.6 (r561764):
 	- report all daemon error message to the client
 	- fix support for biarch machines that have only one
