@@ -156,7 +156,7 @@ public:
 	if (pipe_to_child >= 0)
 	    close (pipe_to_child);
     }
-    int job_id;
+    uint32_t job_id;
     string outfile; // only useful for LINKJOB
     MsgChannel *channel;
     UseCSMsg *usecsmsg;
@@ -505,10 +505,13 @@ struct Daemon
 
 bool Daemon::send_scheduler(const Msg& msg)
 {
-    if (!scheduler)
+    if (!scheduler) {
+        log_error() << "scheduler dead ?!" << endl;
         return false;
+    }
 
     if (!scheduler->send_msg(msg)) {
+        log_error() << "sending to scheduler failed.." << endl;
         close_scheduler();
         return false;
     }
@@ -583,7 +586,6 @@ bool Daemon::maybe_stats(bool force)
         mem_limit = std::max( msg.freeMem / std::min( std::max( max_kids, 1U ), 4U ), 100U );
 
         if ( abs(int(msg.load)-current_load) >= 100 || force ) {
-            trace() << "non icecream_load=" << 1000-idle_average << " mem=" << memory_fillgrade << " msg.load=" << msg.load << endl;
             if ( scheduler && !send_scheduler( msg ) )
                 return false;
 
@@ -835,13 +837,6 @@ int Daemon::handle_old_request()
 
     if ( pid > 0) { // forked away
         current_kids++;
-        trace() << "sending scheduler about " << job->jobID() << endl;
-        if ( !send_scheduler( JobBeginMsg( job->jobID() ) ) ) {
-            log_info() << "can't reach scheduler to tell him about job start of "
-                          << job->jobID() << endl;
-            handle_end( client, 114 );
-            return 2;
-        }
 	client->status = Client::WAITFORCHILD;
 	client->pipe_to_child = sock;
 	client->child_pid = pid;
@@ -856,6 +851,15 @@ int Daemon::handle_old_request()
         gettimeofday(&begintv, 0);
         jobmap[pid]->user_msec = begintv.tv_sec;
         jobmap[pid]->sys_msec = begintv.tv_usec;
+        trace() << "sending scheduler about " << job->jobID() << endl;
+        if ( !send_scheduler( JobBeginMsg( job->jobID() ) ) ) {
+            log_error() << "can't reach scheduler to tell him about job start of "
+                          << job->jobID() << endl;
+            /* I don't think we need to kill the client here.
+            handle_end( client, 114 );                      */
+            return 2;
+        }
+
     }
 
     return 0;
@@ -871,14 +875,7 @@ void Daemon::fetch_children()
         ;
     if ( child > 0 ) {
         JobDoneMsg *msg = jobmap[child];
-        if ( msg ) {
-            current_kids--;
-            log_error() << "reaped child pid " << child << " current kids: " << current_kids << endl;
-        } 
-        else {
-            log_error() << "catched child pid " << child << " not in my map\n";
-            assert(0);
-        }
+        assert(msg);
         jobmap.erase( child );
 	Client *client = clients.find_by_pid( child );
         if (client) {
