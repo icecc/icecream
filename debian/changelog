@@ -1,3 +1,10 @@
+icecc (0.7.7-1) UNRELEASED; urgency=low
+
+  * New upstream version.
+  * Added NEWS, README and TODO to the package.
+
+ -- Andre Woebbeking <Woebbeking@web.de>  Sat, 26 Aug 2006 11:59:51 +0200
+
 icecc (0.7.6-2) UNRELEASED; urgency=low
 
   * add missing dependencies: docbook2x, sharutils
