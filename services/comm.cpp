@@ -711,7 +711,8 @@ MsgChannel::~MsgChannel()
 
 string MsgChannel::dump() const
 {
-  return name + ":" + toString( port );
+  return name + ":" + toString( port ) + " (" +
+    char((int)instate+'A') + " eof: " + char(eof +'0') + ")";
 }
 
 /* Wait blocking until the protocol setup for this channel is complete.
