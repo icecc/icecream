@@ -413,24 +413,6 @@ int current_kids = 0;
 
 size_t cache_size_limit = 100 * 1024 * 1024;
 
-static void fill_msg(int fd, JobDoneMsg *msg)
-{
-    read( fd, &msg->in_compressed, sizeof( unsigned int ) );
-    read( fd, &msg->in_uncompressed, sizeof( unsigned int ) );
-    read( fd, &msg->out_compressed, sizeof( unsigned int ) );
-    read( fd, &msg->out_uncompressed, sizeof( unsigned int ) );
-    read( fd, &msg->real_msec, sizeof( unsigned int ) );
-    if ( msg->out_uncompressed && !msg->in_uncompressed ) { // this is typical for client jobs
-        unsigned int job_id;
-        read( fd, &job_id, sizeof( unsigned int ) );
-        if ( job_id != msg->job_id )
-            log_error() << "the job ids for the client job do not match: " << job_id << " " << msg->job_id << endl;
-        read( fd, &msg->user_msec, sizeof( unsigned int ) );
-        read( fd, &msg->sys_msec, sizeof( unsigned int ) );
-        read( fd, &msg->pfaults, sizeof( unsigned int ) );
-    }
-}
-
 struct Daemon
 {
     Clients clients;
@@ -483,7 +465,7 @@ struct Daemon
     int answer_client_requests();
     bool handle_transfer_env( MsgChannel *c, Msg *msg );
     bool handle_get_native_env( MsgChannel *c );
-    int handle_old_request();
+    void handle_old_request();
     bool handle_compile_file( MsgChannel *c, Msg *msg );
     bool handle_activity( MsgChannel *c );
     void handle_end( Client *client, int exitcode );
@@ -493,6 +475,7 @@ struct Daemon
     bool handle_get_cs( MsgChannel *c, Msg *msg );
     bool handle_local_job( MsgChannel *c, Msg *msg );
     bool handle_job_done( MsgChannel *c, JobDoneMsg *m );
+    void handle_compile_done (Client* client);
     int handle_cs_conf( ConfCSMsg *msg);
     string dump_internals() const;
     void fetch_children();
@@ -550,9 +533,9 @@ bool Daemon::maybe_stats(bool force)
 
     /* the scheduler didn't ping us for a long time, assume dead connection and recover */
     if (now.tv_sec - last_scheduler >= max_scheduler_ping + 2 * min_scheduler_ping) {
+       log_error() << "scheduler timeout.. " << now.tv_sec - last_scheduler << " bigger than " << max_scheduler_ping + 2*min_scheduler_ping << " nuking" << endl;
        force = true;
-       delete scheduler;
-       scheduler = 0;
+       close_scheduler();
     }
 
     if ( diff_sent >= min_scheduler_ping * 1000 || force ) {
@@ -590,6 +573,7 @@ bool Daemon::maybe_stats(bool force)
                 return false;
 
             last_sent = now;
+            last_scheduler = now.tv_sec;
             icecream_load = 0;
             current_load = msg.load;
         }
@@ -772,135 +756,150 @@ bool Daemon::handle_job_done( MsgChannel *c, JobDoneMsg *m )
 
     assert(msg->job_id == cl->job_id);
     if(send_scheduler( *msg )) {
-    cl->job_id = 0; // the scheduler doesn't have it anymore
-    return true;
+        cl->job_id = 0; // the scheduler doesn't have it anymore
+        return true;
     }
     return false;
 }
 
-int Daemon::handle_old_request()
+void Daemon::handle_old_request()
 {
-    if ( current_kids + clients.active_processes >= max_kids )
-        return 0;
+    while ( current_kids + clients.active_processes < max_kids ) {
 
-    Client *client = clients.get_earliest_client(Client::LINKJOB);
-    if ( client )
-    {
-        trace() << "send JobLocalBeginMsg to client" << endl;
-        if (!client->channel->send_msg (JobLocalBeginMsg())) {
-	    log_warning() << "can't send start message to client" << endl;
-	    handle_end (client, 112);
-        } else {
-            client->status = Client::CLIENTWORK;
-            clients.active_processes++;
-            trace() << "pushed local job " << client->client_id << endl;
-            send_scheduler( JobLocalBeginMsg( client->client_id, client->outfile ) );
-	}
-    }
-
-    if ( current_kids + clients.active_processes >= max_kids )
-        return 0;
-
-    client = clients.get_earliest_client( Client::PENDING_USE_CS );
-    if ( client )
-    {
-        trace() << "pending " << client->dump() << endl;
-        if(client->channel->send_msg( *client->usecsmsg )) {
-            client->status = Client::CLIENTWORK;
-            /* we make sure we reserve a spot and the rest is done if the
-             * client contacts as back with a Compile request */
-            clients.active_processes++;
-        }
-        else 
-            handle_end(client, 129);
-    }
-
-    if ( current_kids + clients.active_processes >= max_kids )
-        return 0;
-
-    client = clients.get_earliest_client( Client::TOCOMPILE );
-    if ( !client )
-        return 0;
-
-    CompileJob *job = client->job;
-    assert( job );
-    int sock = -1;
-    pid_t pid = -1;
-
-    trace() << "requests--" << job->jobID() << endl;
-
-    string envforjob = job->targetPlatform() + "/" + job->environmentVersion();
-    envs_last_use[envforjob] = time( NULL );
-    pid = handle_connection( envbasedir, job, client->channel, sock, mem_limit, nobody_uid, nobody_gid );
-    trace() << "handle connection returned " << pid << endl;
-    envmap[pid] = envforjob;
-
-    if ( pid > 0) { // forked away
-        current_kids++;
-	client->status = Client::WAITFORCHILD;
-	client->pipe_to_child = sock;
-	client->child_pid = pid;
-	/* XXX hack, close the channel fd, and set it to -1, so we don't select
-	   for it.  This filedescriptor belongs to the forked child.  */
-	close (client->channel->fd);
-	fd2chan.erase (client->channel->fd);
-	client->channel->fd = -1;
-        jobmap[pid] = new JobDoneMsg( job->jobID(), -1, JobDoneMsg::FROM_SERVER ) ;
-        /* store the time so that we can calculate real time later */
-        struct timeval begintv;
-        gettimeofday(&begintv, 0);
-        jobmap[pid]->user_msec = begintv.tv_sec;
-        jobmap[pid]->sys_msec = begintv.tv_usec;
-        trace() << "sending scheduler about " << job->jobID() << endl;
-        if ( !send_scheduler( JobBeginMsg( job->jobID() ) ) ) {
-            log_error() << "can't reach scheduler to tell him about job start of "
-                          << job->jobID() << endl;
-            /* I don't think we need to kill the client here.
-            handle_end( client, 114 );                      */
-            return 2;
+        Client *client = clients.get_earliest_client(Client::LINKJOB);
+        if ( client ) {
+            trace() << "send JobLocalBeginMsg to client" << endl;
+            if (!client->channel->send_msg (JobLocalBeginMsg())) {
+                log_warning() << "can't send start message to client" << endl;
+                handle_end (client, 112);
+            } else {
+                client->status = Client::CLIENTWORK;
+                clients.active_processes++;
+                trace() << "pushed local job " << client->client_id << endl;
+                send_scheduler( JobLocalBeginMsg( client->client_id, client->outfile ) );
+            }
+            continue;
         }
 
-    }
+        client = clients.get_earliest_client( Client::PENDING_USE_CS );
+        if ( client ) {
+            trace() << "pending " << client->dump() << endl;
+            if(client->channel->send_msg( *client->usecsmsg )) {
+                client->status = Client::CLIENTWORK;
+                /* we make sure we reserve a spot and the rest is done if the
+                 * client contacts as back with a Compile request */
+                clients.active_processes++;
+            }
+            else 
+                handle_end(client, 129);
 
-    return 0;
+            continue;
+        }
+
+        client = clients.get_earliest_client( Client::TOCOMPILE );
+        if ( client ) {
+            CompileJob *job = client->job;
+            assert( job );
+            int sock = -1;
+            pid_t pid = -1;
+
+            trace() << "requests--" << job->jobID() << endl;
+
+            string envforjob = job->targetPlatform() + "/" + job->environmentVersion();
+            envs_last_use[envforjob] = time( NULL );
+            pid = handle_connection( envbasedir, job, client->channel, sock, mem_limit, nobody_uid, nobody_gid );
+            trace() << "handle connection returned " << pid << endl;
+            envmap[pid] = envforjob;
+
+            if ( pid > 0) {
+                current_kids++;
+                client->status = Client::WAITFORCHILD;
+                client->pipe_to_child = sock;
+                client->child_pid = pid;
+                jobmap[pid] = new JobDoneMsg( job->jobID(), -1, JobDoneMsg::FROM_SERVER ) ;
+                /* store the time so that we can calculate real time later */
+                struct timeval begintv;
+                gettimeofday(&begintv, 0);
+                jobmap[pid]->user_msec = begintv.tv_sec;
+                jobmap[pid]->sys_msec = begintv.tv_usec;
+                if ( !send_scheduler( JobBeginMsg( job->jobID() ) ) )
+                    log_info() << "failed sending scheduler about " << job->jobID() << endl;
+            }
+            else
+                handle_end(client, 117);
+            continue;
+        }
+        break;
+    }
+}
+
+void Daemon::handle_compile_done (Client* client)
+{
+   assert(client->status == Client::WAITFORCHILD);
+
+   JobDoneMsg *msg = jobmap[client->child_pid];
+   assert(msg);
+   current_kids--;
+
+   /* reading can partially fail due to the the client
+      crashing before it sent the whole message. */
+   msg->in_uncompressed = msg->in_compressed = msg->out_compressed =
+   msg->out_uncompressed = msg->real_msec = 0;
+
+   read( client->pipe_to_child, &msg->in_compressed, sizeof( unsigned int ) );
+   read( client->pipe_to_child, &msg->in_uncompressed, sizeof( unsigned int ) );
+   read( client->pipe_to_child, &msg->out_compressed, sizeof( unsigned int ) );
+   read( client->pipe_to_child, &msg->out_uncompressed, sizeof( unsigned int ) );
+   read( client->pipe_to_child, &msg->real_msec, sizeof( unsigned int ) );
+
+   close(client->pipe_to_child);
+   client->pipe_to_child = -1;
+
+   trace () << "handled compile_done for child" << client->child_pid << endl;
 }
 
 void Daemon::fetch_children()
 {
-    struct rusage ru;
+    struct rusage r;
     int status;
     pid_t child;
 
-    while((child = wait3(&status, WNOHANG, &ru)) < 0 && errno == EINTR)
-        ;
-    if ( child > 0 ) {
-        JobDoneMsg *msg = jobmap[child];
-        assert(msg);
-        jobmap.erase( child );
-	Client *client = clients.find_by_pid( child );
-        if (client) {
-            fill_msg( client->pipe_to_child, msg );
-	    handle_end (client, WEXITSTATUS( status ));
-        }
-        if (msg && scheduler) {
-            struct timeval endtv;
-            gettimeofday(&endtv, 0);
-            msg->exitcode = WEXITSTATUS( status );
-            msg->real_msec = (endtv.tv_sec - msg->user_msec) * 1000 + 
-			(long(endtv.tv_usec) - long(msg->sys_msec)) / 1000;
-            msg->user_msec = ru.ru_utime.tv_sec * 1000 + ru.ru_utime.tv_usec / 1000;
-            msg->sys_msec = ru.ru_stime.tv_sec * 1000 + ru.ru_stime.tv_usec / 1000;
-            msg->pfaults = ru.ru_majflt + ru.ru_nswap + ru.ru_minflt;
+    do {
+        while ((child = wait3(&status, WNOHANG, &r)) < 0 && errno == EINTR)
+            ;
+        if ( child > 0 ) {
+            JobDoneMsg *msg = jobmap[child];
+            Client *client = clients.find_by_pid( child );
+            /* it can happen that msg is NULL if we just lost the scheduler
+               connection, but still had jobs running. But then we can't
+               find a client either. */
+            assert((!msg && !client) || (msg && client));
+            if (client) {
+                if(client->pipe_to_child != -1)
+                      handle_compile_done(client);
+                handle_end (client, WEXITSTATUS( status ));
+            }
+            jobmap.erase( child );
+            if (msg) {
+                struct timeval endtv;
+                gettimeofday(&endtv, 0);
+                msg->exitcode = WEXITSTATUS( status );
+                msg->real_msec = (endtv.tv_sec - msg->user_msec) * 1000 + 
+                    (long(endtv.tv_usec) - long(msg->sys_msec)) / 1000;
+                msg->user_msec = r.ru_utime.tv_sec * 1000 + r.ru_utime.tv_usec / 1000;
+                msg->sys_msec = r.ru_stime.tv_sec * 1000 + r.ru_stime.tv_usec / 1000;
+                msg->pfaults = r.ru_majflt + r.ru_nswap + r.ru_minflt;
 
-            if (msg->user_msec + msg->sys_msec <= msg->real_msec)
-                icecream_load += (msg->user_msec + msg->sys_msec) / num_cpus;
+                if (msg->user_msec + msg->sys_msec <= msg->real_msec)
+                    icecream_load += (msg->user_msec + msg->sys_msec) / num_cpus;
 
-            send_scheduler( *msg );
+                send_scheduler( *msg );
+            }
+            envs_last_use[envmap[child]] = time( NULL );
+            envmap.erase(child);
+            delete msg;
         }
-        envs_last_use[envmap[child]] = time( NULL );
-        envmap.erase(child);
-        delete msg;
-    }
+    } while (child > 0);
 }
 
 bool Daemon::handle_compile_file( MsgChannel *c, Msg *msg )
@@ -938,7 +937,7 @@ void Daemon::handle_end( Client *client, int exitcode )
  	client->job_id = 0;
     }
 
-    if ( scheduler && client->status != Client::WAITFORCHILD) {
+    if ( scheduler && client->status != Client::WAITFORCHILD ) {
         int job_id = client->job_id;
         if ( client->status == Client::TOCOMPILE )
             job_id = client->job->jobID();
@@ -1050,14 +1049,9 @@ bool Daemon::handle_activity( MsgChannel *c )
     Client *client = clients.find_by_channel( c );
     assert( client );
 
-    if (!c->at_eof() && client->status == Client::TOCOMPILE) {
-        /* we can get get activity on a channel for a client
-           that is still waiting for a free kid. Let the
-           messages queue up, we can't handle them right now
-           anyway, and we don't want to end the client because
-           of a protocol error. */
-        return true;
-    }
+    assert(c->has_msg());
+    if(client->status == Client::TOCOMPILE) return false;
+    assert(client->status != Client::TOCOMPILE);
 
     Msg *msg = c->get_msg();
     if ( !msg ) {
@@ -1087,15 +1081,13 @@ bool Daemon::handle_activity( MsgChannel *c )
 
 int Daemon::answer_client_requests()
 {
-/*    if ( clients.size() + current_kids )
-      log_info() << dump_internals() << endl; */
-    //log_info() << "clients " << clients.dump_per_status() << " " << current_kids << " (" << max_kids << ")" << endl;
+    if ( clients.size() + current_kids )
+      log_info() << dump_internals() << endl; 
+    log_info() << "clients " << clients.dump_per_status() << " " << current_kids << " (" << max_kids << ")" << endl;
 
-    int ret = handle_old_request();
-    if ( ret )
-        return ret;
-
+    /* first reap old children, then create new to minimize idle time */
     fetch_children();
+    handle_old_request();
 
     /* collect the stats after the children exited icecream_load */
     if ( scheduler )
@@ -1113,9 +1105,12 @@ int Daemon::answer_client_requests()
         int i = it->first;
         MsgChannel *c = it->second;
         ++it;
-        /* handle_activity() can delete c and make the iterator
-           invalid.  */
-        if (!c->has_msg() || handle_activity(c)) {
+        /* don't select on a fd that we're currently not interested in.
+           Avoids that we wake up on an event we're not handling anyway */
+        int current_status = clients.find_by_channel(c)->status;
+        bool ignore_channel = current_status == Client::TOCOMPILE ||
+                              current_status == Client::WAITFORCHILD;
+        if (!ignore_channel && (!c->has_msg() || handle_activity(c))) {
             if (i > max_fd)
                 max_fd = i;
             FD_SET (i, &listen_set);
@@ -1138,11 +1133,12 @@ int Daemon::answer_client_requests()
     tv.tv_sec = min_scheduler_ping;
     tv.tv_usec = 0;
 
-    ret = select (max_fd + 1, &listen_set, NULL, NULL, &tv);
+    int ret = select (max_fd + 1, &listen_set, NULL, NULL, &tv);
     if ( ret < 0 && errno != EINTR ) {
         log_perror( "select" );
         return 5;
     }
+    log_error() << "select ret: " << ret << endl;
 
     if ( ret > 0 ) {
         if ( scheduler && FD_ISSET( scheduler->fd, &listen_set ) ) {
@@ -1199,20 +1195,20 @@ int Daemon::answer_client_requests()
                 clients[c] = client;
 
                 fd2chan[c->fd] = c;
-                if (!c->read_a_bit () || c->has_msg ())
+                if (!c->read_a_bit () || c->has_msg ()) {
+                    assert(client->status != Client::WAITCOMPILE);
                     handle_activity (c);
+                }
             }
         } else {
             for (map<int, MsgChannel *>::const_iterator it = fd2chan.begin();
                  max_fd && it != fd2chan.end();)  {
                 int i = it->first;
                 MsgChannel *c = it->second;
-
-                /* handle_activity can delete the channel from the fd2chan list,
-                   hence advance the iterator right now, so it doesn't become
-                   invalid.  */
+                Client* client = clients.find_by_channel(c);
                 ++it;
                 if (FD_ISSET (i, &listen_set)) {
+                    assert(client->status != Client::WAITCOMPILE);
                     if (!c->read_a_bit () || c->has_msg ())
                         handle_activity (c);
                     max_fd--;
