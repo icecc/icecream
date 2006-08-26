@@ -79,7 +79,8 @@ int handle_connection( const string &basedir, CompileJob *job,
         return -1;
 
     pid_t pid = fork();
-    if ( pid != 0) { // parent
+    assert(pid >= 0);
+    if ( pid > 0) { // parent
         close( socket[1] );
         out_fd = socket[0];
         return pid;
@@ -150,14 +151,15 @@ int handle_connection( const string &basedir, CompileJob *job,
 
         int ret;
 
-        unsigned int in_compressed = 0;
-        unsigned int in_uncompressed = 0;
+        enum job_stat_fields { in_compressed, in_uncompressed,
+                               out_compressed, out_uncompressed, duration };
+        unsigned int job_stat[5];
         struct timeval begintv;
         gettimeofday( &begintv, 0 );
 
         CompileResultMsg rmsg;
 
-        ret = work_it( *job, in_compressed, in_uncompressed, client,
+        ret = work_it( *job, job_stat[in_compressed], job_stat[in_uncompressed], client,
                        rmsg.out, rmsg.err, rmsg.status, obj_file, mem_limit, client->fd );
 
         job_id = job->jobID();
@@ -184,9 +186,6 @@ int handle_connection( const string &basedir, CompileJob *job,
                 throw myexception( EXIT_DISTCC_FAILED );
             }
 
-            unsigned int out_compressed = 0;
-            unsigned int out_uncompressed = 0;
-
             unsigned char buffer[100000];
             do {
                 ssize_t bytes = read(obj_fd, buffer, sizeof(buffer));
@@ -198,23 +197,21 @@ int handle_connection( const string &basedir, CompileJob *job,
                 }
                 if ( !bytes )
                     break;
-                out_uncompressed += bytes;
+                job_stat[out_uncompressed] += bytes;
                 FileChunkMsg fcmsg( buffer, bytes );
                 if ( !client->send_msg( fcmsg ) ) {
                     log_info() << "write of obj chunk failed " << bytes << endl;
                     throw myexception( EXIT_DISTCC_FAILED );
                 }
-                out_compressed += fcmsg.compressed;
+                job_stat[out_compressed] += fcmsg.compressed;
             } while (1);
 
             struct timeval endtv;
             gettimeofday(&endtv, 0 );
-            unsigned int duration = ( endtv.tv_sec - begintv.tv_sec ) * 1000 + ( endtv.tv_usec - begintv.tv_usec ) / 1000;
-            write( out_fd, &in_compressed, sizeof( unsigned int ) );
-            write( out_fd, &in_uncompressed, sizeof( unsigned int ) );
-            write( out_fd, &out_compressed, sizeof( unsigned int ) );
-            write( out_fd, &out_uncompressed, sizeof( unsigned int ) );
-            write( out_fd, &duration, sizeof( unsigned int ) );
+            job_stat[duration] = ( endtv.tv_sec - begintv.tv_sec ) * 1000 
+                + ( endtv.tv_usec - begintv.tv_usec ) / 1000;
+
+            write( out_fd, job_stat, sizeof( job_stat ) );
         }
 
         throw myexception( rmsg.status );
