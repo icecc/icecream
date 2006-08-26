@@ -267,6 +267,8 @@ int work_it( CompileJob &j,
         close( main_sock[1] );
         close( sock_in[0] );
 
+        {
+        log_block p_write("forwarding source");
         for (;;) {
             Msg* msg  = client->get_msg(60);
 
@@ -292,7 +294,6 @@ int work_it( CompileJob &j,
             ssize_t len = fcmsg->len;
             off_t off = 0;
             while ( len ) {
-                log_block p_write("parent, write datea..");
                 ssize_t bytes = write( sock_in[1], fcmsg->buffer + off, len );
                 if ( bytes < 0 && errno == EINTR )
                     continue;
@@ -312,6 +313,7 @@ int work_it( CompileJob &j,
             msg = 0;
         }
         close (sock_in[1]);
+        }
 
         log_block parent_wait("parent, waiting");
         // idea borrowed from kprocess
