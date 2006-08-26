@@ -1232,8 +1232,6 @@ handle_job_done (MsgChannel *c, Msg *_m)
       handle_end(c, 0);
       return false;
     }
-  c->last_talk = time( 0 );
-
   j->server->joblist.remove (j);
   add_job_stats (j, m);
   notify_monitors (MonJobDoneMsg (*m));
