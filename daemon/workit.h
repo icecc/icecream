@@ -28,6 +28,7 @@
 #include <exception>
 
 class MsgChannel;
+class CompileResultMsg;
 
 // No icecream ;(
 class myexception : public std::exception
@@ -38,9 +39,13 @@ public:
     int exitcode() const { return code; }
 };
 
-extern int work_it( CompileJob &j, unsigned int& in_compressed, unsigned int& in_uncompressed, MsgChannel* client,
-             std::string &str_out, std::string &str_err,
-             int &status, std::string &outfilename,
+namespace JobStatistics {
+    enum job_stat_fields { in_compressed, in_uncompressed, out_uncompressed, exit_code,
+                           real_msec, user_msec, sys_msec, sys_pfaults  };
+}
+
+extern int work_it( CompileJob &j, unsigned int job_stats[], MsgChannel* client,
+             CompileResultMsg& msg, std::string &outfilename,
              unsigned long int mem_limit, int client_fd );
 
 #endif

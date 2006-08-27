@@ -99,13 +99,11 @@ static void theSigCHLDHandler( int )
     must_reap = true;
 }
 
-int work_it( CompileJob &j,
-             unsigned int& in_compressed, unsigned int& in_uncompressed, MsgChannel* client,
-             string &str_out, string &str_err,
-             int &status, string &outfilename, unsigned long int mem_limit, int client_fd )
+int work_it( CompileJob &j, unsigned int job_stat[], MsgChannel* client,
+             CompileResultMsg& rmsg, string &outfilename, unsigned long int mem_limit, int client_fd )
 {
-    str_out.erase(str_out.begin(), str_out.end());
-    str_out.erase(str_out.begin(), str_out.end());
+    rmsg.out.erase(rmsg.out.begin(), rmsg.out.end());
+    rmsg.out.erase(rmsg.out.begin(), rmsg.out.end());
 
     std::list<string> list = j.remoteFlags();
     appendList( list, j.restFlags() );
@@ -267,6 +265,9 @@ int work_it( CompileJob &j,
         close( main_sock[1] );
         close( sock_in[0] );
 
+        struct timeval starttv;
+        gettimeofday(&starttv, 0 );
+ 
         {
         log_block p_write("forwarding source");
         for (;;) {
@@ -288,8 +289,8 @@ int work_it( CompileJob &j,
               }
 
             FileChunkMsg *fcmsg = static_cast<FileChunkMsg*>( msg );
-            in_uncompressed += fcmsg->len;
-            in_compressed += fcmsg->compressed;
+            job_stat[JobStatistics::in_uncompressed] += fcmsg->len;
+            job_stat[JobStatistics::in_compressed] += fcmsg->compressed;
 
             ssize_t len = fcmsg->len;
             off_t off = 0;
@@ -323,7 +324,7 @@ int work_it( CompileJob &j,
             ssize_t n = ::read(main_sock[0], &resultByte, 1);
             if (n == 1)
             {
-                status = resultByte;
+                rmsg.status = resultByte;
                 // exec() failed
                 close(main_sock[0]);
                 close( sock_err[0] );
@@ -382,25 +383,39 @@ int work_it( CompileJob &j,
                 // fall through; should happen if tvp->tv_sec < 0
             case 0:
                 struct rusage ru;
+                int status;
+
                 if (wait4(pid, &status, must_reap ? WUNTRACED : WNOHANG, &ru) != 0) // error finishes, too
                 {
                     close( sock_err[0] );
                     close( sock_err[1] );
                     close( sock_out[0] );
                     close( sock_out[1] );
-                    if ( WIFEXITED( status ) )
-                        status = WEXITSTATUS( status );
-                    else
-                        status = 1;
 
-                    if ( status ) {
+                    if ( !WIFEXITED(status) || WEXITSTATUS(status) ) {
                         unsigned long int mem_used = ( ru.ru_minflt + ru.ru_majflt ) * getpagesize() / 1024;
+                        rmsg.status = EXIT_OUT_OF_MEMORY;
+
                         if ( mem_used * 100 > 85 * mem_limit * 1024 ||
-                             str_err.find( "virtual memory exhausted: Cannot allocate memory" ) != string::npos )
+                             rmsg.err.find( "memory exhausted" ) != string::npos )
                         {
                             // the relation between ulimit and memory used is pretty thin ;(
                             return EXIT_OUT_OF_MEMORY;
                         }
+                    }
+
+                    if ( WIFEXITED(status) ) {
+                        struct timeval endtv;
+                        gettimeofday(&endtv, 0 );
+                        rmsg.status = WEXITSTATUS(status);
+                        job_stat[JobStatistics::exit_code] = WEXITSTATUS(status);
+                        job_stat[JobStatistics::real_msec] = (endtv.tv_sec - starttv.tv_sec) * 1000 +
+                            (long(endtv.tv_usec) - long(starttv.tv_usec)) / 1000;
+                        job_stat[JobStatistics::user_msec] = ru.ru_utime.tv_sec * 1000
+                            + ru.ru_utime.tv_usec / 1000;
+                        job_stat[JobStatistics::sys_msec] = ru.ru_stime.tv_sec * 1000
+                            + ru.ru_stime.tv_usec / 1000;
+                        job_stat[JobStatistics::sys_pfaults] = ru.ru_majflt + ru.ru_nswap + ru.ru_minflt;
                     }
 
                     return 0;
@@ -411,18 +426,18 @@ int work_it( CompileJob &j,
                     ssize_t bytes = read( sock_out[0], buffer, sizeof(buffer)-1 );
                     if ( bytes > 0 ) {
                         buffer[bytes] = 0;
-                        str_out.append( buffer );
+                        rmsg.out.append( buffer );
                     }
                 }
                 if ( FD_ISSET(sock_err[0], &rfds) ) {
                     ssize_t bytes = read( sock_err[0], buffer, sizeof(buffer)-1 );
                     if ( bytes > 0 ) {
                         buffer[bytes] = 0;
-                        str_err.append( buffer );
+                        rmsg.err.append( buffer );
                     }
                 }
                 if ( FD_ISSET( client_fd, &rfds ) ) {
-                    str_err.append( "client cancelled\n" );
+                    rmsg.err.append( "client cancelled\n" );
                     close( client_fd );
                     kill( pid, SIGTERM );
                     return EXIT_CLIENT_KILLED;

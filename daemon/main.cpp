@@ -80,6 +80,7 @@
 #include "ncpus.h"
 #include "exitcode.h"
 #include "serve.h"
+#include "workit.h"
 #include "logging.h"
 #include <comm.h>
 #include "load.h"
@@ -107,7 +108,7 @@ public:
      * WAITFORCHILD: Client is waiting for the compile job to finish.
      */
     enum Status { UNKNOWN, GOTNATIVE, PENDING_USE_CS, JOBDONE, LINKJOB, TOCOMPILE, WAITFORCS,
-                  WAITCOMPILE, CLIENTWORK, WAITFORCHILD } status;
+                  WAITCOMPILE, CLIENTWORK, WAITFORCHILD, LASTSTATE=WAITFORCHILD } status;
     Client()
     {
         job_id = 0;
@@ -244,12 +245,11 @@ public:
     }
 
     string dump_per_status() const {
-        // TODO perhaps a loop? :/
-        return dump_status( Client::UNKNOWN ) + dump_status( Client::PENDING_USE_CS ) +
-            dump_status( Client::JOBDONE ) + dump_status( Client::LINKJOB ) +
-            dump_status( Client::TOCOMPILE ) + dump_status( Client::WAITFORCS ) +
-            dump_status( Client::CLIENTWORK ) + dump_status( Client::GOTNATIVE ) +
-            dump_status( Client::WAITCOMPILE ) + dump_status (Client::WAITFORCHILD);
+        string s;
+        for(Client::Status i = Client::UNKNOWN; i <= Client::LASTSTATE; 
+                i=Client::Status(int(i)+1))
+            s += dump_status(i);
+        return s;
     }
     Client *get_earliest_client( Client::Status s ) const
     {
@@ -348,10 +348,6 @@ static void dcc_daemon_terminate(int whichsig)
     raise(whichsig);
 }
 
-void empty_func( int )
-{
-}
-
 void usage(const char* reason = 0)
 {
   if (reason)
@@ -416,8 +412,6 @@ size_t cache_size_limit = 100 * 1024 * 1024;
 struct Daemon
 {
     Clients clients;
-    map<pid_t, JobDoneMsg*> jobmap;
-    map<pid_t, string> envmap;
     map<string, time_t> envs_last_use;
     string native_environment;
     string envbasedir;
@@ -478,7 +472,6 @@ struct Daemon
     void handle_compile_done (Client* client);
     int handle_cs_conf( ConfCSMsg *msg);
     string dump_internals() const;
-    void fetch_children();
     bool maybe_stats(bool force = false);
     bool send_scheduler(const Msg& msg);
     void close_scheduler();
@@ -609,20 +602,6 @@ string Daemon::dump_internals() const
         result += "  envs_last_use[" + it->first  + "] = " +
                   toString( it->second ) + "\n";
     }
-    for ( map<pid_t, JobDoneMsg*>::const_iterator it = jobmap.begin();
-          it != jobmap.end(); ++it ) {
-        result += string( "  jobmap[" ) + toString( it->first ) + "] = " + toString( it->second ) + "\n";
-        if ( envmap.count( it->first ) > 0 ) {
-            result += "  envmap[" + toString( it->first ) + "] = " + envmap.find( it->first )->second + "\n";
-        }
-    }
-
-    for ( map<pid_t, string>::const_iterator it = envmap.begin();
-          it != envmap.end(); ++it ) {
-        if ( jobmap.count( it->first ) > 0 )
-            continue;
-        result += "  envmap[" + toString( it->first ) + "] = " + it->second + "\n";
-    }
 
     return result;
 }
@@ -690,9 +669,16 @@ bool Daemon::handle_transfer_env( MsgChannel *c, Msg *msg )
                 // ignore recently used envs (they might be in use _right_ now)
                 if ( it->second < oldest_time && now - it->second > 200 ) {
                     bool found = false;
-                    for (map<pid_t,string>::const_iterator it2 = envmap.begin(); it2 != envmap.end(); ++it2)
-                        if (it2->second == it->first)
-                            found = true;
+                    for (Clients::const_iterator it2 = clients.begin(); it2 != clients.end(); ++it2)  {
+                        if (it2->second->status == Client::WAITCOMPILE ||
+                                it2->second->status == Client::WAITFORCHILD) {
+
+                            string envforjob = it2->second->job->targetPlatform() + "/" 
+                                + it2->second->job->environmentVersion();
+                            if (envforjob == it->first)
+                                found = true;
+                        }
+                    }
                     if (!found) {
                         oldest_time = it->second;
                         oldest = it->first;
@@ -809,19 +795,12 @@ void Daemon::handle_old_request()
             envs_last_use[envforjob] = time( NULL );
             pid = handle_connection( envbasedir, job, client->channel, sock, mem_limit, nobody_uid, nobody_gid );
             trace() << "handle connection returned " << pid << endl;
-            envmap[pid] = envforjob;
 
             if ( pid > 0) {
                 current_kids++;
                 client->status = Client::WAITFORCHILD;
                 client->pipe_to_child = sock;
                 client->child_pid = pid;
-                jobmap[pid] = new JobDoneMsg( job->jobID(), -1, JobDoneMsg::FROM_SERVER ) ;
-                /* store the time so that we can calculate real time later */
-                struct timeval begintv;
-                gettimeofday(&begintv, 0);
-                jobmap[pid]->user_msec = begintv.tv_sec;
-                jobmap[pid]->sys_msec = begintv.tv_usec;
                 if ( !send_scheduler( JobBeginMsg( job->jobID() ) ) )
                     log_info() << "failed sending scheduler about " << job->jobID() << endl;
             }
@@ -836,70 +815,40 @@ void Daemon::handle_old_request()
 void Daemon::handle_compile_done (Client* client)
 {
    assert(client->status == Client::WAITFORCHILD);
+   assert(client->child_pid > 0);
 
-   JobDoneMsg *msg = jobmap[client->child_pid];
+   JobDoneMsg *msg = new JobDoneMsg(client->job->jobID(), -1, JobDoneMsg::FROM_SERVER);
    assert(msg);
    current_kids--;
 
-   /* reading can partially fail due to the the client
-      crashing before it sent the whole message. */
-   msg->in_uncompressed = msg->in_compressed = msg->out_compressed =
-   msg->out_uncompressed = msg->real_msec = 0;
+   unsigned int job_stat[8];
+   int end_status = 151;
 
-   read( client->pipe_to_child, &msg->in_compressed, sizeof( unsigned int ) );
-   read( client->pipe_to_child, &msg->in_uncompressed, sizeof( unsigned int ) );
-   read( client->pipe_to_child, &msg->out_compressed, sizeof( unsigned int ) );
-   read( client->pipe_to_child, &msg->out_uncompressed, sizeof( unsigned int ) );
-   read( client->pipe_to_child, &msg->real_msec, sizeof( unsigned int ) );
+   if(read(client->pipe_to_child, job_stat, sizeof(job_stat)) == sizeof(job_stat)) {
+       msg->in_uncompressed = job_stat[JobStatistics::in_uncompressed];
+       msg->in_compressed = job_stat[JobStatistics::in_compressed];
+       msg->out_compressed = msg->out_uncompressed = job_stat[JobStatistics::out_uncompressed];
+       end_status = msg->exitcode = job_stat[JobStatistics::exit_code];
+       msg->real_msec = job_stat[JobStatistics::real_msec];
+       msg->user_msec = job_stat[JobStatistics::user_msec];
+       msg->sys_msec = job_stat[JobStatistics::sys_msec];
+       msg->pfaults = job_stat[JobStatistics::sys_pfaults];
 
+       if (msg->user_msec + msg->sys_msec <= msg->real_msec)
+           icecream_load += (msg->user_msec + msg->sys_msec) / num_cpus;
+       end_status = job_stat[JobStatistics::exit_code];
+   }
+
+   if (!send_scheduler( *msg ))
+       log_info() << "failed to send scheduler a jobdone msg.." << endl;
+
+   delete msg;
    close(client->pipe_to_child);
    client->pipe_to_child = -1;
+   string envforjob = client->job->targetPlatform() + "/" + client->job->environmentVersion();
+   envs_last_use[envforjob] = time( NULL );
 
-   trace () << "handled compile_done for child" << client->child_pid << endl;
-}
-
-void Daemon::fetch_children()
-{
-    struct rusage r;
-    int status;
-    pid_t child;
-
-    do {
-        while ((child = wait3(&status, WNOHANG, &r)) < 0 && errno == EINTR)
-            ;
-        if ( child > 0 ) {
-            JobDoneMsg *msg = jobmap[child];
-            Client *client = clients.find_by_pid( child );
-            /* it can happen that msg is NULL if we just lost the scheduler
-               connection, but still had jobs running. But then we can't
-               find a client either. */
-            assert((!msg && !client) || (msg && client));
-            if (client) {
-                if(client->pipe_to_child != -1)
-                      handle_compile_done(client);
-                handle_end (client, WEXITSTATUS( status ));
-            }
-            jobmap.erase( child );
-            if (msg) {
-                struct timeval endtv;
-                gettimeofday(&endtv, 0);
-                msg->exitcode = WEXITSTATUS( status );
-                msg->real_msec = (endtv.tv_sec - msg->user_msec) * 1000 + 
-                    (long(endtv.tv_usec) - long(msg->sys_msec)) / 1000;
-                msg->user_msec = r.ru_utime.tv_sec * 1000 + r.ru_utime.tv_usec / 1000;
-                msg->sys_msec = r.ru_stime.tv_sec * 1000 + r.ru_stime.tv_usec / 1000;
-                msg->pfaults = r.ru_majflt + r.ru_nswap + r.ru_minflt;
-
-                if (msg->user_msec + msg->sys_msec <= msg->real_msec)
-                    icecream_load += (msg->user_msec + msg->sys_msec) / num_cpus;
-
-                send_scheduler( *msg );
-            }
-            envs_last_use[envmap[child]] = time( NULL );
-            envmap.erase(child);
-            delete msg;
-        }
-    } while (child > 0);
+   handle_end(client, end_status);
 }
 
 bool Daemon::handle_compile_file( MsgChannel *c, Msg *msg )
@@ -988,16 +937,11 @@ void Daemon::clear_children()
         while ( (child = waitpid( -1, &status, 0 )) < 0 && errno == EINTR )
             ;
         current_kids--;
-        if ( child > 0 )
-            jobmap.erase( child );
     }
-
-    jobmap.clear();
 
     // they should be all in clients too
     assert( fd2chan.empty() );
 
-    envmap.clear();
     fd2chan.clear();
     new_client_id = 0;
     trace() << "cleared children\n";
@@ -1050,7 +994,6 @@ bool Daemon::handle_activity( MsgChannel *c )
     assert( client );
 
     assert(c->has_msg());
-    if(client->status == Client::TOCOMPILE) return false;
     assert(client->status != Client::TOCOMPILE);
 
     Msg *msg = c->get_msg();
@@ -1085,8 +1028,6 @@ int Daemon::answer_client_requests()
       log_info() << dump_internals() << endl; 
     log_info() << "clients " << clients.dump_per_status() << " " << current_kids << " (" << max_kids << ")" << endl;
 
-    /* first reap old children, then create new to minimize idle time */
-    fetch_children();
     handle_old_request();
 
     /* collect the stats after the children exited icecream_load */
@@ -1107,13 +1048,20 @@ int Daemon::answer_client_requests()
         ++it;
         /* don't select on a fd that we're currently not interested in.
            Avoids that we wake up on an event we're not handling anyway */
-        int current_status = clients.find_by_channel(c)->status;
+        Client* client = clients.find_by_channel(c);
+        int current_status = client->status;
         bool ignore_channel = current_status == Client::TOCOMPILE ||
                               current_status == Client::WAITFORCHILD;
         if (!ignore_channel && (!c->has_msg() || handle_activity(c))) {
             if (i > max_fd)
                 max_fd = i;
             FD_SET (i, &listen_set);
+        }
+
+        if (current_status == Client::WAITFORCHILD && client->pipe_to_child != -1) {
+            if (client->pipe_to_child > max_fd)
+                max_fd = client->pipe_to_child;
+            FD_SET (client->pipe_to_child, &listen_set);
         }
     }
 
@@ -1138,7 +1086,6 @@ int Daemon::answer_client_requests()
         log_perror( "select" );
         return 5;
     }
-    log_error() << "select ret: " << ret << endl;
 
     if ( ret > 0 ) {
         if ( scheduler && FD_ISSET( scheduler->fd, &listen_set ) ) {
@@ -1195,10 +1142,8 @@ int Daemon::answer_client_requests()
                 clients[c] = client;
 
                 fd2chan[c->fd] = c;
-                if (!c->read_a_bit () || c->has_msg ()) {
-                    assert(client->status != Client::WAITCOMPILE);
+                if (!c->read_a_bit () || c->has_msg ())
                     handle_activity (c);
-                }
             }
         } else {
             for (map<int, MsgChannel *>::const_iterator it = fd2chan.begin();
@@ -1208,10 +1153,15 @@ int Daemon::answer_client_requests()
                 Client* client = clients.find_by_channel(c);
                 ++it;
                 if (FD_ISSET (i, &listen_set)) {
-                    assert(client->status != Client::WAITCOMPILE);
                     if (!c->read_a_bit () || c->has_msg ())
                         handle_activity (c);
                     max_fd--;
+                }
+                if (client->status == Client::WAITFORCHILD
+                    && client->pipe_to_child != -1
+                    && FD_ISSET(client->pipe_to_child, &listen_set)) {
+                        max_fd--;
+                    handle_compile_done(client);
                 }
             }
         }
@@ -1467,8 +1417,8 @@ int main( int argc, char ** argv )
     struct sigaction act;
     sigemptyset( &act.sa_mask );
 
-    act.sa_handler = empty_func;
-    act.sa_flags = SA_NOCLDSTOP;
+    act.sa_handler = SIG_IGN;
+    act.sa_flags = SA_NOCLDSTOP|SA_NOCLDWAIT;
     sigaction( SIGCHLD, &act, 0 );
 
     sigaddset( &act.sa_mask, SIGCHLD );

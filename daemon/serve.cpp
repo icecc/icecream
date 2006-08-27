@@ -38,6 +38,7 @@
 #  include <sys/signal.h>
 #endif /* HAVE_SYS_SIGNAL_H */
 #include <sys/param.h>
+#include <unistd.h>
 
 #include <job.h>
 #include <comm.h>
@@ -150,17 +151,12 @@ int handle_connection( const string &basedir, CompileJob *job,
             assert(0);
 
         int ret;
-
-        enum job_stat_fields { in_compressed, in_uncompressed,
-                               out_compressed, out_uncompressed, duration };
-        unsigned int job_stat[5];
-        struct timeval begintv;
-        gettimeofday( &begintv, 0 );
-
+        unsigned int job_stat[8];
         CompileResultMsg rmsg;
 
-        ret = work_it( *job, job_stat[in_compressed], job_stat[in_uncompressed], client,
-                       rmsg.out, rmsg.err, rmsg.status, obj_file, mem_limit, client->fd );
+        memset(job_stat, 0, sizeof(job_stat));
+
+        ret = work_it( *job, job_stat, client, rmsg, obj_file, mem_limit, client->fd );
 
         job_id = job->jobID();
         delete job;
@@ -178,6 +174,14 @@ int handle_connection( const string &basedir, CompileJob *job,
             log_info() << "write of result failed\n";
             throw myexception( EXIT_DISTCC_FAILED );
         }
+
+        struct stat st;
+        if (!stat(obj_file.c_str(), &st))
+            job_stat[JobStatistics::out_uncompressed] = st.st_size;
+
+        /* wake up parent and tell him that compile finished */
+        write( out_fd, job_stat, sizeof( job_stat ) );
+        close( out_fd );
 
         if ( rmsg.status == 0 ) {
             obj_fd = open( obj_file.c_str(), O_RDONLY|O_LARGEFILE );
@@ -197,21 +201,12 @@ int handle_connection( const string &basedir, CompileJob *job,
                 }
                 if ( !bytes )
                     break;
-                job_stat[out_uncompressed] += bytes;
                 FileChunkMsg fcmsg( buffer, bytes );
                 if ( !client->send_msg( fcmsg ) ) {
                     log_info() << "write of obj chunk failed " << bytes << endl;
                     throw myexception( EXIT_DISTCC_FAILED );
                 }
-                job_stat[out_compressed] += fcmsg.compressed;
             } while (1);
-
-            struct timeval endtv;
-            gettimeofday(&endtv, 0 );
-            job_stat[duration] = ( endtv.tv_sec - begintv.tv_sec ) * 1000 
-                + ( endtv.tv_usec - begintv.tv_usec ) / 1000;
-
-            write( out_fd, job_stat, sizeof( job_stat ) );
         }
 
         throw myexception( rmsg.status );
@@ -231,9 +226,6 @@ int handle_connection( const string &basedir, CompileJob *job,
 
         if ( !obj_file.empty() )
             unlink( obj_file.c_str() );
-
-        if ( out_fd > -1)
-            close( out_fd );
 
         _exit( e.exitcode() );
     }
