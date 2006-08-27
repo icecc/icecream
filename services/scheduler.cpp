@@ -726,6 +726,8 @@ pick_server(Job *job)
   CS *best = 0;
   // best uninstalled
   CS *bestui = 0;
+  // best preloadable host
+  CS *bestpre = 0;
 
   uint matches = 0;
 
@@ -733,7 +735,8 @@ pick_server(Job *job)
     {
       CS *cs = *it;
       /* For now ignore overloaded servers.  */
-      if (int( cs->joblist.size() ) >= cs->max_jobs || cs->load >= 1000)
+      /* Pre-loadable (cs->joblist.size()) == (cs->max_jobs) is checked later.  */
+      if (int( cs->joblist.size() ) > cs->max_jobs || cs->load >= 1000)
         {
 #if DEBUG_SCHEDULER > 1
           trace() << "overloaded " << cs->nodename << " " << cs->joblist.size() << "/" <<  cs->max_jobs << " jobs, load:" << cs->load << endl;
@@ -774,7 +777,7 @@ pick_server(Job *job)
         cs->cum_compiled.compile_time_user << " produced code " << cs->cum_compiled.osize << endl;
 #endif
 
-      if ( cs->last_compiled_jobs.size() == 0 && cs->joblist.size() == 0)
+      if ( cs->last_compiled_jobs.size() == 0 && cs->joblist.size() == 0 && cs->max_jobs)
 	{
 	  /* Make all servers compile a job at least once, so we'll get an
 	     idea about their speed.  */
@@ -800,8 +803,13 @@ pick_server(Job *job)
              the job.  (XXX currently this is equivalent to the fastest one)  */
           else
             if (best->last_compiled_jobs.size() != 0
-                && server_speed (best, job) < server_speed (cs, job))
-              best = cs;
+                && server_speed (best, job) < server_speed (cs, job)) 
+              {
+                if (int( cs->joblist.size() ) < cs->max_jobs)
+                  best = cs;
+                else
+                  bestpre = cs;
+              }
           matches++;
         }
       else
@@ -813,7 +821,12 @@ pick_server(Job *job)
           else
             if (bestui->last_compiled_jobs.size() != 0
                 && server_speed (bestui, job) < server_speed (cs, job))
-              bestui = cs;
+              {
+                if (int( cs->joblist.size() ) < cs->max_jobs)
+                  bestui = cs;
+                else
+                  bestpre = cs;
+              }
         }
     }
 
@@ -830,11 +843,22 @@ pick_server(Job *job)
       return best;
     }
 
-#if DEBUG_SCHEDULER > 1
   if ( bestui )
-    trace() << "taking best uninstalled " << bestui->nodename << " " <<  server_speed (bestui) << endl;
+    {
+#if DEBUG_SCHEDULER > 1
+      trace() << "taking best uninstalled " << bestui->nodename << " " <<  server_speed (bestui) << endl;
 #endif
-  return bestui;
+      return bestui;
+    }
+
+  if ( bestpre )
+    {
+#if DEBUG_SCHEDULER > 1
+      trace() << "taking best preload " << bestui->nodename << " " <<  server_speed (bestui) << endl;
+#endif
+    }
+
+  return bestpre;
 }
 
 /* Prunes the list of connected servers by those which haven't
