@@ -44,7 +44,8 @@ add_file ()
 		#         libc.so.6 => /lib/tls/libc.so.6 (0xb7e81000)
 		#         /lib/ld-linux.so.2 (0xb7fe8000)
 		# covering both situations ( with => and without )
-          for lib in `ldd "$path" | tail -n +2 | sed -n 's,^[^/]*\(/[^ ]*\).*,\1,p'`; do
+          for lib in `ldd "$path" | sed -n 's,^[^/]*\(/[^ ]*\).*,\1,p'`; do
+	    test -f "$lib" || continue
 	    # Check wether the same library also exists in the parent directory,
 	    # and prefer that on the assumption that it is a more generic one.
 	    local baselib=`echo "$lib" | sed 's,\(/[^/]*\)/.*\(/[^/]*\)$,\1\2,'`
