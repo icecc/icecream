@@ -84,6 +84,7 @@ int handle_connection( const string &basedir, CompileJob *job,
     if ( pid > 0) { // parent
         close( socket[1] );
         out_fd = socket[0];
+        fcntl(out_fd, F_SETFD, FD_CLOEXEC);
         return pid;
     }
 

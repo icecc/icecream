@@ -181,13 +181,16 @@ int work_it( CompileJob &j, unsigned int job_stat[], MsgChannel* client,
         close( sock_out[1] );
         close( sock_in[0] );
         close( sock_in[1] );
+        close( sock_err[0] );
         unlink( tmp_output );
         return EXIT_OUT_OF_MEMORY;
     } else if ( pid == 0 ) {
 
         close( main_sock[0] );
         close( sock_in[1] );
+        close( sock_out[0] );
         dup2( sock_in[0], 0);
+        close (sock_in[0]);
         fcntl(main_sock[1], F_SETFD, FD_CLOEXEC);
         setenv( "PATH", "usr/bin", 1 );
         // Safety check
@@ -247,13 +250,16 @@ int work_it( CompileJob &j, unsigned int job_stat[], MsgChannel* client,
             printf( "%s ", argv[index] );
         printf( "\n" );
 #endif
-
-        close( STDOUT_FILENO );
-        close( sock_out[0] );
-        dup2( sock_out[1], STDOUT_FILENO );
-        close( STDERR_FILENO );
-        close( sock_err[0] );
+        close_debug();
+        dup2 (sock_out[1], STDOUT_FILENO );
+        close(sock_out[1]);
         dup2( sock_err[1], STDERR_FILENO );
+        close(sock_err[1]);
+
+        for(int f = 3; f < 4096; ++f) {
+           long flags;
+           assert((flags = fcntl(f, F_GETFD, 0)) < 0 || (flags & FD_CLOEXEC));
+        }
 
         ret = execv( argv[0], const_cast<char *const*>( argv ) ); // no return
         printf( "execv failed: %s\n", strerror(errno) );
