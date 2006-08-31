@@ -256,7 +256,7 @@ int work_it( CompileJob &j, unsigned int job_stat[], MsgChannel* client,
         dup2( sock_err[1], STDERR_FILENO );
         close(sock_err[1]);
 
-        for(int f = 3; f < 4096; ++f) {
+        for(int f = STDERR_FILENO+1; f < 4096; ++f) {
            long flags;
            assert((flags = fcntl(f, F_GETFD, 0)) < 0 || (flags & FD_CLOEXEC));
         }
@@ -274,8 +274,6 @@ int work_it( CompileJob &j, unsigned int job_stat[], MsgChannel* client,
         struct timeval starttv;
         gettimeofday(&starttv, 0 );
  
-        {
-        log_block p_write("forwarding source");
         for (;;) {
             Msg* msg  = client->get_msg(60);
 
@@ -319,8 +317,9 @@ int work_it( CompileJob &j, unsigned int job_stat[], MsgChannel* client,
             delete msg;
             msg = 0;
         }
-        close (sock_in[1]);
-        }
+        close( sock_in[1] );
+        close( sock_out[1] );
+        close( sock_err[1] );
 
         log_block parent_wait("parent, waiting");
         // idea borrowed from kprocess
@@ -394,9 +393,7 @@ int work_it( CompileJob &j, unsigned int job_stat[], MsgChannel* client,
                 if (wait4(pid, &status, must_reap ? WUNTRACED : WNOHANG, &ru) != 0) // error finishes, too
                 {
                     close( sock_err[0] );
-                    close( sock_err[1] );
                     close( sock_out[0] );
-                    close( sock_out[1] );
 
                     if ( !WIFEXITED(status) || WEXITSTATUS(status) ) {
                         unsigned long int mem_used = ( ru.ru_minflt + ru.ru_majflt ) * getpagesize() / 1024;
