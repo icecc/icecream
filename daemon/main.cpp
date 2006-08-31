@@ -266,7 +266,7 @@ public:
     }
 };
 
-int dcc_new_pgrp(void)
+static int set_new_pgrp(void)
 {
     /* If we're a session group leader, then we are not able to call
      * setpgid().  However, setsid will implicitly have put us into a new
@@ -734,7 +734,8 @@ bool Daemon::handle_job_done( MsgChannel *c, JobDoneMsg *m )
 
 void Daemon::handle_old_request()
 {
-    while ( current_kids + clients.active_processes < max_kids ) {
+    while ( current_load < 1000
+            && current_kids + clients.active_processes < max_kids ) {
 
         Client *client = clients.get_earliest_client(Client::LINKJOB);
         if ( client ) {
@@ -1390,7 +1391,7 @@ int main( int argc, char ** argv )
 
     /* Still create a new process group, even if not detached */
     trace() << "not detaching\n";
-    if ((ret = dcc_new_pgrp()) != 0)
+    if ((ret = set_new_pgrp()) != 0)
         return ret;
 
     /* Don't catch signals until we've detached or created a process group. */
