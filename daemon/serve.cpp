@@ -91,6 +91,9 @@ int handle_connection( const string &basedir, CompileJob *job,
     close( socket[0] );
     out_fd = socket[1];
 
+    /* internal communication channel, don't inherit to gcc */
+    fcntl(out_fd, F_SETFD, FD_CLOEXEC);
+
     nice( nice_level );
 
     Msg *msg = 0; // The current read message
