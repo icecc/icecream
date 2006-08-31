@@ -874,8 +874,10 @@ bool Daemon::handle_compile_file( MsgChannel *c, Msg *msg )
 
 void Daemon::handle_end( Client *client, int exitcode )
 {
+#ifdef ICECC_DEBUG
     trace() << "handle_end " << client->dump() << endl;
-//    log_error() << dump_internals() << endl;
+    trace() << dump_internals() << endl;
+#endif
     fd2chan.erase (client->channel->fd);
 
     if ( client->status == Client::CLIENTWORK )
@@ -1003,7 +1005,6 @@ bool Daemon::handle_activity( MsgChannel *c )
     }
 
     bool ret = false;
-    log_warning() << "msg " << ( char )msg->type << endl;
     switch ( msg->type ) {
     case M_GET_NATIVE_ENV: ret = handle_get_native_env( c ); break;
     case M_COMPILE_FILE: ret = handle_compile_file( c, msg ); break;
@@ -1024,9 +1025,12 @@ bool Daemon::handle_activity( MsgChannel *c )
 
 int Daemon::answer_client_requests()
 {
+#ifdef ICECC_DEBUG
     if ( clients.size() + current_kids )
       log_info() << dump_internals() << endl; 
     log_info() << "clients " << clients.dump_per_status() << " " << current_kids << " (" << max_kids << ")" << endl;
+
+#endif
 
     handle_old_request();
 
@@ -1411,20 +1415,10 @@ int main( int argc, char ** argv )
         exit( EXIT_DISTCC_FAILED );
     }
 
-    /* Setup the SIGCHLD handler.  Make sure we mark it as not restarting
-       some syscalls.  The loop below depends on the fact, that select
-       returns when a SIGCHLD arrives.  */
-    struct sigaction act;
-    sigemptyset( &act.sa_mask );
-
-    act.sa_handler = SIG_IGN;
-    act.sa_flags = SA_NOCLDSTOP|SA_NOCLDWAIT;
-    sigaction( SIGCHLD, &act, 0 );
-
-    sigaddset( &act.sa_mask, SIGCHLD );
-    // Make sure we don't block this signal. gdb tends to do that :-(
-    sigprocmask( SIG_UNBLOCK, &act.sa_mask, 0 );
-
+    if (signal(SIGCHLD, SIG_IGN) == SIG_ERR) {
+        log_warning() << "signal(SIGCHLD, ignore) failed: " << strerror(errno) << endl;
+        exit( EXIT_DISTCC_FAILED );
+    }
     /* This is called in the master daemon, whether that is detached or
      * not.  */
     dcc_master_pid = getpid();
