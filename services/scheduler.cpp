@@ -1509,6 +1509,8 @@ handle_end (MsgChannel *c, Msg *m)
 {
 #if DEBUG_SCHEDULER > 1
   trace() << "Handle_end " << c << " " << m << endl;
+#else
+  ( void )m;
 #endif
 
   CS *toremove = static_cast<CS *>(c);
