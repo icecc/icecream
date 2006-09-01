@@ -66,7 +66,7 @@ static inline std::ostream& log_error() {
 
 static inline std::ostream& trace() {
     if(!logfile_trace) return std::cerr;
-    return *logfile_trace;
+    return output_date( *logfile_trace);
 }
 
 std::string get_backtrace();
