@@ -111,7 +111,6 @@ int handle_connection( const string &basedir, CompileJob *job,
 
     try {
         if ( job->environmentVersion().size() ) {
-	    log_info() << "should use " << job->environmentVersion() << "(" << job->targetPlatform() << ") " << job->jobID() << endl;
             string dirname = basedir + "/target=" + job->targetPlatform() + "/" + job->environmentVersion();
             if ( ::access( string( dirname + "/usr/bin/gcc" ).c_str(), X_OK ) ) {
                 error_client( client, dirname + "/usr/bin/gcc is not exexutable" );
