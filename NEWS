@@ -1,6 +1,8 @@
-0.7.8 (r579712):
-  - fd leak fix, which caused a deadlock under certain conditions
-  - rework some FreeBSD patches that caused problems on x86_64
+0.7.8 (r579795):
+        - fd leak fix, which caused a deadlock under 
+          certain conditions
+        - rework some FreeBSD patches that caused problems
+	- fix race between select and SIGCHILD
 
 0.7.7 (r574260):
 	- clear all internal maps
