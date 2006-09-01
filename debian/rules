@@ -54,6 +54,12 @@ configure-stamp:
 	cd $(objdir) && \
 	 ../configure $(configkde)
 
+	# add the dtd
+	cp /usr/share/apps/ksgmltools2/customization/dtd/kdex.dtd doc/
+
+	# prepare terain for documantation building
+	mkdir -p debian/man/
+
 	touch configure-stamp
 
 #Architecture
@@ -67,8 +73,8 @@ build-arch-stamp: configure-stamp
 	$(MAKE)
 
 	# generate manpages
-	for i in debian/man/*.docbook; do \
-		docbook2x-man $$i; \
+	for i in doc/*.docbook; do \
+		(cd debian/man && docbook2x-man ../../$$i); \
 	done
 
 	touch build-arch-stamp
@@ -105,6 +111,10 @@ clean:
 
 	# Remove build tree
 	rm -rf $(objdir)
+
+	# Remove documentation build place and build cruft
+	rm -fr debian/man
+	rm -fr doc/kdex.dtd
 
 	# if Makefile exists run distclean
 	if test -f Makefile; then \

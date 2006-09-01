@@ -3,8 +3,8 @@ Section: kde
 Priority: optional
 Maintainer: Andre Woebbeking <Woebbeking@web.de>
 Uploaders:
-Build-Depends: automake1.9, debhelper (>> 5.0.0), libtool
-Standards-Version: 3.6.1.0
+Build-Depends: automake1.9, debhelper (>> 5.0.0), libtool, docbook2x, sharutils, kdelibs-data
+Standards-Version: 3.7.2
 
 Package: icecc
 Architecture: any
@@ -20,6 +20,8 @@ Description: Simple distributed compiler client and server
  the same libraries or header files installed.
  .
  This package is part of the KDE Software Development Kit.
+ .
+  Homepage: http://en.opensuse.org/Icecream
 
 Package: libicecc-dev
 Architecture: any
@@ -34,3 +36,5 @@ Description: Simple distributed compiler client and server
  the same libraries or header files installed.
  .
  This package provides files which are necessary to build icecc-monitor.
+ .
+  Homepage: http://en.opensuse.org/Icecream
