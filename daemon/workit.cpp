@@ -261,8 +261,8 @@ int work_it( CompileJob &j, unsigned int job_stat[], MsgChannel* client,
            assert((flags = fcntl(f, F_GETFD, 0)) < 0 || (flags & FD_CLOEXEC));
         }
 
-        ret = execv( argv[0], const_cast<char *const*>( argv ) ); // no return
-        printf( "execv failed: %s\n", strerror(errno) );
+        execv( argv[0], const_cast<char *const*>( argv ) ); // no return
+        perror( "ICECC: execv" );
 
         char resultByte = 1;
         write(main_sock[1], &resultByte, 1);
@@ -270,6 +270,8 @@ int work_it( CompileJob &j, unsigned int job_stat[], MsgChannel* client,
     } else {
         close( main_sock[1] );
         close( sock_in[0] );
+        close( sock_out[1] );
+        close( sock_err[1] );
 
         struct timeval starttv;
         gettimeofday(&starttv, 0 );
@@ -318,9 +320,6 @@ int work_it( CompileJob &j, unsigned int job_stat[], MsgChannel* client,
             msg = 0;
         }
         close( sock_in[1] );
-        close( sock_out[1] );
-        close( sock_err[1] );
-
         log_block parent_wait("parent, waiting");
         // idea borrowed from kprocess
         for(;;)
@@ -362,23 +361,18 @@ int work_it( CompileJob &j, unsigned int job_stat[], MsgChannel* client,
             log_block bfor("for writing loop");
             fd_set rfds;
             FD_ZERO( &rfds );
-            FD_SET( sock_out[0], &rfds );
-            FD_SET( sock_err[0], &rfds );
+            if (sock_out[0] >= 0)
+                FD_SET( sock_out[0], &rfds );
+            if (sock_err[0] >= 0)
+                FD_SET( sock_err[0], &rfds );
             FD_SET( client_fd, &rfds );
 
             int max_fd = std::max( sock_out[0], sock_err[0] );
             if ( client_fd > max_fd )
                 max_fd = client_fd;
 
-            struct timeval tv;
-            /* Wait up to five seconds. */
-            tv.tv_sec = 5;
-            tv.tv_usec = 0;
-
-            {
-                log_block bselect("waiting in select");
-                ret =  select( max_fd+1, &rfds, 0, 0, &tv );
-            }
+            ret = select( max_fd+1, &rfds, 0, 0, NULL );
+            log_info() << " sel returned  " << ret << endl;
 
             switch( ret )
             {
@@ -431,12 +425,20 @@ int work_it( CompileJob &j, unsigned int job_stat[], MsgChannel* client,
                         buffer[bytes] = 0;
                         rmsg.out.append( buffer );
                     }
+                    else if (bytes == 0) {
+                        close(sock_out[0]);
+                        sock_out[0] = -1;
+                    }
                 }
                 if ( FD_ISSET(sock_err[0], &rfds) ) {
                     ssize_t bytes = read( sock_err[0], buffer, sizeof(buffer)-1 );
                     if ( bytes > 0 ) {
                         buffer[bytes] = 0;
                         rmsg.err.append( buffer );
+                    }
+                    else if (bytes == 0) {
+                        close(sock_err[0]);
+                        sock_err[0] = -1;
                     }
                 }
                 if ( FD_ISSET( client_fd, &rfds ) ) {
