@@ -842,7 +842,6 @@ bool Daemon::handle_compile_file( MsgChannel *c, Msg *msg )
     Client *cl = clients.find_by_channel( c );
     assert( cl );
     cl->job = job;
-    trace() << "handle_compile_file " << cl->status_str(cl->status) << endl;
     if ( cl->status == Client::CLIENTWORK )
     {
         assert( job->environmentVersion() == "__client" );
@@ -1131,8 +1130,10 @@ int Daemon::answer_client_requests()
                 clients[c] = client;
 
                 fd2chan[c->fd] = c;
-                if (!c->read_a_bit () || c->has_msg ())
+                if (!c->read_a_bit () || c->has_msg ()) {
+                    assert(client->status != Client::TOCOMPILE);
                     handle_activity (c);
+                }
             }
         } else {
             for (map<int, MsgChannel *>::const_iterator it = fd2chan.begin();
@@ -1142,8 +1143,10 @@ int Daemon::answer_client_requests()
                 Client* client = clients.find_by_channel(c);
                 ++it;
                 if (FD_ISSET (i, &listen_set)) {
-                    if (!c->read_a_bit () || c->has_msg ())
+                    if (!c->read_a_bit () || c->has_msg ()) {
+                        assert(client->status != Client::TOCOMPILE);
                         handle_activity (c);
+                    }
                     max_fd--;
                 }
                 if (client->status == Client::WAITFORCHILD
