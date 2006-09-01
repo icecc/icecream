@@ -80,6 +80,16 @@ void reset_debug( int )
 	setup_debug(debug_level, logfile_filename);
 }
 
+void close_debug()
+{
+     if (logfile_null.is_open())
+         logfile_null.close();
+     if (logfile_file.is_open())
+         logfile_file.close();
+
+     logfile_trace = logfile_info = logfile_warning = logfile_error = 0;
+}
+
 #ifdef HAVE_BACKTRACE
 #include <execinfo.h>
 #endif

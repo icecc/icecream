@@ -97,11 +97,14 @@ static void updateCPULoad( CPULoadInfo* load )
     char buf[ 256 ];
     static int fd = -1;
 
-    if ( fd < 0 && ( fd = open( "/proc/stat", O_RDONLY ) ) < 0 ) {
-        log_error() << "Cannot open file \'/proc/stat\'!\n"
-            "The kernel needs to be compiled with support\n"
-            "for /proc filesystem enabled!" << endl;
-        return;
+    if ( fd < 0 ) {
+        if (( fd = open( "/proc/stat", O_RDONLY ) ) < 0 ) {
+            log_error() << "Cannot open file \'/proc/stat\'!\n"
+                "The kernel needs to be compiled with support\n"
+                "for /proc filesystem enabled!" << endl;
+            return;
+        }
+        fcntl(fd, F_SETFD, FD_CLOEXEC);
     }
 
     lseek(fd, 0, SEEK_SET);
@@ -181,11 +184,14 @@ static unsigned int calculateMemLoad( unsigned long int &NetMemFree )
     char buf[256];
     static int fd = -1;
 
-    if ( fd < 0 && ( fd = open( "/proc/meminfo", O_RDONLY ) ) < 0 ) {
-        log_error() << "Cannot open file \'/proc/meminfo\'!\n"
-            "The kernel needs to be compiled with support\n"
-            "for /proc filesystem enabled!" << endl;
-        return 0;
+    if ( fd < 0 ) {
+        if ( ( fd = open( "/proc/meminfo", O_RDONLY ) ) < 0 ) {
+            log_error() << "Cannot open file \'/proc/meminfo\'!\n"
+                "The kernel needs to be compiled with support\n"
+                "for /proc filesystem enabled!" << endl;
+            return 0;
+        }
+        fcntl(fd, F_SETFD, FD_CLOEXEC);
     }
     lseek (fd, 0, SEEK_SET);
     ssize_t n;

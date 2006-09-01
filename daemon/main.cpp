@@ -156,7 +156,7 @@ public:
 	if (pipe_to_child >= 0)
 	    close (pipe_to_child);
     }
-    int job_id;
+    uint32_t job_id;
     string outfile; // only useful for LINKJOB
     MsgChannel *channel;
     UseCSMsg *usecsmsg;
@@ -265,22 +265,6 @@ public:
         return client;
     }
 };
-
-
-int set_cloexec_flag (int desc, int value)
-{
-    int oldflags = fcntl (desc, F_GETFD, 0);
-    /* If reading the flags failed, return error indication now. */
-    if (oldflags < 0)
-        return oldflags;
-    /* Set just the flag we want to set. */
-    if (value != 0)
-        oldflags |= FD_CLOEXEC;
-    else
-        oldflags &= ~FD_CLOEXEC;
-    /* Store modified flag word in the descriptor. */
-    return fcntl (desc, F_SETFD, oldflags);
-}
 
 int dcc_new_pgrp(void)
 {
@@ -406,7 +390,7 @@ int setup_listen_fd()
       return -1;
     }
 
-    set_cloexec_flag(listen_fd, 1);
+    fcntl(listen_fd, F_SETFD, FD_CLOEXEC);
 
     return listen_fd;
 }
@@ -1226,6 +1210,8 @@ bool Daemon::reconnect()
         log_warning() << "scheduler not yet found.\n";
         return false;
     }
+    delete discover;
+    discover = 0;
     sockaddr_in name;
     socklen_t len = sizeof(name);
     int error = getsockname(scheduler->fd, (struct sockaddr*)&name, &len);

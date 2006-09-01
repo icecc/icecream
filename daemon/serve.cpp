@@ -89,12 +89,16 @@ int handle_connection( const string &basedir, CompileJob *job,
     if ( pid != 0) { // parent
         close( socket[1] );
         out_fd = socket[0];
+        fcntl(out_fd, F_SETFD, FD_CLOEXEC);
         return pid;
     }
 
     reset_debug(0);
     close( socket[0] );
     out_fd = socket[1];
+
+    /* internal communication channel, don't inherit to gcc */
+    fcntl(out_fd, F_SETFD, FD_CLOEXEC);
 
     nice( nice_level );
 

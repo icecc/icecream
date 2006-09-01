@@ -99,7 +99,6 @@ static void theSigCHLDHandler( int )
     must_reap = true;
 }
 
-
 static void
 error_client( MsgChannel *client, string error )
 {
@@ -191,13 +190,16 @@ int work_it( CompileJob &j,
         close( sock_out[1] );
         close( sock_in[0] );
         close( sock_in[1] );
+        close( sock_err[0] );
         unlink( tmp_output );
         return EXIT_OUT_OF_MEMORY;
     } else if ( pid == 0 ) {
 
         close( main_sock[0] );
         close( sock_in[1] );
+        close( sock_out[0] );
         dup2( sock_in[0], 0);
+        close (sock_in[0]);
         fcntl(main_sock[1], F_SETFD, FD_CLOEXEC);
         setenv( "PATH", "usr/bin", 1 );
         // Safety check
@@ -263,16 +265,14 @@ int work_it( CompileJob &j,
             printf( "%s ", argv[index] );
         printf( "\n" );
 #endif
-
-        close( STDOUT_FILENO );
-        close( sock_out[0] );
-        dup2( sock_out[1], STDOUT_FILENO );
-        close( STDERR_FILENO );
-        close( sock_err[0] );
+        close_debug();
+        dup2 (sock_out[1], STDOUT_FILENO );
+        close(sock_out[1]);
         dup2( sock_err[1], STDERR_FILENO );
+        close(sock_err[1]);
 
-        ret = execv( argv[0], const_cast<char *const*>( argv ) ); // no return
-        printf( "execv failed: %s\n", strerror(errno) );
+        execv( argv[0], const_cast<char *const*>( argv ) ); // no return
+        perror( "ICECC: execv" );
 
         char resultByte = 1;
         write(main_sock[1], &resultByte, 1);
@@ -280,11 +280,13 @@ int work_it( CompileJob &j,
     } else {
         close( main_sock[1] );
         close( sock_in[0] );
+        close( sock_out[1] );
+        close( sock_err[1] );
 
         for (;;) {
             Msg* msg  = client->get_msg(60);
 
-            if ( !msg || (msg->type != M_FILE_CHUNK && msg->type != M_END) )
+            if ( !msg || (msg->type != M_FILE_CHUNK && msg->type != M_END) ) 
               {
                 log_error() << "protocol error while reading preprocessed file\n";
                 delete msg;
@@ -306,7 +308,6 @@ int work_it( CompileJob &j,
             ssize_t len = fcmsg->len;
             off_t off = 0;
             while ( len ) {
-                log_block p_write("parent, write datea..");
                 ssize_t bytes = write( sock_in[1], fcmsg->buffer + off, len );
                 if ( bytes < 0 && errno == EINTR )
                     continue;
@@ -352,8 +353,7 @@ int work_it( CompileJob &j,
             delete msg;
             msg = 0;
         }
-        close (sock_in[1]);
-
+        close( sock_in[1] );
         log_block parent_wait("parent, waiting");
         // idea borrowed from kprocess
         for(;;)
@@ -396,20 +396,17 @@ int work_it( CompileJob &j,
             log_block bfor("for writing loop");
             fd_set rfds;
             FD_ZERO( &rfds );
-            FD_SET( sock_out[0], &rfds );
-            FD_SET( sock_err[0], &rfds );
+            if (sock_out[0] >= 0)
+                FD_SET( sock_out[0], &rfds );
+            if (sock_err[0] >= 0)
+                FD_SET( sock_err[0], &rfds );
             FD_SET( client_fd, &rfds );
 
             int max_fd = std::max( sock_out[0], sock_err[0] );
             if ( client_fd > max_fd )
                 max_fd = client_fd;
 
-            struct timeval tv;
-            /* Wait up to five seconds. */
-            tv.tv_sec = 5;
-            tv.tv_usec = 0;
-
-            ret =  select( max_fd+1, &rfds, 0, 0, &tv );
+            ret = select( max_fd+1, &rfds, 0, 0, NULL );
 
             switch( ret )
             {
@@ -421,21 +418,18 @@ int work_it( CompileJob &j,
                 // fall through; should happen if tvp->tv_sec < 0
             case 0:
                 struct rusage ru;
+
                 if (wait4(pid, &status, must_reap ? WUNTRACED : WNOHANG, &ru) != 0) // error finishes, too
                 {
                     close( sock_err[0] );
-                    close( sock_err[1] );
                     close( sock_out[0] );
-                    close( sock_out[1] );
-                    if ( WIFEXITED( status ) )
-                        status = WEXITSTATUS( status );
-                    else
-                        status = 1;
 
-                    if ( status ) {
+                    if ( !WIFEXITED(status) || WEXITSTATUS(status) ) {
                         unsigned long int mem_used = ( ru.ru_minflt + ru.ru_majflt ) * getpagesize() / 1024;
+                        status = EXIT_OUT_OF_MEMORY;
+
                         if ( mem_used * 100 > 85 * mem_limit * 1024 ||
-                             str_err.find( "virtual memory exhausted: Cannot allocate memory" ) != string::npos )
+                             str_err.find( "memory exhausted" ) != string::npos )
                         {
                             // the relation between ulimit and memory used is pretty thin ;(
                             return EXIT_OUT_OF_MEMORY;
@@ -452,12 +446,20 @@ int work_it( CompileJob &j,
                         buffer[bytes] = 0;
                         str_out.append( buffer );
                     }
+                    else if (bytes == 0) {
+                        close(sock_out[0]);
+                        sock_out[0] = -1;
+                    }
                 }
                 if ( FD_ISSET(sock_err[0], &rfds) ) {
                     ssize_t bytes = read( sock_err[0], buffer, sizeof(buffer)-1 );
                     if ( bytes > 0 ) {
                         buffer[bytes] = 0;
                         str_err.append( buffer );
+                    }
+                    else if (bytes == 0) {
+                        close(sock_err[0]);
+                        sock_err[0] = -1;
                     }
                 }
                 if ( FD_ISSET( client_fd, &rfds ) ) {
