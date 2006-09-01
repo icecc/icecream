@@ -170,7 +170,7 @@ int work_it( CompileJob &j, unsigned int job_stat[], MsgChannel* client,
     sigaction( SIGPIPE, &act, 0L );
 
     act.sa_handler = theSigCHLDHandler;
-    act.sa_flags = SA_NOCLDSTOP | SA_RESTART;
+    act.sa_flags = SA_NOCLDSTOP;
     sigaction( SIGCHLD, &act, 0 );
 
     sigaddset( &act.sa_mask, SIGCHLD );
@@ -369,16 +369,7 @@ int work_it( CompileJob &j, unsigned int job_stat[], MsgChannel* client,
             if (n == 1)
             {
                 rmsg.status = resultByte;
-                // exec() failed
                 close(main_sock[0]);
-                close( sock_err[0] );
-                close( sock_err[1] );
-                close( sock_out[0] );
-                close( sock_out[1] );
-                close( sock_out[0] );
-                close( sock_out[1] );
-                close( sock_in[0] );
-                close( sock_in[1] );
 
                 while ( waitpid(pid, 0, 0) < 0 && errno == EINTR)
                     ;
@@ -399,7 +390,6 @@ int work_it( CompileJob &j, unsigned int job_stat[], MsgChannel* client,
 
         for(;;)
         {
-            log_block bfor("for writing loop");
             fd_set rfds;
             FD_ZERO( &rfds );
             if (sock_out[0] >= 0)
@@ -412,12 +402,44 @@ int work_it( CompileJob &j, unsigned int job_stat[], MsgChannel* client,
             if ( client_fd > max_fd )
                 max_fd = client_fd;
 
-            ret = select( max_fd+1, &rfds, 0, 0, NULL );
+            ret = 0;
+            if (!must_reap)
+                ret = select( max_fd+1, &rfds, 0, 0, NULL );
 
             switch( ret )
             {
+            default:
+                if ( sock_out[0] >= 0 && FD_ISSET(sock_out[0], &rfds) ) {
+                    ssize_t bytes = read( sock_out[0], buffer, sizeof(buffer)-1 );
+                    if ( bytes > 0 ) {
+                        buffer[bytes] = 0;
+                        rmsg.out.append( buffer );
+                    }
+                    else if (bytes == 0) {
+                        close(sock_out[0]);
+                        sock_out[0] = -1;
+                    }
+                }
+                if ( sock_err[0] >= 0 && FD_ISSET(sock_err[0], &rfds) ) {
+                    ssize_t bytes = read( sock_err[0], buffer, sizeof(buffer)-1 );
+                    if ( bytes > 0 ) {
+                        buffer[bytes] = 0;
+                        rmsg.err.append( buffer );
+                    }
+                    else if (bytes == 0) {
+                        close(sock_err[0]);
+                        sock_err[0] = -1;
+                    }
+                }
+                if ( FD_ISSET( client_fd, &rfds ) ) {
+                    rmsg.err.append( "client cancelled\n" );
+                    close( client_fd );
+                    kill( pid, SIGTERM );
+                    return EXIT_CLIENT_KILLED;
+                }
+                // fall through
             case -1:
-		if ( errno != EINTR ) { // this usually means the logic broke
+		if ( ret < 0 && errno != EINTR ) { // this usually means the logic broke
                     error_client( client, string( "select returned " ) + strerror( errno ) );
                     return EXIT_DISTCC_FAILED;
                 }
@@ -426,7 +448,7 @@ int work_it( CompileJob &j, unsigned int job_stat[], MsgChannel* client,
                 struct rusage ru;
                 int status;
 
-                if (wait4(pid, &status, must_reap ? WUNTRACED : WNOHANG, &ru) != 0) // error finishes, too
+                if (wait4(pid, &status, must_reap ? WUNTRACED : WNOHANG, &ru) == pid)
                 {
                     close( sock_err[0] );
                     close( sock_out[0] );
@@ -460,35 +482,6 @@ int work_it( CompileJob &j, unsigned int job_stat[], MsgChannel* client,
                     return 0;
                 }
                 break;
-            default:
-                if ( FD_ISSET(sock_out[0], &rfds) ) {
-                    ssize_t bytes = read( sock_out[0], buffer, sizeof(buffer)-1 );
-                    if ( bytes > 0 ) {
-                        buffer[bytes] = 0;
-                        rmsg.out.append( buffer );
-                    }
-                    else if (bytes == 0) {
-                        close(sock_out[0]);
-                        sock_out[0] = -1;
-                    }
-                }
-                if ( FD_ISSET(sock_err[0], &rfds) ) {
-                    ssize_t bytes = read( sock_err[0], buffer, sizeof(buffer)-1 );
-                    if ( bytes > 0 ) {
-                        buffer[bytes] = 0;
-                        rmsg.err.append( buffer );
-                    }
-                    else if (bytes == 0) {
-                        close(sock_err[0]);
-                        sock_err[0] = -1;
-                    }
-                }
-                if ( FD_ISSET( client_fd, &rfds ) ) {
-                    rmsg.err.append( "client cancelled\n" );
-                    close( client_fd );
-                    kill( pid, SIGTERM );
-                    return EXIT_CLIENT_KILLED;
-                }
             }
         }
     }
