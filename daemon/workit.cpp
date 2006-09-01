@@ -406,7 +406,10 @@ int work_it( CompileJob &j,
             if ( client_fd > max_fd )
                 max_fd = client_fd;
 
-            ret = select( max_fd+1, &rfds, 0, 0, NULL );
+            if (must_reap)
+                ret = 0;
+            else
+                ret = select( max_fd+1, &rfds, 0, 0, NULL );
 
             switch( ret )
             {
