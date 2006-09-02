@@ -117,7 +117,9 @@ int work_it( CompileJob &j, unsigned int job_stat[], MsgChannel* client,
     int ret;
 
     char tmp_output[PATH_MAX];
-    if ( ( ret = dcc_make_tmpnam("icecc", ".o", tmp_output, 1 ) ) != 0 )
+    char prefix_output[PATH_MAX]; // I'm too lazy to calculate how many digits 2^64 is :)
+    sprintf( prefix_output, "icecc-%d", j.jobID() );
+    if ( ( ret = dcc_make_tmpnam(prefix_output, ".o", tmp_output, 1 ) ) != 0 )
         return ret;
 
     outfilename = tmp_output;
@@ -288,11 +290,11 @@ int work_it( CompileJob &j, unsigned int job_stat[], MsgChannel* client,
 
         struct timeval starttv;
         gettimeofday(&starttv, 0 );
- 
+
         for (;;) {
             Msg* msg  = client->get_msg(60);
 
-            if ( !msg || (msg->type != M_FILE_CHUNK && msg->type != M_END) ) 
+            if ( !msg || (msg->type != M_FILE_CHUNK && msg->type != M_END) )
               {
                 log_error() << "protocol error while reading preprocessed file\n";
                 delete msg;
