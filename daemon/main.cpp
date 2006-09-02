@@ -454,6 +454,7 @@ struct Daemon
     bool handle_local_job( MsgChannel *c, Msg *msg );
     bool handle_job_done( MsgChannel *c, JobDoneMsg *m );
     void handle_compile_done (Client* client);
+    int handle_cs_conf( ConfCSMsg *msg);
     string dump_internals() const;
     bool maybe_stats(bool force = false);
     bool send_scheduler(const Msg& msg);
@@ -953,6 +954,15 @@ bool Daemon::handle_get_cs( MsgChannel *c, Msg *msg )
     return true;
 }
 
+int Daemon::handle_cs_conf(ConfCSMsg* msg)
+{
+    min_scheduler_ping = msg->min_scheduler_ping;
+    max_scheduler_ping = msg->max_scheduler_ping;
+    bench_source = msg->bench_source;
+
+    return 0;
+}
+
 bool Daemon::handle_local_job( MsgChannel *c, Msg *msg )
 {
     trace() << "handle_local_job " << c << endl;
@@ -1084,6 +1094,9 @@ int Daemon::answer_client_requests()
 		    break;
                 case M_GET_INTERNALS:
                     ret = scheduler_get_internals( );
+                    break;
+                case M_CS_CONF:
+                    ret = handle_cs_conf(dynamic_cast<ConfCSMsg*>( msg ));
                     break;
                 default:
                     log_error() << "unknown scheduler type " << ( char )msg->type << endl;

@@ -33,7 +33,7 @@
 #include "job.h"
 
 // if you increase the PROTOCOL_VERSION, add a macro below and use that
-#define PROTOCOL_VERSION 23
+#define PROTOCOL_VERSION 24
 // if you increase the MIN_PROTOCOL_VERSION, comment out macros below and clean up the code
 #define MIN_PROTOCOL_VERSION 21
 
@@ -42,6 +42,7 @@
 
 #define IS_PROTOCOL_22( c ) ( c->protocol >= 22 )
 #define IS_PROTOCOL_23( c ) ( c->protocol >= 23 )
+#define IS_PROTOCOL_24( c ) ( c->protocol >= 24 )
 
 enum MsgType {
   // so far unknown
@@ -100,7 +101,10 @@ enum MsgType {
 
   M_TEXT,
   M_STATUS_TEXT,
-  M_GET_INTERNALS
+  M_GET_INTERNALS,
+
+  // S --> CS, answered by M_LOGIN
+  M_CS_CONF
 };
 
 class MsgChannel;
@@ -401,6 +405,22 @@ public:
   std::string host_platform;
   LoginMsg (unsigned int myport, const std::string &_nodename, const std::string _host_platform);
   LoginMsg () : Msg(M_LOGIN), port( 0 ) {}
+
+  virtual void fill_from_channel (MsgChannel * c);
+  virtual void send_to_channel (MsgChannel * c) const;
+};
+
+class ConfCSMsg : public Msg {
+public:
+  uint32_t min_scheduler_ping;
+  uint32_t max_scheduler_ping;
+  std::string bench_source;
+
+  ConfCSMsg (const char* bench) 
+    : Msg(M_CS_CONF), min_scheduler_ping(MIN_SCHEDULER_PING), max_scheduler_ping(MAX_SCHEDULER_PING), bench_source(bench) {}
+  ConfCSMsg ()
+    : Msg(M_CS_CONF), min_scheduler_ping(MIN_SCHEDULER_PING), max_scheduler_ping(MAX_SCHEDULER_PING) {}
+
 
   virtual void fill_from_channel (MsgChannel * c);
   virtual void send_to_channel (MsgChannel * c) const;

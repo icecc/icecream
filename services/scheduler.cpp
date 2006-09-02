@@ -1055,6 +1055,9 @@ empty_queue()
   return true;
 }
 
+// unused
+const char icecream_bench_code[] = "\n";
+
 static bool
 handle_login (MsgChannel *c, Msg *_m)
 {
@@ -1091,6 +1094,10 @@ handle_login (MsgChannel *c, Msg *_m)
   trace() << "]\n";
 #endif
 
+  /* Configure the daemon */
+  if (IS_PROTOCOL_24( c ))
+    c->send_msg (ConfCSMsg(icecream_bench_code));
+
   return true;
 }
 
@@ -1110,6 +1117,10 @@ handle_relogin (MsgChannel *c, Msg *_m)
        it != m->envs.end(); ++it)
     trace() << it->second << "(" << it->first << "), ";
   trace() << "]\n";
+
+  /* Configure the daemon */
+  if (IS_PROTOCOL_24( c ))
+    c->send_msg (ConfCSMsg(icecream_bench_code));
 
   return true;
 }

@@ -839,6 +839,7 @@ MsgChannel::get_msg(int timeout)
     case M_TEXT: m = new TextMsg; break;
     case M_GET_INTERNALS: m = new GetInternalStatus; break;
     case M_STATUS_TEXT: m = new StatusTextMsg; break;
+    case M_CS_CONF: m = new ConfCSMsg; break;
     }
   if (!m)
     return 0;
@@ -1362,6 +1363,24 @@ LoginMsg::send_to_channel (MsgChannel *c) const
   c->write_string( nodename );
   c->write_string( host_platform );
   c->writeuint32( chroot_possible );
+}
+
+void
+ConfCSMsg::fill_from_channel (MsgChannel *c)
+{
+  Msg::fill_from_channel (c);
+  c->readuint32 (min_scheduler_ping);
+  c->readuint32 (max_scheduler_ping);
+  c->read_string (bench_source);
+}
+
+void
+ConfCSMsg::send_to_channel (MsgChannel *c) const
+{
+  Msg::send_to_channel (c);
+  c->writeuint32 (min_scheduler_ping);
+  c->writeuint32 (max_scheduler_ping);
+  c->write_string (bench_source);
 }
 
 void
