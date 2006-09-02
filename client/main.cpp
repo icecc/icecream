@@ -168,14 +168,6 @@ static int create_native()
 
 }
 
-/**
- * distcc client entry point.
- *
- * This is typically called by make in place of the real compiler.
- *
- * Performs basic setup and checks for distcc arguments, and then kicks of
- * dcc_build_somewhere().
- **/
 int main(int argc, char **argv)
 {
     char *env = getenv( "ICECC_DEBUG" );
@@ -202,7 +194,7 @@ int main(int argc, char **argv)
                 return 0;
             }
             if ( arg == "--version" ) {
-                printf( "ICECREAM " VERSION "\n" );
+                printf( "ICECC " VERSION "\n" );
                 return 0;
             }
 	    if ( arg == "--build-native" )
@@ -323,7 +315,13 @@ int main(int argc, char **argv)
             if (ret == 0) 
                 local_daemon->send_msg (EndMsg());
         } catch ( int error ) {
-            fprintf( stderr, "got exception %d (this should be an exception!)\n", error );
+            if (remote_daemon.size())
+                fprintf( stderr, "ICECC[%d]: got exception %d (remote: %s)\n", 
+                        getpid(), error, remote_daemon.c_str());
+            else
+                fprintf( stderr, "ICECC[%d]: got exception %d (this should be an exception!)\n", 
+                        getpid(), error);
+ 
             /* currently debugging a client ? throw an error then */
             if (debug_level != Error)
                 return error;

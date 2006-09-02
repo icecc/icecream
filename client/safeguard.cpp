@@ -36,8 +36,8 @@ using namespace std;
  * recursively invoking itself, thinking it's the real compiler.
  **/
 
-static const char dcc_safeguard_name[] = "_ICECREAM_SAFEGUARD";
-static char dcc_safeguard_set[] = "_ICECREAM_SAFEGUARD=1";
+static const char dcc_safeguard_name[] = "_ICECC_SAFEGUARD";
+static char dcc_safeguard_set[] = "_ICECC_SAFEGUARD=1";
 static int dcc_safeguard_level;
 
 int dcc_recursion_safeguard(void)

@@ -1,5 +1,5 @@
 /*
-    This file is part of Icecream.
+    This file is part of icecc.
 
     Copyright (C) 2002, 2003 by Martin Pool <mbp@samba.org>
                   2004 Stephan Kulow <coolo@suse.de>
@@ -33,6 +33,8 @@
 #include "util.h"
 
 class MsgChannel;
+
+extern std::string remote_daemon;
 
 /* in remote.cpp */
 extern std::string get_absfilename( const std::string &_file );

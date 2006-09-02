@@ -1070,12 +1070,11 @@ int Daemon::answer_client_requests()
         if ( scheduler && FD_ISSET( scheduler->fd, &listen_set ) ) {
             Msg *msg = scheduler->get_msg();
             if ( !msg ) {
-                log_error() << "no message from scheduler\n";
+                log_error() << "scheduler closed connection\n";
                 close_scheduler();
                 return 1;
             } else {
                 ret = 0;
-                trace() << "message from scheduler: " << (char)msg->type << endl;
                 switch ( msg->type )
                 {
                 case M_PING:
