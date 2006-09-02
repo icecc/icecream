@@ -313,7 +313,7 @@ int main(int argc, char **argv)
                and tell the scheduler - and that fail message may arrive earlier
                than the remote daemon's success msg. */
             if (ret == 0) 
-                local_daemon->send_msg (EndMsg());
+            local_daemon->send_msg (EndMsg());
         } catch ( int error ) {
             if (remote_daemon.size())
                 fprintf( stderr, "ICECC[%d]: got exception %d (remote: %s)\n", 

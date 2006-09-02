@@ -170,7 +170,7 @@ int work_it( CompileJob &j, unsigned int job_stat[], MsgChannel* client,
     sigaction( SIGPIPE, &act, 0L );
 
     act.sa_handler = theSigCHLDHandler;
-    act.sa_flags = SA_NOCLDSTOP | SA_RESTART;
+    act.sa_flags = SA_NOCLDSTOP;
     sigaction( SIGCHLD, &act, 0 );
 
     sigaddset( &act.sa_mask, SIGCHLD );
@@ -255,20 +255,25 @@ int work_it( CompileJob &j, unsigned int job_stat[], MsgChannel* client,
         argv[i++] = strdup( buffer );
         // before you add new args, check above for argc
         argv[i] = 0;
-        assert(i <= argc);
+	if (i > argc)
+	    printf ("Ohh bummer.  You can't count.\n");
+#if 0
+        printf( "forking " );
+        for ( int index = 0; argv[index]; index++ )
+            printf( "%s ", argv[index] );
+        printf( "\n" );
+#endif
         close_debug();
         dup2 (sock_out[1], STDOUT_FILENO );
         close(sock_out[1]);
         dup2( sock_err[1], STDERR_FILENO );
         close(sock_err[1]);
 
-#ifdef ICECC_DEBUG
-        /* make sure we don't leak file descriptors */
         for(int f = STDERR_FILENO+1; f < 4096; ++f) {
            long flags;
            assert((flags = fcntl(f, F_GETFD, 0)) < 0 || (flags & FD_CLOEXEC));
         }
-#endif
+
         execv( argv[0], const_cast<char *const*>( argv ) ); // no return
         perror( "ICECC: execv" );
 
@@ -283,7 +288,7 @@ int work_it( CompileJob &j, unsigned int job_stat[], MsgChannel* client,
 
         struct timeval starttv;
         gettimeofday(&starttv, 0 );
-
+ 
         for (;;) {
             Msg* msg  = client->get_msg(60);
 
@@ -364,16 +369,7 @@ int work_it( CompileJob &j, unsigned int job_stat[], MsgChannel* client,
             if (n == 1)
             {
                 rmsg.status = resultByte;
-                // exec() failed
                 close(main_sock[0]);
-                close( sock_err[0] );
-                close( sock_err[1] );
-                close( sock_out[0] );
-                close( sock_out[1] );
-                close( sock_out[0] );
-                close( sock_out[1] );
-                close( sock_in[0] );
-                close( sock_in[1] );
 
                 while ( waitpid(pid, 0, 0) < 0 && errno == EINTR)
                     ;
@@ -394,7 +390,6 @@ int work_it( CompileJob &j, unsigned int job_stat[], MsgChannel* client,
 
         for(;;)
         {
-            log_block bfor("for writing loop");
             fd_set rfds;
             FD_ZERO( &rfds );
             if (sock_out[0] >= 0)
@@ -407,15 +402,44 @@ int work_it( CompileJob &j, unsigned int job_stat[], MsgChannel* client,
             if ( client_fd > max_fd )
                 max_fd = client_fd;
 
-            if (must_reap)
-                ret = 0;
-            else
+            ret = 0;
+            if (!must_reap)
                 ret = select( max_fd+1, &rfds, 0, 0, NULL );
 
             switch( ret )
             {
+            default:
+                if ( sock_out[0] >= 0 && FD_ISSET(sock_out[0], &rfds) ) {
+                    ssize_t bytes = read( sock_out[0], buffer, sizeof(buffer)-1 );
+                    if ( bytes > 0 ) {
+                        buffer[bytes] = 0;
+                        rmsg.out.append( buffer );
+                    }
+                    else if (bytes == 0) {
+                        close(sock_out[0]);
+                        sock_out[0] = -1;
+                    }
+                }
+                if ( sock_err[0] >= 0 && FD_ISSET(sock_err[0], &rfds) ) {
+                    ssize_t bytes = read( sock_err[0], buffer, sizeof(buffer)-1 );
+                    if ( bytes > 0 ) {
+                        buffer[bytes] = 0;
+                        rmsg.err.append( buffer );
+                    }
+                    else if (bytes == 0) {
+                        close(sock_err[0]);
+                        sock_err[0] = -1;
+                    }
+                }
+                if ( FD_ISSET( client_fd, &rfds ) ) {
+                    rmsg.err.append( "client cancelled\n" );
+                    close( client_fd );
+                    kill( pid, SIGTERM );
+                    return EXIT_CLIENT_KILLED;
+                }
+                // fall through
             case -1:
-		if ( errno != EINTR ) { // this usually means the logic broke
+		if ( ret < 0 && errno != EINTR ) { // this usually means the logic broke
                     error_client( client, string( "select returned " ) + strerror( errno ) );
                     return EXIT_DISTCC_FAILED;
                 }
@@ -424,7 +448,7 @@ int work_it( CompileJob &j, unsigned int job_stat[], MsgChannel* client,
                 struct rusage ru;
                 int status;
 
-                if (wait4(pid, &status, must_reap ? WUNTRACED : WNOHANG, &ru) != 0) // error finishes, too
+                if (wait4(pid, &status, must_reap ? WUNTRACED : WNOHANG, &ru) == pid)
                 {
                     close( sock_err[0] );
                     close( sock_out[0] );
@@ -458,35 +482,6 @@ int work_it( CompileJob &j, unsigned int job_stat[], MsgChannel* client,
                     return 0;
                 }
                 break;
-            default:
-                if ( FD_ISSET(sock_out[0], &rfds) ) {
-                    ssize_t bytes = read( sock_out[0], buffer, sizeof(buffer)-1 );
-                    if ( bytes > 0 ) {
-                        buffer[bytes] = 0;
-                        rmsg.out.append( buffer );
-                    }
-                    else if (bytes == 0) {
-                        close(sock_out[0]);
-                        sock_out[0] = -1;
-                    }
-                }
-                if ( FD_ISSET(sock_err[0], &rfds) ) {
-                    ssize_t bytes = read( sock_err[0], buffer, sizeof(buffer)-1 );
-                    if ( bytes > 0 ) {
-                        buffer[bytes] = 0;
-                        rmsg.err.append( buffer );
-                    }
-                    else if (bytes == 0) {
-                        close(sock_err[0]);
-                        sock_err[0] = -1;
-                    }
-                }
-                if ( FD_ISSET( client_fd, &rfds ) ) {
-                    rmsg.err.append( "client cancelled\n" );
-                    close( client_fd );
-                    kill( pid, SIGTERM );
-                    return EXIT_CLIENT_KILLED;
-                }
             }
         }
     }

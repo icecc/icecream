@@ -711,7 +711,8 @@ MsgChannel::~MsgChannel()
 
 string MsgChannel::dump() const
 {
-  return name + ":" + toString( port );
+  return name + ":" + toString( port ) + " (" +
+    char((int)instate+'A') + " eof: " + char(eof +'0') + ")";
 }
 
 /* Wait blocking until the protocol setup for this channel is complete.
@@ -1028,11 +1029,11 @@ DiscoverSched::try_get_scheduler ()
       char buf2[BROAD_BUFLEN];
 
       /* Read/test all packages arrived until now.  */
-      while (!found
+	  while (!found
 	     && get_broad_answer (ask_fd, 0/*timeout*/, buf2,
-				  &remote_addr, &remote_len))
-	if (strcasecmp (netname.c_str(), buf2 + 1) == 0)
-	  found = true;
+	  			      &remote_addr, &remote_len))
+	      if (strcasecmp (netname.c_str(), buf2 + 1) == 0)
+	        found = true;
       if (!found)
         return 0;
       schedname = inet_ntoa (remote_addr.sin_addr);

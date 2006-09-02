@@ -23,7 +23,6 @@
 // getopt_long
 #define _GNU_SOURCE 1
 #endif
-//#define ICECC_DEBUG 1
 #include "config.h"
 
 #include <stdio.h>
@@ -434,7 +433,7 @@ struct Daemon
         current_load = - 1000;
         num_cpus = 0;
         scheduler = 0;
-	discover = 0;
+        discover = 0;
         min_scheduler_ping = MIN_SCHEDULER_PING;
         max_scheduler_ping = MAX_SCHEDULER_PING;
         bench_source = "";
@@ -660,7 +659,7 @@ bool Daemon::handle_transfer_env( MsgChannel *c, Msg *msg )
                             string envforjob = it2->second->job->targetPlatform() + "/" 
                                 + it2->second->job->environmentVersion();
                             if (envforjob == it->first)
-                            found = true;
+                                found = true;
                         }
                     }
                     if (!found) {
@@ -803,7 +802,7 @@ void Daemon::handle_compile_done (Client* client)
 
    JobDoneMsg *msg = new JobDoneMsg(client->job->jobID(), -1, JobDoneMsg::FROM_SERVER);
    assert(msg);
-            current_kids--;
+   current_kids--;
 
    unsigned int job_stat[8];
    int end_status = 151;
@@ -818,15 +817,15 @@ void Daemon::handle_compile_done (Client* client)
        msg->sys_msec = job_stat[JobStatistics::sys_msec];
        msg->pfaults = job_stat[JobStatistics::sys_pfaults];
 
-            if (msg->user_msec + msg->sys_msec <= msg->real_msec)
-                icecream_load += (msg->user_msec + msg->sys_msec) / num_cpus;
+       if (msg->user_msec + msg->sys_msec <= msg->real_msec)
+           icecream_load += (msg->user_msec + msg->sys_msec) / num_cpus;
        end_status = job_stat[JobStatistics::exit_code];
-        }
+   }
 
    if (!send_scheduler( *msg ))
        log_info() << "failed to send scheduler a jobdone msg.." << endl;
 
-        delete msg;
+   delete msg;
    close(client->pipe_to_child);
    client->pipe_to_child = -1;
    string envforjob = client->job->targetPlatform() + "/" + client->job->environmentVersion();
@@ -841,7 +840,6 @@ bool Daemon::handle_compile_file( MsgChannel *c, Msg *msg )
     Client *cl = clients.find_by_channel( c );
     assert( cl );
     cl->job = job;
-    trace() << "handle_compile_file " << cl->status_str(cl->status) << endl;
     if ( cl->status == Client::CLIENTWORK )
     {
         assert( job->environmentVersion() == "__client" );
@@ -1120,7 +1118,7 @@ int Daemon::answer_client_requests()
                 if (!c->read_a_bit () || c->has_msg ()) {
                     assert(client->status != Client::TOCOMPILE);
                     handle_activity (c);
-            }
+                }
             }
         } else {
             for (map<int, MsgChannel *>::const_iterator it = fd2chan.begin();

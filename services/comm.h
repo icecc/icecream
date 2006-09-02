@@ -85,7 +85,6 @@ enum MsgType {
 
   // CS --> S, first message sent
   M_LOGIN,
-
   // CS --> S (periodic)
   M_STATS,
 
@@ -249,12 +248,12 @@ public:
   uint32_t client_id;
   std::string preferred_host;
   GetCSMsg () : Msg(M_GET_CS), count( 1 ),arg_flags( 0 ), client_id( 0 ) {}
-  GetCSMsg (const Environments &envs, const std::string &f,
-            CompileJob::Language _lang, unsigned int _count,
-	    std::string _target, unsigned int _arg_flags,
+  GetCSMsg (const Environments &envs, const std::string &f, 
+            CompileJob::Language _lang, unsigned int _count, 
+	    std::string _target, unsigned int _arg_flags, 
             const std::string &host)
-    : Msg(M_GET_CS), versions( envs ), filename(f), lang(_lang),
-            count( _count ), target( _target ), arg_flags( _arg_flags ),
+    : Msg(M_GET_CS), versions( envs ), filename(f), lang(_lang), 
+            count( _count ), target( _target ), arg_flags( _arg_flags ), 
             client_id( 0 ), preferred_host(host)
   {}
   virtual void fill_from_channel (MsgChannel * c);

@@ -43,7 +43,7 @@ void setup_debug(int level, const string &filename)
     logfile_filename = filename;
 
     if ( logfile_file.is_open() )
-        logfile_file.close();
+    logfile_file.close();
     ostream *output = 0;
     if ( filename.length() ) {
 	logfile_file.clear();
@@ -77,7 +77,7 @@ void setup_debug(int level, const string &filename)
 
 void reset_debug( int )
 {
-	setup_debug(debug_level, logfile_filename);
+    setup_debug(debug_level, logfile_filename);
 }
 
 void close_debug()
