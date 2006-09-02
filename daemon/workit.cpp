@@ -117,7 +117,9 @@ int work_it( CompileJob &j, unsigned int job_stat[], MsgChannel* client,
     int ret;
 
     char tmp_output[PATH_MAX];
-    if ( ( ret = dcc_make_tmpnam("icecc", ".o", tmp_output, 1 ) ) != 0 )
+    char prefix_output[PATH_MAX]; // I'm too lazy to calculate how many digits 2^64 is :)
+    sprintf( prefix_output, "icecc-%d", j.jobID() );
+    if ( ( ret = dcc_make_tmpnam(prefix_output, ".o", tmp_output, 1 ) ) != 0 )
         return ret;
 
     outfilename = tmp_output;
