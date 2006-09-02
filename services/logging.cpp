@@ -31,15 +31,18 @@ ostream *logfile_trace = 0;
 ostream *logfile_info = 0;
 ostream *logfile_warning = 0;
 ostream *logfile_error = 0;
+string logfile_prefix;
+
 static ofstream logfile_null( "/dev/null" );
 static ofstream logfile_file;
 static string logfile_filename;
 
 void reset_debug( int );
 
-void setup_debug(int level, const string &filename)
+void setup_debug(int level, const string &filename, const string& prefix)
 {
     debug_level = level;
+    logfile_prefix = prefix;
     logfile_filename = filename;
 
     if ( logfile_file.is_open() )

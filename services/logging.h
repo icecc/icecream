@@ -33,24 +33,28 @@ extern std::ostream *logfile_info;
 extern std::ostream *logfile_warning;
 extern std::ostream *logfile_error;
 extern std::ostream *logfile_trace;
+extern std::string logfile_prefix;
 
-void setup_debug(int level, const std::string &logfile = "");
+void setup_debug(int level, const std::string &logfile = "", const std::string& prefix="");
 void reset_debug(int);
 void close_debug();
 
 static inline std::ostream & output_date( std::ostream &os )
 {
     time_t t = time( 0 );
-    char *buf = ctime( &t );
-    buf[strlen( buf )-1] = 0;
-    os << "[" << buf << "] ";
-    os << " " << getpid() << ": " ;
+    struct tm* tmp = localtime(&t);
+    char buf[64];
+    strftime(buf, sizeof(buf), "%T", tmp);
+    if (logfile_prefix.size())
+        os << logfile_prefix << "[" << getpid() << "] ";
+
+    os << buf << ": ";
     return os;
 }
 
 static inline std::ostream& log_info() {
     if(!logfile_info) return std::cerr;
-    return *logfile_info;
+    return output_date( *logfile_info);
 }
 
 static inline std::ostream& log_warning() {
@@ -87,7 +91,7 @@ public:
         for (unsigned i = 0; i < nesting; ++i) 
             log_info() << "  "; 
 
-        log_info() << getpid() << "  <" << (label ? label : "") << ">\n";
+        log_info() << "<" << (label ? label : "") << ">\n";
 
         m_label = strdup(label ? label : "");
         ++nesting;
@@ -104,7 +108,7 @@ public:
         --nesting;
         for (unsigned i = 0; i < nesting; ++i) 
             log_info() << "  "; 
-        log_info() << getpid() << "  </" << m_label << ": "
+        log_info() << "</" << m_label << ": "
             << (end.tv_sec - m_start.tv_sec ) * 1000 + ( end.tv_usec - m_start.tv_usec ) / 1000 << "ms>\n";
 
         free(m_label);
