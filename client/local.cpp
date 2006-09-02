@@ -253,7 +253,7 @@ int build_local(CompileJob &job, MsgChannel *local_daemon, struct rusage *used)
             dcc_unlock( lock_fd ); 
         if (ret) {
             char buf[256];
-            snprintf(buf, sizeof(buf), "ICECREAM: %s:", argv[0]);
+            snprintf(buf, sizeof(buf), "ICECC[%d]: %s:", getpid(), argv[0]);
             log_perror(buf);
         }
         _exit ( ret );

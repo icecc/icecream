@@ -54,6 +54,8 @@
 
 using namespace std;
 
+std::string remote_daemon;
+
 Environments
 parse_icecc_version(const string &target_platform )
 {
@@ -398,7 +400,7 @@ static int build_remote_int(CompileJob &job, UseCSMsg *usecs, const string &envi
 
         if ( status && ( crmsg->err.length() || crmsg->out.length() ) )
         {
-            fprintf( stderr, "ICECREAM[%d]: Compiled on %s\n", getpid(), hostname.c_str() );
+            fprintf( stderr, "ICECC[%d]: Compiled on %s\n", getpid(), hostname.c_str() );
         }
     }
     delete crmsg;
@@ -494,6 +496,8 @@ static bool
 maybe_build_local (MsgChannel *local_daemon, UseCSMsg *usecs, CompileJob &job,
 		   int &ret)
 {
+    remote_daemon = usecs->hostname;
+
     if ( usecs->hostname == "127.0.0.1" ) {
         trace() << "building myself, but telling localhost\n";
         int job_id = usecs->job_id;
@@ -579,7 +583,8 @@ int build_remote(CompileJob &job, MsgChannel *local_daemon, const Environments &
 				    0, true );
         delete usecs;
         return ret;
-    } else {
+    } else 
+    {
         char preproc[PATH_MAX];
         dcc_make_tmpnam( "icecc", ".ix", preproc, 0 );
         int cpp_fd = open(preproc, O_WRONLY );
@@ -597,13 +602,12 @@ int build_remote(CompileJob &job, MsgChannel *local_daemon, const Environments &
             return WEXITSTATUS( status );
         }
 
-
         char rand_seed[400]; // "designed to be oversized" (Levi's)
         sprintf( rand_seed, "-frandom-seed=%d", rand() );
         job.appendFlag( rand_seed, Arg_Remote );
 
-        GetCSMsg getcs (envs, get_absfilename( job.inputFile() ), job.language(), torepeat, 
-			job.targetPlatform(), job.argumentFlags(), preferred_host ? preferred_host : string() );
+        GetCSMsg getcs (envs, get_absfilename( job.inputFile() ), job.language(), torepeat,
+                job.targetPlatform(), job.argumentFlags(), preferred_host ? preferred_host : string() );
 
 
         if (!local_daemon->send_msg (getcs)) {
@@ -631,6 +635,7 @@ int build_remote(CompileJob &job, MsgChannel *local_daemon, const Environments &
                 sprintf( buffer, job.outputFile().c_str() );
 
             umsgs[i] = get_server( local_daemon );
+            remote_daemon = umsgs[i]->hostname;
             trace() << "got_server_for_job " << umsgs[i]->hostname << endl;
 
             pid_t pid = fork();
