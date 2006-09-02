@@ -853,7 +853,9 @@ prune_servers ()
         {
           if ( ( *it )->max_jobs >= 0 )
             {
+#if DEBUG_SCHEDULER > 1
               trace() << "send ping " << ( *it )->nodename << endl;
+#endif
               ( *it )->max_jobs *= -1; // better not give it away
               if(( *it )->send_msg( PingMsg() ))
 		{
