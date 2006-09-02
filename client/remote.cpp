@@ -327,7 +327,7 @@ static int build_remote_int(CompileJob &job, UseCSMsg *usecs, const string &envi
 	   closed the write fd, i.e. sockets[1].  */
         pid_t cpp_pid = call_cpp(job, sockets[1], sockets[0] );
         if ( cpp_pid == -1 )
-            throw( 10 );
+            throw( 18 );
 
         try {
             log_block bl2("write_server_cpp from cpp");
@@ -506,7 +506,7 @@ maybe_build_local (MsgChannel *local_daemon, UseCSMsg *usecs, CompileJob &job,
         CompileFileMsg compile_file( &job );
         if ( !local_daemon->send_msg( compile_file ) ) {
             log_info() << "write of job failed" << endl;
-            throw( 9 );
+            throw( 29 );
         }
         struct timeval begintv,  endtv;
         struct rusage ru;
@@ -571,7 +571,7 @@ int build_remote(CompileJob &job, MsgChannel *local_daemon, const Environments &
 		        preferred_host ? preferred_host : string() );
         if (!local_daemon->send_msg (getcs)) {
             log_warning() << "asked for CS\n";
-            throw( 0 );
+            throw( 24 );
         }
 
         UseCSMsg *usecs = get_server( local_daemon );
