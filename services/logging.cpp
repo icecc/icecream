@@ -43,7 +43,7 @@ void setup_debug(int level, const string &filename)
     logfile_filename = filename;
 
     if ( logfile_file.is_open() )
-    logfile_file.close();
+        logfile_file.close();
     ostream *output = 0;
     if ( filename.length() ) {
 	logfile_file.clear();
@@ -82,12 +82,12 @@ void reset_debug( int )
 
 void close_debug()
 {
-     if (logfile_null.is_open())
-         logfile_null.close();
-     if (logfile_file.is_open())
-         logfile_file.close();
+    if (logfile_null.is_open())
+        logfile_null.close();
+    if (logfile_file.is_open())
+        logfile_file.close();
 
-     logfile_trace = logfile_info = logfile_warning = logfile_error = 0;
+    logfile_trace = logfile_info = logfile_warning = logfile_error = 0;
 }
 
 #ifdef HAVE_BACKTRACE

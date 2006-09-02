@@ -180,7 +180,7 @@ MsgChannel::update_state (void)
     case FILL_BUF:
       if (inofs - intogo >= inmsglen)
         instate = HAS_MSG;
-        /* FALLTHROUGH */
+      /* FALLTHROUGH */
       else
         break;
     case HAS_MSG:
@@ -250,16 +250,16 @@ MsgChannel::flush_writebuf (bool blocking)
               int ready;
               for(;;)
                 {
-                    fd_set write_set;
-                    FD_ZERO (&write_set);
-                    FD_SET (fd, &write_set);
-                    struct timeval tv;
-                    tv.tv_sec = 20;
-                    tv.tv_usec = 0;
-                    ready = select (fd + 1, NULL, &write_set, NULL, &tv);
-                    if ( ready < 0 && errno == EINTR)
-                        continue;
-                    break;
+                  fd_set write_set;
+                  FD_ZERO (&write_set);
+                  FD_SET (fd, &write_set);
+                  struct timeval tv;
+                  tv.tv_sec = 20;
+                  tv.tv_usec = 0;
+                  ready = select (fd + 1, NULL, &write_set, NULL, &tv);
+                  if ( ready < 0 && errno == EINTR)
+                    continue;
+                  break;
                 }
               /* socket ready now for writing ? */
               if (ready > 0)
@@ -289,11 +289,11 @@ MsgChannel::readuint32 (uint32_t &buf)
   if (inofs >= intogo + 4)
     {
       if ( off_t(inbuf + intogo) % 4 ) {
-	 char t_buf[4];
-	 memcpy(t_buf, inbuf + intogo, 4);
-	 buf = *(uint32_t *)t_buf;
+        char t_buf[4];
+        memcpy(t_buf, inbuf + intogo, 4);
+        buf = *(uint32_t *)t_buf;
       } else
-         buf = *(uint32_t *)(inbuf + intogo);
+        buf = *(uint32_t *)(inbuf + intogo);
       intogo += 4;
       buf = ntohl (buf);
     }
@@ -412,7 +412,7 @@ MsgChannel::readcompressed (unsigned char **uncompressed_buf,
       const lzo_byte *compressed_buf = (lzo_byte *) (inbuf + intogo);
       lzo_voidp wrkmem = (lzo_voidp) malloc (LZO1X_MEM_COMPRESS);
       int ret = lzo1x_decompress (compressed_buf, compressed_len,
-			      *uncompressed_buf, &uncompressed_len, wrkmem);
+                                  *uncompressed_buf, &uncompressed_len, wrkmem);
       free (wrkmem);
       if (ret != LZO_E_OK)
         {
@@ -528,7 +528,7 @@ static bool connect_async( int remote_fd, struct sockaddr *remote_addr, size_t r
       **  interrupted.  Allow for this possibility. - JED
       */
       if ((ret == -1) && (errno == EINTR))
-          return connect_async( remote_fd, remote_addr, remote_size, timeout );
+        return connect_async( remote_fd, remote_addr, remote_size, timeout );
 
       if (ret > 0)
         {
@@ -735,7 +735,7 @@ MsgChannel::wait_for_protocol ()
       if (ret < 0 && errno == EINTR)
         continue;
       if (ret == 0)
-          return false; /* timeout. Consider it a fatal error. */
+        return false; /* timeout. Consider it a fatal error. */
       if (ret < 0)
         {
           log_perror("select in wait_for_protocol()");
@@ -841,7 +841,7 @@ MsgChannel::get_msg(int timeout)
     case M_STATUS_TEXT: m = new StatusTextMsg; break;
     }
   if (!m)
-	return 0;
+    return 0;
   m->fill_from_channel (this);
   instate = NEED_LEN;
   update_state ();
@@ -935,7 +935,7 @@ open_send_broadcast (void)
 	  remote_addr.sin_addr = ( ( sockaddr_in* )addr->ifa_broadaddr )->sin_addr ;
 
 	  if (sendto (ask_fd, &buf, 1, 0, (struct sockaddr*)&remote_addr,
-		    sizeof (remote_addr)) != 1)
+                      sizeof (remote_addr)) != 1)
 	    {
 	      log_perror("open_send_broadcast sendto");
 	    }
@@ -1029,11 +1029,11 @@ DiscoverSched::try_get_scheduler ()
       char buf2[BROAD_BUFLEN];
 
       /* Read/test all packages arrived until now.  */
-	  while (!found
+      while (!found
 	     && get_broad_answer (ask_fd, 0/*timeout*/, buf2,
-	  			      &remote_addr, &remote_len))
-	      if (strcasecmp (netname.c_str(), buf2 + 1) == 0)
-	        found = true;
+                                  &remote_addr, &remote_len))
+        if (strcasecmp (netname.c_str(), buf2 + 1) == 0)
+          found = true;
       if (!found)
         return 0;
       schedname = inet_ntoa (remote_addr.sin_addr);
@@ -1100,7 +1100,7 @@ GetCSMsg::fill_from_channel (MsgChannel *c)
   c->readuint32( client_id );
   preferred_host = string();
   if (IS_PROTOCOL_22(c))
-	c->read_string( preferred_host );
+    c->read_string( preferred_host );
 }
 
 void
@@ -1115,7 +1115,7 @@ GetCSMsg::send_to_channel (MsgChannel *c) const
   c->writeuint32( arg_flags );
   c->writeuint32( client_id );
   if (IS_PROTOCOL_22(c))
-	c->write_string( preferred_host);
+    c->write_string( preferred_host);
 }
 
 void
@@ -1332,7 +1332,7 @@ JobDoneMsg::send_to_channel (MsgChannel *c) const
 }
 
 LoginMsg::LoginMsg(unsigned int myport, const std::string &_nodename, const std::string _host_platform)
-      : Msg(M_LOGIN), port( myport ), chroot_possible( false ), nodename( _nodename ), host_platform( _host_platform )
+  : Msg(M_LOGIN), port( myport ), chroot_possible( false ), nodename( _nodename ), host_platform( _host_platform )
 {
   // check if we're root
   chroot_possible = ( geteuid() == 0 );

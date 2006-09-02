@@ -287,14 +287,13 @@ int main(int argc, char **argv)
         Msg* startme = 0L;
 
 	/* Inform the daemon that we like to start a job.  */
-        if (local_daemon->send_msg( JobLocalBeginMsg( 0, get_absfilename( job.outputFile() )) ))
-          {
-              /* Now wait until the daemon gives us the start signal.  40 minutes
-                 should be enough for all normal compile or link jobs.  */
-              startme = local_daemon->get_msg (40*60);
-          }
+        if (local_daemon->send_msg( JobLocalBeginMsg( 0, get_absfilename( job.outputFile() )))) {
+            /* Now wait until the daemon gives us the start signal.  40 minutes
+               should be enough for all normal compile or link jobs.  */
+            startme = local_daemon->get_msg (40*60);
+        }
         else
-          log_error() << "can't send joblocalmsg to daemon" << endl;
+            log_error() << "can't send joblocalmsg to daemon" << endl;
 
 	/* If we can't talk to the daemon anymore we need to fall back
 	   to lock file locking.  */
@@ -312,16 +311,16 @@ int main(int argc, char **argv)
                If we don't, the local daemon will have to assume the job failed
                and tell the scheduler - and that fail message may arrive earlier
                than the remote daemon's success msg. */
-            if (ret == 0) 
-            local_daemon->send_msg (EndMsg());
+            if (ret == 0)
+                local_daemon->send_msg (EndMsg());
         } catch ( int error ) {
             if (remote_daemon.size())
-                fprintf( stderr, "ICECC[%d]: got exception %d (remote: %s)\n", 
-                        getpid(), error, remote_daemon.c_str());
+                fprintf( stderr, "ICECC[%d]: got exception %d (remote: %s)\n",
+                         getpid(), error, remote_daemon.c_str());
             else
-                fprintf( stderr, "ICECC[%d]: got exception %d (this should be an exception!)\n", 
-                        getpid(), error);
- 
+                fprintf( stderr, "ICECC[%d]: got exception %d (this should be an exception!)\n",
+                         getpid(), error);
+
             /* currently debugging a client ? throw an error then */
             if (debug_level != Error)
                 return error;
