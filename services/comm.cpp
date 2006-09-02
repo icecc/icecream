@@ -74,6 +74,8 @@ MsgChannel::read_a_bit ()
   bool error = false;
   while (count)
     {
+      if (eof)
+          break;
       ssize_t ret = read (fd, buf, count);
       if (ret > 0)
         {
@@ -420,7 +422,7 @@ MsgChannel::readcompressed (unsigned char **uncompressed_buf,
 	     Remove the buffer, and indicate there is nothing in it,
 	     but don't reset the compressed_len, so our caller know,
 	     that there actually was something read in.  */
-          printf("internal error - decompression failed: %d\n", ret);
+          log_error() << "internal error - decompression failed: " << ret << endl;
 	  delete [] *uncompressed_buf;
 	  *uncompressed_buf = 0;
 	  uncompressed_len = 0;
@@ -457,7 +459,7 @@ MsgChannel::writecompressed (const unsigned char *in_buf,
   if (ret != LZO_E_OK)
     {
       /* this should NEVER happen */
-      printf ("internal error - compression failed: %d\n", ret);
+      log_error() << "internal error - compression failed: " << ret << endl;
       out_len = 0;
     }
   uint32_t _olen = htonl (out_len);
