@@ -380,7 +380,6 @@ static int build_remote_int(CompileJob &job, UseCSMsg *usecs, const string &envi
     assert ( crmsg );
 
     status = crmsg->status;
-    trace() << "crmsg->status " << status << " " << crmsg->was_out_of_memory << endl;
 
     if ( status && crmsg->was_out_of_memory ) {
         delete crmsg;
