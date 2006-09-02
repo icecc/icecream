@@ -1129,9 +1129,11 @@ int Daemon::answer_client_requests()
                 clients[c] = client;
 
                 fd2chan[c->fd] = c;
-                if (!c->read_a_bit () || c->has_msg ()) {
+                c->read_a_bit();
+                while (c->has_msg()) {
                     assert(client->status != Client::TOCOMPILE);
-                    handle_activity (c);
+                    if (!handle_activity (c))
+                        break;
                 }
             }
         } else {
@@ -1142,9 +1144,11 @@ int Daemon::answer_client_requests()
                 Client* client = clients.find_by_channel(c);
                 ++it;
                 if (FD_ISSET (i, &listen_set)) {
-                    if (!c->read_a_bit () || c->has_msg ()) {
+                    c->read_a_bit();
+                    while (c->has_msg()) {
                         assert(client->status != Client::TOCOMPILE);
-                        handle_activity (c);
+                        if (!handle_activity (c))
+                            break;
                     }
                     max_fd--;
                 }
