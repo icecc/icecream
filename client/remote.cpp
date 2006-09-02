@@ -87,8 +87,8 @@ parse_icecc_version(const string &target_platform )
         pos = icecc_version.find_first_of(',', lastPos);
 
         if (find(platforms.begin(), platforms.end(), platform) != platforms.end()) {
-		log_error() << "there are two environments for platform " << platform << " - ignoring " << version << endl;
-		continue;
+            log_error() << "there are two environments for platform " << platform << " - ignoring " << version << endl;
+            continue;
         }
 
         if ( ::access( version.c_str(), R_OK ) ) {
@@ -566,8 +566,8 @@ int build_remote(CompileJob &job, MsgChannel *local_daemon, const Environments &
         for ( list<string>::const_iterator it = args.begin(); it != args.end(); ++it )
             fake_filename += "/" + *it;
         fake_filename += get_absfilename( job.inputFile() );
-        GetCSMsg getcs (envs, fake_filename, job.language(), torepeat, 
-			job.targetPlatform(), job.argumentFlags(), 
+        GetCSMsg getcs (envs, fake_filename, job.language(), torepeat,
+			job.targetPlatform(), job.argumentFlags(),
 		        preferred_host ? preferred_host : string() );
         if (!local_daemon->send_msg (getcs)) {
             log_warning() << "asked for CS\n";
@@ -583,7 +583,7 @@ int build_remote(CompileJob &job, MsgChannel *local_daemon, const Environments &
 				    0, true );
         delete usecs;
         return ret;
-    } else 
+    } else
     {
         char preproc[PATH_MAX];
         dcc_make_tmpnam( "icecc", ".ix", preproc, 0 );
