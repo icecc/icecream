@@ -855,10 +855,10 @@ prune_servers ()
             {
               trace() << "send ping " << ( *it )->nodename << endl;
               ( *it )->max_jobs *= -1; // better not give it away
-              if(( *it )->send_msg( PingMsg() )) 
+              if(( *it )->send_msg( PingMsg() ))
 		{
                   // give it a few seconds to answer a ping
-                  ( *it )->last_talk = time( 0 ) - MAX_SCHEDULER_PING 
+                  ( *it )->last_talk = time( 0 ) - MAX_SCHEDULER_PING
 		                       + MIN_SCHEDULER_PING;
 		  ++it;
 		  continue;
@@ -871,7 +871,7 @@ prune_servers ()
 	  handle_end (old, 0);
 	  continue;
         }
-      else 
+      else
         min_time = min (min_time, MAX_SCHEDULER_PING - now + ( *it )->last_talk);
 #if DEBUG_SCHEDULER > 1
       if ((random() % 400) < 0)
@@ -956,10 +956,6 @@ empty_queue()
       if (cs)
         break;
 
-#if DEBUG_SCHEDULER > 0
-      trace() << "tried to pick a server for " << job->id;
-#endif
-
       /* Ignore the load on the submitter itself if no other host could
          be found.  We only obey to its max job number.  */
       cs = job->submitter;
@@ -968,29 +964,12 @@ empty_queue()
              /* This should be trivially true.  */
              && can_install (cs, job).size()))
         {
-#if DEBUG_SCHEDULER > 0
-          trace() << " and failed ";
-#endif
-
-#if DEBUG_SCHEDULER > 1
-          list<UnansweredList*>::iterator it;
-          for (it = toanswer.begin(); it != toanswer.end(); ++it)
-            trace() << (*it)->server->nodename << " ";
-#endif
-
-#if DEBUG_SCHEDULER > 0
-          trace() << endl;
-#endif
-
           job = delay_current_job();
           if ( job == first_job || !job ) // no job found in the whole toanswer list
             return false;
         }
       else
         {
-#if DEBUG_SCHEDULER > 0
-          trace () << " and had to use submitter\n";
-#endif
           break;
         }
     }
@@ -1007,7 +986,7 @@ empty_queue()
       gotit = false;
       host_platform = can_install (cs, job);
     }
-  
+
   UseCSMsg m2(host_platform, cs->name, cs->remote_port, job->id,
 	      gotit, job->local_client_id );
 
@@ -1020,10 +999,10 @@ empty_queue()
   else
     {
 #if DEBUG_SCHEDULER >= 0
-      trace() << "put " << job->id << " in joblist of " << cs->nodename;
       if (!gotit)
-	trace() << " (will install now)";
-      trace() << endl;
+	trace() << "put " << job->id << " in joblist of " << cs->nodename << " (will install now)" << endl;
+      else
+        trace() << "put " << job->id << " in joblist of " << cs->nodename << endl;
 #endif
       cs->joblist.push_back( job );
       if ( !gotit ) // if we made the environment transfer, don't rely on the list
@@ -1070,7 +1049,8 @@ handle_login (MsgChannel *c, Msg *_m)
   if (!allow_run_as_user && !m->chroot_possible)
     return false;
 
-  trace() << "login " << m->nodename << " protocol version: " << c->protocol;
+  std::ostream& dbg = trace();
+  dbg << "login " << m->nodename << " protocol version: " << c->protocol;
 
   CS *cs = static_cast<CS *>(c);
   cs->remote_port = m->port;
@@ -1087,11 +1067,11 @@ handle_login (MsgChannel *c, Msg *_m)
   css.push_back (cs);
 
 #if 1
-  trace() << " [";
+  dbg << " [";
   for (Environments::const_iterator it = m->envs.begin();
        it != m->envs.end(); ++it)
-    trace() << it->second << "(" << it->first << "), ";
-  trace() << "]\n";
+    dbg << it->second << "(" << it->first << "), ";
+  dbg << "]" << endl;
 #endif
 
   /* Configure the daemon */
@@ -1112,11 +1092,12 @@ handle_relogin (MsgChannel *c, Msg *_m)
   cs->compiler_versions = m->envs;
   cs->busy_installing = 0;
 
-  trace() << "RELOGIN " << cs->nodename << "(" << cs->host_platform << "): [";
+  std::ostream &dbg = trace();
+  dbg << "RELOGIN " << cs->nodename << "(" << cs->host_platform << "): [";
   for (Environments::const_iterator it = m->envs.begin();
        it != m->envs.end(); ++it)
-    trace() << it->second << "(" << it->first << "), ";
-  trace() << "]\n";
+    dbg << it->second << "(" << it->first << "), ";
+  dbg << "]" << endl;
 
   /* Configure the daemon */
   if (IS_PROTOCOL_24( c ))
@@ -1190,27 +1171,28 @@ handle_job_done (MsgChannel *c, Msg *_m)
 
   if ( m->exitcode == 0 )
     {
-      trace() << "END " << m->job_id
-              << " status=" << m->exitcode;
+      std::ostream &dbg = trace();
+      dbg << "END " << m->job_id
+          << " status=" << m->exitcode;
 
       if ( m->in_uncompressed )
-        trace() << " in=" << m->in_uncompressed
-                << "(" << int( m->in_compressed * 100 / m->in_uncompressed ) << "%)";
+        dbg << " in=" << m->in_uncompressed
+            << "(" << int( m->in_compressed * 100 / m->in_uncompressed ) << "%)";
       else
-        trace() << " in=0(0%)";
+        dbg << " in=0(0%)";
 
       if ( m->out_uncompressed )
-        trace() << " out=" << m->out_uncompressed
-                << "(" << int( m->out_compressed * 100 / m->out_uncompressed ) << "%)";
+        dbg << " out=" << m->out_uncompressed
+            << "(" << int( m->out_compressed * 100 / m->out_uncompressed ) << "%)";
       else
-        trace() << " out=0(0%)";
+        dbg << " out=0(0%)";
 
-      trace() << " real=" << m->real_msec
-              << " user=" << m->user_msec
-              << " sys=" << m->sys_msec
-              << " pfaults=" << m->pfaults
-              << " server=" << j->server->nodename
-              << endl;
+      dbg << " real=" << m->real_msec
+          << " user=" << m->user_msec
+          << " sys=" << m->sys_msec
+          << " pfaults=" << m->pfaults
+          << " server=" << j->server->nodename
+          << endl;
     }
   else
     trace() << "END " << m->job_id
@@ -1405,7 +1387,7 @@ handle_line (MsgChannel *c, Msg *_m)
         {
           Msg *msg = NULL;
 
-	  if (!l.empty()) 
+	  if (!l.empty())
 	    {
 	      list<string>::const_iterator si;
 	      for (si = l.begin(); si != l.end(); ++si) {
@@ -1503,7 +1485,7 @@ handle_end (MsgChannel *c, Msg *m)
   else if (toremove->type == CS::DAEMON)
     {
 #if DEBUG_SCHEDULER > 0
-      trace() << "remove daemon\n";
+      trace() << "remove daemon" << endl;
 #endif
 
       notify_monitors( MonStatsMsg( toremove->hostid, "State:Offline\n" ) );
