@@ -106,13 +106,11 @@ error_client( MsgChannel *client, string error )
         client->send_msg( StatusTextMsg( error ) );
 }
 
-int work_it( CompileJob &j,
-             unsigned int& in_compressed, unsigned int& in_uncompressed, MsgChannel* client,
-             string &str_out, string &str_err,
-             int &status, string &outfilename, unsigned long int mem_limit, int client_fd )
+int work_it( CompileJob &j, unsigned int job_stat[], MsgChannel* client,
+             CompileResultMsg& rmsg, string &outfilename, unsigned long int mem_limit, int client_fd )
 {
-    str_out.erase(str_out.begin(), str_out.end());
-    str_out.erase(str_out.begin(), str_out.end());
+    rmsg.out.erase(rmsg.out.begin(), rmsg.out.end());
+    rmsg.out.erase(rmsg.out.begin(), rmsg.out.end());
 
     std::list<string> list = j.remoteFlags();
     appendList( list, j.restFlags() );
@@ -257,20 +255,20 @@ int work_it( CompileJob &j,
         argv[i++] = strdup( buffer );
         // before you add new args, check above for argc
         argv[i] = 0;
-	if (i > argc)
-	    printf ("Ohh bummer.  You can't count.\n");
-#if 0
-        printf( "forking " );
-        for ( int index = 0; argv[index]; index++ )
-            printf( "%s ", argv[index] );
-        printf( "\n" );
-#endif
+        assert(i <= argc);
         close_debug();
         dup2 (sock_out[1], STDOUT_FILENO );
         close(sock_out[1]);
         dup2( sock_err[1], STDERR_FILENO );
         close(sock_err[1]);
 
+#ifdef ICECC_DEBUG
+        /* make sure we don't leak file descriptors */
+        for(int f = STDERR_FILENO+1; f < 4096; ++f) {
+           long flags;
+           assert((flags = fcntl(f, F_GETFD, 0)) < 0 || (flags & FD_CLOEXEC));
+        }
+#endif
         execv( argv[0], const_cast<char *const*>( argv ) ); // no return
         perror( "ICECC: execv" );
 
@@ -282,6 +280,9 @@ int work_it( CompileJob &j,
         close( sock_in[0] );
         close( sock_out[1] );
         close( sock_err[1] );
+
+        struct timeval starttv;
+        gettimeofday(&starttv, 0 );
 
         for (;;) {
             Msg* msg  = client->get_msg(60);
@@ -302,8 +303,8 @@ int work_it( CompileJob &j,
               }
 
             FileChunkMsg *fcmsg = static_cast<FileChunkMsg*>( msg );
-            in_uncompressed += fcmsg->len;
-            in_compressed += fcmsg->compressed;
+            job_stat[JobStatistics::in_uncompressed] += fcmsg->len;
+            job_stat[JobStatistics::in_compressed] += fcmsg->compressed;
 
             ssize_t len = fcmsg->len;
             off_t off = 0;
@@ -333,12 +334,12 @@ int work_it( CompileJob &j,
                                 bytes--;
                             buffer[bytes] = 0;
 
-                            str_err = buffer;
+                            rmsg.err = buffer;
                         }
                     }
 
-                    if ( str_err.size() )
-                        error_client( client, "compiler failed: " + str_err );
+                    if ( rmsg.err.size() )
+                        error_client( client, "compiler failed: " + rmsg.err );
                     else
                         error_client( client, "compiler failed." );
                     delete msg;
@@ -362,7 +363,7 @@ int work_it( CompileJob &j,
             ssize_t n = ::read(main_sock[0], &resultByte, 1);
             if (n == 1)
             {
-                status = resultByte;
+                rmsg.status = resultByte;
                 // exec() failed
                 close(main_sock[0]);
                 close( sock_err[0] );
@@ -421,6 +422,7 @@ int work_it( CompileJob &j,
                 // fall through; should happen if tvp->tv_sec < 0
             case 0:
                 struct rusage ru;
+                int status;
 
                 if (wait4(pid, &status, must_reap ? WUNTRACED : WNOHANG, &ru) != 0) // error finishes, too
                 {
@@ -429,14 +431,28 @@ int work_it( CompileJob &j,
 
                     if ( !WIFEXITED(status) || WEXITSTATUS(status) ) {
                         unsigned long int mem_used = ( ru.ru_minflt + ru.ru_majflt ) * getpagesize() / 1024;
-                        status = EXIT_OUT_OF_MEMORY;
+                        rmsg.status = EXIT_OUT_OF_MEMORY;
 
                         if ( mem_used * 100 > 85 * mem_limit * 1024 ||
-                             str_err.find( "memory exhausted" ) != string::npos )
+                             rmsg.err.find( "memory exhausted" ) != string::npos )
                         {
                             // the relation between ulimit and memory used is pretty thin ;(
                             return EXIT_OUT_OF_MEMORY;
                         }
+                    }
+
+                    if ( WIFEXITED(status) ) {
+                        struct timeval endtv;
+                        gettimeofday(&endtv, 0 );
+                        rmsg.status = WEXITSTATUS(status);
+                        job_stat[JobStatistics::exit_code] = WEXITSTATUS(status);
+                        job_stat[JobStatistics::real_msec] = (endtv.tv_sec - starttv.tv_sec) * 1000 +
+                            (long(endtv.tv_usec) - long(starttv.tv_usec)) / 1000;
+                        job_stat[JobStatistics::user_msec] = ru.ru_utime.tv_sec * 1000
+                            + ru.ru_utime.tv_usec / 1000;
+                        job_stat[JobStatistics::sys_msec] = ru.ru_stime.tv_sec * 1000
+                            + ru.ru_stime.tv_usec / 1000;
+                        job_stat[JobStatistics::sys_pfaults] = ru.ru_majflt + ru.ru_nswap + ru.ru_minflt;
                     }
 
                     return 0;
@@ -447,7 +463,7 @@ int work_it( CompileJob &j,
                     ssize_t bytes = read( sock_out[0], buffer, sizeof(buffer)-1 );
                     if ( bytes > 0 ) {
                         buffer[bytes] = 0;
-                        str_out.append( buffer );
+                        rmsg.out.append( buffer );
                     }
                     else if (bytes == 0) {
                         close(sock_out[0]);
@@ -458,7 +474,7 @@ int work_it( CompileJob &j,
                     ssize_t bytes = read( sock_err[0], buffer, sizeof(buffer)-1 );
                     if ( bytes > 0 ) {
                         buffer[bytes] = 0;
-                        str_err.append( buffer );
+                        rmsg.err.append( buffer );
                     }
                     else if (bytes == 0) {
                         close(sock_err[0]);
@@ -466,7 +482,7 @@ int work_it( CompileJob &j,
                     }
                 }
                 if ( FD_ISSET( client_fd, &rfds ) ) {
-                    str_err.append( "client cancelled\n" );
+                    rmsg.err.append( "client cancelled\n" );
                     close( client_fd );
                     kill( pid, SIGTERM );
                     return EXIT_CLIENT_KILLED;

@@ -38,6 +38,7 @@
 #  include <sys/signal.h>
 #endif /* HAVE_SYS_SIGNAL_H */
 #include <sys/param.h>
+#include <unistd.h>
 
 #include <job.h>
 #include <comm.h>
@@ -86,7 +87,8 @@ int handle_connection( const string &basedir, CompileJob *job,
         return -1;
 
     pid_t pid = fork();
-    if ( pid != 0) { // parent
+    assert(pid >= 0);
+    if ( pid > 0) { // parent
         close( socket[1] );
         out_fd = socket[0];
         fcntl(out_fd, F_SETFD, FD_CLOEXEC);
@@ -126,17 +128,17 @@ int handle_connection( const string &basedir, CompileJob *job,
                     _exit(145);
                 }
                 if ( chroot( dirname.c_str() ) < 0 ) {
-                    error_client( client, string( "chroot to " ) + dirname + "failed" );
+                    error_client( client, string( "chroot " ) + dirname + "failed" );
                     log_perror("chroot() failed" );
                     _exit(144);
                 }
                 if ( setgid( nobody_gid ) < 0 ) {
-                    error_client( client, "setgid failed" );
+                    error_client( client, string( "setgid failed" ));
                     log_perror("setgid() failed" );
                     _exit(143);
                 }
                 if ( setuid( nobody_uid ) < 0) {
-                    error_client( client, "setuid failed" );
+                    error_client( client, string( "setuid failed" ));
                     log_perror("setuid() failed" );
                     _exit(142);
                 }
@@ -166,16 +168,12 @@ int handle_connection( const string &basedir, CompileJob *job,
             assert(0);
 
         int ret;
-
-        unsigned int in_compressed = 0;
-        unsigned int in_uncompressed = 0;
-        struct timeval begintv;
-        gettimeofday( &begintv, 0 );
-
+        unsigned int job_stat[8];
         CompileResultMsg rmsg;
 
-        ret = work_it( *job, in_compressed, in_uncompressed, client,
-                       rmsg.out, rmsg.err, rmsg.status, obj_file, mem_limit, client->fd );
+        memset(job_stat, 0, sizeof(job_stat));
+
+        ret = work_it( *job, job_stat, client, rmsg, obj_file, mem_limit, client->fd );
 
         job_id = job->jobID();
         delete job;
@@ -194,6 +192,14 @@ int handle_connection( const string &basedir, CompileJob *job,
             throw myexception( EXIT_DISTCC_FAILED );
         }
 
+        struct stat st;
+        if (!stat(obj_file.c_str(), &st))
+            job_stat[JobStatistics::out_uncompressed] = st.st_size;
+
+        /* wake up parent and tell him that compile finished */
+        write( out_fd, job_stat, sizeof( job_stat ) );
+        close( out_fd );
+
         if ( rmsg.status == 0 ) {
             obj_fd = open( obj_file.c_str(), O_RDONLY|O_LARGEFILE );
             if ( obj_fd == -1 ) {
@@ -201,9 +207,6 @@ int handle_connection( const string &basedir, CompileJob *job,
                 error_client( client, "open of object file failed" );
                 throw myexception( EXIT_DISTCC_FAILED );
             }
-
-            unsigned int out_compressed = 0;
-            unsigned int out_uncompressed = 0;
 
             unsigned char buffer[100000];
             do {
@@ -216,23 +219,12 @@ int handle_connection( const string &basedir, CompileJob *job,
                 }
                 if ( !bytes )
                     break;
-                out_uncompressed += bytes;
                 FileChunkMsg fcmsg( buffer, bytes );
                 if ( !client->send_msg( fcmsg ) ) {
                     log_info() << "write of obj chunk failed " << bytes << endl;
                     throw myexception( EXIT_DISTCC_FAILED );
                 }
-                out_compressed += fcmsg.compressed;
             } while (1);
-
-            struct timeval endtv;
-            gettimeofday(&endtv, 0 );
-            unsigned int duration = ( endtv.tv_sec - begintv.tv_sec ) * 1000 + ( endtv.tv_usec - begintv.tv_usec ) / 1000;
-            write( out_fd, &in_compressed, sizeof( unsigned int ) );
-            write( out_fd, &in_uncompressed, sizeof( unsigned int ) );
-            write( out_fd, &out_compressed, sizeof( unsigned int ) );
-            write( out_fd, &out_uncompressed, sizeof( unsigned int ) );
-            write( out_fd, &duration, sizeof( unsigned int ) );
         }
 
         throw myexception( rmsg.status );
@@ -252,9 +244,6 @@ int handle_connection( const string &basedir, CompileJob *job,
 
         if ( !obj_file.empty() )
             unlink( obj_file.c_str() );
-
-        if ( out_fd > -1)
-            close( out_fd );
 
         _exit( e.exitcode() );
     }
