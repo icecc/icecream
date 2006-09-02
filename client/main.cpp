@@ -181,7 +181,7 @@ int main(int argc, char **argv)
             debug_level |= Info|Debug|Warning;
     }
 
-    setup_debug(debug_level);
+    setup_debug(debug_level, string(), "ICECC");
 
     string compiler_name = argv[0];
     dcc_client_catch_signals();
@@ -315,11 +315,11 @@ int main(int argc, char **argv)
                 local_daemon->send_msg (EndMsg());
         } catch ( int error ) {
             if (remote_daemon.size())
-                fprintf( stderr, "ICECC[%d]: got exception %d (remote: %s)\n",
-                         getpid(), error, remote_daemon.c_str());
+                log_error() << "got exception " << error
+                    << " (" << remote_daemon.c_str() << ") " << endl;
             else
-                fprintf( stderr, "ICECC[%d]: got exception %d (this should be an exception!)\n",
-                         getpid(), error);
+                log_error() << "got exception " << error << " (this should be an exception!)" <<
+                    endl;
 
             /* currently debugging a client ? throw an error then */
             if (debug_level != Error)

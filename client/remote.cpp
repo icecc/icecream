@@ -391,16 +391,16 @@ static int build_remote_int(CompileJob &job, UseCSMsg *usecs, const string &envi
 
     if ( output )
     {
-        fprintf( stdout, "%s", crmsg->out.c_str() );
+        write(STDOUT_FILENO, crmsg->out.c_str(), crmsg->out.size() );
 
         if(colorify_wanted())
             colorify_output(crmsg->err);
         else
-            fprintf( stderr, "%s", crmsg->err.c_str() );
+            write(STDERR_FILENO, crmsg->err.c_str(), crmsg->err.size() );
 
         if ( status && ( crmsg->err.length() || crmsg->out.length() ) )
         {
-            fprintf( stderr, "ICECC[%d]: Compiled on %s\n", getpid(), hostname.c_str() );
+            log_error() << "Compiled on " << hostname << endl;
         }
     }
     delete crmsg;
