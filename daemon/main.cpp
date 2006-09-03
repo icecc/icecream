@@ -52,6 +52,10 @@
 #  include <arpa/nameser.h>
 #endif
 
+#ifdef HAVE_SYS_VFS_H
+#include <sys/vfs.h>
+#endif
+
 #include <arpa/inet.h>
 
 #ifdef HAVE_RESOLV_H
@@ -542,6 +546,12 @@ bool Daemon::maybe_stats(bool force)
         if ( idle_average < 100 )
             msg.load = 1000;
 
+        struct statfs buf;
+	int ret = statfs(envbasedir.c_str(), &buf);
+	trace() << buf.f_bavail << " " << buf.f_bsize << endl;
+	if (!ret && buf.f_bavail * buf.f_bsize < 10 * 1024 * 1024)
+		msg.load = 1000;
+
         // Matz got in the urine that not all CPUs are always feed
         mem_limit = std::max( msg.freeMem / std::min( std::max( max_kids, 1U ), 4U ), 100U );
 
@@ -679,6 +689,8 @@ bool Daemon::handle_transfer_env( MsgChannel *c, Msg *msg )
 
         reannounce_environments(envbasedir, nodename); // do that before the file compiles
     }
+    // we do that here so we're not given out in case of full discs
+    maybe_stats(true);
     return true;
 }
 
