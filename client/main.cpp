@@ -315,10 +315,10 @@ int main(int argc, char **argv)
                 local_daemon->send_msg (EndMsg());
         } catch ( int error ) {
             if (remote_daemon.size())
-                log_info() << "got exception " << error
+                log_error() << "got exception " << error
                     << " (" << remote_daemon.c_str() << ") " << endl;
             else
-                log_info() << "got exception " << error << " (this should be an exception!)" <<
+                log_error() << "got exception " << error << " (this should be an exception!)" <<
                     endl;
 
             /* currently debugging a client ? throw an error then */
