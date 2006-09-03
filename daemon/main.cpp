@@ -1134,6 +1134,9 @@ int Daemon::answer_client_requests()
                     assert(client->status != Client::TOCOMPILE);
                     if (!handle_activity (c))
                         break;
+                    if (client->status == Client::TOCOMPILE ||
+                            client->status == Client::WAITFORCHILD)
+                        break;
                 }
             }
         } else {
@@ -1149,6 +1152,10 @@ int Daemon::answer_client_requests()
                         assert(client->status != Client::TOCOMPILE);
                         if (!handle_activity (c))
                             break;
+                    if (client->status == Client::TOCOMPILE ||
+                            client->status == Client::WAITFORCHILD)
+                        break;
+ 
                     }
                     max_fd--;
                 }
