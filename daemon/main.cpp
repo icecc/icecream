@@ -270,6 +270,10 @@ public:
     }
 };
 
+static void empty_func( int )
+{
+}
+
 static int set_new_pgrp(void)
 {
     /* If we're a session group leader, then we are not able to call
@@ -1027,6 +1031,11 @@ int Daemon::answer_client_requests()
 
 #endif
 
+    /* reap zombis */
+    int status;
+    while (waitpid(-1, &status, WNOHANG) < 0 && errno == EINTR)
+        ;
+
     handle_old_request();
 
     /* collect the stats after the children exited icecream_load */
@@ -1427,10 +1436,11 @@ int main( int argc, char ** argv )
         exit( EXIT_DISTCC_FAILED );
     }
 
-    if (signal(SIGCHLD, SIG_IGN) == SIG_ERR) {
-        log_warning() << "signal(SIGCHLD, ignore) failed: " << strerror(errno) << endl;
+    if (signal(SIGCHLD, empty_func) == SIG_ERR) {
+        log_warning() << "signal(SIGCHLD) failed: " << strerror(errno) << endl;
         exit( EXIT_DISTCC_FAILED );
     }
+
     /* This is called in the master daemon, whether that is detached or
      * not.  */
     dcc_master_pid = getpid();
