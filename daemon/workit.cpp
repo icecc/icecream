@@ -355,6 +355,9 @@ int work_it( CompileJob &j, unsigned int job_stat[], MsgChannel* client,
                         error_client( client, "compiler failed." );
                     delete msg;
                     msg = 0;
+                    kill( pid, SIGTERM ); // make sure it's dead
+                    while ( waitpid(pid, 0, 0) < 0 && errno == EINTR)
+                        ;
                     throw myexception (EXIT_COMPILER_CRASHED);
                     break;
                 }
@@ -441,12 +444,17 @@ int work_it( CompileJob &j, unsigned int job_stat[], MsgChannel* client,
                     rmsg.err.append( "client cancelled\n" );
                     close( client_fd );
                     kill( pid, SIGTERM );
+                    while ( waitpid(pid, 0, 0) < 0 && errno == EINTR)
+                        ;
                     return EXIT_CLIENT_KILLED;
                 }
                 // fall through
             case -1:
 		if ( ret < 0 && errno != EINTR ) { // this usually means the logic broke
                     error_client( client, string( "select returned " ) + strerror( errno ) );
+                    kill( pid, SIGTERM ); // make sure it's dead
+                    while ( waitpid(pid, 0, 0) < 0 && errno == EINTR)
+                        ;
                     return EXIT_DISTCC_FAILED;
                 }
                 // fall through; should happen if tvp->tv_sec < 0
