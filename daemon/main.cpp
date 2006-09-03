@@ -246,7 +246,7 @@ public:
 
     string dump_per_status() const {
         string s;
-        for(Client::Status i = Client::UNKNOWN; i <= Client::LASTSTATE; 
+        for(Client::Status i = Client::UNKNOWN; i <= Client::LASTSTATE;
                 i=Client::Status(int(i)+1))
             s += dump_status(i);
         return s;
@@ -510,9 +510,9 @@ bool Daemon::maybe_stats(bool force)
 
     /* the scheduler didn't ping us for a long time, assume dead connection and recover */
     if (now.tv_sec - last_scheduler >= max_scheduler_ping + 2 * min_scheduler_ping) {
-       log_error() << "scheduler timeout.. " << now.tv_sec - last_scheduler << " bigger than " << max_scheduler_ping + 2*min_scheduler_ping << " nuking" << endl;
-       force = true;
-       close_scheduler();
+        log_error() << "scheduler timeout.. " << now.tv_sec - last_scheduler << " bigger than " << max_scheduler_ping + 2*min_scheduler_ping << " nuking" << endl;
+        force = true;
+        close_scheduler();
     }
 
     if ( diff_sent >= min_scheduler_ping * 1000 || force ) {
@@ -612,8 +612,8 @@ int Daemon::scheduler_use_cs( UseCSMsg *msg )
     } else {
         c->usecsmsg = new UseCSMsg( msg->host_platform, msg->hostname, msg->port, msg->job_id, true, 1 );
         if (!c->channel->send_msg( *msg )) {
-          handle_end(c, 143);
-          return 0;
+            handle_end(c, 143);
+            return 0;
         }
         c->status = Client::WAITCOMPILE;
     }
@@ -655,10 +655,10 @@ bool Daemon::handle_transfer_env( MsgChannel *c, Msg *msg )
                     bool found = false;
                     for (Clients::const_iterator it2 = clients.begin(); it2 != clients.end(); ++it2)  {
                         if (it2->second->status == Client::WAITCOMPILE ||
-                                it2->second->status == Client::WAITFORCHILD) {
+                            it2->second->status == Client::WAITFORCHILD) {
 
-                            string envforjob = it2->second->job->targetPlatform() + "/" 
-                                + it2->second->job->environmentVersion();
+                            string envforjob = it2->second->job->targetPlatform() + "/"
+                                               + it2->second->job->environmentVersion();
                             if (envforjob == it->first)
                                 found = true;
                         }
@@ -703,8 +703,8 @@ bool Daemon::handle_get_native_env( MsgChannel *c )
     }
     UseNativeEnvMsg m( native_environment );
     if (!c->send_msg( m )) {
-      handle_end(client, 138);
-      return false;
+        handle_end(client, 138);
+        return false;
     }
     client->status = Client::GOTNATIVE;
     return true;
@@ -722,7 +722,7 @@ bool Daemon::handle_job_done( MsgChannel *c, JobDoneMsg *m )
 
     if(!m->is_from_server()
        && ( m->user_msec + m->sys_msec ) <= m->real_msec)
-     icecream_load += (m->user_msec + m->sys_msec) / num_cpus;
+        icecream_load += (m->user_msec + m->sys_msec) / num_cpus;
 
     assert(msg->job_id == cl->job_id);
     if(send_scheduler( *msg )) {
@@ -736,55 +736,55 @@ void Daemon::handle_old_request()
 {
     while ( current_kids + clients.active_processes < max_kids ) {
 
-    Client *client = clients.get_earliest_client(Client::LINKJOB);
+        Client *client = clients.get_earliest_client(Client::LINKJOB);
         if ( client ) {
-        trace() << "send JobLocalBeginMsg to client" << endl;
-        if (!client->channel->send_msg (JobLocalBeginMsg())) {
-	    log_warning() << "can't send start message to client" << endl;
-	    handle_end (client, 112);
-        } else {
-            client->status = Client::CLIENTWORK;
-            clients.active_processes++;
-            trace() << "pushed local job " << client->client_id << endl;
-            send_scheduler( JobLocalBeginMsg( client->client_id, client->outfile ) );
-	}
-            continue;
-    }
-
-    client = clients.get_earliest_client( Client::PENDING_USE_CS );
-        if ( client ) {
-        trace() << "pending " << client->dump() << endl;
-        if(client->channel->send_msg( *client->usecsmsg )) {
-            client->status = Client::CLIENTWORK;
-            /* we make sure we reserve a spot and the rest is done if the
-             * client contacts as back with a Compile request */
-            clients.active_processes++;
-        }
-        else 
-            handle_end(client, 129);
-
+            trace() << "send JobLocalBeginMsg to client" << endl;
+            if (!client->channel->send_msg (JobLocalBeginMsg())) {
+                log_warning() << "can't send start message to client" << endl;
+                handle_end (client, 112);
+            } else {
+                client->status = Client::CLIENTWORK;
+                clients.active_processes++;
+                trace() << "pushed local job " << client->client_id << endl;
+                send_scheduler( JobLocalBeginMsg( client->client_id, client->outfile ) );
+            }
             continue;
         }
 
-    client = clients.get_earliest_client( Client::TOCOMPILE );
+        client = clients.get_earliest_client( Client::PENDING_USE_CS );
         if ( client ) {
-    CompileJob *job = client->job;
-    assert( job );
-    int sock = -1;
-    pid_t pid = -1;
+            trace() << "pending " << client->dump() << endl;
+            if(client->channel->send_msg( *client->usecsmsg )) {
+                client->status = Client::CLIENTWORK;
+                /* we make sure we reserve a spot and the rest is done if the
+                 * client contacts as back with a Compile request */
+                clients.active_processes++;
+            }
+            else
+                handle_end(client, 129);
 
-    trace() << "requests--" << job->jobID() << endl;
+            continue;
+        }
 
-    string envforjob = job->targetPlatform() + "/" + job->environmentVersion();
-    envs_last_use[envforjob] = time( NULL );
-    pid = handle_connection( envbasedir, job, client->channel, sock, mem_limit, nobody_uid, nobody_gid );
-    trace() << "handle connection returned " << pid << endl;
+        client = clients.get_earliest_client( Client::TOCOMPILE );
+        if ( client ) {
+            CompileJob *job = client->job;
+            assert( job );
+            int sock = -1;
+            pid_t pid = -1;
+
+            trace() << "requests--" << job->jobID() << endl;
+
+            string envforjob = job->targetPlatform() + "/" + job->environmentVersion();
+            envs_last_use[envforjob] = time( NULL );
+            pid = handle_connection( envbasedir, job, client->channel, sock, mem_limit, nobody_uid, nobody_gid );
+            trace() << "handle connection returned " << pid << endl;
 
             if ( pid > 0) {
-        current_kids++;
-	client->status = Client::WAITFORCHILD;
-	client->pipe_to_child = sock;
-	client->child_pid = pid;
+                current_kids++;
+                client->status = Client::WAITFORCHILD;
+                client->pipe_to_child = sock;
+                client->child_pid = pid;
                 if ( !send_scheduler( JobBeginMsg( job->jobID() ) ) )
                     log_info() << "failed sending scheduler about " << job->jobID() << endl;
             }
@@ -798,41 +798,41 @@ void Daemon::handle_old_request()
 
 void Daemon::handle_compile_done (Client* client)
 {
-   assert(client->status == Client::WAITFORCHILD);
-   assert(client->child_pid > 0);
+    assert(client->status == Client::WAITFORCHILD);
+    assert(client->child_pid > 0);
 
-   JobDoneMsg *msg = new JobDoneMsg(client->job->jobID(), -1, JobDoneMsg::FROM_SERVER);
-   assert(msg);
-   current_kids--;
+    JobDoneMsg *msg = new JobDoneMsg(client->job->jobID(), -1, JobDoneMsg::FROM_SERVER);
+    assert(msg);
+    current_kids--;
 
-   unsigned int job_stat[8];
-   int end_status = 151;
+    unsigned int job_stat[8];
+    int end_status = 151;
 
-   if(read(client->pipe_to_child, job_stat, sizeof(job_stat)) == sizeof(job_stat)) {
-       msg->in_uncompressed = job_stat[JobStatistics::in_uncompressed];
-       msg->in_compressed = job_stat[JobStatistics::in_compressed];
-       msg->out_compressed = msg->out_uncompressed = job_stat[JobStatistics::out_uncompressed];
-       end_status = msg->exitcode = job_stat[JobStatistics::exit_code];
-       msg->real_msec = job_stat[JobStatistics::real_msec];
-       msg->user_msec = job_stat[JobStatistics::user_msec];
-       msg->sys_msec = job_stat[JobStatistics::sys_msec];
-       msg->pfaults = job_stat[JobStatistics::sys_pfaults];
+    if(read(client->pipe_to_child, job_stat, sizeof(job_stat)) == sizeof(job_stat)) {
+        msg->in_uncompressed = job_stat[JobStatistics::in_uncompressed];
+        msg->in_compressed = job_stat[JobStatistics::in_compressed];
+        msg->out_compressed = msg->out_uncompressed = job_stat[JobStatistics::out_uncompressed];
+        end_status = msg->exitcode = job_stat[JobStatistics::exit_code];
+        msg->real_msec = job_stat[JobStatistics::real_msec];
+        msg->user_msec = job_stat[JobStatistics::user_msec];
+        msg->sys_msec = job_stat[JobStatistics::sys_msec];
+        msg->pfaults = job_stat[JobStatistics::sys_pfaults];
 
-       if (msg->user_msec + msg->sys_msec <= msg->real_msec)
-           icecream_load += (msg->user_msec + msg->sys_msec) / num_cpus;
-       end_status = job_stat[JobStatistics::exit_code];
-   }
+        if (msg->user_msec + msg->sys_msec <= msg->real_msec)
+            icecream_load += (msg->user_msec + msg->sys_msec) / num_cpus;
+        end_status = job_stat[JobStatistics::exit_code];
+    }
 
-   if (!send_scheduler( *msg ))
-       log_info() << "failed to send scheduler a jobdone msg.." << endl;
+    if (!send_scheduler( *msg ))
+        log_info() << "failed to send scheduler a jobdone msg.." << endl;
 
-   delete msg;
-   close(client->pipe_to_child);
-   client->pipe_to_child = -1;
-   string envforjob = client->job->targetPlatform() + "/" + client->job->environmentVersion();
-   envs_last_use[envforjob] = time( NULL );
+    delete msg;
+    close(client->pipe_to_child);
+    client->pipe_to_child = -1;
+    string envforjob = client->job->targetPlatform() + "/" + client->job->environmentVersion();
+    envs_last_use[envforjob] = time( NULL );
 
-   handle_end(client, end_status);
+    handle_end(client, end_status);
 }
 
 bool Daemon::handle_compile_file( MsgChannel *c, Msg *msg )
@@ -847,7 +847,7 @@ bool Daemon::handle_compile_file( MsgChannel *c, Msg *msg )
         if ( scheduler && !send_scheduler( JobBeginMsg( job->jobID() ) ) )
         {
             trace() << "can't reach scheduler to tell him about compile file job "
-                          << job->jobID() << endl;
+                    << job->jobID() << endl;
         }
         // no scheduler is not an error case!
     } else
@@ -1010,7 +1010,7 @@ int Daemon::answer_client_requests()
 {
 #ifdef ICECC_DEBUG
     if ( clients.size() + current_kids )
-      log_info() << dump_internals() << endl; 
+        log_info() << dump_internals() << endl;
     log_info() << "clients " << clients.dump_per_status() << " " << current_kids << " (" << max_kids << ")" << endl;
 
 #endif
@@ -1153,8 +1153,9 @@ int Daemon::answer_client_requests()
                 }
                 if (client->status == Client::WAITFORCHILD
                     && client->pipe_to_child != -1
-                    && FD_ISSET(client->pipe_to_child, &listen_set)) {
-                        max_fd--;
+                    && FD_ISSET(client->pipe_to_child, &listen_set) )
+                {
+                    max_fd--;
                     handle_compile_done(client);
                 }
             }
@@ -1172,10 +1173,10 @@ bool Daemon::reconnect()
 
     if (!discover
 	|| discover->timed_out())
-      {
+    {
         delete discover;
 	discover = new DiscoverSched (netname, 3000, schedname);
-      }
+    }
 
     scheduler = discover->try_get_scheduler ();
     if ( !scheduler ) {
@@ -1252,103 +1253,103 @@ int main( int argc, char ** argv )
         if ( c == -1 ) break; // eoo
 
         switch ( c ) {
-           case 0:
-               {
-                   string optname = long_options[option_index].name;
-                   if ( optname == "nice" ) {
-                       if ( optarg && *optarg ) {
-                           errno = 0;
-                           int tnice = atoi( optarg );
-                           if ( !errno )
-                               nice_level = tnice;
-                       } else
-                           usage("Error: --nice requires argument");
-                   } else if ( optname == "name" ) {
-                       if ( optarg && *optarg )
-                           d.nodename = optarg;
-                       else
-                           usage("Error: --name requires argument");
-                   } else if ( optname == "cache-limit" ) {
-                       if ( optarg && *optarg ) {
-                           errno = 0;
-                           int mb = atoi( optarg );
-                           if ( !errno )
-                               cache_size_limit = mb * 1024 * 1024;
-                       }
-                       else
-                           usage("Error: --cache-limit requires argument");
-                   }
-
-               }
-               break;
-            case 'd':
-                detach = true;
-                break;
-	    case 'N':
-		if ( optarg && *optarg )
-		    d.nodename = optarg;
-		else
-                    usage("Error: -N requires argument");
-		break;
-            case 'l':
-                if ( optarg && *optarg )
-                    logfile = optarg;
-                else
-                    usage( "Error: -l requires argument" );
-                break;
-            case 'v':
-                if ( debug_level & Warning )
-                    if ( debug_level & Info ) // for second call
-                        debug_level |= Debug;
-                    else
-                        debug_level |= Info;
-                else
-                    debug_level |= Warning;
-                break;
-            case 'n':
-                if ( optarg && *optarg )
-                    d.netname = optarg;
-                else
-                    usage("Error: -n requires argument");
-                break;
-            case 'm':
-                if ( optarg && *optarg )
-                    max_processes = atoi(optarg);
-                else
-                    usage("Error: -m requires argument");
-                break;
-            case 's':
-                if ( optarg && *optarg )
-                    d.schedname = optarg;
-                else
-                    usage("Error: -s requires hostname argument");
-                break;
-            case 'b':
-                if ( optarg && *optarg )
-                    d.envbasedir = optarg;
-                break;
-            case 'r':
-                runasuser = true;
-                break;
-            case 'u':
-                if ( optarg && *optarg )
-                {
-                    struct passwd *pw = getpwnam( optarg );
-                    if ( !pw ) {
-                        usage( "Error: -u requires a valid username" );
-                    } else {
-                        d.nobody_uid = pw->pw_uid;
-                        d.nobody_gid = pw->pw_gid;
-                        if (!d.nobody_gid || !d.nobody_uid) {
-                          usage( "Error: -u <username> must not be root");
-                        }
-                    }
+        case 0:
+        {
+            string optname = long_options[option_index].name;
+            if ( optname == "nice" ) {
+                if ( optarg && *optarg ) {
+                    errno = 0;
+                    int tnice = atoi( optarg );
+                    if ( !errno )
+                        nice_level = tnice;
                 } else
-                    usage( "Error: -u requires a valid username" );
-                break;
+                    usage("Error: --nice requires argument");
+            } else if ( optname == "name" ) {
+                if ( optarg && *optarg )
+                    d.nodename = optarg;
+                else
+                    usage("Error: --name requires argument");
+            } else if ( optname == "cache-limit" ) {
+                if ( optarg && *optarg ) {
+                    errno = 0;
+                    int mb = atoi( optarg );
+                    if ( !errno )
+                        cache_size_limit = mb * 1024 * 1024;
+                }
+                else
+                    usage("Error: --cache-limit requires argument");
+            }
 
-            default:
-                usage();
+        }
+        break;
+        case 'd':
+            detach = true;
+            break;
+        case 'N':
+            if ( optarg && *optarg )
+                d.nodename = optarg;
+            else
+                usage("Error: -N requires argument");
+            break;
+        case 'l':
+            if ( optarg && *optarg )
+                logfile = optarg;
+            else
+                usage( "Error: -l requires argument" );
+            break;
+        case 'v':
+            if ( debug_level & Warning )
+                if ( debug_level & Info ) // for second call
+                    debug_level |= Debug;
+                else
+                    debug_level |= Info;
+            else
+                debug_level |= Warning;
+            break;
+        case 'n':
+            if ( optarg && *optarg )
+                d.netname = optarg;
+            else
+                usage("Error: -n requires argument");
+            break;
+        case 'm':
+            if ( optarg && *optarg )
+                max_processes = atoi(optarg);
+            else
+                usage("Error: -m requires argument");
+            break;
+        case 's':
+            if ( optarg && *optarg )
+                d.schedname = optarg;
+            else
+                usage("Error: -s requires hostname argument");
+            break;
+        case 'b':
+            if ( optarg && *optarg )
+                d.envbasedir = optarg;
+            break;
+        case 'r':
+            runasuser = true;
+            break;
+        case 'u':
+            if ( optarg && *optarg )
+            {
+                struct passwd *pw = getpwnam( optarg );
+                if ( !pw ) {
+                    usage( "Error: -u requires a valid username" );
+                } else {
+                    d.nobody_uid = pw->pw_uid;
+                    d.nobody_gid = pw->pw_gid;
+                    if (!d.nobody_gid || !d.nobody_uid) {
+                        usage( "Error: -u <username> must not be root");
+                    }
+                }
+            } else
+                usage( "Error: -u requires a valid username" );
+            break;
+
+        default:
+            usage();
         }
     }
 
@@ -1386,9 +1387,9 @@ int main( int argc, char ** argv )
         log_info() << d.num_cpus << " CPU(s) online on this server" << endl;
 
     if ( max_processes < 0 )
-      max_kids = d.num_cpus;
+        max_kids = d.num_cpus;
     else
-      max_kids = max_processes;
+        max_kids = max_processes;
 
     log_info() << "allowing up to " << max_kids << " active jobs\n";
 
@@ -1421,7 +1422,7 @@ int main( int argc, char ** argv )
     list<string> nl = get_netnames (200);
     trace() << "Netnames:" << endl;
     for (list<string>::const_iterator it = nl.begin(); it != nl.end(); ++it)
-      trace() << *it << endl;
+        trace() << *it << endl;
 
     d.listen_fd = setup_listen_fd();
     if ( d.listen_fd == -1 ) // error

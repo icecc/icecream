@@ -1,3 +1,14 @@
+0.7.9 (r580314):
+	- scheduler will ping the daemon periodically,
+	  daemon will disconnect if not pinged from time
+          to time (to avoid network drops being unnoticed)
+	- removed some debug output
+	- make logging more consistent
+	- increased internal protocol version (still compatible)
+	- try even harder to avoid races in daemon
+	- rework how clients are catched
+	- some random cleanup
+
 0.7.8 (r579795):
         - fd leak fix, which caused a deadlock under 
           certain conditions
