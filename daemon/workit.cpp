@@ -271,10 +271,12 @@ int work_it( CompileJob &j, unsigned int job_stat[], MsgChannel* client,
         dup2( sock_err[1], STDERR_FILENO );
         close(sock_err[1]);
 
+#ifdef ICECC_DEBUG
         for(int f = STDERR_FILENO+1; f < 4096; ++f) {
            long flags;
            assert((flags = fcntl(f, F_GETFD, 0)) < 0 || (flags & FD_CLOEXEC));
         }
+#endif
 
         execv( argv[0], const_cast<char *const*>( argv ) ); // no return
         perror( "ICECC: execv" );
