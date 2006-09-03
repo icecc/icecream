@@ -228,6 +228,7 @@ int work_it( CompileJob &j, unsigned int job_stat[], MsgChannel* client,
         argc++; // the program
         argc += 6; // -x c - -o file.o -fpreprocessed
         argc += 4; // gpc parameters
+        argc += 1; // -pipe
         char **argv = new char*[argc + 1];
 	int i = 0;
         if (j.language() == CompileJob::Lang_C)
@@ -237,13 +238,16 @@ int work_it( CompileJob &j, unsigned int job_stat[], MsgChannel* client,
         else
             assert(0);
 
-        //TODOlist.push_back( "-Busr/lib/gcc-lib/i586-suse-linux/3.3.1/" );
-
+        bool hasPipe = false;
         for ( std::list<string>::const_iterator it = list.begin();
               it != list.end(); ++it) {
+            if(*it == "-pipe")
+                hasPipe = true;
             argv[i++] = strdup( it->c_str() );
         }
         argv[i++] = strdup("-fpreprocessed");
+        if(!hasPipe)
+           argv[i++] = strdup("-pipe");
         argv[i++] = strdup("-x");
         argv[i++] = strdup((j.language() == CompileJob::Lang_CXX) ? "c++" : "c");
         argv[i++] = strdup( "-" );
@@ -257,14 +261,8 @@ int work_it( CompileJob &j, unsigned int job_stat[], MsgChannel* client,
         argv[i++] = strdup( buffer );
         // before you add new args, check above for argc
         argv[i] = 0;
-	if (i > argc)
-	    printf ("Ohh bummer.  You can't count.\n");
-#if 0
-        printf( "forking " );
-        for ( int index = 0; argv[index]; index++ )
-            printf( "%s ", argv[index] );
-        printf( "\n" );
-#endif
+        assert(i <= argc);
+
         close_debug();
         dup2 (sock_out[1], STDOUT_FILENO );
         close(sock_out[1]);
