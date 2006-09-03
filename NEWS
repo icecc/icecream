@@ -1,4 +1,4 @@
-0.7.9 (r580380):
+0.7.9 (r580498):
 	- scheduler will ping the daemon periodically,
 	  daemon will disconnect if not pinged from time
           to time (to avoid network drops being unnoticed)
