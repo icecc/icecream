@@ -357,25 +357,22 @@ size_t install_environment( const std::string &basename, const std::string &targ
         fclose( fpipe );
         close( fds[1] );
 
-        int status = 0;
+        int status = 1;
+        while ( waitpid( pid, &status, 0) < 0 && errno == EINTR)
+            ;
+ 
+        error |= WEXITSTATUS(status);
+
         if ( error ) {
             kill( pid, SIGTERM );
             char buffer[PATH_MAX];
             snprintf( buffer, PATH_MAX, "rm -rf '/%s'", dirname.c_str() );
             system( buffer );
+            return 0;
         } else {
             mkdir( ( dirname + "/tmp" ).c_str(), 01775 );
             chown( ( dirname + "/tmp" ).c_str(), 0, nobody_gid );
             chmod( ( dirname + "/tmp" ).c_str(), 01775 );
-        }
-
-        status = 1;
-        while ( waitpid( pid, &status, 0) < 0 && errno == EINTR) 
-            ;
-
-        if ( WEXITSTATUS(status) ) {
-            return 0;
-        } else {
             return sumup_dir( dirname );
         }
     }
@@ -406,7 +403,7 @@ size_t install_environment( const std::string &basename, const std::string &targ
         argv[3] = strdup( "-xf" );
     argv[4] = strdup( "-" );
     argv[5] = 0;
-    _exit(execv( argv[0], argv ));
+    _exit( execv( argv[0], argv ) );
 }
 
 size_t remove_environment( const string &basename, const string &env )
