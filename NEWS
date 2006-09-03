@@ -1,4 +1,4 @@
-0.7.9 (r580314):
+0.7.9 (r580324):
 	- scheduler will ping the daemon periodically,
 	  daemon will disconnect if not pinged from time
           to time (to avoid network drops being unnoticed)
@@ -8,6 +8,8 @@
 	- try even harder to avoid races in daemon
 	- rework how clients are catched
 	- some random cleanup
+	- remove the "this should be an exception" output to
+	  avoid failing configure checks for nothing
 
 0.7.8 (r579795):
         - fd leak fix, which caused a deadlock under 
