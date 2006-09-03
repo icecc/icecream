@@ -300,7 +300,6 @@ int work_it( CompileJob &j, unsigned int job_stat[], MsgChannel* client,
                 delete msg;
                 msg = 0;
                 close (sock_in[1]);
-                kill( pid, SIGTERM );
                 while ( waitpid(pid, 0, 0) < 0 && errno == EINTR)
                     ;
                 throw myexception (EXIT_IO_ERROR);
