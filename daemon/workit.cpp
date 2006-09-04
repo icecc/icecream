@@ -180,6 +180,7 @@ int work_it( CompileJob &j, unsigned int job_stat[], MsgChannel* client,
     sigprocmask( SIG_UNBLOCK, &act.sa_mask, 0 );
     char buffer[4096];
 
+    flush_debug();
     pid_t pid = fork();
     if ( pid == -1 ) {
         close( sock_err[0] );

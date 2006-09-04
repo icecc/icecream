@@ -638,6 +638,7 @@ int build_remote(CompileJob &job, MsgChannel *local_daemon, const Environments &
             remote_daemon = umsgs[i]->hostname;
             trace() << "got_server_for_job " << umsgs[i]->hostname << endl;
 
+	    flush_debug();
             pid_t pid = fork();
             if ( !pid ) {
                 int ret = 42;
