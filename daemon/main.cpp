@@ -553,7 +553,7 @@ bool Daemon::maybe_stats(bool force)
         struct statfs buf;
 	int ret = statfs(envbasedir.c_str(), &buf);
 	trace() << buf.f_bavail << " " << buf.f_bsize << endl;
-	if (!ret && buf.f_bavail * buf.f_bsize < 10 * 1024 * 1024)
+	if (!ret && buf.f_bavail < (max_kids + 1 - current_kids) * 4 * 1024 * 1024 / buf.f_bsize)
 		msg.load = 1000;
 
         // Matz got in the urine that not all CPUs are always feed
