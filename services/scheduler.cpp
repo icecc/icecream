@@ -1315,9 +1315,15 @@ handle_stats (MsgChannel * c, Msg * _m)
   if (!m)
     return false;
 
-  CS *cs = dynamic_cast<CS*>( c );
-  if ( cs && cs->max_jobs < 0 )
-    cs->max_jobs *= -1;
+  /* Before protocol 25, ping and stat handling was
+     clutched together.  */
+  if (!IS_PROTOCOL_25(c))
+    {
+      c->last_talk = time( 0 );
+      CS *cs = dynamic_cast<CS*>( c );
+      if ( cs && cs->max_jobs < 0 )
+        cs->max_jobs *= -1;
+    }
 
   for (list<CS*>::iterator it = css.begin(); it != css.end(); ++it)
     if ( *it == c )

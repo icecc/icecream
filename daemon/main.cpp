@@ -394,7 +394,6 @@ int setup_listen_fd()
 
 struct timeval last_stat;
 time_t last_scheduler_ping;
-struct timeval last_sent;
 int mem_limit = 100;
 unsigned int max_kids = 0;
 int current_kids = 0;
@@ -506,12 +505,10 @@ void Daemon::close_scheduler()
     clear_children();
 }
 
-bool Daemon::maybe_stats(bool force)
+bool Daemon::maybe_stats(bool send_ping)
 {
     struct timeval now;
     gettimeofday( &now, 0 );
-
-    time_t diff_sent = ( now.tv_sec - last_sent.tv_sec ) * 1000 + ( now.tv_usec - last_sent.tv_usec ) / 1000;
 
     /* the scheduler didn't ping us for a long time, assume dead connection and recover */
     if (now.tv_sec - last_scheduler_ping >= max_scheduler_ping + 2 * max_scheduler_pong) {
@@ -521,6 +518,10 @@ bool Daemon::maybe_stats(bool force)
         return false;
     }
 
+    if (now.tv_sec - last_scheduler_ping >= max_scheduler_ping)
+        send_ping = true;
+ 
+    time_t diff_sent = ( now.tv_sec - last_stat.tv_sec ) * 1000 + ( now.tv_usec - last_stat.tv_usec ) / 1000;
     if ( diff_sent >= max_scheduler_pong * 1000 ) {
         StatsMsg msg;
         unsigned int memory_fillgrade;
@@ -560,22 +561,20 @@ bool Daemon::maybe_stats(bool force)
         // Matz got in the urine that not all CPUs are always feed
         mem_limit = std::max( msg.freeMem / std::min( std::max( max_kids, 1U ), 4U ), 100U );
 
-        if ( abs(int(msg.load)-current_load) >= 100) {
+        if ( abs(int(msg.load)-current_load) >= 100 || send_ping ) {
+            log_info() << " sent status: " << msg.load << endl;
             if ( scheduler && !send_scheduler( msg ) )
                 return false;
-
-            last_sent = now;
         }
         icecream_load = 0;
         current_load = msg.load;
     }
 
-    if (now.tv_sec - last_scheduler_ping >= max_scheduler_ping || force) {
+    if ( send_ping ) {
         if (scheduler && !send_scheduler(PingMsg()))
             return false;
 
-        if (force)
-            last_scheduler_ping = now.tv_sec;
+        last_scheduler_ping = now.tv_sec;
     }
 
     return true;
@@ -1239,7 +1238,6 @@ bool Daemon::reconnect()
     log_info() << "Connected to scheduler (" << remote_name << ")\n";
     current_load = -1000;
     gettimeofday( &last_stat, 0 );
-    last_sent.tv_sec = last_stat.tv_sec - MAX_SCHEDULER_PING;
     last_scheduler_ping = last_stat.tv_sec;
     icecream_load = 0;
 
