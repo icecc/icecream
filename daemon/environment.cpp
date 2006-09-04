@@ -227,8 +227,10 @@ size_t setup_env_cache(const string &basedir, string &native_environment, uid_t 
                 status = 1;
         }
         trace() << "native_environment " << native_environment << endl;
-        if ( status )
+        if ( status ) {
+            rmdir( nativedir.c_str() );
             return 0;
+        }
         else {
             return sumup_dir( nativedir );
         }
@@ -245,20 +247,14 @@ size_t setup_env_cache(const string &basedir, string &native_environment, uid_t 
 
     if ( chdir( nativedir.c_str() ) ) {
          log_perror( "chdir" );
-         rmdir( nativedir.c_str() );
-         goto error;
+         _exit(1);
     }
 
     if ( system( BINDIR "/icecc --build-native" ) ) {
         log_error() << BINDIR "/icecc --build-native failed\n";
-        goto error;
-    } else {
-        _exit( 0 );
+        _exit(1);
     }
-
-error:
-    rmdir( nativedir.c_str() );
-    _exit( 1 );
+    _exit( 0 );
 }
 
 size_t install_environment( const std::string &basename, const std::string &target,
