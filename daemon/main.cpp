@@ -640,9 +640,13 @@ bool Daemon::handle_transfer_env( MsgChannel *c, Msg *msg )
     string target = emsg->target;
     if ( target.empty() )
         target =  machine_name;
-    size_t installed_size = install_environment( envbasedir, emsg->target,
-                                                 emsg->name, c, nobody_uid,
-                                                 nobody_gid );
+
+    size_t installed_size = 0;
+    /* HACKALERT: install_environment can block for a while, make sure
+       the scheduler doesn't kick us */
+    if ( maybe_stats(true) )
+        installed_size = install_environment( envbasedir, emsg->target,
+                emsg->name, c, nobody_uid, nobody_gid );
     if (!installed_size) {
         trace() << "install environment failed" << endl;
         c->send_msg(EndMsg()); // shut up, we had an error
