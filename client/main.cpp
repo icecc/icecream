@@ -250,21 +250,16 @@ int main(int argc, char **argv)
 
             // the timeout is high because it creates the native version
             Msg *umsg = local_daemon->get_msg(4 * 60);
-            trace() << "got " << (umsg ? ( char )umsg->type : '?') << endl;
-            if ( !umsg || umsg->type != M_NATIVE_ENV ) {
-		log_warning() << "daemon can't determine native environment. Set $ICECC_VERSION to an icecc environment.\n";
-		delete umsg;
-                goto do_local_error;
-            }
-            UseNativeEnvMsg *ucs = dynamic_cast<UseNativeEnvMsg*>( umsg );
+            string native;
+            if ( umsg && umsg->type == M_NATIVE_ENV )
+                native = dynamic_cast<UseNativeEnvMsg*>( umsg )->nativeVersion;
 
-            string native = ucs->nativeVersion;
             if ( native.empty() || ::access( native.c_str(), R_OK ) ) {
-                log_warning() << "$ICECC_VERSION has to point to an existing file to be installed - as the local daemon didn't know any we try local." << endl;
-            } else
+		log_warning() << "daemon can't determine native environment. Set $ICECC_VERSION to an icecc environment.\n";
+            } else {
                 envs.push_back(make_pair( job.targetPlatform(), native ) );
-
-            log_info() << "native " << native << endl;
+                log_info() << "native " << native << endl;
+            }
 
             delete umsg;
         }
@@ -272,6 +267,7 @@ int main(int argc, char **argv)
 	// we set it to local so we tell the local daemon about it - avoiding file locking
         if ( envs.size() == 0 )
 	    local = true;
+
         for ( Environments::const_iterator it = envs.begin(); it != envs.end(); ++it ) {
             trace() << "env: " << it->first << " '" << it->second << "'" << endl;
             if ( ::access( it->second.c_str(), R_OK ) ) {
