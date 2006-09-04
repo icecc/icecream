@@ -1315,7 +1315,6 @@ handle_stats (MsgChannel * c, Msg * _m)
   if (!m)
     return false;
 
-  c->last_talk = time( 0 );
   CS *cs = dynamic_cast<CS*>( c );
   if ( cs && cs->max_jobs < 0 )
     cs->max_jobs *= -1;
@@ -1332,9 +1331,8 @@ handle_stats (MsgChannel * c, Msg * _m)
 }
 
 static bool
-handle_timeout (MsgChannel * c, Msg * /*_m*/)
+handle_timeout (MsgChannel * /*c*/, Msg * /*_m*/)
 {
-  c->last_talk = time( 0 );
   return false;
 }
 
