@@ -518,8 +518,7 @@ bool Daemon::maybe_stats(bool send_ping)
         return false;
     }
 
-    if (now.tv_sec - last_scheduler_ping >= max_scheduler_ping)
-        send_ping = true;
+    bool maybe_send_ping = (now.tv_sec - last_scheduler_ping >= max_scheduler_ping);
  
     time_t diff_sent = ( now.tv_sec - last_stat.tv_sec ) * 1000 + ( now.tv_usec - last_stat.tv_usec ) / 1000;
     if ( diff_sent >= max_scheduler_pong * 1000 ) {
@@ -561,7 +560,7 @@ bool Daemon::maybe_stats(bool send_ping)
         // Matz got in the urine that not all CPUs are always feed
         mem_limit = std::max( msg.freeMem / std::min( std::max( max_kids, 1U ), 4U ), 100U );
 
-        if ( abs(int(msg.load)-current_load) >= 100 || send_ping ) {
+        if ( abs(int(msg.load)-current_load) >= 100 || send_ping || maybe_send_ping ) {
             log_info() << " sent status: " << msg.load << endl;
             if ( scheduler && !send_scheduler( msg ) )
                 return false;
@@ -570,11 +569,12 @@ bool Daemon::maybe_stats(bool send_ping)
         current_load = msg.load;
     }
 
-    if ( send_ping ) {
+    if ( maybe_send_ping || send_ping ) {
         if (scheduler && !send_scheduler(PingMsg()))
             return false;
 
-        last_scheduler_ping = now.tv_sec;
+        if ( send_ping )
+            last_scheduler_ping = now.tv_sec;
     }
 
     return true;
