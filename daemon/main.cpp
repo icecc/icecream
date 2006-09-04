@@ -550,11 +550,13 @@ bool Daemon::maybe_stats(bool force)
         if ( idle_average < 100 )
             msg.load = 1000;
 
+#ifdef HAVE_SYS_VFS_H
         struct statfs buf;
-	int ret = statfs(envbasedir.c_str(), &buf);
-	trace() << buf.f_bavail << " " << buf.f_bsize << endl;
-	if (!ret && buf.f_bavail < (max_kids + 1 - current_kids) * 4 * 1024 * 1024 / buf.f_bsize)
-		msg.load = 1000;
+        int ret = statfs(envbasedir.c_str(), &buf);
+        trace() << buf.f_bavail << " " << buf.f_bsize << endl;
+        if (!ret && buf.f_bavail < (max_kids + 1 - current_kids) * 4 * 1024 * 1024 / buf.f_bsize)
+            msg.load = 1000;
+#endif
 
         // Matz got in the urine that not all CPUs are always feed
         mem_limit = std::max( msg.freeMem / std::min( std::max( max_kids, 1U ), 4U ), 100U );
