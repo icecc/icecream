@@ -885,6 +885,7 @@ prune_servers ()
                   // give it MAX_SCHEDULER_PONG to answer a ping
                   ( *it )->last_talk = time( 0 ) - MAX_SCHEDULER_PING 
 		                       + 2 * MAX_SCHEDULER_PONG;
+                  min_time = min (min_time, (time_t) 2 * MAX_SCHEDULER_PONG);
 		  ++it;
 		  continue;
 		}

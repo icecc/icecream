@@ -38,7 +38,8 @@
 #define MIN_PROTOCOL_VERSION 21
 
 #define MAX_SCHEDULER_PONG 2
-#define MAX_SCHEDULER_PING 30
+// MAX_SCHEDULER_PING must be multiple of MAX_SCHEDULER_PONG
+#define MAX_SCHEDULER_PING 15 * MAX_SCHEDULER_PONG
 
 #define IS_PROTOCOL_22( c ) ( c->protocol >= 22 )
 #define IS_PROTOCOL_23( c ) ( c->protocol >= 23 )
