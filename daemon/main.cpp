@@ -744,11 +744,8 @@ bool Daemon::handle_job_done( MsgChannel *c, JobDoneMsg *m )
         icecream_load += (m->user_msec + m->sys_msec) / num_cpus;
 
     assert(msg->job_id == cl->job_id);
-    if(send_scheduler( *msg )) {
-        cl->job_id = 0; // the scheduler doesn't have it anymore
-        return true;
-    }
-    return false;
+    cl->job_id = 0; // the scheduler doesn't have it anymore
+    return send_scheduler( *msg );
 }
 
 void Daemon::handle_old_request()
