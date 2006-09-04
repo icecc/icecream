@@ -56,8 +56,7 @@ enum MsgType {
   /* Either the end of file chunks or connection (A<->A) */
   M_END,
 
-  // Fake message used in message reading loops (A<->A)
-  M_TIMEOUT,
+  M_TIMEOUT, // unused
 
   // C --> CS
   M_GET_NATIVE_ENV,
@@ -234,11 +233,6 @@ public:
 class EndMsg : public Msg {
 public:
   EndMsg () : Msg(M_END) {}
-};
-
-class TimeoutMsg : public Msg {
-public:
-  TimeoutMsg () : Msg(M_TIMEOUT) {}
 };
 
 class GetCSMsg : public Msg {

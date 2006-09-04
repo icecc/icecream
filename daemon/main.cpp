@@ -1126,7 +1126,6 @@ int Daemon::answer_client_requests()
                     log_error() << "unknown scheduler type " << ( char )msg->type << endl;
                 }
             }
-            last_scheduler = time(0);
             delete msg;
             return ret;
         }
