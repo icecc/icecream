@@ -345,6 +345,10 @@ public:
   virtual void send_to_channel (MsgChannel * c) const;
 };
 
+enum SpecialExits {
+  CLIENT_WAS_WAITING_FOR_CS = 200
+};
+
 class JobDoneMsg : public Msg {
 public:
   uint32_t real_msec;  /* real time it used */

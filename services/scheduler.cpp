@@ -1163,65 +1163,114 @@ handle_job_done (MsgChannel *c, Msg *_m)
   if ( !m )
     return false;
 
-  if (jobs.find(m->job_id) == jobs.end())
+  Job *j = 0;
+
+  if (m->exitcode == CLIENT_WAS_WAITING_FOR_CS)
+    {
+      // the daemon saw a cancel of what he believes is waiting in the scheduler
+      map<unsigned int, Job*>::iterator mit;
+      for (mit = jobs.begin(); mit != jobs.end(); mit++)
+        {
+          Job *job = mit->second;
+          trace() << "looking for waitcs " << job->server << " " << job->submitter  << " " << c << " " 
+		  << job->state << " " << job->local_client_id << " " << m->job_id << endl;
+          if (job->server == 0 && job->submitter == c && job->state == Job::PENDING
+              && job->local_client_id == m->job_id )
+            {
+              trace() << "STOP (WAITFORCS) FOR " << mit->first << endl;
+              j = job;
+              m->job_id = j->id; // that's faked
+
+	      /* Unfortunately the toanswer queues are also tagged based on the daemon,
+		 so we need to clean them up also.  */
+	      list<UnansweredList*>::iterator it;
+	      for (it = toanswer.begin(); it != toanswer.end(); ++it)
+		if ((*it)->server == c)
+		  {
+		    UnansweredList *l = *it;
+		    list<Job*>::iterator jit;
+		    for (jit = l->l.begin(); jit != l->l.end(); ++jit)
+		      {
+			if (*jit == j) 
+			  {
+			    l->l.erase(jit);
+			    break;
+			  }
+		      }
+		    if (l->l.empty())
+		      {
+			it = toanswer.erase (it);
+			break;
+		      }
+		  }
+	    }
+	}
+    }
+  else
+    if (jobs.find(m->job_id) != jobs.end())
+      j = jobs[m->job_id];
+
+  if (!j)
     {
       trace() << "job ID not present " << m->job_id << endl;
       return false;
     }
 
-  Job *j = jobs[m->job_id];
-
   if ( m->exitcode == 0 )
     {
       std::ostream &dbg = trace();
       dbg << "END " << m->job_id
-          << " status=" << m->exitcode;
+	  << " status=" << m->exitcode;
 
       if ( m->in_uncompressed )
-        dbg << " in=" << m->in_uncompressed
-            << "(" << int( m->in_compressed * 100 / m->in_uncompressed ) << "%)";
+	dbg << " in=" << m->in_uncompressed
+	    << "(" << int( m->in_compressed * 100 / m->in_uncompressed ) << "%)";
       else
-        dbg << " in=0(0%)";
+	dbg << " in=0(0%)";
 
       if ( m->out_uncompressed )
-        dbg << " out=" << m->out_uncompressed
-            << "(" << int( m->out_compressed * 100 / m->out_uncompressed ) << "%)";
+	dbg << " out=" << m->out_uncompressed
+	    << "(" << int( m->out_compressed * 100 / m->out_uncompressed ) << "%)";
       else
-        dbg << " out=0(0%)";
+	dbg << " out=0(0%)";
 
       dbg << " real=" << m->real_msec
-          << " user=" << m->user_msec
-          << " sys=" << m->sys_msec
-          << " pfaults=" << m->pfaults
-          << " server=" << j->server->nodename
-          << endl;
+	  << " user=" << m->user_msec
+	  << " sys=" << m->sys_msec
+	  << " pfaults=" << m->pfaults
+	  << " server=" << j->server->nodename
+	  << endl;
     }
   else
     trace() << "END " << m->job_id
-            << " status=" << m->exitcode << endl;
+	    << " status=" << m->exitcode << endl;
 
-  if (m->is_from_server() && jobs[m->job_id]->server != c)
+  if (m->is_from_server() && j->server != c)
     {
       log_info() << "the server isn't the same for job " << m->job_id << endl;
-      log_info() << "server: " << jobs[m->job_id]->server->nodename << endl;
+      log_info() << "server: " << j->server->nodename << endl;
       log_info() << "msg came from: " << ((CS*)c)->nodename << endl;
       // the daemon is not following matz's rules: kick him
       handle_end(c, 0);
       return false;
     }
-  if (!m->is_from_server() && jobs[m->job_id]->submitter != c)
+  if (!m->is_from_server() && j->submitter != c)
     {
       log_info() << "the submitter isn't the same for job " << m->job_id << endl;
-      log_info() << "submitter: " << jobs[m->job_id]->submitter->nodename << endl;
+      log_info() << "submitter: " << j->submitter->nodename << endl;
       log_info() << "msg came from: " << ((CS*)c)->nodename << endl;
       // the daemon is not following matz's rules: kick him
       handle_end(c, 0);
       return false;
     }
-  j->server->joblist.remove (j);
+
+  if (j->server) 
+    {
+      j->server->joblist.remove (j);
+      j->server->busy_installing = 0;
+    }
   add_job_stats (j, m);
   notify_monitors (MonJobDoneMsg (*m));
-  j->server->busy_installing = 0;
   jobs.erase (m->job_id);
   done_jobs.erase (m->job_id);
   delete j;

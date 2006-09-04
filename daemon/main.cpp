@@ -891,6 +891,10 @@ void Daemon::handle_end( Client *client, int exitcode )
         int job_id = client->job_id;
         if ( client->status == Client::TOCOMPILE )
             job_id = client->job->jobID();
+        if ( client->status == Client::WAITFORCS ) {
+	    job_id = client->client_id; // it's all we have
+	    exitcode = CLIENT_WAS_WAITING_FOR_CS; // this is the message
+        }
 
         if ( job_id > 0 ) {
             JobDoneMsg::from_type flag = JobDoneMsg::FROM_SUBMITTER;
@@ -901,7 +905,6 @@ void Daemon::handle_end( Client *client, int exitcode )
             case Client::UNKNOWN:
             case Client::GOTNATIVE:
             case Client::JOBDONE:
-            case Client::WAITFORCS:
             case Client::WAITFORCHILD:
             case Client::LINKJOB:
                 assert( false ); // should not have a job_id
@@ -909,6 +912,7 @@ void Daemon::handle_end( Client *client, int exitcode )
             case Client::WAITCOMPILE:
             case Client::PENDING_USE_CS:
             case Client::CLIENTWORK:
+            case Client::WAITFORCS:
                 flag = JobDoneMsg::FROM_SUBMITTER;
                 break;
             }
