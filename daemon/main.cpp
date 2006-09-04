@@ -393,7 +393,7 @@ int setup_listen_fd()
 
 
 struct timeval last_stat;
-time_t last_scheduler;
+time_t last_scheduler_ping;
 struct timeval last_sent;
 int mem_limit = 100;
 unsigned int max_kids = 0;
@@ -425,7 +425,7 @@ struct Daemon
     string netname;
     string schedname;
 
-    int min_scheduler_ping;
+    int max_scheduler_pong;
     int max_scheduler_ping;
     string bench_source;
 
@@ -442,7 +442,7 @@ struct Daemon
         num_cpus = 0;
         scheduler = 0;
         discover = 0;
-        min_scheduler_ping = MIN_SCHEDULER_PING;
+        max_scheduler_pong = MAX_SCHEDULER_PONG;
         max_scheduler_ping = MAX_SCHEDULER_PING;
         bench_source = "";
     }
@@ -513,18 +513,18 @@ bool Daemon::maybe_stats(bool force)
 
     time_t diff_sent = ( now.tv_sec - last_sent.tv_sec ) * 1000 + ( now.tv_usec - last_sent.tv_usec ) / 1000;
 
-    unsigned int memory_fillgrade;
-    unsigned long idleLoad = 0;
-
     /* the scheduler didn't ping us for a long time, assume dead connection and recover */
-    if (now.tv_sec - last_scheduler >= max_scheduler_ping + 2 * min_scheduler_ping) {
-        log_error() << "scheduler timeout.. " << now.tv_sec - last_scheduler << " bigger than " << max_scheduler_ping + 2*min_scheduler_ping << " nuking" << endl;
-        force = true;
+    if (now.tv_sec - last_scheduler_ping >= max_scheduler_ping + 2 * max_scheduler_pong) {
+        log_error() << "scheduler timeout.. " << now.tv_sec - last_scheduler_ping << " bigger than " <<
+            max_scheduler_ping + 2*max_scheduler_pong << " nuking" << endl;
         close_scheduler();
+        return false;
     }
 
-    if ( diff_sent >= min_scheduler_ping * 1000 || force ) {
+    if ( diff_sent >= max_scheduler_pong * 1000 ) {
         StatsMsg msg;
+        unsigned int memory_fillgrade;
+        unsigned long idleLoad = 0;
 
         if ( !fill_stats( idleLoad, memory_fillgrade, &msg ) )
             return false;
@@ -553,7 +553,6 @@ bool Daemon::maybe_stats(bool force)
 #ifdef HAVE_SYS_VFS_H
         struct statfs buf;
         int ret = statfs(envbasedir.c_str(), &buf);
-        trace() << buf.f_bavail << " " << buf.f_bsize << endl;
         if (!ret && buf.f_bavail < (max_kids + 1 - current_kids) * 4 * 1024 * 1024 / buf.f_bsize)
             msg.load = 1000;
 #endif
@@ -561,15 +560,22 @@ bool Daemon::maybe_stats(bool force)
         // Matz got in the urine that not all CPUs are always feed
         mem_limit = std::max( msg.freeMem / std::min( std::max( max_kids, 1U ), 4U ), 100U );
 
-        if ( abs(int(msg.load)-current_load) >= 100 || force ) {
+        if ( abs(int(msg.load)-current_load) >= 100) {
             if ( scheduler && !send_scheduler( msg ) )
                 return false;
 
             last_sent = now;
-            last_scheduler = now.tv_sec;
-            icecream_load = 0;
-            current_load = msg.load;
         }
+        icecream_load = 0;
+        current_load = msg.load;
+    }
+
+    if (now.tv_sec - last_scheduler_ping >= max_scheduler_ping || force) {
+        if (scheduler && !send_scheduler(PingMsg()))
+            return false;
+
+        if (force)
+            last_scheduler_ping = now.tv_sec;
     }
 
     return true;
@@ -643,9 +649,13 @@ bool Daemon::handle_transfer_env( MsgChannel *c, Msg *msg )
     string target = emsg->target;
     if ( target.empty() )
         target =  machine_name;
-    size_t installed_size = install_environment( envbasedir, emsg->target,
-                                                 emsg->name, c, nobody_uid,
-                                                 nobody_gid );
+
+    size_t installed_size = 0;
+    /* HACKALERT: install_environment can block for a while, make sure
+       the scheduler doesn't kick us */
+    if ( maybe_stats(true) )
+        installed_size = install_environment( envbasedir, emsg->target,
+                emsg->name, c, nobody_uid, nobody_gid );
     if (!installed_size) {
         trace() << "install environment failed" << endl;
         c->send_msg(EndMsg()); // shut up, we had an error
@@ -979,7 +989,7 @@ bool Daemon::handle_get_cs( MsgChannel *c, Msg *msg )
 
 int Daemon::handle_cs_conf(ConfCSMsg* msg)
 {
-    min_scheduler_ping = msg->min_scheduler_ping;
+    max_scheduler_pong = msg->max_scheduler_pong;
     max_scheduler_ping = msg->max_scheduler_ping;
     bench_source = msg->bench_source;
 
@@ -1093,7 +1103,7 @@ int Daemon::answer_client_requests()
 	    max_fd = discover->get_fd();
     }
 
-    tv.tv_sec = min_scheduler_ping;
+    tv.tv_sec = max_scheduler_pong;
     tv.tv_usec = 0;
 
     int ret = select (max_fd + 1, &listen_set, NULL, NULL, &tv);
@@ -1230,7 +1240,7 @@ bool Daemon::reconnect()
     current_load = -1000;
     gettimeofday( &last_stat, 0 );
     last_sent.tv_sec = last_stat.tv_sec - MAX_SCHEDULER_PING;
-    last_scheduler = last_stat.tv_sec;
+    last_scheduler_ping = last_stat.tv_sec;
     icecream_load = 0;
 
     trace() << "login as " << machine_name << endl;

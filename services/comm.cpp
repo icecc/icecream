@@ -817,7 +817,6 @@ MsgChannel::get_msg(int timeout)
     case M_UNKNOWN: return 0;
     case M_PING: m = new PingMsg; break;
     case M_END:  m = new EndMsg; break;
-    case M_TIMEOUT: m = new TimeoutMsg; break;
     case M_GET_CS: m = new GetCSMsg; break;
     case M_USE_CS: m = new UseCSMsg; break;
     case M_COMPILE_FILE: m = new CompileFileMsg (new CompileJob, true); break;
@@ -842,6 +841,7 @@ MsgChannel::get_msg(int timeout)
     case M_GET_INTERNALS: m = new GetInternalStatus; break;
     case M_STATUS_TEXT: m = new StatusTextMsg; break;
     case M_CS_CONF: m = new ConfCSMsg; break;
+    case M_TIMEOUT: break;
     }
   if (!m)
     return 0;
@@ -1371,7 +1371,7 @@ void
 ConfCSMsg::fill_from_channel (MsgChannel *c)
 {
   Msg::fill_from_channel (c);
-  c->readuint32 (min_scheduler_ping);
+  c->readuint32 (max_scheduler_pong);
   c->readuint32 (max_scheduler_ping);
   c->read_string (bench_source);
 }
@@ -1380,7 +1380,7 @@ void
 ConfCSMsg::send_to_channel (MsgChannel *c) const
 {
   Msg::send_to_channel (c);
-  c->writeuint32 (min_scheduler_ping);
+  c->writeuint32 (max_scheduler_pong);
   c->writeuint32 (max_scheduler_ping);
   c->write_string (bench_source);
 }

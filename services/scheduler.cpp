@@ -882,9 +882,9 @@ prune_servers ()
               ( *it )->max_jobs *= -1; // better not give it away
               if(( *it )->send_msg( PingMsg() )) 
 		{
-                  // give it a few seconds to answer a ping
+                  // give it MAX_SCHEDULER_PONG to answer a ping
                   ( *it )->last_talk = time( 0 ) - MAX_SCHEDULER_PING 
-		                       + MIN_SCHEDULER_PING;
+		                       + 2 * MAX_SCHEDULER_PONG;
 		  ++it;
 		  continue;
 		}
@@ -1330,12 +1330,6 @@ handle_stats (MsgChannel * c, Msg * _m)
   return false;
 }
 
-static bool
-handle_timeout (MsgChannel * /*c*/, Msg * /*_m*/)
-{
-  return false;
-}
-
 static string
 dump_job (Job *job)
 {
@@ -1650,7 +1644,6 @@ handle_activity (MsgChannel *c)
     case M_PING: ret = handle_ping (c, m); break;
     case M_STATS: ret = handle_stats (c, m); break;
     case M_END: handle_end (c, m); ret = false; break;
-    case M_TIMEOUT: ret = handle_timeout (c, m); break;
     case M_JOB_LOCAL_BEGIN: ret = handle_local_job (c, m); break;
     case M_JOB_LOCAL_DONE: ret = handle_local_job_done( c, m ); break;
     case M_LOGIN: ret = handle_relogin (c, m); break;

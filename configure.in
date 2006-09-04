@@ -33,7 +33,7 @@ AC_PROG_LIBTOOL
 
 # Some of these are needed by popt (or other libraries included in the future).
 
-AC_CHECK_HEADERS([unistd.h stdint.h sys/types.h sys/sendfile.h sys/signal.h ifaddrs.h])
+AC_CHECK_HEADERS([unistd.h stdint.h sys/types.h sys/signal.h ifaddrs.h])
 AC_CHECK_HEADERS([ctype.h sys/resource.h sys/socket.h sys/select.h sys/vfs.h])
 AC_CHECK_HEADERS([netinet/in.h], [], [],
 [#if HAVE_SYS_TYPES_H
@@ -120,7 +120,7 @@ fi
 AC_CHECK_LIB(resolv, hstrerror, , , [-lnsl -lsocket])
 AC_CHECK_LIB(resolv, inet_aton, , , [-lnsl -lsocket])
 
-AC_CHECK_FUNCS([sendfile setsid flock lockf hstrerror strerror setuid setreuid])
+AC_CHECK_FUNCS([setsid flock lockf hstrerror strerror setuid setreuid])
 AC_CHECK_FUNCS([getuid geteuid mcheck wait4 wait3 waitpid setgroups getcwd])
 AC_CHECK_FUNCS([snprintf vsnprintf vasprintf asprintf getcwd getwd])
 AC_CHECK_FUNCS([getrusage strsignal gettimeofday])

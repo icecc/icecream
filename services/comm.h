@@ -37,7 +37,7 @@
 // if you increase the MIN_PROTOCOL_VERSION, comment out macros below and clean up the code
 #define MIN_PROTOCOL_VERSION 21
 
-#define MIN_SCHEDULER_PING 2
+#define MAX_SCHEDULER_PONG 2
 #define MAX_SCHEDULER_PING 30
 
 #define IS_PROTOCOL_22( c ) ( c->protocol >= 22 )
@@ -56,8 +56,7 @@ enum MsgType {
   /* Either the end of file chunks or connection (A<->A) */
   M_END,
 
-  // Fake message used in message reading loops (A<->A)
-  M_TIMEOUT,
+  M_TIMEOUT, // unused
 
   // C --> CS
   M_GET_NATIVE_ENV,
@@ -236,11 +235,6 @@ public:
   EndMsg () : Msg(M_END) {}
 };
 
-class TimeoutMsg : public Msg {
-public:
-  TimeoutMsg () : Msg(M_TIMEOUT) {}
-};
-
 class GetCSMsg : public Msg {
 public:
   Environments versions;
@@ -416,14 +410,14 @@ public:
 
 class ConfCSMsg : public Msg {
 public:
-  uint32_t min_scheduler_ping;
+  uint32_t max_scheduler_pong;
   uint32_t max_scheduler_ping;
   std::string bench_source;
 
   ConfCSMsg (const char* bench) 
-    : Msg(M_CS_CONF), min_scheduler_ping(MIN_SCHEDULER_PING), max_scheduler_ping(MAX_SCHEDULER_PING), bench_source(bench) {}
+    : Msg(M_CS_CONF), max_scheduler_pong(MAX_SCHEDULER_PONG), max_scheduler_ping(MAX_SCHEDULER_PING), bench_source(bench) {}
   ConfCSMsg ()
-    : Msg(M_CS_CONF), min_scheduler_ping(MIN_SCHEDULER_PING), max_scheduler_ping(MAX_SCHEDULER_PING) {}
+    : Msg(M_CS_CONF), max_scheduler_pong(MAX_SCHEDULER_PONG), max_scheduler_ping(MAX_SCHEDULER_PING) {}
 
 
   virtual void fill_from_channel (MsgChannel * c);
