@@ -1,3 +1,18 @@
+0.7.10 (r580794):
+	- handle errors in installing environments correctly
+        - block daemons that have full discs
+        - add -pipe to the command line to reduce disk usage
+        - fix cancelling of jobs awaiting a remote job (were hanging
+          in scheduler forever)
+        - if ICECC=no is set, don't try to be clever
+        - adding two more flags for local compilation (profile
+          feedback related)
+        - flush debug files before every fork to avoid dups in
+          log output
+        - be stricter in what messages are required to keep the
+          daemon<->scheduler communication intact (network drops
+          again)
+
 0.7.9 (r580498):
 	- scheduler will ping the daemon periodically,
 	  daemon will disconnect if not pinged from time
