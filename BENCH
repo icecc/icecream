@@ -97,3 +97,64 @@ make -j10:       538s
 make -j10/sched: 389s
 
 As we can see, the scheduler improves performance by 38%.
+
+
+======================================================================
+
+New performance experiments. 
+
+New baseline:
+
+make-it-cool, both with -m 1, make -j5
+
+make -j5  :    382s
+make -j5  :    354s
+make -j5  :    336s
+make -j5  :    355s
+
+remote with -m 2
+
+make -j5  :    333s
+make -j5  :    299s
+make -j5  :    307s
+
+remote with -m 2, preload scheduler:
+
+make -j5  :    303s
+make -j5  :    287s
+make -j5  :    291s
+
+remote with -m 1, preload scheduler:
+
+make -j5  :    287s
+make -j5  :    288s
+make -j5  :    289s
+
+remote with -m 1, preload scheduler, optimized return:
+make -j5  :    288s
+make -j5  :    289s
+make -j5  :    288s
+
+remote with -m 2, preload scheduler, optimized return:
+make -j5  :    279s
+make -j5  :    281s
+make -j5  :    278s
+
+As we can see, over-booking the remote slave improves performance by 13%.
+As the CPU hardly gets faster, it means that we're reducing idle wait time
+this way. 
+
+One experiment was to pre-load jobs on the remote slave. This means even 
+though all compile slots are filled, it gets one (exactly one) job assigned.
+The daemon itself will start compilation as soon as it gets a free slot,
+reducing both client<->CS and CS<->scheduler roundtrip. Overall, it gave an
+impressive 4% speedup.
+
+A lot of time is however spent on writing back the compiled object file
+to the client, and this is dominated by network saturation and latency
+and not by CPU usage. The obvious solution is to notify the scheduler
+about a free slot as soon as compilation (but not write-back) has
+finished. With remote over-booking this resulted in another 3% speedup,
+while no improvments could be measured in the -m 1 case. Given that
+it significantly reduced code complexity in the daemon, it should still be
+an improvement (reduced code size by almost 8%!).

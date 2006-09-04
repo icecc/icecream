@@ -290,11 +290,11 @@ int work_it( CompileJob &j, unsigned int job_stat[], MsgChannel* client,
 
         struct timeval starttv;
         gettimeofday(&starttv, 0 );
-
+ 
         for (;;) {
             Msg* msg  = client->get_msg(60);
 
-            if ( !msg || (msg->type != M_FILE_CHUNK && msg->type != M_END) )
+            if ( !msg || (msg->type != M_FILE_CHUNK && msg->type != M_END) ) 
               {
                 log_error() << "protocol error while reading preprocessed file\n";
                 delete msg;
@@ -354,7 +354,6 @@ int work_it( CompileJob &j, unsigned int job_stat[], MsgChannel* client,
                         error_client( client, "compiler failed." );
                     delete msg;
                     msg = 0;
-                    kill( pid, SIGTERM ); // make sure it's dead
                     while ( waitpid(pid, 0, 0) < 0 && errno == EINTR)
                         ;
                     throw myexception (EXIT_COMPILER_CRASHED);
@@ -442,7 +441,6 @@ int work_it( CompileJob &j, unsigned int job_stat[], MsgChannel* client,
                 if ( FD_ISSET( client_fd, &rfds ) ) {
                     rmsg.err.append( "client cancelled\n" );
                     close( client_fd );
-                    kill( pid, SIGTERM );
                     while ( waitpid(pid, 0, 0) < 0 && errno == EINTR)
                         ;
                     return EXIT_CLIENT_KILLED;
@@ -451,12 +449,11 @@ int work_it( CompileJob &j, unsigned int job_stat[], MsgChannel* client,
             case -1:
 		if ( ret < 0 && errno != EINTR ) { // this usually means the logic broke
                     error_client( client, string( "select returned " ) + strerror( errno ) );
-                    kill( pid, SIGTERM ); // make sure it's dead
                     while ( waitpid(pid, 0, 0) < 0 && errno == EINTR)
                         ;
                     return EXIT_DISTCC_FAILED;
                 }
-                // fall through; should happen if tvp->tv_sec < 0
+                // fall through
             case 0:
                 struct rusage ru;
                 int status;
