@@ -215,16 +215,17 @@ int main(int argc, char **argv)
 
     CompileJob job;
 
+    local |= analyse_argv( argv, job );
+
     /* if ICECC is set to no, then run job locally */
     if ( getenv( "ICECC" ) ) {
 	string icecc;
 	icecc = getenv( "ICECC" );
-        if ( icecc == "no" ) {
-	    local = true;
-        }
+        /* if the environment variable is set, the user wants to debug if a compile
+           failure is to blame to icecream, so make sure we do the least we can. */
+        if ( icecc == "no" )
+            return build_local( job, 0 );
     }
-
-    local |= analyse_argv( argv, job );
 
     MsgChannel *local_daemon = Service::createChannel( "127.0.0.1", 10245, 0/*timeout*/);
     if ( ! local_daemon ) {
