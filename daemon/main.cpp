@@ -92,6 +92,10 @@
 
 const int PORT = 10245;
 
+#ifndef __attribute_warn_unused_result__
+#define __attribute_warn_unused_result__
+#endif
+
 using namespace std;
 using namespace __gnu_cxx; // for the extensions we like, e.g. hash_set
 
@@ -444,25 +448,25 @@ struct Daemon
         bench_source = "";
     }
 
-    bool reannounce_environments(const string &envbasedir, const string &nodename) __wur;
+    bool reannounce_environments(const string &envbasedir, const string &nodename) __attribute_warn_unused_result__;
     int answer_client_requests();
-    bool handle_transfer_env( MsgChannel *c, Msg *msg ) __wur;
-    bool handle_get_native_env( MsgChannel *c ) __wur;
+    bool handle_transfer_env( MsgChannel *c, Msg *msg ) __attribute_warn_unused_result__;
+    bool handle_get_native_env( MsgChannel *c ) __attribute_warn_unused_result__;
     void handle_old_request();
-    bool handle_compile_file( MsgChannel *c, Msg *msg ) __wur;
-    bool handle_activity( MsgChannel *c ) __wur;
+    bool handle_compile_file( MsgChannel *c, Msg *msg ) __attribute_warn_unused_result__;
+    bool handle_activity( MsgChannel *c ) __attribute_warn_unused_result__;
     void handle_end( Client *client, int exitcode );
-    int scheduler_get_internals( ) __wur;
+    int scheduler_get_internals( ) __attribute_warn_unused_result__;
     void clear_children();
-    int scheduler_use_cs( UseCSMsg *msg ) __wur;
-    bool handle_get_cs( MsgChannel *c, Msg *msg ) __wur;
-    bool handle_local_job( MsgChannel *c, Msg *msg ) __wur;
-    bool handle_job_done( MsgChannel *c, JobDoneMsg *m ) __wur;
-    bool handle_compile_done (Client* client) __wur;
+    int scheduler_use_cs( UseCSMsg *msg ) __attribute_warn_unused_result__;
+    bool handle_get_cs( MsgChannel *c, Msg *msg ) __attribute_warn_unused_result__;
+    bool handle_local_job( MsgChannel *c, Msg *msg ) __attribute_warn_unused_result__;
+    bool handle_job_done( MsgChannel *c, JobDoneMsg *m ) __attribute_warn_unused_result__;
+    bool handle_compile_done (Client* client) __attribute_warn_unused_result__;
     int handle_cs_conf( ConfCSMsg *msg);
     string dump_internals() const;
     bool maybe_stats(bool force = false);
-    bool send_scheduler(const Msg& msg) __wur;
+    bool send_scheduler(const Msg& msg) __attribute_warn_unused_result__;
     void close_scheduler();
     bool reconnect();
     int working_loop();
@@ -625,8 +629,7 @@ string Daemon::dump_internals() const
 int Daemon::scheduler_get_internals( )
 {
     trace() << "handle_get_internals " << dump_internals() << endl;
-    send_scheduler( StatusTextMsg( dump_internals() ) );
-    return 0;
+    return send_scheduler( StatusTextMsg( dump_internals() ) ) ? 0 : 1;
 }
 
 int Daemon::scheduler_use_cs( UseCSMsg *msg )
@@ -1212,7 +1215,8 @@ int Daemon::answer_client_requests()
                     && FD_ISSET(client->pipe_to_child, &listen_set) )
                 {
                     max_fd--;
-                    handle_compile_done(client);
+                    if (!handle_compile_done(client))
+                        return 1;
                 }
             }
         }
