@@ -86,6 +86,7 @@ int handle_connection( const string &basedir, CompileJob *job,
     if ( pipe( socket ) == -1)
         return -1;
 
+    flush_debug();
     pid_t pid = fork();
     assert(pid >= 0);
     if ( pid > 0) { // parent

@@ -143,6 +143,7 @@ static void list_target_dirs( const string &current_target, const string &target
 
 bool cleanup_cache( const string &basedir )
 {
+    flush_debug();
     pid_t pid = fork();
     if ( pid )
     {
@@ -214,6 +215,7 @@ size_t setup_env_cache(const string &basedir, string &native_environment, uid_t 
 	return 0;
     }
 
+    flush_debug();
     pid_t pid = fork();
     if ( pid ) {
         int status = 1;
@@ -313,6 +315,7 @@ size_t install_environment( const std::string &basename, const std::string &targ
     if ( pipe( fds ) )
         return 0;
 
+    flush_debug();
     pid_t pid = fork();
     if ( pid )
     {
@@ -414,6 +417,7 @@ size_t remove_environment( const string &basename, const string &env )
 
     size_t res = sumup_dir( dirname );
 
+    flush_debug();
     pid_t pid = fork();
     if ( pid )
     {

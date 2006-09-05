@@ -270,10 +270,6 @@ public:
     }
 };
 
-static void empty_func( int )
-{
-}
-
 static int set_new_pgrp(void)
 {
     /* If we're a session group leader, then we are not able to call
@@ -417,6 +413,7 @@ struct Daemon
     string remote_name;
     time_t next_check;
     unsigned long icecream_load;
+    struct timeval icecream_usage;
     int current_load;
     int num_cpus;
     MsgChannel *scheduler;
@@ -437,6 +434,7 @@ struct Daemon
         next_check = 0;
         cache_size = 0;
         icecream_load = 0;
+        icecream_usage.tv_sec = icecream_usage.tv_usec = 0;
         current_load = - 1000;
         num_cpus = 0;
         scheduler = 0;
@@ -518,15 +516,14 @@ bool Daemon::maybe_stats(bool send_ping)
         return false;
     }
 
-    bool maybe_send_ping = (now.tv_sec - last_scheduler_ping >= max_scheduler_ping);
- 
     time_t diff_sent = ( now.tv_sec - last_stat.tv_sec ) * 1000 + ( now.tv_usec - last_stat.tv_usec ) / 1000;
     if ( diff_sent >= max_scheduler_pong * 1000 ) {
         StatsMsg msg;
         unsigned int memory_fillgrade;
         unsigned long idleLoad = 0;
+        unsigned long niceLoad = 0;
 
-        if ( !fill_stats( idleLoad, memory_fillgrade, &msg ) )
+        if ( !fill_stats( idleLoad, niceLoad, memory_fillgrade, &msg ) )
             return false;
 
         time_t diff_stat = ( now.tv_sec - last_stat.tv_sec ) * 1000 + ( now.tv_usec - last_stat.tv_usec ) / 1000;
@@ -535,6 +532,22 @@ bool Daemon::maybe_stats(bool send_ping)
         /* icecream_load contains time in milliseconds we have used for icecream */
         /* idle time could have been used for icecream, so claim it */
         icecream_load += idleLoad * diff_stat / 1000;
+
+        /* add the time of our childrens, but only the time since the last run */
+        struct rusage ru;
+        if (!getrusage(RUSAGE_CHILDREN, &ru)) {
+            uint32_t ice_msec = ( ( ru.ru_utime.tv_sec - icecream_usage.tv_sec ) * 1000 +
+                ( ru.ru_utime.tv_usec - icecream_usage.tv_usec ) / 1000) / num_cpus;
+
+            /* heuristics when no child terminated yet: account 25% of total nice as our clients */
+            if ( !ice_msec && current_kids )
+                ice_msec = (niceLoad * diff_stat) / (4 * 1000);
+
+            icecream_load += ice_msec * diff_stat / 1000;
+
+            icecream_usage.tv_sec = ru.ru_utime.tv_sec;
+            icecream_usage.tv_usec = ru.ru_utime.tv_usec;
+        }
 
         int idle_average = icecream_load;
 
@@ -560,8 +573,7 @@ bool Daemon::maybe_stats(bool send_ping)
         // Matz got in the urine that not all CPUs are always feed
         mem_limit = std::max( msg.freeMem / std::min( std::max( max_kids, 1U ), 4U ), 100U );
 
-        if ( abs(int(msg.load)-current_load) >= 100 || send_ping || maybe_send_ping ) {
-            log_info() << " sent status: " << msg.load << endl;
+        if ( abs(int(msg.load)-current_load) >= 100 || send_ping ) {
             if ( scheduler && !send_scheduler( msg ) )
                 return false;
         }
@@ -569,12 +581,11 @@ bool Daemon::maybe_stats(bool send_ping)
         current_load = msg.load;
     }
 
-    if ( maybe_send_ping || send_ping ) {
+    if ( send_ping ) {
         if (scheduler && !send_scheduler(PingMsg()))
             return false;
 
-        if ( send_ping )
-            last_scheduler_ping = now.tv_sec;
+        last_scheduler_ping = now.tv_sec;
     }
 
     return true;
@@ -758,8 +769,7 @@ bool Daemon::handle_job_done( MsgChannel *c, JobDoneMsg *m )
 
 void Daemon::handle_old_request()
 {
-    while ( current_load < 1000
-            && current_kids + clients.active_processes < max_kids ) {
+    while ( current_kids + clients.active_processes < max_kids ) {
 
         Client *client = clients.get_earliest_client(Client::LINKJOB);
         if ( client ) {
@@ -790,6 +800,11 @@ void Daemon::handle_old_request()
 
             continue;
         }
+
+        /* we don't want to handle TOCOMPILE jobs as long as our load
+           is too high */
+        if ( current_load >= 1000)
+            break;
 
         client = clients.get_earliest_client( Client::TOCOMPILE );
         if ( client ) {
@@ -842,9 +857,6 @@ void Daemon::handle_compile_done (Client* client)
         msg->user_msec = job_stat[JobStatistics::user_msec];
         msg->sys_msec = job_stat[JobStatistics::sys_msec];
         msg->pfaults = job_stat[JobStatistics::sys_pfaults];
-
-        if (msg->user_msec + msg->sys_msec <= msg->real_msec)
-            icecream_load += (msg->user_msec + msg->sys_msec) / num_cpus;
         end_status = job_stat[JobStatistics::exit_code];
     }
 
@@ -1447,7 +1459,7 @@ int main( int argc, char ** argv )
         exit( EXIT_DISTCC_FAILED );
     }
 
-    if (signal(SIGCHLD, empty_func) == SIG_ERR) {
+    if (signal(SIGCHLD, SIG_DFL) == SIG_ERR) {
         log_warning() << "signal(SIGCHLD) failed: " << strerror(errno) << endl;
         exit( EXIT_DISTCC_FAILED );
     }

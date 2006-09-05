@@ -193,8 +193,10 @@ int build_local(CompileJob &job, MsgChannel *local_daemon, struct rusage *used)
     if (color_output && pipe(pf))
         color_output = false;
 
-    if ( used || color_output )
+    if ( used || color_output ) {
+        flush_debug();
         child_pid = fork();
+    }
 
     if ( child_pid ) {
         if (color_output)

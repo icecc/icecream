@@ -38,6 +38,7 @@ extern std::string logfile_prefix;
 void setup_debug(int level, const std::string &logfile = "", const std::string& prefix="");
 void reset_debug(int);
 void close_debug();
+void flush_debug();
 
 static inline std::ostream & output_date( std::ostream &os )
 {

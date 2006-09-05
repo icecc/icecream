@@ -63,6 +63,7 @@ bool dcc_is_preprocessed(const string& sfile)
  **/
 pid_t call_cpp(CompileJob &job, int fdwrite, int fdread)
 {
+    flush_debug();
     pid_t pid = fork();
     if (pid == -1) {
         log_perror("failed to fork:");

@@ -49,7 +49,7 @@
 #include "config.h"
 #include "bench.h"
 
-#define DEBUG_SCHEDULER 2
+#define DEBUG_SCHEDULER 0
 
 /* TODO:
    * leak check

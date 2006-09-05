@@ -158,3 +158,42 @@ finished. With remote over-booking this resulted in another 3% speedup,
 while no improvments could be measured in the -m 1 case. Given that
 it significantly reduced code complexity in the daemon, it should still be
 an improvement (reduced code size by almost 8%!).
+
+======================================================================
+
+Load detection tunings.
+
+The biggest problem with accurate load detection is that it is impossible
+to find out how much cpu time a iceccd child is currently using. All you
+can get is how much time it used overall, but only when it exited. 
+Which gives you a lot of cpu-usage peaks sprinkled over time, and you have
+to somehow average that out in a meaningful way. 
+
+Actually, the Linux kernel tracks cpu time, and you can read it in
+/proc/<pid>/stat for any child. unfortunately it is converted to seconds
+in there, so resolution isn't much more accurate. 
+
+Watching the old load detector, it became obvious that it once in a 
+while jumps to 1000 because of own jobs eating 100% cpu, but not finishing
+within the measure timeframe, which causes the host to be blacklisted
+by the scheduler, even though nothing is wrong with it. 
+
+There are two solutions: 
+
+- trying to get a more accurate usage over time
+
+- only track usage whenever it is accurate, e.g. a child exited. 
+
+As the second possibility has problems with multi-cpu environments (you'd
+have to wait for all jobs to finish before doing another idleness sample,
+which probably reduces throughput considerably), first one was chosen. 
+
+Simplest idea: assume that overall system nice load is at least partially
+caused by our own childs. 
+
+remote with -m 2:
+make -j5  :    272s
+make -j5  :    274s
+make -j5  :    271s
+
+Hmm.. 2% win.
