@@ -859,9 +859,10 @@ prune_servers ()
               ( *it )->max_jobs *= -1; // better not give it away
               if(( *it )->send_msg( PingMsg() ))
 		{
-                  // give it a few seconds to answer a ping
+                  // give it MAX_SCHEDULER_PONG to answer a ping
                   ( *it )->last_talk = time( 0 ) - MAX_SCHEDULER_PING
-		                       + MIN_SCHEDULER_PING;
+		                       + 2 * MAX_SCHEDULER_PONG;
+                  min_time = min (min_time, (time_t) 2 * MAX_SCHEDULER_PONG);
 		  ++it;
 		  continue;
 		}
@@ -1295,9 +1296,15 @@ handle_stats (MsgChannel * c, Msg * _m)
   if (!m)
     return false;
 
-  CS *cs = dynamic_cast<CS*>( c );
-  if ( cs && cs->max_jobs < 0 )
-    cs->max_jobs *= -1;
+  /* Before protocol 25, ping and stat handling was
+     clutched together.  */
+  if (!IS_PROTOCOL_25(c))
+    {
+      c->last_talk = time( 0 );
+      CS *cs = dynamic_cast<CS*>( c );
+      if ( cs && cs->max_jobs < 0 )
+        cs->max_jobs *= -1;
+    }
 
   for (list<CS*>::iterator it = css.begin(); it != css.end(); ++it)
     if ( *it == c )
@@ -1307,12 +1314,6 @@ handle_stats (MsgChannel * c, Msg * _m)
         return true;
       }
 
-  return false;
-}
-
-static bool
-handle_timeout (MsgChannel * /*c*/, Msg * /*_m*/)
-{
   return false;
 }
 
@@ -1630,7 +1631,6 @@ handle_activity (MsgChannel *c)
     case M_PING: ret = handle_ping (c, m); break;
     case M_STATS: ret = handle_stats (c, m); break;
     case M_END: handle_end (c, m); ret = false; break;
-    case M_TIMEOUT: ret = handle_timeout (c, m); break;
     case M_JOB_LOCAL_BEGIN: ret = handle_local_job (c, m); break;
     case M_JOB_LOCAL_DONE: ret = handle_local_job_done( c, m ); break;
     case M_LOGIN: ret = handle_relogin (c, m); break;

@@ -223,13 +223,14 @@ static unsigned int calculateMemLoad( unsigned long int &NetMemFree )
         return 1000 - ( NetMemFree * 1000 / ( 128 * 1024 ) );
 }
 
-bool fill_stats( unsigned long &myidleload, unsigned int &memory_fillgrade, StatsMsg *msg )
+bool fill_stats( unsigned long &myidleload, unsigned long &myniceload, unsigned int &memory_fillgrade, StatsMsg *msg )
 {
     static CPULoadInfo load;
 
     updateCPULoad( &load );
 
     myidleload = load.idleLoad;
+    myniceload = load.niceLoad;
 
     if ( msg ) {
         unsigned long int MemFree = 0;

@@ -1371,7 +1371,7 @@ void
 ConfCSMsg::fill_from_channel (MsgChannel *c)
 {
   Msg::fill_from_channel (c);
-  c->readuint32 (min_scheduler_ping);
+  c->readuint32 (max_scheduler_pong);
   c->readuint32 (max_scheduler_ping);
   c->read_string (bench_source);
 }
@@ -1380,7 +1380,7 @@ void
 ConfCSMsg::send_to_channel (MsgChannel *c) const
 {
   Msg::send_to_channel (c);
-  c->writeuint32 (min_scheduler_ping);
+  c->writeuint32 (max_scheduler_pong);
   c->writeuint32 (max_scheduler_ping);
   c->write_string (bench_source);
 }

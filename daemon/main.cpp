@@ -270,10 +270,6 @@ public:
     }
 };
 
-static void empty_func( int )
-{
-}
-
 static int set_new_pgrp(void)
 {
     /* If we're a session group leader, then we are not able to call
@@ -393,8 +389,7 @@ int setup_listen_fd()
 
 
 struct timeval last_stat;
-time_t last_scheduler;
-struct timeval last_sent;
+time_t last_scheduler_ping;
 int mem_limit = 100;
 unsigned int max_kids = 0;
 int current_kids = 0;
@@ -418,6 +413,7 @@ struct Daemon
     string remote_name;
     time_t next_check;
     unsigned long icecream_load;
+    struct timeval icecream_usage;
     int current_load;
     int num_cpus;
     MsgChannel *scheduler;
@@ -425,7 +421,7 @@ struct Daemon
     string netname;
     string schedname;
 
-    int min_scheduler_ping;
+    int max_scheduler_pong;
     int max_scheduler_ping;
     string bench_source;
 
@@ -438,11 +434,12 @@ struct Daemon
         next_check = 0;
         cache_size = 0;
         icecream_load = 0;
+        icecream_usage.tv_sec = icecream_usage.tv_usec = 0;
         current_load = - 1000;
         num_cpus = 0;
         scheduler = 0;
         discover = 0;
-        min_scheduler_ping = MIN_SCHEDULER_PING;
+        max_scheduler_pong = MAX_SCHEDULER_PONG;
         max_scheduler_ping = MAX_SCHEDULER_PING;
         bench_source = "";
     }
@@ -506,27 +503,27 @@ void Daemon::close_scheduler()
     clear_children();
 }
 
-bool Daemon::maybe_stats(bool force)
+bool Daemon::maybe_stats(bool send_ping)
 {
     struct timeval now;
     gettimeofday( &now, 0 );
 
-    time_t diff_sent = ( now.tv_sec - last_sent.tv_sec ) * 1000 + ( now.tv_usec - last_sent.tv_usec ) / 1000;
-
-    unsigned int memory_fillgrade;
-    unsigned long idleLoad = 0;
-
     /* the scheduler didn't ping us for a long time, assume dead connection and recover */
-    if (now.tv_sec - last_scheduler >= max_scheduler_ping + 2 * min_scheduler_ping) {
-        log_error() << "scheduler timeout.. " << now.tv_sec - last_scheduler << " bigger than " << max_scheduler_ping + 2*min_scheduler_ping << " nuking" << endl;
-        force = true;
+    if (now.tv_sec - last_scheduler_ping >= max_scheduler_ping + 2 * max_scheduler_pong) {
+        log_error() << "scheduler timeout.. " << now.tv_sec - last_scheduler_ping << " bigger than " <<
+            max_scheduler_ping + 2*max_scheduler_pong << " nuking" << endl;
         close_scheduler();
+        return false;
     }
 
-    if ( diff_sent >= min_scheduler_ping * 1000 || force ) {
+    time_t diff_sent = ( now.tv_sec - last_stat.tv_sec ) * 1000 + ( now.tv_usec - last_stat.tv_usec ) / 1000;
+    if ( diff_sent >= max_scheduler_pong * 1000 ) {
         StatsMsg msg;
+        unsigned int memory_fillgrade;
+        unsigned long idleLoad = 0;
+        unsigned long niceLoad = 0;
 
-        if ( !fill_stats( idleLoad, memory_fillgrade, &msg ) )
+        if ( !fill_stats( idleLoad, niceLoad, memory_fillgrade, &msg ) )
             return false;
 
         time_t diff_stat = ( now.tv_sec - last_stat.tv_sec ) * 1000 + ( now.tv_usec - last_stat.tv_usec ) / 1000;
@@ -535,6 +532,22 @@ bool Daemon::maybe_stats(bool force)
         /* icecream_load contains time in milliseconds we have used for icecream */
         /* idle time could have been used for icecream, so claim it */
         icecream_load += idleLoad * diff_stat / 1000;
+
+        /* add the time of our childrens, but only the time since the last run */
+        struct rusage ru;
+        if (!getrusage(RUSAGE_CHILDREN, &ru)) {
+            uint32_t ice_msec = ( ( ru.ru_utime.tv_sec - icecream_usage.tv_sec ) * 1000 +
+                ( ru.ru_utime.tv_usec - icecream_usage.tv_usec ) / 1000) / num_cpus;
+
+            /* heuristics when no child terminated yet: account 25% of total nice as our clients */
+            if ( !ice_msec && current_kids )
+                ice_msec = (niceLoad * diff_stat) / (4 * 1000);
+
+            icecream_load += ice_msec * diff_stat / 1000;
+
+            icecream_usage.tv_sec = ru.ru_utime.tv_sec;
+            icecream_usage.tv_usec = ru.ru_utime.tv_usec;
+        }
 
         int idle_average = icecream_load;
 
@@ -550,23 +563,29 @@ bool Daemon::maybe_stats(bool force)
         if ( idle_average < 100 )
             msg.load = 1000;
 
+#ifdef HAVE_SYS_VFS_H
         struct statfs buf;
-	int ret = statfs(envbasedir.c_str(), &buf);
-	if (!ret && buf.f_bavail < (max_kids + 1 - current_kids) * 4 * 1024 * 1024 / buf.f_bsize)
-		msg.load = 1000;
+        int ret = statfs(envbasedir.c_str(), &buf);
+        if (!ret && buf.f_bavail < (max_kids + 1 - current_kids) * 4 * 1024 * 1024 / buf.f_bsize)
+            msg.load = 1000;
+#endif
 
         // Matz got in the urine that not all CPUs are always feed
         mem_limit = std::max( msg.freeMem / std::min( std::max( max_kids, 1U ), 4U ), 100U );
 
-        if ( abs(int(msg.load)-current_load) >= 100 || force ) {
+        if ( abs(int(msg.load)-current_load) >= 100 || send_ping ) {
             if ( scheduler && !send_scheduler( msg ) )
                 return false;
-
-            last_sent = now;
-            last_scheduler = now.tv_sec;
-            icecream_load = 0;
-            current_load = msg.load;
         }
+        icecream_load = 0;
+        current_load = msg.load;
+    }
+
+    if ( send_ping ) {
+        if (scheduler && !send_scheduler(PingMsg()))
+            return false;
+
+        last_scheduler_ping = now.tv_sec;
     }
 
     return true;
@@ -782,6 +801,11 @@ void Daemon::handle_old_request()
             continue;
         }
 
+        /* we don't want to handle TOCOMPILE jobs as long as our load
+           is too high */
+        if ( current_load >= 1000)
+            break;
+
         client = clients.get_earliest_client( Client::TOCOMPILE );
         if ( client ) {
             CompileJob *job = client->job;
@@ -833,9 +857,6 @@ void Daemon::handle_compile_done (Client* client)
         msg->user_msec = job_stat[JobStatistics::user_msec];
         msg->sys_msec = job_stat[JobStatistics::sys_msec];
         msg->pfaults = job_stat[JobStatistics::sys_pfaults];
-
-        if (msg->user_msec + msg->sys_msec <= msg->real_msec)
-            icecream_load += (msg->user_msec + msg->sys_msec) / num_cpus;
         end_status = job_stat[JobStatistics::exit_code];
     }
 
@@ -976,7 +997,7 @@ bool Daemon::handle_get_cs( MsgChannel *c, Msg *msg )
 
 int Daemon::handle_cs_conf(ConfCSMsg* msg)
 {
-    min_scheduler_ping = msg->min_scheduler_ping;
+    max_scheduler_pong = msg->max_scheduler_pong;
     max_scheduler_ping = msg->max_scheduler_ping;
     bench_source = msg->bench_source;
 
@@ -1090,7 +1111,7 @@ int Daemon::answer_client_requests()
 	    max_fd = discover->get_fd();
     }
 
-    tv.tv_sec = min_scheduler_ping;
+    tv.tv_sec = max_scheduler_pong;
     tv.tv_usec = 0;
 
     int ret = select (max_fd + 1, &listen_set, NULL, NULL, &tv);
@@ -1226,8 +1247,7 @@ bool Daemon::reconnect()
     log_info() << "Connected to scheduler (" << remote_name << ")\n";
     current_load = -1000;
     gettimeofday( &last_stat, 0 );
-    last_sent.tv_sec = last_stat.tv_sec - MAX_SCHEDULER_PING;
-    last_scheduler = last_stat.tv_sec;
+    last_scheduler_ping = last_stat.tv_sec;
     icecream_load = 0;
 
     trace() << "login as " << machine_name << endl;
@@ -1439,7 +1459,7 @@ int main( int argc, char ** argv )
         exit( EXIT_DISTCC_FAILED );
     }
 
-    if (signal(SIGCHLD, empty_func) == SIG_ERR) {
+    if (signal(SIGCHLD, SIG_DFL) == SIG_ERR) {
         log_warning() << "signal(SIGCHLD) failed: " << strerror(errno) << endl;
         exit( EXIT_DISTCC_FAILED );
     }
