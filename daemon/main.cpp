@@ -444,25 +444,25 @@ struct Daemon
         bench_source = "";
     }
 
-    void reannounce_environments(const string &envbasedir, const string &nodename);
+    bool reannounce_environments(const string &envbasedir, const string &nodename) __wur;
     int answer_client_requests();
-    bool handle_transfer_env( MsgChannel *c, Msg *msg );
-    bool handle_get_native_env( MsgChannel *c );
+    bool handle_transfer_env( MsgChannel *c, Msg *msg ) __wur;
+    bool handle_get_native_env( MsgChannel *c ) __wur;
     void handle_old_request();
-    bool handle_compile_file( MsgChannel *c, Msg *msg );
-    bool handle_activity( MsgChannel *c );
+    bool handle_compile_file( MsgChannel *c, Msg *msg ) __wur;
+    bool handle_activity( MsgChannel *c ) __wur;
     void handle_end( Client *client, int exitcode );
-    int scheduler_get_internals( );
+    int scheduler_get_internals( ) __wur;
     void clear_children();
-    int scheduler_use_cs( UseCSMsg *msg );
-    bool handle_get_cs( MsgChannel *c, Msg *msg );
-    bool handle_local_job( MsgChannel *c, Msg *msg );
-    bool handle_job_done( MsgChannel *c, JobDoneMsg *m );
-    void handle_compile_done (Client* client);
+    int scheduler_use_cs( UseCSMsg *msg ) __wur;
+    bool handle_get_cs( MsgChannel *c, Msg *msg ) __wur;
+    bool handle_local_job( MsgChannel *c, Msg *msg ) __wur;
+    bool handle_job_done( MsgChannel *c, JobDoneMsg *m ) __wur;
+    bool handle_compile_done (Client* client) __wur;
     int handle_cs_conf( ConfCSMsg *msg);
     string dump_internals() const;
     bool maybe_stats(bool force = false);
-    bool send_scheduler(const Msg& msg);
+    bool send_scheduler(const Msg& msg) __wur;
     void close_scheduler();
     bool reconnect();
     int working_loop();
@@ -484,11 +484,11 @@ bool Daemon::send_scheduler(const Msg& msg)
     return true;
 }
 
-void Daemon::reannounce_environments(const string &envbasedir, const string &nodename)
+bool Daemon::reannounce_environments(const string &envbasedir, const string &nodename)
 {
     LoginMsg lmsg( 0, nodename, "");
     lmsg.envs = available_environmnents(envbasedir);
-    send_scheduler( lmsg );
+    return send_scheduler( lmsg );
 }
 
 void Daemon::close_scheduler()
@@ -574,7 +574,7 @@ bool Daemon::maybe_stats(bool send_ping)
         mem_limit = std::max( msg.freeMem / std::min( std::max( max_kids, 1U ), 4U ), 100U );
 
         if ( abs(int(msg.load)-current_load) >= 100 || send_ping ) {
-            if ( scheduler && !send_scheduler( msg ) )
+            if (!send_scheduler( msg ) )
                 return false;
         }
         icecream_load = 0;
@@ -582,7 +582,7 @@ bool Daemon::maybe_stats(bool send_ping)
     }
 
     if ( send_ping ) {
-        if (scheduler && !send_scheduler(PingMsg()))
+        if (!send_scheduler(PingMsg()))
             return false;
 
         last_scheduler_ping = now.tv_sec;
@@ -836,7 +836,7 @@ void Daemon::handle_old_request()
     }
 }
 
-void Daemon::handle_compile_done (Client* client)
+bool Daemon::handle_compile_done (Client* client)
 {
     assert(client->status == Client::WAITFORCHILD);
     assert(client->child_pid > 0);
@@ -860,8 +860,10 @@ void Daemon::handle_compile_done (Client* client)
         end_status = job_stat[JobStatistics::exit_code];
     }
 
-    if (!send_scheduler( *msg ))
+    if (!send_scheduler( *msg )) {
         log_info() << "failed to send scheduler a jobdone msg.." << endl;
+        return false;
+    }
 
     delete msg;
     close(client->pipe_to_child);
@@ -870,6 +872,8 @@ void Daemon::handle_compile_done (Client* client)
     envs_last_use[envforjob] = time( NULL );
 
     handle_end(client, end_status);
+
+    return true;
 }
 
 bool Daemon::handle_compile_file( MsgChannel *c, Msg *msg )
@@ -881,10 +885,11 @@ bool Daemon::handle_compile_file( MsgChannel *c, Msg *msg )
     if ( cl->status == Client::CLIENTWORK )
     {
         assert( job->environmentVersion() == "__client" );
-        if ( scheduler && !send_scheduler( JobBeginMsg( job->jobID() ) ) )
+        if ( !send_scheduler( JobBeginMsg( job->jobID() ) ) )
         {
             trace() << "can't reach scheduler to tell him about compile file job "
                     << job->jobID() << endl;
+            return false;
         }
         // no scheduler is not an error case!
     } else
@@ -989,10 +994,10 @@ bool Daemon::handle_get_cs( MsgChannel *c, Msg *msg )
         cl->usecsmsg = new UseCSMsg( umsg->target, "127.0.0.1", PORT, umsg->client_id, true, 1 );
         cl->status = Client::PENDING_USE_CS;
         cl->job_id = umsg->client_id;
+        return true;
     }
-    else
-        send_scheduler( *umsg );
-    return true;
+
+    return send_scheduler( *umsg );
 }
 
 int Daemon::handle_cs_conf(ConfCSMsg* msg)
@@ -1017,9 +1022,9 @@ bool Daemon::handle_local_job( MsgChannel *c, Msg *msg )
 bool Daemon::handle_activity( MsgChannel *c )
 {
     Client *client = clients.find_by_channel( c );
-    assert( client );
 
     assert(c->has_msg());
+    assert( client );
     assert(client->status != Client::TOCOMPILE);
 
     Msg *msg = c->get_msg();
@@ -1196,10 +1201,9 @@ int Daemon::answer_client_requests()
                         assert(client->status != Client::TOCOMPILE);
                         if (!handle_activity (c))
                             break;
-                    if (client->status == Client::TOCOMPILE ||
-                            client->status == Client::WAITFORCHILD)
-                        break;
- 
+                        if (client->status == Client::TOCOMPILE ||
+                                client->status == Client::WAITFORCHILD)
+                            break;
                     }
                     max_fd--;
                 }
