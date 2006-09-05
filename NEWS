@@ -1,3 +1,17 @@
+0.7.11 (r581076):
+       - fix a crash in the daemon when the scheduler was gone while
+         local jobs were waiting for finishing
+       - separate stat handling from ping handling
+         to avoid excessive stat/ping loops
+         (increases internal version number)
+       - only reset scheduler ping time if the scheduler ping'ed us
+       - even when we can't determine native environment, we
+         can still use the daemon for inter-process locking
+         instead of falling back to file locking.
+       - quicker reap of dead daemons
+       - improved load guessing
+       - fix stupid logic bug in ping tracking
+
 0.7.10 (r580794):
 	- handle errors in installing environments correctly
         - block daemons that have full discs
