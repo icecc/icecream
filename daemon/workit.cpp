@@ -180,6 +180,8 @@ int work_it( CompileJob &j, unsigned int job_stat[], MsgChannel* client,
     sigprocmask( SIG_UNBLOCK, &act.sa_mask, 0 );
     char buffer[4096];
 
+    int return_value = 0;
+
     flush_debug();
     pid_t pid = fork();
     if ( pid == -1 ) {
@@ -291,19 +293,18 @@ int work_it( CompileJob &j, unsigned int job_stat[], MsgChannel* client,
 
         struct timeval starttv;
         gettimeofday(&starttv, 0 );
- 
-        for (;;) {
+
+        while ( !return_value ) {
             Msg* msg  = client->get_msg(60);
 
-            if ( !msg || (msg->type != M_FILE_CHUNK && msg->type != M_END) ) 
+            if ( !msg || (msg->type != M_FILE_CHUNK && msg->type != M_END) )
               {
                 log_error() << "protocol error while reading preprocessed file\n";
                 delete msg;
                 msg = 0;
-                close (sock_in[1]);
-                while ( waitpid(pid, 0, 0) < 0 && errno == EINTR)
-                    ;
-                throw myexception (EXIT_IO_ERROR);
+                return_value = EXIT_IO_ERROR;
+                client_fd = -1;
+                break;
               }
 
             if ( msg->type == M_END )
@@ -355,11 +356,10 @@ int work_it( CompileJob &j, unsigned int job_stat[], MsgChannel* client,
                         error_client( client, "compiler failed." );
                     delete msg;
                     msg = 0;
-                    while ( waitpid(pid, 0, 0) < 0 && errno == EINTR)
-                        ;
-                    throw myexception (EXIT_COMPILER_CRASHED);
+                    return_value = EXIT_COMPILER_CRASHED;
                     break;
                 }
+
                 len -= bytes;
                 off += bytes;
             }
@@ -374,23 +374,18 @@ int work_it( CompileJob &j, unsigned int job_stat[], MsgChannel* client,
         {
             char resultByte;
             ssize_t n = ::read(main_sock[0], &resultByte, 1);
+            if (n == -1 && errno == EINTR)
+                continue; // Ignore
+
             if (n == 1)
             {
                 rmsg.status = resultByte;
                 close(main_sock[0]);
 
-                while ( waitpid(pid, 0, 0) < 0 && errno == EINTR)
-                    ;
-                unlink( tmp_output );
+                return_value = EXIT_COMPILER_MISSING;
                 error_client( client, "compiler did not start" );
-                return EXIT_COMPILER_MISSING; // most likely cause
             }
-            if (n == -1)
-            {
-                if (errno == EINTR)
-                    continue; // Ignore
-            }
-            break; // success
+            break; // != EINTR
         }
         close( main_sock[0] );
 
@@ -404,7 +399,8 @@ int work_it( CompileJob &j, unsigned int job_stat[], MsgChannel* client,
                 FD_SET( sock_out[0], &rfds );
             if (sock_err[0] >= 0)
                 FD_SET( sock_err[0], &rfds );
-            FD_SET( client_fd, &rfds );
+            if ( client_fd >= 0 )
+                FD_SET( client_fd, &rfds );
 
             int max_fd = std::max( sock_out[0], sock_err[0] );
             if ( client_fd > max_fd )
@@ -439,19 +435,15 @@ int work_it( CompileJob &j, unsigned int job_stat[], MsgChannel* client,
                         sock_err[0] = -1;
                     }
                 }
-                if ( FD_ISSET( client_fd, &rfds ) ) {
+                if ( client_fd >= 0 && FD_ISSET( client_fd, &rfds ) ) {
                     rmsg.err.append( "client cancelled\n" );
-                    close( client_fd );
-                    while ( waitpid(pid, 0, 0) < 0 && errno == EINTR)
-                        ;
-                    return EXIT_CLIENT_KILLED;
+                    client_fd = -1;
+                    return_value = EXIT_CLIENT_KILLED;
                 }
                 // fall through
             case -1:
 		if ( ret < 0 && errno != EINTR ) { // this usually means the logic broke
-                    error_client( client, string( "select returned " ) + strerror( errno ) );
-                    while ( waitpid(pid, 0, 0) < 0 && errno == EINTR)
-                        ;
+                    assert( false );
                     return EXIT_DISTCC_FAILED;
                 }
                 // fall through
@@ -490,7 +482,7 @@ int work_it( CompileJob &j, unsigned int job_stat[], MsgChannel* client,
                         job_stat[JobStatistics::sys_pfaults] = ru.ru_majflt + ru.ru_nswap + ru.ru_minflt;
                     }
 
-                    return 0;
+                    return return_value;
                 }
                 break;
             }
