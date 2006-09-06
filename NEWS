@@ -1,3 +1,9 @@
+0.7.12 (r581454):
+        - fixing error handling when scheduler restarts
+        - do not waitpid before we're sure we read all of g++'s
+          output otherwise g++ waits for us to read and we're 
+          waiting for g++ to finish -> deadlock
+
 0.7.11 (r581076):
        - fix a crash in the daemon when the scheduler was gone while
          local jobs were waiting for finishing
