@@ -954,7 +954,14 @@ void Daemon::handle_end( Client *client, int exitcode )
         }
     }
 
-    clients.erase( client->channel );
+    if (!clients.erase( client->channel ))
+    {
+	log_error() << "client can't be erased" << endl;
+	flush_debug();
+	log_error() << dump_internals() << endl;
+	flush_debug();
+	assert(false);
+    }
     delete client;
 }
 
