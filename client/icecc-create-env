@@ -35,8 +35,8 @@ add_file ()
   target_files="$target_files $toadd"
   if test -x "$path"; then
     # Only call ldd when it makes sense
-    if file "$path" | grep 'ELF' > /dev/null 2>&1; then
-	if ! file "$path" | grep 'static' > /dev/null 2>&1; then
+    if file -L "$path" | grep 'ELF' > /dev/null 2>&1; then
+	if ! file -L "$path" | grep 'static' > /dev/null 2>&1; then
 	   # ldd now outputs ld as /lib/ld-linux.so.xx on current nptl based glibc
 		# this regexp parse the outputs like:
 		# ldd /usr/bin/gcc
