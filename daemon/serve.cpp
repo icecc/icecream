@@ -197,7 +197,7 @@ int handle_connection( const string &basedir, CompileJob *job,
             job_stat[JobStatistics::out_uncompressed] = st.st_size;
 
         /* wake up parent and tell him that compile finished */
-        write( out_fd, job_stat, sizeof( job_stat ) );
+        send( out_fd, job_stat, sizeof( job_stat ), MSG_NOSIGNAL );
         close( out_fd );
 
         if ( rmsg.status == 0 ) {
