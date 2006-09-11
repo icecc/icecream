@@ -46,6 +46,7 @@ Requires:      libstdc++-devel
 %description -n libicecream-devel
 libicecream-devel
 
+%define __os_install_post %{nil}
 %prep
 %setup -q -n %name -a 1
 

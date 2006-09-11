@@ -19,6 +19,7 @@
     Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 */
 
+#define ICECC_DEBUG 1
 #ifndef _GNU_SOURCE
 // getopt_long
 #define _GNU_SOURCE 1
@@ -161,8 +162,11 @@ public:
     {
         status = (Status) -1;
         delete channel;
+        channel = 0;
         delete usecsmsg;
+        usecsmsg = 0;
         delete job;
+        job = 0;
 	if (pipe_to_child >= 0)
 	    close (pipe_to_child);
     }
@@ -177,7 +181,7 @@ public:
 
     string dump() const
     {
-        string ret = status_str( status ) + " " + channel->dump();
+        string ret = toString( this ) + " " + status_str( status ) + " " + channel->dump();
         switch ( status ) {
         case LINKJOB:
             return ret + " " + toString( client_id ) + " " + outfile;
@@ -497,6 +501,7 @@ bool Daemon::reannounce_environments(const string &envbasedir, const string &nod
 
 void Daemon::close_scheduler()
 {
+    trace() << "close_scheduler " << scheduler << endl;
     if ( !scheduler )
         return;
 
@@ -647,6 +652,7 @@ int Daemon::scheduler_use_cs( UseCSMsg *msg )
     } else {
         c->usecsmsg = new UseCSMsg( msg->host_platform, msg->hostname, msg->port, msg->job_id, true, 1 );
         if (!c->channel->send_msg( *msg )) {
+            trace() << "c->channel->send_msg(UseCSMsg( " << msg->host_platform << ")) failed" << endl;
             handle_end(c, 143);
             return 0;
         }
@@ -687,17 +693,22 @@ bool Daemon::handle_transfer_env( MsgChannel *c, Msg *msg )
         // I don't dare to use (time_t)-1
         time_t oldest_time = time( NULL ) + 90000;
         for ( map<string, time_t>::const_iterator it = envs_last_use.begin();
-                it != envs_last_use.end(); ++it ) {
+              it != envs_last_use.end(); ++it ) {
             trace() << "das ist jetzt so: " << it->first << " " << it->second << " " << oldest_time << endl;
             // ignore recently used envs (they might be in use _right_ now)
             if ( it->second < oldest_time && now - it->second > 200 ) {
                 bool found = false;
+                trace() << clients.size() << " to check" << endl;
                 for (Clients::const_iterator it2 = clients.begin(); it2 != clients.end(); ++it2)  {
+                    trace() << "clients " << it2->second << endl;
+                    trace() << "clients " << it2->second->job << endl;
+                    flush_debug();
+                    trace() << "clients " << it2->second->dump() << endl;
                     if (it2->second->status == Client::WAITCOMPILE ||
-                            it2->second->status == Client::WAITFORCHILD) {
+                        it2->second->status == Client::WAITFORCHILD) {
 
                         string envforjob = it2->second->job->targetPlatform() + "/"
-                            + it2->second->job->environmentVersion();
+                                           + it2->second->job->environmentVersion();
                         if (envforjob == it->first)
                             found = true;
                     }
@@ -758,7 +769,7 @@ bool Daemon::handle_job_done( MsgChannel *c, JobDoneMsg *m )
         clients.active_processes--;
     cl->status = Client::JOBDONE;
     JobDoneMsg *msg = static_cast<JobDoneMsg*>( m );
-    trace() << "handle_job_done " << msg->job_id << " " << msg->exitcode << endl;
+    trace() << "handle_job_done " << c << " " << msg->job_id << " " << msg->exitcode << endl;
 
     if(!m->is_from_server()
        && ( m->user_msec + m->sys_msec ) <= m->real_msec)
@@ -1033,6 +1044,7 @@ bool Daemon::handle_activity( MsgChannel *c )
 {
     Client *client = clients.find_by_channel( c );
 
+    trace() << "handle_activity " << c << " " << client << endl;
     assert(c->has_msg());
     assert( client );
     assert(client->status != Client::TOCOMPILE);
@@ -1043,6 +1055,7 @@ bool Daemon::handle_activity( MsgChannel *c )
         return false;
     }
 
+    trace() << "client msg " << msg->type << endl;
     bool ret = false;
     switch ( msg->type ) {
     case M_GET_NATIVE_ENV: ret = handle_get_native_env( c ); break;
@@ -1059,6 +1072,7 @@ bool Daemon::handle_activity( MsgChannel *c )
         ret = false;
     }
     delete msg;
+    trace() << "return " << ret << endl;
     return ret;
 }
 
@@ -1068,7 +1082,6 @@ int Daemon::answer_client_requests()
     if ( clients.size() + current_kids )
         log_info() << dump_internals() << endl;
     log_info() << "clients " << clients.dump_per_status() << " " << current_kids << " (" << max_kids << ")" << endl;
-
 #endif
 
     /* reap zombis */
@@ -1143,6 +1156,7 @@ int Daemon::answer_client_requests()
                 close_scheduler();
                 return 1;
             } else {
+                trace() << "scheduler msg " << msg->type << endl;
                 ret = 0;
                 switch ( msg->type )
                 {
@@ -1186,6 +1200,7 @@ int Daemon::answer_client_requests()
                 client->client_id = ++new_client_id;
                 client->channel = c;
                 clients[c] = client;
+                trace() << "new Client " << client << " " << c << " " << client->client_id << endl;
 
                 fd2chan[c->fd] = c;
                 c->read_a_bit();
@@ -1197,6 +1212,7 @@ int Daemon::answer_client_requests()
                             client->status == Client::WAITFORCHILD)
                         break;
                 }
+                trace() << "awaiting further input" << endl;
             }
         } else {
             for (map<int, MsgChannel *>::const_iterator it = fd2chan.begin();

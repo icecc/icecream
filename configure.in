@@ -16,8 +16,8 @@ then
     CFLAGS="-W -Wall -Wimplicit \
 -Wshadow -Wpointer-arith -Wcast-align -Wwrite-strings \
 -Waggregate-return -Wstrict-prototypes -Wmissing-prototypes \
--Wnested-externs $CFLAGS"
-    CXXFLAGS="-W -Wall -Wimplicit -Wpointer-arith -Wcast-align -Wwrite-strings $CXXFLAGS"
+-Wnested-externs $CFLAGS -O0"
+    CXXFLAGS="-W -Wall -Wimplicit -Wpointer-arith -Wcast-align -Wwrite-strings $CXXFLAGS -O0"
     AC_MSG_NOTICE([Adding gcc options: $CFLAGS])
 fi
 
