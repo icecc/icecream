@@ -1204,6 +1204,14 @@ int Daemon::answer_client_requests()
                 MsgChannel *c = it->second;
                 Client* client = clients.find_by_channel(c);
                 ++it;
+                if (client->status == Client::WAITFORCHILD
+                    && client->pipe_to_child != -1
+                    && FD_ISSET(client->pipe_to_child, &listen_set) )
+                {
+                    max_fd--;
+                    if (!handle_compile_done(client))
+                        return 1;
+                }
                 if (FD_ISSET (i, &listen_set)) {
                     c->read_a_bit();
                     while (c->has_msg()) {
@@ -1216,15 +1224,7 @@ int Daemon::answer_client_requests()
                     }
                     max_fd--;
                 }
-                if (client->status == Client::WAITFORCHILD
-                    && client->pipe_to_child != -1
-                    && FD_ISSET(client->pipe_to_child, &listen_set) )
-                {
-                    max_fd--;
-                    if (!handle_compile_done(client))
-                        return 1;
-                }
-            }
+           }
         }
     }
     return 0;
