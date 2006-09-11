@@ -228,13 +228,12 @@ public:
         return 0;
     }
 
-    Client *take_first()
+    Client *first()
     {
         iterator it = begin();
         if ( it == end() )
             return 0;
         Client *cl = it->second;
-        erase( it );
         return cl;
     }
 
@@ -968,7 +967,7 @@ void Daemon::handle_end( Client *client, int exitcode )
 void Daemon::clear_children()
 {
     while ( !clients.empty() ) {
-        Client *cl = clients.take_first();
+        Client *cl = clients.first();
         handle_end( cl, 116 );
     }
 
