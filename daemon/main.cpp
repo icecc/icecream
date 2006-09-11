@@ -161,8 +161,11 @@ public:
     {
         status = (Status) -1;
         delete channel;
+        channel = 0;
         delete usecsmsg;
+        usecsmsg = 0;
         delete job;
+        job = 0;
 	if (pipe_to_child >= 0)
 	    close (pipe_to_child);
     }
@@ -177,7 +180,7 @@ public:
 
     string dump() const
     {
-        string ret = toString( this ) + " " + status_str ( status ) + " " + channel->dump();
+        string ret = status_str( status ) + " " + channel->dump();
         switch ( status ) {
         case LINKJOB:
             return ret + " " + toString( client_id ) + " " + outfile;
@@ -694,10 +697,11 @@ bool Daemon::handle_transfer_env( MsgChannel *c, Msg *msg )
             // ignore recently used envs (they might be in use _right_ now)
             if ( it->second < oldest_time && now - it->second > 200 ) {
                 bool found = false;
-                trace() << clients.size() << " to check" << endl;
                 for (Clients::const_iterator it2 = clients.begin(); it2 != clients.end(); ++it2)  {
                     if (it2->second->status == Client::TOCOMPILE ||
                             it2->second->status == Client::WAITFORCHILD) {
+
+                        assert( it2->second->job );
                         string envforjob = it2->second->job->targetPlatform() + "/"
                             + it2->second->job->environmentVersion();
                         if (envforjob == it->first)
@@ -713,16 +717,16 @@ bool Daemon::handle_transfer_env( MsgChannel *c, Msg *msg )
         if ( oldest.empty() || oldest == current )
             break;
         size_t removed = remove_environment( envbasedir, oldest );
+        trace() << "removing " << envbasedir << " " << oldest << " " << oldest_time << " " << removed << endl;
         cache_size -= min( removed, cache_size );
         envs_last_use.erase( oldest );
     }
 
     bool r = reannounce_environments(envbasedir, nodename); // do that before the file compiles
-
     // we do that here so we're not given out in case of full discs
     if ( !maybe_stats(true) )
         r = false;
-    return true;
+    return r;
 }
 
 bool Daemon::handle_get_native_env( MsgChannel *c )
