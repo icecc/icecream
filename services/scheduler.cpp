@@ -1534,9 +1534,7 @@ handle_end (MsgChannel *c, Msg *m)
     }
   else if (toremove->type == CS::DAEMON)
     {
-#if DEBUG_SCHEDULER > 0
-      trace() << "remove daemon" << endl;
-#endif
+      log_info() << "remove daemon " << toremove->nodename << endl;
 
       notify_monitors( MonStatsMsg( toremove->hostid, "State:Offline\n" ) );
 
