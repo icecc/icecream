@@ -680,21 +680,21 @@ bool Daemon::handle_transfer_env( MsgChannel *c, Msg *msg )
         trace() << "installed " << emsg->name << " size: " << installed_size
                 << " all: " << cache_size << endl;
 
-        time_t now = time( NULL );
-        while ( cache_size > cache_size_limit ) {
-            string oldest;
-            // I don't dare to use (time_t)-1
-            time_t oldest_time = time( NULL ) + 90000;
-            for ( map<string, time_t>::const_iterator it = envs_last_use.begin();
-                  it != envs_last_use.end(); ++it ) {
-                trace() << "das ist jetzt so: " << it->first << " " << it->second << " " << oldest_time << endl;
-                // ignore recently used envs (they might be in use _right_ now)
-                if ( it->second < oldest_time && now - it->second > 200 ) {
-                    bool found = false;
-                    for (Clients::const_iterator it2 = clients.begin(); it2 != clients.end(); ++it2)  {
-                        if (it2->second->status == Client::WAITCOMPILE ||
-                            it2->second->status == Client::WAITFORCHILD) {
-
+    time_t now = time( NULL );
+    while ( cache_size > cache_size_limit ) {
+        string oldest;
+        // I don't dare to use (time_t)-1
+        time_t oldest_time = time( NULL ) + 90000;
+        for ( map<string, time_t>::const_iterator it = envs_last_use.begin();
+              it != envs_last_use.end(); ++it ) {
+            trace() << "das ist jetzt so: " << it->first << " " << it->second << " " << oldest_time << endl;
+            // ignore recently used envs (they might be in use _right_ now)
+            if ( it->second < oldest_time && now - it->second > 200 ) {
+                bool found = false;
+                trace() << clients.size() << " to check" << endl;
+                for (Clients::const_iterator it2 = clients.begin(); it2 != clients.end(); ++it2)  {
+                    if (it2->second->status == Client::TOCOMPILE ||
+                        it2->second->status == Client::WAITFORCHILD) {
                             string envforjob = it2->second->job->targetPlatform() + "/"
                                                + it2->second->job->environmentVersion();
                             if (envforjob == it->first)
@@ -710,7 +710,6 @@ bool Daemon::handle_transfer_env( MsgChannel *c, Msg *msg )
             if ( oldest.empty() || oldest == current )
                 break;
             size_t removed = remove_environment( envbasedir, oldest );
-            trace() << "removing " << envbasedir << " " << oldest << " " << oldest_time << " " << removed << endl;
             cache_size -= min( removed, cache_size );
             envs_last_use.erase( oldest );
         }
@@ -881,10 +880,10 @@ bool Daemon::handle_compile_done (Client* client)
 bool Daemon::handle_compile_file( MsgChannel *c, Msg *msg )
 {
     CompileJob *job = dynamic_cast<CompileFileMsg*>( msg )->takeJob();
-    Client *cl = clients.find_by_channel( c );
-    assert( cl );
-    cl->job = job;
-    if ( cl->status == Client::CLIENTWORK )
+    Client *client = clients.find_by_channel( c );
+    assert( client );
+    client->job = job;
+    if ( client->status == Client::CLIENTWORK )
     {
         assert( job->environmentVersion() == "__client" );
         if ( !send_scheduler( JobBeginMsg( job->jobID() ) ) )
@@ -895,7 +894,7 @@ bool Daemon::handle_compile_file( MsgChannel *c, Msg *msg )
         }
         // no scheduler is not an error case!
     } else
-        cl->status = Client::TOCOMPILE;
+        client->status = Client::TOCOMPILE;
     return true;
 }
 
@@ -990,19 +989,19 @@ void Daemon::clear_children()
 bool Daemon::handle_get_cs( MsgChannel *c, Msg *msg )
 {
     GetCSMsg *umsg = dynamic_cast<GetCSMsg*>( msg );
-    Client *cl = clients.find_by_channel( c );
-    assert( cl );
-    cl->status = Client::WAITFORCS;
-    umsg->client_id = cl->client_id;
+    Client *client = clients.find_by_channel( c );
+    assert( client );
+    client->status = Client::WAITFORCS;
+    umsg->client_id = client->client_id;
     trace() << "handle_get_cs " << umsg->client_id << endl;
     if ( !scheduler )
     {
         /* now the thing is this: if there is no scheduler
            there is no point in trying to ask him. So we just
            redefine this as local job */
-        cl->usecsmsg = new UseCSMsg( umsg->target, "127.0.0.1", PORT, umsg->client_id, true, 1 );
-        cl->status = Client::PENDING_USE_CS;
-        cl->job_id = umsg->client_id;
+        client->usecsmsg = new UseCSMsg( umsg->target, "127.0.0.1", PORT, umsg->client_id, true, 1 );
+        client->status = Client::PENDING_USE_CS;
+        client->job_id = umsg->client_id;
         return true;
     }
 
@@ -1021,10 +1020,10 @@ int Daemon::handle_cs_conf(ConfCSMsg* msg)
 bool Daemon::handle_local_job( MsgChannel *c, Msg *msg )
 {
     trace() << "handle_local_job " << c << endl;
-    Client *cl = clients.find_by_channel( c );
-    assert( cl );
-    cl->status = Client::LINKJOB;
-    cl->outfile = dynamic_cast<JobLocalBeginMsg*>( msg )->outfile;
+    Client *client = clients.find_by_channel( c );
+    assert( client );
+    client->status = Client::LINKJOB;
+    client->outfile = dynamic_cast<JobLocalBeginMsg*>( msg )->outfile;
     return true;
 }
 
