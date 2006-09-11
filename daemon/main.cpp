@@ -177,7 +177,7 @@ public:
 
     string dump() const
     {
-        string ret = status_str( status ) + " " + channel->dump();
+        string ret = toString( this ) + " " + status_str ( status ) + " " + channel->dump();
         switch ( status ) {
         case LINKJOB:
             return ret + " " + toString( client_id ) + " " + outfile;
@@ -674,14 +674,14 @@ bool Daemon::handle_transfer_env( MsgChannel *c, Msg *msg )
     if (!installed_size) {
         trace() << "install environment failed" << endl;
         c->send_msg(EndMsg()); // shut up, we had an error
-        reannounce_environments(envbasedir, nodename);
-    } else {
-        trace() << "envs " << dump_internals() << endl;
-        cache_size += installed_size;
-        string current = emsg->target + "/" + emsg->name;
-        envs_last_use[current] = time( NULL );
-        trace() << "installed " << emsg->name << " size: " << installed_size
-                << " all: " << cache_size << endl;
+        return reannounce_environments(envbasedir, nodename);
+    }
+    trace() << "envs " << dump_internals() << endl;
+    cache_size += installed_size;
+    string current = emsg->target + "/" + emsg->name;
+    envs_last_use[current] = time( NULL );
+    trace() << "installed " << emsg->name << " size: " << installed_size
+        << " all: " << cache_size << endl;
 
     time_t now = time( NULL );
     while ( cache_size > cache_size_limit ) {
@@ -689,7 +689,7 @@ bool Daemon::handle_transfer_env( MsgChannel *c, Msg *msg )
         // I don't dare to use (time_t)-1
         time_t oldest_time = time( NULL ) + 90000;
         for ( map<string, time_t>::const_iterator it = envs_last_use.begin();
-              it != envs_last_use.end(); ++it ) {
+                it != envs_last_use.end(); ++it ) {
             trace() << "das ist jetzt so: " << it->first << " " << it->second << " " << oldest_time << endl;
             // ignore recently used envs (they might be in use _right_ now)
             if ( it->second < oldest_time && now - it->second > 200 ) {
@@ -697,28 +697,28 @@ bool Daemon::handle_transfer_env( MsgChannel *c, Msg *msg )
                 trace() << clients.size() << " to check" << endl;
                 for (Clients::const_iterator it2 = clients.begin(); it2 != clients.end(); ++it2)  {
                     if (it2->second->status == Client::TOCOMPILE ||
-                        it2->second->status == Client::WAITFORCHILD) {
-                            string envforjob = it2->second->job->targetPlatform() + "/"
-                                               + it2->second->job->environmentVersion();
-                            if (envforjob == it->first)
-                                found = true;
-                        }
-                    }
-                    if (!found) {
-                        oldest_time = it->second;
-                        oldest = it->first;
+                            it2->second->status == Client::WAITFORCHILD) {
+                        string envforjob = it2->second->job->targetPlatform() + "/"
+                            + it2->second->job->environmentVersion();
+                        if (envforjob == it->first)
+                            found = true;
                     }
                 }
+                if (!found) {
+                    oldest_time = it->second;
+                    oldest = it->first;
+                }
             }
-            if ( oldest.empty() || oldest == current )
-                break;
-            size_t removed = remove_environment( envbasedir, oldest );
-            cache_size -= min( removed, cache_size );
-            envs_last_use.erase( oldest );
         }
-
-        reannounce_environments(envbasedir, nodename); // do that before the file compiles
+        if ( oldest.empty() || oldest == current )
+            break;
+        size_t removed = remove_environment( envbasedir, oldest );
+        cache_size -= min( removed, cache_size );
+        envs_last_use.erase( oldest );
     }
+
+    bool r = reannounce_environments(envbasedir, nodename); // do that before the file compiles
+
     // we do that here so we're not given out in case of full discs
     if ( !maybe_stats(true) )
         r = false;
