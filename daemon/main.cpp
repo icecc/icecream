@@ -675,6 +675,8 @@ bool Daemon::handle_transfer_env( MsgChannel *c, Msg *msg )
     if ( maybe_stats(true) )
         installed_size = install_environment( envbasedir, emsg->target,
                 emsg->name, c, nobody_uid, nobody_gid );
+    else
+        return false;
     if (!installed_size) {
         trace() << "install environment failed" << endl;
         c->send_msg(EndMsg()); // shut up, we had an error
@@ -730,7 +732,8 @@ bool Daemon::handle_transfer_env( MsgChannel *c, Msg *msg )
 
     bool r = reannounce_environments(envbasedir, nodename); // do that before the file compiles
     // we do that here so we're not given out in case of full discs
-    maybe_stats(true);
+    if ( !maybe_stats(true) )
+        r = false;
     return r;
 }
 
