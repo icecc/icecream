@@ -159,6 +159,7 @@ public:
 
     ~Client()
     {
+        status = (Status) -1;
         delete channel;
         delete usecsmsg;
         delete job;
@@ -668,6 +669,8 @@ bool Daemon::handle_transfer_env( MsgChannel *c, Msg *msg )
     if ( maybe_stats(true) )
         installed_size = install_environment( envbasedir, emsg->target,
                 emsg->name, c, nobody_uid, nobody_gid );
+    else
+        return false;
     if (!installed_size) {
         trace() << "install environment failed" << endl;
         c->send_msg(EndMsg()); // shut up, we had an error
@@ -717,7 +720,8 @@ bool Daemon::handle_transfer_env( MsgChannel *c, Msg *msg )
         reannounce_environments(envbasedir, nodename); // do that before the file compiles
     }
     // we do that here so we're not given out in case of full discs
-    maybe_stats(true);
+    if ( !maybe_stats(true) )
+        r = false;
     return true;
 }
 
@@ -882,6 +886,7 @@ bool Daemon::handle_compile_file( MsgChannel *c, Msg *msg )
     CompileJob *job = dynamic_cast<CompileFileMsg*>( msg )->takeJob();
     Client *client = clients.find_by_channel( c );
     assert( client );
+    assert( job );
     client->job = job;
     if ( client->status == Client::CLIENTWORK )
     {
@@ -954,7 +959,7 @@ void Daemon::handle_end( Client *client, int exitcode )
 
     if (!clients.erase( client->channel ))
     {
-	log_error() << "client can't be erased" << endl;
+	log_error() << "client can't be erased: " << client->channel << endl;
 	flush_debug();
 	log_error() << dump_internals() << endl;
 	flush_debug();
