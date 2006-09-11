@@ -159,6 +159,7 @@ public:
 
     ~Client()
     {
+        status = (Status) -1;
         delete channel;
         delete usecsmsg;
         delete job;
@@ -882,6 +883,7 @@ bool Daemon::handle_compile_file( MsgChannel *c, Msg *msg )
     CompileJob *job = dynamic_cast<CompileFileMsg*>( msg )->takeJob();
     Client *cl = clients.find_by_channel( c );
     assert( cl );
+    assert( job );
     cl->job = job;
     if ( cl->status == Client::CLIENTWORK )
     {
@@ -954,7 +956,7 @@ void Daemon::handle_end( Client *client, int exitcode )
 
     if (!clients.erase( client->channel ))
     {
-	log_error() << "client can't be erased" << endl;
+	log_error() << "client can't be erased: " << client->channel << endl;
 	flush_debug();
 	log_error() << dump_internals() << endl;
 	flush_debug();
