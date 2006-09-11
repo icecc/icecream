@@ -1211,6 +1211,7 @@ int Daemon::answer_client_requests()
                 int i = it->first;
                 MsgChannel *c = it->second;
                 Client* client = clients.find_by_channel(c);
+                assert(client);
                 ++it;
                 if (client->status == Client::WAITFORCHILD
                     && client->pipe_to_child != -1
