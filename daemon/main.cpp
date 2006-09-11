@@ -707,6 +707,7 @@ bool Daemon::handle_transfer_env( MsgChannel *c, Msg *msg )
                     if (it2->second->status == Client::TOCOMPILE ||
                         it2->second->status == Client::WAITFORCHILD) {
 
+                        assert( it2->second->job );
                         string envforjob = it2->second->job->targetPlatform() + "/"
                                            + it2->second->job->environmentVersion();
                         if (envforjob == it->first)
