@@ -1,3 +1,12 @@
+0.7.13 (583243):
+	- use file -L to follow symlinks in create-env
+	- fix an easy valgrind error
+	- make handling of the return values consistent
+        - if the client is in WAITCOMPILE then it's waiting for some
+          other host to compile, not this one. So job == 0 -> crash
+        - fix crash if the scheduler goes away while daemon transfers
+          environment
+
 0.7.12 (r581454):
         - fixing error handling when scheduler restarts
         - do not waitpid before we're sure we read all of g++'s
