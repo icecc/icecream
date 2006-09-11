@@ -704,7 +704,7 @@ bool Daemon::handle_transfer_env( MsgChannel *c, Msg *msg )
                     trace() << "clients " << it2->second->job << endl;
                     flush_debug();
                     trace() << "clients " << it2->second->dump() << endl;
-                    if (it2->second->status == Client::WAITCOMPILE ||
+                    if (it2->second->status == Client::TOCOMPILE ||
                         it2->second->status == Client::WAITFORCHILD) {
 
                         string envforjob = it2->second->job->targetPlatform() + "/"
@@ -892,11 +892,11 @@ bool Daemon::handle_compile_done (Client* client)
 bool Daemon::handle_compile_file( MsgChannel *c, Msg *msg )
 {
     CompileJob *job = dynamic_cast<CompileFileMsg*>( msg )->takeJob();
-    Client *cl = clients.find_by_channel( c );
-    assert( cl );
+    Client *client = clients.find_by_channel( c );
+    assert( client );
     assert( job );
-    cl->job = job;
-    if ( cl->status == Client::CLIENTWORK )
+    client->job = job;
+    if ( client->status == Client::CLIENTWORK )
     {
         assert( job->environmentVersion() == "__client" );
         if ( !send_scheduler( JobBeginMsg( job->jobID() ) ) )
@@ -907,7 +907,7 @@ bool Daemon::handle_compile_file( MsgChannel *c, Msg *msg )
         }
         // no scheduler is not an error case!
     } else
-        cl->status = Client::TOCOMPILE;
+        client->status = Client::TOCOMPILE;
     return true;
 }
 
@@ -1002,19 +1002,19 @@ void Daemon::clear_children()
 bool Daemon::handle_get_cs( MsgChannel *c, Msg *msg )
 {
     GetCSMsg *umsg = dynamic_cast<GetCSMsg*>( msg );
-    Client *cl = clients.find_by_channel( c );
-    assert( cl );
-    cl->status = Client::WAITFORCS;
-    umsg->client_id = cl->client_id;
+    Client *client = clients.find_by_channel( c );
+    assert( client );
+    client->status = Client::WAITFORCS;
+    umsg->client_id = client->client_id;
     trace() << "handle_get_cs " << umsg->client_id << endl;
     if ( !scheduler )
     {
         /* now the thing is this: if there is no scheduler
            there is no point in trying to ask him. So we just
            redefine this as local job */
-        cl->usecsmsg = new UseCSMsg( umsg->target, "127.0.0.1", PORT, umsg->client_id, true, 1 );
-        cl->status = Client::PENDING_USE_CS;
-        cl->job_id = umsg->client_id;
+        client->usecsmsg = new UseCSMsg( umsg->target, "127.0.0.1", PORT, umsg->client_id, true, 1 );
+        client->status = Client::PENDING_USE_CS;
+        client->job_id = umsg->client_id;
         return true;
     }
 
@@ -1033,10 +1033,10 @@ int Daemon::handle_cs_conf(ConfCSMsg* msg)
 bool Daemon::handle_local_job( MsgChannel *c, Msg *msg )
 {
     trace() << "handle_local_job " << c << endl;
-    Client *cl = clients.find_by_channel( c );
-    assert( cl );
-    cl->status = Client::LINKJOB;
-    cl->outfile = dynamic_cast<JobLocalBeginMsg*>( msg )->outfile;
+    Client *client = clients.find_by_channel( c );
+    assert( client );
+    client->status = Client::LINKJOB;
+    client->outfile = dynamic_cast<JobLocalBeginMsg*>( msg )->outfile;
     return true;
 }
 
