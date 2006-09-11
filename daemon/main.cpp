@@ -228,13 +228,12 @@ public:
         return 0;
     }
 
-    Client *take_first()
+    Client *first()
     {
         iterator it = begin();
         if ( it == end() )
             return 0;
         Client *cl = it->second;
-        erase( it );
         return cl;
     }
 
@@ -954,14 +953,21 @@ void Daemon::handle_end( Client *client, int exitcode )
         }
     }
 
-    clients.erase( client->channel );
+    if (!clients.erase( client->channel ))
+    {
+	log_error() << "client can't be erased" << endl;
+	flush_debug();
+	log_error() << dump_internals() << endl;
+	flush_debug();
+	assert(false);
+    }
     delete client;
 }
 
 void Daemon::clear_children()
 {
     while ( !clients.empty() ) {
-        Client *cl = clients.take_first();
+        Client *cl = clients.first();
         handle_end( cl, 116 );
     }
 
