@@ -1,4 +1,4 @@
-0.7.13 (583243):
+0.7.13 (583347):
 	- use file -L to follow symlinks in create-env
 	- fix an easy valgrind error
 	- make handling of the return values consistent
@@ -6,6 +6,13 @@
           other host to compile, not this one. So job == 0 -> crash
         - fix crash if the scheduler goes away while daemon transfers
           environment
+	- apparently sometimes gcc can hang forever in some
+          cases. By the time the client disconects, we know
+          we don't have to wait any longer, because there is
+          nobody left caring about the result.
+        - update node name each time we login to the scheduler.
+          Fixes tons of "linux" hosts appearing in the icecream
+          monitor
 
 0.7.12 (r581454):
         - fixing error handling when scheduler restarts

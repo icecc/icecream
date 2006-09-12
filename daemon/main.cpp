@@ -414,6 +414,7 @@ struct Daemon
     int listen_fd;
     string machine_name;
     string nodename;
+    bool custom_nodename;
     size_t cache_size;
     map<int, MsgChannel *> fd2chan;
     int new_client_id;
@@ -440,6 +441,7 @@ struct Daemon
         new_client_id = 0;
         next_check = 0;
         cache_size = 0;
+        custom_nodename = false;
         icecream_load = 0;
         icecream_usage.tv_sec = icecream_usage.tv_usec = 0;
         current_load = - 1000;
@@ -451,7 +453,7 @@ struct Daemon
         bench_source = "";
     }
 
-    bool reannounce_environments(const string &envbasedir, const string &nodename) __attribute_warn_unused_result__;
+    bool reannounce_environments() __attribute_warn_unused_result__;
     int answer_client_requests();
     bool handle_transfer_env( MsgChannel *c, Msg *msg ) __attribute_warn_unused_result__;
     bool handle_get_native_env( MsgChannel *c ) __attribute_warn_unused_result__;
@@ -491,7 +493,7 @@ bool Daemon::send_scheduler(const Msg& msg)
     return true;
 }
 
-bool Daemon::reannounce_environments(const string &envbasedir, const string &nodename)
+bool Daemon::reannounce_environments()
 {
     LoginMsg lmsg( 0, nodename, "");
     lmsg.envs = available_environmnents(envbasedir);
@@ -677,7 +679,7 @@ bool Daemon::handle_transfer_env( MsgChannel *c, Msg *msg )
     if (!installed_size) {
         trace() << "install environment failed" << endl;
         c->send_msg(EndMsg()); // shut up, we had an error
-        return reannounce_environments(envbasedir, nodename);
+        return reannounce_environments();
     }
     trace() << "envs " << dump_internals() << endl;
     cache_size += installed_size;
@@ -722,7 +724,7 @@ bool Daemon::handle_transfer_env( MsgChannel *c, Msg *msg )
         envs_last_use.erase( oldest );
     }
 
-    bool r = reannounce_environments(envbasedir, nodename); // do that before the file compiles
+    bool r = reannounce_environments(); // do that before the file compiles
     // we do that here so we're not given out in case of full discs
     if ( !maybe_stats(true) )
         r = false;
@@ -1211,6 +1213,7 @@ int Daemon::answer_client_requests()
                 int i = it->first;
                 MsgChannel *c = it->second;
                 Client* client = clients.find_by_channel(c);
+                assert(client);
                 ++it;
                 if (client->status == Client::WAITFORCHILD
                     && client->pipe_to_child != -1
@@ -1272,7 +1275,11 @@ bool Daemon::reconnect()
     last_scheduler_ping = last_stat.tv_sec;
     icecream_load = 0;
 
-    trace() << "login as " << machine_name << endl;
+    // perhaps our host name changed due to network change?
+    struct utsname uname_buf;
+    if ( !custom_nodename && !uname( &uname_buf ) )
+        nodename = uname_buf.nodename;
+
     LoginMsg lmsg( PORT, nodename, machine_name );
     lmsg.envs = available_environmnents(envbasedir);
     lmsg.max_kids = max_kids;
@@ -1446,7 +1453,9 @@ int main( int argc, char ** argv )
         return 1;
     }
 
-    if ( !d.nodename.length() )
+    if ( d.nodename.length() && d.nodename != uname_buf.nodename )
+        d.custom_nodename  = true;
+    if (!d.custom_nodename)
         d.nodename = uname_buf.nodename;
 
     d.machine_name = uname_buf.machine;

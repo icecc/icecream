@@ -438,6 +438,7 @@ int work_it( CompileJob &j, unsigned int job_stat[], MsgChannel* client,
                 if ( client_fd >= 0 && FD_ISSET( client_fd, &rfds ) ) {
                     rmsg.err.append( "client cancelled\n" );
                     client_fd = -1;
+                    kill(pid, SIGTERM);
                     return_value = EXIT_CLIENT_KILLED;
                 }
                 // fall through
