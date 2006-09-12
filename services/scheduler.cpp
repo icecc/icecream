@@ -874,9 +874,15 @@ prune_servers ()
 
   for (it = css.begin(); it != css.end(); )
     {
-      if ( now - ( *it )->last_talk >= MAX_SCHEDULER_PING )
+      /* protocol version 26 and newer use TCP keepalive */
+      if (IS_PROTOCOL_26(*it)) {
+        ++it;
+        continue;
+      }
+
+      if (now - ( *it )->last_talk >= MAX_SCHEDULER_PING)
         {
-          if ( ( *it )->max_jobs >= 0 )
+          if (( *it )->max_jobs >= 0)
             {
               trace() << "send ping " << ( *it )->nodename << endl;
               ( *it )->max_jobs *= -1; // better not give it away
@@ -1126,7 +1132,7 @@ handle_relogin (MsgChannel *c, Msg *_m)
   if (IS_PROTOCOL_24( c ))
     c->send_msg (ConfCSMsg(icecream_bench_code));
 
-  return true;
+  return false;
 }
 
 static bool
@@ -1928,8 +1934,9 @@ main (int argc, char * argv[])
                   continue;
                 }
 	      fd2chan[cs->fd] = cs;
-	      if (!cs->read_a_bit () || cs->has_msg ())
-	        handle_activity (cs);
+	      while (!cs->read_a_bit () || cs->has_msg ())
+                if(! handle_activity (cs))
+                  break;
 	    }
         }
       if (max_fd && FD_ISSET (text_fd, &read_set))
@@ -1955,8 +1962,9 @@ main (int argc, char * argv[])
                   continue;
                 }
 	      fd2chan[cs->fd] = cs;
-	      if (!cs->read_a_bit () || cs->has_msg ())
-	        handle_activity (cs);
+	      while (!cs->read_a_bit () || cs->has_msg ())
+	        if (!handle_activity (cs))
+                  break;
 	    }
 	}
       if (max_fd && FD_ISSET (broad_fd, &read_set))
@@ -2004,8 +2012,9 @@ main (int argc, char * argv[])
           ++it;
           if (FD_ISSET (i, &read_set))
             {
-              if (!c->read_a_bit () || c->has_msg ())
-                handle_activity (c);
+              while (!c->read_a_bit () || c->has_msg ())
+                if(!handle_activity (c))
+                  break;
               max_fd--;
             }
         }

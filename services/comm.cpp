@@ -590,10 +590,22 @@ MsgChannel *Service::createChannel (const string &hostname, unsigned short p, in
       return 0;
     }
 
+  int on = 1;
+  if (!setsockopt (remote_fd, SOL_SOCKET, SO_KEEPALIVE, (char*) &on, sizeof(on)))
+  {
+      int sec;
+      sec = MAX_SCHEDULER_PING - 3 * MAX_SCHEDULER_PONG;
+      setsockopt (remote_fd, IPPROTO_TCP, TCP_KEEPIDLE, (char*) &sec, sizeof(sec));
+      sec = MAX_SCHEDULER_PONG;
+      setsockopt (remote_fd, IPPROTO_TCP, TCP_KEEPINTVL, (char*) &sec, sizeof(sec));
+      sec = 3;
+      setsockopt (remote_fd, IPPROTO_TCP, TCP_KEEPCNT, (char*) &sec, sizeof(sec));
+  }
+
   remote_addr.sin_family = AF_INET;
   remote_addr.sin_port = htons (p);
   memcpy (&remote_addr.sin_addr.s_addr, host->h_addr_list[0], host->h_length);
-  setsockopt(remote_fd, IPPROTO_TCP, TCP_NODELAY, (char*) &i, sizeof(i));
+  setsockopt (remote_fd, IPPROTO_TCP, TCP_NODELAY, (char*) &i, sizeof(i));
 
   if ( timeout )
     {
