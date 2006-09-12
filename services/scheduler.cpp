@@ -496,12 +496,13 @@ handle_cs_request (MsgChannel *c, Msg *_m)
       job->local_client_id = m->client_id;
       job->preferred_host = m->preferred_host;
       enqueue_job_request (job);
-      log_info() << "NEW " << job->id << " client="
-                 << submitter->nodename << " versions=[";
+      std::ostream& dbg = log_info();
+      dbg << "NEW " << job->id << " client="
+                    << submitter->nodename << " versions=[";
       for ( Environments::const_iterator it = job->environments.begin();
             it != job->environments.end(); ++it )
-        log_info() << it->second << "(" << it->first << "), ";
-      log_info() << "] " << m->filename << " " << job->language << endl;
+        dbg << it->second << "(" << it->first << "), ";
+      dbg << "] " << m->filename << " " << job->language << endl;
       notify_monitors (MonGetCSMsg (job->id, submitter->hostid, m));
       if ( !master_job )
         {
