@@ -24,6 +24,7 @@
 #include <errno.h>
 #include <dirent.h>
 #include <unistd.h>
+#include <fcntl.h>
 #include <stdio.h>
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -72,7 +73,7 @@ static bool extract_version( string &version )
 }
 #endif
 
-static size_t sumup_dir( const string &dir )
+size_t sumup_dir( const string &dir )
 {
     size_t res = 0;
     DIR *envdir = opendir( dir.c_str() );
@@ -259,8 +260,11 @@ size_t setup_env_cache(const string &basedir, string &native_environment, uid_t 
     _exit( 0 );
 }
 
-size_t install_environment( const std::string &basename, const std::string &target,
-                          const std::string &name, MsgChannel *c, uid_t nobody_uid, gid_t nobody_gid )
+
+pid_t start_install_environment( const std::string &basename, const std::string &target,
+                          const std::string &name, MsgChannel *c,
+                          int& pipe_to_stdin, FileChunkMsg*& fmsg,
+                          uid_t nobody_uid, gid_t nobody_gid )
 {
     if ( !name.size() || name[0] == '.' ) {
         log_error() << "illegal name for environment " << name << endl;
@@ -282,7 +286,7 @@ size_t install_environment( const std::string &basename, const std::string &targ
         return 0;
     }
 
-    FileChunkMsg *fmsg = dynamic_cast<FileChunkMsg*>( msg );
+    fmsg = dynamic_cast<FileChunkMsg*>( msg );
     enum { BZip2, Gzip, None} compression = None;
     if ( fmsg->len > 2 )
     {
@@ -321,59 +325,9 @@ size_t install_environment( const std::string &basename, const std::string &targ
     {
         trace() << "pid " << pid << endl;
         close( fds[0] );
-        FILE *fpipe = fdopen( fds[1], "w" );
+        pipe_to_stdin = fds[1];
 
-        bool error = false;
-        do {
-            int ret = fwrite( fmsg->buffer, fmsg->len, 1, fpipe );
-            if ( ret != 1 ) {
-                log_error() << "wrote " << ret << " bytes\n";
-                error = true;
-                break;
-            }
-            delete msg;
-            msg = c->get_msg(30);
-            if (!msg) {
-                error = true;
-                break;
-            }
-
-            if ( msg->type == M_END ) {
-                trace() << "end\n";
-                break;
-            }
-            fmsg = dynamic_cast<FileChunkMsg*>( msg );
-
-            if ( !fmsg ) {
-                log_error() << "Expected another file chunk\n";
-                error = true;
-                break;
-            }
-        } while ( true );
-
-        delete msg;
-
-        fclose( fpipe );
-        close( fds[1] );
-
-        int status = 1;
-        while ( waitpid( pid, &status, 0) < 0 && errno == EINTR)
-            ;
- 
-        error |= WEXITSTATUS(status);
-
-        if ( error ) {
-            kill( pid, SIGTERM );
-            char buffer[PATH_MAX];
-            snprintf( buffer, PATH_MAX, "rm -rf '/%s'", dirname.c_str() );
-            system( buffer );
-            return 0;
-        } else {
-            mkdir( ( dirname + "/tmp" ).c_str(), 01775 );
-            chown( ( dirname + "/tmp" ).c_str(), 0, nobody_gid );
-            chmod( ( dirname + "/tmp" ).c_str(), 01775 );
-            return sumup_dir( dirname );
-        }
+        return pid;
     }
     // else
     if ( setgid( nobody_gid ) < 0) {
@@ -404,6 +358,30 @@ size_t install_environment( const std::string &basename, const std::string &targ
     argv[5] = 0;
     _exit( execv( argv[0], argv ) );
 }
+
+#if 0
+pid_t install_environment( const std::string &basename, const std::string &target,
+                          const std::string &name, MsgChannel *c, int& sock, uid_t nobody_uid, gid_t nobody_gid )
+{
+    int fds[2];
+    if ( pipe( fds ) )
+        return 0;
+
+    flush_debug();
+    pid_t pid = fork();
+    assert(pid >= 0);
+    if (pid > 0) {
+        close(fds[1]);
+        sock = fds[0];
+        fcntl(sock, F_SETFD, FD_CLOEXEC);
+        return pid;
+    }
+    close(fds[0]);
+
+    size_t size = install_environment_int(basename, target, name, c, nobody_uid, nobody_gid);
+    _exit(write(fds[1], &size, sizeof(size_t)));
+}
+#endif
 
 size_t remove_environment( const string &basename, const string &env )
 {

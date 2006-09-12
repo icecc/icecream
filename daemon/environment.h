@@ -26,14 +26,17 @@
 #include <string>
 
 class MsgChannel;
+size_t sumup_dir( const std::string &dir );
 extern bool cleanup_cache( const std::string &basedir );
 extern size_t setup_env_cache(const std::string &basedir,
                      std::string &native_environment, uid_t nobody_uid, gid_t nobody_gid);
 Environments available_environmnents(const std::string &basename);
-extern size_t install_environment( const std::string &basename,
+extern pid_t start_install_environment( const std::string &basename,
                             const std::string &target,
                             const std::string &name,
-                            MsgChannel *c, uid_t nobody_uid, gid_t nobody_gid );
+                            MsgChannel *c, int& pipe_to_child,
+                            FileChunkMsg*& fmsg,
+                            uid_t nobody_uid, gid_t nobody_gid );
 extern size_t remove_environment( const std::string &basedir, const std::string &env);
 
 #endif

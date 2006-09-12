@@ -19,6 +19,7 @@
     Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 */
 
+//#define ICECC_DEBUG 1
 #ifndef _GNU_SOURCE
 // getopt_long
 #define _GNU_SOURCE 1
@@ -109,14 +110,15 @@ public:
      * JOBDONE: This was compiled by a local client and we got a jobdone - awaiting END
      * LINKJOB: This is a local job (aka link job) by a local client we told the scheduler about
      *          and await the finish of it
+     * TOINSTALL: We're receiving an environment transfer and wait for it to complete.
      * TOCOMPILE: We're supposed to compile it ourselves
      * WAITFORCS: Client asked for a CS and we asked the scheduler - waiting for its answer
      * WAITCOMPILE: Client got a CS and will ask him now (it's not me)
      * CLIENTWORK: Client is busy working and we reserve the spot (job_id is set if it's a scheduler job)
      * WAITFORCHILD: Client is waiting for the compile job to finish.
      */
-    enum Status { UNKNOWN, GOTNATIVE, PENDING_USE_CS, JOBDONE, LINKJOB, TOCOMPILE, WAITFORCS,
-                  WAITCOMPILE, CLIENTWORK, WAITFORCHILD, LASTSTATE=WAITFORCHILD } status;
+    enum Status { UNKNOWN, GOTNATIVE, PENDING_USE_CS, JOBDONE, LINKJOB, TOINSTALL, TOCOMPILE, 
+                  WAITFORCS, WAITCOMPILE, CLIENTWORK, WAITFORCHILD, LASTSTATE=WAITFORCHILD } status;
     Client()
     {
         job_id = 0;
@@ -142,6 +144,8 @@ public:
             return "jobdone";
         case LINKJOB:
             return "linkjob";
+        case TOINSTALL:
+            return "toinstall";
         case TOCOMPILE:
             return "tocompile";
         case WAITFORCS:
@@ -168,14 +172,15 @@ public:
         job = 0;
 	if (pipe_to_child >= 0)
 	    close (pipe_to_child);
+ 
     }
     uint32_t job_id;
-    string outfile; // only useful for LINKJOB
+    string outfile; // only useful for LINKJOB or TOINSTALL
     MsgChannel *channel;
     UseCSMsg *usecsmsg;
     CompileJob *job;
     int client_id;
-    int pipe_to_child; // pipe to child process, only valid if WAITFORCHILD
+    int pipe_to_child; // pipe to child process, only valid if WAITFORCHILD or TOINSTALL
     pid_t child_pid;
 
     string dump() const
@@ -183,6 +188,8 @@ public:
         string ret = status_str( status ) + " " + channel->dump();
         switch ( status ) {
         case LINKJOB:
+            return ret + " " + toString( client_id ) + " " + outfile;
+        case TOINSTALL:
             return ret + " " + toString( client_id ) + " " + outfile;
         case WAITFORCHILD:
             return ret + " " + toString( client_id ) + " PID: " + toString( child_pid ) + " PFD: " + toString( pipe_to_child );
@@ -396,7 +403,6 @@ int setup_listen_fd()
 
 
 struct timeval last_stat;
-time_t last_scheduler_ping;
 int mem_limit = 100;
 unsigned int max_kids = 0;
 int current_kids = 0;
@@ -456,10 +462,12 @@ struct Daemon
     bool reannounce_environments() __attribute_warn_unused_result__;
     int answer_client_requests();
     bool handle_transfer_env( MsgChannel *c, Msg *msg ) __attribute_warn_unused_result__;
+    bool handle_transfer_env_done( Client *client ) __attribute_warn_unused_result__;
     bool handle_get_native_env( MsgChannel *c ) __attribute_warn_unused_result__;
     void handle_old_request();
     bool handle_compile_file( MsgChannel *c, Msg *msg ) __attribute_warn_unused_result__;
     bool handle_activity( MsgChannel *c ) __attribute_warn_unused_result__;
+    bool handle_file_chunk_env(MsgChannel* c, Msg *msg) __attribute_warn_unused_result__;
     void handle_end( Client *client, int exitcode );
     int scheduler_get_internals( ) __attribute_warn_unused_result__;
     void clear_children();
@@ -495,6 +503,7 @@ bool Daemon::send_scheduler(const Msg& msg)
 
 bool Daemon::reannounce_environments()
 {
+    log_error() << "reannounce_environments " << endl;
     LoginMsg lmsg( 0, nodename, "");
     lmsg.envs = available_environmnents(envbasedir);
     return send_scheduler( lmsg );
@@ -516,14 +525,6 @@ bool Daemon::maybe_stats(bool send_ping)
 {
     struct timeval now;
     gettimeofday( &now, 0 );
-
-    /* the scheduler didn't ping us for a long time, assume dead connection and recover */
-    if (now.tv_sec - last_scheduler_ping >= max_scheduler_ping + 2 * max_scheduler_pong) {
-        log_error() << "scheduler timeout.. " << now.tv_sec - last_scheduler_ping << " bigger than " <<
-            max_scheduler_ping + 2*max_scheduler_pong << " nuking" << endl;
-        close_scheduler();
-        return false;
-    }
 
     time_t diff_sent = ( now.tv_sec - last_stat.tv_sec ) * 1000 + ( now.tv_usec - last_stat.tv_usec ) / 1000;
     if ( diff_sent >= max_scheduler_pong * 1000 ) {
@@ -590,13 +591,6 @@ bool Daemon::maybe_stats(bool send_ping)
         current_load = msg.load;
     }
 
-    if ( send_ping ) {
-        if (!send_scheduler(PingMsg()))
-            return false;
-
-        last_scheduler_ping = now.tv_sec;
-    }
-
     return true;
 }
 
@@ -661,32 +655,93 @@ int Daemon::scheduler_use_cs( UseCSMsg *msg )
     return 0;
 }
 
-bool Daemon::handle_transfer_env( MsgChannel *c, Msg *msg )
+bool Daemon::handle_transfer_env( MsgChannel *c, Msg *_msg )
 {
+    log_error() << "handle_transfer_env" << endl;
+
+    EnvTransferMsg *msg = static_cast<EnvTransferMsg*>( _msg );
+    Client *client = clients.find_by_channel( c );
+
+    assert(client);
+    assert(client->status != Client::TOINSTALL &&
+           client->status != Client::TOCOMPILE &&
+           client->status != Client::WAITCOMPILE);
+    assert(client->pipe_to_child < 0);
+
     EnvTransferMsg *emsg = static_cast<EnvTransferMsg*>( msg );
     string target = emsg->target;
     if ( target.empty() )
         target =  machine_name;
 
-    size_t installed_size = 0;
-    /* HACKALERT: install_environment can block for a while, make sure
-       the scheduler doesn't kick us */
-    if ( maybe_stats(true) )
-        installed_size = install_environment( envbasedir, emsg->target,
-                emsg->name, c, nobody_uid, nobody_gid );
-    else
-        return false;
-    if (!installed_size) {
-        trace() << "install environment failed" << endl;
-        c->send_msg(EndMsg()); // shut up, we had an error
-        return reannounce_environments();
+    int sock_to_stdin = -1;
+    FileChunkMsg* fmsg;
+
+    pid_t pid = start_install_environment( envbasedir, emsg->target,
+        emsg->name, c, sock_to_stdin, fmsg, nobody_uid, nobody_gid );
+
+    if ( pid > 0) {
+        current_kids++;
+        client->status = Client::TOINSTALL;
+        client->outfile = msg->target + "/" + msg->name;
+        client->pipe_to_child = sock_to_stdin;
+        client->child_pid = pid;
+        handle_file_chunk_env(c, fmsg);
+        log_error() << "got pid " << pid << endl;
     }
-    trace() << "envs " << dump_internals() << endl;
-    cache_size += installed_size;
-    string current = emsg->target + "/" + emsg->name;
-    envs_last_use[current] = time( NULL );
-    trace() << "installed " << emsg->name << " size: " << installed_size
-        << " all: " << cache_size << endl;
+    return pid > 0;
+}
+
+bool Daemon::handle_transfer_env_done( Client *client )
+{
+    log_error() << "handle_transfer_env_done" << endl;
+
+    assert(client);
+    assert(client->outfile.size());
+    assert(client->status == Client::TOINSTALL);
+
+    size_t installed_size = 0;
+    if (client->pipe_to_child >= 0) {
+        installed_size = 0;
+        close(client->pipe_to_child);
+        client->pipe_to_child = -1;
+    }
+
+    int status = 1;
+    while ( waitpid( client->child_pid, &status, 0) < 0 && errno == EINTR)
+        ;
+
+    if (!WIFEXITED(status) || WEXITSTATUS(status)) {
+        log_error() << "exit code: " << WEXITSTATUS(status) << endl;
+        installed_size = 0;
+        remove_environment(envbasedir, client->outfile);
+    }
+    else {
+        string dirname = envbasedir + "/target=" + client->outfile;
+        mkdir( ( dirname + "/tmp" ).c_str(), 01775 );
+        chown( ( dirname + "/tmp" ).c_str(), 0, nobody_gid );
+        chmod( ( dirname + "/tmp" ).c_str(), 01775 );
+
+        log_error() << "sumup dir: " << dirname << endl;
+        installed_size = sumup_dir (dirname);
+        log_error() << " returned  " << installed_size << endl;
+    }
+
+    client->status = Client::UNKNOWN;
+    close(client->pipe_to_child);
+    client->pipe_to_child = -1;
+    string current = client->outfile;
+    client->outfile.clear();
+    client->child_pid = -1;
+    current_kids--;
+
+    log_error() << "installed_size: " << installed_size << endl;
+
+    if (installed_size) {
+        cache_size += installed_size;
+        envs_last_use[current] = time( NULL );
+        log_error() << "installed " << current << " size: " << installed_size
+            << " all: " << cache_size << endl;
+    }
 
     time_t now = time( NULL );
     while ( cache_size > cache_size_limit ) {
@@ -701,6 +756,7 @@ bool Daemon::handle_transfer_env( MsgChannel *c, Msg *msg )
                 bool found = false;
                 for (Clients::const_iterator it2 = clients.begin(); it2 != clients.end(); ++it2)  {
                     if (it2->second->status == Client::TOCOMPILE ||
+                            it2->second->status == Client::TOINSTALL ||
                             it2->second->status == Client::WAITFORCHILD) {
 
                         assert( it2->second->job );
@@ -917,6 +973,7 @@ void Daemon::handle_end( Client *client, int exitcode )
 #endif
     fd2chan.erase (client->channel->fd);
 
+    assert(client->status != Client::TOINSTALL);
     if ( client->status == Client::CLIENTWORK )
         clients.active_processes--;
 
@@ -945,6 +1002,7 @@ void Daemon::handle_end( Client *client, int exitcode )
             case Client::JOBDONE:
             case Client::WAITFORCHILD:
             case Client::LINKJOB:
+            case Client::TOINSTALL:
                 assert( false ); // should not have a job_id
                 break;
             case Client::WAITCOMPILE:
@@ -959,7 +1017,8 @@ void Daemon::handle_end( Client *client, int exitcode )
         } else if ( client->status == Client::CLIENTWORK ) {
             // Clientwork && !job_id == LINK
             trace() << "scheduler->send_msg( JobLocalDoneMsg( " << client->client_id << ") );\n";
-            send_scheduler( JobLocalDoneMsg( client->client_id ) );
+            if (!send_scheduler( JobLocalDoneMsg( client->client_id ) ))
+                trace() << "failed to reach scheduler for job done msg!" << endl;
         }
     }
 
@@ -1038,6 +1097,55 @@ bool Daemon::handle_local_job( MsgChannel *c, Msg *msg )
     return true;
 }
 
+bool Daemon::handle_file_chunk_env(MsgChannel *c, Msg *msg)
+{
+    /* this sucks, we can block when we're writing
+       the file chunk to the child, but we can't let the child
+       handle MsgChannel itself due to MsgChannel's stupid 
+       caching layer inbetween, which causes us to loose partial
+       data after the M_END msg of the env transfer.  */
+
+    Client *client = clients.find_by_channel( c );
+    assert (client);
+    assert (client->status == Client::TOINSTALL);
+
+    if (msg->type == M_FILE_CHUNK && client->pipe_to_child >= 0)
+    {
+        FileChunkMsg *fcmsg = static_cast<FileChunkMsg*>( msg );
+        ssize_t len = fcmsg->len;
+        off_t off = 0;
+        while ( len ) {
+            ssize_t bytes = write( client->pipe_to_child, fcmsg->buffer + off, len );
+            if ( bytes < 0 && errno == EINTR )
+                continue;
+
+            if ( bytes == -1 ) {
+                log_perror("write to transfer env pipe failed. ");
+
+                delete msg;
+                msg = 0;
+                handle_end(client, 137);
+                return false;
+            }
+
+            len -= bytes;
+            off += bytes;
+        }
+        return true;
+    }
+
+    if (msg->type == M_END) {
+        close(client->pipe_to_child);
+        client->pipe_to_child = -1;
+        return handle_transfer_env_done(client);
+    }
+
+    if (client->pipe_to_child >= 0)
+        handle_end(client, 138);
+
+    return false;
+}
+
 bool Daemon::handle_activity( MsgChannel *c )
 {
     Client *client = clients.find_by_channel( c );
@@ -1053,6 +1161,12 @@ bool Daemon::handle_activity( MsgChannel *c )
     }
 
     bool ret = false;
+    if (client->status == Client::TOINSTALL && client->pipe_to_child >= 0)
+        ret = handle_file_chunk_env(c, msg);
+
+    if (ret)
+        return ret;
+
     switch ( msg->type ) {
     case M_GET_NATIVE_ENV: ret = handle_get_native_env( c ); break;
     case M_COMPILE_FILE: ret = handle_compile_file( c, msg ); break;
@@ -1115,7 +1229,8 @@ int Daemon::answer_client_requests()
             FD_SET (i, &listen_set);
         }
 
-        if (current_status == Client::WAITFORCHILD && client->pipe_to_child != -1) {
+        if (current_status == Client::WAITFORCHILD
+            && client->pipe_to_child != -1) {
             if (client->pipe_to_child > max_fd)
                 max_fd = client->pipe_to_child;
             FD_SET (client->pipe_to_child, &listen_set);
@@ -1155,10 +1270,6 @@ int Daemon::answer_client_requests()
                 ret = 0;
                 switch ( msg->type )
                 {
-                case M_PING:
-                    if ( !maybe_stats(true) )
-                        ret = 1;
-                    break;
                 case M_USE_CS:
                     ret = scheduler_use_cs( dynamic_cast<UseCSMsg*>( msg ) );
 		    break;
@@ -1216,7 +1327,7 @@ int Daemon::answer_client_requests()
                 assert(client);
                 ++it;
                 if (client->status == Client::WAITFORCHILD
-                    && client->pipe_to_child != -1
+                    && client->pipe_to_child >= 0
                     && FD_ISSET(client->pipe_to_child, &listen_set) )
                 {
                     max_fd--;
@@ -1272,7 +1383,6 @@ bool Daemon::reconnect()
     log_info() << "Connected to scheduler (" << remote_name << ")\n";
     current_load = -1000;
     gettimeofday( &last_stat, 0 );
-    last_scheduler_ping = last_stat.tv_sec;
     icecream_load = 0;
 
     // perhaps our host name changed due to network change?
