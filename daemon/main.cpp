@@ -519,7 +519,7 @@ bool Daemon::maybe_stats(bool send_ping)
     gettimeofday( &now, 0 );
 
     /* the scheduler didn't ping us for a long time, assume dead connection and recover */
-    if (now.tv_sec - last_scheduler_ping >= max_scheduler_ping + 2 * max_scheduler_pong) {
+    if (!send_ping && now.tv_sec - last_scheduler_ping >= max_scheduler_ping + 2 * max_scheduler_pong) {
         log_error() << "scheduler timeout.. " << now.tv_sec - last_scheduler_ping << " bigger than " <<
             max_scheduler_ping + 2*max_scheduler_pong << " nuking" << endl;
         close_scheduler();
