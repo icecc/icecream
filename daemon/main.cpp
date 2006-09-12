@@ -479,12 +479,26 @@ struct Daemon
     bool handle_compile_done (Client* client) __attribute_warn_unused_result__;
     int handle_cs_conf( ConfCSMsg *msg);
     string dump_internals() const;
+    string determine_nodename();
     bool maybe_stats(bool force = false);
     bool send_scheduler(const Msg& msg) __attribute_warn_unused_result__;
     void close_scheduler();
     bool reconnect();
     int working_loop();
 };
+
+string Daemon::determine_nodename()
+{
+    if (custom_nodename && !nodename.empty())
+        return nodename;
+
+    // perhaps our host name changed due to network change?
+    struct utsname uname_buf;
+    if ( !uname( &uname_buf ) )
+        nodename = uname_buf.nodename;
+
+    return nodename;
+}
 
 bool Daemon::send_scheduler(const Msg& msg)
 {
@@ -1268,6 +1282,10 @@ int Daemon::answer_client_requests()
                 ret = 0;
                 switch ( msg->type )
                 {
+                case M_PING:
+                    if (!IS_PROTOCOL_26(scheduler))
+                        ret = !send_scheduler(PingMsg());
+                    break;
                 case M_USE_CS:
                     ret = scheduler_use_cs( dynamic_cast<UseCSMsg*>( msg ) );
 		    break;
@@ -1383,12 +1401,7 @@ bool Daemon::reconnect()
     gettimeofday( &last_stat, 0 );
     icecream_load = 0;
 
-    // perhaps our host name changed due to network change?
-    struct utsname uname_buf;
-    if ( !custom_nodename && !uname( &uname_buf ) )
-        nodename = uname_buf.nodename;
-
-    LoginMsg lmsg( PORT, nodename, machine_name );
+    LoginMsg lmsg( PORT, determine_nodename(), machine_name );
     lmsg.envs = available_environmnents(envbasedir);
     lmsg.max_kids = max_kids;
     return scheduler->send_msg( lmsg );
@@ -1563,6 +1576,7 @@ int main( int argc, char ** argv )
 
     if ( d.nodename.length() && d.nodename != uname_buf.nodename )
         d.custom_nodename  = true;
+
     if (!d.custom_nodename)
         d.nodename = uname_buf.nodename;
 
