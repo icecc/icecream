@@ -339,6 +339,11 @@ pid_t start_install_environment( const std::string &basename, const std::string 
       _exit (142);
     }
 
+    // reset SIGPIPE and SIGCHILD handler so that tar
+    // isn't confused when gzip/bzip2 aborts
+    signal(SIGCHLD, SIG_DFL);
+    signal(SIGPIPE, SIG_DFL);
+
     close( 0 );
     close( fds[1] );
     dup2( fds[0], 0 );
