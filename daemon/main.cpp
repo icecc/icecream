@@ -628,6 +628,23 @@ string Daemon::dump_internals() const
         result += "  envs_last_use[" + it->first  + "] = " +
                   toString( it->second ) + "\n";
     }
+    result += "  Current kids: " + toString( current_kids ) + "\n";
+    if ( scheduler )
+        result += "  Scheduler protocol: " + toString( scheduler->protocol ) + "\n";
+
+    StatsMsg msg;
+    unsigned int memory_fillgrade = 0;
+    unsigned long idleLoad = 0;
+    unsigned long niceLoad = 0;
+
+    if ( fill_stats( idleLoad, niceLoad, memory_fillgrade, &msg ) )
+    {
+        result += "  cpu: " + toString( idleLoad ) + " idle, " +
+                  toString( niceLoad ) + " nice\n";
+        result += "  load: " + toString( msg.loadAvg1 / 1000. ) + ", icecream_load: " +
+                  toString( icecream_load ) + "\n";
+        result += "  memory: " + toString( memory_fillgrade ) + " (free: " + toString( msg.freeMem ) + ")\n";
+    }
 
     return result;
 }
