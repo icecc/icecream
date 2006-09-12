@@ -399,7 +399,6 @@ struct timeval last_stat;
 time_t last_scheduler_ping;
 int mem_limit = 100;
 unsigned int max_kids = 0;
-int current_kids = 0;
 
 size_t cache_size_limit = 100 * 1024 * 1024;
 
@@ -432,6 +431,7 @@ struct Daemon
     int max_scheduler_pong;
     int max_scheduler_ping;
     string bench_source;
+    unsigned int current_kids;
 
     Daemon() {
         envbasedir = "/tmp/icecc-envs";
@@ -451,6 +451,7 @@ struct Daemon
         max_scheduler_pong = MAX_SCHEDULER_PONG;
         max_scheduler_ping = MAX_SCHEDULER_PING;
         bench_source = "";
+        current_kids = 0;
     }
 
     bool reannounce_environments() __attribute_warn_unused_result__;
@@ -851,9 +852,11 @@ bool Daemon::handle_compile_done (Client* client)
 {
     assert(client->status == Client::WAITFORCHILD);
     assert(client->child_pid > 0);
+    assert(client->pipe_to_child >= 0);
 
     JobDoneMsg *msg = new JobDoneMsg(client->job->jobID(), -1, JobDoneMsg::FROM_SERVER);
     assert(msg);
+    assert(current_kids > 0);
     current_kids--;
 
     unsigned int job_stat[8];
@@ -871,20 +874,15 @@ bool Daemon::handle_compile_done (Client* client)
         end_status = job_stat[JobStatistics::exit_code];
     }
 
-    if (!send_scheduler( *msg )) {
-        log_info() << "failed to send scheduler a jobdone msg.." << endl;
-        return false;
-    }
-
-    delete msg;
     close(client->pipe_to_child);
     client->pipe_to_child = -1;
     string envforjob = client->job->targetPlatform() + "/" + client->job->environmentVersion();
     envs_last_use[envforjob] = time( NULL );
 
+    bool r = send_scheduler( *msg );
     handle_end(client, end_status);
-
-    return true;
+    delete msg;
+    return r;
 }
 
 bool Daemon::handle_compile_file( MsgChannel *c, Msg *msg )
@@ -1216,7 +1214,7 @@ int Daemon::answer_client_requests()
                 assert(client);
                 ++it;
                 if (client->status == Client::WAITFORCHILD
-                    && client->pipe_to_child != -1
+                    && client->pipe_to_child >= 0
                     && FD_ISSET(client->pipe_to_child, &listen_set) )
                 {
                     max_fd--;
