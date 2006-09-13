@@ -364,39 +364,31 @@ pid_t start_install_environment( const std::string &basename, const std::string 
     _exit( execv( argv[0], argv ) );
 }
 
-#if 0
-pid_t install_environment( const std::string &basename, const std::string &target,
-                          const std::string &name, MsgChannel *c, int& sock, uid_t nobody_uid, gid_t nobody_gid )
+
+size_t finalize_install_environment( const std::string &basename, const std::string &target, 
+                                     pid_t pid, gid_t nobody_gid)
 {
-    int fds[2];
-    if ( pipe( fds ) )
+    int status = 1;
+    while ( waitpid( pid, &status, 0) < 0 && errno == EINTR)
+        ;
+
+    if (!WIFEXITED(status) || WEXITSTATUS(status)) {
+        log_error() << "exit code: " << WEXITSTATUS(status) << endl;
+        remove_environment(basename, target);
         return 0;
-
-    flush_debug();
-    pid_t pid = fork();
-    assert(pid >= 0);
-    if (pid > 0) {
-        close(fds[1]);
-        sock = fds[0];
-        fcntl(sock, F_SETFD, FD_CLOEXEC);
-        return pid;
     }
-    close(fds[0]);
 
-    size_t size = install_environment_int(basename, target, name, c, nobody_uid, nobody_gid);
-    _exit(write(fds[1], &size, sizeof(size_t)));
+    string dirname = basename + "/target=" + target;
+    mkdir( ( dirname + "/tmp" ).c_str(), 01775 );
+    chown( ( dirname + "/tmp" ).c_str(), 0, nobody_gid );
+    chmod( ( dirname + "/tmp" ).c_str(), 01775 );
+
+    return sumup_dir (dirname);
 }
-#endif
 
 size_t remove_environment( const string &basename, const string &env )
 {
-    string::size_type pos = env.find_first_of( '/' );
-    if ( pos == string::npos ) // nonsense
-        return 0;
-
-    string target = env.substr( 0, pos );
-    string name = env.substr( pos + 1 );
-    string dirname = basename + "/target=" + target + "/" + name;
+    string dirname = basename + "/target=" + env;
 
     size_t res = sumup_dir( dirname );
 

@@ -714,31 +714,13 @@ bool Daemon::handle_transfer_env_done( Client *client )
     assert(client->outfile.size());
     assert(client->status == Client::TOINSTALL);
 
-    size_t installed_size = 0;
+    size_t installed_size = finalize_install_environment(envbasedir, client->outfile,
+            client->child_pid, nobody_gid);
+
     if (client->pipe_to_child >= 0) {
         installed_size = 0;
         close(client->pipe_to_child);
         client->pipe_to_child = -1;
-    }
-
-    int status = 1;
-    while ( waitpid( client->child_pid, &status, 0) < 0 && errno == EINTR)
-        ;
-
-    if (!WIFEXITED(status) || WEXITSTATUS(status)) {
-        log_error() << "exit code: " << WEXITSTATUS(status) << endl;
-        installed_size = 0;
-        remove_environment(envbasedir, client->outfile);
-    }
-    else {
-        string dirname = envbasedir + "/target=" + client->outfile;
-        mkdir( ( dirname + "/tmp" ).c_str(), 01775 );
-        chown( ( dirname + "/tmp" ).c_str(), 0, nobody_gid );
-        chmod( ( dirname + "/tmp" ).c_str(), 01775 );
-
-        log_error() << "sumup dir: " << dirname << endl;
-        installed_size = sumup_dir (dirname);
-        log_error() << " returned  " << installed_size << endl;
     }
 
     client->status = Client::UNKNOWN;
