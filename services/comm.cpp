@@ -159,12 +159,21 @@ MsgChannel::update_state (void)
     case NEED_LEN:
       if (text_based)
         {
-	  /* XXX handle other line endings.  */
-	  void *lineend = memchr (inbuf + intogo, '\r', inofs - intogo);
-	  if (!lineend)
-	    break;
-	  instate = HAS_MSG;
-	  goto has_msg;
+          // Skip any leading whitespace
+          log_error() << "inofs - intogo: " << inofs - intogo << endl;
+          for (;inofs < intogo; ++inofs)
+             if (inbuf[inofs] >= ' ') break;
+
+          // Skip until next newline
+          log_error() << "inofs - intogo: " << inofs - intogo << endl;
+          for(inmsglen = 0; inmsglen < inofs - intogo; ++inmsglen)
+             if (inbuf[intogo+inmsglen] < ' ')
+               {
+                 log_error() << "inmsglen is " << inmsglen << " because " << char(inbuf[inofs+inmsglen]) << endl;
+                 instate = HAS_MSG;
+                 break;
+               }
+          break;
 	}
       else if (inofs - intogo >= 4)
         {
@@ -186,7 +195,6 @@ MsgChannel::update_state (void)
       else
         break;
     case HAS_MSG:
-    has_msg:
       /* handled elsewere */
       break;
     }
@@ -474,22 +482,17 @@ MsgChannel::read_line (string &line)
   /* XXX handle DOS and MAC line endings and null bytes as string endings.  */
   if (!text_based || inofs < intogo)
     {
+     log_error() << "urgs" << endl;
       line = "";
     }
   else
     {
-      const char *linebeg = inbuf + intogo;
-      const char *lineend = (const char *) memchr (linebeg, '\r', inofs - intogo);
-      if (!lineend)
-        line = "";
-      else
-        {
-	  /* Without the EOL */
-	  line = string(linebeg, lineend - linebeg);
-	  intogo += lineend - linebeg + 1;
-	  if (intogo < inofs && inbuf[intogo] == '\n')
-	    intogo++;
-	}
+	  line = string(inbuf + intogo, inmsglen);
+          log_error() << "inmsglen: " << inmsglen << endl;
+          log_error() << "string : *" << line << "*" << endl;
+	  intogo += inmsglen;
+          while (intogo < inofs && inbuf[intogo] < ' ')
+            intogo++;
     }
 }
 

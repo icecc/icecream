@@ -1243,6 +1243,33 @@ handle_job_done (MsgChannel *c, Msg *_m)
       return false;
     }
 
+  if (j->state == Job::PENDING)
+    {
+      trace() << "job ID still pending ?! scheduler recently restarted? " << m->job_id << endl;
+      return false;
+    }
+
+  if (m->is_from_server() && j->server != c)
+    {
+      log_info() << "the server isn't the same for job " << m->job_id << endl;
+      log_info() << "server: " << j->server->nodename << endl;
+      log_info() << "msg came from: " << ((CS*)c)->nodename << endl;
+      // the daemon is not following matz's rules: kick him
+      handle_end(c, 0);
+      return false;
+    }
+  if (!m->is_from_server() && j->submitter != c)
+    {
+      log_info() << "the submitter isn't the same for job " << m->job_id << endl;
+      log_info() << "submitter: " << j->submitter->nodename << endl;
+      log_info() << "msg came from: " << ((CS*)c)->nodename << endl;
+      // the daemon is not following matz's rules: kick him
+      handle_end(c, 0);
+      return false;
+    }
+
+
+
   if ( m->exitcode == 0 )
     {
       std::ostream &dbg = trace();
@@ -1271,25 +1298,6 @@ handle_job_done (MsgChannel *c, Msg *_m)
   else
     trace() << "END " << m->job_id
 	    << " status=" << m->exitcode << endl;
-
-  if (m->is_from_server() && j->server != c)
-    {
-      log_info() << "the server isn't the same for job " << m->job_id << endl;
-      log_info() << "server: " << j->server->nodename << endl;
-      log_info() << "msg came from: " << ((CS*)c)->nodename << endl;
-      // the daemon is not following matz's rules: kick him
-      handle_end(c, 0);
-      return false;
-    }
-  if (!m->is_from_server() && j->submitter != c)
-    {
-      log_info() << "the submitter isn't the same for job " << m->job_id << endl;
-      log_info() << "submitter: " << j->submitter->nodename << endl;
-      log_info() << "msg came from: " << ((CS*)c)->nodename << endl;
-      // the daemon is not following matz's rules: kick him
-      handle_end(c, 0);
-      return false;
-    }
 
   if (j->server) 
     {
