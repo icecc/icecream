@@ -160,16 +160,13 @@ MsgChannel::update_state (void)
       if (text_based)
         {
           // Skip any leading whitespace
-          log_error() << "inofs - intogo: " << inofs - intogo << endl;
           for (;inofs < intogo; ++inofs)
              if (inbuf[inofs] >= ' ') break;
 
           // Skip until next newline
-          log_error() << "inofs - intogo: " << inofs - intogo << endl;
           for(inmsglen = 0; inmsglen < inofs - intogo; ++inmsglen)
              if (inbuf[intogo+inmsglen] < ' ')
                {
-                 log_error() << "inmsglen is " << inmsglen << " because " << char(inbuf[inofs+inmsglen]) << endl;
                  instate = HAS_MSG;
                  break;
                }
@@ -482,14 +479,11 @@ MsgChannel::read_line (string &line)
   /* XXX handle DOS and MAC line endings and null bytes as string endings.  */
   if (!text_based || inofs < intogo)
     {
-     log_error() << "urgs" << endl;
       line = "";
     }
   else
     {
 	  line = string(inbuf + intogo, inmsglen);
-          log_error() << "inmsglen: " << inmsglen << endl;
-          log_error() << "string : *" << line << "*" << endl;
 	  intogo += inmsglen;
           while (intogo < inofs && inbuf[intogo] < ' ')
             intogo++;
