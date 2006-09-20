@@ -1093,6 +1093,20 @@ handle_login (MsgChannel *c, Msg *_m)
   cs->chroot_possible = m->chroot_possible;
   cs->pick_new_id();
   handle_monitor_stats( cs );
+
+  /* remove any other clients with the same IP, they must be stale */
+  for (list<CS*>::iterator it = css.begin(); it != css.end(); )
+    {
+      if (cs->eq_ip(*(*it)))
+      {
+        CS* old = *it;
+        ++it;
+        handle_end(old, 0);
+        continue;
+      }
+      ++it;
+    }
+
   css.push_back (cs);
 
 #if 1
