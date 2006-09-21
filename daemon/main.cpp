@@ -183,9 +183,9 @@ public:
         string ret = status_str( status ) + " " + channel->dump();
         switch ( status ) {
         case LINKJOB:
-            return ret + " " + toString( client_id ) + " " + outfile;
+            return ret + " CID: " + toString( client_id ) + " " + outfile;
         case WAITFORCHILD:
-            return ret + " " + toString( client_id ) + " PID: " + toString( child_pid ) + " PFD: " + toString( pipe_to_child );
+            return ret + " CID: " + toString( client_id ) + " PID: " + toString( child_pid ) + " PFD: " + toString( pipe_to_child );
         default:
             if ( job_id ) {
                 string jobs;
