@@ -38,7 +38,6 @@
 #include <unistd.h>
 #include <sys/fcntl.h>
 #include <sys/wait.h>
-#include <sys/user.h>
 #include <sys/socket.h>
 
 #ifdef __FreeBSD__
