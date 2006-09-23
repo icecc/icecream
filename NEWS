@@ -1,3 +1,12 @@
+0.7.14 (583722):
+        - fix current_kids getting out of sync if send_scheduler
+          failes in an unfortunate moment
+        - fix reporting the error
+        - add more to the internals dump
+        - trying to make the scheduler kicks a little bit less frequent
+        - if the compiler is supposed to keep temp files, then we
+          have to do it locally
+
 0.7.13 (583347):
 	- use file -L to follow symlinks in create-env
 	- fix an easy valgrind error

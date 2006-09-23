@@ -143,6 +143,7 @@ bool analyse_argv( const char * const *argv,
                        || !strcmp( a, "-frepo" )
                        || !strcmp( a, "-fprofile-generate" )
                        || !strcmp( a, "-fprofile-use" )
+                       || !strcmp( a, "-save-temps")
                        || !strcmp( a, "-fbranch-probabilities") ) {
 #if CLIENT_DEBUG
                 log_info() << "compiler will emit profile info; must be local" << endl;
