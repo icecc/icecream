@@ -976,6 +976,17 @@ void Daemon::handle_end( Client *client, int exitcode )
  	client->job_id = 0;
     }
 
+    /* Delete from the clients map before send_scheduler, which causes a
+       double deletion. */
+    if (!clients.erase( client->channel ))
+    {
+        log_error() << "client can't be erased: " << client->channel << endl;
+        flush_debug();
+        log_error() << dump_internals() << endl;
+        flush_debug();
+        assert(false);
+    }
+
     if ( scheduler && client->status != Client::WAITFORCHILD ) {
         int job_id = client->job_id;
         if ( client->status == Client::TOCOMPILE )
@@ -1016,14 +1027,6 @@ void Daemon::handle_end( Client *client, int exitcode )
         }
     }
 
-    if (!clients.erase( client->channel ))
-    {
-	log_error() << "client can't be erased: " << client->channel << endl;
-	flush_debug();
-	log_error() << dump_internals() << endl;
-	flush_debug();
-	assert(false);
-    }
     delete client;
 }
 
