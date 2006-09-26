@@ -967,7 +967,13 @@ void Daemon::handle_end( Client *client, int exitcode )
 #endif
     fd2chan.erase (client->channel->fd);
 
-    assert(client->status != Client::TOINSTALL);
+    if (client->status == Client::TOINSTALL && client->pipe_to_child >= 0)
+    {
+        close(client->pipe_to_child);
+        client->pipe_to_child = -1;
+        handle_transfer_env_done(client);
+    }
+
     if ( client->status == Client::CLIENTWORK )
         clients.active_processes--;
 
