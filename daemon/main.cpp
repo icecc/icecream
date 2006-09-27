@@ -1319,7 +1319,7 @@ int Daemon::answer_client_requests()
                 while (c->has_msg()) {
                     assert(client->status != Client::TOCOMPILE);
                     if (!handle_activity (c))
-                        break;
+                        return 1;
                     if (client->status == Client::TOCOMPILE ||
                             client->status == Client::WAITFORCHILD)
                         break;
@@ -1346,7 +1346,7 @@ int Daemon::answer_client_requests()
                     while (c->has_msg()) {
                         assert(client->status != Client::TOCOMPILE);
                         if (!handle_activity (c))
-                            break;
+                            return 1;
                         if (client->status == Client::TOCOMPILE ||
                                 client->status == Client::WAITFORCHILD)
                             break;
