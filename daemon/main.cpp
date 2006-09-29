@@ -533,7 +533,6 @@ void Daemon::close_scheduler()
     scheduler = 0;
     delete discover;
     discover = 0;
-    clear_children();
 }
 
 bool Daemon::maybe_stats(bool send_ping)
@@ -1268,6 +1267,7 @@ int Daemon::answer_client_requests()
             if ( !msg ) {
                 log_error() << "scheduler closed connection\n";
                 close_scheduler();
+                clear_children();
                 return 1;
             } else {
                 ret = 0;
@@ -1288,6 +1288,7 @@ int Daemon::answer_client_requests()
                     break;
                 default:
                     log_error() << "unknown scheduler type " << ( char )msg->type << endl;
+                    ret = 1;
                 }
             }
             delete msg;
@@ -1316,10 +1317,7 @@ int Daemon::answer_client_requests()
 
                 fd2chan[c->fd] = c;
                 c->read_a_bit();
-                while (c->has_msg()) {
-                    assert(client->status != Client::TOCOMPILE);
-                    if (!handle_activity (c))
-                        return 1;
+                while (c->has_msg() && handle_activity(c)) {
                     if (client->status == Client::TOCOMPILE ||
                             client->status == Client::WAITFORCHILD)
                         break;
@@ -1343,18 +1341,20 @@ int Daemon::answer_client_requests()
                 }
                 if (FD_ISSET (i, &listen_set)) {
                     c->read_a_bit();
-                    while (c->has_msg()) {
-                        assert(client->status != Client::TOCOMPILE);
-                        if (!handle_activity (c))
-                            return 1;
+                    while (c->has_msg() && handle_activity(c)) {
                         if (client->status == Client::TOCOMPILE ||
                                 client->status == Client::WAITFORCHILD)
                             break;
                     }
                     max_fd--;
                 }
-           }
+            }
         }
+        if ( !scheduler ) {
+            clear_children();
+            return 2;
+        }
+
     }
     return 0;
 }
