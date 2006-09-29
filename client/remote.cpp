@@ -270,15 +270,11 @@ static int build_remote_int(CompileJob &job, UseCSMsg *usecs, const string &envi
     MsgChannel *cserver = 0;
 
     try {
-        {
-            log_block b1("create CS channel");
-
             cserver = Service::createChannel(hostname, port, 10);
             if ( !cserver ) {
                 log_error() << "no server found behind given hostname " << hostname << ":" << port << endl;
                 throw ( 2 );
             }
-        }
 
     if ( !got_env ) {
         log_block b("Transfer Environment");
