@@ -771,7 +771,7 @@ bool Daemon::handle_transfer_env_done( Client *client )
         if ( oldest.empty() || oldest == current )
             break;
         size_t removed = remove_environment( envbasedir, oldest );
-        trace() << "removing " << envbasedir << " " << oldest << " " << oldest_time << " " << removed << endl;
+        trace() << "removing " << envbasedir << "/" << oldest << " " << oldest_time << " " << removed << endl;
         cache_size -= min( removed, cache_size );
         envs_last_use.erase( oldest );
     }
@@ -1166,8 +1166,10 @@ bool Daemon::handle_activity( MsgChannel *c )
     if (client->status == Client::TOINSTALL && client->pipe_to_child >= 0)
         ret = handle_file_chunk_env(c, msg);
 
-    if (ret)
+    if (ret) {
+        delete msg;
         return ret;
+    }
 
     switch ( msg->type ) {
     case M_GET_NATIVE_ENV: ret = handle_get_native_env( c ); break;
@@ -1262,6 +1264,7 @@ int Daemon::answer_client_requests()
     }
 
     if ( ret > 0 ) {
+        bool had_scheduler = scheduler;
         if ( scheduler && FD_ISSET( scheduler->fd, &listen_set ) ) {
             Msg *msg = scheduler->get_msg();
             if ( !msg ) {
@@ -1350,7 +1353,7 @@ int Daemon::answer_client_requests()
                 }
             }
         }
-        if ( !scheduler ) {
+        if ( had_scheduler && !scheduler ) {
             clear_children();
             return 2;
         }
