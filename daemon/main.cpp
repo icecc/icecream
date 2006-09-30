@@ -688,7 +688,7 @@ bool Daemon::handle_transfer_env( MsgChannel *c, Msg *_msg )
         target =  machine_name;
 
     int sock_to_stdin = -1;
-    FileChunkMsg* fmsg;
+    FileChunkMsg* fmsg = 0;
 
     pid_t pid = start_install_environment( envbasedir, emsg->target,
         emsg->name, c, sock_to_stdin, fmsg, nobody_uid, nobody_gid );
@@ -702,6 +702,7 @@ bool Daemon::handle_transfer_env( MsgChannel *c, Msg *_msg )
         handle_file_chunk_env(c, fmsg);
         log_error() << "got pid " << pid << endl;
     }
+    delete fmsg;
     return pid > 0;
 }
 
