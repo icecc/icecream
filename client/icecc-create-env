@@ -115,7 +115,7 @@ for i in $target_files; do
 done
 
 md5sum=NONE
-for file in /usr/bin/md5sum /bin/md5 /usr/bin/md5; do
+for file in /usr/bin/md5sum /bin/md5 /usr/bin/md5 /sbin/md5; do
    if test -x $file; then
 	md5sum=$file
         break
