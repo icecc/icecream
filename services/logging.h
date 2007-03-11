@@ -22,6 +22,7 @@
 #define _LOGGING_H
 
 #include <sys/time.h>
+#include <stdlib.h>
 #include <errno.h>
 #include <string>
 #include <iostream>
@@ -82,7 +83,7 @@ static inline void log_perror(const char *prefix) {
 
 class log_block 
 {
-    static uint nesting;
+    static unsigned nesting;
     timeval m_start;
     char* m_label;
 public:
