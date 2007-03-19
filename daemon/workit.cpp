@@ -38,7 +38,9 @@
 #include <unistd.h>
 #include <sys/fcntl.h>
 #include <sys/wait.h>
-#include <sys/user.h>
+#if HAVE_SYS_USER_H
+#  include <sys/user.h>
+#endif
 #include <sys/socket.h>
 
 #ifdef __FreeBSD__

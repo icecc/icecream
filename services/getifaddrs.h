@@ -31,6 +31,10 @@
 #include <sys/socket.h>
 #include <net/if.h>
 
+#ifndef IFF_POINTOPOINT 
+#   define IFF_POINTOPOINT 0x10
+#endif
+
 #ifdef HAVE_IFADDRS_H
 #include <ifaddrs.h>
 

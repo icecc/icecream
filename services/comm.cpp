@@ -290,7 +290,7 @@ MsgChannel::readuint32 (uint32_t &buf)
 {
   if (inofs >= intogo + 4)
     {
-      if ( off_t(inbuf + intogo) % 4 ) {
+      if ( ptrdiff_t(inbuf + intogo) % 4 ) {
         char t_buf[4];
         memcpy(t_buf, inbuf + intogo, 4);
         buf = *(uint32_t *)t_buf;

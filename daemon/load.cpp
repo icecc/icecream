@@ -19,6 +19,7 @@
 #include "load.h"
 #include <unistd.h>
 #include <stdio.h>
+#include <math.h>
 #include <logging.h>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -223,7 +224,51 @@ static unsigned int calculateMemLoad( unsigned long int &NetMemFree )
         return 1000 - ( NetMemFree * 1000 / ( 128 * 1024 ) );
 }
 
-bool fill_stats( unsigned long &myidleload, unsigned long &myniceload, unsigned int &memory_fillgrade, StatsMsg *msg )
+// Load average calculation based on CALC_LOAD(), in the 2.6 Linux kernel
+//	oldVal	- previous load avg.
+//	numJobs	- current number of active jobs
+//	rate	- update rate, in seconds (usually 60, 300, or 900)
+//	delta_t	- time since last update, in seconds
+double compute_load( double oldVal, unsigned int currentJobs, unsigned int rate, double delta_t )
+{
+    double weight = 1.0 / exp( delta_t / rate );
+    return oldVal * weight + currentJobs * (1.0 - weight);
+}
+
+double getEpocTime()
+{
+    timeval tv;
+    gettimeofday( &tv, NULL );
+    return (double) tv.tv_sec + (double) tv.tv_usec / 1000000.0;
+}
+
+// Simulates getloadavg(), but only for specified number of jobs
+//  Note: this is stateful and not thread-safe!
+//        Also, it differs from getloadavg() in that its notion of load
+//        is only updated as often as it's called.
+int fakeloadavg( double *p_result, int resultEntries, unsigned int currentJobs )
+{
+    // internal state
+    static const int numLoads = 3;
+    static double loads[numLoads] = { 0.0, 0.0, 0.0 };
+    static unsigned int rates[numLoads] = { 60, 300, 900 };
+    static double lastUpdate = getEpocTime();
+
+    // First, update all state
+    double now = getEpocTime();
+    double delta_t = std::max( now - lastUpdate, 0.0 ); // guard against user changing system time backwards
+    lastUpdate = now;
+    for (int l = 0; l < numLoads; l++) {
+        loads[l] = compute_load( loads[0], currentJobs, rates[l], delta_t );
+    }
+
+    // Then, return requested values
+    int numFilled = std::min( std::max( resultEntries, 0 ), numLoads );
+    for (int n = 0; n < numFilled; n++) p_result[n] = loads[n];
+    return numFilled;
+}
+
+bool fill_stats( unsigned long &myidleload, unsigned long &myniceload, unsigned int &memory_fillgrade, StatsMsg *msg, unsigned int hint )
 {
     static CPULoadInfo load;
 
@@ -238,7 +283,11 @@ bool fill_stats( unsigned long &myidleload, unsigned long &myniceload, unsigned 
         memory_fillgrade = calculateMemLoad( MemFree );
 
         double avg[3];
+#if HAVE_GETLOADAVG
         getloadavg( avg, 3 );
+#else
+        fakeloadavg( avg, 3, hint );
+#endif
         msg->loadAvg1 = ( unsigned int )( avg[0] * 1000 );
         msg->loadAvg5 = ( unsigned int )( avg[1] * 1000 );
         msg->loadAvg10 = ( unsigned int )( avg[2] * 1000 );

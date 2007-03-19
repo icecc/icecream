@@ -217,10 +217,12 @@ kde_getifaddrs (struct kde_ifaddrs **ifap)
 #endif
 	      if (ioctl (fd, SIOCGIFDSTADDR, ifr) < 0)
 		break;
+#if HAVE_IFR_DSTADDR
 	      storage[i].broadaddr = ifr->ifr_dstaddr;
-	      // FIXME on Cygwin you need to comment the line above
-              // and uncomment the line below
-	      // storage[i].broadaddr = ifr->ifr_broadaddr;
+#else
+	      // Fix for Cygwin
+	      storage[i].broadaddr = ifr->ifr_broadaddr;
+#endif
 	    }
 	  else
 	    /* Just 'cause.  */

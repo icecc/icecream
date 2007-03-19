@@ -533,7 +533,7 @@ bool Daemon::maybe_stats(bool send_ping)
         unsigned long idleLoad = 0;
         unsigned long niceLoad = 0;
 
-        if ( !fill_stats( idleLoad, niceLoad, memory_fillgrade, &msg ) )
+        if ( !fill_stats( idleLoad, niceLoad, memory_fillgrade, &msg, clients.active_processes ) )
             return false;
 
         time_t diff_stat = ( now.tv_sec - last_stat.tv_sec ) * 1000 + ( now.tv_usec - last_stat.tv_usec ) / 1000;
@@ -581,7 +581,7 @@ bool Daemon::maybe_stats(bool send_ping)
 #endif
 
         // Matz got in the urine that not all CPUs are always feed
-        mem_limit = std::max( msg.freeMem / std::min( std::max( max_kids, 1U ), 4U ), 100U );
+        mem_limit = std::max( int( msg.freeMem / std::min( std::max( max_kids, 1U ), 4U ) ), int( 100U ) );
 
         if ( abs(int(msg.load)-current_load) >= 100 || send_ping ) {
             if (!send_scheduler( msg ) )
@@ -628,7 +628,7 @@ string Daemon::dump_internals() const
         result += "  envs_last_use[" + it->first  + "] = " +
                   toString( it->second ) + "\n";
     }
-    result += "  Current kids: " + toString( current_kids ) + "\n";
+    result += "  Current kids: " + toString( current_kids ) + " (max: " + toString( max_kids ) + ")\n";
     if ( scheduler )
         result += "  Scheduler protocol: " + toString( scheduler->protocol ) + "\n";
 
@@ -637,7 +637,7 @@ string Daemon::dump_internals() const
     unsigned long idleLoad = 0;
     unsigned long niceLoad = 0;
 
-    if ( fill_stats( idleLoad, niceLoad, memory_fillgrade, &msg ) )
+    if ( fill_stats( idleLoad, niceLoad, memory_fillgrade, &msg, clients.active_processes ) )
     {
         result += "  cpu: " + toString( idleLoad ) + " idle, " +
                   toString( niceLoad ) + " nice\n";
