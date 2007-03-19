@@ -197,5 +197,9 @@ myopkglibdir='${libdir}/'"$PACKAGE"
 KDE_EXPAND_MAKEVAR(mypkglibdir, myopkglibdir)
 AC_DEFINE_UNQUOTED(PLIBDIR, "$mypkglibdir", [Where to look for icecc-create-env])
 
+myorundir='${localstatedir}/run'
+KDE_EXPAND_MAKEVAR(myrundir, myorundir)
+AC_DEFINE_UNQUOTED(RUNDIR, "$myrundir", [Where to place pid files])
+
 AC_OUTPUT
 

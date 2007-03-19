@@ -80,6 +80,8 @@
 #include <algorithm>
 #include <ext/hash_set>
 #include <set>
+#include <fstream>
+#include <string>
 
 #include "ncpus.h"
 #include "exitcode.h"
@@ -91,6 +93,7 @@
 #include "environment.h"
 
 const int PORT = 10245;
+static std::string pidFilePath;
 
 #ifndef __attribute_warn_unused_result__
 #define __attribute_warn_unused_result__
@@ -338,6 +341,9 @@ static void dcc_daemon_terminate(int whichsig)
     if (am_parent) {
         /* kill whole group */
         kill(0, whichsig);
+
+        /* Remove pid file */
+        unlink(pidFilePath.c_str());
     }
 
     raise(whichsig);
@@ -1513,6 +1519,14 @@ int main( int argc, char ** argv )
     /* This is called in the master daemon, whether that is detached or
      * not.  */
     dcc_master_pid = getpid();
+
+    ofstream pidFile;
+    string progName = argv[0];
+    progName = progName.substr(progName.rfind('/')+1);
+    pidFilePath = string(RUNDIR)+string("/")+progName+string(".pid");
+    pidFile.open(pidFilePath.c_str());
+    pidFile << dcc_master_pid << endl;
+    pidFile.close();
 
     if ( !cleanup_cache( d.envbasedir ) )
         return 1;

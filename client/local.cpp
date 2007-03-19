@@ -94,9 +94,9 @@ string find_compiler( CompileJob::Language lang )
                 buffer[ret] = 0;
                 string target = find_basename( buffer );
                 if ( target == rs_program_name 
-                     || after_selflink
-                        && (target == "tbcompiler" || target == "distcc"
-                            || target == "colorgcc") ) {
+                     || (after_selflink
+                         && (target == "tbcompiler" || target == "distcc"
+                            || target == "colorgcc"))) {
                     // this is a link pointing to us, ignore it
                     after_selflink = true;
                     continue;

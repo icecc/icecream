@@ -42,6 +42,8 @@
 #include <queue>
 #include <algorithm>
 #include <cassert>
+#include <fstream>
+#include <string>
 #include <stdio.h>
 #include "comm.h"
 #include "logging.h"
@@ -81,6 +83,8 @@
  */
 
 using namespace std;
+
+static string pidFilePath;
 
 struct JobStat {
   unsigned long osize;  // output size (uncompressed)
@@ -1733,6 +1737,11 @@ usage(const char* reason = 0)
   exit(1);
 }
 
+void removePidFile( int )
+{
+  unlink(pidFilePath.c_str());
+}
+
 int
 main (int argc, char * argv[])
 {
@@ -1834,6 +1843,18 @@ main (int argc, char * argv[])
     }
 
   starttime = time( 0 );
+
+  ofstream pidFile;
+  string progName = argv[0];
+  progName = progName.substr(progName.rfind('/')+1);
+  pidFilePath = string(RUNDIR)+string("/")+progName+string(".pid");
+  pidFile.open(pidFilePath.c_str());
+  pidFile << getpid() << endl;
+  pidFile.close();
+
+  signal(SIGTERM, removePidFile);
+  signal(SIGINT, removePidFile);
+  signal(SIGALRM, removePidFile);
 
   while (1)
     {

@@ -68,7 +68,7 @@ bool analyse_argv( const char * const *argv,
     ArgumentsList args;
     string ofile;
 
-#if CLIENT_DEBUG
+#if CLIENT_DEBUG > 1
     trace() << "scanning arguments ";
     for ( int index = 0; argv[index]; index++ )
         trace() << argv[index] << " ";
@@ -177,6 +177,16 @@ bool analyse_argv( const char * const *argv,
 #endif
                     always_local = true;
                 }
+            } else if (str_equal("-include", a)) {
+                /* This has a duplicate meaning. it can either include a file
+                   for preprocessing or a precompiled header. decide which one.  */
+                if (argv[i+1]) {
+                    ++i;
+                    if (access(argv[i], R_OK))
+                        always_local = true;  /* its a precompiled header.  */
+                    args.append(a, Arg_Local);
+                    args.append(argv[i], Arg_Local);
+                }
             } else if (str_equal("-D", a)
                        || str_equal("-I", a)
                        || str_equal("-U", a)
@@ -185,7 +195,6 @@ bool analyse_argv( const char * const *argv,
                        || str_equal("-MF", a)
                        || str_equal("-MT", a)
                        || str_equal("-MQ", a)
-                       || str_equal("-include", a)
                        || str_equal("-imacros", a)
                        || str_equal("-iprefix", a)
                        || str_equal("-iwithprefix", a)
