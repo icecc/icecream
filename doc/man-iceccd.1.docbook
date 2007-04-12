@@ -37,6 +37,9 @@
   <option>-m <replaceable>max_processes</replaceable></option>
 </arg>
 <arg choice="opt">
+  <option>--no-remote</option>
+</arg>
+<arg choice="opt">
   <option>-w</option>
 </arg>
 <group>
@@ -121,6 +124,11 @@ name.</para></listitem>
 <term><option>-m</option> <parameter>max_processes</parameter></term>
 <listitem><para>Maximum number of compile jobs started in parallel on machine
 running the daemon.</para></listitem>
+</varlistentry>
+
+<varlistentry>
+<term><option>--no-remote</option></term>
+<listitem><para>Prevents jobs from other nodes being scheduled on this one.</para></listitem>
 </varlistentry>
 
 <varlistentry>

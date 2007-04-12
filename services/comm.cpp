@@ -1335,7 +1335,7 @@ JobDoneMsg::send_to_channel (MsgChannel *c) const
 }
 
 LoginMsg::LoginMsg(unsigned int myport, const std::string &_nodename, const std::string _host_platform)
-  : Msg(M_LOGIN), port( myport ), chroot_possible( false ), nodename( _nodename ), host_platform( _host_platform )
+  : Msg(M_LOGIN), port( myport ), noremote( false ), chroot_possible( false ), nodename( _nodename ), host_platform( _host_platform )
 {
   // check if we're root
   chroot_possible = ( geteuid() == 0 );
@@ -1353,6 +1353,9 @@ LoginMsg::fill_from_channel (MsgChannel *c)
   uint32_t net_chroot_possible = 0;
   c->readuint32 (net_chroot_possible);
   chroot_possible = net_chroot_possible != 0;
+  uint32_t net_noremote = 0;
+  if (IS_PROTOCOL_26( c )) c->readuint32 (net_noremote);
+  noremote = (net_noremote != 0);
 }
 
 void
@@ -1365,6 +1368,7 @@ LoginMsg::send_to_channel (MsgChannel *c) const
   c->write_string( nodename );
   c->write_string( host_platform );
   c->writeuint32( chroot_possible );
+  if (IS_PROTOCOL_26( c )) c->writeuint32( noremote );
 }
 
 void

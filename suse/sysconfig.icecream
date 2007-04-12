@@ -58,15 +58,27 @@ ICECREAM_NETNAME=""
 ICECREAM_SCHEDULER_HOST=""
 
 #
-## Type: string
+## Type: integer
 ## Path: Applications/icecream
 ## Defaut: ""
-## Type: integer
 # 
 # You can overwrite here the number of jobs to run in parallel. Per
 # default this depends on the number of (virtual) CPUs installed. 
 #
+# Note: a value of "0" is actually interpreted as "1", however it
+# also sets ICECREAM_ALLOW_REMOTE="no".
+#
 ICECREAM_MAX_JOBS=""
+
+#
+## Type: yesno
+## Path: Applications/icecream
+## Defaut: "yes"
+# 
+# Specifies whether jobs submitted by other nodes are allowed to run on
+# this one.
+#
+ICECREAM_ALLOW_REMOTE="yes"
 
 #
 ## Type: string

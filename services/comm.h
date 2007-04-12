@@ -33,7 +33,7 @@
 #include "job.h"
 
 // if you increase the PROTOCOL_VERSION, add a macro below and use that
-#define PROTOCOL_VERSION 25
+#define PROTOCOL_VERSION 26
 // if you increase the MIN_PROTOCOL_VERSION, comment out macros below and clean up the code
 #define MIN_PROTOCOL_VERSION 21
 
@@ -45,6 +45,7 @@
 #define IS_PROTOCOL_23( c ) ( c->protocol >= 23 )
 #define IS_PROTOCOL_24( c ) ( c->protocol >= 24 )
 #define IS_PROTOCOL_25( c ) ( c->protocol >= 25 )
+#define IS_PROTOCOL_26( c ) ( c->protocol >= 26 )
 
 enum MsgType {
   // so far unknown
@@ -400,6 +401,7 @@ public:
   uint32_t port;
   Environments envs;
   uint32_t max_kids;
+  bool noremote;
   bool         chroot_possible;
   std::string nodename;
   std::string host_platform;

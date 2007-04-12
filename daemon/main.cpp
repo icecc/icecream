@@ -354,7 +354,7 @@ void usage(const char* reason = 0)
   if (reason)
      cerr << reason << endl;
 
-  cerr << "usage: iceccd [-n <netname>] [-m <max_processes>] [-w] [-d|--daemonize] [-l logfile] [-s <schedulerhost>] [-v[v[v]]] [-r|--run-as-user] [-b <env-basedir>] [-u|--nobody-uid <nobody_uid>] [--cache-limit <MB>] [-N <node_name>]" << endl;
+  cerr << "usage: iceccd [-n <netname>] [-m <max_processes>] [--no-remote] [-w] [-d|--daemonize] [-l logfile] [-s <schedulerhost>] [-v[v[v]]] [-r|--run-as-user] [-b <env-basedir>] [-u|--nobody-uid <nobody_uid>] [--cache-limit <MB>] [-N <node_name>]" << endl;
   exit(1);
 }
 
@@ -419,6 +419,7 @@ struct Daemon
     int listen_fd;
     string machine_name;
     string nodename;
+    bool noremote;
     bool custom_nodename;
     size_t cache_size;
     map<int, MsgChannel *> fd2chan;
@@ -447,6 +448,7 @@ struct Daemon
         new_client_id = 0;
         next_check = 0;
         cache_size = 0;
+        noremote = false;
         custom_nodename = false;
         icecream_load = 0;
         icecream_usage.tv_sec = icecream_usage.tv_usec = 0;
@@ -1304,6 +1306,7 @@ bool Daemon::reconnect()
     LoginMsg lmsg( PORT, nodename, machine_name );
     lmsg.envs = available_environmnents(envbasedir);
     lmsg.max_kids = max_kids;
+    lmsg.noremote = noremote;
     return scheduler->send_msg( lmsg );
 }
 
@@ -1347,6 +1350,7 @@ int main( int argc, char ** argv )
             { "env-basedir", 1, NULL, 'b' },
             { "nobody-uid", 1, NULL, 'u'},
             { "cache-limit", 1, NULL, 0},
+            { "no-remote", 0, NULL, 0},
             { 0, 0, 0, 0 }
         };
 
@@ -1379,6 +1383,8 @@ int main( int argc, char ** argv )
                 }
                 else
                     usage("Error: --cache-limit requires argument");
+            } else if ( optname == "no-remote" ) {
+                d.noremote = true;
             }
 
         }

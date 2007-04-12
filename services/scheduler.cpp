@@ -145,11 +145,13 @@ public:
   // LOAD is load * 1000
   unsigned int load;
   int max_jobs;
+  bool noremote;
   list<Job*> joblist;
   Environments compiler_versions;  // Available compilers
   CS (int fd, struct sockaddr *_addr, socklen_t _len, bool text_based)
-    : MsgChannel(fd, _addr, _len, text_based), load(1000), max_jobs(0), state(CONNECTED),
-      type(UNKNOWN), chroot_possible(false)
+    : MsgChannel(fd, _addr, _len, text_based),
+      load(1000), max_jobs(0), noremote(false),
+      state(CONNECTED), type(UNKNOWN), chroot_possible(false)
   {
     hostid = 0;
     busy_installing = 0;
@@ -168,6 +170,8 @@ public:
   bool chroot_possible;
   static unsigned int hostid_counter;
   map<int, int> client_map; // map client ID for daemon to our IDs
+  bool is_eligible( const Job *job );
+  bool check_remote( const Job *job ) const;
 };
 
 unsigned int CS::hostid_counter = 0;
@@ -393,6 +397,8 @@ handle_monitor_stats( CS *cs, StatsMsg *m = 0)
   sprintf( buffer, "IP:%s\n", cs->name.c_str() );
   msg += buffer;
   sprintf( buffer, "MaxJobs:%d\n", cs->max_jobs );
+  msg += buffer;
+  sprintf( buffer, "NoRemote:%s\n", cs->noremote ? "true" : "false"  );
   msg += buffer;
   sprintf( buffer, "Platform:%s\n", cs->host_platform.c_str() );
   msg += buffer;
@@ -651,6 +657,23 @@ can_install( CS* cs, const Job *job )
   return string();
 }
 
+bool CS::check_remote( const Job *job ) const
+{
+    bool local = (job->submitter == this);
+    return local || !noremote;
+}
+
+bool CS::is_eligible( const Job *job )
+{
+  bool jobs_okay = int( joblist.size() ) < max_jobs;
+  bool load_okay = load < 1000;
+  return jobs_okay
+    && chroot_possible
+    && load_okay
+    && can_install( this, job ).size()
+    && this->check_remote( job );
+}
+
 static CS *
 pick_server(Job *job)
 {
@@ -689,9 +712,7 @@ pick_server(Job *job)
 	for (it = css.begin(); it != css.end(); ++it)
           {
 	     if ((*it)->nodename == job->preferred_host
-                 && int( (*it)->joblist.size() ) < (*it)->max_jobs
-                 && (*it)->chroot_possible
-                 && (*it)->load < 1000 && can_install( *it, job ).size() )
+                 && (*it)->is_eligible( job ))
 	       return *it;
 	  }
         return 0;
@@ -703,9 +724,7 @@ pick_server(Job *job)
       for (it = css.begin(); it != css.end(); ++it)
         {
           trace() << "no job stats - looking at " << ( *it )->nodename << " load: " << (*it )->load << " can install: " << can_install( *it, job ) << endl;
-          if (int( (*it)->joblist.size() ) < (*it)->max_jobs
-	      && (*it)->chroot_possible
-              && (*it)->load < 1000 && can_install( *it, job ).size() )
+          if ((*it)->is_eligible( job ))
             {
               trace() << "returning first " << ( *it )->nodename << endl;
               return *it;
@@ -768,6 +787,13 @@ pick_server(Job *job)
       if (!allow_run_as_user && !cs->chroot_possible)
         {
 	  trace() << cs->nodename << " can't use chroot\n";
+	  continue;
+	}
+
+      // Check if remote & if remote allowed
+      if (!cs->check_remote( job ))
+        {
+	  trace() << cs->nodename << " fails remote job check\n";
 	  continue;
 	}
 
@@ -1064,6 +1090,7 @@ handle_login (MsgChannel *c, Msg *_m)
   cs->remote_port = m->port;
   cs->compiler_versions = m->envs;
   cs->max_jobs = m->max_kids;
+  cs->noremote = m->noremote;
   if ( m->nodename.length() )
     cs->nodename = m->nodename;
   else
