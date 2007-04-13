@@ -401,6 +401,7 @@ public:
   uint32_t port;
   Environments envs;
   uint32_t max_kids;
+  bool noremote;
   bool         chroot_possible;
   std::string nodename;
   std::string host_platform;

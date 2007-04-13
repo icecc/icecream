@@ -61,11 +61,20 @@ case "$1" in
 	if test -n "$ICECREAM_SCHEDULER_HOST"; then
 	    scheduler="-s $ICECREAM_SCHEDULER_HOST"
 	fi
+        noremote=
+        if test "$ICECREAM_ALLOW_REMOTE" = "no" 2> /dev/null; then
+                noremote="--no-remote"
+        fi
         maxjobs=
         if test -n "$ICECREAM_MAX_JOBS"; then
-	    maxjobs="-m $ICECREAM_MAX_JOBS"
+            if test "$ICECREAM_MAX_JOBS" -eq 0 2> /dev/null; then
+                maxjobs="-m 1"
+                noremote="--no-remote"
+            else
+                maxjobs="-m $ICECREAM_MAX_JOBS"
+            fi
         fi
-	startproc /usr/sbin/iceccd -d $logfile $nice $scheduler $netname -u icecream -b "$ICECREAM_BASEDIR" $maxjobs
+	startproc /usr/sbin/iceccd -d $logfile $nice $scheduler $netname -u icecream -b "$ICECREAM_BASEDIR" $maxjobs $noremote
 	rc_status -v
 	;;
     stop)
