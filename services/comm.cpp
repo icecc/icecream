@@ -427,7 +427,8 @@ MsgChannel::readcompressed (unsigned char **uncompressed_buf,
 	     Remove the buffer, and indicate there is nothing in it,
 	     but don't reset the compressed_len, so our caller know,
 	     that there actually was something read in.  */
-          log_error() << "internal error - decompression failed: " << ret << endl;
+          log_error() << "internal error - decompression of data from " << dump().c_str() 
+              << " failed: " << ret << endl;
 	  delete [] *uncompressed_buf;
 	  *uncompressed_buf = 0;
 	  uncompressed_len = 0;
@@ -852,8 +853,10 @@ MsgChannel::get_msg(int timeout)
     case M_CS_CONF: m = new ConfCSMsg; break;
     case M_TIMEOUT: break;
     }
-  if (!m)
+  if (!m) {
+      trace() << "no message type" << endl;
     return 0;
+  }
   m->fill_from_channel (this);
   instate = NEED_LEN;
   update_state ();
