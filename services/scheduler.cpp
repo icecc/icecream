@@ -905,8 +905,8 @@ prune_servers ()
 
   for (it = css.begin(); it != css.end(); )
     {
-      /* protocol version 26 and newer use TCP keepalive */
-      if (IS_PROTOCOL_26(*it)) {
+      /* protocol version 27 and newer use TCP keepalive */
+      if (IS_PROTOCOL_27(*it)) {
         ++it;
         continue;
       }
@@ -2057,7 +2057,8 @@ main (int argc, char * argv[])
 	      if (err != EAGAIN)
 	        return -1;
 	    }
-	  else
+            /* Only answer if daemon would be able to talk to us. */
+	  else if (buf[0] >= MIN_PROTOCOL_VERSION)
 	    {
 	      log_info() << "broadcast from " << inet_ntoa (broad_addr.sin_addr)
                          << ":" << ntohs (broad_addr.sin_port) << "\n";
