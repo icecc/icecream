@@ -1286,7 +1286,7 @@ int Daemon::answer_client_requests()
                 switch ( msg->type )
                 {
                 case M_PING:
-                    if (!IS_PROTOCOL_26(scheduler))
+                    if (!IS_PROTOCOL_27(scheduler))
                         ret = !send_scheduler(PingMsg());
                     break;
                 case M_USE_CS:
