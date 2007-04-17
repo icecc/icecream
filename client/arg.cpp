@@ -323,7 +323,7 @@ bool analyse_argv( const char * const *argv,
     }
 
     struct stat st;
-    if ( !stat( ofile.c_str(), &st ) && !S_ISREG( st.st_mode ))
+    if ( ofile.empty() || (!stat( ofile.c_str(), &st ) && !S_ISREG( st.st_mode)))
         always_local = true;
 
     job.setFlags( args );
