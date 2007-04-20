@@ -28,7 +28,7 @@
 #include <string.h>
 #include <errno.h>
 
-#ifdef __FreeBSD__
+#if defined(__FreeBSD__) || defined(__DragonFly__)
 #include <signal.h>
 #endif
 

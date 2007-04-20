@@ -63,7 +63,7 @@
 #endif
 #include <netdb.h>
 
-#ifdef __FreeBSD__
+#if defined(__FreeBSD__) || defined(__DragonFly__)
 #  include <signal.h> // for kill(2)
 #  include <sys/time.h>
 #  include <sys/resource.h>

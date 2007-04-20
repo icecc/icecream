@@ -43,7 +43,7 @@
 #endif
 #include <sys/socket.h>
 
-#ifdef __FreeBSD__
+#if defined(__FreeBSD__) || defined(__DragonFly__)
 #include <signal.h>
 #include <sys/resource.h>
 #ifndef RUSAGE_SELF

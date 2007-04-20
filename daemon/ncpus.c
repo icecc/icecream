@@ -89,7 +89,7 @@ char_varying(66) module_name;
      return 0;
 }
 
-#elif defined(__FreeBSD__) || defined(__OpenBSD__) || defined(__NetBSD__) || defined(__APPLE__) || defined(__bsdi__)
+#elif defined(__FreeBSD__) || defined(__OpenBSD__) || defined(__NetBSD__) || defined(__APPLE__) || defined(__bsdi__) || defined(__DragonFly__)
 
 /* http://www.FreeBSD.org/cgi/man.cgi?query=sysctl&sektion=3&manpath=FreeBSD+4.6-stable
    http://www.openbsd.org/cgi-bin/man.cgi?query=sysctl&sektion=3&manpath=OpenBSD+Current
