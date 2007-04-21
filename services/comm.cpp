@@ -240,7 +240,15 @@ MsgChannel::flush_writebuf (bool blocking)
   bool error = false;
   while (msgtogo)
     {
+#ifdef MSG_NOSIGNAL
       ssize_t ret = send (fd, buf, msgtogo, MSG_NOSIGNAL);
+#else
+      void (*oldsigpipe)(int);
+
+      oldsigpipe = signal (SIGPIPE, SIG_IGN);
+      ssize_t ret = send (fd, buf, msgtogo, 0);
+      signal (SIGPIPE, oldsigpipe);
+#endif
       if (ret < 0)
         {
 	  if (errno == EINTR)
