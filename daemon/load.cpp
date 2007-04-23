@@ -25,10 +25,13 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 
-#if defined( __FreeBSD__ ) || defined( MACOS )
+#if defined( __FreeBSD__ ) || defined( MACOS ) || defined(__DragonFly__)
 #define USE_SYSCTL
 #endif
-
+#if defined(__DragonFly__)
+#include <sys/param.h>
+#include <kinfo.h>
+#endif
 #ifdef USE_SYSCTL
 #include <sys/resource.h>
 #include <sys/sysctl.h>
@@ -69,7 +72,20 @@ static void updateCPULoad( CPULoadInfo* load )
   unsigned long totalTicks;
   unsigned long currUserTicks, currSysTicks, currNiceTicks, currIdleTicks, currWaitTicks;
 
-#ifdef USE_SYSCTL
+#if defined(USE_SYSCTL) && defined(__DragonFly__)
+  static struct kinfo_cputime cp_time;
+
+  kinfo_get_sched_cputime(&cp_time);
+  /* There is one more load type exported via this interface in DragonFlyBSD -
+   * interrupt load. But I think that we can do without it for our needs. */
+  currUserTicks = cp_time.cp_user;
+  currNiceTicks = cp_time.cp_nice;
+  currSysTicks = cp_time.cp_sys;
+  currIdleTicks = cp_time.cp_idle;
+  /* It doesn't exist in DragonFlyBSD. */
+  currWaitTicks = 0;
+
+#elif defined USE_SYSCTL
   static int mibs[4] = { 0,0,0,0 };
   static size_t mibsize = 4;
   unsigned long ticks[CPUSTATES];
@@ -151,6 +167,7 @@ static void updateCPULoad( CPULoadInfo* load )
   load->waitTicks = currWaitTicks;
 }
 
+#ifndef USE_SYSCTL
 static unsigned long int scan_one( const char* buff, const char *key )
 {
   char *b = strstr( buff, key );
@@ -161,6 +178,7 @@ static unsigned long int scan_one( const char* buff, const char *key )
       return 0;
   return val;
 }
+#endif
 
 static unsigned int calculateMemLoad( unsigned long int &NetMemFree )
 {

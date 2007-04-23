@@ -170,6 +170,14 @@ AC_TRY_LINK(dnl
       ],
       AC_MSG_RESULT(no)
 )
+
+# In DragonFlyBSD daemon needs to be linked against libkinfo.
+case $host_os in
+  dragonfly*) LIB_KINFO="-lkinfo" ;;
+  *) LIB_KINFO="" ;;
+esac
+AC_SUBST(LIB_KINFO)
+
 AC_CONFIG_FILES([ Makefile ])
 AC_CONFIG_FILES([ client/Makefile ])
 AC_CONFIG_FILES([ daemon/Makefile ])
