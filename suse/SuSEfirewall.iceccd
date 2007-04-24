@@ -1,0 +1,24 @@
+# Only the variables TCP, UDP, RPC, IP and BROADCAST are allowed.
+# More may be supported in the future.
+#
+# For a more detailed description of the individual variables see
+# the comments for FW_SERVICES_*_EXT in /etc/sysconfig/SuSEfirewall2
+#
+
+## Name: template service
+## Description: opens ports for foo in order to allow bar
+
+# space separated list of allowed TCP ports
+TCP="10245"
+
+# space separated list of allowed UDP ports
+UDP=""
+
+# space separated list of allowed RPC services
+RPC=""
+
+# space separated list of allowed IP protocols
+IP=""
+
+# space separated list of allowed UDP broadcast ports
+BROADCAST=""

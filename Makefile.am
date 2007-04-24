@@ -1,5 +1,5 @@
 
-SUBDIRS = minilzo services daemon client
+SUBDIRS = minilzo services daemon client doc
 AUTOMAKE_OPTIONS = foreign 1.6
 
 .PHONY: changes
