@@ -8,6 +8,7 @@ libicecc_la_CFLAGS = -fPIC -DPIC
 libicecc_la_CXXFLAGS = -fPIC -DPIC
 
 ice_HEADERS = job.h comm.h
+noinst_HEADERS = bench.h exitcode.h getifaddrs.h logging.h tempfile.h
 icedir = $(includedir)/icecc
 
 sbin_PROGRAMS = scheduler
