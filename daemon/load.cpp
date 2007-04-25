@@ -28,12 +28,22 @@
 #include <sys/param.h>
 #endif
 
-#if !defined( __linux__ )
+#ifdef HAVE_MACH_HOST_INFO_H
+#define USE_MACH 1
+#elif !defined( __linux__ )
 #define USE_SYSCTL
 #endif
+
+#ifdef USE_MACH
+#include <mach/host_info.h>
+#include <mach/mach_host.h>
+#include <mach/mach_init.h>
+#endif
+
 #ifdef HAVE_KFINO_H
 #include <kinfo.h>
 #endif
+
 #ifdef HAVE_DEVSTAT_H
 #include <sys/resource.h>
 #include <sys/sysctl.h>
@@ -87,7 +97,7 @@ static void updateCPULoad( CPULoadInfo* load )
   /* It doesn't exist in DragonFlyBSD. */
   currWaitTicks = 0;
 
-#elif defined USE_SYSCTL
+#elif defined (USE_SYSCTL)
   static int mibs[4] = { 0,0,0,0 };
   static size_t mibsize = 4;
   unsigned long ticks[CPUSTATES];
@@ -111,6 +121,26 @@ static void updateCPULoad( CPULoadInfo* load )
       currSysTicks = ticks[CP_SYS];
       currIdleTicks = ticks[CP_IDLE];
   }
+
+#elif defined( USE_MACH )
+    host_cpu_load_info r_load;
+
+    kern_return_t		error;
+    mach_msg_type_number_t	count;
+
+    count = HOST_CPU_LOAD_INFO_COUNT;
+    mach_port_t port = mach_host_self();
+    error = host_statistics(port, HOST_CPU_LOAD_INFO,
+                            (host_info_t)&r_load, &count);
+
+    if (error != KERN_SUCCESS)
+        return;
+
+    currUserTicks = r_load.cpu_ticks[CPU_STATE_USER];
+    currNiceTicks = r_load.cpu_ticks[CPU_STATE_NICE];
+    currSysTicks  = r_load.cpu_ticks[CPU_STATE_SYSTEM];
+    currIdleTicks = r_load.cpu_ticks[CPU_STATE_IDLE];
+    currWaitTicks = 0;
 
 #else
     char buf[ 256 ];
@@ -158,7 +188,7 @@ static void updateCPULoad( CPULoadInfo* load )
     if ( load->idleLoad < 0 )
         load->idleLoad = 0;
   } else {
-    load->userLoad = load->sysLoad = load->niceLoad = 0; 
+    load->userLoad = load->sysLoad = load->niceLoad = 0;
     load->idleLoad = 1000;
   }
 
@@ -184,9 +214,30 @@ static unsigned long int scan_one( const char* buff, const char *key )
 
 static unsigned int calculateMemLoad( unsigned long int &NetMemFree )
 {
-    unsigned long int MemFree;
+    unsigned long long MemFree;
 
-#ifdef USE_SYSCTL
+#ifdef USE_MACH
+    /* Get VM statistics. */
+    vm_statistics_data_t vm_stat;
+    mach_msg_type_number_t count = sizeof(vm_stat) / sizeof(natural_t);
+    kern_return_t error = host_statistics(mach_host_self(), HOST_VM_INFO,
+                                          (host_info_t)&vm_stat, &count);
+    if (error != KERN_SUCCESS)
+        return 0;
+
+    vm_size_t pagesize;
+    host_page_size(mach_host_self(), &pagesize);
+
+    unsigned long long MemInactive = (unsigned long long) vm_stat.inactive_count * pagesize;
+    MemFree = (unsigned long long) vm_stat.free_count * pagesize;
+
+    NetMemFree = (MemFree + MemInactive / 3) / 1024;
+    if ( NetMemFree > 128 * 1024 )
+        return 0;
+    else
+        return 1000 - ( NetMemFree * 1000 / ( 128 * 1024 ) );
+
+#elif defined( USE_SYSCTL )
     size_t len = sizeof (MemFree);
     if ((sysctlbyname("vm.stats.vm.v_free_count", &MemFree, &len, NULL, 0) == -1) || !len)
         MemFree = 0; /* Doesn't work under FreeBSD v2.2.x */
