@@ -1,3 +1,19 @@
+0.8.0 (657903):
+        - Find md5 on FreeBSD
+        - apply patch to support cygwin a bit better
+        - write a pid file. patch by Ismail Doenmez
+        - precompiled header support, needed for compiling Qt 4.3
+        - add support for --no-remote. patch by Matt Gruenke
+        - Make it work on DragonFlyBSD.
+        - provide SuSEfirewall2 information
+        - Make the result of make dist-gzip usable.
+        - update node name each time we login to the scheduler.
+        - treat -combine and -fdump* as always local
+        - Merged make-it-cool branch:
+          * implement job preloading
+          * asynchronous install of new environments
+          * uses tcp keepalive for network connection tracking
+
 0.7.14 (583722):
         - fix current_kids getting out of sync if send_scheduler
           failes in an unfortunate moment
