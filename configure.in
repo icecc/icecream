@@ -57,6 +57,9 @@ AC_CHECK_HEADERS([resolv.h], [], [],
 #endif
 ])
 
+AC_ARG_VAR(TAR, [Specifies tar path])
+AC_PATH_PROG(TAR, [tar])
+AC_DEFINE_UNQUOTED([TAR], ["$TAR"], [Define path to tar])
 AC_CHECK_HEADERS([float.h mcheck.h alloca.h sys/mman.h netinet/tcp_var.h])
 AC_CHECK_HEADERS([sys/user.h])
 
