@@ -24,15 +24,17 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#ifdef HAVE_SYS_PARAM_H
+#include <sys/param.h>
+#endif
 
-#if defined( __FreeBSD__ ) || defined( MACOS ) || defined(__DragonFly__)
+#if !defined( __linux__ )
 #define USE_SYSCTL
 #endif
-#if defined(__DragonFly__)
-#include <sys/param.h>
+#ifdef HAVE_KFINO_H
 #include <kinfo.h>
 #endif
-#ifdef USE_SYSCTL
+#ifdef HAVE_DEVSTAT_H
 #include <sys/resource.h>
 #include <sys/sysctl.h>
 #include <devstat.h>
