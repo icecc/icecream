@@ -29,7 +29,7 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/wait.h>
-#if defined(__FreeBSD__) || defined(__DragonFly__)
+#ifdef HAVE_SIGNAL_H
 #include <signal.h>
 #endif
 

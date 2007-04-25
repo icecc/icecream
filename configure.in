@@ -34,7 +34,7 @@ AC_PROG_LIBTOOL
 # Some of these are needed by popt (or other libraries included in the future).
 
 AC_CHECK_HEADERS([unistd.h stdint.h signal.h sys/types.h sys/signal.h ifaddrs.h])
-AC_CHECK_HEADERS([ctype.h sys/resource.h sys/socket.h sys/select.h sys/vfs.h])
+AC_CHECK_HEADERS([ctype.h sys/resource.h sys/socket.h sys/stat.h sys/select.h sys/vfs.h])
 AC_CHECK_HEADERS([netinet/in.h], [], [],
 [#if HAVE_SYS_TYPES_H
 # include <sys/types.h>
@@ -57,7 +57,10 @@ AC_CHECK_HEADERS([resolv.h], [], [],
 #endif
 ])
 
-AC_CHECK_HEADERS([float.h mcheck.h alloca.h sys/mman.h])
+AC_ARG_VAR(TAR, [Specifies tar path])
+AC_PATH_PROG(TAR, [tar])
+AC_DEFINE_UNQUOTED([TAR], ["$TAR"], [Define path to tar])
+AC_CHECK_HEADERS([float.h mcheck.h alloca.h sys/mman.h netinet/tcp_var.h])
 AC_CHECK_HEADERS([sys/user.h])
 
 ######################################################################
@@ -185,6 +188,7 @@ AC_CONFIG_FILES([ doc/Makefile ])
 AC_CONFIG_FILES([ minilzo/Makefile ])
 AC_CONFIG_FILES([ services/Makefile ])
 AC_CONFIG_FILES([ services/icecc.pc ])
+AC_CONFIG_FILES([ suse/Makefile ])
 AC_OUTPUT([ suse/icecream.spec ])
 if test "$prefix" = NONE; then
   prefix=$ac_default_prefix

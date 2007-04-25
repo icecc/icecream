@@ -35,6 +35,9 @@
 #include <netdb.h>
 #include <getopt.h>
 
+#ifdef HAVE_SIGNAL_H
+#include <signal.h>
+#endif
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/wait.h>
@@ -64,16 +67,11 @@
 #endif
 #include <netdb.h>
 
-#if defined(__FreeBSD__) || defined(__DragonFly__)
-#  include <signal.h> // for kill(2)
-#  include <sys/time.h>
-#  include <sys/resource.h>
-#  ifndef RUSAGE_SELF
-#    define RUSAGE_SELF (0)
-#  endif
-#  ifndef RUSAGE_CHILDREN
-#    define RUSAGE_CHILDREN (-1)
-#  endif
+#ifndef RUSAGE_SELF
+#  define RUSAGE_SELF (0)
+#endif
+#ifndef RUSAGE_CHILDREN
+#  define RUSAGE_CHILDREN (-1)
 #endif
 
 #include <deque>
@@ -721,7 +719,7 @@ bool Daemon::handle_transfer_env( MsgChannel *c, Msg *_msg )
     if ( pid > 0) {
         current_kids++;
         client->status = Client::TOINSTALL;
-        client->outfile = msg->target + "/" + msg->name;
+        client->outfile = emsg->target + "/" + emsg->name;
         client->pipe_to_child = sock_to_stdin;
         client->child_pid = pid;
         handle_file_chunk_env(c, fmsg);
