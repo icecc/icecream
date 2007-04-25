@@ -20,6 +20,7 @@
     Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 */
 
+#include <config.h>
 
 #include <sys/types.h>
 #include <netinet/in.h>
@@ -28,6 +29,10 @@
 #include <sys/select.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
+#if HAVE_NETINET_TCP_VAR_H
+#include <sys/socketvar.h>
+#include <netinet/tcp_var.h>
+#endif
 #include <errno.h>
 #include <fcntl.h>
 #include <netdb.h>
@@ -435,7 +440,7 @@ MsgChannel::readcompressed (unsigned char **uncompressed_buf,
 	     Remove the buffer, and indicate there is nothing in it,
 	     but don't reset the compressed_len, so our caller know,
 	     that there actually was something read in.  */
-          log_error() << "internal error - decompression of data from " << dump().c_str() 
+          log_error() << "internal error - decompression of data from " << dump().c_str()
               << " failed: " << ret << endl;
 	  delete [] *uncompressed_buf;
 	  *uncompressed_buf = 0;
@@ -682,13 +687,29 @@ MsgChannel::MsgChannel (int _fd, struct sockaddr *_a, socklen_t _l, bool text)
   int on = 1;
   if (!setsockopt (_fd, SOL_SOCKET, SO_KEEPALIVE, (char*) &on, sizeof(on)))
   {
+#if defined( TCP_KEEPIDLE )
+      int keepidle = TCP_KEEPIDLE;
+#else
+      int keepidle = TCPCTL_KEEPIDLE;
+#endif
+
       int sec;
       sec = MAX_SCHEDULER_PING - 3 * MAX_SCHEDULER_PONG;
-      setsockopt (_fd, IPPROTO_TCP, TCP_KEEPIDLE, (char*) &sec, sizeof(sec));
+      setsockopt (_fd, IPPROTO_TCP, keepidle, (char*) &sec, sizeof(sec));
+
+#if defined( TCP_KEEPINTVL )
+      int keepintvl = TCP_KEEPINTVL;
+#else
+      int keepintvl = TCPCTL_KEEPINTVL;
+#endif
+
       sec = MAX_SCHEDULER_PONG;
-      setsockopt (_fd, IPPROTO_TCP, TCP_KEEPINTVL, (char*) &sec, sizeof(sec));
+      setsockopt (_fd, IPPROTO_TCP, keepintvl, (char*) &sec, sizeof(sec));
+
+#ifdef TCP_KEEPCNT
       sec = 3;
       setsockopt (_fd, IPPROTO_TCP, TCP_KEEPCNT, (char*) &sec, sizeof(sec));
+#endif
   }
 
   if (fcntl (fd, F_SETFL, O_NONBLOCK) < 0)
