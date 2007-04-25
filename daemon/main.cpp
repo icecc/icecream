@@ -721,7 +721,7 @@ bool Daemon::handle_transfer_env( MsgChannel *c, Msg *_msg )
     if ( pid > 0) {
         current_kids++;
         client->status = Client::TOINSTALL;
-        client->outfile = msg->target + "/" + msg->name;
+        client->outfile = emsg->target + "/" + emsg->name;
         client->pipe_to_child = sock_to_stdin;
         client->child_pid = pid;
         handle_file_chunk_env(c, fmsg);
