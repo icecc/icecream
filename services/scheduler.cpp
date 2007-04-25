@@ -1099,6 +1099,20 @@ handle_login (MsgChannel *c, Msg *_m)
   cs->chroot_possible = m->chroot_possible;
   cs->pick_new_id();
   handle_monitor_stats( cs );
+
+  /* remove any other clients with the same IP, they must be stale */
+  for (list<CS*>::iterator it = css.begin(); it != css.end(); )
+    {
+      if (cs->eq_ip(*(*it)))
+      {
+        CS* old = *it;
+        ++it;
+        handle_end(old, 0);
+        continue;
+      }
+      ++it;
+    }
+
   css.push_back (cs);
 
 #if 1
@@ -1249,6 +1263,33 @@ handle_job_done (MsgChannel *c, Msg *_m)
       return false;
     }
 
+  if (j->state == Job::PENDING)
+    {
+      trace() << "job ID still pending ?! scheduler recently restarted? " << m->job_id << endl;
+      return false;
+    }
+
+  if (m->is_from_server() && j->server != c)
+    {
+      log_info() << "the server isn't the same for job " << m->job_id << endl;
+      log_info() << "server: " << j->server->nodename << endl;
+      log_info() << "msg came from: " << ((CS*)c)->nodename << endl;
+      // the daemon is not following matz's rules: kick him
+      handle_end(c, 0);
+      return false;
+    }
+  if (!m->is_from_server() && j->submitter != c)
+    {
+      log_info() << "the submitter isn't the same for job " << m->job_id << endl;
+      log_info() << "submitter: " << j->submitter->nodename << endl;
+      log_info() << "msg came from: " << ((CS*)c)->nodename << endl;
+      // the daemon is not following matz's rules: kick him
+      handle_end(c, 0);
+      return false;
+    }
+
+
+
   if ( m->exitcode == 0 )
     {
       std::ostream &dbg = trace();
@@ -1277,25 +1318,6 @@ handle_job_done (MsgChannel *c, Msg *_m)
   else
     trace() << "END " << m->job_id
 	    << " status=" << m->exitcode << endl;
-
-  if (m->is_from_server() && j->server != c)
-    {
-      log_info() << "the server isn't the same for job " << m->job_id << endl;
-      log_info() << "server: " << j->server->nodename << endl;
-      log_info() << "msg came from: " << ((CS*)c)->nodename << endl;
-      // the daemon is not following matz's rules: kick him
-      handle_end(c, 0);
-      return false;
-    }
-  if (!m->is_from_server() && j->submitter != c)
-    {
-      log_info() << "the submitter isn't the same for job " << m->job_id << endl;
-      log_info() << "submitter: " << j->submitter->nodename << endl;
-      log_info() << "msg came from: " << ((CS*)c)->nodename << endl;
-      // the daemon is not following matz's rules: kick him
-      handle_end(c, 0);
-      return false;
-    }
 
   if (j->server) 
     {

@@ -12,6 +12,16 @@ Release Critical:
 * let the client specify it was compiled with recent compiler (supporting -param). If so,
   let the daemon compile with the options, otherwise leave them out. 
 
+Akademy must have's:
+* the scheduler with the newest protocol version wins
+* only one scheduler within the same broadcast domain
+* daemon: only accept connections from a sane net prefix (scheduler can determine
+  this and send it out via confMsg) to avoid being exposed to the internet
+* always re-discover scheduler after disconnect, don't just re-connect to the last
+  one (for some reason I don't see why this happened, but it did)
+* benchmark/testing jobs (broken machines with broken ram and broken network card on the
+  icecream network destroy the fun and are not easy to find manually)
+
 Random:
 * Option -iiface to specify the interface[s] to listen on for the scheduler, or
   to use for the daemon.
@@ -30,6 +40,9 @@ Random:
     - do not ask the daemon about the first job (WIP dirk)
 * if a compile job SIGSEGV's or SIGABORTs, make sure to recompile locally because it could
   be just a glibc/kernel incompatibility on the remote site
+* Add heuristic which optimises for overhead-reduction. Statistics prove ( ;) ), that for
+  e.g. linux kernel the file size varies a lot, and small jobs should be preferably compiled
+  locally and bigger ones preferably remote.
 
 Suggestions from "Wilson Snyder" sicortex.com:
 - Add ICECREAM_RUN_ICECCD to make the scheduler machine not run iceccd

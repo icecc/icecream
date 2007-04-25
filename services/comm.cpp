@@ -488,22 +488,17 @@ MsgChannel::read_line (string &line)
   /* XXX handle DOS and MAC line endings and null bytes as string endings.  */
   if (!text_based || inofs < intogo)
     {
+     log_error() << "urgs" << endl;
       line = "";
     }
   else
     {
-      const char *linebeg = inbuf + intogo;
-      const char *lineend = (const char *) memchr (linebeg, '\r', inofs - intogo);
-      if (!lineend)
-        line = "";
-      else
-        {
-	  /* Without the EOL */
-	  line = string(linebeg, lineend - linebeg);
-	  intogo += lineend - linebeg + 1;
-	  if (intogo < inofs && inbuf[intogo] == '\n')
-	    intogo++;
-	}
+	  line = string(inbuf + intogo, inmsglen);
+          log_error() << "inmsglen: " << inmsglen << endl;
+          log_error() << "string : *" << line << "*" << endl;
+	  intogo += inmsglen;
+          while (intogo < inofs && inbuf[intogo] < ' ')
+            intogo++;
     }
 }
 
