@@ -38,6 +38,8 @@ Random:
   and daemon context switches:
     - remove the need for EndMsg
     - do not ask the daemon about the first job (WIP dirk)
+* if a compile job SIGSEGV's or SIGABORTs, make sure to recompile locally because it could
+  be just a glibc/kernel incompatibility on the remote site
 * Add heuristic which optimises for overhead-reduction. Statistics prove ( ;) ), that for
   e.g. linux kernel the file size varies a lot, and small jobs should be preferably compiled
   locally and bigger ones preferably remote.
