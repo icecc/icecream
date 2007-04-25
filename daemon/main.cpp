@@ -409,7 +409,6 @@ int setup_listen_fd()
 
 
 struct timeval last_stat;
-time_t last_scheduler_ping;
 int mem_limit = 100;
 unsigned int max_kids = 0;
 
@@ -527,6 +526,7 @@ bool Daemon::send_scheduler(const Msg& msg)
 
 bool Daemon::reannounce_environments()
 {
+    log_error() << "reannounce_environments " << endl;
     LoginMsg lmsg( 0, nodename, "");
     lmsg.envs = available_environmnents(envbasedir);
     return send_scheduler( lmsg );
@@ -541,21 +541,12 @@ void Daemon::close_scheduler()
     scheduler = 0;
     delete discover;
     discover = 0;
-    clear_children();
 }
 
 bool Daemon::maybe_stats(bool send_ping)
 {
     struct timeval now;
     gettimeofday( &now, 0 );
-
-    /* the scheduler didn't ping us for a long time, assume dead connection and recover */
-    if (!send_ping && now.tv_sec - last_scheduler_ping >= max_scheduler_ping + 2 * max_scheduler_pong) {
-        log_error() << "scheduler timeout.. " << now.tv_sec - last_scheduler_ping << " bigger than " <<
-            max_scheduler_ping + 2*max_scheduler_pong << " nuking" << endl;
-        close_scheduler();
-        return false;
-    }
 
     time_t diff_sent = ( now.tv_sec - last_stat.tv_sec ) * 1000 + ( now.tv_usec - last_stat.tv_usec ) / 1000;
     if ( diff_sent >= max_scheduler_pong * 1000 ) {
@@ -620,13 +611,6 @@ bool Daemon::maybe_stats(bool send_ping)
         }
         icecream_load = 0;
         current_load = msg.load;
-    }
-
-    if ( send_ping ) {
-        if (!send_scheduler(PingMsg()))
-            return false;
-
-        last_scheduler_ping = now.tv_sec;
     }
 
     return true;
@@ -711,75 +695,40 @@ int Daemon::scheduler_use_cs( UseCSMsg *msg )
     return 0;
 }
 
-bool Daemon::handle_transfer_env( MsgChannel *c, Msg *msg )
+bool Daemon::handle_transfer_env( MsgChannel *c, Msg *_msg )
 {
-    EnvTransferMsg *emsg = static_cast<EnvTransferMsg*>( msg );
+    log_error() << "handle_transfer_env" << endl;
+
+    Client *client = clients.find_by_channel( c );
+
+    assert(client);
+    assert(client->status != Client::TOINSTALL &&
+           client->status != Client::TOCOMPILE &&
+           client->status != Client::WAITCOMPILE);
+    assert(client->pipe_to_child < 0);
+
+    EnvTransferMsg *emsg = static_cast<EnvTransferMsg*>( _msg );
     string target = emsg->target;
     if ( target.empty() )
         target =  machine_name;
 
-    size_t installed_size = 0;
-    /* HACKALERT: install_environment can block for a while, make sure
-       the scheduler doesn't kick us */
-    if ( maybe_stats(true) )
-        installed_size = install_environment( envbasedir, emsg->target,
-                emsg->name, c, nobody_uid, nobody_gid );
-    else
-        return false;
-    if (!installed_size) {
-        trace() << "install environment failed" << endl;
-        c->send_msg(EndMsg()); // shut up, we had an error
-        return reannounce_environments();
+    int sock_to_stdin = -1;
+    FileChunkMsg* fmsg = 0;
+
+    pid_t pid = start_install_environment( envbasedir, emsg->target,
+        emsg->name, c, sock_to_stdin, fmsg, nobody_uid, nobody_gid );
+
+    if ( pid > 0) {
+        current_kids++;
+        client->status = Client::TOINSTALL;
+        client->outfile = msg->target + "/" + msg->name;
+        client->pipe_to_child = sock_to_stdin;
+        client->child_pid = pid;
+        handle_file_chunk_env(c, fmsg);
+        log_error() << "got pid " << pid << endl;
     }
-    trace() << "envs " << dump_internals() << endl;
-    cache_size += installed_size;
-    string current = emsg->target + "/" + emsg->name;
-    envs_last_use[current] = time( NULL );
-    trace() << "installed " << emsg->name << " size: " << installed_size
-        << " all: " << cache_size << endl;
-
-    time_t now = time( NULL );
-    while ( cache_size > cache_size_limit ) {
-        string oldest;
-        // I don't dare to use (time_t)-1
-        time_t oldest_time = time( NULL ) + 90000;
-        for ( map<string, time_t>::const_iterator it = envs_last_use.begin();
-                it != envs_last_use.end(); ++it ) {
-            trace() << "das ist jetzt so: " << it->first << " " << it->second << " " << oldest_time << endl;
-            // ignore recently used envs (they might be in use _right_ now)
-            if ( it->second < oldest_time && now - it->second > 200 ) {
-                bool found = false;
-                for (Clients::const_iterator it2 = clients.begin(); it2 != clients.end(); ++it2)  {
-                    if (it2->second->status == Client::TOCOMPILE ||
-                            it2->second->status == Client::TOINSTALL ||
-                            it2->second->status == Client::WAITFORCHILD) {
-
-                        assert( it2->second->job );
-                        string envforjob = it2->second->job->targetPlatform() + "/"
-                            + it2->second->job->environmentVersion();
-                        if (envforjob == it->first)
-                            found = true;
-                    }
-                }
-                if (!found) {
-                    oldest_time = it->second;
-                    oldest = it->first;
-                }
-            }
-        }
-        if ( oldest.empty() || oldest == current )
-            break;
-        size_t removed = remove_environment( envbasedir, oldest );
-        trace() << "removing " << envbasedir << "/" << oldest << " " << oldest_time << " " << removed << endl;
-        cache_size -= min( removed, cache_size );
-        envs_last_use.erase( oldest );
-    }
-
-    bool r = reannounce_environments(); // do that before the file compiles
-    // we do that here so we're not given out in case of full discs
-    if ( !maybe_stats(true) )
-        r = false;
-    return r;
+    delete fmsg;
+    return pid > 0;
 }
 
 bool Daemon::handle_transfer_env_done( Client *client )
@@ -1058,6 +1007,17 @@ void Daemon::handle_end( Client *client, int exitcode )
  	client->job_id = 0;
     }
 
+    /* Delete from the clients map before send_scheduler, which causes a
+       double deletion. */
+    if (!clients.erase( client->channel ))
+    {
+        log_error() << "client can't be erased: " << client->channel << endl;
+        flush_debug();
+        log_error() << dump_internals() << endl;
+        flush_debug();
+        assert(false);
+    }
+
     if ( scheduler && client->status != Client::WAITFORCHILD ) {
         int job_id = client->job_id;
         if ( client->status == Client::TOCOMPILE )
@@ -1093,18 +1053,11 @@ void Daemon::handle_end( Client *client, int exitcode )
         } else if ( client->status == Client::CLIENTWORK ) {
             // Clientwork && !job_id == LINK
             trace() << "scheduler->send_msg( JobLocalDoneMsg( " << client->client_id << ") );\n";
-            send_scheduler( JobLocalDoneMsg( client->client_id ) );
+            if (!send_scheduler( JobLocalDoneMsg( client->client_id ) ))
+                trace() << "failed to reach scheduler for job done msg!" << endl;
         }
     }
 
-    if (!clients.erase( client->channel ))
-    {
-	log_error() << "client can't be erased: " << client->channel << endl;
-	flush_debug();
-	log_error() << dump_internals() << endl;
-	flush_debug();
-	assert(false);
-    }
     delete client;
 }
 
@@ -1337,19 +1290,21 @@ int Daemon::answer_client_requests()
     }
 
     if ( ret > 0 ) {
+        bool had_scheduler = scheduler;
         if ( scheduler && FD_ISSET( scheduler->fd, &listen_set ) ) {
             Msg *msg = scheduler->get_msg();
             if ( !msg ) {
                 log_error() << "scheduler closed connection\n";
                 close_scheduler();
+                clear_children();
                 return 1;
             } else {
                 ret = 0;
                 switch ( msg->type )
                 {
                 case M_PING:
-                    if ( !maybe_stats(true) )
-                        ret = 1;
+                    if (!IS_PROTOCOL_27(scheduler))
+                        ret = !send_scheduler(PingMsg());
                     break;
                 case M_USE_CS:
                     ret = scheduler_use_cs( dynamic_cast<UseCSMsg*>( msg ) );
@@ -1391,10 +1346,7 @@ int Daemon::answer_client_requests()
 
                 fd2chan[c->fd] = c;
                 c->read_a_bit();
-                while (c->has_msg()) {
-                    assert(client->status != Client::TOCOMPILE);
-                    if (!handle_activity (c))
-                        break;
+                while (c->has_msg() && handle_activity(c)) {
                     if (client->status == Client::TOCOMPILE ||
                             client->status == Client::WAITFORCHILD)
                         break;
@@ -1418,10 +1370,7 @@ int Daemon::answer_client_requests()
                 }
                 if (FD_ISSET (i, &listen_set)) {
                     c->read_a_bit();
-                    while (c->has_msg()) {
-                        assert(client->status != Client::TOCOMPILE);
-                        if (!handle_activity (c))
-                            break;
+                    while (c->has_msg() && handle_activity(c)) {
                         if (client->status == Client::TOCOMPILE ||
                                 client->status == Client::WAITFORCHILD)
                             break;
@@ -1430,6 +1379,11 @@ int Daemon::answer_client_requests()
                 }
            }
         }
+        if ( had_scheduler && !scheduler ) {
+            clear_children();
+            return 2;
+        }
+
     }
     return 0;
 }
@@ -1465,15 +1419,9 @@ bool Daemon::reconnect()
     log_info() << "Connected to scheduler (" << remote_name << ")\n";
     current_load = -1000;
     gettimeofday( &last_stat, 0 );
-    last_scheduler_ping = last_stat.tv_sec;
     icecream_load = 0;
 
-    // perhaps our host name changed due to network change?
-    struct utsname uname_buf;
-    if ( !custom_nodename && !uname( &uname_buf ) )
-        nodename = uname_buf.nodename;
-
-    LoginMsg lmsg( PORT, nodename, machine_name );
+    LoginMsg lmsg( PORT, determine_nodename(), machine_name );
     lmsg.envs = available_environmnents(envbasedir);
     lmsg.max_kids = max_kids;
     lmsg.noremote = noremote;

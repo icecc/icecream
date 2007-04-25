@@ -30,10 +30,12 @@ extern bool cleanup_cache( const std::string &basedir );
 extern size_t setup_env_cache(const std::string &basedir,
                      std::string &native_environment, uid_t nobody_uid, gid_t nobody_gid);
 Environments available_environmnents(const std::string &basename);
-extern size_t install_environment( const std::string &basename,
+extern pid_t start_install_environment( const std::string &basename,
                             const std::string &target,
                             const std::string &name,
-                            MsgChannel *c, uid_t nobody_uid, gid_t nobody_gid );
+                            MsgChannel *c, int& pipe_to_child,
+                            FileChunkMsg*& fmsg,
+                            uid_t nobody_uid, gid_t nobody_gid );
 extern size_t finalize_install_environment( const std::string &basename, const std::string& target,
         pid_t pid, gid_t nobody_gid );
 extern size_t remove_environment( const std::string &basedir, const std::string &env);

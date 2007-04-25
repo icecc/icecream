@@ -260,8 +260,11 @@ size_t setup_env_cache(const string &basedir, string &native_environment, uid_t 
     _exit( 0 );
 }
 
-size_t install_environment( const std::string &basename, const std::string &target,
-                          const std::string &name, MsgChannel *c, uid_t nobody_uid, gid_t nobody_gid )
+
+pid_t start_install_environment( const std::string &basename, const std::string &target,
+                          const std::string &name, MsgChannel *c,
+                          int& pipe_to_stdin, FileChunkMsg*& fmsg,
+                          uid_t nobody_uid, gid_t nobody_gid )
 {
     if ( !name.size() || name[0] == '.' ) {
         log_error() << "illegal name for environment " << name << endl;
@@ -283,7 +286,7 @@ size_t install_environment( const std::string &basename, const std::string &targ
         return 0;
     }
 
-    FileChunkMsg *fmsg = dynamic_cast<FileChunkMsg*>( msg );
+    fmsg = dynamic_cast<FileChunkMsg*>( msg );
     enum { BZip2, Gzip, None} compression = None;
     if ( fmsg->len > 2 )
     {
@@ -322,59 +325,9 @@ size_t install_environment( const std::string &basename, const std::string &targ
     {
         trace() << "pid " << pid << endl;
         close( fds[0] );
-        FILE *fpipe = fdopen( fds[1], "w" );
+        pipe_to_stdin = fds[1];
 
-        bool error = false;
-        do {
-            int ret = fwrite( fmsg->buffer, fmsg->len, 1, fpipe );
-            if ( ret != 1 ) {
-                log_error() << "wrote " << ret << " bytes\n";
-                error = true;
-                break;
-            }
-            delete msg;
-            msg = c->get_msg(30);
-            if (!msg) {
-                error = true;
-                break;
-            }
-
-            if ( msg->type == M_END ) {
-                trace() << "end\n";
-                break;
-            }
-            fmsg = dynamic_cast<FileChunkMsg*>( msg );
-
-            if ( !fmsg ) {
-                log_error() << "Expected another file chunk\n";
-                error = true;
-                break;
-            }
-        } while ( true );
-
-        delete msg;
-
-        fclose( fpipe );
-        close( fds[1] );
-
-        int status = 1;
-        while ( waitpid( pid, &status, 0) < 0 && errno == EINTR)
-            ;
-
-        error |= WEXITSTATUS(status);
-
-        if ( error ) {
-            kill( pid, SIGTERM );
-            char buffer[PATH_MAX];
-            snprintf( buffer, PATH_MAX, "rm -rf '/%s'", dirname.c_str() );
-            system( buffer );
-            return 0;
-        } else {
-            mkdir( ( dirname + "/tmp" ).c_str(), 01775 );
-            chown( ( dirname + "/tmp" ).c_str(), 0, nobody_gid );
-            chmod( ( dirname + "/tmp" ).c_str(), 01775 );
-            return sumup_dir( dirname );
-        }
+        return pid;
     }
     // else
     if ( setgid( nobody_gid ) < 0) {
@@ -411,6 +364,7 @@ size_t install_environment( const std::string &basename, const std::string &targ
     _exit( execv( argv[0], argv ) );
 }
 
+
 size_t finalize_install_environment( const std::string &basename, const std::string &target,
                                      pid_t pid, gid_t nobody_gid)
 {
@@ -434,13 +388,7 @@ size_t finalize_install_environment( const std::string &basename, const std::str
 
 size_t remove_environment( const string &basename, const string &env )
 {
-    string::size_type pos = env.find_first_of( '/' );
-    if ( pos == string::npos ) // nonsense
-        return 0;
-
-    string target = env.substr( 0, pos );
-    string name = env.substr( pos + 1 );
-    string dirname = basename + "/target=" + target + "/" + name;
+    string dirname = basename + "/target=" + env;
 
     size_t res = sumup_dir( dirname );
 

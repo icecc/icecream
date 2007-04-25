@@ -488,14 +488,11 @@ MsgChannel::read_line (string &line)
   /* XXX handle DOS and MAC line endings and null bytes as string endings.  */
   if (!text_based || inofs < intogo)
     {
-     log_error() << "urgs" << endl;
       line = "";
     }
   else
     {
 	  line = string(inbuf + intogo, inmsglen);
-          log_error() << "inmsglen: " << inmsglen << endl;
-          log_error() << "string : *" << line << "*" << endl;
 	  intogo += inmsglen;
           while (intogo < inofs && inbuf[intogo] < ' ')
             intogo++;
@@ -681,6 +678,18 @@ MsgChannel::MsgChannel (int _fd, struct sockaddr *_a, socklen_t _l, bool text)
   intogo = 0;
   eof = false;
   text_based = text;
+
+  int on = 1;
+  if (!setsockopt (_fd, SOL_SOCKET, SO_KEEPALIVE, (char*) &on, sizeof(on)))
+  {
+      int sec;
+      sec = MAX_SCHEDULER_PING - 3 * MAX_SCHEDULER_PONG;
+      setsockopt (_fd, IPPROTO_TCP, TCP_KEEPIDLE, (char*) &sec, sizeof(sec));
+      sec = MAX_SCHEDULER_PONG;
+      setsockopt (_fd, IPPROTO_TCP, TCP_KEEPINTVL, (char*) &sec, sizeof(sec));
+      sec = 3;
+      setsockopt (_fd, IPPROTO_TCP, TCP_KEEPCNT, (char*) &sec, sizeof(sec));
+  }
 
   if (fcntl (fd, F_SETFL, O_NONBLOCK) < 0)
     log_perror("MsgChannel fcntl()");

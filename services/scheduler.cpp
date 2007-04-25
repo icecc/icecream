@@ -49,6 +49,7 @@
 #include "logging.h"
 #include "job.h"
 #include "config.h"
+#include "bench.h"
 
 #define DEBUG_SCHEDULER 0
 
@@ -749,6 +750,8 @@ pick_server(Job *job)
   CS *best = 0;
   // best uninstalled
   CS *bestui = 0;
+  // best preloadable host
+  CS *bestpre = 0;
 
   uint matches = 0;
 
@@ -756,7 +759,8 @@ pick_server(Job *job)
     {
       CS *cs = *it;
       /* For now ignore overloaded servers.  */
-      if (int( cs->joblist.size() ) >= cs->max_jobs || cs->load >= 1000)
+      /* Pre-loadable (cs->joblist.size()) == (cs->max_jobs) is checked later.  */
+      if (int( cs->joblist.size() ) > cs->max_jobs || cs->load >= 1000)
         {
 #if DEBUG_SCHEDULER > 1
           trace() << "overloaded " << cs->nodename << " " << cs->joblist.size() << "/" <<  cs->max_jobs << " jobs, load:" << cs->load << endl;
@@ -831,7 +835,12 @@ pick_server(Job *job)
           else
             if (best->last_compiled_jobs.size() != 0
                 && server_speed (best, job) < server_speed (cs, job))
+              {
+                if (int( cs->joblist.size() ) < cs->max_jobs)
               best = cs;
+                else
+                  bestpre = cs;
+              }
           matches++;
         }
       else
@@ -843,7 +852,12 @@ pick_server(Job *job)
           else
             if (bestui->last_compiled_jobs.size() != 0
                 && server_speed (bestui, job) < server_speed (cs, job))
+              {
+                if (int( cs->joblist.size() ) < cs->max_jobs)
               bestui = cs;
+                else
+                  bestpre = cs;
+              }
         }
     }
 
@@ -860,11 +874,22 @@ pick_server(Job *job)
       return best;
     }
 
-#if DEBUG_SCHEDULER > 1
   if ( bestui )
+    {
+#if DEBUG_SCHEDULER > 1
     trace() << "taking best uninstalled " << bestui->nodename << " " <<  server_speed (bestui) << endl;
 #endif
   return bestui;
+    }
+
+  if ( bestpre )
+    {
+#if DEBUG_SCHEDULER > 1
+      trace() << "taking best preload " << bestui->nodename << " " <<  server_speed (bestui) << endl;
+#endif
+    }
+
+  return bestpre;
 }
 
 /* Prunes the list of connected servers by those which haven't
@@ -880,13 +905,17 @@ prune_servers ()
 
   for (it = css.begin(); it != css.end(); )
     {
-      if ( now - ( *it )->last_talk >= MAX_SCHEDULER_PING )
+      /* protocol version 27 and newer use TCP keepalive */
+      if (IS_PROTOCOL_27(*it)) {
+        ++it;
+        continue;
+      }
+
+      if (now - ( *it )->last_talk >= MAX_SCHEDULER_PING)
         {
-          if ( ( *it )->max_jobs >= 0 )
+          if (( *it )->max_jobs >= 0)
             {
-#if DEBUG_SCHEDULER > 1
               trace() << "send ping " << ( *it )->nodename << endl;
-#endif
               ( *it )->max_jobs *= -1; // better not give it away
               if(( *it )->send_msg( PingMsg() ))
 		{
@@ -1067,9 +1096,6 @@ empty_queue()
     }
   return true;
 }
-
-// unused
-const char icecream_bench_code[] = "\n";
 
 static bool
 handle_login (MsgChannel *c, Msg *_m)
