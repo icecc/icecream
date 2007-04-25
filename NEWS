@@ -13,6 +13,7 @@
           * implement job preloading
           * asynchronous install of new environments
           * uses tcp keepalive for network connection tracking
+        - create environments correctly on OS X
 
 0.7.14 (583722):
         - fix current_kids getting out of sync if send_scheduler
