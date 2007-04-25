@@ -699,7 +699,6 @@ bool Daemon::handle_transfer_env( MsgChannel *c, Msg *_msg )
 {
     log_error() << "handle_transfer_env" << endl;
 
-    EnvTransferMsg *msg = static_cast<EnvTransferMsg*>( _msg );
     Client *client = clients.find_by_channel( c );
 
     assert(client);
@@ -708,7 +707,7 @@ bool Daemon::handle_transfer_env( MsgChannel *c, Msg *_msg )
            client->status != Client::WAITCOMPILE);
     assert(client->pipe_to_child < 0);
 
-    EnvTransferMsg *emsg = static_cast<EnvTransferMsg*>( msg );
+    EnvTransferMsg *emsg = static_cast<EnvTransferMsg*>( _msg );
     string target = emsg->target;
     if ( target.empty() )
         target =  machine_name;
