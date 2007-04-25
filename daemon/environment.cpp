@@ -24,6 +24,7 @@
 #include <errno.h>
 #include <dirent.h>
 #include <unistd.h>
+#include <fcntl.h>
 #include <stdio.h>
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -72,7 +73,7 @@ static bool extract_version( string &version )
 }
 #endif
 
-static size_t sumup_dir( const string &dir )
+size_t sumup_dir( const string &dir )
 {
     size_t res = 0;
     DIR *envdir = opendir( dir.c_str() );
@@ -204,11 +205,11 @@ size_t setup_env_cache(const string &basedir, string &native_environment, uid_t 
     native_environment = "";
     string nativedir = basedir + "/native/";
 
-    if ( ::access( "/usr/bin/gcc", X_OK ) || ::access( "/usr/bin/g++", X_OK ) ) 
+    if ( ::access( "/usr/bin/gcc", X_OK ) || ::access( "/usr/bin/g++", X_OK ) )
 	return 0;
 
     if ( mkdir( nativedir.c_str(), 0755 ) )
-   	return 0; 
+   	return 0;
 
     if ( chown( nativedir.c_str(), nobody_uid, nobody_gid) ) {
 	rmdir( nativedir.c_str() );
@@ -359,7 +360,7 @@ size_t install_environment( const std::string &basename, const std::string &targ
         int status = 1;
         while ( waitpid( pid, &status, 0) < 0 && errno == EINTR)
             ;
- 
+
         error |= WEXITSTATUS(status);
 
         if ( error ) {
@@ -385,6 +386,11 @@ size_t install_environment( const std::string &basename, const std::string &targ
       _exit (142);
     }
 
+    // reset SIGPIPE and SIGCHILD handler so that tar
+    // isn't confused when gzip/bzip2 aborts
+    signal(SIGCHLD, SIG_DFL);
+    signal(SIGPIPE, SIG_DFL);
+
     close( 0 );
     close( fds[1] );
     dup2( fds[0], 0 );
@@ -403,6 +409,27 @@ size_t install_environment( const std::string &basename, const std::string &targ
     argv[4] = strdup( "-" );
     argv[5] = 0;
     _exit( execv( argv[0], argv ) );
+}
+
+size_t finalize_install_environment( const std::string &basename, const std::string &target,
+                                     pid_t pid, gid_t nobody_gid)
+{
+    int status = 1;
+    while ( waitpid( pid, &status, 0) < 0 && errno == EINTR)
+        ;
+
+    if (!WIFEXITED(status) || WEXITSTATUS(status)) {
+        log_error() << "exit code: " << WEXITSTATUS(status) << endl;
+        remove_environment(basename, target);
+        return 0;
+    }
+
+    string dirname = basename + "/target=" + target;
+    mkdir( ( dirname + "/tmp" ).c_str(), 01775 );
+    chown( ( dirname + "/tmp" ).c_str(), 0, nobody_gid );
+    chmod( ( dirname + "/tmp" ).c_str(), 01775 );
+
+    return sumup_dir (dirname);
 }
 
 size_t remove_environment( const string &basename, const string &env )

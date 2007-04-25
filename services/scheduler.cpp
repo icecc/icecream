@@ -905,7 +905,7 @@ prune_servers ()
 	  handle_end (old, 0);
 	  continue;
         }
-      else
+      else 
         min_time = min (min_time, MAX_SCHEDULER_PING - now + ( *it )->last_talk);
 #if DEBUG_SCHEDULER > 1
       if ((random() % 400) < 0)
@@ -1020,7 +1020,7 @@ empty_queue()
       gotit = false;
       host_platform = can_install (cs, job);
     }
-
+  
   UseCSMsg m2(host_platform, cs->name, cs->remote_port, job->id,
 	      gotit, job->local_client_id );
 
@@ -1138,7 +1138,7 @@ handle_relogin (MsgChannel *c, Msg *_m)
   if (IS_PROTOCOL_24( c ))
     c->send_msg (ConfCSMsg(icecream_bench_code));
 
-  return true;
+  return false;
 }
 
 static bool
@@ -1469,7 +1469,7 @@ handle_line (MsgChannel *c, Msg *_m)
         {
           Msg *msg = NULL;
 
-	  if (!l.empty())
+	  if (!l.empty()) 
 	    {
 	      list<string>::const_iterator si;
 	      for (si = l.begin(); si != l.end(); ++si) {
@@ -1957,8 +1957,9 @@ main (int argc, char * argv[])
                   continue;
                 }
 	      fd2chan[cs->fd] = cs;
-	      if (!cs->read_a_bit () || cs->has_msg ())
-	        handle_activity (cs);
+	      while (!cs->read_a_bit () || cs->has_msg ())
+                if(! handle_activity (cs))
+                  break;
 	    }
         }
       if (max_fd && FD_ISSET (text_fd, &read_set))
@@ -1984,8 +1985,9 @@ main (int argc, char * argv[])
                   continue;
                 }
 	      fd2chan[cs->fd] = cs;
-	      if (!cs->read_a_bit () || cs->has_msg ())
-	        handle_activity (cs);
+	      while (!cs->read_a_bit () || cs->has_msg ())
+	        if (!handle_activity (cs))
+                  break;
 	    }
 	}
       if (max_fd && FD_ISSET (broad_fd, &read_set))
@@ -2007,7 +2009,8 @@ main (int argc, char * argv[])
 	      if (err != EAGAIN)
 	        return -1;
 	    }
-	  else
+            /* Only answer if daemon would be able to talk to us. */
+	  else if (buf[0] >= MIN_PROTOCOL_VERSION)
 	    {
 	      log_info() << "broadcast from " << inet_ntoa (broad_addr.sin_addr)
                          << ":" << ntohs (broad_addr.sin_port) << "\n";
@@ -2033,8 +2036,9 @@ main (int argc, char * argv[])
           ++it;
           if (FD_ISSET (i, &read_set))
             {
-              if (!c->read_a_bit () || c->has_msg ())
-                handle_activity (c);
+              while (!c->read_a_bit () || c->has_msg ())
+                if(!handle_activity (c))
+                  break;
               max_fd--;
             }
         }

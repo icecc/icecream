@@ -41,11 +41,12 @@
 // MAX_SCHEDULER_PING must be multiple of MAX_SCHEDULER_PONG
 #define MAX_SCHEDULER_PING 12 * MAX_SCHEDULER_PONG
 
-#define IS_PROTOCOL_22( c ) ( c->protocol >= 22 )
-#define IS_PROTOCOL_23( c ) ( c->protocol >= 23 )
-#define IS_PROTOCOL_24( c ) ( c->protocol >= 24 )
-#define IS_PROTOCOL_25( c ) ( c->protocol >= 25 )
-#define IS_PROTOCOL_26( c ) ( c->protocol >= 26 )
+#define IS_PROTOCOL_22( c ) ( (c)->protocol >= 22 )
+#define IS_PROTOCOL_23( c ) ( (c)->protocol >= 23 )
+#define IS_PROTOCOL_24( c ) ( (c)->protocol >= 24 )
+#define IS_PROTOCOL_25( c ) ( (c)->protocol >= 25 )
+#define IS_PROTOCOL_26( c ) ( (c)->protocol >= 26 )
+#define IS_PROTOCOL_27( c ) ( (c)->protocol >= 27 )
 
 enum MsgType {
   // so far unknown

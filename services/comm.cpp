@@ -159,12 +159,18 @@ MsgChannel::update_state (void)
     case NEED_LEN:
       if (text_based)
         {
-	  /* XXX handle other line endings.  */
-	  void *lineend = memchr (inbuf + intogo, '\r', inofs - intogo);
-	  if (!lineend)
-	    break;
-	  instate = HAS_MSG;
-	  goto has_msg;
+          // Skip any leading whitespace
+          for (;inofs < intogo; ++inofs)
+             if (inbuf[inofs] >= ' ') break;
+
+          // Skip until next newline
+          for(inmsglen = 0; inmsglen < inofs - intogo; ++inmsglen)
+             if (inbuf[intogo+inmsglen] < ' ')
+               {
+                 instate = HAS_MSG;
+                 break;
+               }
+          break;
 	}
       else if (inofs - intogo >= 4)
         {
@@ -186,7 +192,6 @@ MsgChannel::update_state (void)
       else
         break;
     case HAS_MSG:
-    has_msg:
       /* handled elsewere */
       break;
     }
@@ -430,7 +435,8 @@ MsgChannel::readcompressed (unsigned char **uncompressed_buf,
 	     Remove the buffer, and indicate there is nothing in it,
 	     but don't reset the compressed_len, so our caller know,
 	     that there actually was something read in.  */
-          log_error() << "internal error - decompression failed: " << ret << endl;
+          log_error() << "internal error - decompression of data from " << dump().c_str() 
+              << " failed: " << ret << endl;
 	  delete [] *uncompressed_buf;
 	  *uncompressed_buf = 0;
 	  uncompressed_len = 0;
@@ -601,7 +607,7 @@ MsgChannel *Service::createChannel (const string &hostname, unsigned short p, in
   remote_addr.sin_family = AF_INET;
   remote_addr.sin_port = htons (p);
   memcpy (&remote_addr.sin_addr.s_addr, host->h_addr_list[0], host->h_length);
-  setsockopt(remote_fd, IPPROTO_TCP, TCP_NODELAY, (char*) &i, sizeof(i));
+  setsockopt (remote_fd, IPPROTO_TCP, TCP_NODELAY, (char*) &i, sizeof(i));
 
   if ( timeout )
     {
@@ -851,8 +857,10 @@ MsgChannel::get_msg(int timeout)
     case M_CS_CONF: m = new ConfCSMsg; break;
     case M_TIMEOUT: break;
     }
-  if (!m)
+  if (!m) {
+      trace() << "no message type" << endl;
     return 0;
+  }
   m->fill_from_channel (this);
   instate = NEED_LEN;
   update_state ();

@@ -83,10 +83,10 @@ bool analyse_argv( const char * const *argv,
         const char *a = argv[i];
 
         if (a[0] == '-') {
-            if (!strcmp(a, "-E")) {
+            if (!strcmp(a, "-E") || !strncmp(a, "-fdump", 6) || !strcmp(a, "-combine")) {
                 always_local = true;
                 args.append(a, Arg_Local);
-            } else if (!strcmp(a, "-MD") || !strcmp(a, "-MMD") || !strncmp(a, "-fdump", 6)) {
+            } else if (!strcmp(a, "-MD") || !strcmp(a, "-MMD")) {
                 args.append(a, Arg_Local);
                 /* These two generate dependencies as a side effect.  They
                  * should work with the way we call cpp. */
@@ -323,7 +323,7 @@ bool analyse_argv( const char * const *argv,
     }
 
     struct stat st;
-    if ( !stat( ofile.c_str(), &st ) && !S_ISREG( st.st_mode ))
+    if ( ofile.empty() || (!stat( ofile.c_str(), &st ) && !S_ISREG( st.st_mode)))
         always_local = true;
 
     job.setFlags( args );
