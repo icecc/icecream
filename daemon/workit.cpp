@@ -38,6 +38,9 @@
 #include <unistd.h>
 #include <sys/fcntl.h>
 #include <sys/wait.h>
+#if HAVE_SYS_USER_H
+#  include <sys/user.h>
+#endif
 #include <sys/socket.h>
 
 #if defined(__FreeBSD__) || defined(__DragonFly__)

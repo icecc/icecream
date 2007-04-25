@@ -58,6 +58,7 @@ AC_CHECK_HEADERS([resolv.h], [], [],
 ])
 
 AC_CHECK_HEADERS([float.h mcheck.h alloca.h sys/mman.h])
+AC_CHECK_HEADERS([sys/user.h])
 
 ######################################################################
 dnl Checks for types
@@ -78,6 +79,12 @@ AC_CHECK_TYPES([sa_family_t, socklen_t, in_port_t, in_addr_t], , ,
 #endif
 ])
 
+AC_CHECK_MEMBER([struct ifreq.ifr_dstaddr],
+                [AC_DEFINE(HAVE_IFR_DSTADDR, 1, [Set to 1 if struct ifr_ifru has member ifr_dstaddr] )],
+                [AC_DEFINE(HAVE_IFR_DSTADDR, 0, [Set to 0 if struct ifr_ifru has no ifr_dstaddr] )],
+                [
+#include <net/if.h>
+])
 
 
 ########################################################################
@@ -126,6 +133,7 @@ AC_CHECK_FUNCS([snprintf vsnprintf vasprintf asprintf getcwd getwd])
 AC_CHECK_FUNCS([getrusage strsignal gettimeofday])
 AC_CHECK_FUNCS([getaddrinfo getnameinfo inet_ntop inet_ntoa])
 AC_CHECK_FUNCS([strndup mmap strlcpy])
+AC_CHECK_FUNCS([getloadavg])
 
 AC_CHECK_DECLS([snprintf, vsnprintf, vasprintf, asprintf, strndup])
 
