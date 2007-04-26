@@ -215,7 +215,7 @@ static unsigned long int scan_one( const char* buff, const char *key )
 
 static unsigned int calculateMemLoad( unsigned long int &NetMemFree )
 {
-    unsigned long long MemFree;
+    unsigned long long MemFree = 0, Buffers = 0, Cached = 0;
 
 #ifdef USE_MACH
     /* Get VM statistics. */
@@ -232,18 +232,15 @@ static unsigned int calculateMemLoad( unsigned long int &NetMemFree )
     unsigned long long MemInactive = (unsigned long long) vm_stat.inactive_count * pagesize;
     MemFree = (unsigned long long) vm_stat.free_count * pagesize;
 
-    NetMemFree = (MemFree + MemInactive / 3) / 1024;
-    if ( NetMemFree > 128 * 1024 )
-        return 0;
-    else
-        return 1000 - ( NetMemFree * 1000 / ( 128 * 1024 ) );
-
+    // blunt lie - but when's sche macht
+    Buffers = MemInactive;
+  
 #elif defined( USE_SYSCTL )
     size_t len = sizeof (MemFree);
     if ((sysctlbyname("vm.stats.vm.v_free_count", &MemFree, &len, NULL, 0) == -1) || !len)
         MemFree = 0; /* Doesn't work under FreeBSD v2.2.x */
 
-    unsigned long int Buffers;
+  
     len = sizeof (Buffers);
     if ((sysctlbyname("vfs.bufspace", &Buffers, &len, NULL, 0) == -1) || !len)
         Buffers = 0; /* Doesn't work under FreeBSD v2.2.x */

@@ -515,6 +515,14 @@ void Daemon::determine_system()
         machine_name = os + '_' + uname_buf.machine;
     else // Linux
         machine_name = uname_buf.machine;
+   
+    while (true)
+    {
+        string::size_type pos = machine_name.find(" ");
+        if (pos == string::npos)
+           break;
+        machine_name.erase(pos, 1);
+    }
 }
 
 string Daemon::determine_nodename()
