@@ -488,12 +488,34 @@ struct Daemon
     int handle_cs_conf( ConfCSMsg *msg);
     string dump_internals() const;
     string determine_nodename();
+    void determine_system();
     bool maybe_stats(bool force = false);
     bool send_scheduler(const Msg& msg) __attribute_warn_unused_result__;
     void close_scheduler();
     bool reconnect();
     int working_loop();
 };
+
+void Daemon::determine_system()
+{
+    struct utsname uname_buf;
+    if ( uname( &uname_buf ) ) {
+        log_perror( "uname call failed" );
+        return;
+    }
+
+    if ( nodename.length() && nodename != uname_buf.nodename )
+        custom_nodename  = true;
+
+    if (!custom_nodename)
+        nodename = uname_buf.nodename;
+
+    string os = uname_buf.sysname;
+    if ( os != "Linux" )
+        machine_name = os + '_' + uname_buf.machine;
+    else // Linux
+        machine_name = uname_buf.machine;
+}
 
 string Daemon::determine_nodename()
 {
@@ -1592,19 +1614,7 @@ int main( int argc, char ** argv )
     log_info() << "ICECREAM daemon " VERSION " starting up (nice level "
                << nice_level << ") " << endl;
 
-    struct utsname uname_buf;
-    if ( uname( &uname_buf ) ) {
-        log_perror( "uname call failed" );
-        return 1;
-    }
-
-    if ( d.nodename.length() && d.nodename != uname_buf.nodename )
-        d.custom_nodename  = true;
-
-    if (!d.custom_nodename)
-        d.nodename = uname_buf.nodename;
-
-    d.machine_name = uname_buf.machine;
+    d.determine_system();
 
     chdir( "/" );
 
