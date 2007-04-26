@@ -13,8 +13,12 @@
           * implement job preloading
           * asynchronous install of new environments
           * uses tcp keepalive for network connection tracking
-        - create environments correctly on OS X
-	- report load correctly on mach kernels (Darwin)
+        - make it work on OS X
+          * don' hardcode tar path
+          * create environments correctly on OS X
+	  * report load correctly on mach kernels (Darwin)
+          * prepend os to the machine type if it's not linux
+            (resulting in e.g. Darwin_PowerMacintosh)
 
 0.7.14 (583722):
         - fix current_kids getting out of sync if send_scheduler
