@@ -67,16 +67,15 @@
 #endif
 #include <netdb.h>
 
-#if defined(__FreeBSD__) || defined(__DragonFly__)
-#  include <signal.h> // for kill(2)
-#  include <sys/time.h>
+#ifdef HAVE_SYS_RESOURCE_H
 #  include <sys/resource.h>
-#  ifndef RUSAGE_SELF
-#    define RUSAGE_SELF (0)
-#  endif
-#  ifndef RUSAGE_CHILDREN
-#    define RUSAGE_CHILDREN (-1)
-#  endif
+#endif
+
+#ifndef RUSAGE_SELF
+#  define RUSAGE_SELF (0)
+#endif
+#ifndef RUSAGE_CHILDREN
+#  define RUSAGE_CHILDREN (-1)
 #endif
 
 #include <deque>
