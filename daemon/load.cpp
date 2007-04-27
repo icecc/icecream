@@ -272,8 +272,8 @@ static unsigned int calculateMemLoad( unsigned long int &NetMemFree )
 
     buf[n] = '\0';
     MemFree = scan_one( buf, "MemFree" );
-    unsigned long int Buffers = scan_one( buf, "Buffers" );
-    unsigned long int Cached = scan_one( buf, "Cached" );
+    Buffers = scan_one( buf, "Buffers" );
+    Cached = scan_one( buf, "Cached" );
 #endif
 
     if ( Buffers > 50 * 1024 )
