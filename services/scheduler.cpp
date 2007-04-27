@@ -834,10 +834,10 @@ pick_server(Job *job)
              the job.  (XXX currently this is equivalent to the fastest one)  */
           else
             if (best->last_compiled_jobs.size() != 0
-                && server_speed (best, job) < server_speed (cs, job))
+                && server_speed (best, job) < server_speed (cs, job)) 
               {
                 if (int( cs->joblist.size() ) < cs->max_jobs)
-              best = cs;
+                  best = cs;
                 else
                   bestpre = cs;
               }
@@ -854,7 +854,7 @@ pick_server(Job *job)
                 && server_speed (bestui, job) < server_speed (cs, job))
               {
                 if (int( cs->joblist.size() ) < cs->max_jobs)
-              bestui = cs;
+                  bestui = cs;
                 else
                   bestpre = cs;
               }
@@ -877,9 +877,9 @@ pick_server(Job *job)
   if ( bestui )
     {
 #if DEBUG_SCHEDULER > 1
-    trace() << "taking best uninstalled " << bestui->nodename << " " <<  server_speed (bestui) << endl;
+      trace() << "taking best uninstalled " << bestui->nodename << " " <<  server_speed (bestui) << endl;
 #endif
-  return bestui;
+      return bestui;
     }
 
   if ( bestpre )
@@ -917,10 +917,10 @@ prune_servers ()
             {
               trace() << "send ping " << ( *it )->nodename << endl;
               ( *it )->max_jobs *= -1; // better not give it away
-              if(( *it )->send_msg( PingMsg() ))
+              if(( *it )->send_msg( PingMsg() )) 
 		{
                   // give it MAX_SCHEDULER_PONG to answer a ping
-                  ( *it )->last_talk = time( 0 ) - MAX_SCHEDULER_PING
+                  ( *it )->last_talk = time( 0 ) - MAX_SCHEDULER_PING 
 		                       + 2 * MAX_SCHEDULER_PONG;
                   min_time = min (min_time, (time_t) 2 * MAX_SCHEDULER_PONG);
 		  ++it;
