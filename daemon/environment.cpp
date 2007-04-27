@@ -350,7 +350,7 @@ pid_t start_install_environment( const std::string &basename, const std::string 
 
     char **argv;
     argv = new char*[6];
-    argv[0] = strdup( "/bin/tar" );
+    argv[0] = strdup( TAR );
     argv[1] = strdup ("-C");
     argv[2] = strdup ( dirname.c_str() );
     if ( compression == BZip2 )
@@ -365,7 +365,7 @@ pid_t start_install_environment( const std::string &basename, const std::string 
 }
 
 
-size_t finalize_install_environment( const std::string &basename, const std::string &target, 
+size_t finalize_install_environment( const std::string &basename, const std::string &target,
                                      pid_t pid, gid_t nobody_gid)
 {
     int status = 1;

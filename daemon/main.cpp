@@ -67,6 +67,10 @@
 #endif
 #include <netdb.h>
 
+#ifdef HAVE_SYS_RESOURCE_H
+#  include <sys/resource.h>
+#endif
+
 #ifndef RUSAGE_SELF
 #  define RUSAGE_SELF (0)
 #endif
@@ -768,7 +772,7 @@ bool Daemon::handle_transfer_env_done( Client *client )
     assert(client->status == Client::TOINSTALL);
 
     size_t installed_size = finalize_install_environment(envbasedir, client->outfile,
-            client->child_pid, nobody_gid);
+                              client->child_pid, nobody_gid);
 
     if (client->pipe_to_child >= 0) {
         installed_size = 0;
@@ -1157,7 +1161,7 @@ bool Daemon::handle_file_chunk_env(MsgChannel *c, Msg *msg)
 {
     /* this sucks, we can block when we're writing
        the file chunk to the child, but we can't let the child
-       handle MsgChannel itself due to MsgChannel's stupid 
+       handle MsgChannel itself due to MsgChannel's stupid
        caching layer inbetween, which causes us to loose partial
        data after the M_END msg of the env transfer.  */
 
