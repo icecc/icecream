@@ -223,7 +223,6 @@ public:
 static list<CS*> css;
 static unsigned int new_job_id;
 static map<unsigned int, Job*> jobs;
-static map<unsigned int, Job*> done_jobs;
 
 /* XXX Uah.  Don't use a queue for the job requests.  It's a hell
    to delete anything out of them (for clean up).  */
@@ -950,26 +949,6 @@ prune_servers ()
       ++it;
     }
 
-  /**
-   * check the jobs that were not cared about even though they are done
-   * (one in a million ;( */
-  for (map<unsigned int, Job*>::const_iterator it = done_jobs.begin();
-       it != done_jobs.end(); ++it)
-    {
-      Job *j = it->second;
-      if (now - j->done_time > 30 )
-        {
-          trace() << "undone " << dump_job( j ) << endl;
-          trace() << "FORCED removing " << j->server->nodename << endl;
-          handle_end( j->server, 0 );
-          /* the above will kill all jobs associated with this server, so
-             we better get out of this, as done_jobs is changed too and
-             we'll come back (</schwarzeneggeraccent>)
-          */
-          break;
-        }
-    }
-
     return min_time;
 }
 
@@ -1353,7 +1332,6 @@ handle_job_done (MsgChannel *c, Msg *_m)
   add_job_stats (j, m);
   notify_monitors (MonJobDoneMsg (*m));
   jobs.erase (m->job_id);
-  done_jobs.erase (m->job_id);
   delete j;
 
   return true;
@@ -1640,7 +1618,6 @@ handle_end (MsgChannel *c, Msg *m)
 		if ((*jit)->server)
 		  (*jit)->server->busy_installing = 0;
 		jobs.erase( (*jit)->id );
-                done_jobs.erase( (*jit)->id );
 		delete (*jit);
 	      }
 	    delete l;
@@ -1663,7 +1640,6 @@ handle_end (MsgChannel *c, Msg *m)
 		job->server->joblist.remove (job);
 	      if (job->server)
 	        job->server->busy_installing = 0;
-              done_jobs.erase( job->id );
               jobs.erase( mit++ );
               delete job;
             }
