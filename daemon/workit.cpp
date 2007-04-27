@@ -156,6 +156,9 @@ int work_it( CompileJob &j, unsigned int job_stat[], MsgChannel* client,
         return EXIT_DISTCC_FAILED;
 
     int maxsize = 2*1024*2024;
+    // if any of these fail, well, things get a little bit slower
+    // but it doesn't matter at all for correctness. Don't worry, missing
+    // error handling is on purpose :)
 #ifdef SO_SNDBUFFORCE
     if (setsockopt(sock_in[1], SOL_SOCKET, SO_SNDBUFFORCE, &maxsize, sizeof(maxsize)) < 0)
 #endif
