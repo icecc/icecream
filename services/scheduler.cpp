@@ -178,7 +178,7 @@ public:
 unsigned int CS::hostid_counter = 0;
 
 static map<int, MsgChannel *> fd2chan;
-static bool allow_run_as_user = false;
+static bool exit_main_loop = false;
 
 time_t starttime;
 
@@ -788,7 +788,7 @@ pick_server(Job *job)
         }
 
       /* Don't use non-chroot-able daemons for remote jobs.  XXX */
-      if (!allow_run_as_user && !cs->chroot_possible)
+      if (!cs->chroot_possible)
         {
 	  trace() << cs->nodename << " can't use chroot\n";
 	  continue;
@@ -1106,7 +1106,7 @@ handle_login (MsgChannel *c, Msg *_m)
 
   /* If we don't allow non-chroot-able daemons in the farm,
      discard them here.  */
-  if (!allow_run_as_user && !m->chroot_possible)
+  if (!m->chroot_possible)
     return false;
 
   std::ostream& dbg = trace();
@@ -1805,16 +1805,25 @@ usage(const char* reason = 0)
        << "  -h, --help\n"
        << "  -l, --log-file <file>\n"
        << "  -d, --daemonize\n"
-       << "  -r, --allow-run-as-user\n"
        << "  -v[v[v]]]\n"
        << endl;
 
   exit(1);
 }
 
-void removePidFile( int )
+static void
+trigger_exit( int signum )
 {
-  unlink(pidFilePath.c_str());
+  if (!exit_main_loop)
+    exit_main_loop = true;
+  else
+    {
+      // hmm, we got killed already. try better
+      cerr << "forced exit." << endl;
+      _exit(1);
+    }
+  // make BSD happy
+  signal(signum, trigger_exit);
 }
 
 int
@@ -1837,7 +1846,6 @@ main (int argc, char * argv[])
       { "port", 0, NULL, 'p' },
       { "daemonize", 0, NULL, 'd'},
       { "log-file", 1, NULL, 'l'},
-      { "allow-run-as-user", 1, NULL, 'u' },
       { 0, 0, 0, 0 }
     };
 
@@ -1885,10 +1893,6 @@ main (int argc, char * argv[])
         usage("Error: -p requires argument");
       break;
 
-    case 'r':
-      allow_run_as_user = true;
-      break;
-
     default:
       usage();
     }
@@ -1927,11 +1931,11 @@ main (int argc, char * argv[])
   pidFile << getpid() << endl;
   pidFile.close();
 
-  signal(SIGTERM, removePidFile);
-  signal(SIGINT, removePidFile);
-  signal(SIGALRM, removePidFile);
+  signal(SIGTERM, trigger_exit);
+  signal(SIGINT, trigger_exit);
+  signal(SIGALRM, trigger_exit);
 
-  while (1)
+  while (!exit_main_loop)
     {
       struct timeval tv;
       tv.tv_usec = 0;
@@ -2092,6 +2096,8 @@ main (int argc, char * argv[])
         }
     }
   close (broad_fd);
+  shutdown (broad_fd, SHUT_RDWR);
+  unlink(pidFilePath.c_str());
   return 0;
 }
 /*
