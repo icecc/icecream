@@ -27,8 +27,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <errno.h>
-
-#if defined(__FreeBSD__) || defined(__DragonFly__)
+#ifdef HAVE_SIGNAL_H
 #include <signal.h>
 #endif
 

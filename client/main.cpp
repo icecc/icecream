@@ -52,7 +52,7 @@
 #include <sys/time.h>
 #include <comm.h>
 #include <sys/types.h>
-#if HAVE_SYS_STAT_H
+#ifdef HAVE_SYS_STAT_H
 #  include <sys/stat.h>
 #endif
 #include <sys/wait.h>

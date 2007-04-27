@@ -35,6 +35,9 @@
 #include <netdb.h>
 #include <getopt.h>
 
+#ifdef HAVE_SIGNAL_H
+#include <signal.h>
+#endif
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/wait.h>
@@ -120,7 +123,7 @@ public:
      * CLIENTWORK: Client is busy working and we reserve the spot (job_id is set if it's a scheduler job)
      * WAITFORCHILD: Client is waiting for the compile job to finish.
      */
-    enum Status { UNKNOWN, GOTNATIVE, PENDING_USE_CS, JOBDONE, LINKJOB, TOINSTALL, TOCOMPILE,
+    enum Status { UNKNOWN, GOTNATIVE, PENDING_USE_CS, JOBDONE, LINKJOB, TOINSTALL, TOCOMPILE, 
                   WAITFORCS, WAITCOMPILE, CLIENTWORK, WAITFORCHILD, LASTSTATE=WAITFORCHILD } status;
     Client()
     {
@@ -175,7 +178,7 @@ public:
         job = 0;
 	if (pipe_to_child >= 0)
 	    close (pipe_to_child);
-
+ 
     }
     uint32_t job_id;
     string outfile; // only useful for LINKJOB or TOINSTALL
@@ -1407,7 +1410,7 @@ int Daemon::answer_client_requests()
                     }
                     max_fd--;
                 }
-           }
+            }
         }
         if ( had_scheduler && !scheduler ) {
             clear_children();

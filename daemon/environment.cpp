@@ -29,7 +29,7 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/wait.h>
-#if defined(__FreeBSD__) || defined(__DragonFly__)
+#ifdef HAVE_SIGNAL_H
 #include <signal.h>
 #endif
 
@@ -205,11 +205,11 @@ size_t setup_env_cache(const string &basedir, string &native_environment, uid_t 
     native_environment = "";
     string nativedir = basedir + "/native/";
 
-    if ( ::access( "/usr/bin/gcc", X_OK ) || ::access( "/usr/bin/g++", X_OK ) )
+    if ( ::access( "/usr/bin/gcc", X_OK ) || ::access( "/usr/bin/g++", X_OK ) ) 
 	return 0;
 
     if ( mkdir( nativedir.c_str(), 0755 ) )
-   	return 0;
+   	return 0; 
 
     if ( chown( nativedir.c_str(), nobody_uid, nobody_gid) ) {
 	rmdir( nativedir.c_str() );
