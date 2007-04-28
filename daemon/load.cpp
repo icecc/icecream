@@ -354,6 +354,7 @@ bool fill_stats( unsigned long &myidleload, unsigned long &myniceload, unsigned 
         double avg[3];
 #if HAVE_GETLOADAVG
         getloadavg( avg, 3 );
+        (void) hint;
 #else
         fakeloadavg( avg, 3, hint );
 #endif

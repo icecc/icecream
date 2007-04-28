@@ -198,6 +198,7 @@ static UseCSMsg *get_server( MsgChannel *local_daemon )
         delete umsg;
         throw( 1 );
     }
+
     UseCSMsg *usecs = dynamic_cast<UseCSMsg *>(umsg);
     return usecs;
 }
@@ -215,6 +216,8 @@ static void write_server_cpp(int cpp_fd, MsgChannel *cserver)
 {
     unsigned char buffer[100000]; // some random but huge number
     off_t offset = 0;
+    size_t uncompressed = 0;
+    size_t compressed = 0;
 
     do
     {
@@ -243,12 +246,18 @@ static void write_server_cpp(int cpp_fd, MsgChannel *cserver)
                     close( cpp_fd );
                     throw( 15 );
                 }
+                uncompressed += fcmsg.len;
+                compressed += fcmsg.compressed;
                 offset = 0;
             }
             if ( !bytes )
                 break;
         }
     } while ( 1 );
+
+    if (compressed)
+        log_error() << "sent " << compressed << " bytes (" << (compressed * 100/uncompressed) <<
+            "%)" << endl;
 
     close( cpp_fd );
 }
@@ -263,7 +272,11 @@ static int build_remote_int(CompileJob &job, UseCSMsg *usecs, const string &envi
     bool got_env = usecs->got_env;
     job.setJobID( job_id );
     job.setEnvironmentVersion( environment ); // hoping on the scheduler's wisdom
-    trace() << "Have to use host " << hostname << ":" << port << " - Job ID: " << job.jobID() << " - environment: " << usecs->host_platform << " got environment: " << (got_env ? "true" : "false") << "\n";
+    trace() << "Have to use host " << hostname << ":" << port << " - Job ID: "
+        << job.jobID() << " - env: " << usecs->host_platform 
+        << " - has env: " << (got_env ? "true" : "false") 
+        << " - match j: " << usecs->matched_job_id
+        << "\n";
 
     int status = 255;
 
@@ -352,7 +365,6 @@ static int build_remote_int(CompileJob &job, UseCSMsg *usecs, const string &envi
     }
 
     {
-        log_block write_end("write of end msg");
         if ( !cserver->send_msg( EndMsg() ) ) {
             log_info() << "write of end failed" << endl;
             throw( 12 );
@@ -413,6 +425,8 @@ static int build_remote_int(CompileJob &job, UseCSMsg *usecs, const string &envi
         }
 
         msg = 0;
+        size_t uncompressed = 0;
+        size_t compressed = 0;
         while ( 1 ) {
             delete msg;
 
@@ -434,12 +448,18 @@ static int build_remote_int(CompileJob &job, UseCSMsg *usecs, const string &envi
             }
 
             FileChunkMsg *fcmsg = dynamic_cast<FileChunkMsg*>( msg );
+            compressed += fcmsg->compressed;
+            uncompressed += fcmsg->len;
             if ( write( obj_fd, fcmsg->buffer, fcmsg->len ) != ( ssize_t )fcmsg->len ) {
                 unlink( tmp_file.c_str());
                 delete msg;
                 throw ( 21 );
             }
         }
+        if (uncompressed)
+            log_error() << "got " << compressed << " bytes ("
+                << (compressed * 100 / uncompressed) << "%)" << endl;
+
 
         delete msg;
         if( close( obj_fd ) == 0 )

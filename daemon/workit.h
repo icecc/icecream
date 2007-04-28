@@ -45,7 +45,7 @@ namespace JobStatistics {
 }
 
 extern int work_it( CompileJob &j, unsigned int job_stats[], MsgChannel* client,
-             CompileResultMsg& msg, std::string &outfilename,
-             unsigned long int mem_limit, int client_fd );
+             CompileResultMsg& msg, const std::string &outfilename,
+             unsigned long int mem_limit, int client_fd, int job_in_fd );
 
 #endif

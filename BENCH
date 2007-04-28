@@ -197,3 +197,15 @@ make -j5  :    274s
 make -j5  :    271s
 
 Hmm.. 2% win.
+
+============================================================================
+
+New baseline: 0.8.0:
+
+remote with -m 1:
+make -j5  :  257s
+
+without compression: 
+
+make -j5:   442s
+

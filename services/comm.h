@@ -33,7 +33,7 @@
 #include "job.h"
 
 // if you increase the PROTOCOL_VERSION, add a macro below and use that
-#define PROTOCOL_VERSION 27
+#define PROTOCOL_VERSION 28
 // if you increase the MIN_PROTOCOL_VERSION, comment out macros below and clean up the code
 #define MIN_PROTOCOL_VERSION 21
 
@@ -47,6 +47,7 @@
 #define IS_PROTOCOL_25( c ) ( (c)->protocol >= 25 )
 #define IS_PROTOCOL_26( c ) ( (c)->protocol >= 26 )
 #define IS_PROTOCOL_27( c ) ( (c)->protocol >= 27 )
+#define IS_PROTOCOL_28( c ) ( (c)->protocol >= 28 )
 
 enum MsgType {
   // so far unknown
@@ -156,12 +157,14 @@ public:
   bool at_eof (void) const { return instate != HAS_MSG && eof; }
   bool is_text_based(void) const { return text_based; }
 
-  void readuint32 (uint32_t &buf);
-  void writeuint32 (uint32_t u);
-  void read_string (std::string &s);
-  void write_string (const std::string &s);
-  void read_strlist (std::list<std::string> &l);
-  void write_strlist (const std::list<std::string> &l);
+  MsgChannel &operator>>(uint32_t&);
+  MsgChannel &operator>>(std::string&);
+  MsgChannel &operator>>(std::list<std::string>&);
+
+  MsgChannel &operator<<(uint32_t);
+  MsgChannel &operator<<(const std::string&);
+  MsgChannel &operator<<(const std::list<std::string>&);
+
   void readcompressed (unsigned char **buf, size_t &_uclen, size_t &_clen);
   void writecompressed (const unsigned char *in_buf,
 			size_t _in_len, size_t &_out_len);
@@ -170,7 +173,7 @@ public:
   void read_line (std::string &line);
   void write_line (const std::string &line);
 
-  bool eq_ip (const MsgChannel &s);
+  bool eq_ip (const MsgChannel &s) const;
 
   virtual ~MsgChannel ();
 
@@ -270,9 +273,19 @@ public:
   std::string host_platform;
   uint32_t got_env;
   uint32_t client_id;
+  uint32_t matched_job_id;
   UseCSMsg () : Msg(M_USE_CS) {}
-  UseCSMsg (std::string platform, std::string host, unsigned int p, unsigned int id, bool gotit, unsigned int _client_id)
-    : Msg(M_USE_CS), job_id(id), hostname (host), port (p), host_platform( platform ), got_env( gotit ), client_id( _client_id ) {}
+  UseCSMsg (std::string platform, std::string host, unsigned int p, unsigned int id, bool gotit,
+          unsigned int _client_id, unsigned int matched_host_jobs)
+    : Msg(M_USE_CS),
+    job_id(id),
+    hostname (host),
+    port (p),
+    host_platform( platform ),
+    got_env( gotit ),
+    client_id( _client_id ),
+    matched_job_id (matched_host_jobs)
+    { }
   virtual void fill_from_channel (MsgChannel * c);
   virtual void send_to_channel (MsgChannel * c) const;
 };
@@ -319,6 +332,9 @@ public:
   ~FileChunkMsg();
   virtual void fill_from_channel (MsgChannel * c);
   virtual void send_to_channel (MsgChannel * c) const;
+private:
+  FileChunkMsg(const FileChunkMsg&);
+  FileChunkMsg& operator=(const FileChunkMsg&);
 };
 
 class CompileResultMsg : public Msg {
@@ -467,6 +483,7 @@ public:
 class GetInternalStatus : public Msg {
 public:
   GetInternalStatus() : Msg(M_GET_INTERNALS) {}
+  GetInternalStatus(const GetInternalStatus&) : Msg(M_GET_INTERNALS) {}
 };
 
 class MonLoginMsg : public Msg {
@@ -509,8 +526,8 @@ public:
   MonJobDoneMsg() : JobDoneMsg() {
     type = M_MON_JOB_DONE;
   }
-  MonJobDoneMsg( const JobDoneMsg &m )
-    : JobDoneMsg(m)
+  MonJobDoneMsg (int job_id, int exitcode)
+    : JobDoneMsg(job_id, exitcode)
   {
     type = M_MON_JOB_DONE;
   }
@@ -536,8 +553,7 @@ public:
   MonStatsMsg() : Msg( M_MON_STATS ) {}
   MonStatsMsg( int id, const std::string &_statmsg )
     : Msg( M_MON_STATS ), hostid( id ), statmsg( _statmsg )
-  {
-  }
+  { }
   virtual void fill_from_channel (MsgChannel * c);
   virtual void send_to_channel (MsgChannel * c) const;
 };
@@ -548,6 +564,8 @@ public:
   TextMsg() : Msg( M_TEXT ) {}
   TextMsg( const std::string &_text)
     : Msg ( M_TEXT ), text(_text) {}
+  TextMsg (const TextMsg& m)
+    : Msg ( M_TEXT ), text(m.text) {}
   virtual void fill_from_channel (MsgChannel *c);
   virtual void send_to_channel (MsgChannel *c) const;
 };

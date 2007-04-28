@@ -1,4 +1,5 @@
 /*  -*- mode: C++; c-file-style: "gnu"; fill-column: 78 -*- */
+/* vim:cinoptions={.5s,g0,p5,t0,(0,^-0.5s,n-0.5s:tw=78:cindent:sw=4: */
 /*
     This file is part of Icecream.
 
@@ -92,14 +93,16 @@ struct JobStat {
   unsigned long compile_time_real;  // in milliseconds
   unsigned long compile_time_user;
   unsigned long compile_time_sys;
+  unsigned int job_id;
   JobStat() : osize(0), compile_time_real(0), compile_time_user(0),
-	      compile_time_sys(0) {}
+	      compile_time_sys(0), job_id(0) {}
   JobStat& operator +=(const JobStat &st)
   {
     osize += st.osize;
     compile_time_real += st.compile_time_real;
     compile_time_user += st.compile_time_user;
     compile_time_sys += st.compile_time_sys;
+    job_id = 0;
     return *this;
   }
   JobStat& operator -=(const JobStat &st)
@@ -108,22 +111,27 @@ struct JobStat {
     compile_time_real -= st.compile_time_real;
     compile_time_user -= st.compile_time_user;
     compile_time_sys -= st.compile_time_sys;
+    job_id = 0;
     return *this;
   }
+private:
   JobStat& operator /=(int d)
   {
     osize /= d;
     compile_time_real /= d;
     compile_time_user /= d;
     compile_time_sys /= d;
+    job_id = 0;
     return *this;
   }
+public:
   JobStat operator /(int d) const
   {
     JobStat r = *this;
     r /= d;
     return r;
   }
+
 };
 
 class Job;
@@ -269,6 +277,7 @@ add_job_stats (Job *job, JobDoneMsg *msg)
   st.compile_time_real = msg->real_msec;
   st.compile_time_user = msg->user_msec;
   st.compile_time_sys = msg->sys_msec;
+  st.job_id = job->id;
 
   if ( job->arg_flags & CompileJob::Flag_g )
     st.osize = st.osize * 10 / 36; // average over 1900 jobs: faktor 3.6 in osize
@@ -341,16 +350,17 @@ add_job_stats (Job *job, JobDoneMsg *msg)
 static bool handle_end (MsgChannel *c, Msg *);
 
 static void
-notify_monitors (const Msg &m)
+notify_monitors (Msg* m)
 {
   list<MsgChannel*>::iterator it, it_old;
   for (it = monitors.begin(); it != monitors.end();)
     {
       it_old = it++; // handle_end removes it from monitors, so don't be clever
       /* If we can't send it, don't be clever, simply close this monitor.  */
-      if (!(*it_old)->send_msg (m))
+      if (!(*it_old)->send_msg (*m))
         handle_end (*it_old, 0);
     }
+  delete m;
 }
 
 static float
@@ -422,7 +432,7 @@ handle_monitor_stats( CS *cs, StatsMsg *m = 0)
       sprintf( buffer, "Load:%d\n", cs->load );
       msg += buffer;
     }
-  notify_monitors( MonStatsMsg( cs->hostid, msg ) );
+  notify_monitors( new MonStatsMsg( cs->hostid, msg ) );
 }
 
 static Job *
@@ -513,7 +523,7 @@ handle_cs_request (MsgChannel *c, Msg *_m)
             it != job->environments.end(); ++it )
         dbg << it->second << "(" << it->first << "), ";
       dbg << "] " << m->filename << " " << job->language << endl;
-      notify_monitors (MonGetCSMsg (job->id, submitter->hostid, m));
+      notify_monitors (new MonGetCSMsg (job->id, submitter->hostid, m));
       if ( !master_job )
         {
           master_job = job;
@@ -538,7 +548,7 @@ handle_local_job (MsgChannel *c, Msg *_m)
   trace() << "handle_local_job " << m->outfile << " " << m->id << endl;
   CS *cs = dynamic_cast<CS*>( c );
   cs->client_map[m->id] = new_job_id;
-  notify_monitors (MonLocalJobBeginMsg( new_job_id, m->outfile, m->stime, cs->hostid ) );
+  notify_monitors (new MonLocalJobBeginMsg( new_job_id, m->outfile, m->stime, cs->hostid ) );
   return true;
 }
 
@@ -551,7 +561,7 @@ handle_local_job_done (MsgChannel *c, Msg *_m)
 
   trace() << "handle_local_job_done " << m->job_id << endl;
   CS *cs = dynamic_cast<CS*>( c );
-  notify_monitors (JobLocalDoneMsg( cs->client_map[m->job_id] ) );
+  notify_monitors (new JobLocalDoneMsg( cs->client_map[m->job_id] ) );
   cs->client_map.erase( m->job_id );
   return true;
 }
@@ -981,7 +991,7 @@ empty_queue()
       abort ();
       remove_job_request ();
       jobs.erase( job->id );
-      notify_monitors (MonJobDoneMsg (JobDoneMsg( job->id,  255 )));
+      notify_monitors (new MonJobDoneMsg ( job->id,  255 ));
       // Don't delete channel here.  We expect the client on the other side
       // to exit, and that will remove the channel in handle_end
       delete job;
@@ -1028,9 +1038,29 @@ empty_queue()
       gotit = false;
       host_platform = can_install (cs, job);
     }
-  
+
+  // mix and match between job ids
+  unsigned matched_job_id = 0;
+  unsigned count = 0;
+  for (list<JobStat>::const_iterator l = job->submitter->last_requested_jobs.begin();
+       l != job->submitter->last_requested_jobs.end(); ++l)
+    {
+      unsigned rcount = 0;
+      for (list<JobStat>::const_iterator r = cs->last_compiled_jobs.begin();
+           r != cs->last_compiled_jobs.end(); ++r)
+        {
+          if (l->job_id == r->job_id)
+            matched_job_id = l->job_id;
+          if (++rcount > 16)
+            break;
+        }
+
+       if (matched_job_id || ++count > 16)
+         break;
+    }
+
   UseCSMsg m2(host_platform, cs->name, cs->remote_port, job->id,
-	      gotit, job->local_client_id );
+	      gotit, job->local_client_id, matched_job_id );
 
   if (!job->submitter->send_msg (m2))
     {
@@ -1196,7 +1226,7 @@ handle_job_begin (MsgChannel *c, Msg *_m)
   job->starttime = m->stime;
   job->start_on_scheduler = time(0);
   CS *cs = dynamic_cast<CS*>( c );
-  notify_monitors (MonJobBeginMsg (m->job_id, m->stime, cs->hostid));
+  notify_monitors (new MonJobBeginMsg (m->job_id, m->stime, cs->hostid));
 #if DEBUG_SCHEDULER >= 0
   trace() << "BEGIN: " << m->job_id << " client=" << job->submitter->nodename
           << "(" << job->target_platform << ")" << " server="
@@ -1330,7 +1360,7 @@ handle_job_done (MsgChannel *c, Msg *_m)
       j->server->busy_installing = 0;
     }
   add_job_stats (j, m);
-  notify_monitors (MonJobDoneMsg (*m));
+  notify_monitors (new MonJobDoneMsg (m->job_id, m->exitcode));
   jobs.erase (m->job_id);
   delete j;
 
@@ -1594,7 +1624,7 @@ handle_end (MsgChannel *c, Msg *m)
     {
       log_info() << "remove daemon " << toremove->nodename << endl;
 
-      notify_monitors( MonStatsMsg( toremove->hostid, "State:Offline\n" ) );
+      notify_monitors(new  MonStatsMsg( toremove->hostid, "State:Offline\n" ) );
 
       /* A daemon disconnected.  We must remove it from the css list,
          and we have to delete all jobs scheduled on that daemon.
@@ -1614,7 +1644,7 @@ handle_end (MsgChannel *c, Msg *m)
 	    for (jit = l->l.begin(); jit != l->l.end(); ++jit)
 	      {
 		trace() << "STOP (DAEMON) FOR " << (*jit)->id << endl;
-                notify_monitors (MonJobDoneMsg (JobDoneMsg( ( *jit )->id,  255 )));
+                notify_monitors (new MonJobDoneMsg ( ( *jit )->id,  255 ));
 		if ((*jit)->server)
 		  (*jit)->server->busy_installing = 0;
 		jobs.erase( (*jit)->id );
@@ -1633,7 +1663,7 @@ handle_end (MsgChannel *c, Msg *m)
           if (job->server == toremove || job->submitter == toremove)
             {
               trace() << "STOP (DAEMON2) FOR " << mit->first << endl;
-              notify_monitors (MonJobDoneMsg (JobDoneMsg( job->id,  255 )));
+              notify_monitors (new MonJobDoneMsg ( job->id,  255 ));
 	      /* If this job is removed because the submitter is removed
 		 also remove the job from the servers joblist.  */
 	      if (job->server && job->server != toremove)
@@ -2076,6 +2106,4 @@ main (int argc, char * argv[])
   unlink(pidFilePath.c_str());
   return 0;
 }
-/*
-vim:cinoptions={.5s,g0,p5,t0,(0,^-0.5s,n-0.5s:tw=78:cindent:sw=4:
-*/
+

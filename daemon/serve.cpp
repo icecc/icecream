@@ -159,23 +159,22 @@ int handle_connection( const string &basedir, CompileJob *job,
             throw myexception( -1 );
         }
 
-        const char *dot;
-        if (job->language() == CompileJob::Lang_C)
-            dot = ".i";
-        else if (job->language() == CompileJob::Lang_CXX)
-            dot = ".ii";
-        else
-            assert(0);
-
         int ret;
         unsigned int job_stat[8];
         CompileResultMsg rmsg;
+        job_id = job->jobID();
 
         memset(job_stat, 0, sizeof(job_stat));
 
-        ret = work_it( *job, job_stat, client, rmsg, obj_file, mem_limit, client->fd );
+        char tmp_output[PATH_MAX];
+        char prefix_output[PATH_MAX]; // I'm too lazy to calculate how many digits 2^64 is :)
+        sprintf( prefix_output, "icecc-%d", job_id );
+        obj_file = tmp_output;
 
-        job_id = job->jobID();
+        if ( ( ret = dcc_make_tmpnam(prefix_output, ".o", tmp_output, 1 ) ) == 0 )
+            ret = work_it( *job, job_stat, client, rmsg, obj_file, mem_limit, client->fd,
+                   -1 );
+
         delete job;
         job = 0;
 

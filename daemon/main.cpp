@@ -713,10 +713,12 @@ int Daemon::scheduler_use_cs( UseCSMsg *msg )
         return 1;
     }
     if ( msg->hostname == remote_name ) {
-        c->usecsmsg = new UseCSMsg( msg->host_platform, "127.0.0.1", PORT, msg->job_id, true, 1 );
+        c->usecsmsg = new UseCSMsg( msg->host_platform, "127.0.0.1", PORT, msg->job_id, true, 1,
+                msg->matched_job_id );
         c->status = Client::PENDING_USE_CS;
     } else {
-        c->usecsmsg = new UseCSMsg( msg->host_platform, msg->hostname, msg->port, msg->job_id, true, 1 );
+        c->usecsmsg = new UseCSMsg( msg->host_platform, msg->hostname, msg->port, 
+                msg->job_id, true, 1, msg->matched_job_id );
         if (!c->channel->send_msg( *msg )) {
             handle_end(c, 143);
             return 0;
@@ -1129,7 +1131,8 @@ bool Daemon::handle_get_cs( MsgChannel *c, Msg *msg )
         /* now the thing is this: if there is no scheduler
            there is no point in trying to ask him. So we just
            redefine this as local job */
-        client->usecsmsg = new UseCSMsg( umsg->target, "127.0.0.1", PORT, umsg->client_id, true, 1 );
+        client->usecsmsg = new UseCSMsg( umsg->target, "127.0.0.1", PORT, 
+                umsg->client_id, true, 1, 0 );
         client->status = Client::PENDING_USE_CS;
         client->job_id = umsg->client_id;
         return true;
@@ -1339,13 +1342,13 @@ int Daemon::answer_client_requests()
                         ret = !send_scheduler(PingMsg());
                     break;
                 case M_USE_CS:
-                    ret = scheduler_use_cs( dynamic_cast<UseCSMsg*>( msg ) );
+                    ret = scheduler_use_cs( static_cast<UseCSMsg*>( msg ) );
 		    break;
                 case M_GET_INTERNALS:
                     ret = scheduler_get_internals( );
                     break;
                 case M_CS_CONF:
-                    ret = handle_cs_conf(dynamic_cast<ConfCSMsg*>( msg ));
+                    ret = handle_cs_conf(static_cast<ConfCSMsg*>( msg ));
                     break;
                 default:
                     log_error() << "unknown scheduler type " << ( char )msg->type << endl;
