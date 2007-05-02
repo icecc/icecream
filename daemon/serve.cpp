@@ -169,11 +169,12 @@ int handle_connection( const string &basedir, CompileJob *job,
         char tmp_output[PATH_MAX];
         char prefix_output[PATH_MAX]; // I'm too lazy to calculate how many digits 2^64 is :)
         sprintf( prefix_output, "icecc-%d", job_id );
-        obj_file = tmp_output;
 
-        if ( ( ret = dcc_make_tmpnam(prefix_output, ".o", tmp_output, 1 ) ) == 0 )
+        if ( ( ret = dcc_make_tmpnam(prefix_output, ".o", tmp_output, 1 ) ) == 0 ) {
+            obj_file = tmp_output;
             ret = work_it( *job, job_stat, client, rmsg, obj_file, mem_limit, client->fd,
                    -1 );
+        }
 
         delete job;
         job = 0;
