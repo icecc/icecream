@@ -433,7 +433,6 @@ MsgChannel::readcompressed (unsigned char **uncompressed_buf,
     }
 
   *uncompressed_buf = new unsigned char[uncompressed_len];
-#ifdef DOCOMPRESS
   if (uncompressed_len && compressed_len)
     {
       const lzo_byte *compressed_buf = (lzo_byte *) (inbuf + intogo);
@@ -454,10 +453,6 @@ MsgChannel::readcompressed (unsigned char **uncompressed_buf,
 	  uncompressed_len = 0;
         }
     }
-#else
-  if (uncompressed_len && compressed_len)
-    memcpy(*uncompressed_buf, inbuf+intogo, compressed_len);
-#endif
 
   /* Read over everything used, _also_ if there was some error.
      If we couldn't decode it now, it won't get better in the future,
@@ -484,7 +479,6 @@ MsgChannel::writecompressed (const unsigned char *in_buf,
       msgbuf = (char *) realloc (msgbuf, msgbuflen);
     }
   lzo_byte *out_buf = (lzo_byte *) (msgbuf + msgtogo);
-#ifdef DOCOMPRESS
   lzo_voidp wrkmem = (lzo_voidp) malloc (LZO1X_MEM_COMPRESS);
   int ret = lzo1x_1_compress (in_buf, in_len, out_buf, &out_len, wrkmem);
   free (wrkmem);
@@ -494,10 +488,6 @@ MsgChannel::writecompressed (const unsigned char *in_buf,
       log_error() << "internal error - compression failed: " << ret << endl;
       out_len = 0;
     }
-#else
-  out_len = _in_len;
-  memcpy(out_buf, in_buf, _in_len);
-#endif
   uint32_t _olen = htonl (out_len);
   memcpy (msgbuf + msgtogo_old, &_olen, 4);
   msgtogo += out_len;
