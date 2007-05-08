@@ -94,6 +94,7 @@
 #include <comm.h>
 #include "load.h"
 #include "environment.h"
+#include "platform.h"
 
 const int PORT = 10245;
 static std::string pidFilePath;
@@ -122,7 +123,7 @@ public:
      * CLIENTWORK: Client is busy working and we reserve the spot (job_id is set if it's a scheduler job)
      * WAITFORCHILD: Client is waiting for the compile job to finish.
      */
-    enum Status { UNKNOWN, GOTNATIVE, PENDING_USE_CS, JOBDONE, LINKJOB, TOINSTALL, TOCOMPILE, 
+    enum Status { UNKNOWN, GOTNATIVE, PENDING_USE_CS, JOBDONE, LINKJOB, TOINSTALL, TOCOMPILE,
                   WAITFORCS, WAITCOMPILE, CLIENTWORK, WAITFORCHILD, LASTSTATE=WAITFORCHILD } status;
     Client()
     {
@@ -177,7 +178,7 @@ public:
         job = 0;
 	if (pipe_to_child >= 0)
 	    close (pipe_to_child);
- 
+
     }
     uint32_t job_id;
     string outfile; // only useful for LINKJOB or TOINSTALL
@@ -512,19 +513,7 @@ void Daemon::determine_system()
     if (!custom_nodename)
         nodename = uname_buf.nodename;
 
-    string os = uname_buf.sysname;
-    if ( os != "Linux" )
-        machine_name = os + '_' + uname_buf.machine;
-    else // Linux
-        machine_name = uname_buf.machine;
-   
-    while (true)
-    {
-        string::size_type pos = machine_name.find(" ");
-        if (pos == string::npos)
-           break;
-        machine_name.erase(pos, 1);
-    }
+    machine_name = determine_platform();
 }
 
 string Daemon::determine_nodename()

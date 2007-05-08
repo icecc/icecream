@@ -834,7 +834,7 @@ pick_server(Job *job)
              the job.  (XXX currently this is equivalent to the fastest one)  */
           else
             if (best->last_compiled_jobs.size() != 0
-                && server_speed (best, job) < server_speed (cs, job)) 
+                && server_speed (best, job) < server_speed (cs, job))
               {
                 if (int( cs->joblist.size() ) < cs->max_jobs)
                   best = cs;
@@ -917,10 +917,10 @@ prune_servers ()
             {
               trace() << "send ping " << ( *it )->nodename << endl;
               ( *it )->max_jobs *= -1; // better not give it away
-              if(( *it )->send_msg( PingMsg() )) 
+              if(( *it )->send_msg( PingMsg() ))
 		{
                   // give it MAX_SCHEDULER_PONG to answer a ping
-                  ( *it )->last_talk = time( 0 ) - MAX_SCHEDULER_PING 
+                  ( *it )->last_talk = time( 0 ) - MAX_SCHEDULER_PING
 		                       + 2 * MAX_SCHEDULER_PONG;
                   min_time = min (min_time, (time_t) 2 * MAX_SCHEDULER_PONG);
 		  ++it;
@@ -934,7 +934,7 @@ prune_servers ()
 	  handle_end (old, 0);
 	  continue;
         }
-      else 
+      else
         min_time = min (min_time, MAX_SCHEDULER_PING - now + ( *it )->last_talk);
 #if DEBUG_SCHEDULER > 1
       if ((random() % 400) < 0)
@@ -1049,7 +1049,7 @@ empty_queue()
       gotit = false;
       host_platform = can_install (cs, job);
     }
-  
+
   UseCSMsg m2(host_platform, cs->name, cs->remote_port, job->id,
 	      gotit, job->local_client_id );
 
@@ -1245,7 +1245,7 @@ handle_job_done (MsgChannel *c, Msg *_m)
       for (mit = jobs.begin(); mit != jobs.end(); mit++)
         {
           Job *job = mit->second;
-          trace() << "looking for waitcs " << job->server << " " << job->submitter  << " " << c << " " 
+          trace() << "looking for waitcs " << job->server << " " << job->submitter  << " " << c << " "
 		  << job->state << " " << job->local_client_id << " " << m->job_id << endl;
           if (job->server == 0 && job->submitter == c && job->state == Job::PENDING
               && job->local_client_id == m->job_id )
@@ -1264,7 +1264,7 @@ handle_job_done (MsgChannel *c, Msg *_m)
 		    list<Job*>::iterator jit;
 		    for (jit = l->l.begin(); jit != l->l.end(); ++jit)
 		      {
-			if (*jit == j) 
+			if (*jit == j)
 			  {
 			    l->l.erase(jit);
 			    break;
@@ -1345,7 +1345,7 @@ handle_job_done (MsgChannel *c, Msg *_m)
     trace() << "END " << m->job_id
 	    << " status=" << m->exitcode << endl;
 
-  if (j->server) 
+  if (j->server)
     {
       j->server->joblist.remove (j);
       j->server->busy_installing = 0;
@@ -1517,7 +1517,7 @@ handle_line (MsgChannel *c, Msg *_m)
         {
           Msg *msg = NULL;
 
-	  if (!l.empty()) 
+	  if (!l.empty())
 	    {
 	      list<string>::const_iterator si;
 	      for (si = l.begin(); si != l.end(); ++si) {
