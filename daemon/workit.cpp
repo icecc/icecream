@@ -38,7 +38,7 @@
 #include <unistd.h>
 #include <sys/fcntl.h>
 #include <sys/wait.h>
-#if HAVE_SYS_USER_H
+#if HAVE_SYS_USER_H && !defined(__DragonFly__)
 #  include <sys/user.h>
 #endif
 #include <sys/socket.h>
