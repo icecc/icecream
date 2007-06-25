@@ -245,7 +245,6 @@ static unsigned int calculateMemLoad( unsigned long int &NetMemFree )
     if ((sysctlbyname("vfs.bufspace", &Buffers, &len, NULL, 0) == -1) || !len)
         Buffers = 0; /* Doesn't work under FreeBSD v2.2.x */
 
-    unsigned long int Cached;
     len = sizeof (Cached);
     if ((sysctlbyname("vm.stats.vm.v_cache_count", &Cached, &len, NULL, 0) == -1) || !len)
             Cached = 0; /* Doesn't work under FreeBSD v2.2.x */

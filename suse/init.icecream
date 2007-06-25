@@ -9,8 +9,8 @@
 #
 ### BEGIN INIT INFO
 # Provides:          icecream
-# Required-Start:    $network $syslog $nfs
-# Required-Stop:     $network $syslog
+# Required-Start:    $network $syslog
+# Required-Stop:    
 # Default-Start:     3 5
 # Default-Stop:
 # Description:       distributed compiler daemon

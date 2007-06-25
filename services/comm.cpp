@@ -43,7 +43,6 @@
 #include <assert.h>
 #include <minilzo.h>
 #include <stdio.h>
-#include <sys/utsname.h>
 
 #include "logging.h"
 #include "job.h"

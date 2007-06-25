@@ -21,7 +21,7 @@
 #include "job.h"
 #include "logging.h"
 #include "exitcode.h"
-#include <sys/utsname.h>
+#include "platform.h"
 #include <stdio.h>
 
 using namespace std;
@@ -62,12 +62,7 @@ list<string> CompileJob::allFlags() const
 
 void CompileJob::__setTargetPlatform()
 {
-    struct utsname buf;
-    if ( uname(&buf) ) {
-        log_perror( "uname failed" );
-        return;
-    } else
-        m_target_platform = buf.machine;
+    m_target_platform = determine_platform();
 }
 
 unsigned int CompileJob::argumentFlags() const
