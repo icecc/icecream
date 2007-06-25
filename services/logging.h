@@ -28,6 +28,7 @@
 #include <string>
 #include <iostream>
 #include <cassert>
+#include <cstring>
 
 enum DebugLevels { Info = 1, Warning = 2, Error = 4, Debug = 8};
 extern std::ostream *logfile_info;
