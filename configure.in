@@ -175,6 +175,30 @@ AC_TRY_LINK(dnl
       AC_MSG_RESULT(no)
 )
 
+save_LIBS=$LIBS
+LIBS="$LIBS -lrsync"
+
+AC_MSG_CHECKING([for librsync])
+AC_TRY_LINK(dnl
+      [
+        #include <stdio.h>
+        #include <stdlib.h>
+        #include <librsync.h>
+      ],
+      [
+        rs_job_t* job = rs_sig_begin (RS_DEFAULT_BLOCK_LEN, RS_DEFAULT_STRONG_LEN);
+      ],
+      [
+        AC_DEFINE(HAVE_RSYNC, 1, [Define if librsync.h exists and can be used])
+        LIBRSYNC="-lrsync"
+	AC_MSG_RESULT(yes)
+      ],
+      AC_MSG_RESULT(no)
+)
+
+AC_SUBST(LIBRSYNC)
+LIBS=$save_LIBS
+
 # In DragonFlyBSD daemon needs to be linked against libkinfo.
 case $host_os in
   dragonfly*) LIB_KINFO="-lkinfo" ;;
