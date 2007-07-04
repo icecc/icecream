@@ -1475,7 +1475,6 @@ int main( int argc, char ** argv )
     string logfile;
     bool detach = false;
     nice_level = 5; // defined in serve.h
-    bool runasuser = false;
 
     while ( true ) {
         int option_index = 0;
@@ -1488,7 +1487,6 @@ int main( int argc, char ** argv )
             { "nice", 1, NULL, 0},
             { "name", 1, NULL, 'n'},
             { "scheduler-host", 1, NULL, 's' },
-            { "run-as-user", 1, NULL, 'r' },
             { "env-basedir", 1, NULL, 'b' },
             { "nobody-uid", 1, NULL, 'u'},
             { "cache-limit", 1, NULL, 0},
@@ -1577,9 +1575,6 @@ int main( int argc, char ** argv )
             if ( optarg && *optarg )
                 d.envbasedir = optarg;
             break;
-        case 'r':
-            runasuser = true;
-            break;
         case 'u':
             if ( optarg && *optarg )
             {
@@ -1607,11 +1602,8 @@ int main( int argc, char ** argv )
 
     setup_debug( debug_level, logfile );
 
-    if ((geteuid()!=0) && !runasuser)
-    {
-        log_error() << "Please run iceccd with root privileges" << endl;
-        return 1;
-    }
+    if ((getuid()!=0))
+        max_processes = 0;
 
     log_info() << "ICECREAM daemon " VERSION " starting up (nice level "
                << nice_level << ") " << endl;
