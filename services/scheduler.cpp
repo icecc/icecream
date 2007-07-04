@@ -1113,18 +1113,13 @@ handle_login (MsgChannel *c, Msg *_m)
   if (!m)
     return false;
 
-  /* If we don't allow non-chroot-able daemons in the farm,
-     discard them here.  */
-  if (!m->chroot_possible)
-    return false;
-
   std::ostream& dbg = trace();
   dbg << "login " << m->nodename << " protocol version: " << c->protocol;
 
   CS *cs = static_cast<CS *>(c);
   cs->remote_port = m->port;
   cs->compiler_versions = m->envs;
-  cs->max_jobs = m->max_kids;
+  cs->max_jobs = m->chroot_possible ? m->max_kids : 0;
   cs->noremote = m->noremote;
   if ( m->nodename.length() )
     cs->nodename = m->nodename;
