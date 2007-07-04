@@ -1603,7 +1603,7 @@ int main( int argc, char ** argv )
     setup_debug( debug_level, logfile );
 
     if ((getuid()!=0))
-        max_processes = 0;
+        d.noremote = true;
 
     log_info() << "ICECREAM daemon " VERSION " starting up (nice level "
                << nice_level << ") " << endl;
