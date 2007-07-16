@@ -438,7 +438,9 @@ static int build_remote_int(CompileJob &job, UseCSMsg *usecs, const string &envi
         int obj_fd = open( tmp_file.c_str(), O_CREAT|O_TRUNC|O_WRONLY|O_LARGEFILE, 0666 );
 
         if ( obj_fd == -1 ) {
-            log_error() << "open failed\n";
+            std::string errmsg("can't create ");
+            errmsg += tmp_file + ":";
+            log_perror(errmsg.c_str());
             return EXIT_DISTCC_FAILED;
         }
 
