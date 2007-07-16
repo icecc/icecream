@@ -125,20 +125,20 @@ MsgChannel::update_state (void)
 	      /* The first time we read the remote protocol.  */
 	      protocol = 0;
 	      if (remote_prot < MIN_PROTOCOL_VERSION)
-		remote_prot = 0;
-	      else if (remote_prot > PROTOCOL_VERSION)
+                {
+		  remote_prot = 0;
+		  return false;
+                }
+
+	      if (remote_prot > PROTOCOL_VERSION)
 		remote_prot = PROTOCOL_VERSION; // ours is smaller
-	      if (remote_prot == 0)
-		return false;
-	      else
-		{
-		  vers[0] = remote_prot;
-		  //writeuint32 (remote_prot);
-		  writefull (vers, 4);
-		  if (!flush_writebuf (true))
-		    return false;
-		  protocol = -1 - remote_prot;
-		}
+
+	      vers[0] = remote_prot;
+	      //writeuint32 (remote_prot);
+	      writefull (vers, 4);
+	      if (!flush_writebuf (true))
+		  return false;
+	      protocol = -1 - remote_prot;
 	    }
 	  else if (protocol < -1)
 	    {
@@ -781,8 +781,10 @@ MsgChannel::wait_for_protocol ()
       int ret = select (fd + 1, &set, NULL, NULL, &tv);
       if (ret < 0 && errno == EINTR)
         continue;
-      if (ret == 0)
+      if (ret == 0) {
+        log_error() << "no response from local daemon within timeout." << endl;
         return false; /* timeout. Consider it a fatal error. */
+      }
       if (ret < 0)
         {
           log_perror("select in wait_for_protocol()");
