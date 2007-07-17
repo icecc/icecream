@@ -220,8 +220,7 @@ MsgChannel::chop_input ()
 void
 MsgChannel::chop_output ()
 {
-  if (msgofs > 8192
-      || msgtogo <= 16)
+  if (msgofs > 8192 || msgtogo <= 16)
     {
       if (msgtogo)
         memmove (msgbuf, msgbuf + msgofs, msgtogo);
@@ -901,10 +900,9 @@ MsgChannel::get_msg(int timeout)
 }
 
 bool
-MsgChannel::send_msg (const Msg &m, bool blocking)
+MsgChannel::send_msg (const Msg &m)
 {
-  if (instate == NEED_PROTO
-      && !wait_for_protocol ())
+  if (instate == NEED_PROTO && !wait_for_protocol ())
     return false;
   chop_output ();
   size_t msgtogo_old = msgtogo;
@@ -919,7 +917,7 @@ MsgChannel::send_msg (const Msg &m, bool blocking)
       uint32_t len = htonl (msgtogo - msgtogo_old - 4);
       memcpy (msgbuf + msgtogo_old, &len, 4);
     }
-  return flush_writebuf (blocking);
+  return flush_writebuf (true /* blocking*/);
 }
 
 #include "getifaddrs.h"

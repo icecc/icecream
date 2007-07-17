@@ -145,7 +145,7 @@ public:
   // NULL  <--> channel closed
   Msg *get_msg(int timeout = 10);
   // false <--> error (msg not send)
-  bool send_msg (const Msg &, bool blocking = true);
+  bool send_msg (const Msg &);
   // return last error (0 == no error)
   int error(void) {return 0;}
   bool has_msg (void) const { return eof || instate == HAS_MSG; }
