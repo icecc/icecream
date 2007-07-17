@@ -205,7 +205,7 @@ bool colorify_wanted()
 {
   const char* term_env = getenv("TERM");
 
-  return isatty(2) && !getenv("EMACS") && term_env && strcmp(term_env, "DUMB");
+  return isatty(2) && !getenv("EMACS") && term_env && strcasecmp(term_env, "DUMB");
 }
 
 void colorify_output(const string& _s_ccout)
