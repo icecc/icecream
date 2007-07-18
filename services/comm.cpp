@@ -1055,7 +1055,10 @@ DiscoverSched::DiscoverSched (const std::string &_netname,
     netname = "ICECREAM";
 
   if (!schedname.empty())
-    netname = ""; // take whatever the machine is giving us
+    {
+      netname = ""; // take whatever the machine is giving us
+      attempt_scheduler_connect();
+    }
   else
     ask_fd = open_send_broadcast ();
 }
@@ -1071,6 +1074,17 @@ DiscoverSched::timed_out ()
 {
   return (time (0) - time0 >= timeout);
 }
+
+void
+DiscoverSched::attempt_scheduler_connect()
+{
+
+    time0 = time(0) + MAX_SCHEDULER_PONG;
+    log_info() << "scheduler is on " << schedname << ":" << sport << " (net " << netname << ")\n";
+    if ((ask_fd = prepare_connect(schedname, sport, remote_addr)) >= 0)
+        fcntl(ask_fd, F_SETFL, O_NONBLOCK);
+}
+
 
 MsgChannel *
 DiscoverSched::try_get_scheduler ()
@@ -1094,11 +1108,7 @@ DiscoverSched::try_get_scheduler ()
       netname = buf2 + 1;
       close (ask_fd);
       ask_fd = -1;
-
-      time0 = time(0) + MAX_SCHEDULER_PONG;
-      log_info() << "scheduler is on " << schedname << ":" << sport << " (net " << netname << ")\n";
-      if ((ask_fd = prepare_connect(schedname, sport, remote_addr)) >= 0)
-        fcntl(ask_fd, F_SETFL, O_NONBLOCK);
+      attempt_scheduler_connect();
     }
 
   if (ask_fd >= 0)

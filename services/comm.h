@@ -218,6 +218,7 @@ class DiscoverSched
   int ask_fd;
   time_t time0;
   unsigned int sport;
+  void attempt_scheduler_connect();
 public:
   /* Connect to a scheduler waiting max. TIMEOUT milliseconds.
      schedname can be the hostname of a box running a scheduler, to avoid
