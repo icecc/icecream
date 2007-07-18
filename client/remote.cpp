@@ -274,7 +274,7 @@ static void write_server_cpp(int cpp_fd, MsgChannel *cserver)
     } while ( 1 );
 
     if (compressed)
-        log_error() << "sent " << compressed << " bytes (" << (compressed * 100/uncompressed) <<
+        trace() << "sent " << compressed << " bytes (" << (compressed * 100/uncompressed) <<
             "%)" << endl;
 
     close( cpp_fd );
@@ -477,7 +477,7 @@ static int build_remote_int(CompileJob &job, UseCSMsg *usecs, const string &envi
             }
         }
         if (uncompressed)
-            log_error() << "got " << compressed << " bytes ("
+            trace() << "got " << compressed << " bytes ("
                 << (compressed * 100 / uncompressed) << "%)" << endl;
 
 
