@@ -66,21 +66,15 @@ static bool analyze_program(const char* name, CompileJob& job)
 {
     string compiler_name = find_basename( name );
 
-    trace() << "compiler_name is before: " << compiler_name << endl;
-
     string::size_type pos = compiler_name.rfind('/');
     if (pos != string::npos)
         compiler_name = compiler_name.substr(pos);
-
-    trace() << "compiler_name is now: " << compiler_name << endl;
 
     job.setCompilerName( compiler_name );
 
     string suffix = compiler_name;
     if ( compiler_name.size() > 2)
         suffix = compiler_name.substr(compiler_name.size()-2);
-
-    trace() << "suffix: " << suffix << endl;
 
     if (suffix == "++" || suffix == "CC")
         job.setLanguage (CompileJob::Lang_CXX);
