@@ -1295,13 +1295,13 @@ int Daemon::answer_client_requests()
         FD_SET( scheduler->fd, &listen_set );
         if ( max_fd < scheduler->fd )
             max_fd = scheduler->fd;
-    } else if ( discover && discover->get_fd() >= 0) {
+    } else if ( discover && discover->listen_fd() >= 0) {
         /* We don't explicitely check for discover->get_fd() being in
 	   the selected set below.  If it's set, we simply will return
 	   and our call will make sure we try to get the scheduler.  */
-        FD_SET( discover->get_fd(), &listen_set);
-	if ( max_fd < discover->get_fd() )
-	    max_fd = discover->get_fd();
+        FD_SET( discover->listen_fd(), &listen_set);
+	if ( max_fd < discover->listen_fd() )
+	    max_fd = discover->listen_fd();
     }
 
     tv.tv_sec = max_scheduler_pong;
@@ -1358,10 +1358,10 @@ int Daemon::answer_client_requests()
                 log_perror("accept failed:");
                 return EXIT_CONNECT_FAILED;
             } else {
-                MsgChannel *c = Service::createChannel( acc_fd, (struct sockaddr*) &cli_addr, cli_len );
+                MsgChannel *c = Service::createChannel( acc_fd, &cli_addr, cli_len );
                 if ( !c )
                     return 0;
-                trace() << "accept " << c->fd << " " << c->name << endl;
+                trace() << "accepted " << c->fd << " " << c->name << endl;
 
                 Client *client = new Client;
                 client->client_id = ++new_client_id;
@@ -1423,7 +1423,7 @@ bool Daemon::reconnect()
 	|| discover->timed_out())
     {
         delete discover;
-	discover = new DiscoverSched (netname, 3000, schedname);
+	discover = new DiscoverSched (netname, max_scheduler_pong, schedname);
     }
 
     scheduler = discover->try_get_scheduler ();

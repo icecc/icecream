@@ -2001,7 +2001,7 @@ main (int argc, char * argv[])
 	  if (remote_fd >= 0)
 	    {
 	      CS *cs = new CS (remote_fd, (struct sockaddr*) &remote_addr, remote_len, false);
-              trace() << "accepted " << cs->name << " " << cs->port << endl;
+              trace() << "accepted " << cs->name << endl;
               cs->last_talk = time( 0 );
 
               if ( !cs->protocol ) // protocol mismatch

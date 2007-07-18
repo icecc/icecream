@@ -29,6 +29,8 @@
 #endif
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <netinet/in.h>
+#include <netinet/tcp.h>
 
 #include "job.h"
 
@@ -138,7 +140,6 @@ public:
   int protocol;
 
   std::string name;
-  uint32_t port;
   time_t last_talk;
 
   std::string dump() const;
@@ -209,7 +210,9 @@ public:
   static MsgChannel *createChannel( int remote_fd, struct sockaddr *, socklen_t );
 };
 
-class DiscoverSched {
+class DiscoverSched 
+{
+  struct sockaddr_in remote_addr;
   std::string netname, schedname;
   int timeout;
   int ask_fd;
@@ -224,7 +227,7 @@ public:
 		 const std::string &_schedname = std::string());
   ~DiscoverSched();
   bool timed_out();
-  int get_fd() const { return ask_fd; }
+  int listen_fd() const { return schedname.empty() ? ask_fd : -1; }
   MsgChannel *try_get_scheduler();
 };
 

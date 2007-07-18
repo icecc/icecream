@@ -47,11 +47,11 @@ static inline std::ostream & output_date( std::ostream &os )
     time_t t = time( 0 );
     struct tm* tmp = localtime(&t);
     char buf[64];
-    strftime(buf, sizeof(buf), "%T", tmp);
+    strftime(buf, sizeof(buf), "%T: ", tmp);
     if (logfile_prefix.size())
         os << logfile_prefix << "[" << getpid() << "] ";
 
-    os << buf << ": ";
+    os << buf;
     return os;
 }
 

@@ -4,6 +4,7 @@
 
     Copyright (c) 2004 Michael Matz <matz@suse.de>
                   2004 Stephan Kulow <coolo@suse.de>
+                  2007 Dirk Mueller <dmueller@suse.de>
 
     This program is free software; you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -521,7 +522,43 @@ MsgChannel::write_line (const string &line)
     }
 }
 
-static bool connect_async( int remote_fd, struct sockaddr *remote_addr, size_t remote_size, int timeout  )
+static int
+prepare_connect(const string &hostname, unsigned short p,
+                          struct sockaddr_in& remote_addr)
+{
+  int remote_fd;
+  int i = 1;
+
+  if ((remote_fd = socket (PF_INET, SOCK_STREAM, 0)) < 0)
+    {
+      log_perror("socket()");
+      return -1;
+    }
+  struct hostent *host = gethostbyname (hostname.c_str());
+  if (!host)
+    {
+      log_perror("Unknown host");
+      close (remote_fd);
+      return -1;
+    }
+  if (host->h_length != 4)
+    {
+      log_error() << "Invalid address length" << endl;
+      close (remote_fd);
+      return -1;
+    }
+
+  setsockopt (remote_fd, IPPROTO_TCP, TCP_NODELAY, (char*) &i, sizeof(i));
+
+  remote_addr.sin_family = AF_INET;
+  remote_addr.sin_port = htons (p);
+  memcpy (&remote_addr.sin_addr.s_addr, host->h_addr_list[0], host->h_length);
+
+  return remote_fd;
+}
+
+static bool
+connect_async( int remote_fd, struct sockaddr *remote_addr, size_t remote_size, int timeout  )
 {
   fcntl(remote_fd, F_SETFL, O_NONBLOCK);
 
@@ -531,22 +568,22 @@ static bool connect_async( int remote_fd, struct sockaddr *remote_addr, size_t r
     {
       struct timeval select_timeout;
       fd_set writefds;
+      int ret;
 
-      /* we select for a specific time and if that succeeds, we connect one
-         final time. Everything else we ignore */
+      do
+        {
+          /* we select for a specific time and if that succeeds, we connect one
+             final time. Everything else we ignore */
 
-      select_timeout.tv_sec = timeout;
-      select_timeout.tv_usec = 0;
-      FD_ZERO(&writefds);
-      FD_SET(remote_fd, &writefds);
-      int ret = select(remote_fd + 1, NULL, &writefds, NULL, &select_timeout);
-
-      /*
-      **  If we suspend, then it is possible that select will be
-      **  interrupted.  Allow for this possibility. - JED
-      */
-      if ((ret == -1) && (errno == EINTR))
-        return connect_async( remote_fd, remote_addr, remote_size, timeout );
+          select_timeout.tv_sec = timeout;
+          select_timeout.tv_usec = 0;
+          FD_ZERO(&writefds);
+          FD_SET(remote_fd, &writefds);
+          ret = select(remote_fd + 1, NULL, &writefds, NULL, &select_timeout);
+          if (ret < 0 && errno == EINTR)
+            continue;
+          break;
+        } while (1);
 
       if (ret > 0)
         {
@@ -584,32 +621,10 @@ static bool connect_async( int remote_fd, struct sockaddr *remote_addr, size_t r
 MsgChannel *Service::createChannel (const string &hostname, unsigned short p, int timeout)
 {
   int remote_fd;
-  int i = 1;
   struct sockaddr_in remote_addr;
 
-  if ((remote_fd = socket (PF_INET, SOCK_STREAM, 0)) < 0)
-    {
-      log_perror("socket()");
-      return 0;
-    }
-  struct hostent *host = gethostbyname (hostname.c_str());
-  if (!host)
-    {
-      log_perror("Unknown host");
-      close (remote_fd);
-      return 0;
-    }
-  if (host->h_length != 4)
-    {
-      log_error() << "Invalid address length" << endl;
-      close (remote_fd);
-      return 0;
-    }
-
-  remote_addr.sin_family = AF_INET;
-  remote_addr.sin_port = htons (p);
-  memcpy (&remote_addr.sin_addr.s_addr, host->h_addr_list[0], host->h_length);
-  setsockopt (remote_fd, IPPROTO_TCP, TCP_NODELAY, (char*) &i, sizeof(i));
+  if ((remote_fd = prepare_connect(hostname, p, remote_addr)) < 0)
+    return 0;
 
   if ( timeout )
     {
@@ -618,7 +633,7 @@ MsgChannel *Service::createChannel (const string &hostname, unsigned short p, in
     }
   else
     {
-      i = 2048;
+      int i = 2048;
       setsockopt(remote_fd, SOL_SOCKET, SO_SNDBUF, &i, sizeof(i));
       if (connect (remote_fd, (struct sockaddr *) &remote_addr, sizeof (remote_addr)) < 0)
         {
@@ -627,15 +642,7 @@ MsgChannel *Service::createChannel (const string &hostname, unsigned short p, in
           return 0;
         }
     }
-  MsgChannel * c = new MsgChannel( remote_fd, (struct sockaddr *)&remote_addr, sizeof( remote_addr ) );
-  c->port = p;
-  if (!c->wait_for_protocol ())
-    {
-      delete c;
-      c = 0;
-      trace() << "not the same protocol\n";
-    }
-  return c;
+  return createChannel(remote_fd, (struct sockaddr *)&remote_addr, sizeof( remote_addr ));
 }
 
 bool
@@ -668,13 +675,11 @@ MsgChannel::MsgChannel (int _fd, struct sockaddr *_a, socklen_t _l, bool text)
       addr = (struct sockaddr *)malloc (len);
       memcpy (addr, _a, len);
       name = inet_ntoa (((struct sockaddr_in *) addr)->sin_addr);
-      port = ntohs (((struct sockaddr_in *)addr)->sin_port);
     }
   else
     {
       addr = 0;
       name = "";
-      port = 0;
     }
 
   // not using new/delete because of the need of realloc()
@@ -757,8 +762,7 @@ MsgChannel::~MsgChannel()
 
 string MsgChannel::dump() const
 {
-  return name + ":" + toString( port ) + " (" +
-    char((int)instate+'A') + " eof: " + char(eof +'0') + ")";
+  return name + ": (" + char((int)instate+'A') + " eof: " + char(eof +'0') + ")";
 }
 
 /* Wait blocking until the protocol setup for this channel is complete.
@@ -1065,7 +1069,7 @@ DiscoverSched::~DiscoverSched ()
 bool
 DiscoverSched::timed_out ()
 {
-  return (time (0) - time0 >= (timeout / 1000));
+  return (time (0) - time0 >= timeout);
 }
 
 MsgChannel *
@@ -1073,7 +1077,6 @@ DiscoverSched::try_get_scheduler ()
 {
   if (schedname.empty())
     {
-      struct sockaddr_in remote_addr;
       socklen_t remote_len;
       bool found = false;
       char buf2[BROAD_BUFLEN];
@@ -1081,7 +1084,7 @@ DiscoverSched::try_get_scheduler ()
       /* Read/test all packages arrived until now.  */
       while (!found
 	     && get_broad_answer (ask_fd, 0/*timeout*/, buf2,
-                                  &remote_addr, &remote_len))
+                                  (struct sockaddr_in*) &remote_addr, &remote_len))
         if (strcasecmp (netname.c_str(), buf2 + 1) == 0)
           found = true;
       if (!found)
@@ -1089,9 +1092,27 @@ DiscoverSched::try_get_scheduler ()
       schedname = inet_ntoa (remote_addr.sin_addr);
       sport = ntohs (remote_addr.sin_port);
       netname = buf2 + 1;
+      close (ask_fd);
+      ask_fd = -1;
+
+      time0 = time(0) + MAX_SCHEDULER_PONG;
+      log_info() << "scheduler is on " << schedname << ":" << sport << " (net " << netname << ")\n";
+      if ((ask_fd = prepare_connect(schedname, sport, remote_addr)) >= 0)
+        fcntl(ask_fd, F_SETFL, O_NONBLOCK);
     }
-  log_info() << "scheduler is on " << schedname << ":" << sport << " (net " << netname << ")\n";
-  return Service::createChannel( schedname, sport, 0/*timeout*/);
+
+  if (ask_fd >= 0)
+    {
+      int status = connect (ask_fd, (struct sockaddr*) &remote_addr, sizeof(remote_addr) );
+      if (status == 0 || (status < 0 && errno == EISCONN))
+        {
+          int fd = ask_fd;
+          ask_fd = -1;
+          return Service::createChannel(fd,
+                  (struct sockaddr*) &remote_addr, sizeof(remote_addr));
+        }
+    }
+  return 0;
 }
 
 list<string>
