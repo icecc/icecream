@@ -210,6 +210,8 @@ public:
   static MsgChannel *createChannel( int remote_fd, struct sockaddr *, socklen_t );
 };
 
+// --------------------------------------------------------------------------
+// this class is also used by icecream-monitor
 class DiscoverSched 
 {
   struct sockaddr_in remote_addr;
@@ -229,8 +231,13 @@ public:
   ~DiscoverSched();
   bool timed_out();
   int listen_fd() const { return schedname.empty() ? ask_fd : -1; }
+
+  // compat for icecream monitor
+  int get_fd() const { return listen_fd(); }
+
   MsgChannel *try_get_scheduler();
 };
+// --------------------------------------------------------------------------
 
 /* Return a list of all reachable netnames.  We wait max. WAITTIME
    milliseconds for answers.  */
