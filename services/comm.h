@@ -238,6 +238,7 @@ public:
   ~DiscoverSched();
   bool timed_out();
   int listen_fd() const { return schedname.empty() ? ask_fd : -1; }
+  int connect_fd() const { return schedname.empty() ? -1 : ask_fd; }
 
   // compat for icecream monitor
   int get_fd() const { return listen_fd(); }
