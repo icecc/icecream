@@ -799,6 +799,16 @@ MsgChannel::wait_for_protocol ()
   return true;
 }
 
+void MsgChannel::setBulkTransfer()
+{
+  if (fd < 0) return;
+
+  int i = 0;
+  setsockopt (fd, IPPROTO_TCP, TCP_NODELAY, (char*) &i, sizeof(i));
+  i = 65536;
+  setsockopt (fd, SOL_SOCKET, SO_SNDBUF, &i, sizeof(i));
+}
+
 /* This waits indefinitely (well, TIMEOUT seconds) for a complete
    message to arrive.  Returns false if there was some error.  */
 bool

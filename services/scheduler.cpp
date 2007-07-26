@@ -1199,6 +1199,9 @@ handle_mon_login (MsgChannel *c, Msg *_m)
     return false;
   // This is really a CS*, but we don't need the full one here
   monitors.push_back (c);
+  // monitors really want to be fed lazily
+  c->setBulkTransfer();
+
   for (list<CS*>::iterator it = css.begin(); it != css.end(); ++it)
     handle_monitor_stats( *it );
 

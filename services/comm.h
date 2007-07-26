@@ -147,6 +147,8 @@ public:
   std::string name;
   time_t last_talk;
 
+  void setBulkTransfer();
+
   std::string dump() const;
   // NULL  <--> channel closed
   Msg *get_msg(int timeout = 10);
