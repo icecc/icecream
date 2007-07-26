@@ -1451,6 +1451,22 @@ split_string (const string &s, const char *set, list<string> &l)
 }
 
 static bool
+send_greeting(MsgChannel* c)
+{
+    std::ostringstream o;
+
+    o << "200-ICECC " VERSION ": "
+      << time(0) - starttime << "s uptime, "
+      << css.size() << " hosts, "
+      << jobs.size() << " jobs in queue "
+      << "(" << new_job_id << " total)." << endl;
+    o << "200 Use 'help' for help and 'quit' to quit." << endl;
+
+    return c->send_msg(TextMsg(o.str()));
+}
+
+
+static bool
 handle_line (MsgChannel *c, Msg *_m)
 {
   TextMsg *m = dynamic_cast<TextMsg *>(_m);
@@ -1504,15 +1520,14 @@ handle_line (MsgChannel *c, Msg *_m)
 	if(!c->send_msg( TextMsg( " " + dump_job (it->second) ) ))
           return false;
     }
-  else if (cmd == "quit")
+  else if (cmd == "quit" || cmd == "exit" )
     {
-      handle_end (c, m);
       return false;
     }
   else if (cmd == "removecs" || cmd == "blockcs")
     {
       if (l.empty()) {
-        if(!c->send_msg (TextMsg (string ("Sure.  But which hosts?"))))
+        if(!c->send_msg (TextMsg (string ("401 Sure. But which hosts?"))))
           return false;
       }
       else
@@ -1575,7 +1590,7 @@ handle_line (MsgChannel *c, Msg *_m)
       if(!c->send_msg (TextMsg (txt)))
         return false;
     }
-  return c->send_msg (TextMsg (string ("done")));
+  return c->send_msg (TextMsg (string ("200 done")));
 }
 
 // return false if some error occured, leaves C open.  */
@@ -1603,14 +1618,12 @@ try_login (MsgChannel *c, Msg *m)
       ret = false;
       break;
     }
-  delete m;
   if (ret)
     cs->state = CS::LOGGEDIN;
   else
-    {
-      fd2chan.erase (c->fd);
-      delete c;
-    }
+    handle_end (cs, m);
+
+  delete m;
   return ret;
 }
 
@@ -1693,7 +1706,7 @@ handle_end (MsgChannel *c, Msg *m)
     }
   else if (toremove->type == CS::LINE)
     {
-      if (!c->send_msg (TextMsg ("Good Bye!"))) {
+      if (!c->send_msg (TextMsg ("200 Good Bye!"))) {
       }
     }
   else
@@ -2049,12 +2062,14 @@ main (int argc, char * argv[])
 	    {
 	      CS *cs = new CS (remote_fd, (struct sockaddr*) &remote_addr, remote_len, true);
               cs->last_talk = time (0);
+              cs->setBulkTransfer();
               if (!cs->protocol) // protocol mismatch
                 {
                   delete cs;
                   continue;
                 }
 	      fd2chan[cs->fd] = cs;
+              send_greeting(cs);
 	      while (!cs->read_a_bit () || cs->has_msg ())
 	        if (!handle_activity (cs))
                   break;
