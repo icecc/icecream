@@ -229,6 +229,7 @@ public:
 
 // A subset of connected_hosts representing the compiler servers
 static list<CS*> css;
+static list<string> block_css;
 static unsigned int new_job_id;
 static map<unsigned int, Job*> jobs;
 
@@ -357,7 +358,7 @@ notify_monitors (Msg* m)
     {
       it_old = it++; // handle_end removes it from monitors, so don't be clever
       /* If we can't send it, don't be clever, simply close this monitor.  */
-      if (!(*it_old)->send_msg (*m))
+      if (!(*it_old)->send_msg (*m, MsgChannel::SendNonBlocking))
         handle_end (*it_old, 0);
     }
   delete m;
@@ -1114,7 +1115,6 @@ handle_login (MsgChannel *c, Msg *_m)
     return false;
 
   std::ostream& dbg = trace();
-  dbg << "login " << m->nodename << " protocol version: " << c->protocol;
 
   CS *cs = static_cast<CS *>(c);
   cs->remote_port = m->port;
@@ -1128,6 +1128,12 @@ handle_login (MsgChannel *c, Msg *_m)
   cs->host_platform = m->host_platform;
   cs->chroot_possible = m->chroot_possible;
   cs->pick_new_id();
+
+  for (list<string>::const_iterator it = block_css.begin(); it != block_css.end(); ++it)
+      if (cs->name == *it)
+          return false;
+
+  dbg << "login " << m->nodename << " protocol version: " << c->protocol;
   handle_monitor_stats( cs );
 
   /* remove any other clients with the same IP, they must be stale */
@@ -1482,6 +1488,12 @@ handle_line (MsgChannel *c, Msg *_m)
               break;
 	}
     }
+  else if (cmd == "listblocks")
+    {
+      for (list<string>::const_iterator it = block_css.begin(); it != block_css.end(); ++it)
+        if(!c->send_msg (TextMsg ("   " + (*it) ) ))
+          break;
+    }
   else if (cmd == "listjobs")
     {
       for (map<unsigned int, Job*>::const_iterator it = jobs.begin();
@@ -1494,7 +1506,7 @@ handle_line (MsgChannel *c, Msg *_m)
       handle_end (c, m);
       return false;
     }
-  else if (cmd == "removecs")
+  else if (cmd == "removecs" || cmd == "blockcs")
     {
       if (l.empty()) {
         if(!c->send_msg (TextMsg (string ("Sure.  But which hosts?"))))
@@ -1505,6 +1517,8 @@ handle_line (MsgChannel *c, Msg *_m)
 	  for (list<CS*>::iterator it = css.begin(); it != css.end(); ++it)
 	    if ((*it)->nodename == *si || (*it)->name == *si)
 	      {
+                if (cmd == "blockcs")
+                    block_css.push_back((*it)->name);
                 if (c->send_msg (TextMsg (string ("removing host ") + *si)))
                     handle_end ( *it, 0);
 		break;
@@ -1547,7 +1561,7 @@ handle_line (MsgChannel *c, Msg *_m)
   else if (cmd == "help")
     {
       if (!c->send_msg (TextMsg (
-        "listcs\nlistjobs\nremovecs\ninternals\nhelp\nquit")))
+        "listcs\nlistblocks\nlistjobs\nremovecs\nblockcs\ninternals\nhelp\nquit")))
         return false;
     }
   else

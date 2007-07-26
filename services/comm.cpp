@@ -904,7 +904,7 @@ MsgChannel::get_msg(int timeout)
 }
 
 bool
-MsgChannel::send_msg (const Msg &m)
+MsgChannel::send_msg (const Msg &m, enum SendFlags flag)
 {
   if (instate == NEED_PROTO && !wait_for_protocol ())
     return false;
@@ -921,7 +921,7 @@ MsgChannel::send_msg (const Msg &m)
       uint32_t len = htonl (msgtogo - msgtogo_old - 4);
       memcpy (msgbuf + msgtogo_old, &len, 4);
     }
-  return flush_writebuf (true /* blocking*/);
+  return flush_writebuf (flag == SendBlocking);
 }
 
 #include "getifaddrs.h"

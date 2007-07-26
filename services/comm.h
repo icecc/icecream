@@ -136,6 +136,11 @@ public:
   // our filedesc
   int fd;
 
+  enum SendFlags {
+      SendBlocking = 0,
+      SendNonBlocking = 1<<0
+  };
+
   // the minimum protocol version between me and him
   int protocol;
 
@@ -146,7 +151,7 @@ public:
   // NULL  <--> channel closed
   Msg *get_msg(int timeout = 10);
   // false <--> error (msg not send)
-  bool send_msg (const Msg &);
+  bool send_msg (const Msg &, enum SendFlags = SendBlocking);
   // return last error (0 == no error)
   int error(void) {return 0;}
   bool has_msg (void) const { return eof || instate == HAS_MSG; }
