@@ -1716,7 +1716,6 @@ handle_end (CS *toremove, Msg *m)
   default:
     {
       trace() << "remote end had UNKNOWN type?" << endl;
-      assert(42 != 42);
     }
   }
 
