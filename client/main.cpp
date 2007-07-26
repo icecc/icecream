@@ -284,8 +284,6 @@ int main(int argc, char **argv)
                should be enough for all normal compile or link jobs.  */
             startme = local_daemon->get_msg (40*60);
         }
-        else
-            log_error() << "can't send joblocalmsg to daemon" << endl;
 
 	/* If we can't talk to the daemon anymore we need to fall back
 	   to lock file locking.  */
