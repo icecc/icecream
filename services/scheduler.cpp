@@ -2063,13 +2063,12 @@ main (int argc, char * argv[])
 	      CS *cs = new CS (remote_fd, (struct sockaddr*) &remote_addr, remote_len, true);
               cs->last_talk = time (0);
               cs->setBulkTransfer();
-              if (!cs->protocol) // protocol mismatch
+              if (!cs->protocol || !send_greeting(cs))
                 {
                   delete cs;
                   continue;
                 }
 	      fd2chan[cs->fd] = cs;
-              send_greeting(cs);
 	      while (!cs->read_a_bit () || cs->has_msg ())
 	        if (!handle_activity (cs))
                   break;
