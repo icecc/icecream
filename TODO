@@ -43,6 +43,12 @@ Random:
 * Add heuristic which optimises for overhead-reduction. Statistics prove ( ;) ), that for
   e.g. linux kernel the file size varies a lot, and small jobs should be preferably compiled
   locally and bigger ones preferably remote.
+* Split number of jobs into number of compile jobs (cheap) and number of non compile jobs (can
+  be expensive, e.g. ld or meinproc). The reason is that multicore chips become more and more
+  common. Today you can get quad cores easily and in some month we've 8 cores and several link
+  jobs at the same time can pull down your whole system.
+  (I can life with a hard coded number of one non compile job but others probably prefer a
+  configurable number)
 
 Suggestions from "Wilson Snyder" sicortex.com:
 - Add ICECREAM_RUN_ICECCD to make the scheduler machine not run iceccd
