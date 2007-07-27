@@ -354,7 +354,7 @@ notify_monitors (Msg* m)
   list<CS*>::iterator it, it_old;
   for (it = monitors.begin(); it != monitors.end();)
     {
-      it_old = ++it;
+      it_old = it++;
       /* If we can't send it, don't be clever, simply close this monitor.  */
       if (!(*it_old)->send_msg (*m, MsgChannel::SendNonBlocking))
         handle_end (*it_old, 0);
