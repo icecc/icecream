@@ -51,6 +51,15 @@
 
 using namespace std;
 
+/*
+ * A generic DoS protection. The biggest messages are of type FileChunk
+ * which shouldn't be larger than 100kb. so anything bigger than 10 times
+ * of that is definitly fishy, and we must reject it (we're running as root,
+ * so be cautious).
+ */
+
+#define MAX_MSG_SIZE 1 * 1024 * 1024
+
 /* TODO
  * buffered in/output per MsgChannel
     + move read* into MsgChannel, create buffer-fill function
@@ -180,6 +189,8 @@ MsgChannel::update_state (void)
       else if (inofs - intogo >= 4)
         {
           (*this) >> inmsglen;
+          if (inmsglen > MAX_MSG_SIZE)
+              return false;
 	  if (inbuflen - intogo < inmsglen)
 	    {
 	      inbuflen = (inmsglen + intogo + 127) & ~(size_t)127;
@@ -336,7 +347,7 @@ MsgChannel::operator>> (string &s)
   // len is including the (also saved) 0 Byte
   uint32_t len;
   *this >> len;
-  if (!len || inofs < intogo + len)
+  if (!len || len > inofs - intogo)
     s = "";
   else
     {
@@ -367,6 +378,8 @@ MsgChannel::operator>> (list<string> &l)
       string s;
       *this >> s;
       l.push_back (s);
+      if (inofs == intogo)
+        break;
     }
   return *this;
 }
@@ -419,10 +432,13 @@ MsgChannel::readcompressed (unsigned char **uncompressed_buf,
   uncompressed_len = tmp;
   *this >> tmp;
   compressed_len = tmp;
-  /* If there was some input, but nothing compressed, or we don't have
-     everything to uncompress, there was an error.  */
-  if ((uncompressed_len && !compressed_len)
-      || inofs < intogo + compressed_len)
+  /* If there was some input, but nothing compressed,
+     or lengths are bigger than the whole chunk message
+     or we don't have everything to uncompress, there was an error.  */
+  if ( uncompressed_len > (inofs - intogo)
+       || compressed_len > (inofs - intogo)
+       || (uncompressed_len && !compressed_len)
+       || inofs < intogo + compressed_len )
     {
       *uncompressed_buf = 0;
       uncompressed_len = 0;
