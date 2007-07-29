@@ -537,7 +537,7 @@ handle_cs_request (MsgChannel *c, Msg *_m)
 }
 
 static bool
-handle_local_job (MsgChannel *c, Msg *_m)
+handle_local_job (CS *c, Msg *_m)
 {
   JobLocalBeginMsg *m = dynamic_cast<JobLocalBeginMsg *>(_m);
   if (!m)
@@ -545,23 +545,21 @@ handle_local_job (MsgChannel *c, Msg *_m)
 
   ++new_job_id;
   trace() << "handle_local_job " << m->outfile << " " << m->id << endl;
-  CS *cs = dynamic_cast<CS*>( c );
-  cs->client_map[m->id] = new_job_id;
-  notify_monitors (new MonLocalJobBeginMsg( new_job_id, m->outfile, m->stime, cs->hostid ) );
+  c->client_map[m->id] = new_job_id;
+  notify_monitors (new MonLocalJobBeginMsg( new_job_id, m->outfile, m->stime, c->hostid ) );
   return true;
 }
 
 static bool
-handle_local_job_done (MsgChannel *c, Msg *_m)
+handle_local_job_done (CS *c, Msg *_m)
 {
   JobLocalDoneMsg *m = dynamic_cast<JobLocalDoneMsg *>(_m);
   if (!m)
     return false;
 
   trace() << "handle_local_job_done " << m->job_id << endl;
-  CS *cs = dynamic_cast<CS*>( c );
-  notify_monitors (new JobLocalDoneMsg( cs->client_map[m->job_id] ) );
-  cs->client_map.erase( m->job_id );
+  notify_monitors (new JobLocalDoneMsg( c->client_map[m->job_id] ) );
+  c->client_map.erase( m->job_id );
   return true;
 }
 
@@ -1206,7 +1204,7 @@ handle_mon_login (CS *c, Msg *_m)
 }
 
 static bool
-handle_job_begin (MsgChannel *c, Msg *_m)
+handle_job_begin (CS *c, Msg *_m)
 {
   JobBeginMsg *m = dynamic_cast<JobBeginMsg *>(_m);
   if ( !m )
@@ -1225,8 +1223,7 @@ handle_job_begin (MsgChannel *c, Msg *_m)
   job->state = Job::COMPILING;
   job->starttime = m->stime;
   job->start_on_scheduler = time(0);
-  CS *cs = dynamic_cast<CS*>( c );
-  notify_monitors (new MonJobBeginMsg (m->job_id, m->stime, cs->hostid));
+  notify_monitors (new MonJobBeginMsg (m->job_id, m->stime, c->hostid));
 #if DEBUG_SCHEDULER >= 0
   trace() << "BEGIN: " << m->job_id << " client=" << job->submitter->nodename
           << "(" << job->target_platform << ")" << " server="
@@ -1377,7 +1374,7 @@ handle_ping (CS* c, Msg * /*_m*/)
 }
 
 static bool
-handle_stats (MsgChannel * c, Msg * _m)
+handle_stats (CS * c, Msg * _m)
 {
   StatsMsg *m = dynamic_cast<StatsMsg *>(_m);
   if (!m)
@@ -1388,9 +1385,8 @@ handle_stats (MsgChannel * c, Msg * _m)
   if (!IS_PROTOCOL_25(c))
     {
       c->last_talk = time( 0 );
-      CS *cs = dynamic_cast<CS*>( c );
-      if ( cs && cs->max_jobs < 0 )
-        cs->max_jobs *= -1;
+      if ( c && c->max_jobs < 0 )
+        c->max_jobs *= -1;
     }
 
   for (list<CS*>::iterator it = css.begin(); it != css.end(); ++it)
