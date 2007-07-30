@@ -356,7 +356,7 @@ notify_monitors (Msg* m)
     {
       it_old = it++;
       /* If we can't send it, don't be clever, simply close this monitor.  */
-      if (!(*it_old)->send_msg (*m, MsgChannel::SendNonBlocking)) {
+      if (!(*it_old)->send_msg (*m, MsgChannel::SendNonBlocking /*| MsgChannel::SendBulkOnly*/)) {
         trace() << "monitor is blocking... removing" << endl;
         handle_end (*it_old, 0);
       }
@@ -1363,7 +1363,7 @@ handle_job_done (CS *c, Msg *_m)
       j->server->busy_installing = 0;
     }
   add_job_stats (j, m);
-  notify_monitors (new MonJobDoneMsg (m->job_id, m->exitcode));
+  notify_monitors (new MonJobDoneMsg (*m));
   jobs.erase (m->job_id);
   delete j;
 
@@ -1672,7 +1672,7 @@ handle_end (CS *toremove, Msg *m)
 	    for (jit = l->l.begin(); jit != l->l.end(); ++jit)
 	      {
 		trace() << "STOP (DAEMON) FOR " << (*jit)->id << endl;
-                notify_monitors (new MonJobDoneMsg ( ( *jit )->id,  255 ));
+                notify_monitors (new MonJobDoneMsg ( JobDoneMsg (( *jit )->id,  255 )));
 		if ((*jit)->server)
 		  (*jit)->server->busy_installing = 0;
 		jobs.erase( (*jit)->id );
@@ -1691,7 +1691,7 @@ handle_end (CS *toremove, Msg *m)
           if (job->server == toremove || job->submitter == toremove)
             {
               trace() << "STOP (DAEMON2) FOR " << mit->first << endl;
-              notify_monitors (new MonJobDoneMsg ( job->id,  255 ));
+              notify_monitors (new MonJobDoneMsg ( JobDoneMsg( job->id,  255 )));
 	      /* If this job is removed because the submitter is removed
 		 also remove the job from the servers joblist.  */
 	      if (job->server && job->server != toremove)

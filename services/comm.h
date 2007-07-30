@@ -541,11 +541,8 @@ public:
   MonJobDoneMsg() : JobDoneMsg() {
     type = M_MON_JOB_DONE;
   }
-  MonJobDoneMsg (int job_id, int exitcode)
-    : JobDoneMsg(job_id, exitcode)
-  {
-    type = M_MON_JOB_DONE;
-  }
+  MonJobDoneMsg(const JobDoneMsg& o)
+    : JobDoneMsg(o) { type = M_MON_JOB_DONE; }
 };
 
 class MonLocalJobBeginMsg : public Msg {
