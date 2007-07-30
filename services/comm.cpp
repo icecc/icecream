@@ -665,8 +665,9 @@ static std::string
 shorten_filename(const std::string& str)
 {
   std::string::size_type ofs = str.rfind('/');
-  if (ofs != string::npos)
-    ofs = str.rfind('/', ofs-1);
+  for (int i = 2; i--;)
+    if (ofs != string::npos)
+      ofs = str.rfind('/', ofs-1);
   return str.substr(ofs+1);
 }
 
@@ -1573,6 +1574,7 @@ void
 MonGetCSMsg::fill_from_channel (MsgChannel *c)
 {
   if (IS_PROTOCOL_29(c)) {
+    Msg::fill_from_channel(c);
     *c >> filename;
     uint32_t _lang;
     *c >> _lang;
@@ -1589,10 +1591,8 @@ void
 MonGetCSMsg::send_to_channel (MsgChannel *c) const
 {
   if (IS_PROTOCOL_29(c)) {
-    std::string f = filename;
-    if (f.size() > 32)
-      f = f.substr(f.size()-32);
-    *c << f;
+    Msg::send_to_channel (c);
+    *c << shorten_filename(filename);
     *c << (uint32_t) lang;
   }
   else
