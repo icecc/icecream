@@ -50,6 +50,7 @@
 #define IS_PROTOCOL_26( c ) ( (c)->protocol >= 26 )
 #define IS_PROTOCOL_27( c ) ( (c)->protocol >= 27 )
 #define IS_PROTOCOL_28( c ) ( (c)->protocol >= 28 )
+#define IS_PROTOCOL_29( c ) ( (c)->protocol >= 29 )
 
 enum MsgType {
   // so far unknown
@@ -137,8 +138,9 @@ public:
   int fd;
 
   enum SendFlags {
-      SendBlocking = 0,
-      SendNonBlocking = 1<<0
+      SendBlocking    = 1<<0,
+      SendNonBlocking = 1<<1,
+      SendBulkOnly    = 1<<2
   };
 
   // the minimum protocol version between me and him
@@ -153,13 +155,9 @@ public:
   // NULL  <--> channel closed
   Msg *get_msg(int timeout = 10);
   // false <--> error (msg not send)
-  bool send_msg (const Msg &, enum SendFlags = SendBlocking);
+  bool send_msg (const Msg &, int SendFlags = SendBlocking);
   bool has_msg (void) const { return eof || instate == HAS_MSG; }
-  bool need_write (void) const { return msgtogo != 0; }
   bool read_a_bit (void);
-  bool write_a_bit (void) {
-    return need_write () ? flush_writebuf (false) : true;
-  }
   bool at_eof (void) const { return instate != HAS_MSG && eof; }
   bool is_text_based(void) const { return text_based; }
 

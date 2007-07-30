@@ -661,6 +661,15 @@ MsgChannel *Service::createChannel (const string &hostname, unsigned short p, in
   return createChannel(remote_fd, (struct sockaddr *)&remote_addr, sizeof( remote_addr ));
 }
 
+static std::string
+shorten_filename(const std::string& str)
+{
+  std::string::size_type ofs = str.rfind('/');
+  if (ofs != string::npos)
+    ofs = str.rfind('/', ofs-1);
+  return str.substr(ofs+1);
+}
+
 bool
 MsgChannel::eq_ip (const MsgChannel &s) const
 {
@@ -821,6 +830,12 @@ void MsgChannel::setBulkTransfer()
 
   int i = 0;
   setsockopt (fd, IPPROTO_TCP, TCP_NODELAY, (char*) &i, sizeof(i));
+  // would be nice but not portable accross non-linux and
+  // causes huge delays in case of partial frames (seconds range)
+#if 0
+  i = 1;
+  setsockopt (fd, IPPROTO_TCP, TCP_CORK, (char*) &i, sizeof(i));
+#endif
   i = 65536;
   setsockopt (fd, SOL_SOCKET, SO_SNDBUF, &i, sizeof(i));
 }
@@ -930,7 +945,7 @@ MsgChannel::get_msg(int timeout)
 }
 
 bool
-MsgChannel::send_msg (const Msg &m, enum SendFlags flag)
+MsgChannel::send_msg (const Msg &m, int flags)
 {
   if (instate == NEED_PROTO && !wait_for_protocol ())
     return false;
@@ -947,7 +962,10 @@ MsgChannel::send_msg (const Msg &m, enum SendFlags flag)
       uint32_t len = htonl (msgtogo - msgtogo_old - 4);
       memcpy (msgbuf + msgtogo_old, &len, 4);
     }
-  return flush_writebuf (flag == SendBlocking);
+  if ((flags & SendBulkOnly) && msgtogo < 4096)
+    return true;
+
+  return flush_writebuf ((flags & SendBlocking));
 }
 
 #include "getifaddrs.h"
@@ -1215,7 +1233,7 @@ GetCSMsg::send_to_channel (MsgChannel *c) const
 {
   Msg::send_to_channel (c);
   c->write_environments( versions );
-  *c << filename;
+  *c << shorten_filename(filename);
   *c << (uint32_t) lang;
   *c << count;
   *c << target;
@@ -1554,7 +1572,15 @@ EnvTransferMsg::send_to_channel (MsgChannel *c) const
 void
 MonGetCSMsg::fill_from_channel (MsgChannel *c)
 {
-  GetCSMsg::fill_from_channel (c);
+  if (IS_PROTOCOL_29(c)) {
+    *c >> filename;
+    uint32_t _lang;
+    *c >> _lang;
+    lang = static_cast<CompileJob::Language>(_lang);
+  }
+  else
+    GetCSMsg::fill_from_channel (c);
+
   *c >> job_id;
   *c >> clientid;
 }
@@ -1562,7 +1588,16 @@ MonGetCSMsg::fill_from_channel (MsgChannel *c)
 void
 MonGetCSMsg::send_to_channel (MsgChannel *c) const
 {
-  GetCSMsg::send_to_channel (c);
+  if (IS_PROTOCOL_29(c)) {
+    std::string f = filename;
+    if (f.size() > 32)
+      f = f.substr(f.size()-32);
+    *c << f;
+    *c << (uint32_t) lang;
+  }
+  else
+      GetCSMsg::send_to_channel (c);
+
   *c << job_id;
   *c << clientid;
 }
@@ -1600,7 +1635,7 @@ void MonLocalJobBeginMsg::send_to_channel (MsgChannel * c) const
   *c << hostid;
   *c << job_id;
   *c << stime;
-  *c << file;
+  *c << shorten_filename(file);
 }
 
 void
