@@ -435,7 +435,7 @@ MsgChannel::readcompressed (unsigned char **uncompressed_buf,
   /* If there was some input, but nothing compressed,
      or lengths are bigger than the whole chunk message
      or we don't have everything to uncompress, there was an error.  */
-  if ( uncompressed_len > (inofs - intogo)
+  if ( uncompressed_len > MAX_MSG_SIZE
        || compressed_len > (inofs - intogo)
        || (uncompressed_len && !compressed_len)
        || inofs < intogo + compressed_len )
