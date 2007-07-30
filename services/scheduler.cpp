@@ -356,8 +356,10 @@ notify_monitors (Msg* m)
     {
       it_old = it++;
       /* If we can't send it, don't be clever, simply close this monitor.  */
-      if (!(*it_old)->send_msg (*m, MsgChannel::SendNonBlocking))
+      if (!(*it_old)->send_msg (*m, MsgChannel::SendNonBlocking)) {
+        trace() << "monitor is blocking... removing" << endl;
         handle_end (*it_old, 0);
+      }
     }
   delete m;
 }
@@ -519,8 +521,12 @@ handle_cs_request (MsgChannel *c, Msg *_m)
       dbg << "NEW " << job->id << " client="
                     << submitter->nodename << " versions=[";
       for ( Environments::const_iterator it = job->environments.begin();
-            it != job->environments.end(); ++it )
-        dbg << it->second << "(" << it->first << "), ";
+            it != job->environments.end();)
+        {
+          dbg << it->second << "(" << it->first << ")";
+          if (++it != job->environments.end())
+            dbg << ", ";
+        }
       dbg << "] " << m->filename << " " << job->language << endl;
       notify_monitors (new MonGetCSMsg (job->id, submitter->hostid, m));
       if ( !master_job )
