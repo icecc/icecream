@@ -440,6 +440,7 @@ MsgChannel::readcompressed (unsigned char **uncompressed_buf,
        || (uncompressed_len && !compressed_len)
        || inofs < intogo + compressed_len )
     {
+      log_error() << "failure in readcompressed() length checking" << endl;
       *uncompressed_buf = 0;
       uncompressed_len = 0;
       _uclen = uncompressed_len;
@@ -831,9 +832,9 @@ void MsgChannel::setBulkTransfer()
 
   int i = 0;
   setsockopt (fd, IPPROTO_TCP, TCP_NODELAY, (char*) &i, sizeof(i));
-  // would be nice but not portable accross non-linux and
-  // causes huge delays in case of partial frames (seconds range)
-#if 0
+
+  // would be nice but not portable accross non-linux
+#ifdef __linux__
   i = 1;
   setsockopt (fd, IPPROTO_TCP, TCP_CORK, (char*) &i, sizeof(i));
 #endif
