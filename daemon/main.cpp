@@ -434,7 +434,7 @@ struct Daemon
     map<int, MsgChannel *> fd2chan;
     int new_client_id;
     string remote_name;
-    time_t next_check;
+    time_t next_scheduler_connect;
     unsigned long icecream_load;
     struct timeval icecream_usage;
     int current_load;
@@ -455,7 +455,7 @@ struct Daemon
         nobody_gid = 65533;
         listen_fd = -1;
         new_client_id = 0;
-        next_check = 0;
+        next_scheduler_connect = 0;
         cache_size = 0;
         noremote = false;
         custom_nodename = false;
@@ -474,7 +474,7 @@ struct Daemon
     bool reannounce_environments() __attribute_warn_unused_result__;
     int answer_client_requests();
     bool handle_transfer_env( MsgChannel *c, Msg *msg ) __attribute_warn_unused_result__;
-    bool handle_transfer_env_done( Client *client ) __attribute_warn_unused_result__;
+    bool handle_transfer_env_done( Client *client );
     bool handle_get_native_env( MsgChannel *c ) __attribute_warn_unused_result__;
     void handle_old_request();
     bool handle_compile_file( MsgChannel *c, Msg *msg ) __attribute_warn_unused_result__;
@@ -562,6 +562,7 @@ void Daemon::close_scheduler()
     scheduler = 0;
     delete discover;
     discover = 0;
+    next_scheduler_connect = time(0) + 20 + (rand() & 31);
 }
 
 bool Daemon::maybe_stats(bool send_ping)
@@ -698,7 +699,8 @@ int Daemon::scheduler_use_cs( UseCSMsg *msg )
     trace() << "handle_use_cs " << msg->job_id << " " << msg->client_id
             << " " << c << " " << msg->hostname << " " << remote_name <<  endl;
     if ( !c ) {
-        send_scheduler( JobDoneMsg( msg->job_id, 107, JobDoneMsg::FROM_SUBMITTER ) );
+        if (send_scheduler( JobDoneMsg( msg->job_id, 107, JobDoneMsg::FROM_SUBMITTER ) ))
+            return 1;
         return 1;
     }
     if ( msg->hostname == remote_name ) {
@@ -742,13 +744,14 @@ bool Daemon::handle_transfer_env( MsgChannel *c, Msg *_msg )
         emsg->name, c, sock_to_stdin, fmsg, nobody_uid, nobody_gid );
 
     if ( pid > 0) {
+        log_error() << "got pid " << pid << endl;
         current_kids++;
         client->status = Client::TOINSTALL;
         client->outfile = emsg->target + "/" + emsg->name;
         client->pipe_to_child = sock_to_stdin;
         client->child_pid = pid;
-        handle_file_chunk_env(c, fmsg);
-        log_error() << "got pid " << pid << endl;
+        if (!handle_file_chunk_env(c, fmsg))
+            pid = 0;
     }
     delete fmsg;
     return pid > 0;
@@ -893,7 +896,8 @@ void Daemon::handle_old_request()
                 client->status = Client::CLIENTWORK;
                 clients.active_processes++;
                 trace() << "pushed local job " << client->client_id << endl;
-                send_scheduler( JobLocalBeginMsg( client->client_id, client->outfile ) );
+                if (!send_scheduler( JobLocalBeginMsg( client->client_id, client->outfile ) ))
+                    return;
             }
             continue;
         }
@@ -1072,12 +1076,13 @@ void Daemon::handle_end( Client *client, int exitcode )
                 break;
             }
             trace() << "scheduler->send_msg( JobDoneMsg( " << client->dump() << ", " << exitcode << "))\n";
-            send_scheduler( JobDoneMsg( job_id, exitcode, flag) );
+            if (!send_scheduler( JobDoneMsg( job_id, exitcode, flag) ))
+                trace() << "failed to reach scheduler for remote job done msg!" << endl;
         } else if ( client->status == Client::CLIENTWORK ) {
             // Clientwork && !job_id == LINK
             trace() << "scheduler->send_msg( JobLocalDoneMsg( " << client->client_id << ") );\n";
             if (!send_scheduler( JobLocalDoneMsg( client->client_id ) ))
-                trace() << "failed to reach scheduler for job done msg!" << endl;
+                trace() << "failed to reach scheduler for local job done msg!" << endl;
         }
     }
 
@@ -1316,36 +1321,39 @@ int Daemon::answer_client_requests()
     if ( ret > 0 ) {
         bool had_scheduler = scheduler;
         if ( scheduler && FD_ISSET( scheduler->fd, &listen_set ) ) {
-            Msg *msg = scheduler->get_msg();
-            if ( !msg ) {
-                log_error() << "scheduler closed connection\n";
-                close_scheduler();
-                clear_children();
-                return 1;
-            } else {
-                ret = 0;
-                switch ( msg->type )
-                {
-                case M_PING:
-                    if (!IS_PROTOCOL_27(scheduler))
-                        ret = !send_scheduler(PingMsg());
-                    break;
-                case M_USE_CS:
-                    ret = scheduler_use_cs( static_cast<UseCSMsg*>( msg ) );
-		    break;
-                case M_GET_INTERNALS:
-                    ret = scheduler_get_internals( );
-                    break;
-                case M_CS_CONF:
-                    ret = handle_cs_conf(static_cast<ConfCSMsg*>( msg ));
-                    break;
-                default:
-                    log_error() << "unknown scheduler type " << ( char )msg->type << endl;
-                    ret = 1;
+            while (!scheduler->read_a_bit() || scheduler->has_msg()) {
+                Msg *msg = scheduler->get_msg();
+                if ( !msg ) {
+                    log_error() << "scheduler closed connection\n";
+                    close_scheduler();
+                    clear_children();
+                    return 1;
+                } else {
+                    ret = 0;
+                    switch ( msg->type )
+                    {
+                    case M_PING:
+                        if (!IS_PROTOCOL_27(scheduler))
+                            ret = !send_scheduler(PingMsg());
+                        break;
+                    case M_USE_CS:
+                        ret = scheduler_use_cs( static_cast<UseCSMsg*>( msg ) );
+                        break;
+                    case M_GET_INTERNALS:
+                        ret = scheduler_get_internals( );
+                        break;
+                    case M_CS_CONF:
+                        ret = handle_cs_conf(static_cast<ConfCSMsg*>( msg ));
+                        break;
+                    default:
+                        log_error() << "unknown scheduler type " << ( char )msg->type << endl;
+                        ret = 1;
+                    }
                 }
+                delete msg;
+                if (ret)
+                    return ret;
             }
-            delete msg;
-            return ret;
         }
 
         if ( FD_ISSET( listen_fd, &listen_set ) ) {
@@ -1369,8 +1377,9 @@ int Daemon::answer_client_requests()
                 clients[c] = client;
 
                 fd2chan[c->fd] = c;
-                c->read_a_bit();
-                while (c->has_msg() && handle_activity(c)) {
+                while (!c->read_a_bit() || c->has_msg()) {
+                    if (!handle_activity(c))
+                        break;
                     if (client->status == Client::TOCOMPILE ||
                             client->status == Client::WAITFORCHILD)
                         break;
@@ -1393,8 +1402,9 @@ int Daemon::answer_client_requests()
                         return 1;
                 }
                 if (FD_ISSET (i, &listen_set)) {
-                    c->read_a_bit();
-                    while (c->has_msg() && handle_activity(c)) {
+                    while (!c->read_a_bit() || c->has_msg()) {
+                        if (!handle_activity(c))
+                            break;
                         if (client->status == Client::TOCOMPILE ||
                                 client->status == Client::WAITFORCHILD)
                             break;
@@ -1417,8 +1427,13 @@ bool Daemon::reconnect()
     if ( scheduler )
         return true;
 
-    trace() << "reconn " << dump_internals() << endl;
+    if (!discover &&
+        next_scheduler_connect > time(0)) {
+        trace() << "timeout.." << endl;
+        return false;
+    }
 
+    trace() << "reconn " << dump_internals() << endl;
     if (!discover
 	|| discover->timed_out())
     {
@@ -1449,7 +1464,7 @@ bool Daemon::reconnect()
     lmsg.envs = available_environmnents(envbasedir);
     lmsg.max_kids = max_kids;
     lmsg.noremote = noremote;
-    return scheduler->send_msg( lmsg );
+    return send_scheduler ( lmsg );
 }
 
 int Daemon::working_loop()
@@ -1468,6 +1483,7 @@ int Daemon::working_loop()
 int main( int argc, char ** argv )
 {
     int max_processes = -1;
+    srand( time( 0 ) + getpid() );
 
     Daemon d;
 
