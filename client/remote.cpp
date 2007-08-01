@@ -259,6 +259,9 @@ static void write_server_cpp(int cpp_fd, MsgChannel *cserver)
                 FileChunkMsg fcmsg( buffer, offset );
                 if ( !cserver->send_msg( fcmsg ) )
                 {
+                    Msg* m = cserver->get_msg(2);
+                    check_for_failure(m, cserver);
+
                     log_error() << "write of source chunk to host " << cserver->name.c_str() << endl;
                     log_perror("failed ");
                     close( cpp_fd );
