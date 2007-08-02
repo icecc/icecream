@@ -218,12 +218,12 @@ static void check_for_failure( Msg *msg, MsgChannel *cserver )
 static void write_server_cpp(int cpp_fd, MsgChannel *cserver)
 {
     unsigned char buffer[100000]; // some random but huge number
-    unsigned char buffer_sig_out[256];
     off_t offset = 0;
     size_t uncompressed = 0;
     size_t compressed = 0;
 
 #ifdef HAVE_RSYNC
+    unsigned char buffer_sig_out[256];
     rs_job_t* sig_job = rs_sig_begin (RS_DEFAULT_BLOCK_LEN, RS_DEFAULT_STRONG_LEN);
     rs_buffers_t sig_buffer;
 
