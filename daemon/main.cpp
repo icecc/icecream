@@ -1207,7 +1207,6 @@ bool Daemon::handle_activity( MsgChannel *c )
 {
     Client *client = clients.find_by_channel( c );
 
-    assert(c->has_msg());
     assert( client );
     assert(client->status != Client::TOCOMPILE);
 
