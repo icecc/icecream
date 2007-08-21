@@ -124,17 +124,18 @@ MsgChannel::update_state (void)
 	{
 	  if (protocol == 0)
 	    return false;
-	  uint32_t remote_prot;
+	  uint32_t remote_prot = 0;
 	  unsigned char vers[4];
 	  //readuint32 (remote_prot);
 	  memcpy(vers, inbuf + intogo, 4);
 	  intogo += 4;
-	  remote_prot = vers[0];
+          for (int i = 0; i < 4; ++i)
+              remote_prot |= vers[i] << (i*8);
 	  if (protocol == -1)
 	    {
 	      /* The first time we read the remote protocol.  */
 	      protocol = 0;
-	      if (remote_prot < MIN_PROTOCOL_VERSION)
+	      if (remote_prot < MIN_PROTOCOL_VERSION || remote_prot > (1<<20))
                 {
 		  remote_prot = 0;
 		  return false;
@@ -143,8 +144,8 @@ MsgChannel::update_state (void)
 	      if (remote_prot > PROTOCOL_VERSION)
 		remote_prot = PROTOCOL_VERSION; // ours is smaller
 
-	      vers[0] = remote_prot;
-	      //writeuint32 (remote_prot);
+              for (int i = 0; i < 4; ++i)
+                  vers[i] = remote_prot >> (i * 8);
 	      writefull (vers, 4);
 	      if (!flush_writebuf (true))
 		  return false;
