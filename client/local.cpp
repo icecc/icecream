@@ -100,6 +100,10 @@ string find_compiler( CompileJob::Language lang )
                     after_selflink = true;
                     continue;
                 }
+            } else if ( !S_ISREG( s.st_mode ) ) {
+                // It's not a link and not a file, so just ignore it. We don't
+                // want to accidentially attempt to execute directories.
+                continue;
             }
             best_match = part;
 
