@@ -5,8 +5,8 @@
 # the comments for FW_SERVICES_*_EXT in /etc/sysconfig/SuSEfirewall2
 #
 
-## Name: template service
-## Description: opens ports for foo in order to allow bar
+## Name: icecream daemon
+## Description: opens socket for the icecream compilation daemon
 
 # space separated list of allowed TCP ports
 TCP="10245"
