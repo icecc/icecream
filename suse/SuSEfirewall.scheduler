@@ -5,8 +5,8 @@
 # the comments for FW_SERVICES_*_EXT in /etc/sysconfig/SuSEfirewall2
 #
 
-## Name: template service
-## Description: opens ports for foo in order to allow bar
+## Name: icecream scheduler
+## Description: opens ports for the Icecream scheduler
 
 # space separated list of allowed TCP ports
 TCP="8765 8766"
