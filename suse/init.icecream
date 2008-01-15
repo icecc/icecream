@@ -96,8 +96,7 @@ case "$1" in
         ## Note: try-restart is now part of LSB (as of 1.9).
         ## RH has a similar command named condrestart.
         if test "$1" = "condrestart"; then
-                echo "${attn} Use try-restart ${done}(LSB)${attn} rather than condrestart ${warn}(R
-H)${norm}"
+                echo "${attn} Use try-restart ${done}(LSB)${attn} rather than condrestart ${warn}(RH)${norm}"
         fi
         $0 status
         if test $? = 0; then
