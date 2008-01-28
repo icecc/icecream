@@ -14,6 +14,7 @@
 # Default-Start:     3 5
 # Default-Stop:
 # Description:       distributed compiler daemon
+# Short-Description: icecc
 ### END INIT INFO
 
 # Determine the base and follow a runlevel link name.

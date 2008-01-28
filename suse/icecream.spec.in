@@ -15,6 +15,7 @@ Summary:        For Distributed Compile in the Network
 Requires:       /bin/tar /usr/bin/bzip2
 %if 0%{?suse_version}
 PreReq:         %fillup_prereq
+PreReq:         %insserv_prereq
 %endif
 Prereq:         /usr/sbin/useradd /usr/sbin/groupadd
 Requires:       gcc-c++
@@ -53,11 +54,10 @@ libicecream-devel
 export CFLAGS="$RPM_OPT_FLAGS"
 export CXXFLAGS="$RPM_OPT_FLAGS"
 make -f Makefile.cvs
-./configure --prefix=%_prefix  --libdir=%_libdir
-make
+%configure
+make %{?jobs:-j %jobs}
 
 %install
-rm -rf $RPM_BUILD_ROOT
 make DESTDIR=$RPM_BUILD_ROOT KDEDIR=/opt/kde3 install
 mkdir -p $RPM_BUILD_ROOT/opt/icecream/bin
 for i in g++ gcc cc c++; do 
