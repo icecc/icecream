@@ -81,7 +81,6 @@
 #include <deque>
 #include <map>
 #include <algorithm>
-#include <ext/hash_set>
 #include <set>
 #include <fstream>
 #include <string>
@@ -1628,7 +1627,10 @@ int main( int argc, char ** argv )
     chdir( "/" );
 
     if ( detach )
-        daemon(0, 0);
+        if (daemon(0, 0)) {
+            log_perror("daemon()");
+            exit (EXIT_DISTCC_FAILED);
+        }
 
     if (dcc_ncpus(&d.num_cpus) == 0)
         log_info() << d.num_cpus << " CPU(s) online on this server" << endl;
