@@ -1823,7 +1823,7 @@ open_tcp_listener (short port)
       log_perror ("bind()");
       return -1;
     }
-  if (listen (fd, 20) < 0)
+  if (listen (fd, 10) < 0)
     {
       log_perror ("listen()");
       return -1;
@@ -1975,6 +1975,8 @@ main (int argc, char * argv[])
   signal(SIGINT, trigger_exit);
   signal(SIGALRM, trigger_exit);
 
+  time_t next_listen = 0;
+
   while (!exit_main_loop)
     {
       struct timeval tv;
@@ -1987,14 +1989,14 @@ main (int argc, char * argv[])
       fd_set read_set;
       int max_fd = 0;
       FD_ZERO (&read_set);
-      if (toanswer.size() < 100) // TODO: this is rather pointless as toanswer is now a queue of queues
-        { // don't let us overrun
+      if (time(0) >= next_listen)
+        {
           max_fd = listen_fd;
           FD_SET (listen_fd, &read_set);
+          if (text_fd > max_fd)
+            max_fd = text_fd;
+          FD_SET (text_fd, &read_set);
         }
-      if (text_fd > max_fd)
-	max_fd = text_fd;
-      FD_SET (text_fd, &read_set);
       if (broad_fd > max_fd)
         max_fd = broad_fd;
       FD_SET (broad_fd, &read_set);
@@ -2027,31 +2029,41 @@ main (int argc, char * argv[])
       if (FD_ISSET (listen_fd, &read_set))
         {
 	  max_fd--;
-	  remote_len = sizeof (remote_addr);
-          remote_fd = accept (listen_fd,
-                              (struct sockaddr *) &remote_addr,
-                              &remote_len );
-	  if (remote_fd < 0 && errno != EAGAIN && errno != EINTR)
-	    {
-	      log_perror ("accept()");
-	      return 1;
-	    }
-	  if (remote_fd >= 0)
-	    {
-	      CS *cs = new CS (remote_fd, (struct sockaddr*) &remote_addr, remote_len, false);
-              trace() << "accepted " << cs->name << endl;
-              cs->last_talk = time( 0 );
+          bool pending_connections = true;
+          while (pending_connections)
+            {
+              remote_len = sizeof (remote_addr);
+              remote_fd = accept (listen_fd,
+                                  (struct sockaddr *) &remote_addr,
+                                  &remote_len );
+              if (remote_fd < 0)
+                pending_connections = false;
 
-              if ( !cs->protocol ) // protocol mismatch
+              if (remote_fd < 0 && errno != EAGAIN && errno != EINTR && errno
+                  != EWOULDBLOCK)
                 {
-                  delete cs;
-                  continue;
+                  log_perror ("accept()");
+                  /* don't quit because of ECONNABORTED, this can happen during
+                   * floods  */
                 }
-	      fd2cs[cs->fd] = cs;
-	      while (!cs->read_a_bit () || cs->has_msg ())
-                if(! handle_activity (cs))
-                  break;
-	    }
+              if (remote_fd >= 0)
+                {
+                  CS *cs = new CS (remote_fd, (struct sockaddr*) &remote_addr, remote_len, false);
+                  trace() << "accepted " << cs->name << endl;
+                  cs->last_talk = time( 0 );
+
+                  if ( !cs->protocol ) // protocol mismatch
+                    {
+                      delete cs;
+                      continue;
+                    }
+                  fd2cs[cs->fd] = cs;
+                  while (!cs->read_a_bit () || cs->has_msg ())
+                    if(! handle_activity (cs))
+                      break;
+                }
+            }
+          next_listen = time(0) + 1;
         }
       if (max_fd && FD_ISSET (text_fd, &read_set))
         {
