@@ -752,6 +752,9 @@ bool Daemon::handle_transfer_env( MsgChannel *c, Msg *_msg )
         if (!handle_file_chunk_env(c, fmsg))
             pid = 0;
     }
+    else {
+        handle_end(client, 139);
+    }
     delete fmsg;
     return pid > 0;
 }
