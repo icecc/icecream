@@ -780,17 +780,7 @@ pick_server(Job *job)
           continue;
       }
 
-      /* Servers that are already compiling jobs but got no environments
-         are currently installing new environments - ignore so far */
-      if ( cs->joblist.size() != 0 && cs->compiler_versions.size() == 0 )
-        {
-#if DEBUG_SCHEDULER > 0
-          trace() << cs->nodename << " is currently installing\n";
-#endif
-          continue;
-        }
-
-      // incompatible architecture
+      // incompatible architecture or busy installing
       if ( !can_install( cs, job ).size() )
         {
 #if DEBUG_SCHEDULER > 2
@@ -930,6 +920,16 @@ prune_servers ()
 
   for (it = css.begin(); it != css.end(); )
     {
+      if ((*it)->busy_installing && (now - (*it)->busy_installing >=
+                                     MAX_BUSY_INSTALLING))
+        {
+	  trace() << "busy installing for a long time - removing " << ( *it )->nodename << endl;
+	  CS *old = *it;
+	  ++it;
+	  handle_end (old, 0);
+	  continue;
+        }
+
       /* protocol version 27 and newer use TCP keepalive */
       if (IS_PROTOCOL_27(*it)) {
         ++it;
@@ -1079,11 +1079,10 @@ empty_queue()
         trace() << "put " << job->id << " in joblist of " << cs->nodename << endl;
 #endif
       cs->joblist.push_back( job );
-      if ( !gotit ) // if we made the environment transfer, don't rely on the list
-        {
-          cs->compiler_versions.clear();
-          cs->busy_installing = time(0);
-        }
+      /* if it doesn't have the environment, it will get it. */
+      if ( !gotit )
+        cs->busy_installing = time(0);
+
       string env;
       if ( !job->master_job_for.empty() )
         {
