@@ -1357,10 +1357,8 @@ handle_job_done (CS *c, Msg *_m)
 	    << " status=" << m->exitcode << endl;
 
   if (j->server)
-    {
       j->server->joblist.remove (j);
-      j->server->busy_installing = 0;
-    }
+
   add_job_stats (j, m);
   notify_monitors (new MonJobDoneMsg (*m));
   jobs.erase (m->job_id);
