@@ -1403,7 +1403,9 @@ int Daemon::answer_client_requests()
                     if (!handle_compile_done(client))
                         return 1;
                 }
+
                 if (FD_ISSET (i, &listen_set)) {
+                    assert(client->status != Client::TOCOMPILE);
                     while (!c->read_a_bit() || c->has_msg()) {
                         if (!handle_activity(c))
                             break;
