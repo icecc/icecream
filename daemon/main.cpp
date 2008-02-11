@@ -742,19 +742,20 @@ bool Daemon::handle_transfer_env( MsgChannel *c, Msg *_msg )
     pid_t pid = start_install_environment( envbasedir, emsg->target,
         emsg->name, c, sock_to_stdin, fmsg, nobody_uid, nobody_gid );
 
+    client->status = Client::TOINSTALL;
+    client->outfile = emsg->target + "/" + emsg->name;
+
     if ( pid > 0) {
         log_error() << "got pid " << pid << endl;
         current_kids++;
-        client->status = Client::TOINSTALL;
-        client->outfile = emsg->target + "/" + emsg->name;
         client->pipe_to_child = sock_to_stdin;
         client->child_pid = pid;
         if (!handle_file_chunk_env(c, fmsg))
             pid = 0;
     }
-    else {
-        handle_end(client, 139);
-    }
+    else
+        handle_transfer_env_done (client);
+
     delete fmsg;
     return pid > 0;
 }
