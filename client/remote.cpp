@@ -100,7 +100,7 @@ parse_icecc_version(const string &target_platform )
         }
 
         struct stat st;
-        if ( lstat( version.c_str(), &st ) || !S_ISREG( st.st_mode )) {
+        if ( lstat( version.c_str(), &st ) || !S_ISREG( st.st_mode ) || st.st_size < 500 ) {
             log_error() << "$ICECC_VERSION has to point to an existing file to be installed " << version << endl;
             continue;
         }
@@ -294,8 +294,8 @@ static int build_remote_int(CompileJob &job, UseCSMsg *usecs, const string &envi
     job.setJobID( job_id );
     job.setEnvironmentVersion( environment ); // hoping on the scheduler's wisdom
     trace() << "Have to use host " << hostname << ":" << port << " - Job ID: "
-        << job.jobID() << " - env: " << usecs->host_platform 
-        << " - has env: " << (got_env ? "true" : "false") 
+        << job.jobID() << " - env: " << usecs->host_platform
+        << " - has env: " << (got_env ? "true" : "false")
         << " - match j: " << usecs->matched_job_id
         << "\n";
 
