@@ -1108,7 +1108,7 @@ empty_queue()
 }
 
 static bool
-handle_login (MsgChannel *c, Msg *_m)
+handle_login (CS *cs, Msg *_m)
 {
   LoginMsg *m = dynamic_cast<LoginMsg *>(_m);
   if (!m)
@@ -1116,7 +1116,6 @@ handle_login (MsgChannel *c, Msg *_m)
 
   std::ostream& dbg = trace();
 
-  CS *cs = static_cast<CS *>(c);
   cs->remote_port = m->port;
   cs->compiler_versions = m->envs;
   cs->max_jobs = m->chroot_possible ? m->max_kids : 0;
@@ -1133,7 +1132,7 @@ handle_login (MsgChannel *c, Msg *_m)
       if (cs->name == *it)
           return false;
 
-  dbg << "login " << m->nodename << " protocol version: " << c->protocol;
+  dbg << "login " << m->nodename << " protocol version: " << cs->protocol;
   handle_monitor_stats( cs );
 
   /* remove any other clients with the same IP, they must be stale */
@@ -1160,8 +1159,8 @@ handle_login (MsgChannel *c, Msg *_m)
 #endif
 
   /* Configure the daemon */
-  if (IS_PROTOCOL_24( c ))
-    c->send_msg (ConfCSMsg(icecream_bench_code));
+  if (IS_PROTOCOL_24( cs ))
+    cs->send_msg (ConfCSMsg(icecream_bench_code));
 
   return true;
 }
