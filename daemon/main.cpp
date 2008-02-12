@@ -472,20 +472,20 @@ struct Daemon
 
     bool reannounce_environments() __attribute_warn_unused_result__;
     int answer_client_requests();
-    bool handle_transfer_env( MsgChannel *c, Msg *msg ) __attribute_warn_unused_result__;
+    bool handle_transfer_env( Client *client, Msg *msg ) __attribute_warn_unused_result__;
     bool handle_transfer_env_done( Client *client );
-    bool handle_get_native_env( MsgChannel *c ) __attribute_warn_unused_result__;
+    bool handle_get_native_env( Client *client ) __attribute_warn_unused_result__;
     void handle_old_request();
-    bool handle_compile_file( MsgChannel *c, Msg *msg ) __attribute_warn_unused_result__;
-    bool handle_activity( MsgChannel *c ) __attribute_warn_unused_result__;
-    bool handle_file_chunk_env(MsgChannel* c, Msg *msg) __attribute_warn_unused_result__;
+    bool handle_compile_file( Client *client, Msg *msg ) __attribute_warn_unused_result__;
+    bool handle_activity( Client *client ) __attribute_warn_unused_result__;
+    bool handle_file_chunk_env(Client* client, Msg *msg) __attribute_warn_unused_result__;
     void handle_end( Client *client, int exitcode );
     int scheduler_get_internals( ) __attribute_warn_unused_result__;
     void clear_children();
     int scheduler_use_cs( UseCSMsg *msg ) __attribute_warn_unused_result__;
-    bool handle_get_cs( MsgChannel *c, Msg *msg ) __attribute_warn_unused_result__;
-    bool handle_local_job( MsgChannel *c, Msg *msg ) __attribute_warn_unused_result__;
-    bool handle_job_done( MsgChannel *c, JobDoneMsg *m ) __attribute_warn_unused_result__;
+    bool handle_get_cs( Client *client, Msg *msg ) __attribute_warn_unused_result__;
+    bool handle_local_job( Client *client, Msg *msg ) __attribute_warn_unused_result__;
+    bool handle_job_done( Client *cl, JobDoneMsg *m ) __attribute_warn_unused_result__;
     bool handle_compile_done (Client* client) __attribute_warn_unused_result__;
     int handle_cs_conf( ConfCSMsg *msg);
     string dump_internals() const;
@@ -719,13 +719,10 @@ int Daemon::scheduler_use_cs( UseCSMsg *msg )
     return 0;
 }
 
-bool Daemon::handle_transfer_env( MsgChannel *c, Msg *_msg )
+bool Daemon::handle_transfer_env( Client *client, Msg *_msg )
 {
     log_error() << "handle_transfer_env" << endl;
 
-    Client *client = clients.find_by_channel( c );
-
-    assert(client);
     assert(client->status != Client::TOINSTALL &&
            client->status != Client::TOCOMPILE &&
            client->status != Client::WAITCOMPILE);
@@ -740,7 +737,7 @@ bool Daemon::handle_transfer_env( MsgChannel *c, Msg *_msg )
     FileChunkMsg* fmsg = 0;
 
     pid_t pid = start_install_environment( envbasedir, emsg->target,
-        emsg->name, c, sock_to_stdin, fmsg, nobody_uid, nobody_gid );
+        emsg->name, client->channel, sock_to_stdin, fmsg, nobody_uid, nobody_gid );
 
     client->status = Client::TOINSTALL;
     client->outfile = emsg->target + "/" + emsg->name;
@@ -750,10 +747,10 @@ bool Daemon::handle_transfer_env( MsgChannel *c, Msg *_msg )
         current_kids++;
         client->pipe_to_child = sock_to_stdin;
         client->child_pid = pid;
-        if (!handle_file_chunk_env(c, fmsg))
+        if (!handle_file_chunk_env(client, fmsg))
             pid = 0;
     }
-    else
+    if (pid <= 0)
         handle_transfer_env_done (client);
 
     delete fmsg;
@@ -764,7 +761,6 @@ bool Daemon::handle_transfer_env_done( Client *client )
 {
     log_error() << "handle_transfer_env_done" << endl;
 
-    assert(client);
     assert(client->outfile.size());
     assert(client->status == Client::TOINSTALL);
 
@@ -778,8 +774,6 @@ bool Daemon::handle_transfer_env_done( Client *client )
     }
 
     client->status = Client::UNKNOWN;
-    close(client->pipe_to_child);
-    client->pipe_to_child = -1;
     string current = client->outfile;
     client->outfile.clear();
     client->child_pid = -1;
@@ -804,7 +798,7 @@ bool Daemon::handle_transfer_env_done( Client *client )
             trace() << "das ist jetzt so: " << it->first << " " << it->second << " " << oldest_time << endl;
             // ignore recently used envs (they might be in use _right_ now)
             if ( it->second < oldest_time && now - it->second > 200 ) {
-                bool found = false;
+                bool env_currently_in_use = false;
                 for (Clients::const_iterator it2 = clients.begin(); it2 != clients.end(); ++it2)  {
                     if (it2->second->status == Client::TOCOMPILE ||
                             it2->second->status == Client::TOINSTALL ||
@@ -814,10 +808,10 @@ bool Daemon::handle_transfer_env_done( Client *client )
                         string envforjob = it2->second->job->targetPlatform() + "/"
                             + it2->second->job->environmentVersion();
                         if (envforjob == it->first)
-                            found = true;
+                            env_currently_in_use = true;
                     }
                 }
-                if (!found) {
+                if (!env_currently_in_use) {
                     oldest_time = it->second;
                     oldest = it->first;
                 }
@@ -838,12 +832,9 @@ bool Daemon::handle_transfer_env_done( Client *client )
     return r;
 }
 
-bool Daemon::handle_get_native_env( MsgChannel *c )
+bool Daemon::handle_get_native_env( Client *client )
 {
     trace() << "get_native_env " << native_environment << endl;
-
-    Client *client = clients.find_by_channel( c );
-    assert( client );
 
     if ( !native_environment.length() ) {
         size_t installed_size = setup_env_cache( envbasedir, native_environment,
@@ -852,13 +843,13 @@ bool Daemon::handle_get_native_env( MsgChannel *c )
         cache_size += installed_size;
         trace() << "cache_size = " << cache_size << endl;
         if ( ! installed_size ) {
-            c->send_msg( EndMsg() );
+            client->channel->send_msg( EndMsg() );
             handle_end( client, 121 );
             return false;
         }
     }
     UseNativeEnvMsg m( native_environment );
-    if (!c->send_msg( m )) {
+    if (!client->channel->send_msg( m )) {
         handle_end(client, 138);
         return false;
     }
@@ -866,10 +857,8 @@ bool Daemon::handle_get_native_env( MsgChannel *c )
     return true;
 }
 
-bool Daemon::handle_job_done( MsgChannel *c, JobDoneMsg *m )
+bool Daemon::handle_job_done( Client *cl, JobDoneMsg *m )
 {
-    Client *cl = clients.find_by_channel( c );
-    assert( cl );
     if ( cl->status == Client::CLIENTWORK )
         clients.active_processes--;
     cl->status = Client::JOBDONE;
@@ -992,10 +981,9 @@ bool Daemon::handle_compile_done (Client* client)
     return r;
 }
 
-bool Daemon::handle_compile_file( MsgChannel *c, Msg *msg )
+bool Daemon::handle_compile_file( Client *client, Msg *msg )
 {
     CompileJob *job = dynamic_cast<CompileFileMsg*>( msg )->takeJob();
-    Client *client = clients.find_by_channel( c );
     assert( client );
     assert( job );
     client->job = job;
@@ -1115,10 +1103,9 @@ void Daemon::clear_children()
     trace() << "cleared children\n";
 }
 
-bool Daemon::handle_get_cs( MsgChannel *c, Msg *msg )
+bool Daemon::handle_get_cs( Client *client, Msg *msg )
 {
     GetCSMsg *umsg = dynamic_cast<GetCSMsg*>( msg );
-    Client *client = clients.find_by_channel( c );
     assert( client );
     client->status = Client::WAITFORCS;
     umsg->client_id = client->client_id;
@@ -1147,17 +1134,14 @@ int Daemon::handle_cs_conf(ConfCSMsg* msg)
     return 0;
 }
 
-bool Daemon::handle_local_job( MsgChannel *c, Msg *msg )
+bool Daemon::handle_local_job( Client *client, Msg *msg )
 {
-    trace() << "handle_local_job " << c << endl;
-    Client *client = clients.find_by_channel( c );
-    assert( client );
     client->status = Client::LINKJOB;
     client->outfile = dynamic_cast<JobLocalBeginMsg*>( msg )->outfile;
     return true;
 }
 
-bool Daemon::handle_file_chunk_env(MsgChannel *c, Msg *msg)
+bool Daemon::handle_file_chunk_env(Client *client, Msg *msg)
 {
     /* this sucks, we can block when we're writing
        the file chunk to the child, but we can't let the child
@@ -1165,9 +1149,7 @@ bool Daemon::handle_file_chunk_env(MsgChannel *c, Msg *msg)
        caching layer inbetween, which causes us to loose partial
        data after the M_END msg of the env transfer.  */
 
-    Client *client = clients.find_by_channel( c );
-    assert (client);
-    assert (client->status == Client::TOINSTALL);
+    assert (client && client->status == Client::TOINSTALL);
 
     if (msg->type == M_FILE_CHUNK && client->pipe_to_child >= 0)
     {
@@ -1206,14 +1188,11 @@ bool Daemon::handle_file_chunk_env(MsgChannel *c, Msg *msg)
     return false;
 }
 
-bool Daemon::handle_activity( MsgChannel *c )
+bool Daemon::handle_activity( Client *client )
 {
-    Client *client = clients.find_by_channel( c );
-
-    assert( client );
     assert(client->status != Client::TOCOMPILE);
 
-    Msg *msg = c->get_msg();
+    Msg *msg = client->channel->get_msg();
     if ( !msg ) {
         handle_end( client, 118 );
         return false;
@@ -1221,7 +1200,7 @@ bool Daemon::handle_activity( MsgChannel *c )
 
     bool ret = false;
     if (client->status == Client::TOINSTALL && client->pipe_to_child >= 0)
-        ret = handle_file_chunk_env(c, msg);
+        ret = handle_file_chunk_env(client, msg);
 
     if (ret) {
         delete msg;
@@ -1229,16 +1208,16 @@ bool Daemon::handle_activity( MsgChannel *c )
     }
 
     switch ( msg->type ) {
-    case M_GET_NATIVE_ENV: ret = handle_get_native_env( c ); break;
-    case M_COMPILE_FILE: ret = handle_compile_file( c, msg ); break;
-    case M_TRANFER_ENV: ret = handle_transfer_env( c, msg ); break;
-    case M_GET_CS: ret = handle_get_cs( c, msg ); break;
+    case M_GET_NATIVE_ENV: ret = handle_get_native_env( client ); break;
+    case M_COMPILE_FILE: ret = handle_compile_file( client, msg ); break;
+    case M_TRANFER_ENV: ret = handle_transfer_env( client, msg ); break;
+    case M_GET_CS: ret = handle_get_cs( client, msg ); break;
     case M_END: handle_end( client, 119 ); ret = false; break;
-    case M_JOB_LOCAL_BEGIN: ret = handle_local_job (c, msg); break;
-    case M_JOB_DONE: ret = handle_job_done( c, dynamic_cast<JobDoneMsg*>(msg) ); break;
+    case M_JOB_LOCAL_BEGIN: ret = handle_local_job (client, msg); break;
+    case M_JOB_DONE: ret = handle_job_done( client, dynamic_cast<JobDoneMsg*>(msg) ); break;
     default:
         log_error() << "not compile: " << ( char )msg->type << "protocol error on client " << client->dump() << endl;
-        c->send_msg( EndMsg() );
+        client->channel->send_msg( EndMsg() );
         handle_end( client, 120 );
         ret = false;
     }
@@ -1281,10 +1260,11 @@ int Daemon::answer_client_requests()
         /* don't select on a fd that we're currently not interested in.
            Avoids that we wake up on an event we're not handling anyway */
         Client* client = clients.find_by_channel(c);
+        assert(client);
         int current_status = client->status;
         bool ignore_channel = current_status == Client::TOCOMPILE ||
                               current_status == Client::WAITFORCHILD;
-        if (!ignore_channel && (!c->has_msg() || handle_activity(c))) {
+        if (!ignore_channel && (!c->has_msg() || handle_activity(client))) {
             if (i > max_fd)
                 max_fd = i;
             FD_SET (i, &listen_set);
@@ -1380,7 +1360,7 @@ int Daemon::answer_client_requests()
 
                 fd2chan[c->fd] = c;
                 while (!c->read_a_bit() || c->has_msg()) {
-                    if (!handle_activity(c))
+                    if (!handle_activity(client))
                         break;
                     if (client->status == Client::TOCOMPILE ||
                             client->status == Client::WAITFORCHILD)
@@ -1407,7 +1387,7 @@ int Daemon::answer_client_requests()
                 if (FD_ISSET (i, &listen_set)) {
                     assert(client->status != Client::TOCOMPILE);
                     while (!c->read_a_bit() || c->has_msg()) {
-                        if (!handle_activity(c))
+                        if (!handle_activity(client))
                             break;
                         if (client->status == Client::TOCOMPILE ||
                                 client->status == Client::WAITFORCHILD)
