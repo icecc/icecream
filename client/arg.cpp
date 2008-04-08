@@ -208,8 +208,10 @@ bool analyse_argv( const char * const *argv,
                    for preprocessing or a precompiled header. decide which one.  */
                 if (argv[i+1]) {
                     ++i;
-                    if (access(argv[i], R_OK))
-                        always_local = true;  /* its a precompiled header.  */
+                    std::string p = argv[i];
+                    if (access(p.c_str(), R_OK) && access((p + ".gch").c_str(), R_OK))
+                        always_local = true;  /* can't decide which one, let the compiler figure it
+                                                 out.  */
                     args.append(a, Arg_Local);
                     args.append(argv[i], Arg_Local);
                 }

@@ -91,6 +91,27 @@ pid_t call_cpp(CompileJob &job, int fdwrite, int fdread)
             argv[2] = 0;
 	} else {
 	    list<string> flags = job.localFlags();
+            /* This has a duplicate meaning. it can either include a file
+               for preprocessing or a precompiled header. decide which one.  */
+            for (list<string>::iterator it = flags.begin();
+                 it != flags.end();) {
+                if ((*it) == "-include") {
+                    ++it;
+                    if (it != flags.end()) {
+                        std::string p = (*it);
+                        if (access(p.c_str(), R_OK) && !access((p + ".gch").c_str(), R_OK)) {
+                            list<string>::iterator o = --it;
+                            it++;
+                            flags.erase(o);
+                            o = it++;
+                            flags.erase(o);
+                        }
+                    }
+                }
+                else
+                    ++it;
+            }
+
 	    appendList( flags, job.restFlags() );
 	    int argc = flags.size();
 	    argc++; // the program
