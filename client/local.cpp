@@ -25,6 +25,7 @@
 #include <sys/stat.h>
 #include <sys/wait.h>
 #include <unistd.h>
+#include <limits.h>
 #include <string.h>
 #include <errno.h>
 #ifdef HAVE_SIGNAL_H

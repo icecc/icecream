@@ -49,6 +49,7 @@
 #include <errno.h>
 #include <signal.h>
 #include <cassert>
+#include <limits.h>
 #include <sys/time.h>
 #include <comm.h>
 #include <sys/types.h>

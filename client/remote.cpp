@@ -34,6 +34,7 @@
 
 #include <fcntl.h>
 #include <signal.h>
+#include <limits.h>
 #include <assert.h>
 #include <unistd.h>
 #include <stdio.h>
