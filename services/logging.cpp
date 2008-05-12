@@ -23,6 +23,9 @@
 #include "logging.h"
 #include <fstream>
 #include <signal.h>
+#ifdef __linux__
+#include <dlfcn.h>
+#endif
 
 using namespace std;
 
@@ -41,6 +44,7 @@ void reset_debug( int );
 
 void setup_debug(int level, const string &filename, const string& prefix)
 {
+    string fname = filename;
     debug_level = level;
     logfile_prefix = prefix;
     logfile_filename = filename;
@@ -51,9 +55,23 @@ void setup_debug(int level, const string &filename, const string& prefix)
     if ( filename.length() ) {
 	logfile_file.clear();
         logfile_file.open( filename.c_str(), fstream::out | fstream::app );
+#ifdef __linux__
+        if (fname[0] != '/') {
+            char buf[256];
+            if (getcwd(buf, sizeof(buf))) {
+                fname.insert(0, "/");
+                fname.insert(0, buf);
+            }
+        }
+        setenv("SEGFAULT_OUTPUT_NAME", fname.c_str(), false);
+#endif
         output = &logfile_file;
     } else
         output = &cerr;
+
+#ifdef __linux__
+    (void) dlopen("libSegFault.so", RTLD_NOW | RTLD_LOCAL);
+#endif
 
     if ( debug_level & Debug )
         logfile_trace = output;

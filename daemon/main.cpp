@@ -81,7 +81,6 @@
 #include <deque>
 #include <map>
 #include <algorithm>
-#include <ext/hash_set>
 #include <set>
 #include <fstream>
 #include <string>
@@ -434,7 +433,7 @@ struct Daemon
     map<int, MsgChannel *> fd2chan;
     int new_client_id;
     string remote_name;
-    time_t next_check;
+    time_t next_scheduler_connect;
     unsigned long icecream_load;
     struct timeval icecream_usage;
     int current_load;
@@ -455,7 +454,7 @@ struct Daemon
         nobody_gid = 65533;
         listen_fd = -1;
         new_client_id = 0;
-        next_check = 0;
+        next_scheduler_connect = 0;
         cache_size = 0;
         noremote = false;
         custom_nodename = false;
@@ -473,20 +472,20 @@ struct Daemon
 
     bool reannounce_environments() __attribute_warn_unused_result__;
     int answer_client_requests();
-    bool handle_transfer_env( MsgChannel *c, Msg *msg ) __attribute_warn_unused_result__;
-    bool handle_transfer_env_done( Client *client ) __attribute_warn_unused_result__;
-    bool handle_get_native_env( MsgChannel *c ) __attribute_warn_unused_result__;
+    bool handle_transfer_env( Client *client, Msg *msg ) __attribute_warn_unused_result__;
+    bool handle_transfer_env_done( Client *client );
+    bool handle_get_native_env( Client *client ) __attribute_warn_unused_result__;
     void handle_old_request();
-    bool handle_compile_file( MsgChannel *c, Msg *msg ) __attribute_warn_unused_result__;
-    bool handle_activity( MsgChannel *c ) __attribute_warn_unused_result__;
-    bool handle_file_chunk_env(MsgChannel* c, Msg *msg) __attribute_warn_unused_result__;
+    bool handle_compile_file( Client *client, Msg *msg ) __attribute_warn_unused_result__;
+    bool handle_activity( Client *client ) __attribute_warn_unused_result__;
+    bool handle_file_chunk_env(Client* client, Msg *msg) __attribute_warn_unused_result__;
     void handle_end( Client *client, int exitcode );
     int scheduler_get_internals( ) __attribute_warn_unused_result__;
     void clear_children();
     int scheduler_use_cs( UseCSMsg *msg ) __attribute_warn_unused_result__;
-    bool handle_get_cs( MsgChannel *c, Msg *msg ) __attribute_warn_unused_result__;
-    bool handle_local_job( MsgChannel *c, Msg *msg ) __attribute_warn_unused_result__;
-    bool handle_job_done( MsgChannel *c, JobDoneMsg *m ) __attribute_warn_unused_result__;
+    bool handle_get_cs( Client *client, Msg *msg ) __attribute_warn_unused_result__;
+    bool handle_local_job( Client *client, Msg *msg ) __attribute_warn_unused_result__;
+    bool handle_job_done( Client *cl, JobDoneMsg *m ) __attribute_warn_unused_result__;
     bool handle_compile_done (Client* client) __attribute_warn_unused_result__;
     int handle_cs_conf( ConfCSMsg *msg);
     string dump_internals() const;
@@ -562,6 +561,7 @@ void Daemon::close_scheduler()
     scheduler = 0;
     delete discover;
     discover = 0;
+    next_scheduler_connect = time(0) + 20 + (rand() & 31);
 }
 
 bool Daemon::maybe_stats(bool send_ping)
@@ -698,14 +698,17 @@ int Daemon::scheduler_use_cs( UseCSMsg *msg )
     trace() << "handle_use_cs " << msg->job_id << " " << msg->client_id
             << " " << c << " " << msg->hostname << " " << remote_name <<  endl;
     if ( !c ) {
-        send_scheduler( JobDoneMsg( msg->job_id, 107, JobDoneMsg::FROM_SUBMITTER ) );
+        if (send_scheduler( JobDoneMsg( msg->job_id, 107, JobDoneMsg::FROM_SUBMITTER ) ))
+            return 1;
         return 1;
     }
     if ( msg->hostname == remote_name ) {
-        c->usecsmsg = new UseCSMsg( msg->host_platform, "127.0.0.1", PORT, msg->job_id, true, 1 );
+        c->usecsmsg = new UseCSMsg( msg->host_platform, "127.0.0.1", PORT, msg->job_id, true, 1,
+                msg->matched_job_id );
         c->status = Client::PENDING_USE_CS;
     } else {
-        c->usecsmsg = new UseCSMsg( msg->host_platform, msg->hostname, msg->port, msg->job_id, true, 1 );
+        c->usecsmsg = new UseCSMsg( msg->host_platform, msg->hostname, msg->port, 
+                msg->job_id, true, 1, msg->matched_job_id );
         if (!c->channel->send_msg( *msg )) {
             handle_end(c, 143);
             return 0;
@@ -716,13 +719,10 @@ int Daemon::scheduler_use_cs( UseCSMsg *msg )
     return 0;
 }
 
-bool Daemon::handle_transfer_env( MsgChannel *c, Msg *_msg )
+bool Daemon::handle_transfer_env( Client *client, Msg *_msg )
 {
     log_error() << "handle_transfer_env" << endl;
 
-    Client *client = clients.find_by_channel( c );
-
-    assert(client);
     assert(client->status != Client::TOINSTALL &&
            client->status != Client::TOCOMPILE &&
            client->status != Client::WAITCOMPILE);
@@ -737,17 +737,22 @@ bool Daemon::handle_transfer_env( MsgChannel *c, Msg *_msg )
     FileChunkMsg* fmsg = 0;
 
     pid_t pid = start_install_environment( envbasedir, emsg->target,
-        emsg->name, c, sock_to_stdin, fmsg, nobody_uid, nobody_gid );
+        emsg->name, client->channel, sock_to_stdin, fmsg, nobody_uid, nobody_gid );
+
+    client->status = Client::TOINSTALL;
+    client->outfile = emsg->target + "/" + emsg->name;
 
     if ( pid > 0) {
+        log_error() << "got pid " << pid << endl;
         current_kids++;
-        client->status = Client::TOINSTALL;
-        client->outfile = emsg->target + "/" + emsg->name;
         client->pipe_to_child = sock_to_stdin;
         client->child_pid = pid;
-        handle_file_chunk_env(c, fmsg);
-        log_error() << "got pid " << pid << endl;
+        if (!handle_file_chunk_env(client, fmsg))
+            pid = 0;
     }
+    if (pid <= 0)
+        handle_transfer_env_done (client);
+
     delete fmsg;
     return pid > 0;
 }
@@ -756,7 +761,6 @@ bool Daemon::handle_transfer_env_done( Client *client )
 {
     log_error() << "handle_transfer_env_done" << endl;
 
-    assert(client);
     assert(client->outfile.size());
     assert(client->status == Client::TOINSTALL);
 
@@ -770,8 +774,6 @@ bool Daemon::handle_transfer_env_done( Client *client )
     }
 
     client->status = Client::UNKNOWN;
-    close(client->pipe_to_child);
-    client->pipe_to_child = -1;
     string current = client->outfile;
     client->outfile.clear();
     client->child_pid = -1;
@@ -796,7 +798,7 @@ bool Daemon::handle_transfer_env_done( Client *client )
             trace() << "das ist jetzt so: " << it->first << " " << it->second << " " << oldest_time << endl;
             // ignore recently used envs (they might be in use _right_ now)
             if ( it->second < oldest_time && now - it->second > 200 ) {
-                bool found = false;
+                bool env_currently_in_use = false;
                 for (Clients::const_iterator it2 = clients.begin(); it2 != clients.end(); ++it2)  {
                     if (it2->second->status == Client::TOCOMPILE ||
                             it2->second->status == Client::TOINSTALL ||
@@ -806,10 +808,10 @@ bool Daemon::handle_transfer_env_done( Client *client )
                         string envforjob = it2->second->job->targetPlatform() + "/"
                             + it2->second->job->environmentVersion();
                         if (envforjob == it->first)
-                            found = true;
+                            env_currently_in_use = true;
                     }
                 }
-                if (!found) {
+                if (!env_currently_in_use) {
                     oldest_time = it->second;
                     oldest = it->first;
                 }
@@ -830,12 +832,9 @@ bool Daemon::handle_transfer_env_done( Client *client )
     return r;
 }
 
-bool Daemon::handle_get_native_env( MsgChannel *c )
+bool Daemon::handle_get_native_env( Client *client )
 {
     trace() << "get_native_env " << native_environment << endl;
-
-    Client *client = clients.find_by_channel( c );
-    assert( client );
 
     if ( !native_environment.length() ) {
         size_t installed_size = setup_env_cache( envbasedir, native_environment,
@@ -844,13 +843,13 @@ bool Daemon::handle_get_native_env( MsgChannel *c )
         cache_size += installed_size;
         trace() << "cache_size = " << cache_size << endl;
         if ( ! installed_size ) {
-            c->send_msg( EndMsg() );
+            client->channel->send_msg( EndMsg() );
             handle_end( client, 121 );
             return false;
         }
     }
     UseNativeEnvMsg m( native_environment );
-    if (!c->send_msg( m )) {
+    if (!client->channel->send_msg( m )) {
         handle_end(client, 138);
         return false;
     }
@@ -858,10 +857,8 @@ bool Daemon::handle_get_native_env( MsgChannel *c )
     return true;
 }
 
-bool Daemon::handle_job_done( MsgChannel *c, JobDoneMsg *m )
+bool Daemon::handle_job_done( Client *cl, JobDoneMsg *m )
 {
-    Client *cl = clients.find_by_channel( c );
-    assert( cl );
     if ( cl->status == Client::CLIENTWORK )
         clients.active_processes--;
     cl->status = Client::JOBDONE;
@@ -891,7 +888,8 @@ void Daemon::handle_old_request()
                 client->status = Client::CLIENTWORK;
                 clients.active_processes++;
                 trace() << "pushed local job " << client->client_id << endl;
-                send_scheduler( JobLocalBeginMsg( client->client_id, client->outfile ) );
+                if (!send_scheduler( JobLocalBeginMsg( client->client_id, client->outfile ) ))
+                    return;
             }
             continue;
         }
@@ -983,10 +981,9 @@ bool Daemon::handle_compile_done (Client* client)
     return r;
 }
 
-bool Daemon::handle_compile_file( MsgChannel *c, Msg *msg )
+bool Daemon::handle_compile_file( Client *client, Msg *msg )
 {
     CompileJob *job = dynamic_cast<CompileFileMsg*>( msg )->takeJob();
-    Client *client = clients.find_by_channel( c );
     assert( client );
     assert( job );
     client->job = job;
@@ -1070,12 +1067,13 @@ void Daemon::handle_end( Client *client, int exitcode )
                 break;
             }
             trace() << "scheduler->send_msg( JobDoneMsg( " << client->dump() << ", " << exitcode << "))\n";
-            send_scheduler( JobDoneMsg( job_id, exitcode, flag) );
+            if (!send_scheduler( JobDoneMsg( job_id, exitcode, flag) ))
+                trace() << "failed to reach scheduler for remote job done msg!" << endl;
         } else if ( client->status == Client::CLIENTWORK ) {
             // Clientwork && !job_id == LINK
             trace() << "scheduler->send_msg( JobLocalDoneMsg( " << client->client_id << ") );\n";
             if (!send_scheduler( JobLocalDoneMsg( client->client_id ) ))
-                trace() << "failed to reach scheduler for job done msg!" << endl;
+                trace() << "failed to reach scheduler for local job done msg!" << endl;
         }
     }
 
@@ -1105,10 +1103,9 @@ void Daemon::clear_children()
     trace() << "cleared children\n";
 }
 
-bool Daemon::handle_get_cs( MsgChannel *c, Msg *msg )
+bool Daemon::handle_get_cs( Client *client, Msg *msg )
 {
     GetCSMsg *umsg = dynamic_cast<GetCSMsg*>( msg );
-    Client *client = clients.find_by_channel( c );
     assert( client );
     client->status = Client::WAITFORCS;
     umsg->client_id = client->client_id;
@@ -1118,7 +1115,8 @@ bool Daemon::handle_get_cs( MsgChannel *c, Msg *msg )
         /* now the thing is this: if there is no scheduler
            there is no point in trying to ask him. So we just
            redefine this as local job */
-        client->usecsmsg = new UseCSMsg( umsg->target, "127.0.0.1", PORT, umsg->client_id, true, 1 );
+        client->usecsmsg = new UseCSMsg( umsg->target, "127.0.0.1", PORT, 
+                umsg->client_id, true, 1, 0 );
         client->status = Client::PENDING_USE_CS;
         client->job_id = umsg->client_id;
         return true;
@@ -1136,17 +1134,14 @@ int Daemon::handle_cs_conf(ConfCSMsg* msg)
     return 0;
 }
 
-bool Daemon::handle_local_job( MsgChannel *c, Msg *msg )
+bool Daemon::handle_local_job( Client *client, Msg *msg )
 {
-    trace() << "handle_local_job " << c << endl;
-    Client *client = clients.find_by_channel( c );
-    assert( client );
     client->status = Client::LINKJOB;
     client->outfile = dynamic_cast<JobLocalBeginMsg*>( msg )->outfile;
     return true;
 }
 
-bool Daemon::handle_file_chunk_env(MsgChannel *c, Msg *msg)
+bool Daemon::handle_file_chunk_env(Client *client, Msg *msg)
 {
     /* this sucks, we can block when we're writing
        the file chunk to the child, but we can't let the child
@@ -1154,9 +1149,7 @@ bool Daemon::handle_file_chunk_env(MsgChannel *c, Msg *msg)
        caching layer inbetween, which causes us to loose partial
        data after the M_END msg of the env transfer.  */
 
-    Client *client = clients.find_by_channel( c );
-    assert (client);
-    assert (client->status == Client::TOINSTALL);
+    assert (client && client->status == Client::TOINSTALL);
 
     if (msg->type == M_FILE_CHUNK && client->pipe_to_child >= 0)
     {
@@ -1195,15 +1188,11 @@ bool Daemon::handle_file_chunk_env(MsgChannel *c, Msg *msg)
     return false;
 }
 
-bool Daemon::handle_activity( MsgChannel *c )
+bool Daemon::handle_activity( Client *client )
 {
-    Client *client = clients.find_by_channel( c );
-
-    assert(c->has_msg());
-    assert( client );
     assert(client->status != Client::TOCOMPILE);
 
-    Msg *msg = c->get_msg();
+    Msg *msg = client->channel->get_msg();
     if ( !msg ) {
         handle_end( client, 118 );
         return false;
@@ -1211,7 +1200,7 @@ bool Daemon::handle_activity( MsgChannel *c )
 
     bool ret = false;
     if (client->status == Client::TOINSTALL && client->pipe_to_child >= 0)
-        ret = handle_file_chunk_env(c, msg);
+        ret = handle_file_chunk_env(client, msg);
 
     if (ret) {
         delete msg;
@@ -1219,16 +1208,16 @@ bool Daemon::handle_activity( MsgChannel *c )
     }
 
     switch ( msg->type ) {
-    case M_GET_NATIVE_ENV: ret = handle_get_native_env( c ); break;
-    case M_COMPILE_FILE: ret = handle_compile_file( c, msg ); break;
-    case M_TRANFER_ENV: ret = handle_transfer_env( c, msg ); break;
-    case M_GET_CS: ret = handle_get_cs( c, msg ); break;
+    case M_GET_NATIVE_ENV: ret = handle_get_native_env( client ); break;
+    case M_COMPILE_FILE: ret = handle_compile_file( client, msg ); break;
+    case M_TRANFER_ENV: ret = handle_transfer_env( client, msg ); break;
+    case M_GET_CS: ret = handle_get_cs( client, msg ); break;
     case M_END: handle_end( client, 119 ); ret = false; break;
-    case M_JOB_LOCAL_BEGIN: ret = handle_local_job (c, msg); break;
-    case M_JOB_DONE: ret = handle_job_done( c, dynamic_cast<JobDoneMsg*>(msg) ); break;
+    case M_JOB_LOCAL_BEGIN: ret = handle_local_job (client, msg); break;
+    case M_JOB_DONE: ret = handle_job_done( client, dynamic_cast<JobDoneMsg*>(msg) ); break;
     default:
         log_error() << "not compile: " << ( char )msg->type << "protocol error on client " << client->dump() << endl;
-        c->send_msg( EndMsg() );
+        client->channel->send_msg( EndMsg() );
         handle_end( client, 120 );
         ret = false;
     }
@@ -1271,10 +1260,11 @@ int Daemon::answer_client_requests()
         /* don't select on a fd that we're currently not interested in.
            Avoids that we wake up on an event we're not handling anyway */
         Client* client = clients.find_by_channel(c);
+        assert(client);
         int current_status = client->status;
         bool ignore_channel = current_status == Client::TOCOMPILE ||
                               current_status == Client::WAITFORCHILD;
-        if (!ignore_channel && (!c->has_msg() || handle_activity(c))) {
+        if (!ignore_channel && (!c->has_msg() || handle_activity(client))) {
             if (i > max_fd)
                 max_fd = i;
             FD_SET (i, &listen_set);
@@ -1292,13 +1282,13 @@ int Daemon::answer_client_requests()
         FD_SET( scheduler->fd, &listen_set );
         if ( max_fd < scheduler->fd )
             max_fd = scheduler->fd;
-    } else if ( discover && discover->get_fd() >= 0) {
+    } else if ( discover && discover->listen_fd() >= 0) {
         /* We don't explicitely check for discover->get_fd() being in
 	   the selected set below.  If it's set, we simply will return
 	   and our call will make sure we try to get the scheduler.  */
-        FD_SET( discover->get_fd(), &listen_set);
-	if ( max_fd < discover->get_fd() )
-	    max_fd = discover->get_fd();
+        FD_SET( discover->listen_fd(), &listen_set);
+	if ( max_fd < discover->listen_fd() )
+	    max_fd = discover->listen_fd();
     }
 
     tv.tv_sec = max_scheduler_pong;
@@ -1313,36 +1303,39 @@ int Daemon::answer_client_requests()
     if ( ret > 0 ) {
         bool had_scheduler = scheduler;
         if ( scheduler && FD_ISSET( scheduler->fd, &listen_set ) ) {
-            Msg *msg = scheduler->get_msg();
-            if ( !msg ) {
-                log_error() << "scheduler closed connection\n";
-                close_scheduler();
-                clear_children();
-                return 1;
-            } else {
-                ret = 0;
-                switch ( msg->type )
-                {
-                case M_PING:
-                    if (!IS_PROTOCOL_27(scheduler))
-                        ret = !send_scheduler(PingMsg());
-                    break;
-                case M_USE_CS:
-                    ret = scheduler_use_cs( dynamic_cast<UseCSMsg*>( msg ) );
-		    break;
-                case M_GET_INTERNALS:
-                    ret = scheduler_get_internals( );
-                    break;
-                case M_CS_CONF:
-                    ret = handle_cs_conf(dynamic_cast<ConfCSMsg*>( msg ));
-                    break;
-                default:
-                    log_error() << "unknown scheduler type " << ( char )msg->type << endl;
-                    ret = 1;
+            while (!scheduler->read_a_bit() || scheduler->has_msg()) {
+                Msg *msg = scheduler->get_msg();
+                if ( !msg ) {
+                    log_error() << "scheduler closed connection\n";
+                    close_scheduler();
+                    clear_children();
+                    return 1;
+                } else {
+                    ret = 0;
+                    switch ( msg->type )
+                    {
+                    case M_PING:
+                        if (!IS_PROTOCOL_27(scheduler))
+                            ret = !send_scheduler(PingMsg());
+                        break;
+                    case M_USE_CS:
+                        ret = scheduler_use_cs( static_cast<UseCSMsg*>( msg ) );
+                        break;
+                    case M_GET_INTERNALS:
+                        ret = scheduler_get_internals( );
+                        break;
+                    case M_CS_CONF:
+                        ret = handle_cs_conf(static_cast<ConfCSMsg*>( msg ));
+                        break;
+                    default:
+                        log_error() << "unknown scheduler type " << ( char )msg->type << endl;
+                        ret = 1;
+                    }
                 }
+                delete msg;
+                if (ret)
+                    return ret;
             }
-            delete msg;
-            return ret;
         }
 
         if ( FD_ISSET( listen_fd, &listen_set ) ) {
@@ -1355,10 +1348,10 @@ int Daemon::answer_client_requests()
                 log_perror("accept failed:");
                 return EXIT_CONNECT_FAILED;
             } else {
-                MsgChannel *c = Service::createChannel( acc_fd, (struct sockaddr*) &cli_addr, cli_len );
+                MsgChannel *c = Service::createChannel( acc_fd, &cli_addr, cli_len );
                 if ( !c )
                     return 0;
-                trace() << "accept " << c->fd << " " << c->name << endl;
+                trace() << "accepted " << c->fd << " " << c->name << endl;
 
                 Client *client = new Client;
                 client->client_id = ++new_client_id;
@@ -1366,8 +1359,9 @@ int Daemon::answer_client_requests()
                 clients[c] = client;
 
                 fd2chan[c->fd] = c;
-                c->read_a_bit();
-                while (c->has_msg() && handle_activity(c)) {
+                while (!c->read_a_bit() || c->has_msg()) {
+                    if (!handle_activity(client))
+                        break;
                     if (client->status == Client::TOCOMPILE ||
                             client->status == Client::WAITFORCHILD)
                         break;
@@ -1389,9 +1383,12 @@ int Daemon::answer_client_requests()
                     if (!handle_compile_done(client))
                         return 1;
                 }
+
                 if (FD_ISSET (i, &listen_set)) {
-                    c->read_a_bit();
-                    while (c->has_msg() && handle_activity(c)) {
+                    assert(client->status != Client::TOCOMPILE);
+                    while (!c->read_a_bit() || c->has_msg()) {
+                        if (!handle_activity(client))
+                            break;
                         if (client->status == Client::TOCOMPILE ||
                                 client->status == Client::WAITFORCHILD)
                             break;
@@ -1414,13 +1411,18 @@ bool Daemon::reconnect()
     if ( scheduler )
         return true;
 
-    trace() << "reconn " << dump_internals() << endl;
+    if (!discover &&
+        next_scheduler_connect > time(0)) {
+        trace() << "timeout.." << endl;
+        return false;
+    }
 
+    trace() << "reconn " << dump_internals() << endl;
     if (!discover
 	|| discover->timed_out())
     {
         delete discover;
-	discover = new DiscoverSched (netname, 3000, schedname);
+	discover = new DiscoverSched (netname, max_scheduler_pong, schedname);
     }
 
     scheduler = discover->try_get_scheduler ();
@@ -1446,7 +1448,7 @@ bool Daemon::reconnect()
     lmsg.envs = available_environmnents(envbasedir);
     lmsg.max_kids = max_kids;
     lmsg.noremote = noremote;
-    return scheduler->send_msg( lmsg );
+    return send_scheduler ( lmsg );
 }
 
 int Daemon::working_loop()
@@ -1465,6 +1467,7 @@ int Daemon::working_loop()
 int main( int argc, char ** argv )
 {
     int max_processes = -1;
+    srand( time( 0 ) + getpid() );
 
     Daemon d;
 
@@ -1472,7 +1475,6 @@ int main( int argc, char ** argv )
     string logfile;
     bool detach = false;
     nice_level = 5; // defined in serve.h
-    bool runasuser = false;
 
     while ( true ) {
         int option_index = 0;
@@ -1485,7 +1487,6 @@ int main( int argc, char ** argv )
             { "nice", 1, NULL, 0},
             { "name", 1, NULL, 'n'},
             { "scheduler-host", 1, NULL, 's' },
-            { "run-as-user", 1, NULL, 'r' },
             { "env-basedir", 1, NULL, 'b' },
             { "nobody-uid", 1, NULL, 'u'},
             { "cache-limit", 1, NULL, 0},
@@ -1574,9 +1575,6 @@ int main( int argc, char ** argv )
             if ( optarg && *optarg )
                 d.envbasedir = optarg;
             break;
-        case 'r':
-            runasuser = true;
-            break;
         case 'u':
             if ( optarg && *optarg )
             {
@@ -1604,11 +1602,8 @@ int main( int argc, char ** argv )
 
     setup_debug( debug_level, logfile );
 
-    if ((geteuid()!=0) && !runasuser)
-    {
-        log_error() << "Please run iceccd with root privileges" << endl;
-        return 1;
-    }
+    if ((getuid()!=0))
+        d.noremote = true;
 
     log_info() << "ICECREAM daemon " VERSION " starting up (nice level "
                << nice_level << ") " << endl;
@@ -1618,7 +1613,10 @@ int main( int argc, char ** argv )
     chdir( "/" );
 
     if ( detach )
-        daemon(0, 0);
+        if (daemon(0, 0)) {
+            log_perror("daemon()");
+            exit (EXIT_DISTCC_FAILED);
+        }
 
     if (dcc_ncpus(&d.num_cpus) == 0)
         log_info() << d.num_cpus << " CPU(s) online on this server" << endl;

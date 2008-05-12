@@ -4,6 +4,7 @@
 
     Copyright (c) 2004 Michael Matz <matz@suse.de>
                   2004 Stephan Kulow <coolo@suse.de>
+                  2007 Dirk Mueller <dmueller@suse.de>
 
     This program is free software; you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -49,6 +50,15 @@
 #include "comm.h"
 
 using namespace std;
+
+/*
+ * A generic DoS protection. The biggest messages are of type FileChunk
+ * which shouldn't be larger than 100kb. so anything bigger than 10 times
+ * of that is definitly fishy, and we must reject it (we're running as root,
+ * so be cautious).
+ */
+
+#define MAX_MSG_SIZE 1 * 1024 * 1024
 
 /* TODO
  * buffered in/output per MsgChannel
@@ -114,31 +124,32 @@ MsgChannel::update_state (void)
 	{
 	  if (protocol == 0)
 	    return false;
-	  uint32_t remote_prot;
+	  uint32_t remote_prot = 0;
 	  unsigned char vers[4];
 	  //readuint32 (remote_prot);
 	  memcpy(vers, inbuf + intogo, 4);
 	  intogo += 4;
-	  remote_prot = vers[0];
+          for (int i = 0; i < 4; ++i)
+              remote_prot |= vers[i] << (i*8);
 	  if (protocol == -1)
 	    {
 	      /* The first time we read the remote protocol.  */
 	      protocol = 0;
-	      if (remote_prot < MIN_PROTOCOL_VERSION)
-		remote_prot = 0;
-	      else if (remote_prot > PROTOCOL_VERSION)
+	      if (remote_prot < MIN_PROTOCOL_VERSION || remote_prot > (1<<20))
+                {
+		  remote_prot = 0;
+		  return false;
+                }
+
+	      if (remote_prot > PROTOCOL_VERSION)
 		remote_prot = PROTOCOL_VERSION; // ours is smaller
-	      if (remote_prot == 0)
-		return false;
-	      else
-		{
-		  vers[0] = remote_prot;
-		  //writeuint32 (remote_prot);
-		  writefull (vers, 4);
-		  if (!flush_writebuf (true))
-		    return false;
-		  protocol = -1 - remote_prot;
-		}
+
+              for (int i = 0; i < 4; ++i)
+                  vers[i] = remote_prot >> (i * 8);
+	      writefull (vers, 4);
+	      if (!flush_writebuf (true))
+		  return false;
+	      protocol = -1 - remote_prot;
 	    }
 	  else if (protocol < -1)
 	    {
@@ -178,7 +189,9 @@ MsgChannel::update_state (void)
 	}
       else if (inofs - intogo >= 4)
         {
-	  readuint32 (inmsglen);
+          (*this) >> inmsglen;
+          if (inmsglen > MAX_MSG_SIZE)
+              return false;
 	  if (inbuflen - intogo < inmsglen)
 	    {
 	      inbuflen = (inmsglen + intogo + 127) & ~(size_t)127;
@@ -220,8 +233,7 @@ MsgChannel::chop_input ()
 void
 MsgChannel::chop_output ()
 {
-  if (msgofs > 8192
-      || msgtogo <= 16)
+  if (msgofs > 8192 || msgtogo <= 16)
     {
       if (msgtogo)
         memmove (msgbuf, msgbuf + msgofs, msgtogo);
@@ -302,8 +314,8 @@ MsgChannel::flush_writebuf (bool blocking)
   return !error;
 }
 
-void
-MsgChannel::readuint32 (uint32_t &buf)
+MsgChannel&
+MsgChannel::operator>> (uint32_t &buf)
 {
   if (inofs >= intogo + 4)
     {
@@ -318,23 +330,25 @@ MsgChannel::readuint32 (uint32_t &buf)
     }
   else
     buf = 0;
+  return *this;
 }
 
-void
-MsgChannel::writeuint32 (uint32_t i)
+MsgChannel&
+MsgChannel::operator<< (uint32_t i)
 {
   i = htonl (i);
   writefull (&i, 4);
+  return *this;
 }
 
-void
-MsgChannel::read_string (string &s)
+MsgChannel&
+MsgChannel::operator>> (string &s)
 {
   char *buf;
   // len is including the (also saved) 0 Byte
   uint32_t len;
-  readuint32 (len);
-  if (!len || inofs < intogo + len)
+  *this >> len;
+  if (!len || len > inofs - intogo)
     s = "";
   else
     {
@@ -342,47 +356,53 @@ MsgChannel::read_string (string &s)
       intogo += len;
       s = buf;
     }
+  return *this;
 }
 
-void
-MsgChannel::write_string (const string &s)
+MsgChannel&
+MsgChannel::operator<< (const std::string &s)
 {
   uint32_t len = 1 + s.length();
-  writeuint32 (len);
+  *this << len;
   writefull (s.c_str(), len);
+  return *this;
 }
 
-void
-MsgChannel::read_strlist (list<string> &l)
+MsgChannel&
+MsgChannel::operator>> (list<string> &l)
 {
   uint32_t len;
   l.clear();
-  readuint32 (len);
+  *this >> len;
   while (len--)
     {
       string s;
-      read_string (s);
+      *this >> s;
       l.push_back (s);
+      if (inofs == intogo)
+        break;
     }
+  return *this;
 }
 
-void
-MsgChannel::write_strlist (const list<string> &l)
+MsgChannel&
+MsgChannel::operator<< (const std::list<std::string> &l)
 {
-  writeuint32 ((uint32_t) l.size());
+  *this << (uint32_t) l.size();
   for (list<string>::const_iterator it = l.begin();
        it != l.end(); ++it )
-    write_string (*it);
+    *this << *it;
+  return *this;
 }
 
 void
 MsgChannel::write_environments( const Environments &envs )
 {
-  writeuint32( envs.size() );
+  *this << envs.size();
   for ( Environments::const_iterator it = envs.begin(); it != envs.end(); ++it )
     {
-      write_string( it->first );
-      write_string( it->second );
+      *this << it->first;
+      *this << it->second;
     }
 }
 
@@ -391,13 +411,13 @@ MsgChannel::read_environments( Environments &envs )
 {
   envs.clear();
   uint32_t count;
-  readuint32( count );
+  *this >> count;
   for ( unsigned int i = 0; i < count; i++ )
     {
       string plat;
       string vers;
-      read_string( plat );
-      read_string( vers );
+      *this >> plat;
+      *this >> vers;
       envs.push_back( make_pair( plat, vers ) );
     }
 }
@@ -409,15 +429,19 @@ MsgChannel::readcompressed (unsigned char **uncompressed_buf,
   lzo_uint uncompressed_len;
   lzo_uint compressed_len;
   uint32_t tmp;
-  readuint32 (tmp);
+  *this >> tmp;
   uncompressed_len = tmp;
-  readuint32 (tmp);
+  *this >> tmp;
   compressed_len = tmp;
-  /* If there was some input, but nothing compressed, or we don't have
-     everything to uncompress, there was an error.  */
-  if ((uncompressed_len && !compressed_len)
-      || inofs < intogo + compressed_len)
+  /* If there was some input, but nothing compressed,
+     or lengths are bigger than the whole chunk message
+     or we don't have everything to uncompress, there was an error.  */
+  if ( uncompressed_len > MAX_MSG_SIZE
+       || compressed_len > (inofs - intogo)
+       || (uncompressed_len && !compressed_len)
+       || inofs < intogo + compressed_len )
     {
+      log_error() << "failure in readcompressed() length checking" << endl;
       *uncompressed_buf = 0;
       uncompressed_len = 0;
       _uclen = uncompressed_len;
@@ -446,6 +470,7 @@ MsgChannel::readcompressed (unsigned char **uncompressed_buf,
 	  uncompressed_len = 0;
         }
     }
+
   /* Read over everything used, _also_ if there was some error.
      If we couldn't decode it now, it won't get better in the future,
      so just ignore this hunk.  */
@@ -461,9 +486,9 @@ MsgChannel::writecompressed (const unsigned char *in_buf,
   lzo_uint in_len = _in_len;
   lzo_uint out_len = _out_len;
   out_len = in_len + in_len / 64 + 16 + 3;
-  writeuint32 (in_len);
+  *this << in_len;
   size_t msgtogo_old = msgtogo;
-  writeuint32 (0); // will be out_len
+  *this << (uint32_t) 0;
   if (msgtogo + out_len >= msgbuflen)
     {
       /* Realloc to a multiple of 128.  */
@@ -515,7 +540,43 @@ MsgChannel::write_line (const string &line)
     }
 }
 
-static bool connect_async( int remote_fd, struct sockaddr *remote_addr, size_t remote_size, int timeout  )
+static int
+prepare_connect(const string &hostname, unsigned short p,
+                          struct sockaddr_in& remote_addr)
+{
+  int remote_fd;
+  int i = 1;
+
+  if ((remote_fd = socket (PF_INET, SOCK_STREAM, 0)) < 0)
+    {
+      log_perror("socket()");
+      return -1;
+    }
+  struct hostent *host = gethostbyname (hostname.c_str());
+  if (!host)
+    {
+      log_perror("Unknown host");
+      close (remote_fd);
+      return -1;
+    }
+  if (host->h_length != 4)
+    {
+      log_error() << "Invalid address length" << endl;
+      close (remote_fd);
+      return -1;
+    }
+
+  setsockopt (remote_fd, IPPROTO_TCP, TCP_NODELAY, (char*) &i, sizeof(i));
+
+  remote_addr.sin_family = AF_INET;
+  remote_addr.sin_port = htons (p);
+  memcpy (&remote_addr.sin_addr.s_addr, host->h_addr_list[0], host->h_length);
+
+  return remote_fd;
+}
+
+static bool
+connect_async( int remote_fd, struct sockaddr *remote_addr, size_t remote_size, int timeout  )
 {
   fcntl(remote_fd, F_SETFL, O_NONBLOCK);
 
@@ -525,22 +586,22 @@ static bool connect_async( int remote_fd, struct sockaddr *remote_addr, size_t r
     {
       struct timeval select_timeout;
       fd_set writefds;
+      int ret;
 
-      /* we select for a specific time and if that succeeds, we connect one
-         final time. Everything else we ignore */
+      do
+        {
+          /* we select for a specific time and if that succeeds, we connect one
+             final time. Everything else we ignore */
 
-      select_timeout.tv_sec = timeout;
-      select_timeout.tv_usec = 0;
-      FD_ZERO(&writefds);
-      FD_SET(remote_fd, &writefds);
-      int ret = select(remote_fd + 1, NULL, &writefds, NULL, &select_timeout);
-
-      /*
-      **  If we suspend, then it is possible that select will be
-      **  interrupted.  Allow for this possibility. - JED
-      */
-      if ((ret == -1) && (errno == EINTR))
-        return connect_async( remote_fd, remote_addr, remote_size, timeout );
+          select_timeout.tv_sec = timeout;
+          select_timeout.tv_usec = 0;
+          FD_ZERO(&writefds);
+          FD_SET(remote_fd, &writefds);
+          ret = select(remote_fd + 1, NULL, &writefds, NULL, &select_timeout);
+          if (ret < 0 && errno == EINTR)
+            continue;
+          break;
+        } while (1);
 
       if (ret > 0)
         {
@@ -578,32 +639,10 @@ static bool connect_async( int remote_fd, struct sockaddr *remote_addr, size_t r
 MsgChannel *Service::createChannel (const string &hostname, unsigned short p, int timeout)
 {
   int remote_fd;
-  int i = 1;
   struct sockaddr_in remote_addr;
 
-  if ((remote_fd = socket (PF_INET, SOCK_STREAM, 0)) < 0)
-    {
-      log_perror("socket()");
-      return 0;
-    }
-  struct hostent *host = gethostbyname (hostname.c_str());
-  if (!host)
-    {
-      log_perror("Unknown host");
-      close (remote_fd);
-      return 0;
-    }
-  if (host->h_length != 4)
-    {
-      log_error() << "Invalid address length" << endl;
-      close (remote_fd);
-      return 0;
-    }
-
-  remote_addr.sin_family = AF_INET;
-  remote_addr.sin_port = htons (p);
-  memcpy (&remote_addr.sin_addr.s_addr, host->h_addr_list[0], host->h_length);
-  setsockopt (remote_fd, IPPROTO_TCP, TCP_NODELAY, (char*) &i, sizeof(i));
+  if ((remote_fd = prepare_connect(hostname, p, remote_addr)) < 0)
+    return 0;
 
   if ( timeout )
     {
@@ -612,7 +651,7 @@ MsgChannel *Service::createChannel (const string &hostname, unsigned short p, in
     }
   else
     {
-      i = 2048;
+      int i = 2048;
       setsockopt(remote_fd, SOL_SOCKET, SO_SNDBUF, &i, sizeof(i));
       if (connect (remote_fd, (struct sockaddr *) &remote_addr, sizeof (remote_addr)) < 0)
         {
@@ -621,19 +660,21 @@ MsgChannel *Service::createChannel (const string &hostname, unsigned short p, in
           return 0;
         }
     }
-  MsgChannel * c = new MsgChannel( remote_fd, (struct sockaddr *)&remote_addr, sizeof( remote_addr ) );
-  c->port = p;
-  if (!c->wait_for_protocol ())
-    {
-      delete c;
-      c = 0;
-      trace() << "not the same protocol\n";
-    }
-  return c;
+  return createChannel(remote_fd, (struct sockaddr *)&remote_addr, sizeof( remote_addr ));
+}
+
+static std::string
+shorten_filename(const std::string& str)
+{
+  std::string::size_type ofs = str.rfind('/');
+  for (int i = 2; i--;)
+    if (ofs != string::npos)
+      ofs = str.rfind('/', ofs-1);
+  return str.substr(ofs+1);
 }
 
 bool
-MsgChannel::eq_ip (const MsgChannel &s)
+MsgChannel::eq_ip (const MsgChannel &s) const
 {
   struct sockaddr_in *s1, *s2;
   s1 = (struct sockaddr_in *) addr;
@@ -662,13 +703,11 @@ MsgChannel::MsgChannel (int _fd, struct sockaddr *_a, socklen_t _l, bool text)
       addr = (struct sockaddr *)malloc (len);
       memcpy (addr, _a, len);
       name = inet_ntoa (((struct sockaddr_in *) addr)->sin_addr);
-      port = ntohs (((struct sockaddr_in *)addr)->sin_port);
     }
   else
     {
       addr = 0;
       name = "";
-      port = 0;
     }
 
   // not using new/delete because of the need of realloc()
@@ -751,8 +790,7 @@ MsgChannel::~MsgChannel()
 
 string MsgChannel::dump() const
 {
-  return name + ":" + toString( port ) + " (" +
-    char((int)instate+'A') + " eof: " + char(eof +'0') + ")";
+  return name + ": (" + char((int)instate+'A') + " eof: " + char(eof +'0') + ")";
 }
 
 /* Wait blocking until the protocol setup for this channel is complete.
@@ -774,8 +812,10 @@ MsgChannel::wait_for_protocol ()
       int ret = select (fd + 1, &set, NULL, NULL, &tv);
       if (ret < 0 && errno == EINTR)
         continue;
-      if (ret == 0)
+      if (ret == 0) {
+        log_error() << "no response from local daemon within timeout." << endl;
         return false; /* timeout. Consider it a fatal error. */
+      }
       if (ret < 0)
         {
           log_perror("select in wait_for_protocol()");
@@ -785,6 +825,22 @@ MsgChannel::wait_for_protocol ()
         return false;
     }
   return true;
+}
+
+void MsgChannel::setBulkTransfer()
+{
+  if (fd < 0) return;
+
+  int i = 0;
+  setsockopt (fd, IPPROTO_TCP, TCP_NODELAY, (char*) &i, sizeof(i));
+
+  // would be nice but not portable accross non-linux
+#ifdef __linux__
+  i = 1;
+  setsockopt (fd, IPPROTO_TCP, TCP_CORK, (char*) &i, sizeof(i));
+#endif
+  i = 65536;
+  setsockopt (fd, SOL_SOCKET, SO_SNDBUF, &i, sizeof(i));
 }
 
 /* This waits indefinitely (well, TIMEOUT seconds) for a complete
@@ -847,7 +903,7 @@ MsgChannel::get_msg(int timeout)
     type = M_TEXT;
   else
     {
-      readuint32 (t);
+      *this >> t;
       type = (enum MsgType) t;
     }
   switch (type)
@@ -892,10 +948,9 @@ MsgChannel::get_msg(int timeout)
 }
 
 bool
-MsgChannel::send_msg (const Msg &m, bool blocking)
+MsgChannel::send_msg (const Msg &m, int flags)
 {
-  if (instate == NEED_PROTO
-      && !wait_for_protocol ())
+  if (instate == NEED_PROTO && !wait_for_protocol ())
     return false;
   chop_output ();
   size_t msgtogo_old = msgtogo;
@@ -905,12 +960,15 @@ MsgChannel::send_msg (const Msg &m, bool blocking)
     }
   else
     {
-      writeuint32 (0);  // filled out later with the overall len
+      *this << (uint32_t) 0;
       m.send_to_channel (this);
       uint32_t len = htonl (msgtogo - msgtogo_old - 4);
       memcpy (msgbuf + msgtogo_old, &len, 4);
     }
-  return flush_writebuf (blocking);
+  if ((flags & SendBulkOnly) && msgtogo < 4096)
+    return true;
+
+  return flush_writebuf ((flags & SendBlocking));
 }
 
 #include "getifaddrs.h"
@@ -975,7 +1033,7 @@ open_send_broadcast (void)
 
 	  remote_addr.sin_family = AF_INET;
 	  remote_addr.sin_port = htons (8765);
-	  remote_addr.sin_addr = ( ( sockaddr_in* )addr->ifa_broadaddr )->sin_addr ;
+	  remote_addr.sin_addr = ( ( sockaddr_in* )addr->ifa_broadaddr )->sin_addr;
 
 	  if (sendto (ask_fd, &buf, 1, 0, (struct sockaddr*)&remote_addr,
                       sizeof (remote_addr)) != 1)
@@ -1044,7 +1102,10 @@ DiscoverSched::DiscoverSched (const std::string &_netname,
     netname = "ICECREAM";
 
   if (!schedname.empty())
-    netname = ""; // take whatever the machine is giving us
+    {
+      netname = ""; // take whatever the machine is giving us
+      attempt_scheduler_connect();
+    }
   else
     ask_fd = open_send_broadcast ();
 }
@@ -1058,15 +1119,25 @@ DiscoverSched::~DiscoverSched ()
 bool
 DiscoverSched::timed_out ()
 {
-  return (time (0) - time0 >= (timeout / 1000));
+  return (time (0) - time0 >= timeout);
 }
+
+void
+DiscoverSched::attempt_scheduler_connect()
+{
+
+    time0 = time(0) + MAX_SCHEDULER_PONG;
+    log_info() << "scheduler is on " << schedname << ":" << sport << " (net " << netname << ")\n";
+    if ((ask_fd = prepare_connect(schedname, sport, remote_addr)) >= 0)
+        fcntl(ask_fd, F_SETFL, O_NONBLOCK);
+}
+
 
 MsgChannel *
 DiscoverSched::try_get_scheduler ()
 {
   if (schedname.empty())
     {
-      struct sockaddr_in remote_addr;
       socklen_t remote_len;
       bool found = false;
       char buf2[BROAD_BUFLEN];
@@ -1074,7 +1145,7 @@ DiscoverSched::try_get_scheduler ()
       /* Read/test all packages arrived until now.  */
       while (!found
 	     && get_broad_answer (ask_fd, 0/*timeout*/, buf2,
-                                  &remote_addr, &remote_len))
+                                  (struct sockaddr_in*) &remote_addr, &remote_len))
         if (strcasecmp (netname.c_str(), buf2 + 1) == 0)
           found = true;
       if (!found)
@@ -1082,9 +1153,23 @@ DiscoverSched::try_get_scheduler ()
       schedname = inet_ntoa (remote_addr.sin_addr);
       sport = ntohs (remote_addr.sin_port);
       netname = buf2 + 1;
+      close (ask_fd);
+      ask_fd = -1;
+      attempt_scheduler_connect();
     }
-  log_info() << "scheduler is on " << schedname << ":" << sport << " (net " << netname << ")\n";
-  return Service::createChannel( schedname, sport, 0/*timeout*/);
+
+  if (ask_fd >= 0)
+    {
+      int status = connect (ask_fd, (struct sockaddr*) &remote_addr, sizeof(remote_addr) );
+      if (status == 0 || (status < 0 && errno == EISCONN))
+        {
+          int fd = ask_fd;
+          ask_fd = -1;
+          return Service::createChannel(fd,
+                  (struct sockaddr*) &remote_addr, sizeof(remote_addr));
+        }
+    }
+  return 0;
 }
 
 list<string>
@@ -1125,7 +1210,7 @@ Msg::send_to_channel (MsgChannel *c) const
 {
   if (c->is_text_based())
     return;
-  c->writeuint32 ((uint32_t) type);
+  *c << (uint32_t) type;
 }
 
 void
@@ -1133,17 +1218,17 @@ GetCSMsg::fill_from_channel (MsgChannel *c)
 {
   Msg::fill_from_channel (c);
   c->read_environments( versions );
-  c->read_string (filename);
+  *c >> filename;
   uint32_t _lang;
-  c->readuint32 (_lang);
-  c->readuint32( count );
-  c->read_string( target );
+  *c >> _lang;
+  *c >> count;
+  *c >> target;
   lang = static_cast<CompileJob::Language>( _lang );
-  c->readuint32( arg_flags );
-  c->readuint32( client_id );
+  *c >> arg_flags;
+  *c >> client_id;
   preferred_host = string();
   if (IS_PROTOCOL_22(c))
-    c->read_string( preferred_host );
+    *c >> preferred_host;
 }
 
 void
@@ -1151,38 +1236,44 @@ GetCSMsg::send_to_channel (MsgChannel *c) const
 {
   Msg::send_to_channel (c);
   c->write_environments( versions );
-  c->write_string (filename);
-  c->writeuint32 ((uint32_t) lang);
-  c->writeuint32( count );
-  c->write_string( target );
-  c->writeuint32( arg_flags );
-  c->writeuint32( client_id );
+  *c << shorten_filename(filename);
+  *c << (uint32_t) lang;
+  *c << count;
+  *c << target;
+  *c << arg_flags;
+  *c << client_id;
   if (IS_PROTOCOL_22(c))
-    c->write_string( preferred_host);
+    *c << preferred_host;
 }
 
 void
 UseCSMsg::fill_from_channel (MsgChannel *c)
 {
   Msg::fill_from_channel (c);
-  c->readuint32 (job_id);
-  c->readuint32 (port);
-  c->read_string (hostname);
-  c->read_string (host_platform);
-  c->readuint32( got_env );
-  c->readuint32( client_id );
+  *c >> job_id;
+  *c >> port;
+  *c >> hostname;
+  *c >> host_platform;
+  *c >> got_env;
+  *c >> client_id;
+  if (IS_PROTOCOL_28(c))
+    *c >> matched_job_id;
+  else
+    matched_job_id = 0;
 }
 
 void
 UseCSMsg::send_to_channel (MsgChannel *c) const
 {
   Msg::send_to_channel (c);
-  c->writeuint32 (job_id);
-  c->writeuint32 (port);
-  c->write_string (hostname);
-  c->write_string (host_platform);
-  c->writeuint32( got_env );
-  c->writeuint32( client_id );
+  *c << job_id;
+  *c << port;
+  *c << hostname;
+  *c << host_platform;
+  *c << got_env;
+  *c << client_id;
+  if (IS_PROTOCOL_28(c))
+    *c << matched_job_id;
 }
 
 void
@@ -1192,11 +1283,11 @@ CompileFileMsg::fill_from_channel (MsgChannel *c)
   uint32_t id, lang;
   list<string> _l1, _l2;
   string version;
-  c->readuint32 (lang);
-  c->readuint32 (id);
-  c->read_strlist (_l1);
-  c->read_strlist (_l2);
-  c->read_string (version);
+  *c >> lang;
+  *c >> id;
+  *c >> _l1;
+  *c >> _l2;
+  *c >> version;
   job->setLanguage ((CompileJob::Language) lang);
   job->setJobID (id);
   ArgumentsList l;
@@ -1208,7 +1299,7 @@ CompileFileMsg::fill_from_channel (MsgChannel *c)
   job->setEnvironmentVersion (version);
 
   string target;
-  c->read_string( target );
+  *c >> target;
   job->setTargetPlatform( target );
 }
 
@@ -1216,12 +1307,12 @@ void
 CompileFileMsg::send_to_channel (MsgChannel *c) const
 {
   Msg::send_to_channel (c);
-  c->writeuint32 ((uint32_t) job->language());
-  c->writeuint32 (job->jobID());
-  c->write_strlist (job->remoteFlags());
-  c->write_strlist (job->restFlags());
-  c->write_string (job->environmentVersion());
-  c->write_string( job->targetPlatform() );
+  *c << (uint32_t) job->language();
+  *c << job->jobID();
+  *c << job->remoteFlags();
+  *c << job->restFlags();
+  *c << job->environmentVersion();
+  *c << job->targetPlatform();
 }
 
 CompileJob *
@@ -1262,12 +1353,12 @@ CompileResultMsg::fill_from_channel (MsgChannel *c)
 {
   Msg::fill_from_channel (c);
   uint32_t _status = 0;
-  c->read_string (err);
-  c->read_string (out);
-  c->readuint32 (_status);
+  *c >> err;
+  *c >> out;
+  *c >> _status;
   status = _status;
   uint32_t was = 0;
-  c->readuint32( was );
+  *c >> was;
   was_out_of_memory = was;
 }
 
@@ -1275,54 +1366,54 @@ void
 CompileResultMsg::send_to_channel (MsgChannel *c) const
 {
   Msg::send_to_channel (c);
-  c->write_string (err);
-  c->write_string (out);
-  c->writeuint32 (status);
-  c->writeuint32( was_out_of_memory ? 1 : 0 );
+  *c << err;
+  *c << out;
+  *c << status;
+  *c << (uint32_t) was_out_of_memory;
 }
 
 void
 JobBeginMsg::fill_from_channel (MsgChannel *c)
 {
   Msg::fill_from_channel (c);
-  c->readuint32 (job_id);
-  c->readuint32 (stime);
+  *c >> job_id;
+  *c >> stime;
 }
 
 void
 JobBeginMsg::send_to_channel (MsgChannel *c) const
 {
   Msg::send_to_channel (c);
-  c->writeuint32 (job_id);
-  c->writeuint32 (stime);
+  *c << job_id;
+  *c << stime;
 }
 
 void JobLocalBeginMsg::fill_from_channel( MsgChannel *c )
 {
   Msg::fill_from_channel(c);
-  c->readuint32(stime);
-  c->read_string( outfile );
-  c->readuint32(id);
+  *c >> stime;
+  *c >> outfile;
+  *c >> id;
 }
 
 void JobLocalBeginMsg::send_to_channel( MsgChannel *c ) const
 {
   Msg::send_to_channel( c );
-  c->writeuint32(stime);
-  c->write_string( outfile );
-  c->writeuint32(id);
+  *c << stime;
+  *c << outfile;
+  *c << id;
 }
 
 void JobLocalDoneMsg::fill_from_channel( MsgChannel *c )
 {
   Msg::fill_from_channel(c);
-  c->readuint32(job_id);
+  *c >> job_id;
 }
 
 void JobLocalDoneMsg::send_to_channel( MsgChannel *c ) const
 {
   Msg::send_to_channel( c );
-  c->writeuint32(job_id);
+  *c << job_id;
 }
 
 JobDoneMsg::JobDoneMsg (int id, int exit, unsigned int _flags)
@@ -1343,17 +1434,17 @@ JobDoneMsg::fill_from_channel (MsgChannel *c)
 {
   Msg::fill_from_channel (c);
   uint32_t _exitcode = 255;
-  c->readuint32 (job_id);
-  c->readuint32 (_exitcode);
-  c->readuint32 (real_msec);
-  c->readuint32 (user_msec);
-  c->readuint32 (sys_msec);
-  c->readuint32 (pfaults);
-  c->readuint32 (in_compressed);
-  c->readuint32 (in_uncompressed);
-  c->readuint32 (out_compressed);
-  c->readuint32 (out_uncompressed);
-  c->readuint32 (flags);
+  *c >> job_id;
+  *c >> _exitcode;
+  *c >> real_msec;
+  *c >> user_msec;
+  *c >> sys_msec;
+  *c >> pfaults;
+  *c >> in_compressed;
+  *c >> in_uncompressed;
+  *c >> out_compressed;
+  *c >> out_uncompressed;
+  *c >> flags;
   exitcode = (int) _exitcode;
 }
 
@@ -1361,17 +1452,17 @@ void
 JobDoneMsg::send_to_channel (MsgChannel *c) const
 {
   Msg::send_to_channel (c);
-  c->writeuint32 (job_id);
-  c->writeuint32 ((uint32_t) exitcode);
-  c->writeuint32 (real_msec);
-  c->writeuint32 (user_msec);
-  c->writeuint32 (sys_msec);
-  c->writeuint32 (pfaults);
-  c->writeuint32 (in_compressed);
-  c->writeuint32 (in_uncompressed);
-  c->writeuint32 (out_compressed);
-  c->writeuint32 (out_uncompressed);
-  c->writeuint32 (flags);
+  *c << job_id;
+  *c << (uint32_t) exitcode;
+  *c << real_msec;
+  *c << user_msec;
+  *c << sys_msec;
+  *c << pfaults;
+  *c << in_compressed;
+  *c << in_uncompressed;
+  *c << out_compressed;
+  *c << out_uncompressed;
+  *c << flags;
 }
 
 LoginMsg::LoginMsg(unsigned int myport, const std::string &_nodename, const std::string _host_platform)
@@ -1385,16 +1476,16 @@ void
 LoginMsg::fill_from_channel (MsgChannel *c)
 {
   Msg::fill_from_channel (c);
-  c->readuint32 (port);
-  c->readuint32 (max_kids);
+  *c >> port;
+  *c >> max_kids;
   c->read_environments( envs );
-  c->read_string( nodename );
-  c->read_string( host_platform );
+  *c >> nodename;
+  *c >> host_platform;
   uint32_t net_chroot_possible = 0;
-  c->readuint32 (net_chroot_possible);
+  *c >> net_chroot_possible;
   chroot_possible = net_chroot_possible != 0;
   uint32_t net_noremote = 0;
-  if (IS_PROTOCOL_26( c )) c->readuint32 (net_noremote);
+  if (IS_PROTOCOL_26( c )) *c >> net_noremote;
   noremote = (net_noremote != 0);
 }
 
@@ -1402,151 +1493,167 @@ void
 LoginMsg::send_to_channel (MsgChannel *c) const
 {
   Msg::send_to_channel (c);
-  c->writeuint32 (port);
-  c->writeuint32 (max_kids);
+  *c << port;
+  *c << max_kids;
   c->write_environments( envs );
-  c->write_string( nodename );
-  c->write_string( host_platform );
-  c->writeuint32( chroot_possible );
-  if (IS_PROTOCOL_26( c )) c->writeuint32( noremote );
+  *c << nodename;
+  *c << host_platform;
+  *c << chroot_possible;
+  if (IS_PROTOCOL_26( c )) *c << noremote;
 }
 
 void
 ConfCSMsg::fill_from_channel (MsgChannel *c)
 {
   Msg::fill_from_channel (c);
-  c->readuint32 (max_scheduler_pong);
-  c->readuint32 (max_scheduler_ping);
-  c->read_string (bench_source);
+  *c >> max_scheduler_pong;
+  *c >> max_scheduler_ping;
+  *c >> bench_source;
 }
 
 void
 ConfCSMsg::send_to_channel (MsgChannel *c) const
 {
   Msg::send_to_channel (c);
-  c->writeuint32 (max_scheduler_pong);
-  c->writeuint32 (max_scheduler_ping);
-  c->write_string (bench_source);
+  *c << max_scheduler_pong;
+  *c << max_scheduler_ping;
+  *c << bench_source;
 }
 
 void
 StatsMsg::fill_from_channel (MsgChannel *c)
 {
   Msg::fill_from_channel (c);
-  c->readuint32 (load);
-  c->readuint32 (loadAvg1);
-  c->readuint32 (loadAvg5);
-  c->readuint32 (loadAvg10);
-  c->readuint32 (freeMem);
+  *c >> load;
+  *c >> loadAvg1;
+  *c >> loadAvg5;
+  *c >> loadAvg10;
+  *c >> freeMem;
 }
 
 void
 StatsMsg::send_to_channel (MsgChannel *c) const
 {
   Msg::send_to_channel (c);
-  c->writeuint32 (load);
-  c->writeuint32 (loadAvg1);
-  c->writeuint32 (loadAvg5);
-  c->writeuint32 (loadAvg10);
-  c->writeuint32 (freeMem);
+  *c << load;
+  *c << loadAvg1;
+  *c << loadAvg5;
+  *c << loadAvg10;
+  *c << freeMem;
 }
 
 void
 UseNativeEnvMsg::fill_from_channel (MsgChannel *c)
 {
   Msg::fill_from_channel (c);
-  c->read_string( nativeVersion );
+  *c >> nativeVersion;
 }
 
 void
 UseNativeEnvMsg::send_to_channel (MsgChannel *c) const
 {
   Msg::send_to_channel (c);
-  c->write_string( nativeVersion );
+  *c << nativeVersion;
 }
 
 void
 EnvTransferMsg::fill_from_channel (MsgChannel *c)
 {
   Msg::fill_from_channel (c);
-  c->read_string(name);
-  c->read_string( target );
+  *c >> name;
+  *c >> target;
 }
 
 void
 EnvTransferMsg::send_to_channel (MsgChannel *c) const
 {
   Msg::send_to_channel (c);
-  c->write_string(name);
-  c->write_string( target );
+  *c << name;
+  *c << target;
 }
 
 void
 MonGetCSMsg::fill_from_channel (MsgChannel *c)
 {
-  GetCSMsg::fill_from_channel (c);
-  c->readuint32 (job_id);
-  c->readuint32 (clientid);
+  if (IS_PROTOCOL_29(c)) {
+    Msg::fill_from_channel(c);
+    *c >> filename;
+    uint32_t _lang;
+    *c >> _lang;
+    lang = static_cast<CompileJob::Language>(_lang);
+  }
+  else
+    GetCSMsg::fill_from_channel (c);
+
+  *c >> job_id;
+  *c >> clientid;
 }
 
 void
 MonGetCSMsg::send_to_channel (MsgChannel *c) const
 {
-  GetCSMsg::send_to_channel (c);
-  c->writeuint32 (job_id);
-  c->writeuint32 (clientid);
+  if (IS_PROTOCOL_29(c)) {
+    Msg::send_to_channel (c);
+    *c << shorten_filename(filename);
+    *c << (uint32_t) lang;
+  }
+  else
+      GetCSMsg::send_to_channel (c);
+
+  *c << job_id;
+  *c << clientid;
 }
 
 void
 MonJobBeginMsg::fill_from_channel (MsgChannel *c)
 {
   Msg::fill_from_channel (c);
-  c->readuint32 (job_id);
-  c->readuint32 (stime);
-  c->readuint32 (hostid);
+  *c >> job_id;
+  *c >> stime;
+  *c >> hostid;
 }
 
 void
 MonJobBeginMsg::send_to_channel (MsgChannel *c) const
 {
   Msg::send_to_channel (c);
-  c->writeuint32 (job_id);
-  c->writeuint32 (stime);
-  c->writeuint32 (hostid);
+  *c << job_id;
+  *c << stime;
+  *c << hostid;
 }
 
 void MonLocalJobBeginMsg::fill_from_channel (MsgChannel * c)
 {
   Msg::fill_from_channel(c);
-  c->readuint32 (hostid );
-  c->readuint32( job_id );
-  c->readuint32( stime );
-  c->read_string( file );
+  *c >> hostid;
+  *c >> job_id;
+  *c >> stime;
+  *c >> file;
 }
 
 void MonLocalJobBeginMsg::send_to_channel (MsgChannel * c) const
 {
   Msg::send_to_channel(c);
-  c->writeuint32( hostid );
-  c->writeuint32( job_id );
-  c->writeuint32( stime );
-  c->write_string( file );
+  *c << hostid;
+  *c << job_id;
+  *c << stime;
+  *c << shorten_filename(file);
 }
 
 void
 MonStatsMsg::fill_from_channel (MsgChannel *c)
 {
   Msg::fill_from_channel (c);
-  c->readuint32( hostid );
-  c->read_string( statmsg );
+  *c >> hostid;
+  *c >> statmsg;
 }
 
 void
 MonStatsMsg::send_to_channel (MsgChannel *c) const
 {
   Msg::send_to_channel (c);
-  c->writeuint32(hostid);
-  c->write_string(statmsg);
+  *c << hostid;
+  *c << statmsg;
 }
 
 void
@@ -1565,14 +1672,14 @@ void
 StatusTextMsg::fill_from_channel (MsgChannel *c)
 {
   Msg::fill_from_channel( c );
-  c->read_string (text);
+  *c >> text;
 }
 
 void
 StatusTextMsg::send_to_channel (MsgChannel *c) const
 {
   Msg::send_to_channel( c );
-  c->write_string (text);
+  *c << text;
 }
 
 /*

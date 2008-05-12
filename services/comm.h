@@ -29,17 +29,21 @@
 #endif
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <netinet/in.h>
+#include <netinet/tcp.h>
 
 #include "job.h"
 
 // if you increase the PROTOCOL_VERSION, add a macro below and use that
-#define PROTOCOL_VERSION 27
+#define PROTOCOL_VERSION 29
 // if you increase the MIN_PROTOCOL_VERSION, comment out macros below and clean up the code
 #define MIN_PROTOCOL_VERSION 21
 
 #define MAX_SCHEDULER_PONG 3
 // MAX_SCHEDULER_PING must be multiple of MAX_SCHEDULER_PONG
 #define MAX_SCHEDULER_PING 12 * MAX_SCHEDULER_PONG
+// maximum amount of time in seconds a daemon can be busy installing
+#define MAX_BUSY_INSTALLING 120
 
 #define IS_PROTOCOL_22( c ) ( (c)->protocol >= 22 )
 #define IS_PROTOCOL_23( c ) ( (c)->protocol >= 23 )
@@ -47,6 +51,8 @@
 #define IS_PROTOCOL_25( c ) ( (c)->protocol >= 25 )
 #define IS_PROTOCOL_26( c ) ( (c)->protocol >= 26 )
 #define IS_PROTOCOL_27( c ) ( (c)->protocol >= 27 )
+#define IS_PROTOCOL_28( c ) ( (c)->protocol >= 28 )
+#define IS_PROTOCOL_29( c ) ( (c)->protocol >= 29 )
 
 enum MsgType {
   // so far unknown
@@ -133,35 +139,38 @@ public:
   // our filedesc
   int fd;
 
+  enum SendFlags {
+      SendBlocking    = 1<<0,
+      SendNonBlocking = 1<<1,
+      SendBulkOnly    = 1<<2
+  };
+
   // the minimum protocol version between me and him
   int protocol;
 
   std::string name;
-  uint32_t port;
   time_t last_talk;
+
+  void setBulkTransfer();
 
   std::string dump() const;
   // NULL  <--> channel closed
   Msg *get_msg(int timeout = 10);
   // false <--> error (msg not send)
-  bool send_msg (const Msg &, bool blocking = true);
-  // return last error (0 == no error)
-  int error(void) {return 0;}
+  bool send_msg (const Msg &, int SendFlags = SendBlocking);
   bool has_msg (void) const { return eof || instate == HAS_MSG; }
-  bool need_write (void) const { return msgtogo != 0; }
   bool read_a_bit (void);
-  bool write_a_bit (void) {
-    return need_write () ? flush_writebuf (false) : true;
-  }
   bool at_eof (void) const { return instate != HAS_MSG && eof; }
   bool is_text_based(void) const { return text_based; }
 
-  void readuint32 (uint32_t &buf);
-  void writeuint32 (uint32_t u);
-  void read_string (std::string &s);
-  void write_string (const std::string &s);
-  void read_strlist (std::list<std::string> &l);
-  void write_strlist (const std::list<std::string> &l);
+  MsgChannel &operator>>(uint32_t&);
+  MsgChannel &operator>>(std::string&);
+  MsgChannel &operator>>(std::list<std::string>&);
+
+  MsgChannel &operator<<(uint32_t);
+  MsgChannel &operator<<(const std::string&);
+  MsgChannel &operator<<(const std::list<std::string>&);
+
   void readcompressed (unsigned char **buf, size_t &_uclen, size_t &_clen);
   void writecompressed (const unsigned char *in_buf,
 			size_t _in_len, size_t &_out_len);
@@ -170,7 +179,7 @@ public:
   void read_line (std::string &line);
   void write_line (const std::string &line);
 
-  bool eq_ip (const MsgChannel &s);
+  bool eq_ip (const MsgChannel &s) const;
 
   virtual ~MsgChannel ();
 
@@ -206,12 +215,17 @@ public:
   static MsgChannel *createChannel( int remote_fd, struct sockaddr *, socklen_t );
 };
 
-class DiscoverSched {
+// --------------------------------------------------------------------------
+// this class is also used by icecream-monitor
+class DiscoverSched 
+{
+  struct sockaddr_in remote_addr;
   std::string netname, schedname;
   int timeout;
   int ask_fd;
   time_t time0;
   unsigned int sport;
+  void attempt_scheduler_connect();
 public:
   /* Connect to a scheduler waiting max. TIMEOUT milliseconds.
      schedname can be the hostname of a box running a scheduler, to avoid
@@ -221,9 +235,15 @@ public:
 		 const std::string &_schedname = std::string());
   ~DiscoverSched();
   bool timed_out();
-  int get_fd() const { return ask_fd; }
+  int listen_fd() const { return schedname.empty() ? ask_fd : -1; }
+  int connect_fd() const { return schedname.empty() ? -1 : ask_fd; }
+
+  // compat for icecream monitor
+  int get_fd() const { return listen_fd(); }
+
   MsgChannel *try_get_scheduler();
 };
+// --------------------------------------------------------------------------
 
 /* Return a list of all reachable netnames.  We wait max. WAITTIME
    milliseconds for answers.  */
@@ -270,9 +290,19 @@ public:
   std::string host_platform;
   uint32_t got_env;
   uint32_t client_id;
+  uint32_t matched_job_id;
   UseCSMsg () : Msg(M_USE_CS) {}
-  UseCSMsg (std::string platform, std::string host, unsigned int p, unsigned int id, bool gotit, unsigned int _client_id)
-    : Msg(M_USE_CS), job_id(id), hostname (host), port (p), host_platform( platform ), got_env( gotit ), client_id( _client_id ) {}
+  UseCSMsg (std::string platform, std::string host, unsigned int p, unsigned int id, bool gotit,
+          unsigned int _client_id, unsigned int matched_host_jobs)
+    : Msg(M_USE_CS),
+    job_id(id),
+    hostname (host),
+    port (p),
+    host_platform( platform ),
+    got_env( gotit ),
+    client_id( _client_id ),
+    matched_job_id (matched_host_jobs)
+    { }
   virtual void fill_from_channel (MsgChannel * c);
   virtual void send_to_channel (MsgChannel * c) const;
 };
@@ -319,6 +349,9 @@ public:
   ~FileChunkMsg();
   virtual void fill_from_channel (MsgChannel * c);
   virtual void send_to_channel (MsgChannel * c) const;
+private:
+  FileChunkMsg(const FileChunkMsg&);
+  FileChunkMsg& operator=(const FileChunkMsg&);
 };
 
 class CompileResultMsg : public Msg {
@@ -467,6 +500,7 @@ public:
 class GetInternalStatus : public Msg {
 public:
   GetInternalStatus() : Msg(M_GET_INTERNALS) {}
+  GetInternalStatus(const GetInternalStatus&) : Msg(M_GET_INTERNALS) {}
 };
 
 class MonLoginMsg : public Msg {
@@ -509,11 +543,8 @@ public:
   MonJobDoneMsg() : JobDoneMsg() {
     type = M_MON_JOB_DONE;
   }
-  MonJobDoneMsg( const JobDoneMsg &m )
-    : JobDoneMsg(m)
-  {
-    type = M_MON_JOB_DONE;
-  }
+  MonJobDoneMsg(const JobDoneMsg& o)
+    : JobDoneMsg(o) { type = M_MON_JOB_DONE; }
 };
 
 class MonLocalJobBeginMsg : public Msg {
@@ -536,8 +567,7 @@ public:
   MonStatsMsg() : Msg( M_MON_STATS ) {}
   MonStatsMsg( int id, const std::string &_statmsg )
     : Msg( M_MON_STATS ), hostid( id ), statmsg( _statmsg )
-  {
-  }
+  { }
   virtual void fill_from_channel (MsgChannel * c);
   virtual void send_to_channel (MsgChannel * c) const;
 };
@@ -548,6 +578,8 @@ public:
   TextMsg() : Msg( M_TEXT ) {}
   TextMsg( const std::string &_text)
     : Msg ( M_TEXT ), text(_text) {}
+  TextMsg (const TextMsg& m)
+    : Msg ( M_TEXT ), text(m.text) {}
   virtual void fill_from_channel (MsgChannel *c);
   virtual void send_to_channel (MsgChannel *c) const;
 };

@@ -31,7 +31,7 @@
 
 #ifdef HAVE_MACH_HOST_INFO_H
 #define USE_MACH 1
-#elif !defined( __linux__ )
+#elif !defined( __linux__ ) && !defined(__CYGWIN__)
 #define USE_SYSCTL
 #endif
 
@@ -353,6 +353,7 @@ bool fill_stats( unsigned long &myidleload, unsigned long &myniceload, unsigned 
         double avg[3];
 #if HAVE_GETLOADAVG
         getloadavg( avg, 3 );
+        (void) hint;
 #else
         fakeloadavg( avg, 3, hint );
 #endif

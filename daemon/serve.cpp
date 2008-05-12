@@ -114,7 +114,7 @@ int handle_connection( const string &basedir, CompileJob *job,
         if ( job->environmentVersion().size() ) {
             string dirname = basedir + "/target=" + job->targetPlatform() + "/" + job->environmentVersion();
             if ( ::access( string( dirname + "/usr/bin/gcc" ).c_str(), X_OK ) ) {
-                error_client( client, dirname + "/usr/bin/gcc is not exexutable" );
+                error_client( client, dirname + "/usr/bin/gcc is not executable" );
                 log_error() << "I don't have environment " << job->environmentVersion() << "(" << job->targetPlatform() << ") " << job->jobID() << endl;
                 throw myexception( EXIT_DISTCC_FAILED ); // the scheduler didn't listen to us!
             }
@@ -159,23 +159,23 @@ int handle_connection( const string &basedir, CompileJob *job,
             throw myexception( -1 );
         }
 
-        const char *dot;
-        if (job->language() == CompileJob::Lang_C)
-            dot = ".i";
-        else if (job->language() == CompileJob::Lang_CXX)
-            dot = ".ii";
-        else
-            assert(0);
-
         int ret;
         unsigned int job_stat[8];
         CompileResultMsg rmsg;
+        job_id = job->jobID();
 
         memset(job_stat, 0, sizeof(job_stat));
 
-        ret = work_it( *job, job_stat, client, rmsg, obj_file, mem_limit, client->fd );
+        char tmp_output[PATH_MAX];
+        char prefix_output[PATH_MAX]; // I'm too lazy to calculate how many digits 2^64 is :)
+        sprintf( prefix_output, "icecc-%d", job_id );
 
-        job_id = job->jobID();
+        if ( ( ret = dcc_make_tmpnam(prefix_output, ".o", tmp_output, 1 ) ) == 0 ) {
+            obj_file = tmp_output;
+            ret = work_it( *job, job_stat, client, rmsg, obj_file, mem_limit, client->fd,
+                   -1 );
+        }
+
         delete job;
         job = 0;
 

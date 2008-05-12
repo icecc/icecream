@@ -34,6 +34,7 @@
 
 #include <fcntl.h>
 #include <signal.h>
+#include <limits.h>
 #include <assert.h>
 #include <unistd.h>
 #include <stdio.h>
@@ -42,6 +43,9 @@
 #include <algorithm>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#ifdef HAVE_RSYNC
+#include <librsync.h>
+#endif
 
 #include <comm.h>
 #include "client.h"
@@ -97,7 +101,7 @@ parse_icecc_version(const string &target_platform )
         }
 
         struct stat st;
-        if ( lstat( version.c_str(), &st ) || !S_ISREG( st.st_mode )) {
+        if ( lstat( version.c_str(), &st ) || !S_ISREG( st.st_mode ) || st.st_size < 500 ) {
             log_error() << "$ICECC_VERSION has to point to an existing file to be installed " << version << endl;
             continue;
         }
@@ -198,6 +202,7 @@ static UseCSMsg *get_server( MsgChannel *local_daemon )
         delete umsg;
         throw( 1 );
     }
+
     UseCSMsg *usecs = dynamic_cast<UseCSMsg *>(umsg);
     return usecs;
 }
@@ -215,6 +220,20 @@ static void write_server_cpp(int cpp_fd, MsgChannel *cserver)
 {
     unsigned char buffer[100000]; // some random but huge number
     off_t offset = 0;
+    size_t uncompressed = 0;
+    size_t compressed = 0;
+
+#ifdef HAVE_RSYNC
+    unsigned char buffer_sig_out[256];
+    rs_job_t* sig_job = rs_sig_begin (RS_DEFAULT_BLOCK_LEN, RS_DEFAULT_STRONG_LEN);
+    rs_buffers_t sig_buffer;
+
+    sig_buffer.next_in = (char*) buffer;
+    sig_buffer.avail_in = 0;
+
+    sig_buffer.next_out = (char*) buffer_sig_out;
+    sig_buffer.avail_out = sizeof(buffer_sig_out);
+#endif
 
     do
     {
@@ -230,6 +249,9 @@ static void write_server_cpp(int cpp_fd, MsgChannel *cserver)
           }
           break;
         } while ( 1 );
+#ifdef HAVE_RSYNC
+        sig_buffer.avail_in += bytes;
+#endif
         offset += bytes;
         if (!bytes || offset == sizeof( buffer ) )
         {
@@ -238,17 +260,26 @@ static void write_server_cpp(int cpp_fd, MsgChannel *cserver)
                 FileChunkMsg fcmsg( buffer, offset );
                 if ( !cserver->send_msg( fcmsg ) )
                 {
+                    Msg* m = cserver->get_msg(2);
+                    check_for_failure(m, cserver);
+
                     log_error() << "write of source chunk to host " << cserver->name.c_str() << endl;
                     log_perror("failed ");
                     close( cpp_fd );
                     throw( 15 );
                 }
+                uncompressed += fcmsg.len;
+                compressed += fcmsg.compressed;
                 offset = 0;
             }
             if ( !bytes )
                 break;
         }
     } while ( 1 );
+
+    if (compressed)
+        trace() << "sent " << compressed << " bytes (" << (compressed * 100/uncompressed) <<
+            "%)" << endl;
 
     close( cpp_fd );
 }
@@ -263,7 +294,11 @@ static int build_remote_int(CompileJob &job, UseCSMsg *usecs, const string &envi
     bool got_env = usecs->got_env;
     job.setJobID( job_id );
     job.setEnvironmentVersion( environment ); // hoping on the scheduler's wisdom
-    trace() << "Have to use host " << hostname << ":" << port << " - Job ID: " << job.jobID() << " - environment: " << usecs->host_platform << " got environment: " << (got_env ? "true" : "false") << "\n";
+    trace() << "Have to use host " << hostname << ":" << port << " - Job ID: "
+        << job.jobID() << " - env: " << usecs->host_platform
+        << " - has env: " << (got_env ? "true" : "false")
+        << " - match j: " << usecs->matched_job_id
+        << "\n";
 
     int status = 255;
 
@@ -352,7 +387,6 @@ static int build_remote_int(CompileJob &job, UseCSMsg *usecs, const string &envi
     }
 
     {
-        log_block write_end("write of end msg");
         if ( !cserver->send_msg( EndMsg() ) ) {
             log_info() << "write of end failed" << endl;
             throw( 12 );
@@ -408,11 +442,15 @@ static int build_remote_int(CompileJob &job, UseCSMsg *usecs, const string &envi
         int obj_fd = open( tmp_file.c_str(), O_CREAT|O_TRUNC|O_WRONLY|O_LARGEFILE, 0666 );
 
         if ( obj_fd == -1 ) {
-            log_error() << "open failed\n";
+            std::string errmsg("can't create ");
+            errmsg += tmp_file + ":";
+            log_perror(errmsg.c_str());
             return EXIT_DISTCC_FAILED;
         }
 
         msg = 0;
+        size_t uncompressed = 0;
+        size_t compressed = 0;
         while ( 1 ) {
             delete msg;
 
@@ -434,12 +472,18 @@ static int build_remote_int(CompileJob &job, UseCSMsg *usecs, const string &envi
             }
 
             FileChunkMsg *fcmsg = dynamic_cast<FileChunkMsg*>( msg );
+            compressed += fcmsg->compressed;
+            uncompressed += fcmsg->len;
             if ( write( obj_fd, fcmsg->buffer, fcmsg->len ) != ( ssize_t )fcmsg->len ) {
                 unlink( tmp_file.c_str());
                 delete msg;
                 throw ( 21 );
             }
         }
+        if (uncompressed)
+            trace() << "got " << compressed << " bytes ("
+                << (compressed * 100 / uncompressed) << "%)" << endl;
+
 
         delete msg;
         if( close( obj_fd ) == 0 )

@@ -49,6 +49,7 @@
 #include <errno.h>
 #include <signal.h>
 #include <cassert>
+#include <limits.h>
 #include <sys/time.h>
 #include <comm.h>
 #include <sys/types.h>
@@ -218,14 +219,9 @@ int main(int argc, char **argv)
     local |= analyse_argv( argv, job );
 
     /* if ICECC is set to no, then run job locally */
-    if ( getenv( "ICECC" ) ) {
-	string icecc;
-	icecc = getenv( "ICECC" );
-        /* if the environment variable is set, the user wants to debug if a compile
-           failure is to blame to icecream, so make sure we do the least we can. */
-        if ( icecc == "no" )
-            return build_local( job, 0 );
-    }
+    char* icecc = getenv("ICECC");
+    if ( icecc && !strcasecmp(icecc, "no") )
+        return build_local( job, 0 );
 
     MsgChannel *local_daemon = Service::createChannel( "127.0.0.1", 10245, 0/*timeout*/);
     if ( ! local_daemon ) {
@@ -289,8 +285,6 @@ int main(int argc, char **argv)
                should be enough for all normal compile or link jobs.  */
             startme = local_daemon->get_msg (40*60);
         }
-        else
-            log_error() << "can't send joblocalmsg to daemon" << endl;
 
 	/* If we can't talk to the daemon anymore we need to fall back
 	   to lock file locking.  */

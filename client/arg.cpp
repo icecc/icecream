@@ -42,7 +42,7 @@ using namespace std;
 #if CLIENT_DEBUG
 static string concat_args( const list<string> &args )
 {
-    int len = args.size() - 1;
+    size_t len = args.size() - 1;
     string result = "\"";
     for ( list<string>::const_iterator it = args.begin();
           it != args.end(); ++it, len-- ) {
@@ -62,6 +62,32 @@ inline int str_startswith(const char *head, const char *worm)
     return !strncmp(head, worm, strlen(head));
 }
 
+static bool analyze_program(const char* name, CompileJob& job)
+{
+    string compiler_name = find_basename( name );
+
+    string::size_type pos = compiler_name.rfind('/');
+    if (pos != string::npos)
+        compiler_name = compiler_name.substr(pos);
+
+    job.setCompilerName( compiler_name );
+
+    string suffix = compiler_name;
+    if ( compiler_name.size() > 2)
+        suffix = compiler_name.substr(compiler_name.size()-2);
+
+    if (suffix == "++" || suffix == "CC")
+        job.setLanguage (CompileJob::Lang_CXX);
+    else if (suffix == "cc")
+        job.setLanguage (CompileJob::Lang_C);
+    else {
+        job.setLanguage( CompileJob::Lang_Custom );
+        return true;
+    }
+
+    return false;
+}
+
 bool analyse_argv( const char * const *argv,
                    CompileJob &job )
 {
@@ -75,11 +101,11 @@ bool analyse_argv( const char * const *argv,
     trace() << endl;
 #endif
 
-    bool always_local = false;
+    bool always_local = analyze_program(argv[0], job);
     bool seen_c = false;
     bool seen_s = false;
 
-    for (int i = 0; argv[i]; i++) {
+    for (int i = 1; argv[i]; i++) {
         const char *a = argv[i];
 
         if (a[0] == '-') {
@@ -182,8 +208,10 @@ bool analyse_argv( const char * const *argv,
                    for preprocessing or a precompiled header. decide which one.  */
                 if (argv[i+1]) {
                     ++i;
-                    if (access(argv[i], R_OK))
-                        always_local = true;  /* its a precompiled header.  */
+                    std::string p = argv[i];
+                    if (access(p.c_str(), R_OK) && access((p + ".gch").c_str(), R_OK))
+                        always_local = true;  /* can't decide which one, let the compiler figure it
+                                                 out.  */
                     args.append(a, Arg_Local);
                     args.append(argv[i], Arg_Local);
                 }
@@ -240,14 +268,6 @@ bool analyse_argv( const char * const *argv,
     } else {
         args.append( "-c", Arg_Remote );
     }
-
-    string compiler_name = find_basename( args.front().first );
-    args.pop_front(); // away!
-
-    job.setLanguage( CompileJob::Lang_C );
-    if ( ( compiler_name.size() > 2 &&
-           compiler_name.substr( compiler_name.size() - 2 ) == "++" ) || compiler_name == "CC" )
-        job.setLanguage( CompileJob::Lang_CXX );
 
     if ( !always_local ) {
 
@@ -334,8 +354,11 @@ bool analyse_argv( const char * const *argv,
             << ", remote args=" << concat_args( job.remoteFlags() )
             << ", rest=" << concat_args( job.restFlags() )
             << ", local=" << always_local
-            << ", lang=" << ( job.language() == CompileJob::Lang_CXX ? "C++" : "C" )
-            << endl;
+            << ", compiler=" << job.compilerName()
+            << ", lang="
+            << (job.language() != CompileJob::Lang_Custom ?
+               (job.language() == CompileJob::Lang_CXX ? "C++" : "C" ) : "<custom>")
+           << endl;
 #endif
 
     return always_local;

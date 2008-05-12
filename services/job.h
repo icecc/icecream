@@ -36,17 +36,16 @@ public:
 class CompileJob {
 
 public:
-    typedef enum {Lang_C, Lang_CXX, Lang_OBJC} Language;
+    typedef enum {Lang_C, Lang_CXX, Lang_OBJC, Lang_Custom} Language;
     typedef enum { Flag_None = 0, Flag_g = 0x1, Flag_g3 = 0x2, Flag_O = 0x4, Flag_O2 = 0x8, Flag_Ol2 = 0x10 } Flag;
 
     CompileJob() : m_id( 0 ) { __setTargetPlatform(); }
 
-    void setLanguage( Language lg ) {
-        m_language = lg;
-    }
-    Language language() const {
-        return m_language;
-    }
+    void setCompilerName(const std::string& name) { m_compiler_name = name; }
+    std::string compilerName() const { return m_compiler_name; }
+
+    void setLanguage( Language lg ) { m_language = lg; }
+    Language language() const { return m_language; }
 
     void setEnvironmentVersion( const std::string& ver ) {
         m_environment_version = ver;
@@ -89,22 +88,6 @@ public:
         return m_id;
     }
 
-    CompileJob( const CompileJob &rhs ) {
-        *this = rhs;
-    }
-
-    CompileJob &operator=( const CompileJob &rhs ) {
-        m_id = rhs.m_id;
-        m_language = rhs.m_language;
-        m_environment_version = rhs.m_environment_version;
-        m_flags = rhs.m_flags;
-        m_input_file = rhs.m_input_file;
-        m_output_file = rhs.m_output_file;
-        m_target_platform = rhs.m_target_platform;
-
-        return *this;
-    }
-
     void appendFlag( std::string arg, Argument_Type argumentType ) {
         m_flags.append( arg, argumentType );
     }
@@ -120,6 +103,7 @@ private:
 
     unsigned int m_id;
     Language m_language;
+    std::string m_compiler_name;
     std::string m_environment_version;
     ArgumentsList m_flags;
     std::string m_input_file, m_output_file;

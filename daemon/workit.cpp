@@ -109,7 +109,8 @@ error_client( MsgChannel *client, string error )
 }
 
 int work_it( CompileJob &j, unsigned int job_stat[], MsgChannel* client,
-             CompileResultMsg& rmsg, string &outfilename, unsigned long int mem_limit, int client_fd )
+             CompileResultMsg& rmsg, const string &outfilename, 
+             unsigned long int mem_limit, int client_fd, int job_in_fd )
 {
     rmsg.out.erase(rmsg.out.begin(), rmsg.out.end());
     rmsg.out.erase(rmsg.out.begin(), rmsg.out.end());
@@ -117,14 +118,6 @@ int work_it( CompileJob &j, unsigned int job_stat[], MsgChannel* client,
     std::list<string> list = j.remoteFlags();
     appendList( list, j.restFlags() );
     int ret;
-
-    char tmp_output[PATH_MAX];
-    char prefix_output[PATH_MAX]; // I'm too lazy to calculate how many digits 2^64 is :)
-    sprintf( prefix_output, "icecc-%d", j.jobID() );
-    if ( ( ret = dcc_make_tmpnam(prefix_output, ".o", tmp_output, 1 ) ) != 0 )
-        return ret;
-
-    outfilename = tmp_output;
 
     int sock_err[2];
     int sock_out[2];
@@ -196,7 +189,6 @@ int work_it( CompileJob &j, unsigned int job_stat[], MsgChannel* client,
         close( sock_in[0] );
         close( sock_in[1] );
         close( sock_err[0] );
-        unlink( tmp_output );
         return EXIT_OUT_OF_MEMORY;
     } else if ( pid == 0 ) {
 
@@ -257,7 +249,7 @@ int work_it( CompileJob &j, unsigned int job_stat[], MsgChannel* client,
         argv[i++] = strdup((j.language() == CompileJob::Lang_CXX) ? "c++" : "c");
         argv[i++] = strdup( "-" );
         argv[i++] = strdup( "-o" );
-        argv[i++] = tmp_output;
+        argv[i++] = strdup(outfilename.c_str());
         argv[i++] = strdup( "--param" );
         sprintf( buffer, "ggc-min-expand=%d", ggc_min_expand_heuristic( mem_limit ) );
         argv[i++] = strdup( buffer );
@@ -326,6 +318,8 @@ int work_it( CompileJob &j, unsigned int job_stat[], MsgChannel* client,
                 ssize_t bytes = write( sock_in[1], fcmsg->buffer + off, len );
                 if ( bytes < 0 && errno == EINTR )
                     continue;
+
+                write(job_in_fd, fcmsg->buffer + off, bytes);
 
                 if ( bytes == -1 ) {
                     log_perror("write to caching socket failed. ");

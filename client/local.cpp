@@ -25,6 +25,7 @@
 #include <sys/stat.h>
 #include <sys/wait.h>
 #include <unistd.h>
+#include <limits.h>
 #include <string.h>
 #include <errno.h>
 #ifdef HAVE_SIGNAL_H
@@ -46,22 +47,26 @@ extern const char * rs_program_name;
  * variable set. This is useful for native cross-compilers.
  * (arm-linux-gcc for example)
  */
-static string get_compiler_name( CompileJob::Language lang ) {
+
+static string get_compiler_name( CompileJob::Language lang )
+{
     string compiler_name = "gcc";
 
-    if ( getenv( "ICECC_CC" ) != 0 )
-        compiler_name = getenv( "ICECC_CC" );
+    const char* env;
+    if ( (env = getenv( "ICECC_CC" )) )
+        compiler_name = env;
 
-    if ( lang == CompileJob::Lang_CXX )
-        compiler_name = getenv( "ICECC_CXX" ) != 0 ?
-                        getenv( "ICECC_CXX" ) : "g++";
+    if (lang == CompileJob::Lang_CXX)
+        compiler_name = "g++";
+    if ((env = getenv ("ICECC_CXX")))
+        compiler_name = env;
 
     return compiler_name;
 }
 
-string find_compiler( CompileJob::Language lang )
+
+static string path_lookup(const string& compiler)
 {
-    string compiler = get_compiler_name( lang );
     if ( compiler.at( 0 ) == '/' )
         return compiler;
 
@@ -116,6 +121,13 @@ string find_compiler( CompileJob::Language lang )
     return best_match;
 }
 
+string find_compiler( CompileJob::Language lang )
+{
+    string compiler = get_compiler_name( lang );
+
+    return path_lookup(compiler);
+}
+
 static volatile int lock_fd = 0;
 static volatile int user_break_signal = 0;
 static volatile pid_t child_pid;
@@ -148,14 +160,20 @@ static void handle_user_break( int sig )
  * log our resource usage.
  *
  **/
-int build_local(CompileJob &job, MsgChannel *local_daemon, struct rusage *used)
+int build_local(CompileJob& job, MsgChannel *local_daemon, struct rusage *used)
 {
     list<string> arguments;
 
-    string compiler_name = find_compiler( job.language() );
+    string compiler_name;
+    if (job.language() != CompileJob::Lang_Custom )
+        compiler_name = find_compiler( job.language() );
+    else
+        compiler_name = path_lookup(job.compilerName());
+
+    trace() << "invoking: " << compiler_name << endl;
 
     if ( compiler_name.empty() ) {
-        log_error() << "could not find " << get_compiler_name (job.language() ) << " in PATH." << endl;
+        log_error() << "could not find " << job.compilerName() << " in PATH." << endl;
         return EXIT_NO_SUCH_FILE;
     }
 
@@ -190,7 +208,8 @@ int build_local(CompileJob &job, MsgChannel *local_daemon, struct rusage *used)
         lock_fd = fd;
     }
 
-    bool color_output = colorify_wanted();
+    bool color_output = job.language() != CompileJob::Lang_Custom
+        && colorify_wanted();
     int pf[2];
 
     if (color_output && pipe(pf))

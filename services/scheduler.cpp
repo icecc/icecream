@@ -1,4 +1,5 @@
 /*  -*- mode: C++; c-file-style: "gnu"; fill-column: 78 -*- */
+/* vim:cinoptions={.5s,g0,p5,t0,(0,^-0.5s,n-0.5s:tw=78:cindent:sw=4: */
 /*
     This file is part of Icecream.
 
@@ -92,14 +93,16 @@ struct JobStat {
   unsigned long compile_time_real;  // in milliseconds
   unsigned long compile_time_user;
   unsigned long compile_time_sys;
+  unsigned int job_id;
   JobStat() : osize(0), compile_time_real(0), compile_time_user(0),
-	      compile_time_sys(0) {}
+	      compile_time_sys(0), job_id(0) {}
   JobStat& operator +=(const JobStat &st)
   {
     osize += st.osize;
     compile_time_real += st.compile_time_real;
     compile_time_user += st.compile_time_user;
     compile_time_sys += st.compile_time_sys;
+    job_id = 0;
     return *this;
   }
   JobStat& operator -=(const JobStat &st)
@@ -108,22 +111,27 @@ struct JobStat {
     compile_time_real -= st.compile_time_real;
     compile_time_user -= st.compile_time_user;
     compile_time_sys -= st.compile_time_sys;
+    job_id = 0;
     return *this;
   }
+private:
   JobStat& operator /=(int d)
   {
     osize /= d;
     compile_time_real /= d;
     compile_time_user /= d;
     compile_time_sys /= d;
+    job_id = 0;
     return *this;
   }
+public:
   JobStat operator /(int d) const
   {
     JobStat r = *this;
     r /= d;
     return r;
   }
+
 };
 
 class Job;
@@ -177,7 +185,7 @@ public:
 
 unsigned int CS::hostid_counter = 0;
 
-static map<int, MsgChannel *> fd2chan;
+static map<int, CS *> fd2cs;
 static bool exit_main_loop = false;
 
 time_t starttime;
@@ -220,10 +228,10 @@ public:
 };
 
 // A subset of connected_hosts representing the compiler servers
-static list<CS*> css;
+static list<CS*> css, monitors, controls;
+static list<string> block_css;
 static unsigned int new_job_id;
 static map<unsigned int, Job*> jobs;
-static map<unsigned int, Job*> done_jobs;
 
 /* XXX Uah.  Don't use a queue for the job requests.  It's a hell
    to delete anything out of them (for clean up).  */
@@ -237,8 +245,6 @@ static list<UnansweredList*> toanswer;
 
 static list<JobStat> all_job_stats;
 static JobStat cum_job_stats;
-
-static list<MsgChannel*> monitors;
 
 static float server_speed (CS *cs, Job *job = 0);
 
@@ -270,6 +276,7 @@ add_job_stats (Job *job, JobDoneMsg *msg)
   st.compile_time_real = msg->real_msec;
   st.compile_time_user = msg->user_msec;
   st.compile_time_sys = msg->sys_msec;
+  st.job_id = job->id;
 
   if ( job->arg_flags & CompileJob::Flag_g )
     st.osize = st.osize * 10 / 36; // average over 1900 jobs: faktor 3.6 in osize
@@ -339,19 +346,22 @@ add_job_stats (Job *job, JobDoneMsg *msg)
 
 }
 
-static bool handle_end (MsgChannel *c, Msg *);
+static bool handle_end (CS *c, Msg *);
 
 static void
-notify_monitors (const Msg &m)
+notify_monitors (Msg* m)
 {
-  list<MsgChannel*>::iterator it, it_old;
+  list<CS*>::iterator it, it_old;
   for (it = monitors.begin(); it != monitors.end();)
     {
-      it_old = it++; // handle_end removes it from monitors, so don't be clever
+      it_old = it++;
       /* If we can't send it, don't be clever, simply close this monitor.  */
-      if (!(*it_old)->send_msg (m))
+      if (!(*it_old)->send_msg (*m, MsgChannel::SendNonBlocking /*| MsgChannel::SendBulkOnly*/)) {
+        trace() << "monitor is blocking... removing" << endl;
         handle_end (*it_old, 0);
+      }
     }
+  delete m;
 }
 
 static float
@@ -423,7 +433,7 @@ handle_monitor_stats( CS *cs, StatsMsg *m = 0)
       sprintf( buffer, "Load:%d\n", cs->load );
       msg += buffer;
     }
-  notify_monitors( MonStatsMsg( cs->hostid, msg ) );
+  notify_monitors( new MonStatsMsg( cs->hostid, msg ) );
 }
 
 static Job *
@@ -511,10 +521,14 @@ handle_cs_request (MsgChannel *c, Msg *_m)
       dbg << "NEW " << job->id << " client="
                     << submitter->nodename << " versions=[";
       for ( Environments::const_iterator it = job->environments.begin();
-            it != job->environments.end(); ++it )
-        dbg << it->second << "(" << it->first << "), ";
+            it != job->environments.end();)
+        {
+          dbg << it->second << "(" << it->first << ")";
+          if (++it != job->environments.end())
+            dbg << ", ";
+        }
       dbg << "] " << m->filename << " " << job->language << endl;
-      notify_monitors (MonGetCSMsg (job->id, submitter->hostid, m));
+      notify_monitors (new MonGetCSMsg (job->id, submitter->hostid, m));
       if ( !master_job )
         {
           master_job = job;
@@ -529,7 +543,7 @@ handle_cs_request (MsgChannel *c, Msg *_m)
 }
 
 static bool
-handle_local_job (MsgChannel *c, Msg *_m)
+handle_local_job (CS *c, Msg *_m)
 {
   JobLocalBeginMsg *m = dynamic_cast<JobLocalBeginMsg *>(_m);
   if (!m)
@@ -537,23 +551,21 @@ handle_local_job (MsgChannel *c, Msg *_m)
 
   ++new_job_id;
   trace() << "handle_local_job " << m->outfile << " " << m->id << endl;
-  CS *cs = dynamic_cast<CS*>( c );
-  cs->client_map[m->id] = new_job_id;
-  notify_monitors (MonLocalJobBeginMsg( new_job_id, m->outfile, m->stime, cs->hostid ) );
+  c->client_map[m->id] = new_job_id;
+  notify_monitors (new MonLocalJobBeginMsg( new_job_id, m->outfile, m->stime, c->hostid ) );
   return true;
 }
 
 static bool
-handle_local_job_done (MsgChannel *c, Msg *_m)
+handle_local_job_done (CS *c, Msg *_m)
 {
   JobLocalDoneMsg *m = dynamic_cast<JobLocalDoneMsg *>(_m);
   if (!m)
     return false;
 
   trace() << "handle_local_job_done " << m->job_id << endl;
-  CS *cs = dynamic_cast<CS*>( c );
-  notify_monitors (JobLocalDoneMsg( cs->client_map[m->job_id] ) );
-  cs->client_map.erase( m->job_id );
+  notify_monitors (new JobLocalDoneMsg( c->client_map[m->job_id] ) );
+  c->client_map.erase( m->job_id );
   return true;
 }
 
@@ -768,17 +780,7 @@ pick_server(Job *job)
           continue;
       }
 
-      /* Servers that are already compiling jobs but got no environments
-         are currently installing new environments - ignore so far */
-      if ( cs->joblist.size() != 0 && cs->compiler_versions.size() == 0 )
-        {
-#if DEBUG_SCHEDULER > 0
-          trace() << cs->nodename << " is currently installing\n";
-#endif
-          continue;
-        }
-
-      // incompatible architecture
+      // incompatible architecture or busy installing
       if ( !can_install( cs, job ).size() )
         {
 #if DEBUG_SCHEDULER > 2
@@ -903,8 +905,31 @@ prune_servers ()
   time_t now = time( 0 );
   time_t min_time = MAX_SCHEDULER_PING;
 
+  for (it = controls.begin(); it != controls.end();)
+    {
+      if (now - ( *it )->last_talk >= MAX_SCHEDULER_PING) 
+        {
+	  CS *old = *it;
+          ++it;
+	  handle_end (old, 0);
+	  continue;
+        }
+      min_time = min (min_time, MAX_SCHEDULER_PING - now + ( *it )->last_talk);
+      ++it;
+    }
+
   for (it = css.begin(); it != css.end(); )
     {
+      if ((*it)->busy_installing && (now - (*it)->busy_installing >=
+                                     MAX_BUSY_INSTALLING))
+        {
+	  trace() << "busy installing for a long time - removing " << ( *it )->nodename << endl;
+	  CS *old = *it;
+	  ++it;
+	  handle_end (old, 0);
+	  continue;
+        }
+
       /* protocol version 27 and newer use TCP keepalive */
       if (IS_PROTOCOL_27(*it)) {
         ++it;
@@ -950,26 +975,6 @@ prune_servers ()
       ++it;
     }
 
-  /**
-   * check the jobs that were not cared about even though they are done
-   * (one in a million ;( */
-  for (map<unsigned int, Job*>::const_iterator it = done_jobs.begin();
-       it != done_jobs.end(); ++it)
-    {
-      Job *j = it->second;
-      if (now - j->done_time > 30 )
-        {
-          trace() << "undone " << dump_job( j ) << endl;
-          trace() << "FORCED removing " << j->server->nodename << endl;
-          handle_end( j->server, 0 );
-          /* the above will kill all jobs associated with this server, so
-             we better get out of this, as done_jobs is changed too and
-             we'll come back (</schwarzeneggeraccent>)
-          */
-          break;
-        }
-    }
-
     return min_time;
 }
 
@@ -993,21 +998,7 @@ empty_queue()
   if (!job)
     return false;
 
-  if (css.empty())
-    {
-      /* XXX Can't happen anymore, right?  We have a request, hence one
-	 daemon must be connected to us (the submitter), so css can't
-	 be empty.  */
-      log_error() << "no servers to handle\n";
-      abort ();
-      remove_job_request ();
-      jobs.erase( job->id );
-      notify_monitors (MonJobDoneMsg (JobDoneMsg( job->id,  255 )));
-      // Don't delete channel here.  We expect the client on the other side
-      // to exit, and that will remove the channel in handle_end
-      delete job;
-      return false;
-    }
+  assert(!css.empty());
 
   Job *first_job = job;
   CS *cs = 0;
@@ -1050,8 +1041,28 @@ empty_queue()
       host_platform = can_install (cs, job);
     }
 
+  // mix and match between job ids
+  unsigned matched_job_id = 0;
+  unsigned count = 0;
+  for (list<JobStat>::const_iterator l = job->submitter->last_requested_jobs.begin();
+       l != job->submitter->last_requested_jobs.end(); ++l)
+    {
+      unsigned rcount = 0;
+      for (list<JobStat>::const_iterator r = cs->last_compiled_jobs.begin();
+           r != cs->last_compiled_jobs.end(); ++r)
+        {
+          if (l->job_id == r->job_id)
+            matched_job_id = l->job_id;
+          if (++rcount > 16)
+            break;
+        }
+
+       if (matched_job_id || ++count > 16)
+         break;
+    }
+
   UseCSMsg m2(host_platform, cs->name, cs->remote_port, job->id,
-	      gotit, job->local_client_id );
+	      gotit, job->local_client_id, matched_job_id );
 
   if (!job->submitter->send_msg (m2))
     {
@@ -1068,11 +1079,10 @@ empty_queue()
         trace() << "put " << job->id << " in joblist of " << cs->nodename << endl;
 #endif
       cs->joblist.push_back( job );
-      if ( !gotit ) // if we made the environment transfer, don't rely on the list
-        {
-          cs->compiler_versions.clear();
-          cs->busy_installing = time(0);
-        }
+      /* if it doesn't have the environment, it will get it. */
+      if ( !gotit )
+        cs->busy_installing = time(0);
+
       string env;
       if ( !job->master_job_for.empty() )
         {
@@ -1098,24 +1108,17 @@ empty_queue()
 }
 
 static bool
-handle_login (MsgChannel *c, Msg *_m)
+handle_login (CS *cs, Msg *_m)
 {
   LoginMsg *m = dynamic_cast<LoginMsg *>(_m);
   if (!m)
     return false;
 
-  /* If we don't allow non-chroot-able daemons in the farm,
-     discard them here.  */
-  if (!m->chroot_possible)
-    return false;
-
   std::ostream& dbg = trace();
-  dbg << "login " << m->nodename << " protocol version: " << c->protocol;
 
-  CS *cs = static_cast<CS *>(c);
   cs->remote_port = m->port;
   cs->compiler_versions = m->envs;
-  cs->max_jobs = m->max_kids;
+  cs->max_jobs = m->chroot_possible ? m->max_kids : 0;
   cs->noremote = m->noremote;
   if ( m->nodename.length() )
     cs->nodename = m->nodename;
@@ -1124,6 +1127,12 @@ handle_login (MsgChannel *c, Msg *_m)
   cs->host_platform = m->host_platform;
   cs->chroot_possible = m->chroot_possible;
   cs->pick_new_id();
+
+  for (list<string>::const_iterator it = block_css.begin(); it != block_css.end(); ++it)
+      if (cs->name == *it)
+          return false;
+
+  dbg << "login " << m->nodename << " protocol version: " << cs->protocol;
   handle_monitor_stats( cs );
 
   /* remove any other clients with the same IP, they must be stale */
@@ -1150,8 +1159,8 @@ handle_login (MsgChannel *c, Msg *_m)
 #endif
 
   /* Configure the daemon */
-  if (IS_PROTOCOL_24( c ))
-    c->send_msg (ConfCSMsg(icecream_bench_code));
+  if (IS_PROTOCOL_24( cs ))
+    cs->send_msg (ConfCSMsg(icecream_bench_code));
 
   return true;
 }
@@ -1182,22 +1191,24 @@ handle_relogin (MsgChannel *c, Msg *_m)
 }
 
 static bool
-handle_mon_login (MsgChannel *c, Msg *_m)
+handle_mon_login (CS *c, Msg *_m)
 {
   MonLoginMsg *m = dynamic_cast<MonLoginMsg *>(_m);
   if (!m)
     return false;
-  // This is really a CS*, but we don't need the full one here
   monitors.push_back (c);
-  for (list<CS*>::iterator it = css.begin(); it != css.end(); ++it)
+  // monitors really want to be fed lazily
+  c->setBulkTransfer();
+
+  for (list<CS*>::const_iterator it = css.begin(); it != css.end(); ++it)
     handle_monitor_stats( *it );
 
-  fd2chan.erase( c->fd ); // no expected data from them
+  fd2cs.erase( c->fd ); // no expected data from them
   return true;
 }
 
 static bool
-handle_job_begin (MsgChannel *c, Msg *_m)
+handle_job_begin (CS *c, Msg *_m)
 {
   JobBeginMsg *m = dynamic_cast<JobBeginMsg *>(_m);
   if ( !m )
@@ -1216,8 +1227,7 @@ handle_job_begin (MsgChannel *c, Msg *_m)
   job->state = Job::COMPILING;
   job->starttime = m->stime;
   job->start_on_scheduler = time(0);
-  CS *cs = dynamic_cast<CS*>( c );
-  notify_monitors (MonJobBeginMsg (m->job_id, m->stime, cs->hostid));
+  notify_monitors (new MonJobBeginMsg (m->job_id, m->stime, c->hostid));
 #if DEBUG_SCHEDULER >= 0
   trace() << "BEGIN: " << m->job_id << " client=" << job->submitter->nodename
           << "(" << job->target_platform << ")" << " server="
@@ -1230,7 +1240,7 @@ handle_job_begin (MsgChannel *c, Msg *_m)
 
 
 static bool
-handle_job_done (MsgChannel *c, Msg *_m)
+handle_job_done (CS *c, Msg *_m)
 {
   JobDoneMsg *m = dynamic_cast<JobDoneMsg *>(_m);
   if ( !m )
@@ -1242,7 +1252,7 @@ handle_job_done (MsgChannel *c, Msg *_m)
     {
       // the daemon saw a cancel of what he believes is waiting in the scheduler
       map<unsigned int, Job*>::iterator mit;
-      for (mit = jobs.begin(); mit != jobs.end(); mit++)
+      for (mit = jobs.begin(); mit != jobs.end(); ++mit)
         {
           Job *job = mit->second;
           trace() << "looking for waitcs " << job->server << " " << job->submitter  << " " << c << " "
@@ -1299,7 +1309,7 @@ handle_job_done (MsgChannel *c, Msg *_m)
     {
       log_info() << "the server isn't the same for job " << m->job_id << endl;
       log_info() << "server: " << j->server->nodename << endl;
-      log_info() << "msg came from: " << ((CS*)c)->nodename << endl;
+      log_info() << "msg came from: " << c->nodename << endl;
       // the daemon is not following matz's rules: kick him
       handle_end(c, 0);
       return false;
@@ -1308,7 +1318,7 @@ handle_job_done (MsgChannel *c, Msg *_m)
     {
       log_info() << "the submitter isn't the same for job " << m->job_id << endl;
       log_info() << "submitter: " << j->submitter->nodename << endl;
-      log_info() << "msg came from: " << ((CS*)c)->nodename << endl;
+      log_info() << "msg came from: " << c->nodename << endl;
       // the daemon is not following matz's rules: kick him
       handle_end(c, 0);
       return false;
@@ -1346,31 +1356,27 @@ handle_job_done (MsgChannel *c, Msg *_m)
 	    << " status=" << m->exitcode << endl;
 
   if (j->server)
-    {
       j->server->joblist.remove (j);
-      j->server->busy_installing = 0;
-    }
+
   add_job_stats (j, m);
-  notify_monitors (MonJobDoneMsg (*m));
+  notify_monitors (new MonJobDoneMsg (*m));
   jobs.erase (m->job_id);
-  done_jobs.erase (m->job_id);
   delete j;
 
   return true;
 }
 
 static bool
-handle_ping (MsgChannel * c, Msg * /*_m*/)
+handle_ping (CS* c, Msg * /*_m*/)
 {
   c->last_talk = time( 0 );
-  CS *cs = dynamic_cast<CS*>( c );
-  if ( cs && cs->max_jobs < 0 )
-    cs->max_jobs *= -1;
+  if ( c->max_jobs < 0 )
+    c->max_jobs *= -1;
   return true;
 }
 
 static bool
-handle_stats (MsgChannel * c, Msg * _m)
+handle_stats (CS * c, Msg * _m)
 {
   StatsMsg *m = dynamic_cast<StatsMsg *>(_m);
   if (!m)
@@ -1381,9 +1387,8 @@ handle_stats (MsgChannel * c, Msg * _m)
   if (!IS_PROTOCOL_25(c))
     {
       c->last_talk = time( 0 );
-      CS *cs = dynamic_cast<CS*>( c );
-      if ( cs && cs->max_jobs < 0 )
-        cs->max_jobs *= -1;
+      if ( c && c->max_jobs < 0 )
+        c->max_jobs *= -1;
     }
 
   for (list<CS*>::iterator it = css.begin(); it != css.end(); ++it)
@@ -1439,22 +1444,47 @@ split_string (const string &s, const char *set, list<string> &l)
 }
 
 static bool
-handle_line (MsgChannel *c, Msg *_m)
+handle_control_login(CS* c)
+{
+    c->type = CS::LINE;
+    c->last_talk = time (0);
+    c->setBulkTransfer();
+    c->state = CS::LOGGEDIN;
+    assert(find(controls.begin(), controls.end(), c) == controls.end());
+    controls.push_back(c);
+
+    std::ostringstream o;
+    o << "200-ICECC " VERSION ": "
+      << time(0) - starttime << "s uptime, "
+      << css.size() << " hosts, "
+      << jobs.size() << " jobs in queue "
+      << "(" << new_job_id << " total)." << endl;
+    o << "200 Use 'help' for help and 'quit' to quit." << endl;
+    return c->send_msg(TextMsg(o.str()));
+}
+
+static bool
+handle_line (CS *c, Msg *_m)
 {
   TextMsg *m = dynamic_cast<TextMsg *>(_m);
   if (!m)
     return false;
+
   char buffer[1000];
   string line;
   list<string> l;
   split_string (m->text, " \t\n", l);
   string cmd;
+
+  c->last_talk = time(0);
+
   if (l.empty())
     cmd = "";
   else
     {
       cmd = l.front();
       l.pop_front();
+      transform(cmd.begin(), cmd.end(), cmd.begin(), ::tolower);
     }
   if (cmd == "listcs")
     {
@@ -1476,8 +1506,14 @@ handle_line (MsgChannel *c, Msg *_m)
             return false;
           for ( list<Job*>::const_iterator it2 = cs->joblist.begin(); it2 != cs->joblist.end(); ++it2 )
             if(!c->send_msg (TextMsg ("   " + dump_job (*it2) ) ))
-              break;
+              return false;
 	}
+    }
+  else if (cmd == "listblocks")
+    {
+      for (list<string>::const_iterator it = block_css.begin(); it != block_css.end(); ++it)
+        if(!c->send_msg (TextMsg ("   " + (*it) ) ))
+          return false;
     }
   else if (cmd == "listjobs")
     {
@@ -1486,15 +1522,15 @@ handle_line (MsgChannel *c, Msg *_m)
 	if(!c->send_msg( TextMsg( " " + dump_job (it->second) ) ))
           return false;
     }
-  else if (cmd == "quit")
+  else if (cmd == "quit" || cmd == "exit" )
     {
-      handle_end (c, m);
+      handle_end(c, 0);
       return false;
     }
-  else if (cmd == "removecs")
+  else if (cmd == "removecs" || cmd == "blockcs")
     {
       if (l.empty()) {
-        if(!c->send_msg (TextMsg (string ("Sure.  But which hosts?"))))
+        if(!c->send_msg (TextMsg (string ("401 Sure. But which hosts?"))))
           return false;
       }
       else
@@ -1502,6 +1538,8 @@ handle_line (MsgChannel *c, Msg *_m)
 	  for (list<CS*>::iterator it = css.begin(); it != css.end(); ++it)
 	    if ((*it)->nodename == *si || (*it)->name == *si)
 	      {
+                if (cmd == "blockcs")
+                    block_css.push_back((*it)->name);
                 if (c->send_msg (TextMsg (string ("removing host ") + *si)))
                     handle_end ( *it, 0);
 		break;
@@ -1544,7 +1582,7 @@ handle_line (MsgChannel *c, Msg *_m)
   else if (cmd == "help")
     {
       if (!c->send_msg (TextMsg (
-        "listcs\nlistjobs\nremovecs\ninternals\nhelp\nquit")))
+        "listcs\nlistblocks\nlistjobs\nremovecs\nblockcs\ninternals\nhelp\nquit")))
         return false;
     }
   else
@@ -1555,68 +1593,62 @@ handle_line (MsgChannel *c, Msg *_m)
       if(!c->send_msg (TextMsg (txt)))
         return false;
     }
-  return c->send_msg (TextMsg (string ("done")));
+  return c->send_msg (TextMsg (string ("200 done")));
 }
 
 // return false if some error occured, leaves C open.  */
 static bool
-try_login (MsgChannel *c, Msg *m)
+try_login (CS *c, Msg *m)
 {
   bool ret = true;
-  CS *cs = static_cast<CS *>(c);
   switch (m->type)
     {
     case M_LOGIN:
-      cs->type = CS::DAEMON;
+      c->type = CS::DAEMON;
       ret = handle_login (c, m);
       break;
     case M_MON_LOGIN:
-      cs->type = CS::MONITOR;
+      c->type = CS::MONITOR;
       ret = handle_mon_login (c, m);
-      break;
-    case M_TEXT:
-      cs->type = CS::LINE;
-      ret = handle_line (c, m);
       break;
     default:
       log_info() << "Invalid first message " << (char)m->type << endl;
       ret = false;
       break;
     }
-  delete m;
   if (ret)
-    cs->state = CS::LOGGEDIN;
+    c->state = CS::LOGGEDIN;
   else
-    {
-      fd2chan.erase (c->fd);
-      delete c;
-    }
+    handle_end (c, m);
+
+  delete m;
   return ret;
 }
 
 static bool
-handle_end (MsgChannel *c, Msg *m)
+handle_end (CS *toremove, Msg *m)
 {
 #if DEBUG_SCHEDULER > 1
-  trace() << "Handle_end " << c << " " << m << endl;
+  trace() << "Handle_end " << toremove << " " << m << endl;
 #else
   ( void )m;
 #endif
 
-  CS *toremove = static_cast<CS *>(c);
-  if (toremove->type == CS::MONITOR)
+  switch (toremove->type) {
+  case CS::MONITOR:
     {
-      assert (find (monitors.begin(), monitors.end(), c) != monitors.end());
-      monitors.remove (c);
+      assert (find (monitors.begin(), monitors.end(), toremove) != monitors.end());
+      monitors.remove (toremove);
 #if DEBUG_SCHEDULER > 1
       trace() << "handle_end(moni) " << monitors.size() << endl;
 #endif
     }
-  else if (toremove->type == CS::DAEMON)
+    break;
+  case CS::DAEMON:
     {
       log_info() << "remove daemon " << toremove->nodename << endl;
 
-      notify_monitors( MonStatsMsg( toremove->hostid, "State:Offline\n" ) );
+      notify_monitors(new  MonStatsMsg( toremove->hostid, "State:Offline\n" ) );
 
       /* A daemon disconnected.  We must remove it from the css list,
          and we have to delete all jobs scheduled on that daemon.
@@ -1636,11 +1668,10 @@ handle_end (MsgChannel *c, Msg *m)
 	    for (jit = l->l.begin(); jit != l->l.end(); ++jit)
 	      {
 		trace() << "STOP (DAEMON) FOR " << (*jit)->id << endl;
-                notify_monitors (MonJobDoneMsg (JobDoneMsg( ( *jit )->id,  255 )));
+                notify_monitors (new MonJobDoneMsg ( JobDoneMsg (( *jit )->id,  255 )));
 		if ((*jit)->server)
 		  (*jit)->server->busy_installing = 0;
 		jobs.erase( (*jit)->id );
-                done_jobs.erase( (*jit)->id );
 		delete (*jit);
 	      }
 	    delete l;
@@ -1656,14 +1687,13 @@ handle_end (MsgChannel *c, Msg *m)
           if (job->server == toremove || job->submitter == toremove)
             {
               trace() << "STOP (DAEMON2) FOR " << mit->first << endl;
-              notify_monitors (MonJobDoneMsg (JobDoneMsg( job->id,  255 )));
+              notify_monitors (new MonJobDoneMsg ( JobDoneMsg( job->id,  255 )));
 	      /* If this job is removed because the submitter is removed
 		 also remove the job from the servers joblist.  */
 	      if (job->server && job->server != toremove)
 		job->server->joblist.remove (job);
 	      if (job->server)
 	        job->server->busy_installing = 0;
-              done_jobs.erase( job->id );
               jobs.erase( mit++ );
               delete job;
             }
@@ -1673,22 +1703,28 @@ handle_end (MsgChannel *c, Msg *m)
             }
         }
     }
-  else if (toremove->type == CS::LINE)
+    break;
+  case CS::LINE:
     {
-      if (!c->send_msg (TextMsg ("Good Bye!"))) {
+      if (!toremove->send_msg (TextMsg ("200 Good Bye!"))) {
       }
+      controls.remove (toremove);
     }
-  else
-    trace() << "remote end had UNKNOWN type?" << endl;
+    break;
+  default:
+    {
+      trace() << "remote end had UNKNOWN type?" << endl;
+    }
+  }
 
-  fd2chan.erase (c->fd);
-  delete c;
+  fd2cs.erase (toremove->fd);
+  delete toremove;
   return true;
 }
 
 /* Returns TRUE if C was not closed.  */
 static bool
-handle_activity (MsgChannel *c)
+handle_activity (CS *c)
 {
   Msg *m;
   bool ret = true;
@@ -1699,7 +1735,7 @@ handle_activity (MsgChannel *c)
       return false;
     }
   /* First we need to login.  */
-  if (static_cast<CS *>(c)->state == CS::CONNECTED)
+  if (c->state == CS::CONNECTED)
     return try_login (c, m);
 
   switch (m->type)
@@ -1783,7 +1819,7 @@ open_tcp_listener (short port)
       log_perror ("bind()");
       return -1;
     }
-  if (listen (fd, 20) < 0)
+  if (listen (fd, 10) < 0)
     {
       log_perror ("listen()");
       return -1;
@@ -1935,6 +1971,8 @@ main (int argc, char * argv[])
   signal(SIGINT, trigger_exit);
   signal(SIGALRM, trigger_exit);
 
+  time_t next_listen = 0;
+
   while (!exit_main_loop)
     {
       struct timeval tv;
@@ -1947,22 +1985,21 @@ main (int argc, char * argv[])
       fd_set read_set;
       int max_fd = 0;
       FD_ZERO (&read_set);
-      if (toanswer.size() < 100) // TODO: this is rather pointless as toanswer is now a queue of queues
-        { // don't let us overrun
+      if (time(0) >= next_listen)
+        {
           max_fd = listen_fd;
           FD_SET (listen_fd, &read_set);
+          if (text_fd > max_fd)
+            max_fd = text_fd;
+          FD_SET (text_fd, &read_set);
         }
-      if (text_fd > max_fd)
-	max_fd = text_fd;
-      FD_SET (text_fd, &read_set);
       if (broad_fd > max_fd)
         max_fd = broad_fd;
       FD_SET (broad_fd, &read_set);
-      for (map<int, MsgChannel *>::const_iterator it = fd2chan.begin();
-           it != fd2chan.end();)
+      for (map<int, CS*>::const_iterator it = fd2cs.begin(); it != fd2cs.end();)
         {
           int i = it->first;
-          MsgChannel *c = it->second;
+          CS *c = it->second;
           bool ok = true;
           ++it;
           /* handle_activity() can delete c and make the iterator
@@ -1988,31 +2025,41 @@ main (int argc, char * argv[])
       if (FD_ISSET (listen_fd, &read_set))
         {
 	  max_fd--;
-	  remote_len = sizeof (remote_addr);
-          remote_fd = accept (listen_fd,
-                              (struct sockaddr *) &remote_addr,
-                              &remote_len );
-	  if (remote_fd < 0 && errno != EAGAIN && errno != EINTR)
-	    {
-	      log_perror ("accept()");
-	      return 1;
-	    }
-	  if (remote_fd >= 0)
-	    {
-	      CS *cs = new CS (remote_fd, (struct sockaddr*) &remote_addr, remote_len, false);
-              trace() << "accepted " << cs->name << " " << cs->port << endl;
-              cs->last_talk = time( 0 );
+          bool pending_connections = true;
+          while (pending_connections)
+            {
+              remote_len = sizeof (remote_addr);
+              remote_fd = accept (listen_fd,
+                                  (struct sockaddr *) &remote_addr,
+                                  &remote_len );
+              if (remote_fd < 0)
+                pending_connections = false;
 
-              if ( !cs->protocol ) // protocol mismatch
+              if (remote_fd < 0 && errno != EAGAIN && errno != EINTR && errno
+                  != EWOULDBLOCK)
                 {
-                  delete cs;
-                  continue;
+                  log_perror ("accept()");
+                  /* don't quit because of ECONNABORTED, this can happen during
+                   * floods  */
                 }
-	      fd2chan[cs->fd] = cs;
-	      while (!cs->read_a_bit () || cs->has_msg ())
-                if(! handle_activity (cs))
-                  break;
-	    }
+              if (remote_fd >= 0)
+                {
+                  CS *cs = new CS (remote_fd, (struct sockaddr*) &remote_addr, remote_len, false);
+                  trace() << "accepted " << cs->name << endl;
+                  cs->last_talk = time( 0 );
+
+                  if ( !cs->protocol ) // protocol mismatch
+                    {
+                      delete cs;
+                      continue;
+                    }
+                  fd2cs[cs->fd] = cs;
+                  while (!cs->read_a_bit () || cs->has_msg ())
+                    if(! handle_activity (cs))
+                      break;
+                }
+            }
+          next_listen = time(0) + 1;
         }
       if (max_fd && FD_ISSET (text_fd, &read_set))
         {
@@ -2030,13 +2077,12 @@ main (int argc, char * argv[])
 	  if (remote_fd >= 0)
 	    {
 	      CS *cs = new CS (remote_fd, (struct sockaddr*) &remote_addr, remote_len, true);
-              cs->last_talk = time (0);
-              if (!cs->protocol) // protocol mismatch
+	      fd2cs[cs->fd] = cs;
+              if (!handle_control_login(cs))
                 {
-                  delete cs;
+                  handle_end(cs, 0);
                   continue;
                 }
-	      fd2chan[cs->fd] = cs;
 	      while (!cs->read_a_bit () || cs->has_msg ())
 	        if (!handle_activity (cs))
                   break;
@@ -2077,12 +2123,12 @@ main (int argc, char * argv[])
 		}
 	    }
 	}
-      for (map<int, MsgChannel *>::const_iterator it = fd2chan.begin();
-           max_fd && it != fd2chan.end();)
+      for (map<int, CS*>::const_iterator it = fd2cs.begin();
+           max_fd && it != fd2cs.end();)
         {
           int i = it->first;
-          MsgChannel *c = it->second;
-          /* handle_activity can delete the channel from the fd2chan list,
+          CS *c = it->second;
+          /* handle_activity can delete the channel from the fd2cs list,
              hence advance the iterator right now, so it doesn't become
              invalid.  */
           ++it;
@@ -2095,11 +2141,9 @@ main (int argc, char * argv[])
             }
         }
     }
-  close (broad_fd);
   shutdown (broad_fd, SHUT_RDWR);
+  close (broad_fd);
   unlink(pidFilePath.c_str());
   return 0;
 }
-/*
-vim:cinoptions={.5s,g0,p5,t0,(0,^-0.5s,n-0.5s:tw=78:cindent:sw=4:
-*/
+

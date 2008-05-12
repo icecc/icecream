@@ -9,11 +9,12 @@
 #
 ### BEGIN INIT INFO
 # Provides:          icecream
-# Required-Start:    $network $syslog
-# Required-Stop:    
+# Required-Start:    $network $syslog $remote_fs
+# Required-Stop:
 # Default-Start:     3 5
 # Default-Stop:
 # Description:       distributed compiler daemon
+# Short-Description: icecc
 ### END INIT INFO
 
 # Determine the base and follow a runlevel link name.
@@ -91,6 +92,22 @@ case "$1" in
 	$0 stop; sleep 1  &&  $0 start
 	rc_status
 	;;
+    try-restart|condrestart)
+        ## Do a restart only if the service was active before.
+        ## Note: try-restart is now part of LSB (as of 1.9).
+        ## RH has a similar command named condrestart.
+        if test "$1" = "condrestart"; then
+                echo "${attn} Use try-restart ${done}(LSB)${attn} rather than condrestart ${warn}(RH)${norm}"
+        fi
+        $0 status
+        if test $? = 0; then
+                $0 restart
+        else
+                rc_reset        # Not running is not a failure.
+        fi
+        # Remember status and be quiet
+        rc_status
+        ;;
     reload|force-reload)
 	if test "$ICECREAM_RUN_SCHEDULER" == "yes"; then
           killproc  -HUP /usr/sbin/scheduler
@@ -104,7 +121,7 @@ case "$1" in
 	rc_status -v
 	;;
     *)
-	echo "Usage: $0 {start|stop|status|restart|reload}"
+	echo "Usage: $0 {start|stop|status|restart|try-restart|reload}"
 	exit 1
 	;;
 esac
