@@ -1,3 +1,78 @@
+0.9.0 (807014):
+    - create a working env on OS X
+    - don't hardcode tar path
+    - implement load informations on OS X
+    - make it work again on non-Linux platforms: Jobs still reported their
+      environment platform as i386 etc, even if they came from Darwin or
+      BSD (thus the scheduler never finds a matching compile server, or
+      wrongly directs a non-Linux client to use a Linux compile server)
+    - fixing the init script
+    - patch by Tais M. Hansen to ignore directories 
+    - compile on OS X 10.5
+    - some preparations for rsync support
+    - fix valgrind warning
+    - add configure check for librsync
+    - don't kick daemons that run as user, just don't give them
+      any jobs. this helps the people that just don't trust the
+      daemon to be able to at least send out jobs
+    - remove the now pointless "runasuser" option. it will just 
+      not accept any jobs then
+    - add log message when the local daemon hangs again
+    - accept TERM=dumb as well
+    - implement support for scheduling local non-compile jobs.
+    
+      For example: you can add a symlink named "meinproc4" pointing
+      to icecc to your path, and it will automatically schedule
+      the job and then invoke meinproc4 on it locally. 
+    
+      the advantage is that you can use cmake -j50 without having
+      to worry that there are going to be 50 meinproc jobs killing
+      your machine.
+    - do an asynchronous connection to the scheduler:
+     * helps when the scheduler is down, as the daemon
+       is otherwise locked up then and can't schedule
+       local jobs
+     * helps when the scheduler is flaky and blocked
+       itself on network (like in the suse network).
+    - fix connect if scheduler is known
+    - send jobs to a monitor non-blocking
+    - implement host blocking
+    - switch monitor connections to bulk transfer
+    - fix double deletion when control connection disconnects
+    - add greeting banner that gives a rough statistic (for pretty
+      monitoring graphs :)
+    - protocol cleanup
+    - fix error handling
+    - adding more API for better monitor behaviour
+    - various protections against malicious requests
+    - add a try-restart target for the rpm package
+    - always read the scheduler message in complete before trying
+      to fetch a message. fixes a daemon hangup (surprising noone noticed
+      this before)
+    - various code cleanups
+    - don't flood the scheduler
+    - implement bulk sending
+    - reduce overhead by not sending a full path
+    - implement much shorter monitor messages
+    - reenable cork handling on linux only. helps a lot
+    - fix job statistics in monitor
+    - check if the compile server sent us a message before die'ing another
+      death
+    - avoid killing the daemon on protocol errors
+    - support "quit" on the normal daemon port as well
+    - ext/hash_set is not needed and does not exist anymore
+    - DoS protection for the scheduler
+    - avoid that daemons hang around in environment installation
+      state forever
+    - fix daemons being overrun by wrongly assigned jobs
+      while they're busy installing
+    - add a segfault catcher
+    - don't allow tiny environments - they are very likely broken
+    - always relogin to the scheduler even if environment
+      transfer failed
+    - implement proper handling for PCH files for e.g. Qt compilation
+    - fix compilation with glibc 2.8
+
 0.8.0 (657903):
         - Find md5 on FreeBSD
         - apply patch to support cygwin a bit better
