@@ -56,10 +56,11 @@ static string get_compiler_name( CompileJob::Language lang )
     if ( (env = getenv( "ICECC_CC" )) )
         compiler_name = env;
 
-    if (lang == CompileJob::Lang_CXX)
+    if (lang == CompileJob::Lang_CXX) {
         compiler_name = "g++";
-    if ((env = getenv ("ICECC_CXX")))
-        compiler_name = env;
+        if ((env = getenv ("ICECC_CXX")))
+            compiler_name = env;
+    }
 
     return compiler_name;
 }
