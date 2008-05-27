@@ -54,3 +54,8 @@ Suggestions from "Wilson Snyder" sicortex.com:
 - Add ICECREAM_RUN_ICECCD to make the scheduler machine not run iceccd
 - Have schedulers redudant - e.g. as in nmbd
 
+Christoph Thielecke writes:
+> 1) Problem von icecream: icecc hat /usr/bin/gcc-4.2 kopiert (ist aber ein
+> Symlink auf den Hardening-Wrapper, der installiert war, siehe Listing
+> unten). Kannst Du vieleicht eine Prüfung einbauen, ob gcc-x.y mit .real
+> endet bzw der Wrapper ist?
