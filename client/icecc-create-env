@@ -117,8 +117,14 @@ specfile=`$added_gcc -print-file-name=specs`
 if test -n "$specfile" && test -e "$specfile"; then
   add_file "$specfile"
 fi
+add_file /etc/ld.so.conf
 
 tempdir=`mktemp -d /tmp/iceccenvXXXXXX`
+# special case for weird multilib setups
+for dir in /lib /lib64 /usr/lib /usr/lib64; do
+    test -L $dir && cp -p $dir $tempdir$dir
+done
+
 new_target_files=
 for i in $target_files; do 
  case $i in
@@ -139,6 +145,11 @@ for i in $target_files; do
   target=`echo $target | cut -b2-`
   new_target_files="$new_target_files $target"
 done
+
+if test -x /sbin/ldconfig; then
+   /sbin/ldconfig -r $tempdir
+   new_target_files="$new_target_files etc/ld.so.cache"
+fi
 
 md5sum=NONE
 for file in /usr/bin/md5sum /bin/md5 /usr/bin/md5 /sbin/md5; do
