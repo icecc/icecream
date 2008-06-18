@@ -182,6 +182,12 @@ bool analyse_argv( const char * const *argv,
 #endif
                 always_local = true;
                 args.append(a, Arg_Local);
+            } else if (!strcmp(a, "-march=native") || !strcmp(a, "-mcpu=native") || !strcmp(a, "-mtune=native")) {
+#if CLIENT_DEBUG
+                log_info() << "-{march,mpcu,mtune}=native optimizes for local machine; must be local" << endl;
+#endif
+                always_local = true;
+                args.append(a, Arg_Local);
             } else if (!strcmp(a, "-c")) {
                 seen_c = true;
             } else if (str_startswith("-o", a)) {
