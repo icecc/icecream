@@ -1,3 +1,8 @@
+0.9.1 (822102):
+    - trying to support gentoo x86_64
+    - -mcpu=native has to compile locally (gentoo bug 183586#c13)
+    - don't compile C files with C++ compile if ICECC_CXX is set
+
 0.9.0 (807014):
     - create a working env on OS X
     - don't hardcode tar path
