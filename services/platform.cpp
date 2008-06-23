@@ -38,6 +38,13 @@ std::string determine_platform_once()
     }
 
     string os = uname_buf.sysname;
+    if ( os == "Darwin" ) {
+        const std::string release = uname_buf.release;
+        const string::size_type pos = release.find( '.' );
+        if ( pos == string::npos )
+            throw( std::string( "determine_platform: Cannot determine Darwin release from release string \"" ) + release + "\"" );
+        os += release.substr( 0, pos );
+    }
     if ( os != "Linux" )
         platform = os + '_' + uname_buf.machine;
     else // Linux
