@@ -181,6 +181,7 @@ public:
   map<int, int> client_map; // map client ID for daemon to our IDs
   bool is_eligible( const Job *job );
   bool check_remote( const Job *job ) const;
+  bool matches(const string& nm) { return nodename == nm || name == nm; }
 };
 
 unsigned int CS::hostid_counter = 0;
@@ -724,7 +725,7 @@ pick_server(Job *job)
     {
 	for (it = css.begin(); it != css.end(); ++it)
           {
-	     if ((*it)->nodename == job->preferred_host
+	     if ((*it)->matches(job->preferred_host)
                  && (*it)->is_eligible( job ))
 	       return *it;
 	  }
@@ -1536,7 +1537,7 @@ handle_line (CS *c, Msg *_m)
       else
         for (list<string>::const_iterator si = l.begin(); si != l.end(); ++si)
 	  for (list<CS*>::iterator it = css.begin(); it != css.end(); ++it)
-	    if ((*it)->nodename == *si || (*it)->name == *si)
+	    if ((*it)->matches(*si))
 	      {
                 if (cmd == "blockcs")
                     block_css.push_back((*it)->name);
@@ -1545,6 +1546,26 @@ handle_line (CS *c, Msg *_m)
 		break;
 	      }
     }
+  else if (cmd == "unblockcs")
+    {
+      if (l.empty())
+        {
+          if(!c->send_msg (TextMsg (string ("401 Sure. But which host?"))))
+            return false;
+        }
+
+      for (list<string>::const_iterator si = l.begin(); si != l.end(); ++si)
+        for (list<string>::iterator it = block_css.begin(); 
+             it != block_css.end(); ++it)
+          {
+            if (*si == *it)
+              {
+                block_css.erase(it);
+                break;
+              }
+          }
+    }
+
   else if (cmd == "crashme")
     {
       *(int *)0 = 42;  // ;-)
@@ -1559,7 +1580,7 @@ handle_line (CS *c, Msg *_m)
 	    {
 	      list<string>::const_iterator si;
 	      for (si = l.begin(); si != l.end(); ++si) {
-	        if ((*it)->nodename == *si || (*it)->name == *si)
+	        if ((*it)->matches(*si))
 		  break;
               }
 	      if(si == l.end())
@@ -1582,7 +1603,7 @@ handle_line (CS *c, Msg *_m)
   else if (cmd == "help")
     {
       if (!c->send_msg (TextMsg (
-        "listcs\nlistblocks\nlistjobs\nremovecs\nblockcs\ninternals\nhelp\nquit")))
+        "listcs\nlistblocks\nlistjobs\nremovecs\nblockcs\nunblockcs\ninternals\nhelp\nquit")))
         return false;
     }
   else
