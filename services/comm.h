@@ -242,6 +242,8 @@ public:
   int get_fd() const { return listen_fd(); }
 
   MsgChannel *try_get_scheduler();
+  // Returns the hostname of the scheduler - set by constructor or by try_get_scheduler
+  std::string schedulerName() const { return schedname; }
 };
 // --------------------------------------------------------------------------
 
