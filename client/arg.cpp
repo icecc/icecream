@@ -153,11 +153,25 @@ bool analyse_argv( const char * const *argv,
             } else if (str_startswith("-Wa,", a)) {
                 /* Options passed through to the assembler.  The only one we
                  * need to handle so far is -al=output, which directs the
-                 * listing to the named file and cannot be remote.  Parsing
-                 * all the options would be complex since you can give several
-                 * comma-separated assembler options after -Wa, but looking
-                 * for '=' should be safe. */
-                if (strchr(a, '=')) {
+                 * listing to the named file and cannot be remote.  There are
+		 * some other options which also refer to local files,
+		 * but most of them make no sense when called via the compiler,
+		 * hence we only look for -a[a-z]*= and localize the job if we
+		 * find it. */
+                const char *pos = a;
+                bool local = false;
+                while ((pos = strstr(pos+1, "-a"))) {
+                    pos += 2;
+                    while (*pos >= 'a' && *pos <= 'z')
+                        pos++;
+                    if (*pos == '=') {
+                        local = true;
+                        break;
+                    }
+		    if (!*pos)
+		        break;
+		}
+                if (local) {
                     always_local = true;
                     args.append(a, Arg_Local);
                 } else
