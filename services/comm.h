@@ -239,7 +239,7 @@ public:
   int connect_fd() const { return schedname.empty() ? -1 : ask_fd; }
 
   // compat for icecream monitor
-  int get_fd() const { return listen_fd(); }
+  int get_fd() const { return ask_fd; }
 
   MsgChannel *try_get_scheduler();
 };
