@@ -244,6 +244,8 @@ public:
   MsgChannel *try_get_scheduler();
   // Returns the hostname of the scheduler - set by constructor or by try_get_scheduler
   std::string schedulerName() const { return schedname; }
+  // Returns the network name of the scheduler - set by constructor or by try_get_scheduler
+  std::string networkName() const { return netname; }
 };
 // --------------------------------------------------------------------------
 
