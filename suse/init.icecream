@@ -10,7 +10,7 @@
 ### BEGIN INIT INFO
 # Provides:          icecream
 # Required-Start:    $network $syslog $remote_fs
-# Required-Stop:
+# Required-Stop:     $network $remote_fs
 # Default-Start:     3 5
 # Default-Stop:
 # Description:       distributed compiler daemon
