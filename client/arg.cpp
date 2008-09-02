@@ -101,11 +101,12 @@ bool analyse_argv( const char * const *argv,
     trace() << endl;
 #endif
 
-    bool always_local = analyze_program(argv[0], job);
+    bool had_cc = (job.compilerName().size() > 0);
+    bool always_local = analyze_program(had_cc ? job.compilerName().c_str() : argv[0], job);
     bool seen_c = false;
     bool seen_s = false;
 
-    for (int i = 1; argv[i]; i++) {
+    for (int i = had_cc ? 2 : 1; argv[i]; i++) {
         const char *a = argv[i];
 
         if (a[0] == '-') {

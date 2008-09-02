@@ -184,6 +184,8 @@ int main(int argc, char **argv)
 
     setup_debug(debug_level, string(), "ICECC");
 
+    CompileJob job;
+
     string compiler_name = argv[0];
     dcc_client_catch_signals();
 
@@ -200,6 +202,8 @@ int main(int argc, char **argv)
             }
 	    if ( arg == "--build-native" )
                 return create_native();
+            if ( arg.size() > 0 && arg.at(0) == '/' )
+                job.setCompilerName(arg);
         }
     }
 
@@ -213,8 +217,6 @@ int main(int argc, char **argv)
     /* Ignore SIGPIPE; we consistently check error codes and will
      * see the EPIPE. */
     dcc_ignore_sigpipe(1);
-
-    CompileJob job;
 
     local |= analyse_argv( argv, job );
 
@@ -248,7 +250,7 @@ int main(int argc, char **argv)
             Msg *umsg = local_daemon->get_msg(4 * 60);
             string native;
             if ( umsg && umsg->type == M_NATIVE_ENV )
-                native = dynamic_cast<UseNativeEnvMsg*>( umsg )->nativeVersion;
+                native = static_cast<UseNativeEnvMsg*>( umsg )->nativeVersion;
 
             if ( native.empty() || ::access( native.c_str(), R_OK ) ) {
 		log_warning() << "daemon can't determine native environment. Set $ICECC_VERSION to an icecc environment.\n";
@@ -312,7 +314,7 @@ int main(int argc, char **argv)
                 log_error() << "got exception " << error << " (this should be an exception!)" <<
                     endl;
 
-            /* currently debugging a client ? throw an error then */
+            /* currently debugging a client? throw an error then */
             if (debug_level != Error)
                 return error;
             goto do_local_error;
