@@ -6,7 +6,7 @@
 #
 
 ## Name: icecream scheduler
-## Description: opens ports for the Icecream scheduler
+## Description: Opens ports for the icecream scheduler
 
 # space separated list of allowed TCP ports
 TCP="8765 8766"
