@@ -59,3 +59,12 @@ Christoph Thielecke writes:
 > Symlink auf den Hardening-Wrapper, der installiert war, siehe Listing
 > unten). Kannst Du vieleicht eine Prüfung einbauen, ob gcc-x.y mit .real
 > endet bzw der Wrapper ist?
+
+Andi Kleen writes to protect against misconfiguration:
+>generate somefile.h on the client with
+>#if __GNUC__ != expected_major || __GNU_MINOR__ != expected_minor
+>#warning blabla
+>#endif
+>and then run with
+>-include somefile.h
+> (this file needs to be in the environment created by create_env)
