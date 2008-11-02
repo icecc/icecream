@@ -1,3 +1,13 @@
+0.9.2 (879112):
+ - On OS X, append the release number to Darwin (Darwin8 for Tiger, Darwin9 for Leopard) 
+   as their icecream environments are not compatible
+ - Add accessor for the hostname of the scheduler, so that we can show it in a tooltip in 
+   icemon in the future.
+ - Only localize job if we find -Wa,.*-a[a-z]*= in an argument
+ - also add accessor for network name
+ - if called as "icecc" (i.e., not through a symlink) and the first argument starts with a slash, 
+   use that as the command to run.
+
 0.9.1 (822102):
     - trying to support gentoo x86_64
     - -mcpu=native has to compile locally (gentoo bug 183586#c13)
