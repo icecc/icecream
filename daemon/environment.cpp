@@ -301,10 +301,16 @@ pid_t start_install_environment( const std::string &basename, const std::string 
        return 0;
     }
 
+    chown( basename.c_str(), 0, nobody_gid );
+    chmod( basename.c_str(), 0770 );
+
     if ( mkdir( dirname.c_str(), 0755 ) && errno != EEXIST ) {
         log_perror( "mkdir target" );
         return 0;
     }
+
+    chown( dirname.c_str(), 0, nobody_gid );
+    chmod( dirname.c_str(), 0770 );
 
     dirname = dirname + "/" + name;
     if ( mkdir( dirname.c_str(), 0700 ) ) {
