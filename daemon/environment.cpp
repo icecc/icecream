@@ -159,6 +159,9 @@ bool cleanup_cache( const string &basedir )
                 log_perror( "mkdir in cleanup_cache() failed" );
             return false;
         }
+        chown( basedir.c_str(), 0, 0 );
+        chmod( basedir.c_str(), 0755 );
+
         return WIFEXITED(status);
     }
     // else
@@ -215,6 +218,7 @@ size_t setup_env_cache(const string &basedir, string &native_environment, uid_t 
 	rmdir( nativedir.c_str() );
 	return 0;
     }
+    chmod( nativedir.c_str(), 0755 );
 
     flush_debug();
     pid_t pid = fork();
@@ -239,6 +243,8 @@ size_t setup_env_cache(const string &basedir, string &native_environment, uid_t 
         }
     }
     // else
+    umask(022);
+
     if ( setgid( nobody_gid ) < 0) {
       log_perror("setgid failed");
       _exit(143);
