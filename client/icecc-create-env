@@ -114,7 +114,7 @@ fi
 add_file `$added_gcc -print-prog-name=cc1` /usr/bin/cc1
 add_file `$added_gxx -print-prog-name=cc1plus` /usr/bin/cc1plus
 specfile=`$added_gcc -print-file-name=specs`
-if test -n "$specfile" && test -e "$specfile"; then
+if test -n "$specfile" && test "$specfile" != "specs" && test -e "$specfile"; then
   add_file "$specfile"
 fi
 add_file /etc/ld.so.conf
