@@ -117,7 +117,17 @@ specfile=`$added_gcc -print-file-name=specs`
 if test -n "$specfile" && test "$specfile" != "specs" && test -e "$specfile"; then
   add_file "$specfile"
 fi
-add_file /etc/ld.so.conf
+
+# for ldconfig -r to work, ld.so.conf must not contain relative paths
+# in include directives. Make them absolute.
+tmp_ld_so_conf=`mktemp /tmp/icecc_ld_so_confXXXXXX`
+while read directive path; do
+  if [ "$directive" = "include" -a "${path:0:1}" != "/" ]; then
+    path="/etc/$path"
+  fi
+  echo "$directive $path"
+done </etc/ld.so.conf >$tmp_ld_so_conf
+add_file $tmp_ld_so_conf /etc/ld.so.conf
 
 tempdir=`mktemp -d /tmp/iceccenvXXXXXX`
 # special case for weird multilib setups
@@ -175,3 +185,4 @@ tar -czhf "$mydir/$md5".tar.gz $target_files || {
 }
 cd ..
 rm -rf $tempdir
+rm -f $tmp_ld_so_conf
