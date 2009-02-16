@@ -203,7 +203,7 @@ static void updateCPULoad( CPULoadInfo* load )
 #ifndef USE_SYSCTL
 static unsigned long int scan_one( const char* buff, const char *key )
 {
-  char *b = strstr( buff, key );
+  const char *b = strstr( buff, key );
   if ( !b )
       return 0;
   unsigned long int val = 0;

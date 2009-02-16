@@ -619,7 +619,7 @@ bool Daemon::maybe_stats(bool send_ping)
 #ifdef HAVE_SYS_VFS_H
         struct statfs buf;
         int ret = statfs(envbasedir.c_str(), &buf);
-        if (!ret && buf.f_bavail < (max_kids + 1 - current_kids) * 4 * 1024 * 1024 / buf.f_bsize)
+        if (!ret && long(buf.f_bavail) < long(max_kids + 1 - current_kids) * 4 * 1024 * 1024 / buf.f_bsize)
             msg.load = 1000;
 #endif
 
