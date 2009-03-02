@@ -987,6 +987,12 @@ open_send_broadcast (void)
       return -1;
     }
 
+  if (fcntl (ask_fd, F_SETFD, FD_CLOEXEC) < 0)
+    {
+      log_perror("open_send_broadcast fcntl");
+      close (ask_fd);
+      return -1;
+    }
   int optval = 1;
   if (setsockopt (ask_fd, SOL_SOCKET, SO_BROADCAST, &optval, sizeof(optval)) < 0)
     {

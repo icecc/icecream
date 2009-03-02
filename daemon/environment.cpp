@@ -142,40 +142,48 @@ static void list_target_dirs( const string &current_target, const string &target
     closedir( envdir );
 }
 
+/* Returns true if the child exited with success */
+static bool exec_and_wait( const char *const argv[] )
+{
+    pid_t pid = fork();
+    if ( pid == -1 ) {
+        log_perror("fork");
+        return false;
+    }
+    if ( pid ) {
+        // parent
+        int status;
+        while ( waitpid( pid, &status, 0 ) < 0 && errno == EINTR )
+            ;
+        return WIFEXITED(status) && WEXITSTATUS(status) == 0;
+    }
+    // child
+    _exit(execv(argv[0], const_cast<char *const *>(argv)));
+}
+
 bool cleanup_cache( const string &basedir )
 {
     flush_debug();
-    pid_t pid = fork();
-    if ( pid )
-    {
-        int status = 0;
-        while ( waitpid( pid, &status, 0 ) < 0 && errno == EINTR )
-            ;
 
-        if ( mkdir( basedir.c_str(), 0755 ) && errno != EEXIST ) {
-            if ( errno == EPERM )
-                log_error() << "permission denied on mkdir " << basedir << endl;
-            else
-                log_perror( "mkdir in cleanup_cache() failed" );
-            return false;
-        }
-        chown( basedir.c_str(), 0, 0 );
-        chmod( basedir.c_str(), 0755 );
-
-        return WIFEXITED(status);
-    }
-    // else
-    char **argv;
-    argv = new char*[5];
-    argv[0] = strdup( "/bin/rm" );
-    argv[1] = strdup( "-rf" );
-    argv[2] = strdup( "--" );
     // make sure it ends with '/' to not fall into symlink traps
     string bdir = basedir + '/';
-    argv[3] = strdup( bdir.c_str()  );
-    argv[4] = NULL;
+    const char *const argv[] = {
+        "/bin/rm", "-rf", "--", bdir.c_str(), NULL
+    };
 
-    _exit(execv(argv[0], argv));
+    bool ret = exec_and_wait( argv );
+
+    if ( mkdir( basedir.c_str(), 0755 ) && errno != EEXIST ) {
+        if ( errno == EPERM )
+            log_error() << "permission denied on mkdir " << basedir << endl;
+        else
+            log_perror( "mkdir in cleanup_cache() failed" );
+        return false;
+    }
+    chown( basedir.c_str(), 0, 0 );
+    chmod( basedir.c_str(), 0755 );
+
+    return ret;
 }
 
 Environments available_environmnents(const string &basedir)
@@ -259,7 +267,10 @@ size_t setup_env_cache(const string &basedir, string &native_environment, uid_t 
          _exit(1);
     }
 
-    if ( system( BINDIR "/icecc --build-native" ) ) {
+    const char *const argv[] = {
+        BINDIR "/icecc", "--build-native", NULL
+    };
+    if ( !exec_and_wait( argv ) ) {
         log_error() << BINDIR "/icecc --build-native failed\n";
         _exit(1);
     }
