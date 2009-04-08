@@ -316,7 +316,7 @@ int work_it( CompileJob &j, unsigned int job_stat[], MsgChannel* client,
             off_t off = 0;
             while ( len ) {
                 ssize_t bytes = write( sock_in[1], fcmsg->buffer + off, len );
-                if ( bytes < 0 && errno == EINTR )
+                if ( bytes < 0 && ( errno == EINTR || errno == EAGAIN ) )
                     continue;
 
                 write(job_in_fd, fcmsg->buffer + off, bytes);
@@ -370,7 +370,7 @@ int work_it( CompileJob &j, unsigned int job_stat[], MsgChannel* client,
         {
             char resultByte;
             ssize_t n = ::read(main_sock[0], &resultByte, 1);
-            if (n == -1 && errno == EINTR)
+            if (n == -1 && ( errno == EINTR || errno == EAGAIN ) )
                 continue; // Ignore
 
             if (n == 1)
