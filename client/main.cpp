@@ -81,6 +81,7 @@ static void dcc_show_usage(void)
 "   ICECC_VERSION              use a specific icecc environment, see create-env\n"
 "   ICECC_DEBUG                [info | warnings | debug]\n"
 "                              sets verboseness of icecream client.\n"
+"   ICECC_LOGFILE              if set, additional debug information is logged to the specified file\n"
 "   ICECC_REPEAT_RATE          the number of jobs out of 1000 that should be\n"
 "                              compiled on multiple hosts to ensure that they're\n"
 "                              producing the same output.  The default is 10.\n"
@@ -182,7 +183,10 @@ int main(int argc, char **argv)
             debug_level |= Info|Debug|Warning;
     }
 
-    setup_debug(debug_level, string(), "ICECC");
+    std::string logfile;
+    if (const char* logfileEnv = getenv("ICECC_LOGFILE"))
+        logfile = logfileEnv;
+    setup_debug(debug_level, logfile, "ICECC");
 
     CompileJob job;
 
