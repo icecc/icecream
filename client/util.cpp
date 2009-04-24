@@ -225,7 +225,7 @@ void colorify_output(const string& _s_ccout)
         else
             fprintf(stderr, "%s\n", cline.c_str());
     }
-    fprintf(stderr, s_ccout.c_str());
+    fprintf(stderr, "%s", s_ccout.c_str());
 }
 
 

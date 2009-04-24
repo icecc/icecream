@@ -2114,7 +2114,7 @@ main (int argc, char * argv[])
                          << ":" << ntohs (broad_addr.sin_port) << "\n";
 	      buf[0]++;
 	      memset (buf + 1, 0, sizeof (buf) - 1);
-	      snprintf (buf + 1, sizeof (buf) - 1, netname);
+	      snprintf (buf + 1, sizeof (buf) - 1, "%s", netname);
 	      buf[sizeof (buf) - 1] = 0;
 	      if (sendto (broad_fd, buf, sizeof (buf), 0,
 	      		  (struct sockaddr*)&broad_addr, broad_len) != sizeof (buf))

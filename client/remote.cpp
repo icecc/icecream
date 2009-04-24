@@ -672,7 +672,7 @@ int build_remote(CompileJob &job, MsgChannel *local_daemon, const Environments &
                 dcc_make_tmpnam( "icecc", ".o", buffer, 0 );
                 jobs[i].setOutputFile( buffer );
             } else
-                sprintf( buffer, job.outputFile().c_str() );
+                sprintf( buffer, "%s", job.outputFile().c_str() );
 
             umsgs[i] = get_server( local_daemon );
             remote_daemon = umsgs[i]->hostname;
