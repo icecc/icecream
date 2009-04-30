@@ -1598,6 +1598,8 @@ int main( int argc, char ** argv )
         }
     }
 
+    umask(022);
+
     if ( !logfile.length() && detach)
         logfile = "/var/log/iceccd";
 

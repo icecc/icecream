@@ -180,8 +180,6 @@ bool cleanup_cache( const string &basedir )
             log_perror( "mkdir in cleanup_cache() failed" );
         return false;
     }
-    chown( basedir.c_str(), 0, 0 );
-    chmod( basedir.c_str(), 0755 );
 
     return ret;
 }
@@ -219,14 +217,14 @@ size_t setup_env_cache(const string &basedir, string &native_environment, uid_t 
     if ( ::access( "/usr/bin/gcc", X_OK ) || ::access( "/usr/bin/g++", X_OK ) ) 
 	return 0;
 
-    if ( mkdir( nativedir.c_str(), 0755 ) )
+    if ( mkdir( nativedir.c_str(), 0775 ) )
    	return 0; 
 
-    if ( chown( nativedir.c_str(), nobody_uid, nobody_gid) ) {
+    if ( chown( nativedir.c_str(), 0, nobody_gid ) ||
+         chmod( nativedir.c_str(), 0775 ) ) {
 	rmdir( nativedir.c_str() );
 	return 0;
     }
-    chmod( nativedir.c_str(), 0755 );
 
     flush_debug();
     pid_t pid = fork();
@@ -251,7 +249,6 @@ size_t setup_env_cache(const string &basedir, string &native_environment, uid_t 
         }
     }
     // else
-    umask(022);
 
     if ( setgid( nobody_gid ) < 0) {
       log_perror("setgid failed");
@@ -313,30 +310,28 @@ pid_t start_install_environment( const std::string &basename, const std::string 
             compression = BZip2;
     }
 
-    if( ::access( basename.c_str(), W_OK ) ) {
-       log_error() << "access for basename " <<  basename.c_str() << " gives " << strerror(errno) << endl;
-       return 0;
-    }
-
-    chown( basename.c_str(), 0, nobody_gid );
-    chmod( basename.c_str(), 0770 );
-
-    if ( mkdir( dirname.c_str(), 0755 ) && errno != EEXIST ) {
+    if ( mkdir( dirname.c_str(), 0770 ) && errno != EEXIST ) {
         log_perror( "mkdir target" );
         return 0;
     }
 
-    chown( dirname.c_str(), 0, nobody_gid );
-    chmod( dirname.c_str(), 0770 );
+    if ( chown( dirname.c_str(), 0, nobody_gid ) ||
+         chmod( dirname.c_str(), 0770 ) ) {
+        log_perror( "chown,chmod target" );
+        return 0;
+    }
 
     dirname = dirname + "/" + name;
-    if ( mkdir( dirname.c_str(), 0700 ) ) {
+    if ( mkdir( dirname.c_str(), 0770 ) ) {
         log_perror( "mkdir name" );
         return 0;
     }
 
-    chown( dirname.c_str(), 0, nobody_gid );
-    chmod( dirname.c_str(), 0770 );
+    if ( chown( dirname.c_str(), 0, nobody_gid ) ||
+         chmod( dirname.c_str(), 0770 ) ) {
+        log_perror( "chown,chmod name" );
+        return 0;
+    }
 
     int fds[2];
     if ( pipe( fds ) )
