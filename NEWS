@@ -1,4 +1,15 @@
-0.9.3 (926473):
+0.9.4 (961598):
+- fix compilation warnings
+- don't leak file descriptor to create-env
+- don't use the shell to call simple commands
+- assert current_kids is > 0 before decrementing (it's unsigned)
+- also check for EAGAIN (needed on OS X)
+- add ICECC_LOGFILE to get trace() output into a file
+- Fix compilation when using -Wformat -Werror=format-security flags
+- make a special exception for - in rest args (bnc#495786)
+- Fix way icecream changes permissions of /var/cache/icecream
+
+0.9.3 (926474):
  - Fix FTBFS with GCC 4.4
  - Explicitly set group ownership and permissions on the base cache 
    dir and target dir in case root has a umask of e.g. 0077. 
