@@ -300,6 +300,10 @@ bool analyse_argv( const char * const *argv,
         string ifile;
         for ( ArgumentsList::iterator it = args.begin();
               it != args.end(); ) {
+            if ( it->first == "-") {
+                always_local = true;
+                break;
+            }
             if ( it->second != Arg_Rest || it->first.at( 0 ) == '-' )
                 ++it;
             else if ( ifile.empty() ) {
@@ -364,7 +368,7 @@ bool analyse_argv( const char * const *argv,
     }
 
     struct stat st;
-    if ( ofile.empty() || (!stat( ofile.c_str(), &st ) && !S_ISREG( st.st_mode)))
+    if ( ofile.empty() || (!stat( ofile.c_str(), &st ) && !S_ISREG( st.st_mode )))
         always_local = true;
 
     job.setFlags( args );
