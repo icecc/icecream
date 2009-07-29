@@ -520,6 +520,7 @@ md5_for_file( const string & file )
             break;
         md5_append(&state, buffer, size );
     }
+    fclose(f);
 
     md5_byte_t digest[16];
     md5_finish(&state, digest);
