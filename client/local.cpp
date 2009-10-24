@@ -244,7 +244,7 @@ int build_local(CompileJob& job, MsgChannel *local_daemon, struct rusage *used)
                 }
                 if (r == 0)
                     break;
-                if ( r < 0 && errno != EINTR && errno != EAGAIN )
+                if ( r < 0 && errno != EINTR)
                     break;
             }
             colorify_output(s_ccout);

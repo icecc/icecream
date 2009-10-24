@@ -1159,7 +1159,7 @@ bool Daemon::handle_file_chunk_env(Client *client, Msg *msg)
         off_t off = 0;
         while ( len ) {
             ssize_t bytes = write( client->pipe_to_child, fcmsg->buffer + off, len );
-            if ( bytes < 0 && ( errno == EINTR || errno == EAGAIN ) )
+            if ( bytes < 0 && errno == EINTR )
                 continue;
 
             if ( bytes == -1 ) {

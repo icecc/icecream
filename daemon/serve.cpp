@@ -214,7 +214,7 @@ int handle_connection( const string &basedir, CompileJob *job,
                 ssize_t bytes = read(obj_fd, buffer, sizeof(buffer));
                 if ( bytes < 0 )
                 {
-                    if ( errno == EINTR || errno == EAGAIN )
+                    if ( errno == EINTR )
                         continue;
                     throw myexception( EXIT_DISTCC_FAILED );
                 }
