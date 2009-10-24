@@ -49,7 +49,8 @@ static inline std::ostream & output_date( std::ostream &os )
     char buf[64];
     strftime(buf, sizeof(buf), "%T: ", tmp);
     if (logfile_prefix.size())
-        os << logfile_prefix << "[" << getpid() << "] ";
+        os << logfile_prefix;
+    os << "[" << getpid() << "] ";
 
     os << buf;
     return os;
