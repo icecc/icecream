@@ -154,7 +154,7 @@ public:
   void setBulkTransfer();
 
   std::string dump() const;
-  // NULL  <--> channel closed
+  // NULL  <--> channel closed or timeout
   Msg *get_msg(int timeout = 10);
   // false <--> error (msg not send)
   bool send_msg (const Msg &, int SendFlags = SendBlocking);

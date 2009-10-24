@@ -850,10 +850,15 @@ MsgChannel::wait_for_msg (int timeout)
 {
   if (has_msg ())
     return true;
-  if (!read_a_bit () || timeout <= 0)
+  if (!read_a_bit ())
     {
-      trace() << "!read_a_bit || timeout <= 0\n";
+      trace() << "!read_a_bit\n";
       return false;
+    }
+  if (timeout <= 0)
+    {
+      trace() << "timeout <= 0\n";
+      return has_msg ();
     }
   while (!has_msg ())
     {
@@ -884,8 +889,8 @@ MsgChannel::get_msg(int timeout)
   Msg *m = 0;
   enum MsgType type;
   uint32_t t;
-  if (timeout > 0 && !wait_for_msg (timeout) ) {
-    trace() << "blocking && !waiting_for_msg()\n";
+  if (!wait_for_msg (timeout) ) {
+    trace() << "!wait_for_msg()\n";
     return 0;
   }
   /* If we've seen the EOF, and we don't have a complete message,
