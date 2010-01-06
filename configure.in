@@ -34,7 +34,7 @@ AC_PROG_LIBTOOL
 # Some of these are needed by popt (or other libraries included in the future).
 
 AC_CHECK_HEADERS([unistd.h stdint.h signal.h sys/types.h sys/signal.h ifaddrs.h kinfo.h sys/param.h devstat.h])
-AC_CHECK_HEADERS([ctype.h sys/resource.h sys/socket.h sys/stat.h sys/select.h sys/vfs.h])
+AC_CHECK_HEADERS([ctype.h sys/resource.h sys/socket.h sys/socketvar.h sys/stat.h sys/select.h sys/vfs.h])
 AC_CHECK_HEADERS([mach/host_info.h])
 AC_CHECK_HEADERS([netinet/in.h], [], [],
 [#if HAVE_SYS_TYPES_H
@@ -61,7 +61,23 @@ AC_CHECK_HEADERS([resolv.h], [], [],
 AC_ARG_VAR(TAR, [Specifies tar path])
 AC_PATH_PROG(TAR, [tar])
 AC_DEFINE_UNQUOTED([TAR], ["$TAR"], [Define path to tar])
-AC_CHECK_HEADERS([float.h mcheck.h alloca.h sys/mman.h netinet/tcp_var.h])
+AC_CHECK_HEADERS([float.h mcheck.h alloca.h sys/mman.h netinet/tcp.h])
+AC_CHECK_HEADERS([netinet/tcp_var.h], [], [],
+[#if HAVE_SYS_TYPES_H
+# include <sys/types.h>
+#endif
+#if HAVE_SYS_SOCKETVAR_H
+# include <sys/socketvar.h>
+#endif
+#if HAVE_NETINET_IN_H
+# include <netinet/in.h>
+#endif
+#if HAVE_NETINET_TCP_H
+# include <netinet/tcp.h>
+#endif
+])
+
+
 AC_CHECK_HEADERS([sys/user.h])
 
 ######################################################################
