@@ -28,16 +28,6 @@ BuildRoot:      %{_tmppath}/%{name}-%{version}-build
 %description
 icecream is the next generation distcc.
 
-
-
-Authors:
---------
-    Stephan Kulow <coolo@suse.de>
-    Michael Matz <matz@suse.de>
-    Cornelius Schumacher <cschum@suse.de>
-    Lubos Lunak <llunak@suse.cz>
-    Frerich Raabe <raabe@kde.org>
-
 %package -n libicecream-devel
 Summary: libicecream-devel
 Group:          Development/Tools/Building
@@ -104,6 +94,7 @@ rm -rf ${RPM_BUILD_ROOT}
 %config /etc/logrotate.d/icecream
 %config /etc/init.d/icecream
 %_bindir/icecc
+%_bindir/icerun
 %_sbindir/scheduler
 %_libdir/icecc
 %_sbindir/iceccd

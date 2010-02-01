@@ -320,9 +320,9 @@ MsgChannel::operator>> (uint32_t &buf)
   if (inofs >= intogo + 4)
     {
       if ( ptrdiff_t(inbuf + intogo) % 4 ) {
-        char t_buf[4];
+        uint32_t t_buf[1];
         memcpy(t_buf, inbuf + intogo, 4);
-        buf = *(uint32_t *)t_buf;
+        buf = t_buf[0];
       } else
         buf = *(uint32_t *)(inbuf + intogo);
       intogo += 4;

@@ -1463,6 +1463,8 @@ int Daemon::working_loop()
             close_scheduler();
         }
     }
+    // never really reached
+    return 0;
 }
 
 int main( int argc, char ** argv )
