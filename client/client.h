@@ -40,7 +40,7 @@ extern std::string remote_daemon;
 extern std::string get_absfilename( const std::string &_file );
 
 /* In arg.cpp.  */
-extern bool analyse_argv (const char * const *argv, CompileJob &job);
+extern bool analyse_argv (const char * const *argv, CompileJob &job, bool icerun);
 
 /* In cpp.cpp.  */
 extern pid_t call_cpp (CompileJob &job, int fdwrite, int fdread = -1);

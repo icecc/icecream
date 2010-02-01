@@ -82,6 +82,7 @@ static bool analyze_program(const char* name, CompileJob& job)
         job.setLanguage (CompileJob::Lang_C);
     else {
         job.setLanguage( CompileJob::Lang_Custom );
+        job.setCompilerName( name ); // keep path
         return true;
     }
 
@@ -89,7 +90,7 @@ static bool analyze_program(const char* name, CompileJob& job)
 }
 
 bool analyse_argv( const char * const *argv,
-                   CompileJob &job )
+                   CompileJob &job, bool icerun )
 {
     ArgumentsList args;
     string ofile;
@@ -105,11 +106,17 @@ bool analyse_argv( const char * const *argv,
     bool always_local = analyze_program(had_cc ? job.compilerName().c_str() : argv[0], job);
     bool seen_c = false;
     bool seen_s = false;
+    if( icerun ) {
+        always_local = true;
+        job.setLanguage( CompileJob::Lang_Custom );
+    }
 
     for (int i = had_cc ? 2 : 1; argv[i]; i++) {
         const char *a = argv[i];
 
-        if (a[0] == '-') {
+        if (icerun) {
+            args.append(a, Arg_Local);
+        } else if (a[0] == '-') {
             if (!strcmp(a, "-E") || !strncmp(a, "-fdump", 6) || !strcmp(a, "-combine")) {
                 always_local = true;
                 args.append(a, Arg_Local);

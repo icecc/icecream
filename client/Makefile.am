@@ -7,16 +7,10 @@ icecc_LDADD = ../services/libicecc.la $(LIBRSYNC)
 noinst_HEADERS = client.h md5.h util.h
 
 EXTRA_DIST = icecc-create-env
-CLEANFILES = icecc++
-
-all-local: icecc++
-
-icecc++:
-	-rm -f icecc++
-	$(LN_S) icecc icecc++
 
 install-exec-local:
 	$(mkinstalldirs) $(DESTDIR)$(bindir)
+	(cd $(DESTDIR)$(bindir) && $(LN_S) icecc icerun)
 	for link in g++ gcc c++ cc; do \
 	  rm -f $(DESTDIR)$(bindir)/$$link ;\
 	  $(LN_S) icecc $(DESTDIR)$(bindir)/$$link ;\

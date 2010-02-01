@@ -91,6 +91,23 @@ static void dcc_show_usage(void)
 "\n");
 }
 
+static void icerun_show_usage(void)
+{
+    printf(
+"Usage:\n"
+"   icerun [compile options] -o OBJECT -c SOURCE\n"
+"   icerun --help\n"
+"\n"
+"Options:\n"
+"   --help                     explain usage and exit\n"
+"   --version                  show version and exit\n"
+"Environment Variables:\n"
+"   ICECC                      if set to \"no\", just exec the real gcc\n"
+"   ICECC_DEBUG                [info | warnings | debug]\n"
+"                              sets verboseness of icecream client.\n"
+"   ICECC_LOGFILE              if set, additional debug information is logged to the specified file\n"
+"\n");
+}
 
 volatile bool local = false;
 
@@ -189,6 +206,7 @@ int main(int argc, char **argv)
     setup_debug(debug_level, logfile, "ICECC");
 
     CompileJob job;
+    bool icerun = false;
 
     string compiler_name = argv[0];
     dcc_client_catch_signals();
@@ -209,6 +227,28 @@ int main(int argc, char **argv)
             if ( arg.size() > 0 && arg.at(0) == '/' )
                 job.setCompilerName(arg);
         }
+    } else if ( find_basename( compiler_name ) == "icerun") {
+        icerun = true;
+        if ( argc > 1 ) {
+            string arg = argv[1];
+            if ( arg == "--help" ) {
+                icerun_show_usage();
+                return 0;
+            }
+            if ( arg == "--version" ) {
+                printf( "ICERUN " VERSION "\n" );
+                return 0;
+            }
+            if ( arg.size() > 0 )
+                job.setCompilerName(arg);
+        }
+    } else {
+        char buf[ PATH_MAX ];
+        buf[ PATH_MAX - 1 ] = '\0';
+        // check if it's a symlink to icerun
+        if( readlink( compiler_name.c_str(), buf, PATH_MAX - 1 ) >= 0 && find_basename( buf ) == "icerun" ) {
+            icerun = true;
+        }
     }
 
     int sg_level = dcc_recursion_safeguard();
@@ -222,7 +262,7 @@ int main(int argc, char **argv)
      * see the EPIPE. */
     dcc_ignore_sigpipe(1);
 
-    local |= analyse_argv( argv, job );
+    local |= analyse_argv( argv, job, icerun );
 
     /* if ICECC is set to no, then run job locally */
     char* icecc = getenv("ICECC");
