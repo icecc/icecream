@@ -1,3 +1,11 @@
+0.9.5 (1083358)
+- fix: close the file descriptor (novell bug 525799)
+- log PID even if no prefix is specified
+- allow get_msg() to fetch data from the kernel even if timeout is 0.
+- clean up event loop of gcc invocation
+- Install an "icerun" symlink that will serialize commands through
+  icecream's local daemon
+
 0.9.4 (961598):
 - fix compilation warnings
 - don't leak file descriptor to create-env
