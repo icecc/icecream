@@ -1,4 +1,4 @@
-0.9.5 (1083358)
+0.9.5 (1083362)
 - fix: close the file descriptor (novell bug 525799)
 - log PID even if no prefix is specified
 - allow get_msg() to fetch data from the kernel even if timeout is 0.
