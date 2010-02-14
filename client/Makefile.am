@@ -10,8 +10,7 @@ EXTRA_DIST = icecc-create-env
 
 install-exec-local:
 	$(mkinstalldirs) $(DESTDIR)$(bindir)
-	(cd $(DESTDIR)$(bindir) && $(LN_S) icecc icerun)
-	for link in g++ gcc c++ cc; do \
+	for link in g++ gcc c++ cc icerun; do \
 	  rm -f $(DESTDIR)$(bindir)/$$link ;\
 	  $(LN_S) icecc $(DESTDIR)$(bindir)/$$link ;\
 	done
