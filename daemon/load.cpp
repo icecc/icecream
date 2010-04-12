@@ -53,6 +53,10 @@
 
 using namespace std;
 
+// what the kernel puts as ticks in /proc/stat
+typedef unsigned long long load_t;
+
+
 struct CPULoadInfo
 {
     /* A CPU can be loaded with user processes, reniced processes and
@@ -65,12 +69,12 @@ struct CPULoadInfo
 
     /* To calculate the loads we need to remember the tick values for each
      * load type. */
-    unsigned long userTicks;
-    unsigned long niceTicks;
-    unsigned long sysTicks;
-    unsigned long idleTicks;
-    unsigned long waitTicks;
-
+    load_t userTicks;
+    load_t niceTicks;
+    load_t sysTicks;
+    load_t idleTicks;
+    load_t waitTicks;
+   
     CPULoadInfo() {
         userTicks = 0;
         niceTicks = 0;
@@ -82,8 +86,8 @@ struct CPULoadInfo
 
 static void updateCPULoad( CPULoadInfo* load )
 {
-  unsigned long totalTicks;
-  unsigned long currUserTicks, currSysTicks, currNiceTicks, currIdleTicks, currWaitTicks;
+  load_t totalTicks;
+  load_t currUserTicks, currSysTicks, currNiceTicks, currIdleTicks, currWaitTicks;
 
 #if defined(USE_SYSCTL) && defined(__DragonFly__)
   static struct kinfo_cputime cp_time;
@@ -171,7 +175,8 @@ static void updateCPULoad( CPULoadInfo* load )
 
     /* wait ticks only exist with Linux >= 2.6.0. treat as 0 otherwise */
     currWaitTicks = 0;
-    sscanf( buf, "%*s %lu %lu %lu %lu %lu", &currUserTicks, &currNiceTicks,
+   //   sscanf( buf, "%*s %lu %lu %lu %lu %lu", &currUserTicks, &currNiceTicks,
+      sscanf( buf, "%*s %llu %llu %llu %llu %llu", &currUserTicks, &currNiceTicks, // RL modif
             &currSysTicks, &currIdleTicks, &currWaitTicks );
 #endif
 
@@ -357,11 +362,11 @@ bool fill_stats( unsigned long &myidleload, unsigned long &myniceload, unsigned 
 #else
         fakeloadavg( avg, 3, hint );
 #endif
-        msg->loadAvg1 = ( unsigned int )( avg[0] * 1000 );
-        msg->loadAvg5 = ( unsigned int )( avg[1] * 1000 );
-        msg->loadAvg10 = ( unsigned int )( avg[2] * 1000 );
+        msg->loadAvg1 = (load_t)( avg[0] * 1000 );
+        msg->loadAvg5 = (load_t)( avg[1] * 1000 );
+        msg->loadAvg10 = (load_t)( avg[2] * 1000 );
 
-        msg->freeMem = ( unsigned int )( MemFree / 1024.0 + 0.5 );
+        msg->freeMem = (load_t)( MemFree / 1024.0 + 0.5 );
 
     }
     return true;
