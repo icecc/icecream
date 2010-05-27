@@ -157,6 +157,7 @@ for i in $target_files; do
 done
 
 if test -x /sbin/ldconfig; then
+   mkdir -p $tempdir/var/cache/ldconfig
    /sbin/ldconfig -r $tempdir
    new_target_files="$new_target_files etc/ld.so.cache"
 fi
