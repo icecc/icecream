@@ -1,3 +1,11 @@
+0.9.6 (1158638)
+- fix installation issues
+- add a value type of ticks in /proc - and make it long long
+- fix kFreeBSD build
+- fix run-failure with glibc 2.11
+- allow tgz as extension
+- support more local args (bnc#625621)
+
 0.9.5 (1083362)
 - fix: close the file descriptor (novell bug 525799)
 - log PID even if no prefix is specified
