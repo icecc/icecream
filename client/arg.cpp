@@ -106,6 +106,8 @@ bool analyse_argv( const char * const *argv,
     bool always_local = analyze_program(had_cc ? job.compilerName().c_str() : argv[0], job);
     bool seen_c = false;
     bool seen_s = false;
+    bool seen_mf = false;
+    bool seen_md = false;
     if( icerun ) {
         always_local = true;
         job.setLanguage( CompileJob::Lang_Custom );
@@ -121,6 +123,7 @@ bool analyse_argv( const char * const *argv,
                 always_local = true;
                 args.append(a, Arg_Local);
             } else if (!strcmp(a, "-MD") || !strcmp(a, "-MMD")) {
+            	  seen_md = true;
                 args.append(a, Arg_Local);
                 /* These two generate dependencies as a side effect.  They
                  * should work with the way we call cpp. */
@@ -128,8 +131,12 @@ bool analyse_argv( const char * const *argv,
                 args.append(a, Arg_Local);
                 /* These just modify the behaviour of other -M* options and do
                  * nothing by themselves. */
-            } else if (!strcmp(a, "-MF") || !strcmp(a, "-MT") ||
-                       !strcmp(a, "-MQ")) {
+            } else if (!strcmp(a, "-MF")) {
+        	      seen_mf = true;
+                args.append(a, Arg_Local);
+                args.append( argv[++i], Arg_Local );
+                /* as above but with extra argument */
+            } else if (!strcmp(a, "-MT") || !strcmp(a, "-MQ")) {
                 args.append(a, Arg_Local);
                 args.append( argv[++i], Arg_Local );
                 /* as above but with extra argument */
@@ -371,6 +378,17 @@ bool analyse_argv( const char * const *argv,
                 string::size_type slash = ofile.find_last_of( '/' );
                 if ( slash != string::npos )
                     ofile = ofile.substr( slash + 1 );
+            }
+
+            if ( !always_local && seen_md && !seen_mf) {
+        	      string dfile = ofile.substr( 0, ofile.find_last_of( '.' ) ) + ".d";
+
+#if CLIENT_DEBUG
+                log_info() << "dep file: " << dfile << endl;
+#endif
+
+                args.append("-MF", Arg_Local);
+                args.append(dfile, Arg_Local);
             }
         }
 
