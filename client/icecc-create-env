@@ -118,6 +118,12 @@ if test -n "$specfile" && test "$specfile" != "specs" && test -e "$specfile"; th
   add_file "$specfile"
 fi
 
+plugin_name=liblto_plugin.so
+plugin=`$added_gcc -print-prog-name=$plugin_name`
+if test -n "$plugin" && test "$plugin" != "$plugin_name" && test -e "$plugin"; then
+  add_file "$plugin" "$plugin"
+fi
+
 # for ldconfig -r to work, ld.so.conf must not contain relative paths
 # in include directives. Make them absolute.
 tmp_ld_so_conf=`mktemp /tmp/icecc_ld_so_confXXXXXX`
