@@ -1,3 +1,7 @@
+0.9.7 (1232780)
+- bug fix for -MD and -MF
+- bug fix for gcc 4.6 plugins
+
 0.9.6 (1158638)
 - fix installation issues
 - add a value type of ticks in /proc - and make it long long
