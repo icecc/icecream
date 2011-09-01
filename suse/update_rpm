@@ -15,7 +15,7 @@ cd icecream/doc
 for i in *.docbook; do
 	output=${i/man-/}
 	output=${output/.docbook/}
-	meinproc --stylesheet /opt/kde3/share/apps/ksgmltools2/customization/kde-man.xsl $i && mv manpage.troff $omans/$output
+	meinproc4 --stylesheet /opt/kde3/share/apps/ksgmltools2/customization/kde-man.xsl $i && mv manpage.troff $omans/$output
 done
 cd ../..
 tar cvjf $opwd/icecream-manpages.tar.bz2 mans

@@ -119,7 +119,7 @@ if test -n "$specfile" && test "$specfile" != "specs" && test -e "$specfile"; th
 fi
 
 plugin_name=liblto_plugin.so
-plugin=`$added_gcc -print-file-name=$plugin_name`
+plugin=`$added_gcc -print-prog-name=$plugin_name`
 if test -n "$plugin" && test "$plugin" != "$plugin_name" && test -e "$plugin"; then
   add_file "$plugin" "$plugin"
 fi
