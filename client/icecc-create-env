@@ -120,6 +120,10 @@ fi
 
 plugin_name=liblto_plugin.so
 plugin=`$added_gcc -print-prog-name=$plugin_name`
+if test -z "$plugin" || test "$plugin" = "$plugin_name" || ! test -e "$plugin"; then
+  # This is for Debian
+  plugin=`$added_gcc -print-file-name=$plugin_name`
+fi
 if test -n "$plugin" && test "$plugin" != "$plugin_name" && test -e "$plugin"; then
   add_file "$plugin" "$plugin"
 fi
