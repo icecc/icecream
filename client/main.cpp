@@ -84,7 +84,7 @@ static void dcc_show_usage(void)
 "   ICECC_LOGFILE              if set, additional debug information is logged to the specified file\n"
 "   ICECC_REPEAT_RATE          the number of jobs out of 1000 that should be\n"
 "                              compiled on multiple hosts to ensure that they're\n"
-"                              producing the same output.  The default is 10.\n"
+"                              producing the same output.  The default is 0.\n"
 "   ICECC_PREFERRED_HOST       overrides scheduler decisions if set.\n"
 "   IECCC_CC                   set C compiler name (default gcc).\n"
 "   ICECC_CXX                  set C++ compiler name (default g++).\n"
