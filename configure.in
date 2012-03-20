@@ -17,7 +17,7 @@ then
 -Wshadow -Wpointer-arith -Wcast-align -Wwrite-strings \
 -Waggregate-return -Wstrict-prototypes -Wmissing-prototypes \
 -Wnested-externs $CFLAGS"
-    CXXFLAGS=" -g -W -Wall -Wimplicit -Wpointer-arith -Wcast-align -Wwrite-strings $CXXFLAGS"
+    CXXFLAGS=" -g -W -Wall -Wpointer-arith -Wcast-align -Wwrite-strings $CXXFLAGS"
     AC_MSG_NOTICE([Adding gcc options: $CFLAGS])
 fi
 
