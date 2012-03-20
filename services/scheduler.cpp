@@ -156,10 +156,11 @@ public:
   int max_jobs;
   bool noremote;
   list<Job*> joblist;
+  int submitted_jobs_count;
   Environments compiler_versions;  // Available compilers
   CS (int fd, struct sockaddr *_addr, socklen_t _len, bool text_based)
     : MsgChannel(fd, _addr, _len, text_based),
-      load(1000), max_jobs(0), noremote(false),
+      load(1000), max_jobs(0), noremote(false), submitted_jobs_count(0),
       state(CONNECTED), type(UNKNOWN), chroot_possible(false)
   {
     hostid = 0;
@@ -195,7 +196,7 @@ class Job
 public:
   unsigned int id;
   unsigned int local_client_id;
-  enum {PENDING, WAITINGFORCS, COMPILING, WAITINGFORDONE} state;
+  enum {PENDING, WAITINGFORCS, COMPILING} state;
   CS *server;  // on which server we build
   CS *submitter;  // who submitted us
   Environments environments;
@@ -218,12 +219,17 @@ public:
   Job (unsigned int _id, CS *subm)
     : id(_id), local_client_id( 0 ), state(PENDING), server(0),
       submitter(subm),
-      starttime(0), start_on_scheduler(0), done_time( 0 ), arg_flags( 0 ) {}
+      starttime(0), start_on_scheduler(0), done_time( 0 ), arg_flags( 0 )
+  {
+    ++submitter->submitted_jobs_count;
+  }
+
   ~Job()
   {
    // XXX is this really deleted on all other paths?
 /*    fd2chan.erase (channel->fd);
     delete channel;*/
+    --submitter->submitted_jobs_count;
   }
 };
 
@@ -377,12 +383,19 @@ server_speed (CS *cs, Job *job)
 
       // we only care for the load if we're about to add a job to it
       if (job) {
-        /* The submitter of a job gets more speed.  So if he is equally
-           fast to the rest of the farm it will be prefered to chose him
-           to compile the job.  Then this can be done locally without
-           needing the preprocessor.  */
-        if (job->submitter == cs)
-          f *= 1.1;
+        if (job->submitter == cs) {
+        /* The submitter of a job gets more speed if it's capable of handling its requests on its own.
+           So if he is equally fast to the rest of the farm it will be prefered to chose him
+           to compile the job.  Then this can be done locally without needing the preprocessor.
+           However if there are more requests than the number of jobs the submitter can handle,
+           it is assumed the submitter is doing a massively parallel build, in which case it is
+           better not to build on the submitter and let it do other work (such as preprocessing
+           output for other nodes) that can be done only locally.  */
+          if (cs->submitted_jobs_count <= cs->max_jobs)
+            f *= 1.1;
+          else
+            f *= 0.1; // penalize heavily
+        }
         else // ignoring load for submitter - assuming the load is our own
           f *= float(1000 - cs->load) / 1000;
       }
@@ -1412,7 +1425,6 @@ dump_job (Job *job)
 	   job->state == Job::PENDING ? "PEND"
 	     : job->state == Job::WAITINGFORCS ? "WAIT"
 	     : job->state == Job::COMPILING ? "COMP"
-             : job->state == Job::WAITINGFORDONE ? "DONE"
 	     : "Huh?",
 	   job->submitter ? job->submitter->nodename.c_str() : "<>",
 	   job->server ? job->server->nodename.c_str() : "<unknown>");
