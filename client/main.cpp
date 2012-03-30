@@ -224,8 +224,28 @@ int main(int argc, char **argv)
             }
 	    if ( arg == "--build-native" )
                 return create_native();
-            if ( arg.size() > 0 && arg.at(0) == '/' )
-                job.setCompilerName(arg);
+            if ( arg.size() > 0 ) {
+                if ( arg.at(0) == '/' )
+                    job.setCompilerName(arg);
+                else {
+                    const char* env;
+                    if ( (env = getenv( "ICECC_CC" )) && env == arg )
+                        job.setCompilerName(arg);
+                    if ( (env = getenv( "ICECC_CXX" )) && env == arg )
+                        job.setCompilerName(arg);
+                    if ( arg.at(0) != '-' && arg.find( '/' ) == string::npos ) {
+                        char* path = getenv( "PATH" );
+                        for( char* dir = strtok( path, ":" ); dir;
+                             dir = strtok( NULL, ":" )) {
+                            if ( access(( string( dir ) + "/" + arg ).c_str(),
+                                X_OK ) == 0 ) {
+                                job.setCompilerName( arg );
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
         }
     } else if ( find_basename( compiler_name ) == "icerun") {
         icerun = true;
