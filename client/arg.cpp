@@ -80,6 +80,8 @@ static bool analyze_program(const char* name, CompileJob& job)
         job.setLanguage (CompileJob::Lang_CXX);
     else if (suffix == "cc")
         job.setLanguage (CompileJob::Lang_C);
+    else if (compiler_name == "clang")
+        job.setLanguage (CompileJob::Lang_C);
     else {
         job.setLanguage( CompileJob::Lang_Custom );
         job.setCompilerName( name ); // keep path
