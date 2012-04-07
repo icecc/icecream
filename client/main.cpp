@@ -86,7 +86,7 @@ static void dcc_show_usage(void)
 "                              compiled on multiple hosts to ensure that they're\n"
 "                              producing the same output.  The default is 0.\n"
 "   ICECC_PREFERRED_HOST       overrides scheduler decisions if set.\n"
-"   IECCC_CC                   set C compiler name (default gcc).\n"
+"   ICECC_CC                   set C compiler name (default gcc).\n"
 "   ICECC_CXX                  set C++ compiler name (default g++).\n"
 "\n");
 }
