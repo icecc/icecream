@@ -123,6 +123,11 @@ static string path_lookup(const string& compiler)
     return best_match;
 }
 
+string find_compiler( const CompileJob& job )
+{
+    return path_lookup(job.compilerName());
+}
+
 string find_compiler( CompileJob::Language lang )
 {
     string compiler = get_compiler_name( lang );
@@ -166,11 +171,7 @@ int build_local(CompileJob& job, MsgChannel *local_daemon, struct rusage *used)
 {
     list<string> arguments;
 
-    string compiler_name;
-    if (job.language() != CompileJob::Lang_Custom )
-        compiler_name = find_compiler( job.language() );
-    else
-        compiler_name = path_lookup(job.compilerName());
+    string compiler_name = find_compiler( job );
 
     trace() << "invoking: " << compiler_name << endl;
 

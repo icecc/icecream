@@ -117,7 +117,7 @@ pid_t call_cpp(CompileJob &job, int fdwrite, int fdread)
 	    argc++; // the program
 	    argc += 2; // -E file.i
 	    argv = new char*[argc + 1];
-   	    argv[0] = strdup( find_compiler( job.language() ).c_str() );
+   	    argv[0] = strdup( find_compiler( job ).c_str() );
 	    int i = 1;
 	    for ( list<string>::const_iterator it = flags.begin();
 		  it != flags.end(); ++it) {
