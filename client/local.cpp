@@ -125,6 +125,14 @@ static string path_lookup(const string& compiler)
 
 string find_compiler( const CompileJob& job )
 {
+    if (job.language() == CompileJob::Lang_C) {
+        if (const char* env = getenv( "ICECC_CC" ))
+            return env;
+    }
+    if (job.language() == CompileJob::Lang_CXX) {
+        if (const char* env = getenv ("ICECC_CXX"))
+            return env;
+    }
     return path_lookup(job.compilerName());
 }
 
