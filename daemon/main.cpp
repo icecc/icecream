@@ -1460,7 +1460,9 @@ bool Daemon::reconnect()
         return false;
     }
 
+#ifdef ICECC_DEBUG
     trace() << "reconn " << dump_internals() << endl;
+#endif
     if (!discover
 	|| discover->timed_out())
     {
