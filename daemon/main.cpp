@@ -1,4 +1,4 @@
-/*
+/* -*- c-file-style: "java"; indent-tabs-mode: nil -*-
     This file is part of Icecream.
 
     Copyright (c) 2004 Stephan Kulow <coolo@suse.de>
@@ -367,49 +367,6 @@ void usage(const char* reason = 0)
   exit(1);
 }
 
-int setup_listen_fd()
-{
-    int listen_fd;
-    if ((listen_fd = socket (PF_INET, SOCK_STREAM, 0)) < 0) {
-        log_perror ("socket()");
-        return -1;
-    }
-
-    int optval = 1;
-    if (setsockopt (listen_fd, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(optval)) < 0) {
-        log_perror ("setsockopt()");
-        return -1;
-    }
-
-    int count = 5;
-    while ( count ) {
-        struct sockaddr_in myaddr;
-        myaddr.sin_family = AF_INET;
-        myaddr.sin_port = htons (PORT);
-        myaddr.sin_addr.s_addr = INADDR_ANY;
-        if (bind (listen_fd, (struct sockaddr *) &myaddr,
-                  sizeof (myaddr)) < 0) {
-            log_perror ("bind()");
-            sleep( 2 );
-            if ( !--count )
-                return -1;
-            continue;
-        } else
-            break;
-    }
-
-    if (listen (listen_fd, 20) < 0)
-    {
-      log_perror ("listen()");
-      return -1;
-    }
-
-    fcntl(listen_fd, F_SETFD, FD_CLOEXEC);
-
-    return listen_fd;
-}
-
-
 struct timeval last_stat;
 int mem_limit = 100;
 unsigned int max_kids = 0;
@@ -424,7 +381,8 @@ struct Daemon
     string envbasedir;
     uid_t nobody_uid;
     gid_t nobody_gid;
-    int listen_fd;
+    int tcp_listen_fd;
+    int unix_listen_fd;
     string machine_name;
     string nodename;
     bool noremote;
@@ -452,7 +410,8 @@ struct Daemon
         envbasedir = "/tmp/icecc-envs";
         nobody_uid = 65534;
         nobody_gid = 65533;
-        listen_fd = -1;
+        tcp_listen_fd = -1;
+	unix_listen_fd = -1;
         new_client_id = 0;
         next_scheduler_connect = 0;
         cache_size = 0;
@@ -496,7 +455,78 @@ struct Daemon
     void close_scheduler();
     bool reconnect();
     int working_loop();
+    bool setup_listen_fds();
 };
+
+bool Daemon::setup_listen_fds()
+{
+    tcp_listen_fd = -1;
+    if (!noremote) { // if we only listen to local clients, there is no point in going TCP
+	if ((tcp_listen_fd = socket (PF_INET, SOCK_STREAM, 0)) < 0) {
+            log_perror ("socket()");
+            return false;
+        }
+
+        int optval = 1;
+        if (setsockopt (tcp_listen_fd, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(optval)) < 0) {
+            log_perror ("setsockopt()");
+            return false;
+        }
+        
+        int count = 5;
+        while ( count ) {
+            struct sockaddr_in myaddr;
+            myaddr.sin_family = AF_INET;
+            myaddr.sin_port = htons (PORT);
+            myaddr.sin_addr.s_addr = INADDR_ANY;
+            if (bind (tcp_listen_fd, (struct sockaddr *) &myaddr,
+                      sizeof (myaddr)) < 0) {
+                log_perror ("bind()");
+                sleep( 2 );
+                if ( !--count )
+                    return false;
+                continue;
+            } else
+                break;
+        }
+        
+        if (listen (tcp_listen_fd, 20) < 0) {
+            log_perror ("listen()");
+            return false;
+        }
+        
+        fcntl(tcp_listen_fd, F_SETFD, FD_CLOEXEC);
+    }
+    
+    if ((unix_listen_fd = socket(AF_UNIX, SOCK_STREAM, 0)) < 0) {
+        log_perror ("socket()");
+        return false;
+    }
+    struct sockaddr_un myaddr;
+    memset(&myaddr, 0, sizeof(myaddr));
+    myaddr.sun_family = AF_UNIX;
+    if (getuid()==0) {
+        strncpy(myaddr.sun_path, "/var/run/iceccd.socket", sizeof(myaddr.sun_path)-1);
+    } else {
+        strncpy(myaddr.sun_path, getenv("HOME"), sizeof(myaddr.sun_path)-1);
+        strncat(myaddr.sun_path, "/.iceccd.socket", sizeof(myaddr.sun_path)-1-strlen(myaddr.sun_path));
+        unlink(myaddr.sun_path);
+    }
+
+    if (bind(unix_listen_fd, (struct sockaddr*)&myaddr, sizeof(myaddr)) < 0) {
+        log_perror("bind()");
+        return false;
+    }
+
+    if (listen (unix_listen_fd, 20) < 0) {
+        log_perror ("listen()");
+        return false;
+    }
+    
+    fcntl(unix_listen_fd, F_SETFD, FD_CLOEXEC);
+    
+    return true;
+}
 
 void Daemon::determine_system()
 {
@@ -1250,8 +1280,14 @@ int Daemon::answer_client_requests()
     struct timeval tv;
 
     FD_ZERO( &listen_set );
-    FD_SET( listen_fd, &listen_set );
-    int max_fd = listen_fd;
+    int max_fd = 0;
+    if (tcp_listen_fd != -1) {
+      FD_SET( tcp_listen_fd, &listen_set );
+      max_fd = tcp_listen_fd;
+    }
+    FD_SET( unix_listen_fd, &listen_set );
+    if (unix_listen_fd > max_fd) // very likely
+      max_fd = unix_listen_fd;
 
     for (map<int, MsgChannel *>::const_iterator it = fd2chan.begin();
          it != fd2chan.end();) {
@@ -1339,7 +1375,13 @@ int Daemon::answer_client_requests()
             }
         }
 
-        if ( FD_ISSET( listen_fd, &listen_set ) ) {
+	int listen_fd = -1;
+	if ( tcp_listen_fd != -1 && FD_ISSET( tcp_listen_fd, &listen_set ) )
+	  listen_fd = tcp_listen_fd;
+	if ( FD_ISSET( unix_listen_fd, &listen_set ) )
+	  listen_fd = unix_listen_fd;
+
+        if ( listen_fd != -1) {
             struct sockaddr cli_addr;
             socklen_t cli_len = sizeof cli_addr;
             int acc_fd = accept(listen_fd, &cli_addr, &cli_len);
@@ -1444,7 +1486,7 @@ bool Daemon::reconnect()
     current_load = -1000;
     gettimeofday( &last_stat, 0 );
     icecream_load = 0;
-
+    
     LoginMsg lmsg( PORT, determine_nodename(), machine_name );
     lmsg.envs = available_environmnents(envbasedir);
     lmsg.max_kids = max_kids;
@@ -1673,9 +1715,9 @@ int main( int argc, char ** argv )
     for (list<string>::const_iterator it = nl.begin(); it != nl.end(); ++it)
         trace() << *it << endl;
 
-    d.listen_fd = setup_listen_fd();
-    if ( d.listen_fd == -1 ) // error
+    if ( !d.setup_listen_fds() ) // error
         return 1;
 
     return d.working_loop();
 }
+

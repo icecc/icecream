@@ -13,7 +13,7 @@ AC_PROG_CC
 AC_PROG_CXX
 if test "$GCC" = yes 
 then
-    CFLAGS="-g -W -Wall -Wimplicit \
+    CFLAGS="-g -W -Wall \
 -Wshadow -Wpointer-arith -Wcast-align -Wwrite-strings \
 -Waggregate-return -Wstrict-prototypes -Wmissing-prototypes \
 -Wnested-externs $CFLAGS"

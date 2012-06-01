@@ -26,6 +26,7 @@
 #include <sys/types.h>
 #include <netinet/in.h>
 #include <sys/socket.h>
+#include <sys/un.h>
 #include <arpa/inet.h>
 #include <sys/select.h>
 #include <netinet/in.h>
@@ -656,10 +657,35 @@ MsgChannel *Service::createChannel (const string &hostname, unsigned short p, in
       if (connect (remote_fd, (struct sockaddr *) &remote_addr, sizeof (remote_addr)) < 0)
         {
           close( remote_fd );
-	  trace() << "connect failed\n";
+	  trace() << "connect failed on " << hostname << endl;
           return 0;
         }
     }
+  trace() << "connected to " << hostname << endl;
+  return createChannel(remote_fd, (struct sockaddr *)&remote_addr, sizeof( remote_addr ));
+}
+
+MsgChannel *Service::createChannel (const string &socket_path)
+{
+  int remote_fd;
+  struct sockaddr_un remote_addr;
+
+  if ((remote_fd = socket (AF_UNIX, SOCK_STREAM, 0)) < 0)
+    {
+      log_perror("socket()");
+      return 0;
+    }
+
+  remote_addr.sun_family = AF_UNIX;
+  strncpy(remote_addr.sun_path, socket_path.c_str(), sizeof(remote_addr.sun_path) - 1);
+
+  if (connect (remote_fd, (struct sockaddr *) &remote_addr, sizeof (remote_addr)) < 0)
+    {
+      close( remote_fd );
+      trace() << "connect failed on " << socket_path << endl; 
+      return 0;
+    }
+  trace() << "connected to " << socket_path << endl;
   return createChannel(remote_fd, (struct sockaddr *)&remote_addr, sizeof( remote_addr ));
 }
 

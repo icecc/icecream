@@ -269,7 +269,17 @@ int main(int argc, char **argv)
     if ( icecc && !strcasecmp(icecc, "no") )
         return build_local( job, 0 );
 
-    MsgChannel *local_daemon = Service::createChannel( "127.0.0.1", 10245, 0/*timeout*/);
+    /* try several options to reach the local daemon - 2 sockets, one TCP */
+    MsgChannel *local_daemon = Service::createChannel( "/var/run/iceccd.socket" );
+    if (!local_daemon) {
+        string path = getenv("HOME");
+        path += "/.iceccd.socket";
+        local_daemon = Service::createChannel( path );
+    }
+
+    if (!local_daemon)
+        local_daemon = Service::createChannel( "127.0.0.1", 10245, 0/*timeout*/);
+
     if ( ! local_daemon ) {
         log_warning() << "no local daemon found\n";
         return build_local( job, 0 );
