@@ -25,4 +25,7 @@
 
 extern const std::string& determine_platform();
 
+extern int ggc_min_expand_heuristic(unsigned int mem_limit);
+extern unsigned int ggc_min_heapsize_heuristic(unsigned int mem_limit);
+
 #endif
