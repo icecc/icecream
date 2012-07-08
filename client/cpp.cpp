@@ -116,7 +116,7 @@ pid_t call_cpp(CompileJob &job, int fdwrite, int fdread)
 	    int argc = flags.size();
 	    argc++; // the program
 	    argc += 2; // -E file.i
-	    argc += 1; // -Wp,-rewrite-includes
+	    argc += 2; // -Wp,-rewrite-includes -CC
 	    argv = new char*[argc + 1];
    	    argv[0] = strdup( find_compiler( job ).c_str() );
 	    int i = 1;
@@ -126,8 +126,19 @@ pid_t call_cpp(CompileJob &job, int fdwrite, int fdread)
 	    }
 	    argv[i++] = strdup( "-E" );
 	    argv[i++] = strdup( job.inputFile().c_str() );
-	    if ( compiler_only_rewrite_includes( job ))
+	    if ( compiler_only_rewrite_includes( job )) {
 	        argv[i++] = strdup( "-Wp,-rewrite-includes" );
+	        // The -CC option actually does nothing. The resulting files from -rewrite-includes
+	        // is rather large, because it in practice is a merge of all the included files,
+	        // including the comments, so at one point in time the patch implementing
+	        // -rewrite-includes had options to strip the comments that would never be visible
+	        // in clang's error messages. That reduced the network traffic, but I don't find
+	        // the additional CPU power needed to parse the comments worth it, so
+	        // -rewrite-includes now again ignores -CC. However that version of the patch
+	        // has already made it into openSUSE 12.2, so use -CC, in case the clang
+	        // used is that one, because it otherwise would strip the comments.
+	        argv[i++] = strdup( "-CC" );
+	    }
 	    argv[i++] = 0;
 	}
 
