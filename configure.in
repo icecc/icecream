@@ -224,6 +224,7 @@ AC_SUBST(LIB_KINFO)
 
 AC_CHECK_PROG(CLANG,clang,clang)
 if test -n "$CLANG"; then
+    CLANG_SYMLINK_WRAPPERS='clang clang++'
     AC_MSG_CHECKING([whether clang -Werror works for unknown options])
     $CLANG -Werror -totallybogusoption -E - >/dev/null 2>/dev/null
     if test $? -eq 0; then
@@ -241,6 +242,7 @@ if test -n "$CLANG"; then
         fi
     fi
 fi
+AC_SUBST(CLANG_SYMLINK_WRAPPERS)
 
 AC_CONFIG_FILES([ Makefile ])
 AC_CONFIG_FILES([ client/Makefile ])
