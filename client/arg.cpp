@@ -111,6 +111,8 @@ bool analyse_argv( const char * const *argv,
     bool seen_mf = false;
     bool seen_md = false;
     bool fno_color_diagnostics = false;
+    // if rewriting includes and precompiling on remote machine, then cpp args are not local
+    Argument_Type Arg_Cpp = compiler_only_rewrite_includes( job ) ? Arg_Rest : Arg_Local;
     if( icerun ) {
         always_local = true;
         job.setLanguage( CompileJob::Lang_Custom );
@@ -254,8 +256,14 @@ bool analyse_argv( const char * const *argv,
                     args.append(argv[i], Arg_Local);
                 }
             } else if (str_equal("-D", a)
-                       || str_equal("-I", a)
-                       || str_equal("-U", a)
+                       || str_equal("-U", a) ) {
+                args.append(a, Arg_Cpp);
+                /* skip next word, being option argument */
+                if (argv[i+1]) {
+		    ++i;
+                    args.append(  argv[i], Arg_Cpp );
+		}
+            } else if (str_equal("-I", a)
                        || str_equal("-L", a)
                        || str_equal("-l", a)
                        || str_equal("-MF", a)
@@ -281,13 +289,15 @@ bool analyse_argv( const char * const *argv,
 		}
             } else if (str_startswith("-Wp,", a)
                  || str_startswith("-D", a)
-                 || str_startswith("-U", a)
-                 || str_startswith("-I", a)
+                 || str_startswith("-U", a)) {
+                args.append(a, Arg_Cpp);
+            } else if (str_startswith("-I", a)
                  || str_startswith("-l", a)
                  || str_startswith("-L", a)) {
                 args.append(a, Arg_Local);
-            } else if (str_equal("-undef", a)
-                 || str_equal("-nostdinc", a)
+            } else if (str_equal("-undef", a)) {
+                args.append(a, Arg_Cpp);
+            } else if (str_equal("-nostdinc", a)
                  || str_equal("-nostdinc++", a)
                  || str_equal("-MD", a)
                  || str_equal("-MMD", a)

@@ -116,6 +116,7 @@ pid_t call_cpp(CompileJob &job, int fdwrite, int fdread)
 	    int argc = flags.size();
 	    argc++; // the program
 	    argc += 2; // -E file.i
+	    argc += 1; // -Wp,-rewrite-includes
 	    argv = new char*[argc + 1];
    	    argv[0] = strdup( find_compiler( job ).c_str() );
 	    int i = 1;
@@ -125,6 +126,8 @@ pid_t call_cpp(CompileJob &job, int fdwrite, int fdread)
 	    }
 	    argv[i++] = strdup( "-E" );
 	    argv[i++] = strdup( job.inputFile().c_str() );
+	    if ( compiler_only_rewrite_includes( job ))
+	        argv[i++] = strdup( "-Wp,-rewrite-includes" );
 	    argv[i++] = 0;
 	}
 
