@@ -505,9 +505,11 @@ bool Daemon::setup_listen_fds()
     struct sockaddr_un myaddr;
     memset(&myaddr, 0, sizeof(myaddr));
     myaddr.sun_family = AF_UNIX;
+    mode_t old_umask = -1U;
     if (getuid()==0) {
         strncpy(myaddr.sun_path, "/var/run/iceccd.socket", sizeof(myaddr.sun_path)-1);
         unlink(myaddr.sun_path);
+        old_umask = umask(0);
     } else {
         strncpy(myaddr.sun_path, getenv("HOME"), sizeof(myaddr.sun_path)-1);
         strncat(myaddr.sun_path, "/.iceccd.socket", sizeof(myaddr.sun_path)-1-strlen(myaddr.sun_path));
@@ -516,8 +518,12 @@ bool Daemon::setup_listen_fds()
 
     if (bind(unix_listen_fd, (struct sockaddr*)&myaddr, sizeof(myaddr)) < 0) {
         log_perror("bind()");
+        if (old_umask != -1U)
+            umask(old_umask);
         return false;
     }
+    if (old_umask != -1U)
+        umask(old_umask);
 
     if (listen (unix_listen_fd, 20) < 0) {
         log_perror ("listen()");
