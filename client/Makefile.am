@@ -17,6 +17,6 @@ install-exec-local:
 	done
 
 uninstall-local:
-	for link in g++ gcc c++ cc; do \
+	for link in g++ gcc c++ cc icerun; do \
 	  rm $(DESTDIR)$(bindir)/$$link ;\
 	done
