@@ -507,6 +507,7 @@ bool Daemon::setup_listen_fds()
     myaddr.sun_family = AF_UNIX;
     if (getuid()==0) {
         strncpy(myaddr.sun_path, "/var/run/iceccd.socket", sizeof(myaddr.sun_path)-1);
+        unlink(myaddr.sun_path);
     } else {
         strncpy(myaddr.sun_path, getenv("HOME"), sizeof(myaddr.sun_path)-1);
         strncat(myaddr.sun_path, "/.iceccd.socket", sizeof(myaddr.sun_path)-1-strlen(myaddr.sun_path));
