@@ -49,7 +49,7 @@ extern pid_t call_cpp (CompileJob &job, int fdwrite, int fdread = -1);
 extern int build_local (CompileJob& job, MsgChannel *daemon, struct rusage *usage =0);
 extern std::string find_compiler( CompileJob::Language lang );
 extern std::string find_compiler( const CompileJob& job );
-extern bool compiler_is_clang( CompileJob::Language lang );
+extern bool compiler_is_clang( const CompileJob& job );
 
 /* In remote.cpp - permill is the probability it will be compiled three times */
 extern int build_remote (CompileJob &job, MsgChannel *scheduler, const Environments &envs, int permill);

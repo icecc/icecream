@@ -423,7 +423,7 @@ static int build_remote_int(CompileJob &job, UseCSMsg *usecs, const string &envi
     {
         write(STDOUT_FILENO, crmsg->out.c_str(), crmsg->out.size() );
 
-        if(colorify_wanted(job.language()))
+        if(colorify_wanted(job))
             colorify_output(crmsg->err);
         else
             write(STDERR_FILENO, crmsg->err.c_str(), crmsg->err.size() );
@@ -584,7 +584,7 @@ int build_remote(CompileJob &job, MsgChannel *local_daemon, const Environments &
 
     // older compilers do not support the options we need to make it reproducable
 #if defined(__GNUC__) && ( ( (__GNUC__ == 3) && (__GNUC_MINOR__ >= 3) ) || (__GNUC__ >=4) )
-    if (!compiler_is_clang(job.language())) {
+    if (!compiler_is_clang(job)) {
         if ( rand() % 1000 < permill)
             torepeat = 3;
     }

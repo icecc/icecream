@@ -22,13 +22,15 @@
 
 #include <string>
 
+class CompileJob;
+
 /* util.c */
 extern int set_cloexec_flag (int desc, int value);
 extern int dcc_ignore_sigpipe (int val);
 
 extern std::string find_basename(const std::string &sfile);
 extern void colorify_output(const std::string &s_ccout);
-extern bool colorify_wanted(CompileJob::Language lang);
+extern bool colorify_wanted(const CompileJob &job);
 extern bool colorify_possible();
 
 extern bool dcc_unlock(int lock_fd);

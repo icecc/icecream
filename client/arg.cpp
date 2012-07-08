@@ -410,7 +410,7 @@ bool analyse_argv( const char * const *argv,
         always_local = true;
 
     // redirecting Clang's output will turn off its automatic coloring, so force it, unless disabled
-    if (compiler_is_clang(job.language()) && colorify_possible() && !fno_color_diagnostics)
+    if (compiler_is_clang(job) && colorify_possible() && !fno_color_diagnostics)
         args.append("-fcolor-diagnostics", Arg_Rest);
 
     job.setFlags( args );

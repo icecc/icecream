@@ -210,10 +210,10 @@ bool colorify_possible()
   return isatty(2) && term_env && strcasecmp(term_env, "DUMB");
 }
 
-bool colorify_wanted(CompileJob::Language lang)
+bool colorify_wanted(const CompileJob& job)
 {
     // Clang has coloring, and an explicit option to force it even if output is not a tty.
-    if (compiler_is_clang(lang))
+    if (compiler_is_clang(job))
         return false;
 
     if (getenv("EMACS"))
