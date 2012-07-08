@@ -178,14 +178,25 @@ int work_it( CompileJob &j, unsigned int job_stat[], MsgChannel* client,
         argc += 6; // -x c - -o file.o -fpreprocessed
         argc += 4; // gpc parameters
         argc += 1; // -pipe
+        argc += 1; // -no-canonical-prefixes
         char **argv = new char*[argc + 1];
 	int i = 0;
-        if (j.language() == CompileJob::Lang_C)
-            argv[i++] = strdup( "usr/bin/gcc" );
-        else if (j.language() == CompileJob::Lang_CXX)
-            argv[i++] = strdup( "usr/bin/g++" );
-        else
-            assert(0);
+        bool clang = false;
+        if (IS_PROTOCOL_30( client )) {
+            assert(!j.compilerName().empty());
+            clang = (j.compilerName().find( "clang" ) != string::npos);
+            argv[i++] = strdup(( "usr/bin/" + j.compilerName()).c_str());
+	} else {
+            if (j.language() == CompileJob::Lang_C)
+                argv[i++] = strdup( "usr/bin/gcc" );
+            else if (j.language() == CompileJob::Lang_CXX)
+                argv[i++] = strdup( "usr/bin/g++" );
+            else
+                assert(0);
+        }
+
+        argv[i++] = strdup("-x");
+        argv[i++] = strdup((j.language() == CompileJob::Lang_CXX) ? "c++" : "c");
 
         bool hasPipe = false;
         for ( std::list<string>::const_iterator it = list.begin();
@@ -194,20 +205,23 @@ int work_it( CompileJob &j, unsigned int job_stat[], MsgChannel* client,
                 hasPipe = true;
             argv[i++] = strdup( it->c_str() );
         }
-        argv[i++] = strdup("-fpreprocessed");
+        if (!clang)
+            argv[i++] = strdup("-fpreprocessed");
         if(!hasPipe)
            argv[i++] = strdup("-pipe");
-        argv[i++] = strdup("-x");
-        argv[i++] = strdup((j.language() == CompileJob::Lang_CXX) ? "c++" : "c");
         argv[i++] = strdup( "-" );
         argv[i++] = strdup( "-o" );
         argv[i++] = strdup(outfilename.c_str());
-        argv[i++] = strdup( "--param" );
-        sprintf( buffer, "ggc-min-expand=%d", ggc_min_expand_heuristic( mem_limit ) );
-        argv[i++] = strdup( buffer );
-        argv[i++] = strdup( "--param" );
-        sprintf( buffer, "ggc-min-heapsize=%d", ggc_min_heapsize_heuristic( mem_limit ) );
-        argv[i++] = strdup( buffer );
+        if (!clang) {
+            argv[i++] = strdup( "--param" );
+            sprintf( buffer, "ggc-min-expand=%d", ggc_min_expand_heuristic( mem_limit ) );
+            argv[i++] = strdup( buffer );
+            argv[i++] = strdup( "--param" );
+            sprintf( buffer, "ggc-min-heapsize=%d", ggc_min_heapsize_heuristic( mem_limit ) );
+            argv[i++] = strdup( buffer );
+        }
+        if (clang)
+            argv[i++] = strdup( "-no-canonical-prefixes" ); // otherwise clang tries to access /proc/self/exe
         // before you add new args, check above for argc
         argv[i] = 0;
         assert(i <= argc);

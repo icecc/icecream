@@ -136,7 +136,7 @@ static void list_target_dirs( const string &current_target, const string &target
     for ( struct dirent *ent = readdir(envdir); ent; ent = readdir( envdir ) )
     {
         string dirname = ent->d_name;
-        if ( !access( string( targetdir + "/" + dirname + "/usr/bin/gcc" ).c_str(), X_OK ) )
+        if ( !access( string( targetdir + "/" + dirname + "/usr/bin/as" ).c_str(), X_OK ) )
             envs.push_back( make_pair( current_target, dirname ) );
     }
     closedir( envdir );
@@ -214,7 +214,13 @@ size_t setup_env_cache(const string &basedir, string &native_environment, uid_t 
     native_environment = "";
     string nativedir = basedir + "/native/";
 
-    if ( ::access( "/usr/bin/gcc", X_OK ) || ::access( "/usr/bin/g++", X_OK ) ) 
+    // Either both gcc and g++ are needed, and/or clang.
+    bool ok = false;
+    if ( ::access( "/usr/bin/gcc", X_OK ) == 0 && ::access( "/usr/bin/g++", X_OK ) == 0 ) 
+        ok = true;
+    if ( ::access( "/usr/bin/clang", X_OK ) == 0 )
+        ok = true;
+    if ( !ok )
 	return 0;
 
     if ( mkdir( nativedir.c_str(), 0775 ) )

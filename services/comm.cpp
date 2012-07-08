@@ -1338,6 +1338,12 @@ CompileFileMsg::fill_from_channel (MsgChannel *c)
   string target;
   *c >> target;
   job->setTargetPlatform( target );
+  if (IS_PROTOCOL_30(c))
+  {
+    string compilerName;
+    *c >> compilerName;
+    job->setCompilerName( compilerName );
+  }
 }
 
 void
@@ -1350,6 +1356,19 @@ CompileFileMsg::send_to_channel (MsgChannel *c) const
   *c << job->restFlags();
   *c << job->environmentVersion();
   *c << job->targetPlatform();
+  if (IS_PROTOCOL_30(c))
+    *c << remote_compiler_name();
+}
+
+// Environments created by icecc-create-env always use the same binary name
+// for compilers, so even if local name was e.g. c++, remote needs to
+// be g++ (before protocol version 30 remote CS even had /usr/bin/{gcc|g++}
+// hardcoded).
+string CompileFileMsg::remote_compiler_name() const
+{
+    if (job->compilerName().find("clang") != string::npos)
+        return job->language() == CompileJob::Lang_CXX ? "clang++" : "clang";
+    return job->language() == CompileJob::Lang_CXX ? "g++" : "gcc";
 }
 
 CompileJob *

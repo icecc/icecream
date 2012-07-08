@@ -35,7 +35,7 @@
 #include "job.h"
 
 // if you increase the PROTOCOL_VERSION, add a macro below and use that
-#define PROTOCOL_VERSION 29
+#define PROTOCOL_VERSION 30
 // if you increase the MIN_PROTOCOL_VERSION, comment out macros below and clean up the code
 #define MIN_PROTOCOL_VERSION 21
 
@@ -53,6 +53,7 @@
 #define IS_PROTOCOL_27( c ) ( (c)->protocol >= 27 )
 #define IS_PROTOCOL_28( c ) ( (c)->protocol >= 28 )
 #define IS_PROTOCOL_29( c ) ( (c)->protocol >= 29 )
+#define IS_PROTOCOL_30( c ) ( (c)->protocol >= 30 )
 
 enum MsgType {
   // so far unknown
@@ -337,6 +338,7 @@ public:
   CompileJob *takeJob();
 
 private:
+  std::string remote_compiler_name() const;
   bool deleteit;
   CompileJob *job;
 };
