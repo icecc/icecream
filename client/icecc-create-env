@@ -11,6 +11,12 @@ if test `uname` = Darwin; then
   is_darwin=1
 fi
 
+usage ()
+{
+    echo "usage: $0 <gcc_path> <g++_path>"
+    echo "usage: $0 [<gcc_path>|] [<g++_path>|] <clang_path> <clang++_path>"
+}
+
 is_contained ()
 {
   case " $target_files " in
@@ -71,6 +77,24 @@ add_file ()
   fi
 }
 
+check_compiler ()
+{
+    added_cc=$1
+    added_cxx=$2
+    if test -z "$added_cc" || test -z "$added_cxx"; then
+	usage
+	exit 1
+    fi
+    if ! test -x "$added_cc" ; then
+        echo "'$added_cc' is no executable."
+        exit 1
+    fi
+    if ! test -x "$added_cxx" ; then
+        echo "'$added_cxx' is no executable."
+        exit 1
+    fi
+}
+
 # backward compat
 if test "$1" = "--respect-path"; then
   shift
@@ -79,24 +103,67 @@ fi
 added_gcc=$1
 shift
 added_gxx=$1
+shift
 
-if test -z "$added_gcc" || test -z "$added_gxx"; then
-	echo "usage: $0 <gcc_path> <g++_path>"
-	exit 1
+if test -n "$added_gcc" || test -n "$added_gxx"; then
+    gcc=1
+    check_compiler "$added_gcc" "$added_gxx"
 fi
 	
-if ! test -x "$added_gcc" ; then
-  echo "'$added_gcc' is no executable."
-  exit 1
+added_clang=$1
+shift
+added_clangxx=$1
+shift
+
+if test -n "$added_clang" || test -n "$added_clangxx"; then
+    clang=1
+    check_compiler "$added_clang" "$added_clangxx"
+fi
+	
+if test -z "$gcc" && test -z "$clang"; then
+    usage
+    exit 1
 fi
 
-if ! test -x "$added_gxx" ; then
-  echo "'$added_gcc' is no executable."
-  exit 1
+tempdir=`mktemp -d /tmp/iceccenvXXXXXX`
+
+if test -n "$gcc"; then
+    add_file $added_gcc /usr/bin/gcc
+    add_file $added_gxx /usr/bin/g++
+    add_file `$added_gcc -print-prog-name=cc1` /usr/bin/cc1
+    add_file `$added_gxx -print-prog-name=cc1plus` /usr/bin/cc1plus
+    specfile=`$added_gcc -print-file-name=specs`
+    if test -n "$specfile" && test "$specfile" != "specs" && test -e "$specfile"; then
+      add_file "$specfile"
+    fi
+
+    plugin_name=liblto_plugin.so
+    plugin=`$added_gcc -print-prog-name=$plugin_name`
+    if test -z "$plugin" || test "$plugin" = "$plugin_name" || ! test -e "$plugin"; then
+      # This is for Debian
+      plugin=`$added_gcc -print-file-name=$plugin_name`
+    fi
+    if test -n "$plugin" && test "$plugin" != "$plugin_name" && test -e "$plugin"; then
+      add_file "$plugin" "$plugin"
+    fi
 fi
 
-add_file $added_gcc /usr/bin/gcc
-add_file $added_gxx /usr/bin/g++
+if test -n "$clang"; then
+    add_file $added_clang /usr/bin/clang
+    add_file $added_clangxx /usr/bin/clang++
+    # clang requires /tmp
+    mkdir "$tempdir"/tmp/
+    chmod 1777 "$tempdir"/tmp/
+    touch "$tempdir"/tmp/dummy
+    add_file "$tempdir"/tmp/dummy /tmp/tmpfile
+    # clang always uses its internal .h files
+    clangincludes=$(dirname $($added_clang -print-file-name=include/limits.h))
+    for file in $clangincludes/*; do
+      file=$(readlink -e $file)
+      add_file "$file" "$file"
+    done
+fi
+
 add_file /usr/bin/as
 
 if test "$is_darwin" = 1; then
@@ -110,24 +177,6 @@ if test "$is_darwin" = 1; then
     add_file $real_file
 fi
 
-
-add_file `$added_gcc -print-prog-name=cc1` /usr/bin/cc1
-add_file `$added_gxx -print-prog-name=cc1plus` /usr/bin/cc1plus
-specfile=`$added_gcc -print-file-name=specs`
-if test -n "$specfile" && test "$specfile" != "specs" && test -e "$specfile"; then
-  add_file "$specfile"
-fi
-
-plugin_name=liblto_plugin.so
-plugin=`$added_gcc -print-prog-name=$plugin_name`
-if test -z "$plugin" || test "$plugin" = "$plugin_name" || ! test -e "$plugin"; then
-  # This is for Debian
-  plugin=`$added_gcc -print-file-name=$plugin_name`
-fi
-if test -n "$plugin" && test "$plugin" != "$plugin_name" && test -e "$plugin"; then
-  add_file "$plugin" "$plugin"
-fi
-
 # for ldconfig -r to work, ld.so.conf must not contain relative paths
 # in include directives. Make them absolute.
 tmp_ld_so_conf=`mktemp /tmp/icecc_ld_so_confXXXXXX`
@@ -139,7 +188,6 @@ while read directive path; do
 done </etc/ld.so.conf >$tmp_ld_so_conf
 add_file $tmp_ld_so_conf /etc/ld.so.conf
 
-tempdir=`mktemp -d /tmp/iceccenvXXXXXX`
 # special case for weird multilib setups
 for dir in /lib /lib64 /usr/lib /usr/lib64; do
     test -L $dir && cp -p $dir $tempdir$dir
