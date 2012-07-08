@@ -1,3 +1,10 @@
+?
+- support for Clang compiler
+  Clang now should work out of the box just like GCC.
+  Clang with -Wp,-rewrite-includes option is recommended (3.2+ or patched).
+- support 'icecc <compilername>' properly
+- try to avoid compiling on the local machine if it is busy
+
 0.9.7 (1232780)
 - bug fix for -MD and -MF
 - bug fix for gcc 4.6 plugins
