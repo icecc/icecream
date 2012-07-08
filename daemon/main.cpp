@@ -1484,7 +1484,7 @@ bool Daemon::reconnect()
         remote_name = inet_ntoa( name.sin_addr );
     else
         remote_name = string();
-    log_info() << "Connected to scheduler (I am known as" << remote_name << ")\n";
+    log_info() << "Connected to scheduler (I am known as " << remote_name << ")\n";
     current_load = -1000;
     gettimeofday( &last_stat, 0 );
     icecream_load = 0;
