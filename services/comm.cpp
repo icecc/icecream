@@ -1363,11 +1363,11 @@ CompileFileMsg::send_to_channel (MsgChannel *c) const
 // Environments created by icecc-create-env always use the same binary name
 // for compilers, so even if local name was e.g. c++, remote needs to
 // be g++ (before protocol version 30 remote CS even had /usr/bin/{gcc|g++}
-// hardcoded).
+// hardcoded).  For clang, the binary is just clang for both C/C++.
 string CompileFileMsg::remote_compiler_name() const
 {
     if (job->compilerName().find("clang") != string::npos)
-        return job->language() == CompileJob::Lang_CXX ? "clang++" : "clang";
+        return "clang";
     return job->language() == CompileJob::Lang_CXX ? "g++" : "gcc";
 }
 
