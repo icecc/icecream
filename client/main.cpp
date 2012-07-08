@@ -78,7 +78,7 @@ static void dcc_show_usage(void)
 "   --build-native             create icecc environment\n"
 "Environment Variables:\n"
 "   ICECC                      if set to \"no\", just exec the real gcc\n"
-"   ICECC_VERSION              use a specific icecc environment, see create-env\n"
+"   ICECC_VERSION              use a specific icecc environment, see icecc-create-env\n"
 "   ICECC_DEBUG                [info | warnings | debug]\n"
 "                              sets verboseness of icecream client.\n"
 "   ICECC_LOGFILE              if set, additional debug information is logged to the specified file\n"
