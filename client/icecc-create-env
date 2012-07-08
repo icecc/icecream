@@ -14,7 +14,7 @@ fi
 usage ()
 {
     echo "usage: $0 <gcc_path> <g++_path>"
-    echo "usage: $0 [<gcc_path>|] [<g++_path>|] <clang_path>"
+    echo "usage: $0 [<gcc_path>|] [<g++_path>|] <clang_path> <compiler_wrapper>"
 }
 
 is_contained ()
@@ -112,6 +112,12 @@ if test -n "$added_clang"; then
         echo "'$added_clang' is no executable."
         exit 1
     fi
+    added_compilerwrapper=$1
+    shift
+    if ! test -x "$added_compilerwrapper" ; then
+        echo "'$added_compilerwrapper' is no executable."
+        exit 1
+    fi
 fi
 
 if test -z "$gcc" && test -z "$clang"; then
@@ -122,8 +128,15 @@ fi
 tempdir=`mktemp -d /tmp/iceccenvXXXXXX`
 
 if test -n "$gcc"; then
-    add_file $added_gcc /usr/bin/gcc
-    add_file $added_gxx /usr/bin/g++
+    if test -z "$clang"; then
+        add_file $added_gcc /usr/bin/gcc
+        add_file $added_gxx /usr/bin/g++
+    else
+        # HACK: The clang case below will add a wrapper in place of gcc, so add the real
+        # gcc under a different name that the wrapper will call.
+        add_file $added_gcc /usr/bin/gcc.bin
+        add_file $added_gxx /usr/bin/g++.bin
+    fi
     add_file `$added_gcc -print-prog-name=cc1` /usr/bin/cc1
     add_file `$added_gxx -print-prog-name=cc1plus` /usr/bin/cc1plus
     specfile=`$added_gcc -print-file-name=specs`
@@ -144,6 +157,11 @@ fi
 
 if test -n "$clang"; then
     add_file $added_clang /usr/bin/clang
+    # HACK: Older icecream remotes have /usr/bin/{gcc|g++} hardcoded and wouldn't
+    # call /usr/bin/clang at all. So include a wrapper binary that will call gcc or clang
+    # depending on an extra argument added by icecream.
+    add_file $added_compilerwrapper /usr/bin/gcc
+    add_file $added_compilerwrapper /usr/bin/g++
     # clang requires /tmp
     mkdir "$tempdir"/tmp/
     chmod 1777 "$tempdir"/tmp/

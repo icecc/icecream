@@ -1,5 +1,5 @@
 
-SUBDIRS = minilzo services daemon client doc suse
+SUBDIRS = minilzo services daemon client doc suse compilerwrapper
 AUTOMAKE_OPTIONS = foreign 1.6
 
 .PHONY: changes

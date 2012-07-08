@@ -185,12 +185,21 @@ static int create_native()
         return 1;
     }
 
+    if ( !clang.empty() && lstat( PLIBDIR "/compilerwrapper", &st ) ) {
+	log_error() << PLIBDIR "/compilerwrapper does not exist\n";
+        return 1;
+    }
+
     char **argv = new char*[5];
     argv[0] = strdup( PLIBDIR "/icecc-create-env"  );
     argv[1] = strdup( gcc.c_str() );
     argv[2] = strdup( gpp.c_str() );
-    argv[3] = strdup( clang.c_str() );
-    argv[4] = NULL;
+    argv[3] = NULL;
+    if( !clang.empty()) {
+        argv[3] = strdup( clang.c_str() );
+        argv[4] = strdup( PLIBDIR "/compilerwrapper"  );
+        argv[5] = NULL;
+    }
 
     return execv(argv[0], argv);
 

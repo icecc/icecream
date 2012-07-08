@@ -1352,7 +1352,19 @@ CompileFileMsg::send_to_channel (MsgChannel *c) const
   Msg::send_to_channel (c);
   *c << (uint32_t) job->language();
   *c << job->jobID();
-  *c << job->remoteFlags();
+  if (IS_PROTOCOL_30(c))
+    *c << job->remoteFlags();
+  else
+  {
+    if (job->compilerName().find("clang") != string::npos)
+    { // Hack for compilerwrapper.
+        std::list<std::string> flags = job->remoteFlags();
+        flags.push_front("clang");
+        *c << flags;
+    }
+    else
+      *c << job->remoteFlags();
+  }
   *c << job->restFlags();
   *c << job->environmentVersion();
   *c << job->targetPlatform();
