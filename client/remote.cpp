@@ -584,8 +584,10 @@ int build_remote(CompileJob &job, MsgChannel *local_daemon, const Environments &
 
     // older compilers do not support the options we need to make it reproducable
 #if defined(__GNUC__) && ( ( (__GNUC__ == 3) && (__GNUC_MINOR__ >= 3) ) || (__GNUC__ >=4) )
-    if ( rand() % 1000 < permill)
-        torepeat = 3;
+    if (!compiler_is_clang(job.language())) {
+        if ( rand() % 1000 < permill)
+            torepeat = 3;
+    }
 #endif
 
     trace() << job.inputFile() << " compiled " << torepeat << " times on " << job.targetPlatform() << "\n";
