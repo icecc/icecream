@@ -146,18 +146,24 @@ generated.</para>
 <refsect1>
 <title>How to combine icecream with ccache</title>
 
-<para>The easiest way to use ccache with icecream is putting the symlink
-masquerades into /opt/icream/bin and putting small wrapper scripts in
-/opt/ccache/bin
+<para>The easiest way to use ccache with icecream is to set <varname>CCACHE_PREFIX</varname>
+to icecc (the actual icecream client wrapper)
 
 <screen> 
- cat /opt/ccache/bin/g++:
- 
- #! /bin/sh
- 
- export CCACHE_PATH=/opt/icecream/bin
- export PATH=/opt/icecream/bin:/usr/bin:$PATH
- ccache g++ "$@"
+ export CCACHE_PREFIX=icecc
+</screen>
+</para>
+
+<para>This will make ccache prefix any compilation command it needs to do with icecc,
+making it use icecream for the compilation (but not for preprocessing alone).</para>
+
+<para>To actually use ccache, the mechanism is the same like with using icecream alone.
+Since ccache does not provide any symlinks in /opt/ccache/bin, you can create them manually:
+
+<screen>
+mkdir /opt/ccache/bin
+ln -s /usr/bin/ccache /opt/ccache/bin/gcc
+ln -s /usr/bin/ccache /opt/ccache/bin/g++
 </screen>
 </para>
 
