@@ -395,6 +395,10 @@ int work_it( CompileJob &j, unsigned int job_stat[], MsgChannel* client,
                         continue;
                     kill(pid, SIGTERM); // Most likely crashed anyway ...
                     return_value = EXIT_COMPILER_CRASHED;
+                    client_fd = -1;
+                    input_complete = true;
+                    delete fcmsg;
+                    fcmsg = 0;
                     continue;
                 }
 
