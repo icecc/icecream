@@ -157,7 +157,7 @@ static string read_output( const char *command )
 static int create_native()
 {
     struct stat st;
-    string gcc, gpp;
+    string gcc, gpp, clang;
 
     // perhaps we're on gentoo
     if ( !lstat("/usr/bin/gcc-config", &st) ) {
@@ -165,11 +165,19 @@ static int create_native()
         gcc=gccpath + "gcc";
         gpp=gccpath + "g++";
     } else {
-        gcc = find_compiler( CompileJob::Lang_C );
-        gpp = find_compiler( CompileJob::Lang_CXX );
+        gcc = compiler_path_lookup( "gcc" );
+        gpp = compiler_path_lookup( "g++" );
     }
 
-    if ( gcc.empty() || gpp.empty())
+    clang = compiler_path_lookup( "clang" );
+
+    // both C and C++ compiler are required
+    if ( gcc.empty())
+        gpp.clear();
+    if ( gpp.empty())
+        gcc.clear();
+
+    if ( gcc.empty() && gpp.empty() && clang.empty())
 	return 1;
 
     if ( lstat( PLIBDIR "/icecc-create-env", &st ) ) {
@@ -177,11 +185,12 @@ static int create_native()
         return 1;
     }
 
-    char **argv = new char*[4];
+    char **argv = new char*[5];
     argv[0] = strdup( PLIBDIR "/icecc-create-env"  );
     argv[1] = strdup( gcc.c_str() );
     argv[2] = strdup( gpp.c_str() );
-    argv[3] = NULL;
+    argv[3] = strdup( clang.c_str() );
+    argv[4] = NULL;
 
     return execv(argv[0], argv);
 

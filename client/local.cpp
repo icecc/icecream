@@ -42,32 +42,7 @@ extern const char * rs_program_name;
 
 #define CLIENT_DEBUG 0
 
-/*
- * Get the name of the compiler depedant on the
- * language of the job and the environment
- * variable set. This is useful for native cross-compilers.
- * (arm-linux-gcc for example)
- */
-
-static string get_compiler_name( CompileJob::Language lang )
-{
-    string compiler_name = "gcc";
-
-    const char* env;
-    if ( (env = getenv( "ICECC_CC" )) )
-        compiler_name = env;
-
-    if (lang == CompileJob::Lang_CXX) {
-        compiler_name = "g++";
-        if ((env = getenv ("ICECC_CXX")))
-            compiler_name = env;
-    }
-
-    return compiler_name;
-}
-
-
-static string path_lookup(const string& compiler)
+string compiler_path_lookup(const string& compiler)
 {
     if ( compiler.at( 0 ) == '/' )
         return compiler;
@@ -123,6 +98,12 @@ static string path_lookup(const string& compiler)
     return best_match;
 }
 
+/*
+ * Get the name of the compiler depedant on the
+ * language of the job and the environment
+ * variable set. This is useful for native cross-compilers.
+ * (arm-linux-gcc for example)
+ */
 string find_compiler( const CompileJob& job )
 {
     if (job.language() == CompileJob::Lang_C) {
@@ -133,14 +114,7 @@ string find_compiler( const CompileJob& job )
         if (const char* env = getenv ("ICECC_CXX"))
             return env;
     }
-    return path_lookup(job.compilerName());
-}
-
-string find_compiler( CompileJob::Language lang )
-{
-    string compiler = get_compiler_name( lang );
-
-    return path_lookup(compiler);
+    return compiler_path_lookup(job.compilerName());
 }
 
 bool compiler_is_clang( const CompileJob& job )
