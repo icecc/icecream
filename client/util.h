@@ -28,7 +28,8 @@ extern int dcc_ignore_sigpipe (int val);
 
 extern std::string find_basename(const std::string &sfile);
 extern void colorify_output(const std::string &s_ccout);
-extern bool colorify_wanted();
+extern bool colorify_wanted(CompileJob::Language lang);
+extern bool colorify_possible();
 
 extern bool dcc_unlock(int lock_fd);
 extern bool dcc_lock_host(int &lock_fd);

@@ -143,6 +143,11 @@ string find_compiler( CompileJob::Language lang )
     return path_lookup(compiler);
 }
 
+bool compiler_is_clang( CompileJob::Language lang )
+{
+    return get_compiler_name( lang ).find("clang") != string::npos;
+}
+
 static volatile int lock_fd = 0;
 static volatile int user_break_signal = 0;
 static volatile pid_t child_pid;
@@ -220,7 +225,7 @@ int build_local(CompileJob& job, MsgChannel *local_daemon, struct rusage *used)
     }
 
     bool color_output = job.language() != CompileJob::Lang_Custom
-        && colorify_wanted();
+        && colorify_wanted(job.language());
     int pf[2];
 
     if (color_output && pipe(pf))

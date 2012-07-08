@@ -423,7 +423,7 @@ static int build_remote_int(CompileJob &job, UseCSMsg *usecs, const string &envi
     {
         write(STDOUT_FILENO, crmsg->out.c_str(), crmsg->out.size() );
 
-        if(colorify_wanted())
+        if(colorify_wanted(job.language()))
             colorify_output(crmsg->err);
         else
             write(STDERR_FILENO, crmsg->err.c_str(), crmsg->err.size() );

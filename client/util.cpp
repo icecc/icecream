@@ -37,7 +37,9 @@
 #include <sys/stat.h>
 #include <sys/file.h>
 
+#include "client.h"
 #include "exitcode.h"
+#include "job.h"
 #include "logging.h"
 #include "util.h"
 
@@ -201,11 +203,23 @@ bool dcc_lock_host(int &lock_fd)
     }
 }
 
-bool colorify_wanted()
+bool colorify_possible()
 {
   const char* term_env = getenv("TERM");
 
-  return isatty(2) && !getenv("EMACS") && term_env && strcasecmp(term_env, "DUMB");
+  return isatty(2) && term_env && strcasecmp(term_env, "DUMB");
+}
+
+bool colorify_wanted(CompileJob::Language lang)
+{
+    // Clang has coloring, and an explicit option to force it even if output is not a tty.
+    if (compiler_is_clang(lang))
+        return false;
+
+    if (getenv("EMACS"))
+        return false;
+
+    return colorify_possible();
 }
 
 void colorify_output(const string& _s_ccout)

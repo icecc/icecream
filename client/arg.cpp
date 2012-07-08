@@ -110,6 +110,7 @@ bool analyse_argv( const char * const *argv,
     bool seen_s = false;
     bool seen_mf = false;
     bool seen_md = false;
+    bool fno_color_diagnostics = false;
     if( icerun ) {
         always_local = true;
         job.setLanguage( CompileJob::Lang_Custom );
@@ -293,6 +294,12 @@ bool analyse_argv( const char * const *argv,
                  || str_equal("-MG", a)
                  || str_equal("-MP", a)) {
                 args.append(a, Arg_Local);
+            } else if (str_equal("-fno-color-diagnostics", a)) {
+                fno_color_diagnostics = true;
+                args.append( a, Arg_Rest );
+            } else if (str_equal("-fcolor-diagnostics", a)) {
+                fno_color_diagnostics = false;
+                args.append( a, Arg_Rest );
             } else
                 args.append( a, Arg_Rest );
         } else {
@@ -401,6 +408,10 @@ bool analyse_argv( const char * const *argv,
     struct stat st;
     if ( ofile.empty() || (!stat( ofile.c_str(), &st ) && !S_ISREG( st.st_mode )))
         always_local = true;
+
+    // redirecting Clang's output will turn off its automatic coloring, so force it, unless disabled
+    if (compiler_is_clang(job.language()) && colorify_possible() && !fno_color_diagnostics)
+        args.append("-fcolor-diagnostics", Arg_Rest);
 
     job.setFlags( args );
     job.setOutputFile( ofile );
