@@ -133,11 +133,11 @@ such #include rewritting, and it's been only recently merged upstream.
 bool compiler_only_rewrite_includes( const CompileJob& job )
 {
     if ( compiler_is_clang( job )) {
-        if( const char* rewrite_includes = getenv( "ICECC_REWRITE_INCLUDES" ))
+        if( const char* rewrite_includes = getenv( "ICECC_CLANG_REMOTE_CPP" ))
             return *rewrite_includes != '\0' && *rewrite_includes != '0';
 #ifdef HAVE_CLANG_REWRITE_INCLUDES
         // Assume that we use the same clang (as least as far as capabilities go)
-        // as was available when icecream was built. ICECC_REWRITE_INCLUDES above
+        // as was available when icecream was built. ICECC_CLANG_REMOTE_CPP above
         // allows override, and the only case when this should realistically break
         // is if somebody downgrades their clang.
         return true;
