@@ -127,7 +127,7 @@ Clang works suboptimally when handling an already preprocessed source file,
 for example error messages quote (already preprocessed) parts of the source.
 Therefore it is better to only locally merge all #include files into the source
 file and do the actual preprocessing remotely together with compiling.
-There exists a Clang patch to implement option -rewrite-includes that does
+There exists a Clang patch to implement option -frewrite-includes that does
 such #include rewritting, and it's been only recently merged upstream.
 */
 bool compiler_only_rewrite_includes( const CompileJob& job )

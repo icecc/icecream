@@ -1,7 +1,7 @@
 ?
 - support for Clang compiler
   Clang now should work out of the box just like GCC.
-  Clang with -Wp,-rewrite-includes option is recommended (3.2+ or patched).
+  Clang with -frewrite-includes option is recommended (3.2+ or patched).
 - support 'icecc <compilername>' properly
 - try to avoid compiling on the local machine if it is busy
 - do not use old compiler if it was changed while icecream daemon was running

@@ -232,11 +232,11 @@ if test -n "$CLANG"; then
         # can't detect if the option is supported, but that's too old clang anyway
     else
         AC_MSG_RESULT(yes)
-        AC_MSG_CHECKING([for clang -E -Wp,-rewrite-includes])
-        $CLANG -Werror -E -Wp,-rewrite-includes - >/dev/null 2>/dev/null
+        AC_MSG_CHECKING([for clang -E -frewrite-includes])
+        $CLANG -Werror -E -frewrite-includes - >/dev/null 2>/dev/null
         if test $? -eq 0; then
             AC_MSG_RESULT(yes)
-            AC_DEFINE(HAVE_CLANG_REWRITE_INCLUDES, 1, [Define to 1 if clang supports -Wp,-rewrite-includes])
+            AC_DEFINE(HAVE_CLANG_REWRITE_INCLUDES, 1, [Define to 1 if clang supports -frewrite-includes])
         else
             AC_MSG_RESULT(no)
         fi
