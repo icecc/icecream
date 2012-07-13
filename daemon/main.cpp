@@ -872,6 +872,13 @@ bool Daemon::handle_transfer_env_done( Client *client )
 
 bool Daemon::handle_get_native_env( Client *client )
 {
+    if ( !native_env_uptodate())
+    {
+        trace() << "native_env needs rebuild" << endl;
+        cache_size -= remove_native_environment( envbasedir, native_environment );
+        native_environment.clear();
+    }
+
     trace() << "get_native_env " << native_environment << endl;
 
     if ( !native_environment.length() ) {

@@ -209,6 +209,60 @@ Environments available_environmnents(const string &basedir)
     return envs;
 }
 
+// Timestamps for compiler binaries, if they have changed since the time
+// native env was built, it needs to be rebuilt.
+static time_t gcc_bin_timestamp = 0;
+static time_t gpp_bin_timestamp = 0;
+static time_t clang_bin_timestamp = 0;
+
+static void save_native_env_timestamp()
+{
+    struct stat st;
+    if( stat( "/usr/bin/gcc", &st ) == 0 )
+        gcc_bin_timestamp = st.st_mtime;
+    else
+        gcc_bin_timestamp = 0;
+    if( stat( "/usr/bin/gcc", &st ) == 0 )
+        gcc_bin_timestamp = st.st_mtime;
+    else
+        gcc_bin_timestamp = 0;
+    if( stat( "/usr/bin/g++", &st ) == 0 )
+        gpp_bin_timestamp = st.st_mtime;
+    else
+        gpp_bin_timestamp = 0;
+    if( stat( "/usr/bin/clang", &st ) == 0 )
+        clang_bin_timestamp = st.st_mtime;
+    else
+        clang_bin_timestamp = 0;
+}
+
+bool native_env_uptodate()
+{
+    struct stat st;
+    if( stat( "/usr/bin/gcc", &st ) == 0 ) {
+        if( st.st_mtime != gcc_bin_timestamp )
+            return false;
+    } else {
+        if( gcc_bin_timestamp != 0 )
+            return false;
+    }
+    if( stat( "/usr/bin/g++", &st ) == 0 ) {
+        if( st.st_mtime != gpp_bin_timestamp )
+            return false;
+    } else {
+        if( gpp_bin_timestamp != 0 )
+            return false;
+    }
+    if( stat( "/usr/bin/clang", &st ) == 0 ) {
+        if( st.st_mtime != clang_bin_timestamp )
+            return false;
+    } else {
+        if( clang_bin_timestamp != 0 )
+            return false;
+    }
+    return true;
+}
+
 size_t setup_env_cache(const string &basedir, string &native_environment, uid_t nobody_uid, gid_t nobody_gid)
 {
     native_environment = "";
@@ -223,7 +277,7 @@ size_t setup_env_cache(const string &basedir, string &native_environment, uid_t 
     if ( !ok )
 	return 0;
 
-    if ( mkdir( nativedir.c_str(), 0775 ) )
+    if ( mkdir( nativedir.c_str(), 0775 ) && errno != EEXIST )
    	return 0; 
 
     if ( chown( nativedir.c_str(), 0, nobody_gid ) ||
@@ -251,6 +305,7 @@ size_t setup_env_cache(const string &basedir, string &native_environment, uid_t 
             return 0;
         }
         else {
+            save_native_env_timestamp();
             return sumup_dir( nativedir );
         }
     }
@@ -439,4 +494,14 @@ size_t remove_environment( const string &basename, const string &env )
     argv[4] = NULL;
 
     _exit(execv(argv[0], argv));
+}
+
+size_t remove_native_environment( const string &basedir, const string &env )
+{
+    if ( env.empty() )
+        return 0;
+    string nativedir = basedir + "/native/";
+    size_t size = sumup_dir( nativedir );
+    unlink( env.c_str());
+    return size;
 }
