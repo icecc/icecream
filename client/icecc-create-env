@@ -162,11 +162,6 @@ if test -n "$clang"; then
     # depending on an extra argument added by icecream.
     add_file $added_compilerwrapper /usr/bin/gcc
     add_file $added_compilerwrapper /usr/bin/g++
-    # clang requires /tmp
-    mkdir "$tempdir"/tmp/
-    chmod 1777 "$tempdir"/tmp/
-    touch "$tempdir"/tmp/dummy
-    add_file "$tempdir"/tmp/dummy /tmp/tmpfile
     # clang always uses its internal .h files
     clangincludes=$(dirname $($added_clang -print-file-name=include/limits.h))
     for file in $clangincludes/*; do
