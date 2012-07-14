@@ -773,7 +773,7 @@ bool Daemon::handle_transfer_env( Client *client, Msg *_msg )
     int sock_to_stdin = -1;
     FileChunkMsg* fmsg = 0;
 
-    pid_t pid = start_install_environment( envbasedir, emsg->target,
+    pid_t pid = start_install_environment( envbasedir, target,
         emsg->name, client->channel, sock_to_stdin, fmsg, nobody_uid, nobody_gid );
 
     client->status = Client::TOINSTALL;
