@@ -356,6 +356,11 @@ static int build_remote_int(CompileJob &job, UseCSMsg *usecs, MsgChannel *local_
         }
     }
 
+    if( !IS_PROTOCOL_31( cserver ) && ignore_unverified()) {
+        log_warning() << "Host " << hostname << " cannot be verified." << endl;
+        throw( 26 );
+    }
+
     CompileFileMsg compile_file( &job );
     {
         log_block b("send compile_file");
@@ -630,7 +635,8 @@ int build_remote(CompileJob &job, MsgChannel *local_daemon, const Environments &
         fake_filename += get_absfilename( job.inputFile() );
         GetCSMsg getcs (envs, fake_filename, job.language(), torepeat,
 			job.targetPlatform(), job.argumentFlags(),
-		        preferred_host ? preferred_host : string() );
+		        preferred_host ? preferred_host : string(),
+		        ignore_unverified());
         if (!local_daemon->send_msg (getcs)) {
             log_warning() << "asked for CS\n";
             throw( 24 );
@@ -669,7 +675,8 @@ int build_remote(CompileJob &job, MsgChannel *local_daemon, const Environments &
         job.appendFlag( rand_seed, Arg_Remote );
 
         GetCSMsg getcs (envs, get_absfilename( job.inputFile() ), job.language(), torepeat,
-                job.targetPlatform(), job.argumentFlags(), preferred_host ? preferred_host : string() );
+                job.targetPlatform(), job.argumentFlags(), preferred_host ? preferred_host : string(),
+                ignore_unverified());
 
 
         if (!local_daemon->send_msg (getcs)) {

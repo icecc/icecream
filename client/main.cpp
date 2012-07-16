@@ -90,6 +90,7 @@ static void dcc_show_usage(void)
 "   ICECC_CXX                  set C++ compiler name (default g++).\n"
 "   ICECC_CLANG_REMOTE_CPP     set to 1 or 0 to override remote precompiling with clang\n"
 "                              (requires clang -frewrite-includes option).\n"
+"   ICECC_IGNORE_UNVERIFIED    if set, hosts where environment cannot be verified are not used.\n"
 "\n");
 }
 

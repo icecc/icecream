@@ -243,3 +243,7 @@ void colorify_output(const string& _s_ccout)
 }
 
 
+bool ignore_unverified()
+{
+    return getenv("ICECC_IGNORE_UNVERIFIED");
+}

@@ -217,6 +217,7 @@ public:
   unsigned int arg_flags;
   string language; // for debugging
   string preferred_host; // for debugging daemons
+  bool ignore_unverified; // ignore CSs that don't know M_VERIFY_ENV
   Job (unsigned int _id, CS *subm)
     : id(_id), local_client_id( 0 ), state(PENDING), server(0),
       submitter(subm),
@@ -530,6 +531,7 @@ handle_cs_request (MsgChannel *c, Msg *_m)
       job->filename = m->filename;
       job->local_client_id = m->client_id;
       job->preferred_host = m->preferred_host;
+      job->ignore_unverified = m->ignore_unverified;
       enqueue_job_request (job);
       std::ostream& dbg = log_info();
       dbg << "NEW " << job->id << " client="
@@ -701,9 +703,11 @@ bool CS::is_eligible( const Job *job )
 {
   bool jobs_okay = int( joblist.size() ) < max_jobs;
   bool load_okay = load < 1000;
+  bool ignore = job->ignore_unverified && !IS_PROTOCOL_31(this);
   return jobs_okay
     && chroot_possible
     && load_okay
+    && !ignore
     && can_install( this, job ).size()
     && this->check_remote( job );
 }

@@ -1269,6 +1269,14 @@ GetCSMsg::fill_from_channel (MsgChannel *c)
   preferred_host = string();
   if (IS_PROTOCOL_22(c))
     *c >> preferred_host;
+  if (IS_PROTOCOL_31(c))
+    {
+      uint32_t ign;
+      *c >> ign;
+      ignore_unverified = ( ign != 0 );
+    }
+  else
+    ignore_unverified = false;
 }
 
 void
@@ -1284,6 +1292,8 @@ GetCSMsg::send_to_channel (MsgChannel *c) const
   *c << client_id;
   if (IS_PROTOCOL_22(c))
     *c << preferred_host;
+  if (IS_PROTOCOL_31(c))
+    *c << uint32_t( ignore_unverified );
 }
 
 void

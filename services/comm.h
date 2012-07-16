@@ -282,14 +282,15 @@ public:
   uint32_t arg_flags;
   uint32_t client_id;
   std::string preferred_host;
+  bool ignore_unverified;
   GetCSMsg () : Msg(M_GET_CS), count( 1 ),arg_flags( 0 ), client_id( 0 ) {}
   GetCSMsg (const Environments &envs, const std::string &f, 
             CompileJob::Language _lang, unsigned int _count, 
 	    std::string _target, unsigned int _arg_flags, 
-            const std::string &host)
+            const std::string &host, bool _ignore_unverified)
     : Msg(M_GET_CS), versions( envs ), filename(f), lang(_lang), 
             count( _count ), target( _target ), arg_flags( _arg_flags ), 
-            client_id( 0 ), preferred_host(host)
+            client_id( 0 ), preferred_host(host), ignore_unverified( _ignore_unverified )
   {}
   virtual void fill_from_channel (MsgChannel * c);
   virtual void send_to_channel (MsgChannel * c) const;
@@ -532,7 +533,7 @@ public:
     clientid = job_id = 0;
   }
   MonGetCSMsg( int jobid, int hostid, GetCSMsg *m )
-    : GetCSMsg( Environments(), m->filename, m->lang, 1, m->target, 0, std::string() ), job_id( jobid ), clientid( hostid )
+    : GetCSMsg( Environments(), m->filename, m->lang, 1, m->target, 0, std::string(), false ), job_id( jobid ), clientid( hostid )
   {
     type = M_MON_GET_CS;
   }

@@ -191,6 +191,22 @@ line - so use -vvv for full debug).</para>
 </refsect1>
 
 <refsect1>
+<title>Avoiding old hosts</title>
+
+<para>It is possible that compilation on some hosts fails because they are too old
+(typically the kernel on the remote host is too old for the glibc from the local host).
+Recent icecream versions should automatically detect this and avoid such hosts
+when compilation would fail. If some hosts are running old icecream versions and
+it is not possible to upgrade them for some reason, use
+
+<screen>
+ export ICECC_IGNORE_UNVERIFIED=1
+</screen>
+</para>
+
+</refsect1>
+
+<refsect1>
 <title>Some Numbers</title>
 
 <para>
