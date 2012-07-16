@@ -285,8 +285,8 @@ static void write_server_cpp(int cpp_fd, MsgChannel *cserver)
 }
 
 
-static int build_remote_int(CompileJob &job, UseCSMsg *usecs, const string &environment, const string &version_file,
-                            const char *preproc_file, bool output )
+static int build_remote_int(CompileJob &job, UseCSMsg *usecs, MsgChannel *local_daemon, const string &environment,
+                            const string &version_file, const char *preproc_file, bool output )
 {
     string hostname = usecs->hostname;
     unsigned int port = usecs->port;
@@ -334,8 +334,27 @@ static int build_remote_int(CompileJob &job, UseCSMsg *usecs, const string &envi
             log_error() << "write of environment failed" << endl;
             throw( 8 );
         }
-    }
 
+        if ( IS_PROTOCOL_31( cserver )) {
+            VerifyEnvMsg verifymsg( job.targetPlatform(), job.environmentVersion() );
+            if ( !cserver->send_msg( verifymsg ) )
+                throw( 22 );
+            Msg *msg = cserver->get_msg(60);
+            if ( msg && msg->type == M_VERIFY_ENV_RESULT ) {
+                if( !static_cast<VerifyEnvResultMsg*>( msg )->ok ) {
+                    // The remote can't handle the environment at all (e.g. kernel too old),
+                    // mark it as never to be used again for this environment.
+                    log_info() << "Host " << hostname << " did not succesfully verify environment." << endl;
+                    BlacklistHostEnvMsg blacklist( job.targetPlatform(), job.environmentVersion(), hostname );
+                    local_daemon->send_msg( blacklist );
+                    throw( 24 );
+                } else
+                    trace() << "Verified host " << hostname << " for environment " << job.environmentVersion()
+                        << " (" << job.targetPlatform() << ")" << endl;
+            } else
+                throw( 25 );
+        }
+    }
 
     CompileFileMsg compile_file( &job );
     {
@@ -620,7 +639,7 @@ int build_remote(CompileJob &job, MsgChannel *local_daemon, const Environments &
         UseCSMsg *usecs = get_server( local_daemon );
 	int ret;
 	if (!maybe_build_local (local_daemon, usecs, job, ret))
-            ret = build_remote_int( job, usecs,
+            ret = build_remote_int( job, usecs, local_daemon,
 	    			    version_map[usecs->host_platform],
 				    versionfile_map[usecs->host_platform],
 				    0, true );
@@ -688,7 +707,7 @@ int build_remote(CompileJob &job, MsgChannel *local_daemon, const Environments &
                 try {
 		    if (!maybe_build_local (local_daemon, umsgs[i], jobs[i], ret))
 			ret = build_remote_int(
-				  jobs[i], umsgs[i],
+				  jobs[i], umsgs[i], local_daemon,
 				  version_map[umsgs[i]->host_platform],
                                   versionfile_map[umsgs[i]->host_platform],
 				  preproc, i == 0 );

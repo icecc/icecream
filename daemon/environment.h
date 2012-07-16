@@ -24,6 +24,7 @@
 #include <comm.h>
 #include <list>
 #include <string>
+#include <unistd.h>
 
 class MsgChannel;
 extern bool cleanup_cache( const std::string &basedir );
@@ -41,5 +42,8 @@ extern size_t finalize_install_environment( const std::string &basename, const s
         pid_t pid, gid_t nobody_gid );
 extern size_t remove_environment( const std::string &basedir, const std::string &env);
 extern size_t remove_native_environment( const std::string &basedir, const std::string &env );
+extern void chdir_to_environment( MsgChannel *c, const std::string &dirname, uid_t nobody_uid, gid_t nobody_gid );
+extern bool verify_env( MsgChannel *c, const std::string &basedir, const std::string& target,
+                        const std::string &env, uid_t nobody_uid, gid_t nobody_gid );
 
 #endif

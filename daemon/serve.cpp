@@ -43,6 +43,7 @@
 #include <job.h>
 #include <comm.h>
 
+#include "environment.h"
 #include "exitcode.h"
 #include "tempfile.h"
 #include "workit.h"
@@ -119,36 +120,7 @@ int handle_connection( const string &basedir, CompileJob *job,
                 throw myexception( EXIT_DISTCC_FAILED ); // the scheduler didn't listen to us!
             }
 
-            if ( getuid() == 0 ) {
-                // without the chdir, the chroot will escape the
-                // jail right away
-                if ( chdir( dirname.c_str() ) < 0 ) {
-                    error_client( client, string( "chdir to " ) + dirname + "failed" );
-                    log_perror("chdir() failed" );
-                    _exit(145);
-                }
-                if ( chroot( dirname.c_str() ) < 0 ) {
-                    error_client( client, string( "chroot " ) + dirname + "failed" );
-                    log_perror("chroot() failed" );
-                    _exit(144);
-                }
-                if ( setgid( nobody_gid ) < 0 ) {
-                    error_client( client, string( "setgid failed" ));
-                    log_perror("setgid() failed" );
-                    _exit(143);
-                }
-                if ( setuid( nobody_uid ) < 0) {
-                    error_client( client, string( "setuid failed" ));
-                    log_perror("setuid() failed" );
-                    _exit(142);
-                }
-            }
-            else
-                if ( chdir( dirname.c_str() ) ) {
-                    log_perror( "chdir" );
-                } else {
-                    trace() << "chdir to " << dirname << endl;
-                }
+            chdir_to_environment( client, dirname, nobody_uid, nobody_gid );
         }
         else
             chdir( "/" );

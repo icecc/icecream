@@ -505,3 +505,74 @@ size_t remove_native_environment( const string &basedir, const string &env )
     unlink( env.c_str());
     return size;
 }
+
+static void
+error_client( MsgChannel *client, string error )
+{
+    if ( IS_PROTOCOL_23( client ) )
+        client->send_msg( StatusTextMsg( error ) );
+}
+
+void chdir_to_environment( MsgChannel *client, const string &dirname, uid_t nobody_uid, gid_t nobody_gid )
+{
+    if ( getuid() == 0 ) {
+        // without the chdir, the chroot will escape the
+        // jail right away
+        if ( chdir( dirname.c_str() ) < 0 ) {
+            error_client( client, string( "chdir to " ) + dirname + "failed" );
+            log_perror("chdir() failed" );
+            _exit(145);
+        }
+        if ( chroot( dirname.c_str() ) < 0 ) {
+            error_client( client, string( "chroot " ) + dirname + "failed" );
+            log_perror("chroot() failed" );
+            _exit(144);
+        }
+        if ( setgid( nobody_gid ) < 0 ) {
+            error_client( client, string( "setgid failed" ));
+            log_perror("setgid() failed" );
+            _exit(143);
+        }
+        if ( setuid( nobody_uid ) < 0) {
+            error_client( client, string( "setuid failed" ));
+            log_perror("setuid() failed" );
+            _exit(142);
+        }
+    }
+    else {
+        if ( chdir( dirname.c_str() ) ) {
+            log_perror( "chdir" );
+        } else {
+            trace() << "chdir to " << dirname << endl;
+        }
+    }
+}
+
+// Verify that the environment works by simply running the bundled bin/true.
+bool verify_env( MsgChannel *client, const string &basedir, const string& target, const string &env,
+                 uid_t nobody_uid, gid_t nobody_gid )
+{
+    if ( target.empty() || env.empty())
+        return false;
+
+    string dirname = basedir + "/target=" + target + "/" + env;
+    if ( ::access( string( dirname + "/bin/true" ).c_str(), X_OK ) ) {
+        error_client( client, dirname + "/bin/true is not executable" );
+        log_error() << "I don't have environment " << env << "(" << target << ") to verify." << endl;
+        return false;
+    }
+
+    flush_debug();
+    pid_t pid = fork();
+    assert(pid >= 0);
+    if ( pid > 0) { // parent
+        int status;
+        while ( waitpid( pid, &status, 0 ) < 0 && errno == EINTR )
+            ;
+        return WIFEXITED(status) && WEXITSTATUS(status) == 0;
+    }
+    // child
+    reset_debug(0);
+    chdir_to_environment( client, dirname, nobody_uid, nobody_gid );
+    _exit(execl("bin/true", "bin/true", (void*)NULL));
+}

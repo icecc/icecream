@@ -446,6 +446,8 @@ struct Daemon
     bool handle_local_job( Client *client, Msg *msg ) __attribute_warn_unused_result__;
     bool handle_job_done( Client *cl, JobDoneMsg *m ) __attribute_warn_unused_result__;
     bool handle_compile_done (Client* client) __attribute_warn_unused_result__;
+    bool handle_verify_env ( Client* client, VerifyEnvMsg *msg ) __attribute_warn_unused_result__;
+    bool handle_blacklist_host_env ( Client* client, Msg *msg ) __attribute_warn_unused_result__;
     int handle_cs_conf( ConfCSMsg *msg);
     string dump_internals() const;
     string determine_nodename();
@@ -1047,6 +1049,31 @@ bool Daemon::handle_compile_file( Client *client, Msg *msg )
     return true;
 }
 
+bool Daemon::handle_verify_env( Client *client, VerifyEnvMsg *msg )
+{
+    assert( msg );
+    bool ok = verify_env( client->channel, envbasedir, msg->target, msg->environment, nobody_uid, nobody_gid );
+    trace() << "Verify environment done, " << ( ok ? "success" : "failure" ) << ", environment " << msg->environment
+         << " (" << msg->target << ")" << endl;
+    VerifyEnvResultMsg resultmsg( ok );
+    if ( !client->channel->send_msg( resultmsg ))
+    {
+        log_error() << "sending verify end result failed.." << endl;
+        return false;
+    }
+    return true;
+}
+
+bool Daemon::handle_blacklist_host_env( Client *client, Msg *msg )
+{
+    // just forward
+    assert(dynamic_cast<BlacklistHostEnvMsg*>( msg ));
+    assert( client );
+    if ( !scheduler )
+        return false;
+    return send_scheduler( *msg );
+}
+
 void Daemon::handle_end( Client *client, int exitcode )
 {
 #ifdef ICECC_DEBUG
@@ -1260,6 +1287,8 @@ bool Daemon::handle_activity( Client *client )
     case M_END: handle_end( client, 119 ); ret = false; break;
     case M_JOB_LOCAL_BEGIN: ret = handle_local_job (client, msg); break;
     case M_JOB_DONE: ret = handle_job_done( client, dynamic_cast<JobDoneMsg*>(msg) ); break;
+    case M_VERIFY_ENV: ret = handle_verify_env( client, dynamic_cast<VerifyEnvMsg*>(msg) ); break;
+    case M_BLACKLIST_HOST_ENV: ret = handle_blacklist_host_env( client, msg ); break;
     default:
         log_error() << "not compile: " << ( char )msg->type << "protocol error on client " << client->dump() << endl;
         client->channel->send_msg( EndMsg() );

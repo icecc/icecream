@@ -180,6 +180,7 @@ public:
   bool chroot_possible;
   static unsigned int hostid_counter;
   map<int, int> client_map; // map client ID for daemon to our IDs
+  map<CS*, Environments> blacklist;
   bool is_eligible( const Job *job );
   bool check_remote( const Job *job ) const;
 };
@@ -657,6 +658,13 @@ envs_match( CS* cs, const Job *job )
   return string();
 }
 
+static bool
+blacklisted( CS* cs, const Job *job, const pair<string, string >& environment )
+{
+  list< pair< string, string > > &blacklist = job->submitter->blacklist[ cs ];
+  return find(blacklist.begin(), blacklist.end(), environment ) != blacklist.end();
+}
+
 /* Given a candidate CS and a JOB, check if any of the requested
    environments could be installed on the CS.  This is the case if that
    env can be run there, i.e. if the host platforms of the CS and of the
@@ -677,7 +685,7 @@ can_install( CS* cs, const Job *job )
 
   for ( Environments::const_iterator it = job->environments.begin(); it != job->environments.end(); ++it )
     {
-      if ( platforms_compatible( it->first, cs->host_platform ) )
+      if ( platforms_compatible( it->first, cs->host_platform ) && !blacklisted( cs, job, *it ))
         return it->first;
     }
   return string();
@@ -1415,6 +1423,22 @@ handle_stats (CS * c, Msg * _m)
   return false;
 }
 
+static bool
+handle_blacklist_host_env(CS * c, Msg * _m)
+{
+  BlacklistHostEnvMsg *m = dynamic_cast<BlacklistHostEnvMsg *>(_m);
+  if (!m)
+    return false;
+  for (list<CS*>::const_iterator it = css.begin(); it != css.end(); ++it)
+    if ( (*it)->name == m->hostname )
+      {
+        trace() << "Blacklisting host " << m->hostname << " for environment " << m->environment
+             << " (" << m->target << ")" << endl;
+        c->blacklist[ *it ].push_back( make_pair( m->target, m->environment ));
+      }
+  return true;
+}
+
 static string
 dump_job (Job *job)
 {
@@ -1714,6 +1738,8 @@ handle_end (CS *toremove, Msg *m)
               ++mit;
             }
         }
+      for( list<CS*>::iterator it = css.begin(); it != css.end(); ++it )
+        (*it)->blacklist.erase( toremove );
     }
     break;
   case CS::LINE:
@@ -1762,6 +1788,7 @@ handle_activity (CS *c)
     case M_LOGIN: ret = handle_relogin (c, m); break;
     case M_TEXT: ret = handle_line (c, m); break;
     case M_GET_CS: ret = handle_cs_request (c, m); break;
+    case M_BLACKLIST_HOST_ENV: ret = handle_blacklist_host_env(c, m); break;
     default:
       log_info() << "Invalid message type arrived " << ( char )m->type << endl;
       handle_end (c, m);

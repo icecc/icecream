@@ -5,6 +5,8 @@
 - support 'icecc <compilername>' properly
 - try to avoid compiling on the local machine if it is busy
 - do not use old compiler if it was changed while icecream daemon was running
+- verify if remote hosts can actually be used for compilation (avoids
+  problems with old kernel versions)
 
 0.9.7 (1232780)
 - bug fix for -MD and -MF

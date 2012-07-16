@@ -127,6 +127,9 @@ fi
 
 tempdir=`mktemp -d /tmp/iceccenvXXXXXX`
 
+# for testing the environment is usable at all
+add_file /bin/true
+
 if test -n "$gcc"; then
     if test -z "$clang"; then
         add_file $added_gcc /usr/bin/gcc

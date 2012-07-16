@@ -966,6 +966,9 @@ MsgChannel::get_msg(int timeout)
     case M_GET_INTERNALS: m = new GetInternalStatus; break;
     case M_STATUS_TEXT: m = new StatusTextMsg; break;
     case M_CS_CONF: m = new ConfCSMsg; break;
+    case M_VERIFY_ENV: m = new VerifyEnvMsg; break;
+    case M_VERIFY_ENV_RESULT: m = new VerifyEnvResultMsg; break;
+    case M_BLACKLIST_HOST_ENV: m = new BlacklistHostEnvMsg; break;
     case M_TIMEOUT: break;
     }
   if (!m) {
@@ -1748,6 +1751,56 @@ StatusTextMsg::send_to_channel (MsgChannel *c) const
 {
   Msg::send_to_channel( c );
   *c << text;
+}
+
+void
+VerifyEnvMsg::fill_from_channel (MsgChannel *c)
+{
+  Msg::fill_from_channel( c );
+  *c >> environment;
+  *c >> target;
+}
+
+void
+VerifyEnvMsg::send_to_channel (MsgChannel *c) const
+{
+  Msg::send_to_channel( c );
+  *c << environment;
+  *c << target;
+}
+
+void
+VerifyEnvResultMsg::fill_from_channel (MsgChannel *c)
+{
+  Msg::fill_from_channel( c );
+  uint32_t read_ok;
+  *c >> read_ok;
+  ok = read_ok != 0;
+}
+
+void
+VerifyEnvResultMsg::send_to_channel (MsgChannel *c) const
+{
+  Msg::send_to_channel( c );
+  *c << uint32_t( ok );
+}
+
+void
+BlacklistHostEnvMsg::fill_from_channel (MsgChannel *c)
+{
+  Msg::fill_from_channel( c );
+  *c >> environment;
+  *c >> target;
+  *c >> hostname;
+}
+
+void
+BlacklistHostEnvMsg::send_to_channel (MsgChannel *c) const
+{
+  Msg::send_to_channel( c );
+  *c << environment;
+  *c << target;
+  *c << hostname;
 }
 
 /*

@@ -35,7 +35,7 @@
 #include "job.h"
 
 // if you increase the PROTOCOL_VERSION, add a macro below and use that
-#define PROTOCOL_VERSION 30
+#define PROTOCOL_VERSION 31
 // if you increase the MIN_PROTOCOL_VERSION, comment out macros below and clean up the code
 #define MIN_PROTOCOL_VERSION 21
 
@@ -54,6 +54,7 @@
 #define IS_PROTOCOL_28( c ) ( (c)->protocol >= 28 )
 #define IS_PROTOCOL_29( c ) ( (c)->protocol >= 29 )
 #define IS_PROTOCOL_30( c ) ( (c)->protocol >= 30 )
+#define IS_PROTOCOL_31( c ) ( (c)->protocol >= 31 )
 
 enum MsgType {
   // so far unknown
@@ -114,7 +115,13 @@ enum MsgType {
   M_GET_INTERNALS,
 
   // S --> CS, answered by M_LOGIN
-  M_CS_CONF
+  M_CS_CONF,
+
+  // C --> CS, after installing an environment
+  M_VERIFY_ENV,
+  M_VERIFY_ENV_RESULT,
+  // C --> CS, CS --> S (forwarded from C), to not use given host for given environment
+  M_BLACKLIST_HOST_ENV
 };
 
 class MsgChannel;
@@ -597,6 +604,39 @@ public:
   StatusTextMsg() : Msg( M_STATUS_TEXT ) {}
   StatusTextMsg( const std::string &_text)
     : Msg ( M_STATUS_TEXT ), text(_text) {}
+  virtual void fill_from_channel (MsgChannel *c);
+  virtual void send_to_channel (MsgChannel *c) const;
+};
+
+class VerifyEnvMsg : public Msg {
+public:
+  std::string environment;
+  std::string target;
+  VerifyEnvMsg() : Msg( M_VERIFY_ENV ) {}
+  VerifyEnvMsg( const std::string &_target, const std::string &_environment )
+    : Msg( M_VERIFY_ENV ), environment( _environment ), target( _target ) {}
+  virtual void fill_from_channel (MsgChannel *c);
+  virtual void send_to_channel (MsgChannel *c) const;
+};
+
+class VerifyEnvResultMsg : public Msg {
+public:
+  bool ok;
+  VerifyEnvResultMsg() : Msg( M_VERIFY_ENV_RESULT ) {}
+  VerifyEnvResultMsg( bool _ok )
+    : Msg ( M_VERIFY_ENV_RESULT ), ok(_ok) {}
+  virtual void fill_from_channel (MsgChannel *c);
+  virtual void send_to_channel (MsgChannel *c) const;
+};
+
+class BlacklistHostEnvMsg : public Msg {
+public:
+  std::string environment;
+  std::string target;
+  std::string hostname;
+  BlacklistHostEnvMsg() : Msg( M_BLACKLIST_HOST_ENV ) {}
+  BlacklistHostEnvMsg( const std::string &_target, const std::string &_environment, const std::string &_hostname )
+    : Msg( M_BLACKLIST_HOST_ENV ), environment( _environment ), target( _target ), hostname( _hostname ) {}
   virtual void fill_from_channel (MsgChannel *c);
   virtual void send_to_channel (MsgChannel *c) const;
 };
