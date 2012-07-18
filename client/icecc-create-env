@@ -167,9 +167,13 @@ if test -n "$clang"; then
     add_file $added_compilerwrapper /usr/bin/g++
     # clang always uses its internal .h files
     clangincludes=$(dirname $($added_clang -print-file-name=include/limits.h))
+    clangprefix=$(dirname $(dirname $added_clang))
     for file in $clangincludes/*; do
-      file=$(readlink -e $file)
-      add_file "$file" "$file"
+      # get path without ..
+      destfile=$(readlink -e $file)
+      # and convert from <prefix> to /usr if needed
+      destfile=$(echo $destfile | sed "s#$clangprefix#/usr#" )
+      add_file "$file" "$destfile"
     done
 fi
 
