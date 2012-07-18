@@ -310,6 +310,9 @@ bool analyse_argv( const char * const *argv,
             } else if (str_equal("-fcolor-diagnostics", a)) {
                 fno_color_diagnostics = false;
                 args.append( a, Arg_Rest );
+            } else if ( str_equal( "-flto", a ) ) {
+                // pointless when preprocessing, and Clang would emit a warning
+                args.append( a, Arg_Remote );
             } else
                 args.append( a, Arg_Rest );
         } else {
