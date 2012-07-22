@@ -38,14 +38,14 @@
 #include <unistd.h>
 #include <sys/fcntl.h>
 #include <sys/wait.h>
+#include <signal.h>
+#include <sys/resource.h>
 #if HAVE_SYS_USER_H && !defined(__DragonFly__)
 #  include <sys/user.h>
 #endif
 #include <sys/socket.h>
 
 #if defined(__FreeBSD__) || defined(__DragonFly__) || defined(__APPLE__)
-#include <signal.h>
-#include <sys/resource.h>
 #ifndef RUSAGE_SELF
 #define   RUSAGE_SELF     (0)
 #endif
