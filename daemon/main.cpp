@@ -388,9 +388,10 @@ struct Daemon
 {
     Clients clients;
     map<string, time_t> envs_last_use;
-    // Map of native environments, the basic one and possibly more containing additional files
-    // (such as compiler plugins). The key is a concatenated list of the additional files
-    // (or empty string for the basic one).
+    // Map of native environments, the basic one(s) containing just the compiler
+    // and possibly more containing additional files (such as compiler plugins).
+    // The key is the compiler name and a concatenated list of the additional files
+    // (or just the compiler name for the basic ones).
     map<string, NativeEnvironment> native_environments;
     string envbasedir;
     uid_t nobody_uid;
@@ -708,13 +709,9 @@ string Daemon::dump_internals() const
     if ( cache_size )
         result += "  Cache Size: " + toString( cache_size ) + "\n";
     result += "  Architecture: " + machine_name + "\n";
-    if ( native_environments.find( "" ) != native_environments.end())
-        result += "  NativeEnv (basic): " + native_environments.at( "" ).name + "\n";
     for (map<string, NativeEnvironment>::const_iterator it = native_environments.begin();
-         it!= native_environments.end(); ++it) {
-        if( !it->first.empty())
-            result += "  NativeEnv (" + it->first + "): " + it->second.name + "\n";
-    }
+         it!= native_environments.end(); ++it)
+        result += "  NativeEnv (" + it->first + "): " + it->second.name + "\n";
 
     if ( !envs_last_use.empty() )
         result += "  Now: " + toString( time( 0 ) ) + "\n";
