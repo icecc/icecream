@@ -70,12 +70,13 @@ static void dcc_show_usage(void)
     printf(
 "Usage:\n"
 "   icecc [compiler] [compile options] -o OBJECT -c SOURCE\n"
+"   icecc --build-native [compilertype] [file...]\n"
 "   icecc --help\n"
 "\n"
 "Options:\n"
 "   --help                     explain usage and exit\n"
 "   --version                  show version and exit\n"
-"   --build-native [file]...   create icecc environment\n"
+"   --build-native             create icecc environment\n"
 "Environment Variables:\n"
 "   ICECC                      if set to \"no\", just exec the real gcc\n"
 "   ICECC_VERSION              use a specific icecc environment, see icecc-create-env\n"
@@ -157,62 +158,71 @@ static string read_output( const char *command )
     return output.substr(0, output.length()-1);
 }
 
-static int create_native( char* extrafiles[] )
+static int create_native( char** args )
 {
+    // args are [compiler] [files...]
+    const char *compiler = args[ 0 ];
+    char **extrafiles;
+    if( args[ 0 ] )
+        extrafiles = args + 1;
+    else // there were no arguments, set to null list
+        extrafiles = args;
+    int extracount = 0;
+    while ( extrafiles[ extracount ] )
+        ++extracount;
+    char **argv = new char*[4+extracount*2];
+    int pos = 0;
     struct stat st;
-    string gcc, gpp, clang;
-
-    // perhaps we're on gentoo
-    if ( !lstat("/usr/bin/gcc-config", &st) ) {
-        string gccpath=read_output("/usr/bin/gcc-config -B") + "/";
-        gcc=gccpath + "gcc";
-        gpp=gccpath + "g++";
-    } else {
-        gcc = compiler_path_lookup( "gcc" );
-        gpp = compiler_path_lookup( "g++" );
-    }
-
-    clang = compiler_path_lookup( "clang" );
-
-    // both C and C++ compiler are required
-    if ( gcc.empty())
-        gpp.clear();
-    if ( gpp.empty())
-        gcc.clear();
-
-    if ( gcc.empty() && gpp.empty() && clang.empty())
-	return 1;
-
     if ( lstat( PLIBDIR "/icecc-create-env", &st ) ) {
 	log_error() << PLIBDIR "/icecc-create-env does not exist\n";
         return 1;
     }
-
-    if ( !clang.empty() && lstat( PLIBDIR "/compilerwrapper", &st ) ) {
-	log_error() << PLIBDIR "/compilerwrapper does not exist\n";
-        return 1;
-    }
-
-    int extracount = 0;
-    while ( extrafiles[ extracount ] )
-        ++extracount;
-    char **argv = new char*[5+extracount*2];
-    int pos = 0;
     argv[pos++] = strdup( PLIBDIR "/icecc-create-env"  );
-    argv[pos++] = strdup( gcc.c_str() );
-    argv[pos++] = strdup( gpp.c_str() );
-    if( !clang.empty()) {
+
+    if ( strcmp( compiler, "clang" ) == 0 ) {
+        string clang = compiler_path_lookup( "clang" );
+        if ( clang.empty()) {
+            log_error() << "clang compiler not found\n";
+	    return 1;
+	}
+        if ( lstat( PLIBDIR "/compilerwrapper", &st ) ) {
+            log_error() << PLIBDIR "/compilerwrapper does not exist\n";
+            return 1;
+        }
+        argv[pos++] = strdup( "--clang" );
         argv[pos++] = strdup( clang.c_str() );
         argv[pos++] = strdup( PLIBDIR "/compilerwrapper"  );
+    } else { // "gcc" (default)
+        string gcc, gpp;
+
+        // perhaps we're on gentoo
+        if ( !lstat("/usr/bin/gcc-config", &st) ) {
+            string gccpath=read_output("/usr/bin/gcc-config -B") + "/";
+            gcc=gccpath + "gcc";
+            gpp=gccpath + "g++";
+        } else {
+            gcc = compiler_path_lookup( "gcc" );
+            gpp = compiler_path_lookup( "g++" );
+        }
+        // both C and C++ compiler are required
+        if ( gcc.empty())
+            gpp.clear();
+        if ( gpp.empty())
+            gcc.clear();
+        if ( gcc.empty() && gpp.empty()) {
+            log_error() << "gcc compiler not found\n";
+	    return 1;
+	}
+        argv[pos++] = strdup( "--gcc" );
+        argv[pos++] = strdup( gcc.c_str() );
+        argv[pos++] = strdup( gpp.c_str() );
     }
     for ( extracount = 0; extrafiles[ extracount ]; ++extracount ) {
         argv[pos++] = strdup( "--addfile" );
         argv[pos++] = strdup( extrafiles[ extracount ] );
     }
     argv[pos++] = NULL;
-
     return execv(argv[0], argv);
-
 }
 
 int main(int argc, char **argv)
@@ -327,7 +337,7 @@ int main(int argc, char **argv)
             log_warning() << "Local daemon is too old to handle compiler plugins.\n";
             local = true;
         } else {
-            if ( !local_daemon->send_msg( GetNativeEnvMsg( extrafiles ) ) ) {
+            if ( !local_daemon->send_msg( GetNativeEnvMsg( compiler_is_clang( job ) ? "clang" : "gcc", extrafiles ) ) ) {
                 log_warning() << "failed to write get native environment\n";
 		goto do_local_error;
             }

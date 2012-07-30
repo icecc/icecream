@@ -325,8 +325,9 @@ public:
 class GetNativeEnvMsg : public Msg {
 public:
   GetNativeEnvMsg () : Msg(M_GET_NATIVE_ENV) {}
-  GetNativeEnvMsg (const std::list<std::string>& e)
-    : Msg(M_GET_NATIVE_ENV), extrafiles(e) {}
+  GetNativeEnvMsg (const std::string &c, const std::list<std::string>& e)
+    : Msg(M_GET_NATIVE_ENV), compiler(c), extrafiles(e) {}
+  std::string compiler; // "gcc" or "clang" right now
   std::list<std::string> extrafiles;
   virtual void fill_from_channel (MsgChannel * c);
   virtual void send_to_channel (MsgChannel * c) const;

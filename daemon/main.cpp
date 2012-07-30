@@ -914,10 +914,10 @@ bool Daemon::handle_get_native_env( Client *client, GetNativeEnvMsg *msg )
 {
     string env_key;
     map<string, time_t> extrafilestimes;
+    env_key = msg->compiler;
     for( list<string>::const_iterator it = msg->extrafiles.begin();
          it != msg->extrafiles.end(); ++it ) {
-        if (!env_key.empty())
-            env_key += ':';
+        env_key += ':';
         env_key += *it;
         struct stat st;
         if( stat( it->c_str(), &st ) != 0 ) {
@@ -941,12 +941,12 @@ bool Daemon::handle_get_native_env( Client *client, GetNativeEnvMsg *msg )
     }
 
     trace() << "get_native_env " << native_environments[ env_key ].name
-        << ( !env_key.empty() ? " (" + env_key + ")" : "" ) << endl;
+        << " (" << env_key << ")" << endl;
 
     if ( !native_environments[ env_key ].name.length()) {
         NativeEnvironment& env = native_environments[ env_key ]; // also inserts it
         size_t installed_size = setup_env_cache( envbasedir, env.name,
-                                                 nobody_uid, nobody_gid, msg->extrafiles );
+                                                 nobody_uid, nobody_gid, msg->compiler, msg->extrafiles );
         // we only clean out cache on next target install
         cache_size += installed_size;
         trace() << "cache_size = " << cache_size << endl;

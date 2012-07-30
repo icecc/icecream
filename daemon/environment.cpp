@@ -230,19 +230,19 @@ bool compilers_uptodate(time_t gcc_bin_timestamp, time_t gpp_bin_timestamp, time
 }
 
 size_t setup_env_cache(const string &basedir, string &native_environment, uid_t nobody_uid, gid_t nobody_gid,
-                       const list<string>& extrafiles)
+                       const std::string &compiler, const list<string> &extrafiles)
 {
     native_environment = "";
     string nativedir = basedir + "/native/";
 
-    // Either both gcc and g++ are needed, and/or clang.
-    bool ok = false;
-    if ( ::access( "/usr/bin/gcc", X_OK ) == 0 && ::access( "/usr/bin/g++", X_OK ) == 0 ) 
-        ok = true;
-    if ( ::access( "/usr/bin/clang", X_OK ) == 0 )
-        ok = true;
-    if ( !ok )
-	return 0;
+    if (compiler == "clang") {
+        if ( ::access( "/usr/bin/clang", X_OK ) != 0 )
+            return 0;
+    } else { // "gcc" (the default)
+        // Both gcc and g++ are needed in the gcc case.
+        if ( ::access( "/usr/bin/gcc", X_OK ) != 0 || ::access( "/usr/bin/g++", X_OK ) != 0 )
+	    return 0;
+    }
 
     if ( mkdir( nativedir.c_str(), 0775 ) && errno != EEXIST )
    	return 0; 
@@ -303,10 +303,11 @@ size_t setup_env_cache(const string &basedir, string &native_environment, uid_t 
     close( pipes[ 1 ] );
 
     const char ** argv;
-    argv = new const char*[ 3 + extrafiles.size() ];
+    argv = new const char*[ 4 + extrafiles.size() ];
     int pos = 0;
     argv[ pos++ ] = BINDIR "/icecc";
     argv[ pos++ ] = "--build-native";
+    argv[ pos++ ] = strdup( compiler.c_str());
     for( list<string>::const_iterator it = extrafiles.begin();
          it != extrafiles.end(); ++it )
         argv[ pos++ ] = strdup( it->c_str());

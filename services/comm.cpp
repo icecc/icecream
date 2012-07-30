@@ -1627,16 +1627,20 @@ void
 GetNativeEnvMsg::fill_from_channel (MsgChannel *c)
 {
   Msg::fill_from_channel (c);
-  if (IS_PROTOCOL_32(c))
+  if (IS_PROTOCOL_32(c)) {
+    *c >> compiler;
     *c >> extrafiles;
+  }
 }
 
 void
 GetNativeEnvMsg::send_to_channel (MsgChannel *c) const
 {
   Msg::send_to_channel (c);
-  if (IS_PROTOCOL_32(c))
+  if (IS_PROTOCOL_32(c)) {
+    *c << compiler;
     *c << extrafiles;
+  }
 }
 
 void
