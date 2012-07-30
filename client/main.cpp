@@ -75,7 +75,7 @@ static void dcc_show_usage(void)
 "Options:\n"
 "   --help                     explain usage and exit\n"
 "   --version                  show version and exit\n"
-"   --build-native             create icecc environment\n"
+"   --build-native [file]...   create icecc environment\n"
 "Environment Variables:\n"
 "   ICECC                      if set to \"no\", just exec the real gcc\n"
 "   ICECC_VERSION              use a specific icecc environment, see icecc-create-env\n"
@@ -157,7 +157,7 @@ static string read_output( const char *command )
     return output.substr(0, output.length()-1);
 }
 
-static int create_native()
+static int create_native( char* extrafiles[] )
 {
     struct stat st;
     string gcc, gpp, clang;
@@ -193,16 +193,23 @@ static int create_native()
         return 1;
     }
 
-    char **argv = new char*[5];
-    argv[0] = strdup( PLIBDIR "/icecc-create-env"  );
-    argv[1] = strdup( gcc.c_str() );
-    argv[2] = strdup( gpp.c_str() );
-    argv[3] = NULL;
+    int extracount = 0;
+    while ( extrafiles[ extracount ] )
+        ++extracount;
+    char **argv = new char*[5+extracount*2];
+    int pos = 0;
+    argv[pos++] = strdup( PLIBDIR "/icecc-create-env"  );
+    argv[pos++] = strdup( gcc.c_str() );
+    argv[pos++] = strdup( gpp.c_str() );
     if( !clang.empty()) {
-        argv[3] = strdup( clang.c_str() );
-        argv[4] = strdup( PLIBDIR "/compilerwrapper"  );
-        argv[5] = NULL;
+        argv[pos++] = strdup( clang.c_str() );
+        argv[pos++] = strdup( PLIBDIR "/compilerwrapper"  );
     }
+    for ( extracount = 0; extrafiles[ extracount ]; ++extracount ) {
+        argv[pos++] = strdup( "--addfile" );
+        argv[pos++] = strdup( extrafiles[ extracount ] );
+    }
+    argv[pos++] = NULL;
 
     return execv(argv[0], argv);
 
@@ -244,7 +251,7 @@ int main(int argc, char **argv)
                 return 0;
             }
 	    if ( arg == "--build-native" )
-                return create_native();
+                return create_native(argv + 2);
             if ( arg.size() > 0 )
                 job.setCompilerName(arg);
         }
@@ -283,7 +290,8 @@ int main(int argc, char **argv)
      * see the EPIPE. */
     dcc_ignore_sigpipe(1);
 
-    local |= analyse_argv( argv, job, icerun );
+    list<string> extrafiles;
+    local |= analyse_argv( argv, job, icerun, &extrafiles );
 
     /* if ICECC is set to no, then run job locally */
     char* icecc = getenv("ICECC");
@@ -315,8 +323,11 @@ int main(int argc, char **argv)
             } catch ( int x ) {
                 // we just build locally
             }
+        } else if ( !extrafiles.empty() && !IS_PROTOCOL_32( local_daemon )) {
+            log_warning() << "Local daemon is too old to handle compiler plugins.\n";
+            local = true;
         } else {
-            if ( !local_daemon->send_msg( GetNativeEnvMsg() ) ) {
+            if ( !local_daemon->send_msg( GetNativeEnvMsg( extrafiles ) ) ) {
                 log_warning() << "failed to write get native environment\n";
 		goto do_local_error;
             }

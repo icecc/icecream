@@ -92,7 +92,7 @@ static bool analyze_program(const char* name, CompileJob& job)
 }
 
 bool analyse_argv( const char * const *argv,
-                   CompileJob &job, bool icerun )
+                   CompileJob &job, bool icerun, list<string> *extrafiles )
 {
     ArgumentsList args;
     string ofile;
@@ -313,6 +313,40 @@ bool analyse_argv( const char * const *argv,
             } else if ( str_equal( "-flto", a ) ) {
                 // pointless when preprocessing, and Clang would emit a warning
                 args.append( a, Arg_Remote );
+            } else if (str_startswith("-fplugin=", a)) {
+                string file = a+strlen("-fplugin=");
+                if (access(file.c_str(), R_OK) == 0) {
+                    file = get_absfilename(file);
+                    extrafiles->push_back(file);
+                } else {
+                    always_local = true;
+                }
+                args.append("-fplugin="+file, Arg_Rest);
+            } else if (str_equal("-Xclang", a)) {
+                string a = argv[i];
+                if (argv[i+1]) {
+                    ++i;
+                    const char *p = argv[i];
+                    if (str_equal("-load", p)) {
+                        if (argv[i+1] && argv[i+2] && str_equal(argv[i+1], "-Xclang")) {
+                            args.append(a, Arg_Rest);
+                            args.append(p, Arg_Rest);
+                            string file = argv[i+2];
+                            if (access(file.c_str(), R_OK) == 0) {
+                                file = get_absfilename(file);
+                                extrafiles->push_back(file);
+                            } else {
+                                always_local = true;
+                            }
+                            args.append(argv[i+1], Arg_Rest);
+                            args.append(file, Arg_Rest);
+                            i += 2;
+                        }
+                    } else {
+                        args.append(a, Arg_Rest);
+                        args.append(p, Arg_Rest);
+                    }
+                }
             } else
                 args.append( a, Arg_Rest );
         } else {
@@ -344,7 +378,10 @@ bool analyse_argv( const char * const *argv,
                 always_local = true;
                 break;
             }
-            if ( it->second != Arg_Rest || it->first.at( 0 ) == '-' )
+            if ( it->first == "-Xclang" ) {
+                ++it;
+                ++it;
+            } else if ( it->second != Arg_Rest || it->first.at( 0 ) == '-' )
                 ++it;
             else if ( ifile.empty() ) {
 #if CLIENT_DEBUG

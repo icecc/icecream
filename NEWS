@@ -7,6 +7,7 @@
 - do not use old compiler if it was changed while icecream daemon was running
 - verify if remote hosts can actually be used for compilation (avoids
   problems with old kernel versions)
+- support for custom compiler plugins (GCC/Clang)
 
 0.9.7 (1232780)
 - bug fix for -MD and -MF

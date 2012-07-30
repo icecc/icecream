@@ -185,13 +185,7 @@ Environments available_environmnents(const string &basedir)
     return envs;
 }
 
-// Timestamps for compiler binaries, if they have changed since the time
-// native env was built, it needs to be rebuilt.
-static time_t gcc_bin_timestamp = 0;
-static time_t gpp_bin_timestamp = 0;
-static time_t clang_bin_timestamp = 0;
-
-static void save_native_env_timestamp()
+void save_compiler_timestamps(time_t &gcc_bin_timestamp, time_t &gpp_bin_timestamp, time_t &clang_bin_timestamp)
 {
     struct stat st;
     if( stat( "/usr/bin/gcc", &st ) == 0 )
@@ -208,7 +202,7 @@ static void save_native_env_timestamp()
         clang_bin_timestamp = 0;
 }
 
-bool native_env_uptodate()
+bool compilers_uptodate(time_t gcc_bin_timestamp, time_t gpp_bin_timestamp, time_t clang_bin_timestamp)
 {
     struct stat st;
     if( stat( "/usr/bin/gcc", &st ) == 0 ) {
@@ -235,7 +229,8 @@ bool native_env_uptodate()
     return true;
 }
 
-size_t setup_env_cache(const string &basedir, string &native_environment, uid_t nobody_uid, gid_t nobody_gid)
+size_t setup_env_cache(const string &basedir, string &native_environment, uid_t nobody_uid, gid_t nobody_gid,
+                       const list<string>& extrafiles)
 {
     native_environment = "";
     string nativedir = basedir + "/native/";
@@ -282,7 +277,6 @@ size_t setup_env_cache(const string &basedir, string &native_environment, uid_t 
         struct stat st;
         if ( !status && !native_environment.empty()
             && stat( native_environment.c_str(), &st ) == 0 ) {
-            save_native_env_timestamp();
             return st.st_size;
         }
         rmdir( nativedir.c_str() );
@@ -308,9 +302,15 @@ size_t setup_env_cache(const string &basedir, string &native_environment, uid_t 
     dup2( pipes[ 1 ], 5 ); // icecc-create-env will write the hash there
     close( pipes[ 1 ] );
 
-    const char *const argv[] = {
-        BINDIR "/icecc", "--build-native", NULL
-    };
+    const char ** argv;
+    argv = new const char*[ 3 + extrafiles.size() ];
+    int pos = 0;
+    argv[ pos++ ] = BINDIR "/icecc";
+    argv[ pos++ ] = "--build-native";
+    for( list<string>::const_iterator it = extrafiles.begin();
+         it != extrafiles.end(); ++it )
+        argv[ pos++ ] = strdup( it->c_str());
+    argv[ pos++ ] = NULL;
     if ( !exec_and_wait( argv ) ) {
         log_error() << BINDIR "/icecc --build-native failed\n";
         _exit(1);
@@ -479,14 +479,16 @@ size_t remove_environment( const string &basename, const string &env )
     _exit(execv(argv[0], argv));
 }
 
-size_t remove_native_environment( const string &basedir, const string &env )
+size_t remove_native_environment( const string &env )
 {
     if ( env.empty() )
         return 0;
-    string nativedir = basedir + "/native/";
-    size_t size = sumup_dir( nativedir );
-    unlink( env.c_str());
-    return size;
+    struct stat st;
+    if ( stat( env.c_str(), &st ) == 0 ) {
+        unlink( env.c_str());
+        return st.st_size;
+    }
+    return 0;
 }
 
 static void

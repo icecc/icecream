@@ -1624,6 +1624,22 @@ StatsMsg::send_to_channel (MsgChannel *c) const
 }
 
 void
+GetNativeEnvMsg::fill_from_channel (MsgChannel *c)
+{
+  Msg::fill_from_channel (c);
+  if (IS_PROTOCOL_32(c))
+    *c >> extrafiles;
+}
+
+void
+GetNativeEnvMsg::send_to_channel (MsgChannel *c) const
+{
+  Msg::send_to_channel (c);
+  if (IS_PROTOCOL_32(c))
+    *c << extrafiles;
+}
+
+void
 UseNativeEnvMsg::fill_from_channel (MsgChannel *c)
 {
   Msg::fill_from_channel (c);

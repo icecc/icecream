@@ -35,7 +35,7 @@
 #include "job.h"
 
 // if you increase the PROTOCOL_VERSION, add a macro below and use that
-#define PROTOCOL_VERSION 31
+#define PROTOCOL_VERSION 32
 // if you increase the MIN_PROTOCOL_VERSION, comment out macros below and clean up the code
 #define MIN_PROTOCOL_VERSION 21
 
@@ -55,6 +55,7 @@
 #define IS_PROTOCOL_29( c ) ( (c)->protocol >= 29 )
 #define IS_PROTOCOL_30( c ) ( (c)->protocol >= 30 )
 #define IS_PROTOCOL_31( c ) ( (c)->protocol >= 31 )
+#define IS_PROTOCOL_32( c ) ( (c)->protocol >= 32 )
 
 enum MsgType {
   // so far unknown
@@ -324,6 +325,11 @@ public:
 class GetNativeEnvMsg : public Msg {
 public:
   GetNativeEnvMsg () : Msg(M_GET_NATIVE_ENV) {}
+  GetNativeEnvMsg (const std::list<std::string>& e)
+    : Msg(M_GET_NATIVE_ENV), extrafiles(e) {}
+  std::list<std::string> extrafiles;
+  virtual void fill_from_channel (MsgChannel * c);
+  virtual void send_to_channel (MsgChannel * c) const;
 };
 
 class UseNativeEnvMsg : public Msg {

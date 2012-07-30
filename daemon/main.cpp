@@ -373,11 +373,25 @@ unsigned int max_kids = 0;
 
 size_t cache_size_limit = 100 * 1024 * 1024;
 
+struct NativeEnvironment
+{
+    string name; // the hash
+    map<string, time_t> extrafilestimes;
+    // Timestamps for compiler binaries, if they have changed since the time
+    // the native env was built, it needs to be rebuilt.
+    time_t gcc_bin_timestamp;
+    time_t gpp_bin_timestamp;
+    time_t clang_bin_timestamp;
+};
+
 struct Daemon
 {
     Clients clients;
     map<string, time_t> envs_last_use;
-    string native_environment;
+    // Map of native environments, the basic one and possibly more containing additional files
+    // (such as compiler plugins). The key is a concatenated list of the additional files
+    // (or empty string for the basic one).
+    map<string, NativeEnvironment> native_environments;
     string envbasedir;
     uid_t nobody_uid;
     gid_t nobody_gid;
@@ -433,7 +447,7 @@ struct Daemon
     int answer_client_requests();
     bool handle_transfer_env( Client *client, Msg *msg ) __attribute_warn_unused_result__;
     bool handle_transfer_env_done( Client *client );
-    bool handle_get_native_env( Client *client ) __attribute_warn_unused_result__;
+    bool handle_get_native_env( Client *client, GetNativeEnvMsg *msg ) __attribute_warn_unused_result__;
     void handle_old_request();
     bool handle_compile_file( Client *client, Msg *msg ) __attribute_warn_unused_result__;
     bool handle_activity( Client *client ) __attribute_warn_unused_result__;
@@ -693,8 +707,13 @@ string Daemon::dump_internals() const
     if ( cache_size )
         result += "  Cache Size: " + toString( cache_size ) + "\n";
     result += "  Architecture: " + machine_name + "\n";
-    if ( !native_environment.empty() )
-        result += "  NativeEnv: " + native_environment + "\n";
+    if ( native_environments.find( "" ) != native_environments.end())
+        result += "  NativeEnv (basic): " + native_environments.at( "" ).name + "\n";
+    for (map<string, NativeEnvironment>::const_iterator it = native_environments.begin();
+         it!= native_environments.end(); ++it) {
+        if( !it->first.empty())
+            result += "  NativeEnv (" + it->first + "): " + it->second.name + "\n";
+    }
 
     if ( !envs_last_use.empty() )
         result += "  Now: " + toString( time( 0 ) ) + "\n";
@@ -833,11 +852,23 @@ bool Daemon::handle_transfer_env_done( Client *client )
         string oldest;
         // I don't dare to use (time_t)-1
         time_t oldest_time = time( NULL ) + 90000;
+        bool oldest_is_native = false;
         for ( map<string, time_t>::const_iterator it = envs_last_use.begin();
                 it != envs_last_use.end(); ++it ) {
             trace() << "das ist jetzt so: " << it->first << " " << it->second << " " << oldest_time << endl;
             // ignore recently used envs (they might be in use _right_ now)
-            if ( it->second < oldest_time && now - it->second > 200 ) {
+            int keep_timeout = 200;
+            bool native = false;
+            // If it is a native environment, allow removing it only after a longer period.
+            for (map<string, NativeEnvironment>::const_iterator it2 = native_environments.begin();
+                 it2 != native_environments.end(); ++it2 ) {
+                if (it2->second.name == it->first) {
+                    native = true;
+                    keep_timeout = 24 * 60 * 60; // 1 day
+                    break;
+                }
+            }
+            if ( it->second < oldest_time && now - it->second > keep_timeout ) {
                 bool env_currently_in_use = false;
                 for (Clients::const_iterator it2 = clients.begin(); it2 != clients.end(); ++it2)  {
                     if (it2->second->status == Client::TOCOMPILE ||
@@ -854,13 +885,20 @@ bool Daemon::handle_transfer_env_done( Client *client )
                 if (!env_currently_in_use) {
                     oldest_time = it->second;
                     oldest = it->first;
+                    oldest_is_native = native;
                 }
             }
         }
         if ( oldest.empty() || oldest == current )
             break;
-        size_t removed = remove_environment( envbasedir, oldest );
-        trace() << "removing " << envbasedir << "/" << oldest << " " << oldest_time << " " << removed << endl;
+        size_t removed;
+        if (oldest_is_native) {
+            removed = remove_native_environment( oldest );
+            trace() << "removing " << oldest << " " << oldest_time << " " << removed << endl;
+        } else {
+            removed = remove_environment( envbasedir, oldest );
+            trace() << "removing " << envbasedir << "/" << oldest << " " << oldest_time << " " << removed << endl;
+        }
         cache_size -= min( removed, cache_size );
         envs_last_use.erase( oldest );
     }
@@ -872,20 +910,43 @@ bool Daemon::handle_transfer_env_done( Client *client )
     return r;
 }
 
-bool Daemon::handle_get_native_env( Client *client )
+bool Daemon::handle_get_native_env( Client *client, GetNativeEnvMsg *msg )
 {
-    if ( !native_env_uptodate())
-    {
-        trace() << "native_env needs rebuild" << endl;
-        cache_size -= remove_native_environment( envbasedir, native_environment );
-        native_environment.clear();
+    string env_key;
+    map<string, time_t> extrafilestimes;
+    for( list<string>::const_iterator it = msg->extrafiles.begin();
+         it != msg->extrafiles.end(); ++it ) {
+        if (!env_key.empty())
+            env_key += ':';
+        env_key += *it;
+        struct stat st;
+        if( stat( it->c_str(), &st ) != 0 ) {
+            trace() << "Extra file " << *it << " for environment not found." << endl;
+            client->channel->send_msg( EndMsg() );
+            handle_end( client, 122 );
+            return false;
+        }
+        extrafilestimes[ *it ] = st.st_mtime;
     }
 
-    trace() << "get_native_env " << native_environment << endl;
+    if ( native_environments[ env_key ].name.length()) {
+        const NativeEnvironment& env = native_environments[ env_key ];
+        if (!compilers_uptodate(env.gcc_bin_timestamp, env.gpp_bin_timestamp, env.clang_bin_timestamp)
+             || env.extrafilestimes != extrafilestimes ) {
+            trace() << "native_env needs rebuild" << endl;
+            cache_size -= remove_native_environment( native_environments[ env_key ].name );
+            native_environments.erase( env_key );
+            envs_last_use.erase( native_environments[ env_key ].name );
+        }
+    }
 
-    if ( !native_environment.length() ) {
-        size_t installed_size = setup_env_cache( envbasedir, native_environment,
-                                                 nobody_uid, nobody_gid );
+    trace() << "get_native_env " << native_environments[ env_key ].name
+        << ( !env_key.empty() ? " (" + env_key + ")" : "" ) << endl;
+
+    if ( !native_environments[ env_key ].name.length()) {
+        NativeEnvironment& env = native_environments[ env_key ]; // also inserts it
+        size_t installed_size = setup_env_cache( envbasedir, env.name,
+                                                 nobody_uid, nobody_gid, msg->extrafiles );
         // we only clean out cache on next target install
         cache_size += installed_size;
         trace() << "cache_size = " << cache_size << endl;
@@ -894,12 +955,15 @@ bool Daemon::handle_get_native_env( Client *client )
             handle_end( client, 121 );
             return false;
         }
+        env.extrafilestimes = extrafilestimes;
+        save_compiler_timestamps(env.gcc_bin_timestamp, env.gpp_bin_timestamp, env.clang_bin_timestamp);
     }
-    UseNativeEnvMsg m( native_environment );
+    UseNativeEnvMsg m( native_environments[ env_key ].name );
     if (!client->channel->send_msg( m )) {
         handle_end(client, 138);
         return false;
     }
+    envs_last_use[ native_environments[ env_key ].name ] = time( NULL );
     client->status = Client::GOTNATIVE;
     return true;
 }
@@ -1280,7 +1344,7 @@ bool Daemon::handle_activity( Client *client )
     }
 
     switch ( msg->type ) {
-    case M_GET_NATIVE_ENV: ret = handle_get_native_env( client ); break;
+    case M_GET_NATIVE_ENV: ret = handle_get_native_env( client, dynamic_cast<GetNativeEnvMsg*>(msg) ); break;
     case M_COMPILE_FILE: ret = handle_compile_file( client, msg ); break;
     case M_TRANFER_ENV: ret = handle_transfer_env( client, msg ); break;
     case M_GET_CS: ret = handle_get_cs( client, msg ); break;
