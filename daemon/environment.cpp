@@ -198,10 +198,6 @@ static void save_native_env_timestamp()
         gcc_bin_timestamp = st.st_mtime;
     else
         gcc_bin_timestamp = 0;
-    if( stat( "/usr/bin/gcc", &st ) == 0 )
-        gcc_bin_timestamp = st.st_mtime;
-    else
-        gcc_bin_timestamp = 0;
     if( stat( "/usr/bin/g++", &st ) == 0 )
         gpp_bin_timestamp = st.st_mtime;
     else
