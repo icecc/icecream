@@ -69,7 +69,7 @@ static void dcc_show_usage(void)
 {
     printf(
 "Usage:\n"
-"   icecc [compile options] -o OBJECT -c SOURCE\n"
+"   icecc [compiler] [compile options] -o OBJECT -c SOURCE\n"
 "   icecc --help\n"
 "\n"
 "Options:\n"
