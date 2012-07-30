@@ -103,30 +103,6 @@ size_t sumup_dir( const string &dir )
     return res;
 }
 
-static string list_native_environment( const string &nativedir )
-{
-    assert( nativedir.at( nativedir.length() - 1 ) == '/' );
-
-    string native_environment;
-
-    DIR *tdir = opendir( nativedir.c_str() );
-    if ( tdir ) {
-        string suff = ".tar.gz";
-        do {
-            struct dirent *myenv = readdir(tdir);
-            if ( !myenv )
-                break;
-            string versfile = myenv->d_name;
-            if ( versfile.size() > suff.size() && versfile.substr( versfile.size() - suff.size() ) == suff ) {
-                native_environment = nativedir + versfile;
-                break;
-            }
-        } while ( true );
-        closedir( tdir );
-    }
-    return native_environment;
-}
-
 static void list_target_dirs( const string &current_target, const string &targetdir, Environments &envs )
 {
     DIR *envdir = opendir( targetdir.c_str() );
@@ -287,27 +263,34 @@ size_t setup_env_cache(const string &basedir, string &native_environment, uid_t 
     }
 
     flush_debug();
+    int pipes[ 2 ];
+    pipe( pipes );
     pid_t pid = fork();
     if ( pid ) {
+        close( pipes[ 1 ] );
         int status = 1;
         while ( waitpid( pid, &status, 0 ) < 0 && errno == EINTR )
            ;
         trace() << "waitpid " << status << endl;
         if ( !status ) {
-            trace() << "opendir " << nativedir << endl;
-            native_environment = list_native_environment( nativedir );
-            if ( native_environment.empty() )
-                status = 1;
+            char buf[ 1024 ];
+            buf[ 0 ] = '\0';
+            while ( read( pipes[ 0 ], buf, 1023 ) < 0 && errno == EINTR )
+                ;
+            if ( char *nl = strchr( buf, '\n' ))
+                *nl = '\0';
+            native_environment = nativedir + buf;
         }
+        close( pipes[ 0 ] );
         trace() << "native_environment " << native_environment << endl;
-        if ( status ) {
-            rmdir( nativedir.c_str() );
-            return 0;
-        }
-        else {
+        struct stat st;
+        if ( !status && !native_environment.empty()
+            && stat( native_environment.c_str(), &st ) == 0 ) {
             save_native_env_timestamp();
-            return sumup_dir( nativedir );
+            return st.st_size;
         }
+        rmdir( nativedir.c_str() );
+        return 0;
     }
     // else
 
@@ -324,6 +307,10 @@ size_t setup_env_cache(const string &basedir, string &native_environment, uid_t 
          log_perror( "chdir" );
          _exit(1);
     }
+
+    close( pipes[ 0 ] );
+    dup2( pipes[ 1 ], 5 ); // icecc-create-env will write the hash there
+    close( pipes[ 1 ] );
 
     const char *const argv[] = {
         BINDIR "/icecc", "--build-native", NULL

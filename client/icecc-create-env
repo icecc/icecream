@@ -258,3 +258,7 @@ tar -czhf "$mydir/$md5".tar.gz $target_files || {
 cd ..
 rm -rf $tempdir
 rm -f $tmp_ld_so_conf
+
+# Print the tarball name to fd 5 (if it's open, created by whatever has invoked this)
+( echo $md5.tar.gz >&5 ) 2>/dev/null
+exit 0
