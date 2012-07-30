@@ -870,12 +870,14 @@ void Daemon::check_cache_size( const string &new_env )
             // ignore recently used envs (they might be in use _right_ now)
             int keep_timeout = 200;
             bool native = false;
-            // If it is a native environment, allow removing it only after a longer period.
+            // If it is a native environment, allow removing it only after a longer period,
+            // unless there are many native environments.
             for (map<string, NativeEnvironment>::const_iterator it2 = native_environments.begin();
                  it2 != native_environments.end(); ++it2 ) {
                 if (it2->second.name == it->first) {
                     native = true;
-                    keep_timeout = 24 * 60 * 60; // 1 day
+                    if (native_environments.size() < 5)
+                        keep_timeout = 24 * 60 * 60; // 1 day
                     break;
                 }
             }
