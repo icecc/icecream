@@ -472,6 +472,7 @@ struct Daemon
     bool reconnect();
     int working_loop();
     bool setup_listen_fds();
+    void check_cache_size( const string &new_env );
 };
 
 bool Daemon::setup_listen_fds()
@@ -846,7 +847,17 @@ bool Daemon::handle_transfer_env_done( Client *client )
         log_error() << "installed " << current << " size: " << installed_size
             << " all: " << cache_size << endl;
     }
+    check_cache_size( current );
 
+    bool r = reannounce_environments(); // do that before the file compiles
+    // we do that here so we're not given out in case of full discs
+    if ( !maybe_stats(true) )
+        r = false;
+    return r;
+}
+
+void Daemon::check_cache_size( const string &new_env )
+{
     time_t now = time( NULL );
     while ( cache_size > cache_size_limit ) {
         string oldest;
@@ -889,7 +900,7 @@ bool Daemon::handle_transfer_env_done( Client *client )
                 }
             }
         }
-        if ( oldest.empty() || oldest == current )
+        if ( oldest.empty() || oldest == new_env )
             break;
         size_t removed;
         if (oldest_is_native) {
@@ -902,12 +913,6 @@ bool Daemon::handle_transfer_env_done( Client *client )
         cache_size -= min( removed, cache_size );
         envs_last_use.erase( oldest );
     }
-
-    bool r = reannounce_environments(); // do that before the file compiles
-    // we do that here so we're not given out in case of full discs
-    if ( !maybe_stats(true) )
-        r = false;
-    return r;
 }
 
 bool Daemon::handle_get_native_env( Client *client, GetNativeEnvMsg *msg )
@@ -957,6 +962,8 @@ bool Daemon::handle_get_native_env( Client *client, GetNativeEnvMsg *msg )
         }
         env.extrafilestimes = extrafilestimes;
         save_compiler_timestamps(env.gcc_bin_timestamp, env.gpp_bin_timestamp, env.clang_bin_timestamp);
+        envs_last_use[ native_environments[ env_key ].name ] = time( NULL );
+        check_cache_size( env.name );
     }
     UseNativeEnvMsg m( native_environments[ env_key ].name );
     if (!client->channel->send_msg( m )) {
