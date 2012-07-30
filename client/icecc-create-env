@@ -267,7 +267,7 @@ done
 # now sort the files in order to make the md5sums independent
 # of ordering
 target_files=`for i in $new_target_files; do echo $i; done | sort`
-md5=`for i in $target_files; do $md5sum $tempdir/$i; done | sed -e 's/ .*$//' | $md5sum | sed -e 's/ .*$//'` || {
+md5=`for i in $target_files; do $md5sum $tempdir/$i; done | $md5sum | sed -e 's/ .*$//'` || {
   echo "Couldn't compute MD5 sum."
   exit 2
 }
