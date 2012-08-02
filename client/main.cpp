@@ -92,6 +92,7 @@ static void dcc_show_usage(void)
 "   ICECC_CLANG_REMOTE_CPP     set to 1 or 0 to override remote precompiling with clang\n"
 "                              (requires clang -frewrite-includes option).\n"
 "   ICECC_IGNORE_UNVERIFIED    if set, hosts where environment cannot be verified are not used.\n"
+"   ICECC_EXTRAFILES           additional files used in the compilation.\n"
 "\n");
 }
 
@@ -307,6 +308,27 @@ int main(int argc, char **argv)
     char* icecc = getenv("ICECC");
     if ( icecc && !strcasecmp(icecc, "no") )
         return build_local( job, 0 );
+
+    if (const char *extrafilesenv = getenv("ICECC_EXTRAFILES")) {
+        for(;;) {
+            const char *colon = strchr(extrafilesenv, ':');
+            string file;
+            if (colon == NULL)
+                file = extrafilesenv;
+            else
+                file = string( extrafilesenv, colon - extrafilesenv );
+            struct stat st;
+            if (stat( file.c_str(), &st) == 0)
+                extrafiles.push_back( file );
+            else {
+                log_warning() << "File in ICECC_EXTRAFILES not found: " << file << endl;
+                return build_local( job, 0 );
+            }
+            if (colon == NULL)
+                break;
+            extrafilesenv = colon + 1;
+        }
+    }
 
     /* try several options to reach the local daemon - 2 sockets, one TCP */
     MsgChannel *local_daemon = Service::createChannel( "/var/run/iceccd.socket" );
