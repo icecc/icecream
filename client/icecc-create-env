@@ -196,7 +196,7 @@ if test -n "$clang"; then
     done
 fi
 
-add_file /usr/bin/as
+add_file $($added_gcc -print-prog-name=as) /usr/bin/as
 
 for extrafile in $extrafiles; do
     add_file $extrafile
