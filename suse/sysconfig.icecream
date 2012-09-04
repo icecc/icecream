@@ -12,7 +12,7 @@ ICECREAM_NICE_LEVEL="5"
 #
 ## Type: string
 ## Path: Applications/icecream
-## Defaut: /var/log/iceccd
+## Default: /var/log/iceccd
 #
 # icecream daemon log file
 #
@@ -21,7 +21,7 @@ ICECREAM_LOG_FILE="/var/log/iceccd"
 #
 ## Type: string
 ## Path: Applications/icecream
-## Defaut: no
+## Default: no
 #
 # Start also the scheduler?
 #
@@ -30,7 +30,7 @@ ICECREAM_RUN_SCHEDULER="no"
 #
 ## Type: string
 ## Path: Applications/icecream
-## Defaut: /var/log/icecc_scheduler
+## Default: /var/log/icecc_scheduler
 #
 # icecream scheduler log file
 #
@@ -39,7 +39,7 @@ ICECREAM_SCHEDULER_LOG_FILE="/var/log/icecc_scheduler"
 #
 ## Type: string
 ## Path: Applications/icecream
-## Defaut: ""
+## Default: ""
 #
 # Identification for the network the scheduler and daemon run on. 
 # You can have several distinct icecream networks in the same LAN
@@ -50,7 +50,7 @@ ICECREAM_NETNAME=""
 #
 ## Type: string
 ## Path: Applications/icecream
-## Defaut: ""
+## Default: ""
 #
 # If the daemon can't find the scheduler by broadcast (e.g. because 
 # of a firewall) you can specify it.
@@ -60,7 +60,7 @@ ICECREAM_SCHEDULER_HOST=""
 #
 ## Type: integer
 ## Path: Applications/icecream
-## Defaut: ""
+## Default: ""
 # 
 # You can overwrite here the number of jobs to run in parallel. Per
 # default this depends on the number of (virtual) CPUs installed. 
@@ -73,7 +73,7 @@ ICECREAM_MAX_JOBS=""
 #
 ## Type: yesno
 ## Path: Applications/icecream
-## Defaut: "yes"
+## Default: "yes"
 # 
 # Specifies whether jobs submitted by other nodes are allowed to run on
 # this one.
