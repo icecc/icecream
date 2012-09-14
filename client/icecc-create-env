@@ -166,6 +166,8 @@ if test -n "$gcc"; then
       add_file "$specfile"
     fi
 
+    add_file $($added_gcc -print-prog-name=as) /usr/bin/as
+
     plugin_name=liblto_plugin.so
     plugin=`$added_gcc -print-prog-name=$plugin_name`
     if test -z "$plugin" || test "$plugin" = "$plugin_name" || ! test -e "$plugin"; then
@@ -184,6 +186,9 @@ if test -n "$clang"; then
     # depending on an extra argument added by icecream.
     add_file $added_compilerwrapper /usr/bin/gcc
     add_file $added_compilerwrapper /usr/bin/g++
+
+    add_file $($added_clang -print-prog-name=as) /usr/bin/as
+
     # clang always uses its internal .h files
     clangincludes=$(dirname $($added_clang -print-file-name=include/limits.h))
     clangprefix=$(dirname $(dirname $added_clang))
@@ -195,8 +200,6 @@ if test -n "$clang"; then
       add_file "$file" "$destfile"
     done
 fi
-
-add_file $($added_gcc -print-prog-name=as) /usr/bin/as
 
 for extrafile in $extrafiles; do
     add_file $extrafile
