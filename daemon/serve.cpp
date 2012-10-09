@@ -139,7 +139,7 @@ int handle_connection( const string &basedir, CompileJob *job,
         memset(job_stat, 0, sizeof(job_stat));
 
         char tmp_output[PATH_MAX];
-        char prefix_output[PATH_MAX]; // I'm too lazy to calculate how many digits 2^64 is :)
+        char prefix_output[32]; // 20 for 2^64 + 6 for "icecc-" + 1 for trailing NULL
         sprintf( prefix_output, "icecc-%d", job_id );
 
         if ( ( ret = dcc_make_tmpnam(prefix_output, ".o", tmp_output, 1 ) ) == 0 ) {
