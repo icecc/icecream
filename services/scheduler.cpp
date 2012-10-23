@@ -1587,7 +1587,7 @@ handle_line (CS *c, Msg *_m)
     }
   else if (cmd == "crashme")
     {
-      *(int *)0 = 42;  // ;-)
+      *(volatile int *)0 = 42;  // ;-)
     }
   else if (cmd == "internals" )
     {
