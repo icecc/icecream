@@ -56,6 +56,18 @@
 #define O_LARGEFILE 0
 #endif
 
+namespace {
+
+struct CharBufferDeleter
+{
+  char *buf;
+  CharBufferDeleter(char *b) : buf(b) {}
+  ~CharBufferDeleter()
+  { free(buf); }
+};
+
+}
+
 using namespace std;
 
 std::string remote_daemon;
@@ -653,8 +665,9 @@ int build_remote(CompileJob &job, MsgChannel *local_daemon, const Environments &
         return ret;
     } else
     {
-        char preproc[PATH_MAX];
-        dcc_make_tmpnam( "icecc", ".ix", preproc, 0 );
+        char *preproc = 0;
+        dcc_make_tmpnam( "icecc", ".ix", &preproc, 0 );
+        const CharBufferDeleter preproc_holder(preproc);
         int cpp_fd = open(preproc, O_WRONLY );
 	/* When call_cpp returns normally (for the parent) it will have closed
 	   the write fd, i.e. cpp_fd.  */
@@ -696,12 +709,13 @@ int build_remote(CompileJob &job, MsgChannel *local_daemon, const Environments &
 
         for ( int i = 0; i < torepeat; i++ ) {
             jobs[i] = job;
-            char buffer[PATH_MAX];
+            char *buffer = 0;
             if ( i ) {
-                dcc_make_tmpnam( "icecc", ".o", buffer, 0 );
+                dcc_make_tmpnam( "icecc", ".o", &buffer, 0 );
                 jobs[i].setOutputFile( buffer );
             } else
-                sprintf( buffer, "%s", job.outputFile().c_str() );
+                buffer = strdup( job.outputFile().c_str() );
+            const CharBufferDeleter buffer_holder( buffer );
 
             umsgs[i] = get_server( local_daemon );
             remote_daemon = umsgs[i]->hostname;

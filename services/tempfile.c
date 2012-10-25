@@ -62,11 +62,19 @@
  **/
 int dcc_make_tmpnam(const char *prefix,
                     const char *suffix,
-                    char *name_ret, int relative)
+                    char **name_ret, int relative)
 {
     unsigned long random_bits;
     unsigned long tries = 0;
     int fd;
+    size_t tmpname_length;
+    char *tmpname;
+
+    tmpname_length = strlen(_PATH_TMP) + 1 + strlen(prefix) + 1 + 8 + strlen(suffix) + 1;
+    tmpname = malloc(tmpname_length);
+    if (!tmpname) {
+        return EXIT_OUT_OF_MEMORY;
+    }
 
     random_bits = (unsigned long) getpid() << 16;
 
@@ -86,24 +94,28 @@ int dcc_make_tmpnam(const char *prefix,
 #endif
 
     do {
-        if (snprintf(name_ret, PATH_MAX, "%s/%s_%08lx%s",
+        if (snprintf(tmpname, tmpname_length, "%s/%s_%08lx%s",
                      ( relative ? _PATH_TMP + 1 : _PATH_TMP ),
                       prefix,
                       random_bits & 0xffffffffUL,
-                      suffix) == -1)
+                      suffix) == -1) {
+            free(tmpname);
             return EXIT_OUT_OF_MEMORY;
+        }
 
         /* Note that if the name already exists as a symlink, this
          * open call will fail.
          *
          * The permissions are tight because nobody but this process
          * and our children should do anything with it. */
-        fd = open(name_ret, O_WRONLY | O_CREAT | O_EXCL, 0600);
+        fd = open(tmpname, O_WRONLY | O_CREAT | O_EXCL, 0600);
         if (fd == -1) {
 	    /* Don't try getting a file too often.  Safety net against
 	       endless loops. Probably just paranoia.  */
-	    if (++tries > 1000000)
+	    if (++tries > 1000000) {
+	      free(tmpname);
 	      return EXIT_IO_ERROR;
+            }
 	    /* Some errors won't change by changing the filename,
 	       e.g. ENOENT means that the directory where we try to create
 	       the file was removed from under us.  Don't endlessly loop
@@ -114,15 +126,19 @@ int dcc_make_tmpnam(const char *prefix,
 		random_bits += 7777; /* fairly prime */
 		continue;
 	    }
+	    free(tmpname);
 	    return EXIT_IO_ERROR;
         }
         
         if (close(fd) == -1) {  /* huh? */
+            free(tmpname);
             return EXIT_IO_ERROR;
         }
         
         break;
     } while (1);
+
+    *name_ret = tmpname;
 
     return 0;
 }

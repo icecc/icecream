@@ -138,14 +138,15 @@ int handle_connection( const string &basedir, CompileJob *job,
 
         memset(job_stat, 0, sizeof(job_stat));
 
-        char tmp_output[PATH_MAX];
+        char *tmp_output = 0;
         char prefix_output[32]; // 20 for 2^64 + 6 for "icecc-" + 1 for trailing NULL
         sprintf( prefix_output, "icecc-%d", job_id );
 
-        if ( ( ret = dcc_make_tmpnam(prefix_output, ".o", tmp_output, 1 ) ) == 0 ) {
+        if ( ( ret = dcc_make_tmpnam(prefix_output, ".o", &tmp_output, 1 ) ) == 0 ) {
             obj_file = tmp_output;
             ret = work_it( *job, job_stat, client, rmsg, obj_file, mem_limit, client->fd,
                    -1 );
+            free( tmp_output );
         }
 
         delete job;
