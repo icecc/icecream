@@ -43,6 +43,7 @@
 #include <algorithm>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include <vector>
 #ifdef HAVE_RSYNC
 #include <librsync.h>
 #endif
@@ -173,15 +174,11 @@ get_absfilename( const string &_file )
         return _file;
 
     if ( _file.at( 0 ) != '/' ) {
-        static char buffer[PATH_MAX];
+        static std::vector<char> buffer(1024);
 
-#ifdef HAVE_GETCWD
-        getcwd(buffer, sizeof( buffer ) );
-#else
-        getwd(buffer);
-#endif
-        buffer[PATH_MAX - 1] = 0;
-        file = string( buffer ) + '/' + _file;
+        while ( getcwd( &buffer[0], buffer.size() - 1 ) == 0 && errno == ERANGE )
+            buffer.resize( buffer.size() + 1024 );
+        file = string( &buffer[0] ) + '/' + _file;
     } else {
         file = _file;
     }
