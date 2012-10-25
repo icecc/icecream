@@ -147,9 +147,9 @@ static string read_output( const char *command )
         log_error() << "no pipe " << strerror( errno ) << endl;
         return output;
     }
-    char buffer[PATH_MAX];
+    char buffer[1024];
     while ( !feof( f ) ) {
-        size_t bytes = fread( buffer, 1, PATH_MAX - 1, f );
+        size_t bytes = fread( buffer, 1, sizeof(buffer) - 1, f );
         buffer[bytes] = 0;
         output += buffer;
     }
