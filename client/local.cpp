@@ -66,13 +66,12 @@ string compiler_path_lookup(const string& compiler)
         part = part + '/' + compiler;
         if ( !lstat( part.c_str(), &s ) ) {
             if ( S_ISLNK( s.st_mode ) ) {
-                char buffer[PATH_MAX];
-                int ret = readlink( part.c_str(), buffer, PATH_MAX );
-                if ( ret == -1 ) {
-                    log_error() << "readlink failed " << strerror( errno ) << endl;
+                std::string buffer;
+                const int ret = resolve_link( part, buffer );
+                if ( ret != 0 ) {
+                    log_error() << "resolve_link failed " << strerror( ret ) << endl;
                     continue;
                 }
-                buffer[ret] = 0;
                 string target = find_basename( buffer );
                 if ( target == rs_program_name 
                      || (after_selflink

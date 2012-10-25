@@ -33,6 +33,7 @@ extern void colorify_output(const std::string &s_ccout);
 extern bool colorify_wanted(const CompileJob &job);
 extern bool colorify_possible();
 extern bool ignore_unverified();
+extern int resolve_link(const std::string &file, std::string &resolved);
 
 extern bool dcc_unlock(int lock_fd);
 extern bool dcc_lock_host(int &lock_fd);

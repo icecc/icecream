@@ -282,10 +282,9 @@ int main(int argc, char **argv)
                 job.setCompilerName(arg);
         }
     } else {
-        char buf[ PATH_MAX ];
-        buf[ PATH_MAX - 1 ] = '\0';
+        std::string resolved;
         // check if it's a symlink to icerun
-        if( readlink( compiler_name.c_str(), buf, PATH_MAX - 1 ) >= 0 && find_basename( buf ) == "icerun" ) {
+        if( resolve_link( compiler_name, resolved ) == 0 && find_basename( resolved ) == "icerun" ) {
             icerun = true;
         }
     }
