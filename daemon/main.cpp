@@ -939,9 +939,9 @@ bool Daemon::handle_get_native_env( Client *client, GetNativeEnvMsg *msg )
              || env.extrafilestimes != extrafilestimes
              || access( env.name.c_str(), R_OK ) != 0) {
             trace() << "native_env needs rebuild" << endl;
-            cache_size -= remove_native_environment( native_environments[ env_key ].name );
-            native_environments.erase( env_key );
-            envs_last_use.erase( native_environments[ env_key ].name );
+            cache_size -= remove_native_environment( env.name );
+            envs_last_use.erase( env.name );
+            native_environments.erase( env_key ); // invalidates 'env'
         }
     }
 
