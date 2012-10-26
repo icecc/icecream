@@ -936,7 +936,8 @@ bool Daemon::handle_get_native_env( Client *client, GetNativeEnvMsg *msg )
     if ( native_environments[ env_key ].name.length()) {
         const NativeEnvironment& env = native_environments[ env_key ];
         if (!compilers_uptodate(env.gcc_bin_timestamp, env.gpp_bin_timestamp, env.clang_bin_timestamp)
-             || env.extrafilestimes != extrafilestimes ) {
+             || env.extrafilestimes != extrafilestimes
+             || access( env.name.c_str(), R_OK ) != 0) {
             trace() << "native_env needs rebuild" << endl;
             cache_size -= remove_native_environment( native_environments[ env_key ].name );
             native_environments.erase( env_key );
