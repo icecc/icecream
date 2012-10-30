@@ -180,7 +180,7 @@ static int create_native( char** args )
     }
     argv[pos++] = strdup( PLIBDIR "/icecc-create-env"  );
 
-    if ( strcmp( compiler, "clang" ) == 0 ) {
+    if ( compiler && strcmp( compiler, "clang" ) == 0 ) {
         string clang = compiler_path_lookup( "clang" );
         if ( clang.empty()) {
             log_error() << "clang compiler not found\n";
