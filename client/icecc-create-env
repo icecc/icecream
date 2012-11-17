@@ -166,7 +166,12 @@ if test -n "$gcc"; then
       add_file "$specfile"
     fi
 
-    add_file $($added_gcc -print-prog-name=as) /usr/bin/as
+    gcc_as=$($added_gcc -print-prog-name=as)
+    if test "$gcc_as" = "as"; then
+      add_file /usr/bin/as
+    else
+      add_file "$gcc_as" /usr/bin/as
+    fi
 
     plugin_name=liblto_plugin.so
     plugin=`$added_gcc -print-prog-name=$plugin_name`
