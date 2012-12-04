@@ -245,14 +245,11 @@ bool analyse_argv( const char * const *argv,
                 }
             } else if (str_equal("-include", a)) {
                 /* This has a duplicate meaning. it can either include a file
-                   for preprocessing or a precompiled header. decide which one.  */
+                   for preprocessing or a precompiled header. */
+                args.append(a, Arg_Local);
+
                 if (argv[i+1]) {
                     ++i;
-                    std::string p = argv[i];
-                    if (access(p.c_str(), R_OK) && access((p + ".gch").c_str(), R_OK))
-                        always_local = true;  /* can't decide which one, let the compiler figure it
-                                                 out.  */
-                    args.append(a, Arg_Local);
                     args.append(argv[i], Arg_Local);
                 }
             } else if (str_equal("-D", a)
