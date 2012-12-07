@@ -78,6 +78,10 @@
 #  define RUSAGE_CHILDREN (-1)
 #endif
 
+#ifdef HAVE_LIBCAP_NG
+#  include <cap-ng.h>
+#endif
+
 #include <deque>
 #include <map>
 #include <algorithm>
@@ -422,9 +426,17 @@ struct Daemon
     unsigned int current_kids;
 
     Daemon() {
+        struct passwd *pw = getpwnam("icecc");
+        if (pw) {
+            user_uid = pw->pw_uid;
+            user_gid = pw->pw_gid;
+        } else {
+            log_perror ("Error: no icecc user on system. Falling back to nobody.");
+            user_uid = 65534;
+            user_gid = 65533;
+        }
+
         envbasedir = "/tmp/icecc-envs";
-        nobody_uid = 65534;
-        nobody_gid = 65533;
         tcp_listen_fd = -1;
 	unix_listen_fd = -1;
         new_client_id = 0;
@@ -524,7 +536,7 @@ bool Daemon::setup_listen_fds()
     memset(&myaddr, 0, sizeof(myaddr));
     myaddr.sun_family = AF_UNIX;
     mode_t old_umask = -1U;
-    if (getuid()==0) {
+    if (access("/var/run/icecc", R_OK|W_OK|X_OK) == 0) {
         strncpy(myaddr.sun_path, "/var/run/icecc/iceccd.socket", sizeof(myaddr.sun_path)-1);
         unlink(myaddr.sun_path);
         old_umask = umask(0);
@@ -1778,6 +1790,12 @@ int main( int argc, char ** argv )
                 chown("/var/run/icecc", d.user_uid, d.user_gid);
             }
         }
+#ifdef HAVE_LIBCAP_NG
+        capng_clear(CAPNG_SELECT_BOTH);
+        capng_update(CAPNG_ADD, (capng_type_t)(CAPNG_EFFECTIVE|CAPNG_PERMITTED), CAP_SYS_CHROOT);
+        capng_change_id(d.user_uid, d.user_gid, CAPNG_NO_FLAG);
+        capng_apply(CAPNG_SELECT_BOTH);
+#endif
     } else {
         d.noremote = true;
     }

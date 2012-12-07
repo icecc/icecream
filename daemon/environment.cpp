@@ -284,6 +284,7 @@ size_t setup_env_cache(const string &basedir, string &native_environment, uid_t 
     }
     // else
 
+#ifndef HAVE_LIBCAP_NG
     if ( setgid( user_gid ) < 0) {
       log_perror("setgid failed");
       _exit(143);
@@ -292,6 +293,7 @@ size_t setup_env_cache(const string &basedir, string &native_environment, uid_t 
       log_perror("setuid failed");
       _exit (142);
     }
+#endif
 
     if ( chdir( nativedir.c_str() ) ) {
          log_perror( "chdir" );
@@ -393,6 +395,7 @@ pid_t start_install_environment( const std::string &basename, const std::string 
         return pid;
     }
     // else
+#ifndef HAVE_LIBCAP_NG
     if ( setgid( user_gid ) < 0) {
       log_perror("setgid fails");
       _exit(143);
@@ -401,6 +404,7 @@ pid_t start_install_environment( const std::string &basename, const std::string 
       log_perror("setuid fails");
       _exit (142);
     }
+#endif
 
     // reset SIGPIPE and SIGCHILD handler so that tar
     // isn't confused when gzip/bzip2 aborts
@@ -501,6 +505,18 @@ error_client( MsgChannel *client, string error )
 
 void chdir_to_environment( MsgChannel *client, const string &dirname, uid_t user_uid, gid_t user_gid )
 {
+#ifdef HAVE_LIBCAP_NG
+    if ( chdir( dirname.c_str() ) < 0 ) {
+        error_client( client, string( "chdir to " ) + dirname + "failed" );
+        log_perror("chdir() failed" );
+        _exit(145);
+    }
+    if ( chroot( dirname.c_str() ) < 0 ) {
+        error_client( client, string( "chroot " ) + dirname + "failed" );
+        log_perror("chroot() failed" );
+        _exit(144);
+    }
+#else
     if ( getuid() == 0 ) {
         // without the chdir, the chroot will escape the
         // jail right away
@@ -532,6 +548,7 @@ void chdir_to_environment( MsgChannel *client, const string &dirname, uid_t user
             trace() << "chdir to " << dirname << endl;
         }
     }
+#endif
 }
 
 // Verify that the environment works by simply running the bundled bin/true.
