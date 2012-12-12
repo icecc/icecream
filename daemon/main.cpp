@@ -525,7 +525,7 @@ bool Daemon::setup_listen_fds()
     myaddr.sun_family = AF_UNIX;
     mode_t old_umask = -1U;
     if (getuid()==0) {
-        strncpy(myaddr.sun_path, "/var/run/iceccd.socket", sizeof(myaddr.sun_path)-1);
+        strncpy(myaddr.sun_path, "/var/run/icecc/iceccd.socket", sizeof(myaddr.sun_path)-1);
         unlink(myaddr.sun_path);
         old_umask = umask(0);
     } else {
@@ -1760,13 +1760,29 @@ int main( int argc, char ** argv )
 
     umask(022);
 
-    if ( !logfile.length() && detach)
-        logfile = "/var/log/iceccd";
+    if (getuid() == 0) {
+        if (!logfile.length() && detach) {
+            if (mkdir("/var/log/icecc", S_IRWXU|S_IRGRP|S_IXGRP|S_IROTH|S_IXOTH)) {
+                if (errno == EEXIST) {
+                    chmod("/var/log/icecc", S_IRWXU|S_IRGRP|S_IXGRP|S_IROTH|S_IXOTH);
+                    chown("/var/log/icecc", d.nobody_uid, d.nobody_gid);
+                }
+            }
+
+            logfile = "/var/log/icecc/iceccd.log";
+        }
+
+        if (mkdir("/var/run/icecc", S_IRWXU|S_IRGRP|S_IXGRP|S_IROTH|S_IXOTH) == -1) {
+            if (errno == EEXIST) {
+                chmod("/var/run/icecc", S_IRWXU|S_IRGRP|S_IXGRP|S_IROTH|S_IXOTH);
+                chown("/var/run/icecc", d.nobody_uid, d.nobody_gid);
+            }
+        }
+    } else {
+        d.noremote = true;
+    }
 
     setup_debug( debug_level, logfile );
-
-    if ((getuid()!=0))
-        d.noremote = true;
 
     log_info() << "ICECREAM daemon " VERSION " starting up (nice level "
                << nice_level << ") " << endl;
