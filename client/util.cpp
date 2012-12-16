@@ -30,6 +30,7 @@
 #include <fcntl.h>
 #include <signal.h>
 #include <time.h>
+#include <limits.h>
 
 #include <sys/types.h>
 #include <pwd.h>
@@ -246,4 +247,17 @@ void colorify_output(const string& _s_ccout)
 bool ignore_unverified()
 {
     return getenv("ICECC_IGNORE_UNVERIFIED");
+}
+
+int resolve_link(const std::string &file, std::string &resolved)
+{
+    char buf[PATH_MAX];
+    buf[PATH_MAX - 1] = '\0';
+    const int ret = readlink(file.c_str(), buf, sizeof(buf) - 1);
+    const int errno_save = errno;
+    if (ret <= 0)
+        return errno_save;
+    buf[ret] = 0;
+    resolved = std::string(buf);
+    return 0;
 }
