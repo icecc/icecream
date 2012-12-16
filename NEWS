@@ -1,4 +1,4 @@
-?
+0.9.97 (1.0rc1)
 - support for Clang compiler
   Clang now should work out of the box just like GCC.
   Clang with -frewrite-includes option is recommended (3.2+ or patched).
@@ -8,6 +8,30 @@
 - verify if remote hosts can actually be used for compilation (avoids
   problems with old kernel versions)
 - support for custom compiler plugins (GCC/Clang)
+- fix gcc 4.6 support
+- reduce usage of PATH_MAX for better portability
+- fix build-native to add default GNU assembler
+- fix SIGSEGV calling build_native without args
+- parse @file option
+- skip .[h,hpp] header files and check precompiled headers from -include opts
+- move log and socket to an icecc especific folder
+- rename nobody to user
+- add support for libcap-ng
+- moving to https://github.com/icecc/icecream
+- add clang wrapper symlinks
+- allow normal users to actually connect to the daemon's unix socket
+- rebuild environment if the compiler changes
+- check if the remote node can actually use an environment
+- setting to avoid using hosts where the environment cannot be checked
+- add [compiler] to the command line template in --help
+- support for compiler plugins / multiple native environments
+- do not create environments containing both gcc and clang
+- check env cache size also when creating new native environment
+- keep native envs longer only if there aren't too many
+- no "basic" native env really anymore, now with env per each compiler
+- include paths in tarball md5sum
+- do not use gcc when creating env.tarball for clang
+- force env. tarball regeneration if it doesn't exist
 
 0.9.7 (1232780)
 - bug fix for -MD and -MF
