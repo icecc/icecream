@@ -246,12 +246,22 @@ bool analyse_argv( const char * const *argv,
             } else if (str_equal("-include", a)) {
                 /* This has a duplicate meaning. it can either include a file
                    for preprocessing or a precompiled header. decide which one.  */
+
                 if (argv[i+1]) {
                     ++i;
                     std::string p = argv[i];
-                    if (access(p.c_str(), R_OK) && access((p + ".gch").c_str(), R_OK))
-                        always_local = true;  /* can't decide which one, let the compiler figure it
-                                                 out.  */
+                    string::size_type dot_index = p.find_last_of('.');
+
+                    if (dot_index != string::npos) {
+                        string ext = p.substr(dot_index + 1);
+
+                        if (ext[0] != 'h' && ext[0] != 'H' && access(p.c_str(), R_OK)
+                                && access((p + ".gch").c_str(), R_OK))
+                            always_local = true;
+
+                    } else
+                        always_local = true; /* Included file is not header.suffix or header.suffix.gch! */
+
                     args.append(a, Arg_Local);
                     args.append(argv[i], Arg_Local);
                 }
