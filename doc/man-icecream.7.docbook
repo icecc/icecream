@@ -18,12 +18,12 @@
 </refentryinfo>
 
 <refmeta>
-	<refentrytitle>Icecream</refentrytitle>
+	<refentrytitle>icecream</refentrytitle>
 	<manvolnum>7</manvolnum>
 </refmeta>
 
 <refnamediv>
-	<refname>Icecream</refname>
+	<refname>icecream</refname>
 	<refpurpose>A distributed compile system</refpurpose>
 </refnamediv>
 
