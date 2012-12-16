@@ -229,7 +229,7 @@ bool compilers_uptodate(time_t gcc_bin_timestamp, time_t gpp_bin_timestamp, time
     return true;
 }
 
-size_t setup_env_cache(const string &basedir, string &native_environment, uid_t nobody_uid, gid_t nobody_gid,
+size_t setup_env_cache(const string &basedir, string &native_environment, uid_t user_uid, gid_t user_gid,
                        const std::string &compiler, const list<string> &extrafiles)
 {
     native_environment = "";
@@ -247,7 +247,7 @@ size_t setup_env_cache(const string &basedir, string &native_environment, uid_t 
     if ( mkdir( nativedir.c_str(), 0775 ) && errno != EEXIST )
    	return 0; 
 
-    if ( chown( nativedir.c_str(), 0, nobody_gid ) ||
+    if ( chown( nativedir.c_str(), 0, user_gid ) ||
          chmod( nativedir.c_str(), 0775 ) ) {
 	rmdir( nativedir.c_str() );
 	return 0;
@@ -284,14 +284,16 @@ size_t setup_env_cache(const string &basedir, string &native_environment, uid_t 
     }
     // else
 
-    if ( setgid( nobody_gid ) < 0) {
+#ifndef HAVE_LIBCAP_NG
+    if ( setgid( user_gid ) < 0) {
       log_perror("setgid failed");
       _exit(143);
     }
-    if (!geteuid() && setuid( nobody_uid ) < 0) {
+    if (!geteuid() && setuid( user_uid ) < 0) {
       log_perror("setuid failed");
       _exit (142);
     }
+#endif
 
     if ( chdir( nativedir.c_str() ) ) {
          log_perror( "chdir" );
@@ -323,7 +325,7 @@ size_t setup_env_cache(const string &basedir, string &native_environment, uid_t 
 pid_t start_install_environment( const std::string &basename, const std::string &target,
                           const std::string &name, MsgChannel *c,
                           int& pipe_to_stdin, FileChunkMsg*& fmsg,
-                          uid_t nobody_uid, gid_t nobody_gid )
+                          uid_t user_uid, gid_t user_gid )
 {
     if ( !name.size() || name[0] == '.' ) {
         log_error() << "illegal name for environment " << name << endl;
@@ -360,7 +362,7 @@ pid_t start_install_environment( const std::string &basename, const std::string 
         return 0;
     }
 
-    if ( chown( dirname.c_str(), 0, nobody_gid ) ||
+    if ( chown( dirname.c_str(), 0, user_gid ) ||
          chmod( dirname.c_str(), 0770 ) ) {
         log_perror( "chown,chmod target" );
         return 0;
@@ -372,7 +374,7 @@ pid_t start_install_environment( const std::string &basename, const std::string 
         return 0;
     }
 
-    if ( chown( dirname.c_str(), 0, nobody_gid ) ||
+    if ( chown( dirname.c_str(), 0, user_gid ) ||
          chmod( dirname.c_str(), 0770 ) ) {
         log_perror( "chown,chmod name" );
         return 0;
@@ -393,14 +395,16 @@ pid_t start_install_environment( const std::string &basename, const std::string 
         return pid;
     }
     // else
-    if ( setgid( nobody_gid ) < 0) {
+#ifndef HAVE_LIBCAP_NG
+    if ( setgid( user_gid ) < 0) {
       log_perror("setgid fails");
       _exit(143);
     }
-    if (!geteuid() && setuid( nobody_uid ) < 0) {
+    if (!geteuid() && setuid( user_uid ) < 0) {
       log_perror("setuid fails");
       _exit (142);
     }
+#endif
 
     // reset SIGPIPE and SIGCHILD handler so that tar
     // isn't confused when gzip/bzip2 aborts
@@ -429,7 +433,7 @@ pid_t start_install_environment( const std::string &basename, const std::string 
 
 
 size_t finalize_install_environment( const std::string &basename, const std::string &target,
-                                     pid_t pid, gid_t nobody_gid)
+                                     pid_t pid, gid_t user_gid)
 {
     int status = 1;
     while ( waitpid( pid, &status, 0) < 0 && errno == EINTR)
@@ -443,7 +447,7 @@ size_t finalize_install_environment( const std::string &basename, const std::str
 
     string dirname = basename + "/target=" + target;
     mkdir( ( dirname + "/tmp" ).c_str(), 01775 );
-    chown( ( dirname + "/tmp" ).c_str(), 0, nobody_gid );
+    chown( ( dirname + "/tmp" ).c_str(), 0, user_gid );
     chmod( ( dirname + "/tmp" ).c_str(), 01775 );
 
     return sumup_dir (dirname);
@@ -499,8 +503,20 @@ error_client( MsgChannel *client, string error )
         client->send_msg( StatusTextMsg( error ) );
 }
 
-void chdir_to_environment( MsgChannel *client, const string &dirname, uid_t nobody_uid, gid_t nobody_gid )
+void chdir_to_environment( MsgChannel *client, const string &dirname, uid_t user_uid, gid_t user_gid )
 {
+#ifdef HAVE_LIBCAP_NG
+    if ( chdir( dirname.c_str() ) < 0 ) {
+        error_client( client, string( "chdir to " ) + dirname + "failed" );
+        log_perror("chdir() failed" );
+        _exit(145);
+    }
+    if ( chroot( dirname.c_str() ) < 0 ) {
+        error_client( client, string( "chroot " ) + dirname + "failed" );
+        log_perror("chroot() failed" );
+        _exit(144);
+    }
+#else
     if ( getuid() == 0 ) {
         // without the chdir, the chroot will escape the
         // jail right away
@@ -514,12 +530,12 @@ void chdir_to_environment( MsgChannel *client, const string &dirname, uid_t nobo
             log_perror("chroot() failed" );
             _exit(144);
         }
-        if ( setgid( nobody_gid ) < 0 ) {
+        if ( setgid( user_gid ) < 0 ) {
             error_client( client, string( "setgid failed" ));
             log_perror("setgid() failed" );
             _exit(143);
         }
-        if ( setuid( nobody_uid ) < 0) {
+        if ( setuid( user_uid ) < 0) {
             error_client( client, string( "setuid failed" ));
             log_perror("setuid() failed" );
             _exit(142);
@@ -532,11 +548,12 @@ void chdir_to_environment( MsgChannel *client, const string &dirname, uid_t nobo
             trace() << "chdir to " << dirname << endl;
         }
     }
+#endif
 }
 
 // Verify that the environment works by simply running the bundled bin/true.
 bool verify_env( MsgChannel *client, const string &basedir, const string& target, const string &env,
-                 uid_t nobody_uid, gid_t nobody_gid )
+                 uid_t user_uid, gid_t user_gid )
 {
     if ( target.empty() || env.empty())
         return false;
@@ -559,6 +576,6 @@ bool verify_env( MsgChannel *client, const string &basedir, const string& target
     }
     // child
     reset_debug(0);
-    chdir_to_environment( client, dirname, nobody_uid, nobody_gid );
+    chdir_to_environment( client, dirname, user_uid, user_gid );
     _exit(execl("bin/true", "bin/true", (void*)NULL));
 }

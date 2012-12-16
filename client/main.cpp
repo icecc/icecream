@@ -329,8 +329,12 @@ int main(int argc, char **argv)
         }
     }
 
-    /* try several options to reach the local daemon - 2 sockets, one TCP */
-    MsgChannel *local_daemon = Service::createChannel( "/var/run/iceccd.socket" );
+    /* try several options to reach the local daemon - 3 sockets, one TCP */
+    MsgChannel *local_daemon = Service::createChannel( "/var/run/icecc/iceccd.socket" );
+
+    if (!local_daemon)
+        local_daemon = Service::createChannel( "/var/run/iceccd.socket" );
+
     if (!local_daemon) {
         string path = getenv("HOME");
         path += "/.iceccd.socket";
