@@ -359,6 +359,8 @@ bool analyse_argv( const char * const *argv,
                 }
             } else
                 args.append( a, Arg_Rest );
+        } else if (a[0] == '@') {
+            args.append(a, Arg_Local);
         } else {
             args.append( a, Arg_Rest );
         }
@@ -391,7 +393,7 @@ bool analyse_argv( const char * const *argv,
             if ( it->first == "-Xclang" ) {
                 ++it;
                 ++it;
-            } else if ( it->second != Arg_Rest || it->first.at( 0 ) == '-' )
+            } else if ( it->second != Arg_Rest || it->first.at( 0 ) == '-' || it->first.at( 0 ) == '@' )
                 ++it;
             else if ( ifile.empty() ) {
 #if CLIENT_DEBUG
