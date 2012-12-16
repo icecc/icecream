@@ -78,6 +78,10 @@
 #  define RUSAGE_CHILDREN (-1)
 #endif
 
+#ifdef HAVE_LIBCAP_NG
+#  include <cap-ng.h>
+#endif
+
 #include <deque>
 #include <map>
 #include <algorithm>
@@ -363,7 +367,7 @@ void usage(const char* reason = 0)
   if (reason)
      cerr << reason << endl;
 
-  cerr << "usage: iceccd [-n <netname>] [-m <max_processes>] [--no-remote] [-w] [-d|--daemonize] [-l logfile] [-s <schedulerhost>] [-v[v[v]]] [-r|--run-as-user] [-b <env-basedir>] [-u|--nobody-uid <nobody_uid>] [--cache-limit <MB>] [-N <node_name>]" << endl;
+  cerr << "usage: iceccd [-n <netname>] [-m <max_processes>] [--no-remote] [-w] [-d|--daemonize] [-l logfile] [-s <schedulerhost>] [-v[v[v]]] [-r|--run-as-user] [-u|--user-uid <user_uid>] [-b <env-basedir>] [--cache-limit <MB>] [-N <node_name>]" << endl;
   exit(1);
 }
 
@@ -394,8 +398,8 @@ struct Daemon
     // (or just the compiler name for the basic ones).
     map<string, NativeEnvironment> native_environments;
     string envbasedir;
-    uid_t nobody_uid;
-    gid_t nobody_gid;
+    uid_t user_uid;
+    gid_t user_gid;
     int tcp_listen_fd;
     int unix_listen_fd;
     string machine_name;
@@ -422,9 +426,17 @@ struct Daemon
     unsigned int current_kids;
 
     Daemon() {
+        struct passwd *pw = getpwnam("icecc");
+        if (pw) {
+            user_uid = pw->pw_uid;
+            user_gid = pw->pw_gid;
+        } else {
+            log_perror ("Error: no icecc user on system. Falling back to nobody.");
+            user_uid = 65534;
+            user_gid = 65533;
+        }
+
         envbasedir = "/tmp/icecc-envs";
-        nobody_uid = 65534;
-        nobody_gid = 65533;
         tcp_listen_fd = -1;
 	unix_listen_fd = -1;
         new_client_id = 0;
@@ -524,8 +536,8 @@ bool Daemon::setup_listen_fds()
     memset(&myaddr, 0, sizeof(myaddr));
     myaddr.sun_family = AF_UNIX;
     mode_t old_umask = -1U;
-    if (getuid()==0) {
-        strncpy(myaddr.sun_path, "/var/run/iceccd.socket", sizeof(myaddr.sun_path)-1);
+    if (access("/var/run/icecc", R_OK|W_OK|X_OK) == 0) {
+        strncpy(myaddr.sun_path, "/var/run/icecc/iceccd.socket", sizeof(myaddr.sun_path)-1);
         unlink(myaddr.sun_path);
         old_umask = umask(0);
     } else {
@@ -793,7 +805,7 @@ bool Daemon::handle_transfer_env( Client *client, Msg *_msg )
     FileChunkMsg* fmsg = 0;
 
     pid_t pid = start_install_environment( envbasedir, target,
-        emsg->name, client->channel, sock_to_stdin, fmsg, nobody_uid, nobody_gid );
+        emsg->name, client->channel, sock_to_stdin, fmsg, user_uid, user_gid );
 
     client->status = Client::TOINSTALL;
     client->outfile = emsg->target + "/" + emsg->name;
@@ -821,7 +833,7 @@ bool Daemon::handle_transfer_env_done( Client *client )
     assert(client->status == Client::TOINSTALL);
 
     size_t installed_size = finalize_install_environment(envbasedir, client->outfile,
-                              client->child_pid, nobody_gid);
+                              client->child_pid, user_gid);
 
     if (client->pipe_to_child >= 0) {
         installed_size = 0;
@@ -951,7 +963,7 @@ bool Daemon::handle_get_native_env( Client *client, GetNativeEnvMsg *msg )
     if ( !native_environments[ env_key ].name.length()) {
         NativeEnvironment& env = native_environments[ env_key ]; // also inserts it
         size_t installed_size = setup_env_cache( envbasedir, env.name,
-                                                 nobody_uid, nobody_gid, msg->compiler, msg->extrafiles );
+                                                 user_uid, user_gid, msg->compiler, msg->extrafiles );
         // we only clean out cache on next target install
         cache_size += installed_size;
         trace() << "cache_size = " << cache_size << endl;
@@ -1043,7 +1055,7 @@ void Daemon::handle_old_request()
 
             string envforjob = job->targetPlatform() + "/" + job->environmentVersion();
             envs_last_use[envforjob] = time( NULL );
-            pid = handle_connection( envbasedir, job, client->channel, sock, mem_limit, nobody_uid, nobody_gid );
+            pid = handle_connection( envbasedir, job, client->channel, sock, mem_limit, user_uid, user_gid );
             trace() << "handle connection returned " << pid << endl;
 
             if ( pid > 0) {
@@ -1123,7 +1135,7 @@ bool Daemon::handle_compile_file( Client *client, Msg *msg )
 bool Daemon::handle_verify_env( Client *client, VerifyEnvMsg *msg )
 {
     assert( msg );
-    bool ok = verify_env( client->channel, envbasedir, msg->target, msg->environment, nobody_uid, nobody_gid );
+    bool ok = verify_env( client->channel, envbasedir, msg->target, msg->environment, user_uid, user_gid );
     trace() << "Verify environment done, " << ( ok ? "success" : "failure" ) << ", environment " << msg->environment
          << " (" << msg->target << ")" << endl;
     VerifyEnvResultMsg resultmsg( ok );
@@ -1649,7 +1661,7 @@ int main( int argc, char ** argv )
             { "name", 1, NULL, 'n'},
             { "scheduler-host", 1, NULL, 's' },
             { "env-basedir", 1, NULL, 'b' },
-            { "nobody-uid", 1, NULL, 'u'},
+            { "user-uid", 1, NULL, 'u'},
             { "cache-limit", 1, NULL, 0},
             { "no-remote", 0, NULL, 0},
             { 0, 0, 0, 0 }
@@ -1743,9 +1755,9 @@ int main( int argc, char ** argv )
                 if ( !pw ) {
                     usage( "Error: -u requires a valid username" );
                 } else {
-                    d.nobody_uid = pw->pw_uid;
-                    d.nobody_gid = pw->pw_gid;
-                    if (!d.nobody_gid || !d.nobody_uid) {
+                    d.user_uid = pw->pw_uid;
+                    d.user_gid = pw->pw_gid;
+                    if (!d.user_gid || !d.user_uid) {
                         usage( "Error: -u <username> must not be root");
                     }
                 }
@@ -1760,13 +1772,35 @@ int main( int argc, char ** argv )
 
     umask(022);
 
-    if ( !logfile.length() && detach)
-        logfile = "/var/log/iceccd";
+    if (getuid() == 0) {
+        if (!logfile.length() && detach) {
+            if (mkdir("/var/log/icecc", S_IRWXU|S_IRGRP|S_IXGRP|S_IROTH|S_IXOTH)) {
+                if (errno == EEXIST) {
+                    chmod("/var/log/icecc", S_IRWXU|S_IRGRP|S_IXGRP|S_IROTH|S_IXOTH);
+                    chown("/var/log/icecc", d.user_uid, d.user_gid);
+                }
+            }
+
+            logfile = "/var/log/icecc/iceccd.log";
+        }
+
+        if (mkdir("/var/run/icecc", S_IRWXU|S_IRGRP|S_IXGRP|S_IROTH|S_IXOTH) == -1) {
+            if (errno == EEXIST) {
+                chmod("/var/run/icecc", S_IRWXU|S_IRGRP|S_IXGRP|S_IROTH|S_IXOTH);
+                chown("/var/run/icecc", d.user_uid, d.user_gid);
+            }
+        }
+#ifdef HAVE_LIBCAP_NG
+        capng_clear(CAPNG_SELECT_BOTH);
+        capng_update(CAPNG_ADD, (capng_type_t)(CAPNG_EFFECTIVE|CAPNG_PERMITTED), CAP_SYS_CHROOT);
+        capng_change_id(d.user_uid, d.user_gid, CAPNG_NO_FLAG);
+        capng_apply(CAPNG_SELECT_BOTH);
+#endif
+    } else {
+        d.noremote = true;
+    }
 
     setup_debug( debug_level, logfile );
-
-    if ((getuid()!=0))
-        d.noremote = true;
 
     log_info() << "ICECREAM daemon " VERSION " starting up (nice level "
                << nice_level << ") " << endl;

@@ -81,7 +81,7 @@ error_client( MsgChannel *client, string error )
  **/
 int handle_connection( const string &basedir, CompileJob *job,
                        MsgChannel *client, int &out_fd,
-                       unsigned int mem_limit, uid_t nobody_uid, gid_t nobody_gid )
+                       unsigned int mem_limit, uid_t user_uid, gid_t user_gid )
 {
     int socket[2];
     if ( pipe( socket ) == -1)
@@ -120,7 +120,7 @@ int handle_connection( const string &basedir, CompileJob *job,
                 throw myexception( EXIT_DISTCC_FAILED ); // the scheduler didn't listen to us!
             }
 
-            chdir_to_environment( client, dirname, nobody_uid, nobody_gid );
+            chdir_to_environment( client, dirname, user_uid, user_gid );
         }
         else
             chdir( "/" );
