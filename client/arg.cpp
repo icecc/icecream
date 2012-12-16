@@ -191,6 +191,21 @@ bool analyse_argv( const char * const *argv,
 		    if (!*pos)
 		        break;
 		}
+                /* Some weird build systems pass directly additional assembler files.
+                 * Example: -Wa,src/code16gcc.s
+                 * Need to handle it locally then. Search if the first part after -Wa, does not start with -
+                 */
+                pos = a+3;
+                while (*pos) {
+                    if (*pos == ',' || *pos == ' ') {
+			pos++;
+                        continue;
+		    }
+                    if (*pos == '-')
+                        break;
+                    local = true;
+                    break;
+                }
                 if (local) {
                     always_local = true;
                     args.append(a, Arg_Local);
