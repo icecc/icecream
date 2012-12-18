@@ -1,3 +1,7 @@
+# out-of-tree build
+build/
+# autoconf
+m4/
 Makefile.in
 aclocal.m4
 autom4te.cache
