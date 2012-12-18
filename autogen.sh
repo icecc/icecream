@@ -31,8 +31,7 @@ if [ "$LIBTOOLIZEFOUND" = "0" ]; then
 	exit 1
 fi
 
-amcheck=`automake --version | grep -F 'automake (GNU automake) 1.5'`
-if test "x$amcheck" = "xautomake (GNU automake) 1.5"; then
+if automake --version | grep -F 'automake (GNU automake) 1.5' > /dev/null; then # grep -q is non-portable
     echo "warning: you appear to be using automake 1.5"
     echo "         this version has a bug - GNUmakefile.am dependencies are not generated"
 fi
