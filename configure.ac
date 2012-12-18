@@ -1,14 +1,28 @@
 # quite some macros are taken from distcc
 
-AC_PREREQ(2.53)
+AC_PREREQ([2.63])
 
-AC_INIT(client/main.cpp)
+# ====================
+# Version informations
+# ====================
+m4_define([icecream_version_major],[0])
+m4_define([icecream_version_minor],[9])
+m4_define([icecream_version_micro],[97])
+m4_define([icecream_version],[icecream_version_major.icecream_version_minor.icecream_version_micro])
 
-AM_INIT_AUTOMAKE(icecc, "0.9.7")
-AM_CONFIG_HEADER(config.h)
-AC_CANONICAL_HOST
+# =============
+# Automake init
+# =============
+AC_INIT([icecream], [icecream_version])
+AC_CONFIG_MACRO_DIR([m4])
+AM_CONFIG_HEADER([config.h])
+AM_INIT_AUTOMAKE([1.11 foreign dist-xz])
+AM_SILENT_RULES([yes])
+AC_LANG([C++])
 
-dnl Checks for programs
+# ===========================
+# Find required base packages
+# ===========================
 AC_PROG_CC
 AC_PROG_CXX
 if test "$GCC" = yes; then
@@ -94,7 +108,6 @@ AC_CHECK_HEADERS([netinet/tcp_var.h], [], [],
 #endif
 ])
 
-
 AC_CHECK_HEADERS([sys/user.h])
 
 ######################################################################
@@ -122,7 +135,6 @@ AC_CHECK_MEMBER([struct ifreq.ifr_dstaddr],
                 [
 #include <net/if.h>
 ])
-
 
 ########################################################################
 ### Checks for libraries.
