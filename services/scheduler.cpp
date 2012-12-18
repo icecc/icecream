@@ -26,6 +26,7 @@
 #define _GNU_SOURCE 1
 #endif
 
+#include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -46,6 +47,7 @@
 #include <fstream>
 #include <string>
 #include <stdio.h>
+#include <pwd.h>
 #include "comm.h"
 #include "logging.h"
 #include "job.h"
@@ -1884,6 +1886,7 @@ usage(const char* reason = 0)
        << "  -h, --help\n"
        << "  -l, --log-file <file>\n"
        << "  -d, --daemonize\n"
+       << "  -u, --user-uid\n"
        << "  -v[v[v]]]\n"
        << endl;
 
@@ -1916,6 +1919,21 @@ main (int argc, char * argv[])
   bool detach = false;
   int debug_level = Error;
   string logfile;
+  uid_t user_uid;
+  gid_t user_gid;
+
+  struct passwd *pw = getpwnam("icecc");
+  if (pw)
+    {
+      user_uid = pw->pw_uid;
+      user_gid = pw->pw_gid;
+     }
+  else
+    {
+      log_perror ("Error: no icecc user on system. Falling back to nobody.");
+      user_uid = 65534;
+      user_gid = 65533;
+     }
 
   while ( true ) {
     int option_index = 0;
@@ -1925,10 +1943,11 @@ main (int argc, char * argv[])
       { "port", 0, NULL, 'p' },
       { "daemonize", 0, NULL, 'd'},
       { "log-file", 1, NULL, 'l'},
+      { "user-uid", 1, NULL, 'u'},
       { 0, 0, 0, 0 }
     };
 
-    const int c = getopt_long( argc, argv, "n:p:hl:vdr", long_options, &option_index );
+    const int c = getopt_long( argc, argv, "n:p:hl:vdr:u:", long_options, &option_index );
     if ( c == -1 ) break; // eoo
 
     switch ( c ) {
@@ -1971,14 +1990,51 @@ main (int argc, char * argv[])
       else
         usage("Error: -p requires argument");
       break;
+    case 'u':
+        if ( optarg && *optarg )
+          {
+            pw = getpwnam( optarg );
+            if ( !pw )
+              {
+                usage( "Error: -u requires a valid username" );
+               }
+            else
+              {
+                user_uid = pw->pw_uid;
+                user_gid = pw->pw_gid;
+                if ( !user_gid || !user_uid )
+                    usage( "Error: -u <username> must not be root" );
+               }
+           }
+        else
+          {
+            usage( "Error: -u requires a valid username" );
+           }
+        break;
 
     default:
       usage();
     }
   }
 
-  if ( !logfile.size() && detach )
-    logfile = "/var/log/icecc_scheduler";
+  if ( getuid() == 0 )
+    {
+      if ( !logfile.size() && detach )
+        logfile = "/var/log/icecc_scheduler";
+
+      if ( setgid( user_gid ) < 0 )
+        {
+          log_perror("setgid() failed" );
+          return 1;
+         }
+
+      if ( setuid( user_uid ) < 0 )
+        {
+          log_perror("setuid() failed" );
+          return 1;
+         }
+     }
+
 
   setup_debug( debug_level, logfile );
   if ( detach )
