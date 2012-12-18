@@ -2035,8 +2035,16 @@ main (int argc, char * argv[])
 
   if ( getuid() == 0 )
     {
-      if ( !logfile.size() && detach )
-        logfile = "/var/log/icecc_scheduler";
+      if ( !logfile.size() && detach ) {
+        if (mkdir("/var/log/icecc", S_IRWXU|S_IRGRP|S_IXGRP|S_IROTH|S_IXOTH)) {
+          if (errno == EEXIST) {
+              chmod("/var/log/icecc", S_IRWXU|S_IRGRP|S_IXGRP|S_IROTH|S_IXOTH);
+              chown("/var/log/icecc", user_uid, user_gid);
+          }
+        }
+
+        logfile = "/var/log/icecc/scheduler.log";
+      }
 
 #ifdef HAVE_LIBCAP_NG
       // Just drop all capabilities and change to
@@ -2045,7 +2053,6 @@ main (int argc, char * argv[])
       capng_apply(CAPNG_SELECT_BOTH);
 #endif
      }
-
 
   setup_debug( debug_level, logfile );
   if ( detach )
