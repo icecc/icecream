@@ -470,8 +470,7 @@ too.
 Bug tracker
 -----------------------------------------------------------------------
 
-There is not bug tracker for icecream because it is not yet in the beta
-phase.
+Create a github issue on https://github.com/icecc/icecream
 
 Repository
 ---------------------------------------------------------------------
