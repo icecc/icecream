@@ -1,3 +1,10 @@
+0.9.98 (1.0rc2)
+- install icecc links in a more convenient dir
+- fix for assembler usage during kvm builds
+- fix generation of man pages
+- some readme generated from en.opensuse.org content
+- update autoconf and automake macros
+
 0.9.97 (1.0rc1)
 - support for Clang compiler
   Clang now should work out of the box just like GCC.
