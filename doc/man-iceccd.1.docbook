@@ -205,7 +205,7 @@ environments of compile clients.</para></listitem>
 
 <refsect1>
 <title>See Also</title>
-<para>icecream, scheduler, iceccd, icemon</para>
+<para>icecream, icecc-scheduler, iceccd, icemon</para>
 </refsect1>
 
 <refsect1>
