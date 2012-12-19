@@ -48,7 +48,7 @@ over them anyway.</para>
 <para>You need:</para>
 <itemizedlist>
 <listitem>
-  <para>One machine that runs the scheduler ("./scheduler -d")</para>
+  <para>One machine that runs the scheduler ("./icecc-scheduler -d")</para>
 </listitem>
 <listitem>
   <para>Many machines that run the daemon ("./iceccd -d")</para>
@@ -321,7 +321,7 @@ USE_SCHEDULER=&lt;host&gt; icemon (or send me a patch :)</para>
 
 <refsect1>
 <title>See Also</title>
-<para>icecream, scheduler, iceccd, icemon</para>
+<para>icecream, icecc-scheduler, iceccd, icemon</para>
 </refsect1>
 
 <refsect1>

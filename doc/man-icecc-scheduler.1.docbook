@@ -23,13 +23,13 @@
 </refmeta>
 
 <refnamediv>
-	<refname>scheduler</refname>
+	<refname>icecc-scheduler</refname>
 	<refpurpose>Icecream scheduler</refpurpose>
 </refnamediv>
 
 <refsynopsisdiv>
 <cmdsynopsis>
-<command>scheduler</command>
+<command>icecc-scheduler</command>
 <group>
   <arg choice="opt">
     <option>-n</option>
@@ -151,7 +151,7 @@ need to run the scheduler with root rights.</para></listitem>
 
 <refsect1>
 <title>See Also</title>
-<para>icecream, scheduler, iceccd, icemon</para>
+<para>icecream, iceccd, icemon</para>
 </refsect1>
 
 <refsect1>
