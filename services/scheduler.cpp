@@ -26,6 +26,7 @@
 #define _GNU_SOURCE 1
 #endif
 
+#include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -46,11 +47,16 @@
 #include <fstream>
 #include <string>
 #include <stdio.h>
+#include <pwd.h>
 #include "comm.h"
 #include "logging.h"
 #include "job.h"
 #include "config.h"
 #include "bench.h"
+
+#ifdef HAVE_LIBCAP_NG
+#  include <cap-ng.h>
+#endif
 
 #define DEBUG_SCHEDULER 0
 
@@ -1884,6 +1890,9 @@ usage(const char* reason = 0)
        << "  -h, --help\n"
        << "  -l, --log-file <file>\n"
        << "  -d, --daemonize\n"
+#ifdef HAVE_LIBCAP_NG
+       << "  -u, --user-uid\n"
+#endif
        << "  -v[v[v]]]\n"
        << endl;
 
@@ -1916,6 +1925,23 @@ main (int argc, char * argv[])
   bool detach = false;
   int debug_level = Error;
   string logfile;
+#ifdef HAVE_LIBCAP_NG
+  uid_t user_uid;
+  gid_t user_gid;
+
+  struct passwd *pw = getpwnam("icecc");
+  if (pw)
+    {
+      user_uid = pw->pw_uid;
+      user_gid = pw->pw_gid;
+     }
+  else
+    {
+      log_perror ("Error: no icecc user on system. Falling back to nobody.");
+      user_uid = 65534;
+      user_gid = 65533;
+     }
+#endif
 
   while ( true ) {
     int option_index = 0;
@@ -1925,10 +1951,17 @@ main (int argc, char * argv[])
       { "port", 0, NULL, 'p' },
       { "daemonize", 0, NULL, 'd'},
       { "log-file", 1, NULL, 'l'},
+#ifdef HAVE_LIBCAP_NG
+      { "user-uid", 1, NULL, 'u'},
+#endif
       { 0, 0, 0, 0 }
     };
 
+#ifdef HAVE_LIBCAP_NG
+    const int c = getopt_long( argc, argv, "n:p:hl:vdr:u:", long_options, &option_index );
+#else
     const int c = getopt_long( argc, argv, "n:p:hl:vdr", long_options, &option_index );
+#endif
     if ( c == -1 ) break; // eoo
 
     switch ( c ) {
@@ -1971,14 +2004,55 @@ main (int argc, char * argv[])
       else
         usage("Error: -p requires argument");
       break;
+#ifdef HAVE_LIBCAP_NG
+    case 'u':
+        if ( optarg && *optarg )
+          {
+            pw = getpwnam( optarg );
+            if ( !pw )
+              {
+                usage( "Error: -u requires a valid username" );
+               }
+            else
+              {
+                user_uid = pw->pw_uid;
+                user_gid = pw->pw_gid;
+                if ( !user_gid || !user_uid )
+                    usage( "Error: -u <username> must not be root" );
+               }
+           }
+        else
+          {
+            usage( "Error: -u requires a valid username" );
+           }
+        break;
+#endif
 
     default:
       usage();
     }
   }
 
-  if ( !logfile.size() && detach )
-    logfile = "/var/log/icecc_scheduler";
+  if ( getuid() == 0 )
+    {
+      if ( !logfile.size() && detach ) {
+        if (mkdir("/var/log/icecc", S_IRWXU|S_IRGRP|S_IXGRP|S_IROTH|S_IXOTH)) {
+          if (errno == EEXIST) {
+              chmod("/var/log/icecc", S_IRWXU|S_IRGRP|S_IXGRP|S_IROTH|S_IXOTH);
+              chown("/var/log/icecc", user_uid, user_gid);
+          }
+        }
+
+        logfile = "/var/log/icecc/scheduler.log";
+      }
+
+#ifdef HAVE_LIBCAP_NG
+      // Just drop all capabilities and change to
+      capng_clear(CAPNG_SELECT_BOTH);
+      capng_change_id(user_uid, user_gid, CAPNG_NO_FLAG);
+      capng_apply(CAPNG_SELECT_BOTH);
+#endif
+     }
 
   setup_debug( debug_level, logfile );
   if ( detach )
