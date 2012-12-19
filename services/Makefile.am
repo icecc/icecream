@@ -23,9 +23,9 @@ noinst_HEADERS = \
 	tempfile.h \
 	platform.h
 
-sbin_PROGRAMS = scheduler
-scheduler_SOURCES = scheduler.cpp
-scheduler_LDADD = libicecc.la
+sbin_PROGRAMS = icecc-scheduler
+icecc_scheduler_SOURCES = scheduler.cpp
+icecc_scheduler_LDADD = libicecc.la
 
 pkgconfigdir = $(libdir)/pkgconfig
 pkgconfig_DATA = icecc.pc
