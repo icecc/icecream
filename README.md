@@ -66,7 +66,7 @@ How to use icecream
 
 You need:
 
--   One machine that runs the scheduler ("./scheduler -d")
+-   One machine that runs the scheduler ("./icecc-scheduler -d")
 -   Many machines that run the daemon ("./iceccd -d")
 
 It is possible to run the scheduler and the daemon on one machine and

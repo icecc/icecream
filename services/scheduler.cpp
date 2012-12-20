@@ -1877,7 +1877,7 @@ usage(const char* reason = 0)
      cerr << reason << endl;
 
   cerr << "ICECREAM scheduler " VERSION "\n";
-  cerr << "usage: scheduler [options] \n"
+  cerr << "usage: icecc-scheduler [options] \n"
        << "Options:\n"
        << "  -n, --netname <name>\n"
        << "  -p, --port <port>\n"
