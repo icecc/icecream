@@ -30,6 +30,4 @@ services/icecc.pc
 services/libicecc.la
 services/scheduler
 suse/icecream.spec
-doc/*.1
-doc/*.7
 doc/index.html

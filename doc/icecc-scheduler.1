@@ -1,0 +1,85 @@
+'\" t
+.\"     Title: Icecream
+.\"    Author: Cornelius Schumacher
+.\" Generator: DocBook XSL Stylesheets v1.77.1 <http://docbook.sf.net/>
+.\"      Date: April 21th, 2005
+.\"    Manual: Icecream User's Manual
+.\"    Source: Icecream
+.\"  Language: English
+.\"
+.TH "ICECREAM" "1" "April 21th, 2005" "Icecream" "Icecream User's Manual"
+.\" -----------------------------------------------------------------
+.\" * Define some portability stuff
+.\" -----------------------------------------------------------------
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.\" http://bugs.debian.org/507673
+.\" http://lists.gnu.org/archive/html/groff/2009-02/msg00013.html
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.ie \n(.g .ds Aq \(aq
+.el       .ds Aq '
+.\" -----------------------------------------------------------------
+.\" * set default formatting
+.\" -----------------------------------------------------------------
+.\" disable hyphenation
+.nh
+.\" disable justification (adjust text to left margin only)
+.ad l
+.\" -----------------------------------------------------------------
+.\" * MAIN CONTENT STARTS HERE *
+.\" -----------------------------------------------------------------
+.SH "NAME"
+icecc-scheduler \- Icecream scheduler
+.SH "SYNOPSIS"
+.HP \w'\fBicecc\-scheduler\fR\ 'u
+\fBicecc\-scheduler\fR [[\fB\-n\fR] | [\fB\-\-netname\fR]\fI name\fR] [[\fB\-p\fR] | [\fB\-\-port\fR]\fI port\fR] [[\fB\-h\fR] | [\fB\-\-help\fR]] [[\fB\-l\fR] | [\fB\-\-log\-file\fR]\fI file\fR] [[\fB\-d\fR] | [\fB\-\-daemonize\fR]] [[\fB\-r\fR] | [\fB\-\-allow\-run\-as\-user\fR]] [\-v\ [v\ [v]]]
+.SH "DESCRIPTION"
+.PP
+The Icecream scheduler is the central instance of an Icecream compile network\&. It distributes the compile jobs and provides the data for the monitors\&.
+.SH "OPTIONS"
+.PP
+\fB\-n\fR, \fB\-\-netname\fR \fInetname\fR
+.RS 4
+The name of the Icecream network the scheduler controls\&.
+.RE
+.PP
+\fB\-p\fR, \fB\-\-port\fR \fIport\fR
+.RS 4
+IP port the scheduler uses\&.
+.RE
+.PP
+\fB\-h\fR, \fB\-\-help\fR
+.RS 4
+Print help message\&.
+.RE
+.PP
+\fB\-l\fR, \fB\-\-log\-file\fR \fIlogfile\fR
+.RS 4
+Name of file where log output is written to\&.
+.RE
+.PP
+\fB\-d\fR, \fB\-\-daemonize\fR
+.RS 4
+Detach daemon from shell\&.
+.RE
+.PP
+\fB\-v\fR, \fB\-vv\fR, \fB\-vvv\fR
+.RS 4
+Control verbosity of daemon\&. The more v the more verbose\&.
+.RE
+.PP
+\fB\-r\fR, \fB\-\-allow\-run\-as\-user\fR
+.RS 4
+Force running the scheduler with user rights\&. Usually you will need to run the scheduler with root rights\&.
+.RE
+.SH "SEE ALSO"
+.PP
+icecream, iceccd, icemon
+.SH "AUTHOR"
+.PP
+Cornelius Schumacher
+.SH "AUTHOR"
+.PP
+\fBCornelius Schumacher\fR
+.RS 4
+Author.
+.RE
