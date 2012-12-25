@@ -1,18 +1,31 @@
 #
 # spec file for package icecream
 #
+# Copyright (c) 2012 SUSE LINUX Products GmbH, Nuernberg, Germany.
+#
+# All modifications and additions to the file contributed by third parties
+# remain the property of their copyright owners, unless otherwise agreed
+# upon. The license for this file, and modifications and additions to the
+# file, is the same license as for the pristine package itself (unless the
+# license for the pristine package is not an Open Source License, in which
+# case the license is the MIT License). An "Open Source License" is a
+# license that conforms to the Open Source Definition (Version 1.9)
+# published by the Open Source Initiative.
 
-# neededforbuild gcc-c++ libstdc++-devel
-# norootforbuild
-# don't use icecc to avoid bootstrap problems
+# Please submit bugfixes or comments via http://bugs.opensuse.org/
+#
 # icecream 0
+
 
 Name:           icecream
 BuildRequires:  gcc-c++
-License:        GPL, LGPL
-Group:          Development/Tools/Building
+BuildRequires:  libcap-ng-devel
 Summary:        For Distributed Compile in the Network
-Requires:       /bin/tar /usr/bin/bzip2
+License:        GPL-2.0+ and LGPL-2.1+
+URL:            https://github.com/icecc/icecream
+Group:          Development/Tools/Building
+Requires:       /bin/tar
+Requires:       /usr/bin/bzip2
 %if 0%{?suse_version}
 PreReq:         %fillup_prereq
 PreReq:         %insserv_prereq
@@ -21,24 +34,23 @@ Prereq:         /usr/sbin/useradd /usr/sbin/groupadd
 Requires:       gcc-c++
 Version:        @VERSION@
 Release:        1
-Source0:        ftp://ftp.suse.com/pub/projects/icecream/icecc-%{version}.tar.bz2
-Source1:        %name-manpages.tar.bz2
+Source0:        ftp://ftp.suse.com/pub/projects/icecream/icecream-%{version}.tar.bz2
 BuildRoot:      %{_tmppath}/%{name}-%{version}-build
 
 %description
 icecream is the next generation distcc.
 
 %package -n libicecream-devel
-Summary: libicecream-devel
-Group:          Development/Tools/Building
 Summary:        For Distributed Compile in the Network
-Requires:      libstdc++-devel
+Group:          Development/Tools/Building
+Requires:       libstdc++-devel
 
 %description -n libicecream-devel
-libicecream-devel
+icecream is the next generation distcc.
 
 %prep
-%setup -q -n %name -a 1
+%setup -q
+# DO NOT ADD PATCHES without github reference
 
 %build
 export CFLAGS="$RPM_OPT_FLAGS"
@@ -48,34 +60,14 @@ make -f Makefile.cvs
 make %{?jobs:-j %jobs}
 
 %install
-make DESTDIR=$RPM_BUILD_ROOT KDEDIR=/opt/kde3 install
-mkdir -p $RPM_BUILD_ROOT/opt/icecream/bin
-for i in g++ gcc cc c++; do 
-  ln -s /usr/bin/icecc $RPM_BUILD_ROOT/opt/icecream/bin/$i
-  rm -f $RPM_BUILD_ROOT/usr/bin/$i
-done
-#
-# Install icecream init script
-mkdir -p $RPM_BUILD_ROOT/etc/init.d/
-install -m 755 suse/init.icecream $RPM_BUILD_ROOT/etc/init.d/icecream
-ln -sf /etc/init.d/icecream $RPM_BUILD_ROOT%{_sbindir}/rcicecream
-%if 0%{?suse_version}
-mkdir -p $RPM_BUILD_ROOT/var/adm/fillup-templates
-install -m 644 suse/sysconfig.icecream $RPM_BUILD_ROOT/var/adm/fillup-templates/sysconfig.icecream
-%endif
-mkdir -p $RPM_BUILD_ROOT/var/cache/icecream
-mkdir -p $RPM_BUILD_ROOT%_mandir/man{1,7}
-for i in mans/*.1 mans/*.7; do
-	install -m 644 $i $RPM_BUILD_ROOT%_mandir/man`echo $i | sed -e 's,.*\(.\)$,\1,'`/`basename $i`
-done
-install -m 644 -D suse/logrotate $RPM_BUILD_ROOT/etc/logrotate.d/icecream
+make DESTDIR=$RPM_BUILD_ROOT install
 
 %preun
 %stop_on_removal icecream
 
 %pre
-/usr/sbin/groupadd -r icecream 2> /dev/null || :
-/usr/sbin/useradd -r -g icecream -s /bin/false -c "Icecream Daemon" -d /var/cache/icecream icecream 2> /dev/null || :
+/usr/sbin/groupadd -r icecc 2> /dev/null || :
+/usr/sbin/useradd -r -g icecc -s /bin/false -c "Icecream Daemon" -d /var/cache/icecream icecc 2> /dev/null || :
 
 %if 0%{?suse_version}
 %post
@@ -91,20 +83,21 @@ rm -rf ${RPM_BUILD_ROOT}
 
 %files
 %defattr(-,root,root)
-%config /etc/logrotate.d/icecream
-%config /etc/init.d/icecream
+%config %_sysconfdir/logrotate.d/icecream
+%config %_sysconfdir/init.d/icecream
 %_bindir/icecc
 %_bindir/icerun
-%_sbindir/scheduler
-%_libdir/icecc
+%_sbindir/icecc-scheduler
 %_sbindir/iceccd
 %_sbindir/rcicecream
 %_mandir/man*/*
-/opt/icecream
+%_libexecdir/icecream
 %if 0%{?suse_version}
-/var/adm/fillup-templates/sysconfig.icecream
+%_sysconfdir/sysconfig/SuSEfirewall2.d/services/*
+%_localstatedir/adm/fillup-templates/sysconfig.icecream
 %endif
-%attr(-,icecream,icecream) /var/cache/icecream
+%attr(-,icecream,icecream)
+%_localstatedir/cache/icecream
 
 %files -n libicecream-devel
 %defattr(-,root,root)
@@ -112,4 +105,4 @@ rm -rf ${RPM_BUILD_ROOT}
 %_libdir/libicecc.*
 %_libdir/pkgconfig/icecc.pc
 
-%changelog -n icecream
+%changelog
