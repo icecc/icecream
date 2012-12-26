@@ -59,6 +59,27 @@ AC_DISABLE_SHARED
 AC_ENABLE_STATIC
 AC_PROG_LIBTOOL
 
+# =============
+# Documentation
+# =============
+AC_ARG_WITH(man,
+    [AS_HELP_STRING([--without-man], [Do not build manpage])],
+    [with_man="$withval"],
+    [with_man=yes]
+)
+AS_IF([test "x$with_man" != "xno"], [
+    build_man=yes
+    AC_PATH_PROG(DOCBOOK2X,[docbook-to-man])
+    AS_IF([test -z "$DOCBOOK2X"], [
+        AC_PATH_PROG(DOCBOOK2X,[docbook2man.pl])
+        AS_IF([test -z "$DOCBOOK2X"], [
+            AC_MSG_ERROR([docbook-to-man is missing. Install docbook2X package.])
+        ])
+    ])
+], [build_man=no])
+AC_SUBST(DOCBOOK2X)
+AM_CONDITIONAL([WITH_ICECREAM_MAN], [test "x$build_man" != "xno"])
+
 ########################################################################
 ### Checks for header files
 
