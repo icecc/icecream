@@ -1,8 +1,5 @@
 if WITH_ICECREAM_MAN
 
-STYLESHEET=$(shell kde4-config --path data --locate ksgmltools2/customization/kde-include-man.xsl)
-MEINPROC=meinproc4 --stylesheet $(STYLESHEET)
-
 icecc.1: $(srcdir)/man-icecc.1.xml
 	$(DOCBOOK2X) $<
 
