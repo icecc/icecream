@@ -1,0 +1,119 @@
+'\" t
+.\"     Title: Icecream Daemon
+.\"    Author: Cornelius Schumacher
+.\" Generator: DocBook XSL Stylesheets v1.77.1 <http://docbook.sf.net/>
+.\"      Date: April 21th, 2005
+.\"    Manual: Icecream User's Manual
+.\"    Source: Icecream
+.\"  Language: English
+.\"
+.TH "ICECREAM DAEMON" "1" "April 21th, 2005" "Icecream" "Icecream User's Manual"
+.\" -----------------------------------------------------------------
+.\" * Define some portability stuff
+.\" -----------------------------------------------------------------
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.\" http://bugs.debian.org/507673
+.\" http://lists.gnu.org/archive/html/groff/2009-02/msg00013.html
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.ie \n(.g .ds Aq \(aq
+.el       .ds Aq '
+.\" -----------------------------------------------------------------
+.\" * set default formatting
+.\" -----------------------------------------------------------------
+.\" disable hyphenation
+.nh
+.\" disable justification (adjust text to left margin only)
+.ad l
+.\" -----------------------------------------------------------------
+.\" * MAIN CONTENT STARTS HERE *
+.\" -----------------------------------------------------------------
+.SH "NAME"
+iceccd \- Icecream daemon
+.SH "SYNOPSIS"
+.HP \w'\fBiceccd\fR\ 'u
+\fBiceccd\fR [\fB\-n\ \fR\fB\fInetname\fR\fR] [\fB\-m\ \fR\fB\fImax_processes\fR\fR] [\fB\-\-no\-remote\fR] [\fB\-w\fR] [[\fB\-d\fR] | [\fB\-\-daemonize\fR]] [\fB\-l\ \fR\fB\fIlogfile\fR\fR] [\fB\-s\ \fR\fB\fIschedulerhost\fR\fR] [\-v\ [v\ [v]]] [[\fB\-r\fR] | [\fB\-\-run\-as\-user\fR]] [\fB\-b\ \fR\fB\fIenv\-basedir\fR\fR] [[\fB\-u\fR] | [\fB\-\-nobody\-uid\fR]\fI nobodyuid\fR] [\fB\-\-cache\-limit\ \fR\fB\fIMB\fR\fR] [\fB\-N\ \fR\fB\fIhostname\fR\fR]
+.SH "DESCRIPTION"
+.PP
+The Icecream daemon has to run on all nodes being part of the Icecream compile cluster\&. It receives compile jobs and executes them in a chroot environment\&. The compile clients send their compile environment the first time they send a job to a particular daemon, so that the environment of the daemon doesn\*(Aqt have to match the one of the client\&.
+.PP
+The daemon also has to run on clients sending compile jobs to the Icecream network\&. If a node should be able to send compile jobs, but never receive any, start the daemon with the option
+\-m 0\&.
+.PP
+All Icecream daemons need to have contact to the Icecream scheduler which controls the distribution of data between compile nodes\&. Normally the daemon will automatically find the right scheduler\&. If this is not the case you can explicitly specify the name of the Icecream network and the host running the scheduler\&.
+.SH "OPTIONS"
+.PP
+\fB\-n\fR \fInetname\fR
+.RS 4
+The name of the icecream network the daemon should connect to\&. There has to be a scheduler running for the network under the same network name\&.
+.RE
+.PP
+\fB\-m\fR \fImax_processes\fR
+.RS 4
+Maximum number of compile jobs started in parallel on machine running the daemon\&.
+.RE
+.PP
+\fB\-\-no\-remote\fR
+.RS 4
+Prevents jobs from other nodes being scheduled on this one\&.
+.RE
+.PP
+\fB\-w\fR
+.RS 4
+.RE
+.PP
+\fB\-d\fR, \fB\-\-daemonize\fR
+.RS 4
+Detach daemon from shell\&.
+.RE
+.PP
+\fB\-l\fR \fIlogfile\fR
+.RS 4
+Name of file where log output is written to\&.
+.RE
+.PP
+\fB\-s\fR \fIscheduler_host\fR
+.RS 4
+Name of host running the scheduler for the network the daemon should connect to\&. This option might help if the scheduler can\*(Aqt broadcast its presence to the clients due to firewall settings or similar reasons\&.
+.RE
+.PP
+\fB\-v\fR, \fB\-vv\fR, \fB\-vvv\fR
+.RS 4
+Control verbosity of daemon\&. The more v the more verbose\&.
+.RE
+.PP
+\fB\-r\fR, \fB\-\-run\-as\-user\fR
+.RS 4
+Force running the daemon with user rights\&. Usually you will need to run the daemon with root rights\&.
+.RE
+.PP
+\fB\-b\fR \fIenv_basedir\fR
+.RS 4
+Base directory for storing compile environments sent to the daemon by the compile clients\&.
+.RE
+.PP
+\fB\-u\fR, \fB\-\-nobody\-uid\fR \fInobodyuid\fR
+.RS 4
+Id of user nobody\&. This user id is used when the daemon is dropping privileges\&.
+.RE
+.PP
+\fB\-\-cache\-limit\fR \fIMB\fR
+.RS 4
+Maximum size in Mega Bytes of cache used to store compile environments of compile clients\&.
+.RE
+.PP
+\fB\-N\fR \fIhostname\fR
+.RS 4
+The name of the icecream host on the network\&.
+.RE
+.SH "SEE ALSO"
+.PP
+icecream, icecc\-scheduler, iceccd, icemon
+.SH "AUTHOR"
+.PP
+Cornelius Schumacher
+.SH "AUTHOR"
+.PP
+\fBCornelius Schumacher\fR
+.RS 4
+Author.
+.RE

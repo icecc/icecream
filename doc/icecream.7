@@ -1,0 +1,349 @@
+'\" t
+.\"     Title: icecream
+.\"    Author: Cornelius Schumacher
+.\" Generator: DocBook XSL Stylesheets v1.77.1 <http://docbook.sf.net/>
+.\"      Date: April 21th, 2005
+.\"    Manual: Icecream User's Manual
+.\"    Source: Icecream
+.\"  Language: English
+.\"
+.TH "ICECREAM" "7" "April 21th, 2005" "Icecream" "Icecream User's Manual"
+.\" -----------------------------------------------------------------
+.\" * Define some portability stuff
+.\" -----------------------------------------------------------------
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.\" http://bugs.debian.org/507673
+.\" http://lists.gnu.org/archive/html/groff/2009-02/msg00013.html
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.ie \n(.g .ds Aq \(aq
+.el       .ds Aq '
+.\" -----------------------------------------------------------------
+.\" * set default formatting
+.\" -----------------------------------------------------------------
+.\" disable hyphenation
+.nh
+.\" disable justification (adjust text to left margin only)
+.ad l
+.\" -----------------------------------------------------------------
+.\" * MAIN CONTENT STARTS HERE *
+.\" -----------------------------------------------------------------
+.SH "NAME"
+icecream \- A distributed compile system
+.SH "DESCRIPTION"
+.PP
+Icecream is a distributed compile system for C and C++\&.
+.PP
+Icecream is created by SUSE and is based on ideas and code by distcc\&. Like distcc it takes compile jobs from your (KDE) build and distributes it to remote machines allowing a parallel build on several machines you\*(Aqve got\&. But unlike distcc Icecream uses a central server that schedules the compile jobs to the fastest free server and is as this dynamic\&. This advantage pays off mostly for shared computers, if you\*(Aqre the only user on x machines, you have full control over them anyway\&.
+.SH "HOW TO USE ICECREAM"
+.PP
+You need:
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+One machine that runs the scheduler ("\&./icecc\-scheduler \-d")
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+Many machines that run the daemon ("\&./iceccd \-d")
+.RE
+.PP
+If you want to compile using icecream, make sure $prefix/bin is the first first entry in your path, e\&.g\&. type
+\fBexport PATH=/opt/icecream/bin:$PATH\fR
+(Hint: put this in ~/\&.bashrc or /etc/profile to not have to type it in everytime)
+.PP
+Then you just compile with
+\fBmake \-j <num>\fR, where <num> is the amount of jobs you want to compile in parallel\&. Don\*(Aqt exaggerate\&. Numbers greater than 15 normally cause trouble\&.
+.PP
+WARNING: Never use icecream in untrusted environments\&. Run the deamons and the scheduler as unpriviliged user in such networks if you have to! But you will have to rely on homogeneous networks then (see below)\&.
+.PP
+If you want funny stats, you might want to run "icemon"\&.
+.SH "USING ICECREAM IN HETEROGENEOUS ENVIRONMENTS"
+.PP
+If you are running icecream daemons (note: they _all_ must be running as root\&. In the future icecream might gain the ability to know when machines can\*(Aqt accept a different env, but for now it is all or nothing ) in the same icecream network but on machines with incompatible compiler versions you have to tell icecream which environment you are using\&. Use
+\fBicecc \-\-build\-native\fR
+to create an archive file containing all the files necessary to setup the compiler environment\&. The file will have a random unique name like "ddaea39ca1a7c88522b185eca04da2d8\&.tar\&.bz2" per default\&. Rename it to something more expressive for your convenience, e\&.g\&. "i386\-3\&.3\&.1\&.tar\&.bz2"\&. Set
+\fBICECC_VERSION=<filename_of_archive_containing_your_environment>\fR
+in the shell environment where you start the compile jobs and the file will be transfered to the daemons where your compile jobs run and installed to a chroot environment for executing the compile jobs in the environment fitting to the environment of the client\&. This requires that the icecream deamon runs as root\&.
+.PP
+If you do not set ICECC_VERSION, the client will use a tar ball provided by the daemon running on the same machine\&. So you can always be sure you\*(Aqre not tricked by incompatible gcc versions \- and you can share your computer with users of other distributions (or different versions of your beloved SUSE Linux :)
+.SH "CROSS-COMPILING USING ICECREAM"
+.PP
+SUSE got quite some good machines not having a processor from Intel or AMD, so icecream is pretty good in using cross\-compiler environments similiar to the above way of spreading compilers\&. There the ICECC_VERSION varaible looks like <native_filename>(,<platform>:<cross_compiler_filename>)*, for example like this:
+/work/9\&.1\-i386\&.tar\&.bz2,ia64:/work/9\&.1\-cross\-ia64\&.tar\&.bz2
+.PP
+How to package such a cross compiler is pretty straightforward if you look what\*(Aqs inside the tarballs generated by
+\fBicecc \-\-build\-native\fR\&.
+.SH "CROSS-COMPILING FOR EMBEDDED TARGETS USING ICECREAM"
+.PP
+When building for embedded targets like ARM often you\*(Aqll have a toolchain that runs on your host and produces code for the target\&. In these situations you can exploit the power of icecream as well\&.
+.PP
+Create symlinks from where icecc is to the name of your cross compilers (e\&.g\&. arm\-linux\-g++ and arm\-linux\-gcc), make sure that these symlinks are in the path and before the path of your toolchain, with
+\fI$ICECC_CC\fR
+and
+\fI$ICECC_CXX\fR
+you need to tell icecream which compilers to use for preprocessing and local compiling\&. e\&.g\&. set it to
+\fBICECC_CC=arm\-linux\-gcc\fR
+and
+\fBICECC_CXX=arm\-linux\-g++\fR\&.
+.PP
+As the next step you need to create a \&.tar\&.bz2 of your cross compiler, check the result of build\-native to see what needs to be present\&.
+.PP
+Finally one needs to set
+\fIICECC_VERSION\fR
+and point it to the tar\&.bz2 you\*(Aqve created\&. When you start compiling your toolchain will be used\&.
+.PP
+NOTE: with
+\fIICECC_VERSION\fR
+you point out on which platforms your toolchain runs, you do not indicate for which target code will be generated\&.
+.SH "HOW TO COMBINE ICECREAM WITH CCACHE"
+.PP
+The easiest way to use ccache with icecream is to set
+\fICCACHE_PREFIX\fR
+to icecc (the actual icecream client wrapper)
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+ 
+ export CCACHE_PREFIX=icecc
+.fi
+.if n \{\
+.RE
+.\}
+.PP
+This will make ccache prefix any compilation command it needs to do with icecc, making it use icecream for the compilation (but not for preprocessing alone)\&.
+.PP
+To actually use ccache, the mechanism is the same like with using icecream alone\&. Since ccache does not provide any symlinks in /opt/ccache/bin, you can create them manually:
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+mkdir /opt/ccache/bin
+ln \-s /usr/bin/ccache /opt/ccache/bin/gcc
+ln \-s /usr/bin/ccache /opt/ccache/bin/g++
+.fi
+.if n \{\
+.RE
+.\}
+.PP
+Then you can replace /opt/icecream/bin with /opt/ccache/bin in your
+\fI$PATH\fR
+and all icecream calls will go through ccache (and Qt will compile in 62s :)
+.PP
+Note however that ccache isn\*(Aqt really worth the trouble if you\*(Aqre not recompiling your KDE three times a day from scratch (it adds quite some overhead in comparing the preprocessor output and uses quite some disc space and I found a cache hit of 18% a bit too few, so I disabled it again)\&.
+.SH "DEBUG OUTPUT"
+.PP
+You can use the environment variable
+\fIICECC_DEBUG\fR
+to control if icecream gives debug output or not\&. Set it to
+debug
+to get debug output\&. The other possible values are
+error,
+warning
+and
+info
+(the \-v option for daemon and scheduler raise the level per \-v on the command line \- so use \-vvv for full debug)\&.
+.SH "AVOIDING OLD HOSTS"
+.PP
+It is possible that compilation on some hosts fails because they are too old (typically the kernel on the remote host is too old for the glibc from the local host)\&. Recent icecream versions should automatically detect this and avoid such hosts when compilation would fail\&. If some hosts are running old icecream versions and it is not possible to upgrade them for some reason, use
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+ export ICECC_IGNORE_UNVERIFIED=1
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+.SH "SOME NUMBERS"
+.PP
+Numbers of my test case (some STL C++ genetic algorithm)
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+g++ on my machine: 1\&.6s
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+g++ on fast machine: 1\&.1s
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+icecream using my machine as remote machine: 1\&.9s
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+icecream using fast machine: 1\&.8s
+.RE
+.PP
+The icecream overhead is quite huge as you might notice, but the compiler can\*(Aqt interleave preprocessing with compilation and the file needs to be read/written once more and in between the file is transfered\&.
+.PP
+But even if the other computer is faster, using g++ on my local machine is faster\&. If you\*(Aqre (for whatever reason) alone in your network at some point, you loose all advantages of distributed compiling and only add the overhead\&. So icecream got a special case for local compilations (the same special meaning that localhost got within $DISTCC_HOSTS)\&. This makes compiling on my machine using icecream down to 1\&.7s (the overhead is actually less than 0\&.1s in average)\&.
+.PP
+As the scheduler is aware of that meaning, it will prefer your own computer if it\*(Aqs free and got not less than 70% of the fastest available computer\&.
+.PP
+Keep in mind, that this affects only the first compile job, the second one is distributed anyway\&. So if I had to compile two of my files, I would get
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+g++ \-j1 on my machine: 3\&.2s
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+g++ \-j1 on the fast machine: 2\&.2s
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+using icecream \-j2 on my machine: max(1\&.7,1\&.8)=1\&.8s
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+(using icecream \-j2 on the other machine: max(1\&.1,1\&.8)=1\&.8s)
+.RE
+.PP
+The math is a bit tricky and depends a lot on the current state of the compilation network, but make sure you\*(Aqre not blindly assuming make \-j2 halfs your compilation time\&.
+.SH "WHAT IS THE BEST ENVIRONMENT FOR ICECREAM"
+.PP
+In most requirements icecream isn\*(Aqt special, e\&.g\&. it doesn\*(Aqt matter what distributed compile system you use, you won\*(Aqt have fun if your nodes are connected through than less or equal to 10MBit\&. Note that icecream compresses input and output files (using lzo), so you can calc with ~1MBit per compile job \- i\&.e more than make \-j10 won\*(Aqt be possible without delays\&.
+.PP
+Remember that more machines are only good if you can use massive parallelization, but you will for sure get the best result if your submitting machine (the one you called g++ on) will be fast enough to feed the others\&. Especially if your project consists of many easy to compile files, the preprocessing and file IO will be job enough to need a quick machine\&.
+.PP
+The scheduler will try to give you the fastest machines available, so even if you add old machines, they will be used only in exceptional situations, but still you can have bad luck \- the scheduler doesn\*(Aqt know how long a job will take before it started\&. So if you have 3 machines and two quick to compile and one long to compile source file, you\*(Aqre not safe from a choice where everyone has to wait on the slow machine\&. Keep that in mind\&.
+.SH "NETWORK SETUP FOR ICECREAM (FIREWALLS)"
+.PP
+A short overview of the ports icecream requires:
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+TCP/10245 on the daemon computers (required)
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+TCP/8765 for the the scheduler computer (required)
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+TCP/8766 for the telnet interface to the scheduler (optional)
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+UDP/8765 for broadcast to find the scheduler (optional)
+.RE
+.PP
+Note that the SuSEfirewall2 on SUSE < 9\&.1 got some problems configuring broadcast\&. So you might need the \-s option for the daemon in any case there\&. If the monitor can\*(Aqt find the scheduler, use USE_SCHEDULER=<host> icemon (or send me a patch :)
+.SH "SEE ALSO"
+.PP
+icecream, icecc\-scheduler, iceccd, icemon
+.SH "ICECREAM AUTHORS"
+.PP
+Stephan Kulow <coolo@suse\&.de>
+.PP
+Michael Matz <matz@suse\&.de>
+.PP
+Cornelius Schumacher <cschum@suse\&.de>
+.PP
+\&.\&.\&.and various other contributors\&.
+.SH "AUTHOR"
+.PP
+\fBCornelius Schumacher\fR
+.RS 4
+Author.
+.RE
