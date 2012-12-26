@@ -19,22 +19,24 @@
 
 Name:           icecream
 BuildRequires:  gcc-c++
+%if 0%{?suse_version} > 1110
 BuildRequires:  libcap-ng-devel
+%endif
 Summary:        For Distributed Compile in the Network
 License:        GPL-2.0+ and LGPL-2.1+
-URL:            https://github.com/icecc/icecream
 Group:          Development/Tools/Building
+Url:            https://github.com/icecc/icecream
 Requires:       /bin/tar
 Requires:       /usr/bin/bzip2
 %if 0%{?suse_version}
 PreReq:         %fillup_prereq
 PreReq:         %insserv_prereq
 %endif
-Prereq:         /usr/sbin/useradd /usr/sbin/groupadd
+PreReq:         /usr/sbin/useradd /usr/sbin/groupadd
 Requires:       gcc-c++
 Version:        @VERSION@
 Release:        0
-Source0:        ftp://ftp.suse.com/pub/projects/icecream/icecream-%{version}.tar.bz2
+Source0:        ftp://ftp.suse.com/pub/projects/icecream/icecc-%{version}.tar.bz2
 BuildRoot:      %{_tmppath}/%{name}-%{version}-build
 
 %description
