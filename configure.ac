@@ -59,6 +59,8 @@ AC_DISABLE_SHARED
 AC_ENABLE_STATIC
 AC_PROG_LIBTOOL
 
+LIBCAP_NG_PATH
+
 ########################################################################
 ### Checks for header files
 
@@ -175,14 +177,6 @@ fi
 
 AC_CHECK_LIB(resolv, hstrerror, , , [-lnsl -lsocket])
 AC_CHECK_LIB(resolv, inet_aton, , , [-lnsl -lsocket])
-
-AC_CHECK_LIB(cap-ng, capng_clear, have_libcap_ng=yes, have_libcap_ng=no)
-AM_CONDITIONAL(HAVE_LIBCAP_NG, test x$have_libcap_ng = xyes)
-
-if test x$have_libcap_ng = xyes ; then
-    LIBS="-lcap-ng $LIBS"
-    AC_DEFINE(HAVE_LIBCAP_NG,1,[Define if system has libcap-ng installed])
-fi
 
 AC_CHECK_FUNCS([setsid flock lockf hstrerror strerror setuid setreuid])
 AC_CHECK_FUNCS([getuid geteuid mcheck wait4 wait3 waitpid setgroups getcwd])
