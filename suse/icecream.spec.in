@@ -32,7 +32,8 @@ Requires:       /usr/bin/bzip2
 PreReq:         %fillup_prereq
 PreReq:         %insserv_prereq
 %endif
-PreReq:         /usr/sbin/useradd /usr/sbin/groupadd
+PreReq:         /usr/sbin/useradd
+PreReq:         /usr/sbin/groupadd
 Requires:       gcc-c++
 Version:        @VERSION@
 Release:        0
@@ -67,6 +68,14 @@ make %{?jobs:-j %jobs}
 %install
 make DESTDIR=$RPM_BUILD_ROOT install
 
+# Create symlinks in /opt/icecream/bin on openSUSE <= 1220
+%if 0%{?suse_version} <= 1220
+  mkdir $RPM_BUILD_ROOT/opt/icecream/bin
+  for i in g++ gcc cc c++ clang++ clang; do
+    ln -sf %_bindir/icecc $RPM_BUILD_ROOT/opt/icecream/bin/$i
+  done
+%endif
+
 %preun
 %stop_on_removal icecream
 
@@ -97,6 +106,9 @@ make DESTDIR=$RPM_BUILD_ROOT install
 %if 0%{?suse_version}
 %_sysconfdir/sysconfig/SuSEfirewall2.d/services/*
 %_localstatedir/adm/fillup-templates/sysconfig.icecream
+%if 0%{?suse_version} <= 1220
+/opt/icecream
+%endif
 %endif
 %attr(-,icecream,icecream) %_localstatedir/cache/icecream
 %attr(-,icecream,icecream) %_localstatedir/log/icecream
