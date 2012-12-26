@@ -1,3 +1,13 @@
+0.9.98.1 (1.0rc3)
+ - install clang++ clang symlinks unconditionally.
+ - move openSUSE's rpm install scripts to suse/Makefile.am.
+ - links installation should be pkglibexec instead of libexec
+ - rename scheduler to icecc-scheduler to avoid name clash
+ - change to an unprivileged user when running the scheduler as root.
+ - move scheduler logs to icecc specific dir
+ - ignore if meinproc is not avilable
+ - version bump minilzo to 2.0.6.
+
 0.9.98 (1.0rc2)
 - install icecc links in a more convenient dir
 - fix for assembler usage during kvm builds

@@ -28,7 +28,7 @@ libtool
 minilzo/libminilzo.la
 services/icecc.pc
 services/libicecc.la
-services/scheduler
+services/icecc-scheduler
 suse/icecream.spec
 doc/*.1
 doc/*.7

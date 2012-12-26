@@ -33,7 +33,7 @@ PreReq:         %insserv_prereq
 Prereq:         /usr/sbin/useradd /usr/sbin/groupadd
 Requires:       gcc-c++
 Version:        @VERSION@
-Release:        1
+Release:        0
 Source0:        ftp://ftp.suse.com/pub/projects/icecream/icecream-%{version}.tar.bz2
 BuildRoot:      %{_tmppath}/%{name}-%{version}-build
 
@@ -55,8 +55,7 @@ icecream is the next generation distcc.
 %build
 export CFLAGS="$RPM_OPT_FLAGS"
 export CXXFLAGS="$RPM_OPT_FLAGS"
-make -f Makefile.cvs
-%configure
+%configure --libexecdir %_libexecdir
 make %{?jobs:-j %jobs}
 
 %install
@@ -78,9 +77,6 @@ make DESTDIR=$RPM_BUILD_ROOT install
 %restart_on_update icecream
 %{insserv_cleanup}
 
-%clean
-rm -rf ${RPM_BUILD_ROOT}
-
 %files
 %defattr(-,root,root)
 %config %_sysconfdir/logrotate.d/icecream
@@ -96,7 +92,7 @@ rm -rf ${RPM_BUILD_ROOT}
 %_sysconfdir/sysconfig/SuSEfirewall2.d/services/*
 %_localstatedir/adm/fillup-templates/sysconfig.icecream
 %endif
-%attr(-,icecream,icecream)
+%attr(-,icecc,icecc)
 %_localstatedir/cache/icecream
 
 %files -n libicecream-devel
