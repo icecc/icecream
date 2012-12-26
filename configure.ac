@@ -279,6 +279,8 @@ if test -n "$CLANG"; then
     fi
 fi
 
+AC_SUBST(pkglibexecdir,\$\(libexecdir\)/icecream)
+
 AC_CONFIG_FILES([ Makefile ])
 AC_CONFIG_FILES([ client/Makefile ])
 AC_CONFIG_FILES([ daemon/Makefile ])
