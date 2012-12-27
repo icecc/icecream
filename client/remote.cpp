@@ -74,7 +74,7 @@ using namespace std;
 std::string remote_daemon;
 
 Environments
-parse_icecc_version(const string &target_platform )
+parse_icecc_version(const string &target_platform, const string &prefix)
 {
     Environments envs;
 
@@ -84,6 +84,7 @@ parse_icecc_version(const string &target_platform )
     // free after the C++-Programming-HOWTO
     string::size_type lastPos = icecc_version.find_first_not_of(',', 0);
     string::size_type pos     = icecc_version.find_first_of(',', lastPos);
+    bool def_targets = icecc_version.find('=') != string::npos;
 
     list<string> platforms;
 
@@ -102,6 +103,17 @@ parse_icecc_version(const string &target_platform )
         lastPos = icecc_version.find_first_not_of(',', pos);
         // Find next "non-delimiter"
         pos = icecc_version.find_first_of(',', lastPos);
+
+        if (def_targets) {
+            colon = version.find('=');
+            if (colon != string::npos) {
+                if (prefix != version.substr(colon + 1, version.length()))
+                    continue;
+
+                version = version.substr(0, colon);
+            } else if (!prefix.empty())
+                continue;
+        }
 
         if (find(platforms.begin(), platforms.end(), platform) != platforms.end()) {
             log_error() << "there are two environments for platform " << platform << " - ignoring " << version << endl;

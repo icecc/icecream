@@ -29,6 +29,7 @@ extern int set_cloexec_flag (int desc, int value);
 extern int dcc_ignore_sigpipe (int val);
 
 extern std::string find_basename(const std::string &sfile);
+extern std::string find_prefix(const std::string &basename);
 extern void colorify_output(const std::string &s_ccout);
 extern bool colorify_wanted(const CompileJob &job);
 extern bool colorify_possible();

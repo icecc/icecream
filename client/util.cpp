@@ -100,6 +100,13 @@ string find_basename(const string &sfile)
     return sfile.substr( index + 1);
 }
 
+string find_prefix(const string &basename)
+{
+    size_t index = basename.find_last_of('-');
+    if (index == string::npos)
+        return "";
+    return basename.substr(0, index);
+}
 
 /**
  * Get an exclusive, non-blocking lock on a file using whatever method

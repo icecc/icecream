@@ -60,6 +60,6 @@ extern int build_remote (CompileJob &job, MsgChannel *scheduler, const Environme
 extern void dcc_increment_safeguard(void);
 extern int dcc_recursion_safeguard(void);
 
-extern Environments parse_icecc_version( const std::string &target );
+extern Environments parse_icecc_version( const std::string &target, const std::string &prefix);
 
 #endif
