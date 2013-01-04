@@ -14,7 +14,6 @@ m4_define([icecream_version],[icecream_version_major.icecream_version_minor.icec
 # Automake init
 # =============
 AC_INIT([icecc], [icecream_version])
-AC_CONFIG_MACRO_DIR([m4])
 AM_CONFIG_HEADER([config.h])
 AM_INIT_AUTOMAKE([1.11 foreign dist-xz])
 AM_SILENT_RULES([yes])
