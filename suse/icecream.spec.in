@@ -87,7 +87,7 @@ make DESTDIR=$RPM_BUILD_ROOT install
 %_sbindir/iceccd
 %_sbindir/rcicecream
 %_mandir/man*/*
-%_libexecdir/icecream
+%_libexecdir/icecc
 %if 0%{?suse_version}
 %_sysconfdir/sysconfig/SuSEfirewall2.d/services/*
 %_localstatedir/adm/fillup-templates/sysconfig.icecream
