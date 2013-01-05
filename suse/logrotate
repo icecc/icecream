@@ -1,4 +1,4 @@
-/var/log/iceccd /var/log/icecc_scheduler {
+/var/log/icecream/iceccd /var/log/icecream/scheduler {
     compress
     dateext
     maxage 30
