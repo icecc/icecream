@@ -44,7 +44,7 @@
 compiler and transparently routes the compile requests to the Icecream
 network. You shouldn't call icecc directly, but place the specific compiler
 stubs in your path:
-<command>export PATH=/opt/icecream/bin:$PATH</command>.</para>
+<command>export PATH=/opt/icecream/lib/icecc/bin:$PATH</command>.</para>
 </refsect1>
 
 <refsect1>
