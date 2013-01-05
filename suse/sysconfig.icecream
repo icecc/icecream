@@ -12,11 +12,11 @@ ICECREAM_NICE_LEVEL="5"
 #
 ## Type: string
 ## Path: Applications/icecream
-## Default: /var/log/iceccd
+## Default: /var/log/icecream/iceccd
 #
 # icecream daemon log file
 #
-ICECREAM_LOG_FILE="/var/log/iceccd"
+ICECREAM_LOG_FILE="/var/log/icecream/iceccd"
 
 #
 ## Type: string
@@ -30,11 +30,11 @@ ICECREAM_RUN_SCHEDULER="no"
 #
 ## Type: string
 ## Path: Applications/icecream
-## Default: /var/log/icecc_scheduler
+## Default: /var/log/icecream/scheduler
 #
 # icecream scheduler log file
 #
-ICECREAM_SCHEDULER_LOG_FILE="/var/log/icecc_scheduler"
+ICECREAM_SCHEDULER_LOG_FILE="/var/log/icecream/scheduler"
 
 #
 ## Type: string

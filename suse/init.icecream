@@ -38,7 +38,7 @@ case "$1" in
         if test "$ICECREAM_RUN_SCHEDULER" == "yes"; then
             logfile=""
             if test -z "$ICECREAM_SCHEDULER_LOG_FILE"; then
-		ICECREAM_SCHEDULER_LOG_FILE="/var/log/icecc_scheduler"
+		ICECREAM_SCHEDULER_LOG_FILE="/var/log/icecream/scheduler"
             fi
             logfile="-l $ICECREAM_SCHEDULER_LOG_FILE"
 	    : > $ICECREAM_SCHEDULER_LOG_FILE
@@ -51,8 +51,8 @@ case "$1" in
             chown icecream:icecream $ICECREAM_LOG_FILE
             logfile="-l $ICECREAM_LOG_FILE"
         else
-            touch /var/log/iceccd
-            chown icecream:icecream /var/log/iceccd
+            touch /var/log/icecream/iceccd
+            chown icecream:icecream /var/log/icecream/iceccd
         fi
         nice= 
 	if test -n "$ICECREAM_NICE_LEVEL"; then

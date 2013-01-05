@@ -99,6 +99,7 @@ make DESTDIR=$RPM_BUILD_ROOT install
 %_localstatedir/adm/fillup-templates/sysconfig.icecream
 %endif
 %attr(-,icecream,icecream) %_localstatedir/cache/icecream
+%attr(-,icecream,icecream) %_localstatedir/log/icecream
 
 %files -n libicecream-devel
 %defattr(-,root,root)
