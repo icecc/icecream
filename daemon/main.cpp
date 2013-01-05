@@ -833,7 +833,7 @@ bool Daemon::handle_transfer_env_done( Client *client )
     assert(client->status == Client::TOINSTALL);
 
     size_t installed_size = finalize_install_environment(envbasedir, client->outfile,
-                              client->child_pid, user_gid);
+                              client->child_pid, user_uid, user_gid);
 
     if (client->pipe_to_child >= 0) {
         installed_size = 0;

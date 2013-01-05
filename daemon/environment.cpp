@@ -262,7 +262,7 @@ size_t setup_env_cache(const string &basedir, string &native_environment, uid_t 
     if ( mkdir( nativedir.c_str(), 0775 ) && errno != EEXIST )
    	return 0; 
 
-    if ( chown( nativedir.c_str(), 0, user_gid ) ||
+    if ( chown( nativedir.c_str(), user_uid, user_gid ) ||
          chmod( nativedir.c_str(), 0775 ) ) {
 	rmdir( nativedir.c_str() );
 	return 0;
@@ -377,7 +377,7 @@ pid_t start_install_environment( const std::string &basename, const std::string 
         return 0;
     }
 
-    if ( chown( dirname.c_str(), 0, user_gid ) ||
+    if ( chown( dirname.c_str(), user_uid, user_gid ) ||
          chmod( dirname.c_str(), 0770 ) ) {
         log_perror( "chown,chmod target" );
         return 0;
@@ -389,7 +389,7 @@ pid_t start_install_environment( const std::string &basename, const std::string 
         return 0;
     }
 
-    if ( chown( dirname.c_str(), 0, user_gid ) ||
+    if ( chown( dirname.c_str(), user_uid, user_gid ) ||
          chmod( dirname.c_str(), 0770 ) ) {
         log_perror( "chown,chmod name" );
         return 0;
@@ -448,7 +448,7 @@ pid_t start_install_environment( const std::string &basename, const std::string 
 
 
 size_t finalize_install_environment( const std::string &basename, const std::string &target,
-                                     pid_t pid, gid_t user_gid)
+                                     pid_t pid, uid_t user_uid, gid_t user_gid)
 {
     int status = 1;
     while ( waitpid( pid, &status, 0) < 0 && errno == EINTR)
@@ -462,7 +462,7 @@ size_t finalize_install_environment( const std::string &basename, const std::str
 
     string dirname = basename + "/target=" + target;
     mkdir( ( dirname + "/tmp" ).c_str(), 01775 );
-    chown( ( dirname + "/tmp" ).c_str(), 0, user_gid );
+    chown( ( dirname + "/tmp" ).c_str(), user_uid, user_gid );
     chmod( ( dirname + "/tmp" ).c_str(), 01775 );
 
     return sumup_dir (dirname);
