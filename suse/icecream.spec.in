@@ -98,8 +98,7 @@ make DESTDIR=$RPM_BUILD_ROOT install
 %_sysconfdir/sysconfig/SuSEfirewall2.d/services/*
 %_localstatedir/adm/fillup-templates/sysconfig.icecream
 %endif
-%attr(-,icecc,icecc)
-%_localstatedir/cache/icecream
+%attr(-,icecc,icecc) %_localstatedir/cache/icecream
 
 %files -n libicecream-devel
 %defattr(-,root,root)
