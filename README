@@ -7,7 +7,7 @@ How to install icecream
 =======================
 
 cd icecream
-(make -f Makefile.cvs)
+./autogen.sh
 ./configure --prefix=/opt/icecream
 make
 make install
