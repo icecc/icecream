@@ -71,8 +71,8 @@ make DESTDIR=$RPM_BUILD_ROOT install
 %stop_on_removal icecream
 
 %pre
-/usr/sbin/groupadd -r icecc 2> /dev/null || :
-/usr/sbin/useradd -r -g icecc -s /bin/false -c "Icecream Daemon" -d /var/cache/icecream icecc 2> /dev/null || :
+/usr/sbin/groupadd -r icecream 2> /dev/null || :
+/usr/sbin/useradd -r -g icecream -s /bin/false -c "Icecream Daemon" -d /var/cache/icecream icecream 2> /dev/null || :
 
 %if 0%{?suse_version}
 %post
@@ -98,7 +98,7 @@ make DESTDIR=$RPM_BUILD_ROOT install
 %_sysconfdir/sysconfig/SuSEfirewall2.d/services/*
 %_localstatedir/adm/fillup-templates/sysconfig.icecream
 %endif
-%attr(-,icecc,icecc) %_localstatedir/cache/icecream
+%attr(-,icecream,icecream) %_localstatedir/cache/icecream
 
 %files -n libicecream-devel
 %defattr(-,root,root)
