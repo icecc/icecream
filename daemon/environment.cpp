@@ -545,6 +545,8 @@ void chdir_to_environment( MsgChannel *client, const string &dirname, uid_t user
         log_perror("chroot() failed" );
         _exit(144);
     }
+    (void) user_uid;
+    (void) user_gid;
 #else
     if ( getuid() == 0 ) {
         // without the chdir, the chroot will escape the
