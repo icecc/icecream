@@ -427,15 +427,20 @@ struct Daemon
     unsigned int current_kids;
 
     Daemon() {
-        struct passwd *pw = getpwnam("icecc");
-        if (pw) {
-            user_uid = pw->pw_uid;
-            user_gid = pw->pw_gid;
-            warn_icecc_user = false;
+        if ( getuid() == 0 ) {
+            struct passwd *pw = getpwnam("icecc");
+            if (pw) {
+                user_uid = pw->pw_uid;
+                user_gid = pw->pw_gid;
+                warn_icecc_user = false;
+            } else {
+                warn_icecc_user = true;
+                user_uid = 65534;
+                user_gid = 65533;
+            }
         } else {
-            warn_icecc_user = true;
-            user_uid = 65534;
-            user_gid = 65533;
+            user_uid = getuid();
+            user_gid = getgid();
         }
 
         envbasedir = "/tmp/icecc-envs";

@@ -1923,18 +1923,26 @@ main (int argc, char * argv[])
   gid_t user_gid;
   bool warn_icecc_user = false;
 
-  struct passwd *pw = getpwnam("icecc");
-  if (pw)
+  if ( getuid() == 0 )
     {
-      user_uid = pw->pw_uid;
-      user_gid = pw->pw_gid;
-     }
+    struct passwd *pw = getpwnam("icecc");
+    if (pw)
+      {
+        user_uid = pw->pw_uid;
+        user_gid = pw->pw_gid;
+      }
+    else
+      {
+        warn_icecc_user = true;
+        user_uid = 65534;
+        user_gid = 65533;
+      }
+    }
   else
     {
-      warn_icecc_user = true;
-      user_uid = 65534;
-      user_gid = 65533;
-     }
+      user_uid = getuid();
+      user_gid = getgid();
+    }
 
   while ( true ) {
     int option_index = 0;
@@ -1994,7 +2002,7 @@ main (int argc, char * argv[])
     case 'u':
         if ( optarg && *optarg )
           {
-            pw = getpwnam( optarg );
+            struct passwd *pw = getpwnam( optarg );
             if ( !pw )
               {
                 usage( "Error: -u requires a valid username" );
