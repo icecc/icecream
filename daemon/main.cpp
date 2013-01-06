@@ -400,6 +400,7 @@ struct Daemon
     string envbasedir;
     uid_t user_uid;
     gid_t user_gid;
+    bool warn_icecc_user;
     int tcp_listen_fd;
     int unix_listen_fd;
     string machine_name;
@@ -430,8 +431,9 @@ struct Daemon
         if (pw) {
             user_uid = pw->pw_uid;
             user_gid = pw->pw_gid;
+            warn_icecc_user = false;
         } else {
-            log_perror ("Error: no icecc user on system. Falling back to nobody.");
+            warn_icecc_user = true;
             user_uid = 65534;
             user_gid = 65533;
         }
@@ -833,7 +835,7 @@ bool Daemon::handle_transfer_env_done( Client *client )
     assert(client->status == Client::TOINSTALL);
 
     size_t installed_size = finalize_install_environment(envbasedir, client->outfile,
-                              client->child_pid, user_gid);
+                              client->child_pid, user_uid, user_gid);
 
     if (client->pipe_to_child >= 0) {
         installed_size = 0;
@@ -1757,6 +1759,7 @@ int main( int argc, char ** argv )
                 } else {
                     d.user_uid = pw->pw_uid;
                     d.user_gid = pw->pw_gid;
+                    d.warn_icecc_user = false;
                     if (!d.user_gid || !d.user_uid) {
                         usage( "Error: -u <username> must not be root");
                     }
@@ -1769,6 +1772,9 @@ int main( int argc, char ** argv )
             usage();
         }
     }
+
+    if (d.warn_icecc_user)
+        log_perror ("Error: no icecc user on system. Falling back to nobody.");
 
     umask(022);
 
