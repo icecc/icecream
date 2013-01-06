@@ -43,7 +43,7 @@ case "$1" in
             logfile="-l $ICECREAM_SCHEDULER_LOG_FILE"
 	    : > $ICECREAM_SCHEDULER_LOG_FILE
 	    chown icecream:icecream $ICECREAM_SCHEDULER_LOG_FILE
-            startproc -u icecream /usr/sbin/scheduler -d $logfile $netname
+            startproc -u icecream /usr/sbin/icecc-scheduler -d $logfile $netname
         fi
         logfile=""
         if test -n "$ICECREAM_LOG_FILE"; then
@@ -82,7 +82,7 @@ case "$1" in
 	echo -n "Shutting down Distributed Compiler Daemon"
 	killproc -TERM /usr/sbin/iceccd
         if test "$ICECREAM_RUN_SCHEDULER" == "yes"; then
-            killproc -TERM /usr/sbin/scheduler
+            killproc -TERM /usr/sbin/icecc-scheduler
         fi
 	rc_status -v
 	;;
@@ -110,7 +110,7 @@ case "$1" in
         ;;
     reload|force-reload)
 	if test "$ICECREAM_RUN_SCHEDULER" == "yes"; then
-          killproc  -HUP /usr/sbin/scheduler
+          killproc  -HUP /usr/sbin/icecc-scheduler
         fi
         killproc  -HUP /usr/sbin/iceccd
 	rc_status
