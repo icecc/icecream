@@ -70,7 +70,7 @@ make DESTDIR=$RPM_BUILD_ROOT install
 
 # Create symlinks in /opt/icecream/bin on openSUSE <= 1220
 %if 0%{?suse_version} <= 1220
-  mkdir $RPM_BUILD_ROOT/opt/icecream/bin
+  mkdir -p $RPM_BUILD_ROOT/opt/icecream/bin
   for i in g++ gcc cc c++ clang++ clang; do
     ln -sf %_bindir/icecc $RPM_BUILD_ROOT/opt/icecream/bin/$i
   done
