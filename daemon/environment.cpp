@@ -147,10 +147,17 @@ static bool cleanup_directory( const string& directory )
         if( strcmp( f->d_name, "." ) == 0 || strcmp( f->d_name, ".." ) == 0 )
             continue;
         string fullpath = directory + '/' + f->d_name;
-        if( unlink( fullpath.c_str()) != 0 ) {
-            if( !cleanup_directory( fullpath ) || rmdir( fullpath.c_str()) != 0 ) {
+        struct stat st;
+        if ( lstat( fullpath.c_str(), &st )) {
+            perror( "stat" );
+            return false;
+        }
+        if ( S_ISDIR( st.st_mode )) {
+            if( !cleanup_directory( fullpath ) || rmdir( fullpath.c_str()) != 0 )
                 return false;
-            }
+        } else {
+            if( unlink( fullpath.c_str()) != 0 )
+                return false;
         }
     }
     closedir( dir );
