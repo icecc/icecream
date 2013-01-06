@@ -1160,6 +1160,14 @@ handle_login (CS *cs, Msg *_m)
           return false;
 
   dbg << "login " << m->nodename << " protocol version: " << cs->protocol;
+#if 1
+  dbg << " [";
+  for (Environments::const_iterator it = m->envs.begin();
+       it != m->envs.end(); ++it)
+    dbg << it->second << "(" << it->first << "), ";
+  dbg << "]" << endl;
+#endif
+
   handle_monitor_stats( cs );
 
   /* remove any other clients with the same IP, they must be stale */
@@ -1176,14 +1184,6 @@ handle_login (CS *cs, Msg *_m)
     }
 
   css.push_back (cs);
-
-#if 1
-  dbg << " [";
-  for (Environments::const_iterator it = m->envs.begin();
-       it != m->envs.end(); ++it)
-    dbg << it->second << "(" << it->first << "), ";
-  dbg << "]" << endl;
-#endif
 
   /* Configure the daemon */
   if (IS_PROTOCOL_24( cs ))
