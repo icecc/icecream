@@ -1,3 +1,17 @@
+0.9.98.2 (1.0rc4)
+- suse: Backports from OBS and create symlinks in /opt/icecream/bin on openSUSE <= 12.2.
+- fix libexec dir name in opensuse specfile
+- icecream doesn't use m4 directory
+- explicit configure option for whether to use clang's include rewriting
+- use the clang rewrite options in opensuse specfile
+- fix builddir != srcdir
+- icecream user on suse is 'icecream', not 'icecc'
+- do not remove env. basedir itself
+- do not chown() with root uid
+- do not complain needlessly about missing icecc user
+- Fix icecc-create-env for relative paths
+- Use docbook2man to generate manpages rather than KDE calls.
+
 0.9.98.1 (1.0rc3)
  - install clang++ clang symlinks unconditionally.
  - move openSUSE's rpm install scripts to suse/Makefile.am.
