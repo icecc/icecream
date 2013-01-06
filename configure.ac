@@ -74,7 +74,8 @@ AS_IF([test "x$with_man" != "xno"], [
     AS_IF([test -z "$DOCBOOK2X"], [
         AC_PATH_PROG(DOCBOOK2X,[docbook2man.pl])
         AS_IF([test -z "$DOCBOOK2X"], [
-            AC_MSG_ERROR([docbook-to-man is missing. Install docbook2X package.])
+            AC_MSG_WARN([docbook-to-man is missing. Install docbook2X package.])
+            DOCBOOK2X='echo docbook-to-man is missing. Install docbook2X package.'
         ])
     ])
 ], [build_man=no])
