@@ -78,6 +78,67 @@ add_file ()
   fi
 }
 
+# returns abs path to filedir
+abs_path()
+{
+    local path=$1
+    if test -f "$path"; then
+        pushd $(dirname $path) > /dev/null 2>&1
+        path=$PWD/$(basename $path)
+        popd > /dev/null 2>&1
+    elif test -d "$path"; then
+        pushd $path > /dev/null 2>&1
+        path=$PWD
+        popd > /dev/null 2>&1
+    fi
+    echo $path
+}
+
+# Search and add file to the tarball file.
+search_addfile()
+{
+    local compiler=$1
+    local file_name=$2
+    local file_installdir=$3
+    local file=""
+
+    file=$($compiler -print-prog-name=$file_name)
+
+    if test -z "$file" || test "$file" = "$file_name" || ! test -e "$file"; then
+        file=`$compiler -print-file-name=$file_name`
+    fi
+
+    if ! test -e "$file"; then
+        return 1
+    fi
+
+    if test -z "$file_installdir"; then
+        # The file is going to be added to the tarball
+        # in the same path where the compiler found it.
+
+        file_installdir=$(dirname $file)
+        abs_installdir=$(abs_path $file_installdir)
+
+        if test "$file_installdir" != "$abs_installdir"; then
+            # The path where the compiler found the file is relative!
+            # If the path where the compiler found the file is relative
+            # to compiler's path, we must change it to be relative to
+            # /usr/bin path where the compiler is going to be installed
+            # in the tarball file.
+            # Replacing relative path by abs path because the tar command
+            # used to create the tarball file doesn't work well with
+            # relative path as installdir.
+
+            compiler_basedir=${compiler%/*/*}
+            file_installdir=${abs_installdir/$compiler_basedir/"/usr"}
+        fi
+    fi
+
+    add_file "$file" "$file_installdir/$file_name"
+
+    return 0
+}
+
 # backward compat
 if test "$1" = "--respect-path"; then
   shift
@@ -150,6 +211,10 @@ tempdir=`mktemp -d /tmp/iceccenvXXXXXX`
 add_file /bin/true
 
 if test -n "$gcc"; then
+    # getting compilers abs path
+    added_gcc=$(abs_path $added_gcc)
+    added_gxx=$(abs_path $added_gxx)
+
     if test -z "$clang"; then
         add_file $added_gcc /usr/bin/gcc
         add_file $added_gxx /usr/bin/g++
@@ -161,10 +226,6 @@ if test -n "$gcc"; then
     fi
     add_file `$added_gcc -print-prog-name=cc1` /usr/bin/cc1
     add_file `$added_gxx -print-prog-name=cc1plus` /usr/bin/cc1plus
-    specfile=`$added_gcc -print-file-name=specs`
-    if test -n "$specfile" && test "$specfile" != "specs" && test -e "$specfile"; then
-      add_file "$specfile"
-    fi
 
     gcc_as=$($added_gcc -print-prog-name=as)
     if test "$gcc_as" = "as"; then
@@ -173,15 +234,8 @@ if test -n "$gcc"; then
       add_file "$gcc_as" /usr/bin/as
     fi
 
-    plugin_name=liblto_plugin.so
-    plugin=`$added_gcc -print-prog-name=$plugin_name`
-    if test -z "$plugin" || test "$plugin" = "$plugin_name" || ! test -e "$plugin"; then
-      # This is for Debian
-      plugin=`$added_gcc -print-file-name=$plugin_name`
-    fi
-    if test -n "$plugin" && test "$plugin" != "$plugin_name" && test -e "$plugin"; then
-      add_file "$plugin" "$plugin"
-    fi
+    search_addfile $added_gcc specs
+    search_addfile $added_gcc liblto_plugin.so
 fi
 
 if test -n "$clang"; then
