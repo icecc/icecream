@@ -27,7 +27,7 @@
 #include <unistd.h>
 
 class MsgChannel;
-extern bool cleanup_cache( const std::string &basedir );
+extern bool cleanup_cache( const std::string &basedir, uid_t user_uid, gid_t user_gid );
 extern size_t setup_env_cache(const std::string &basedir, std::string &native_environment,
                     uid_t user_uid, gid_t user_gid,
                     const std::string &compiler, const std::list<std::string> &extrafiles);

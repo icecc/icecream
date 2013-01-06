@@ -1868,7 +1868,7 @@ int main( int argc, char ** argv )
     pidFile << dcc_master_pid << endl;
     pidFile.close();
 
-    if ( !cleanup_cache( d.envbasedir ) )
+    if ( !cleanup_cache( d.envbasedir, d.user_uid, d.user_gid ) )
         return 1;
 
     list<string> nl = get_netnames (200);

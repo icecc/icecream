@@ -157,7 +157,7 @@ static bool cleanup_directory( const string& directory )
     return true;
 }
 
-bool cleanup_cache( const string &basedir )
+bool cleanup_cache( const string &basedir, uid_t user_uid, gid_t user_gid )
 {
     flush_debug();
 
@@ -171,6 +171,11 @@ bool cleanup_cache( const string &basedir )
             log_error() << "permission denied on mkdir " << basedir << endl;
         else
             log_perror( "mkdir in cleanup_cache() failed" );
+        return false;
+    }
+    if ( chown( basedir.c_str(), user_uid, user_gid ) ||
+         chmod( basedir.c_str(), 0775 ) ) {
+        log_perror( "chown/chmod in cleanup_cache() failed" );
         return false;
     }
 
