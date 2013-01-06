@@ -45,6 +45,9 @@
 #include <assert.h>
 #include <minilzo.h>
 #include <stdio.h>
+#ifdef HAVE_LIBCAP_NG
+#include <cap-ng.h>
+#endif
 
 #include "logging.h"
 #include "job.h"
@@ -1549,8 +1552,12 @@ JobDoneMsg::send_to_channel (MsgChannel *c) const
 LoginMsg::LoginMsg(unsigned int myport, const std::string &_nodename, const std::string _host_platform)
   : Msg(M_LOGIN), port( myport ), noremote( false ), chroot_possible( false ), nodename( _nodename ), host_platform( _host_platform )
 {
+#ifdef HAVE_LIBCAP_NG
+  chroot_possible = capng_have_capability( CAPNG_PERMITTED, CAP_SYS_CHROOT );
+#else
   // check if we're root
   chroot_possible = ( geteuid() == 0 );
+#endif
 }
 
 void
