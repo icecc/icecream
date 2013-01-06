@@ -161,8 +161,10 @@ bool cleanup_cache( const string &basedir )
 {
     flush_debug();
 
-    if ( access( basedir.c_str(), R_OK ) == 0 && !cleanup_directory( basedir ))
+    if ( access( basedir.c_str(), R_OK ) == 0 && !cleanup_directory( basedir )) {
+        log_error() << "failed to clean up envs dir" << endl;
         return false;
+    }
 
     if ( mkdir( basedir.c_str(), 0755 ) && errno != EEXIST ) {
         if ( errno == EPERM )
