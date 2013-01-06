@@ -138,7 +138,7 @@ static bool exec_and_wait( const char *const argv[] )
 }
 
 // Removes everything in the directory recursively, but not the directory itself.
-static bool cleanup_directory( const string& directory )
+bool cleanup_directory( const string& directory )
 {
     DIR* dir = opendir( directory.c_str());
     if( dir == NULL )

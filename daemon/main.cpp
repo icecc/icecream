@@ -1802,6 +1802,9 @@ int main( int argc, char ** argv )
             }
         }
 #ifdef HAVE_LIBCAP_NG
+        // HACK: Previous icecream versions may have left files owned by root:root in the cache,
+        // so clean up before dropping root privileges.
+        cleanup_directory( d.envbasedir );
         capng_clear(CAPNG_SELECT_BOTH);
         capng_update(CAPNG_ADD, (capng_type_t)(CAPNG_EFFECTIVE|CAPNG_PERMITTED), CAP_SYS_CHROOT);
         capng_change_id(d.user_uid, d.user_gid, CAPNG_NO_FLAG);
