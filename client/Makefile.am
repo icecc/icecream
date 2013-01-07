@@ -29,7 +29,7 @@ install-exec-local:
 	$(LN_S) $(bindir)/icecc $(DESTDIR)$(bindir)/icerun
 
 	$(mkinstalldirs) $(DESTDIR)$(pkglibexecdir)/bin
-	for link in g++ gcc c++ cc clang++ clang; do \
+	for link in g++ gcc c++ cc $(CLANG_SYMLINK_WRAPPERS); do \
 		rm -f $(DESTDIR)$(pkglibexecdir)/bin/$$link ;\
 		$(LN_S) $(bindir)/icecc $(DESTDIR)$(pkglibexecdir)/bin/$$link ;\
 	done
@@ -37,6 +37,6 @@ install-exec-local:
 uninstall-local:
 	rm $(DESTDIR)$(bindir)/icerun
 
-	for link in g++ gcc c++ cc clang++ clang; do \
+	for link in g++ gcc c++ cc $(CLANG_SYMLINK_WRAPPERS); do \
 		rm $(DESTDIR)$(pkglibexecdir)/bin/$$link ;\
 	done

@@ -304,6 +304,23 @@ else
     fi
 fi
 
+AC_ARG_ENABLE(clang-wrappers,
+    AS_HELP_STRING([--enable-clang-wrappers],
+        [Use symlink wrappers for clang/clang++.]))
+
+CLANG_SYMLINK_WRAPPERS=
+if test "$enable_clang_wrappers" = "yes"; then
+    CLANG_SYMLINK_WRAPPERS='clang clang++'
+elif test "$enable_clang_wrappers" = "no"; then
+    true # do not enable
+else
+    AC_CHECK_PROG(CLANG,clang,clang)
+    if test -n "$CLANG"; then
+        CLANG_SYMLINK_WRAPPERS='clang clang++'
+    fi
+fi
+AC_SUBST(CLANG_SYMLINK_WRAPPERS)
+
 AC_CONFIG_FILES([ Makefile ])
 AC_CONFIG_FILES([ client/Makefile ])
 AC_CONFIG_FILES([ daemon/Makefile ])
