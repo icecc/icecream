@@ -54,8 +54,9 @@ icecream is the next generation distcc.
 %package -n icecream-clang-wrappers
 Summary:        Distributed Compile Wrappers for Clang
 Group:          Development/Tools/Building
+Requires:       clang
 Requires:       icecream
-Supplements:    packageand(icecream:llvm-clang)
+Supplements:    packageand(icecream:clang)
 
 %description -n icecream-clang-wrappers
 Wrapper symlinks for clang/clang++ for icecream distributed building.
