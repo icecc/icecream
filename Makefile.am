@@ -1,3 +1,5 @@
+EXTRA_DIST = README.md
+
 SUBDIRS = \
 	minilzo \
 	services \
