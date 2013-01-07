@@ -26,6 +26,8 @@ Table of Contents
 -   [Creating cross compiler package](#Creating_cross_compiler_package)
 -   [Cross-Compiling for embedded targets using
     icecream](#CrossCompiling_for_embedded_targets_using_icecream)
+-   [Cross-Compiling for multiple targets in the same environment using
+    icecream](#CrossCompiling_for_multiple_targets_in_the_same_environment_using_icecream)
 -   [How to combine icecream with
     ccache](#How_to_combine_icecream_with_ccache)
 -   [Debug output](#Debug_output)
@@ -304,6 +306,46 @@ you've created. When you start compiling your toolchain will be used.
 NOTE: with ICECC\_VERSION you point out on which platforms your
 toolchain runs, you do not indicate for which target code will be
 generated.
+
+Cross-Compiling for multiple targets in the same environment using icecream
+-------------------------------------------------------------------------------------
+
+When working with toolchains for multiple targets, icecream can be
+configured to support multiple toolchains in the same environment.
+
+Multiple toolchains can be configured by appending =\<target\> to the
+tarball filename in the ICECC\_VERSION variable. Where the \<target\> is
+the cross compiler prefix. There the ICECC\_VERSION variable will look
+like \<native\_filename\>(,\<platform\>:\<cross\_compiler\_filename\>=\<target\>)\*.
+
+Below an example of how to configure icecream to use two toolchains,
+/work/toolchain1/bin/arm-eabi-\[gcc,g++\] and /work/toolchain2/bin/arm-linux-androideabi-\[gcc,g++\],
+for the same host architecture:
+
+-   Create symbolic links with the cross compilers names
+    (e.g. arm-eabi-\[gcc,g++\] and arm-linux-androideabi-\[gcc,g++\])
+    pointing to where the icecc binary is. Make sure these symbolic links are
+    in the $PATH and before the path of the toolchains.
+
+-   Create a tarball file for each toolchain that you want to use with
+    icecream. The /usr/lib/icecc/icecc-create-env script can be used to
+    create the tarball file for each toolchain, for example:
+
+    /usr/lib/icecc/icecc-create-env --gcc /work/toolchain1/bin/arm-eabi-gcc
+                                          /work/toolchain1/bin/arm-eabi-g++
+
+    /usr/lib/icecc/icecc-create-env --gcc /work/toolchain2/bin/arm-linux-androideabi-gcc
+                                          /work/toolchain2/bin/arm-linux-androideabi-gcc
+
+-   Set ICECC\_VERSION to point to the native tarball file and for each
+    tarball file created to the toolchains (e.g  ICECC\_VERSION=/work/i386-native.tar.gz,/work/arm-eabi-toolchain1.tar.gz=arm-eabi,/work/arm-linux-androideabi-toolchain2.tar.gz=arm-linux-androideabi).
+
+With these steps the icecrem will use /work/arm-eabi-toolchain1.tar.gz file to
+cross compilers with the prefix arm-eabi(e.g arm-eabi-gcc and arm-eabi-g++), use
+/work/arm-linux-androideabi-toolchain2.tar.gz file to cross compilers with the prefix
+arm-linux-androideabi(e.g. arm-linux-androideabi-gcc and arm-linux-androideabi-g++)
+and use /work/i386-native.tar.gz file to compilers without prefix,
+the native compilers.
 
 How to combine icecream with ccache
 -----------------------------------------------------------------------------------------------------------------------
