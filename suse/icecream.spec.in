@@ -51,6 +51,16 @@ Requires:       libstdc++-devel
 %description -n libicecream-devel
 icecream is the next generation distcc.
 
+%package -n icecream-clang-wrappers
+Summary:        Distributed Compile Wrappers for Clang
+Group:          Development/Tools/Building
+Requires:       clang
+Requires:       icecream
+Supplements:    packageand(icecream:clang)
+
+%description -n icecream-clang-wrappers
+Wrapper symlinks for clang/clang++ for icecream distributed building.
+
 %prep
 %setup -q -n icecc-%{version}
 # DO NOT ADD PATCHES without github reference
@@ -61,6 +71,7 @@ export CXXFLAGS="$RPM_OPT_FLAGS"
 %configure \
 %if 0%{?suse_version} >= 1230
     --enable-clang-rewrite-includes \
+    --enable-clang-wrappers \
 %endif
     --libexecdir %_libexecdir
 make %{?jobs:-j %jobs}
@@ -105,11 +116,15 @@ rm -rf -- %_localstatedir/cache/icecream/*
 %_sbindir/rcicecream
 %_mandir/man*/*
 %_libexecdir/icecc
+%exclude %_libexecdir/icecc/bin/clang
+%exclude %_libexecdir/icecc/bin/clang++
 %if 0%{?suse_version}
 %_sysconfdir/sysconfig/SuSEfirewall2.d/services/*
 %_localstatedir/adm/fillup-templates/sysconfig.icecream
 %if 0%{?suse_version} <= 1220
 /opt/icecream
+%exclude /opt/icecream/bin/clang
+%exclude /opt/icecream/bin/clang++
 %endif
 %endif
 %attr(-,icecream,icecream) %_localstatedir/cache/icecream
@@ -120,5 +135,14 @@ rm -rf -- %_localstatedir/cache/icecream/*
 %_includedir/icecc
 %_libdir/libicecc.*
 %_libdir/pkgconfig/icecc.pc
+
+%files -n icecream-clang-wrappers
+%defattr(-,root,root)
+%_libexecdir/icecc/bin/clang
+%_libexecdir/icecc/bin/clang++
+%if 0%{?suse_version} <= 1220
+/opt/icecream/bin/clang
+/opt/icecream/bin/clang++
+%endif
 
 %changelog
