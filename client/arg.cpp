@@ -301,7 +301,6 @@ bool analyse_argv( const char * const *argv,
                        || str_equal("-iquote", a)
                        || str_equal("-imultilib", a)
                        || str_equal("-isysroot", a)
-                       || str_equal("-include", a)
                        || str_equal("-iwithprefixbefore", a)
                        || str_equal("-idirafter", a) ) {
                 args.append(a, Arg_Local);
