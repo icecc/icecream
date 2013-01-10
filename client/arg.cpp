@@ -280,6 +280,11 @@ bool analyse_argv( const char * const *argv,
                     args.append(a, Arg_Local);
                     args.append(argv[i], Arg_Local);
                 }
+            } else if (str_equal("-include-pch", a)) {
+                /* Clang's precompiled header, it's probably not worth it sending the PCH file. */
+                if (argv[i+1])
+                    ++i;
+                always_local = true;
             } else if (str_equal("-D", a)
                        || str_equal("-U", a) ) {
                 args.append(a, Arg_Cpp);
