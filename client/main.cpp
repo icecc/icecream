@@ -303,10 +303,17 @@ int main(int argc, char **argv)
     list<string> extrafiles;
     local |= analyse_argv( argv, job, icerun, &extrafiles );
 
-    /* if ICECC is set to no, then run job locally */
+    /* If ICECC is set to disable, then run job locally, without contacting
+       the daemon at all. Because of file-based locking that is used in this
+       case, all calls will be serialized and run by one.
+       If ICECC is set to no, the job is run locally as well, but it is
+       serialized using the daemon, so several may be run at once.
+     */
     char* icecc = getenv("ICECC");
-    if ( icecc && !strcasecmp(icecc, "no") )
+    if ( icecc && !strcasecmp(icecc, "disable") )
         return build_local( job, 0 );
+    if ( icecc && !strcasecmp(icecc, "no") )
+        local = true;
 
     if (const char *extrafilesenv = getenv("ICECC_EXTRAFILES")) {
         for(;;) {
