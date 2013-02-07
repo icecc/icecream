@@ -71,8 +71,8 @@ export CXXFLAGS="$RPM_OPT_FLAGS"
 %configure \
 %if 0%{?suse_version} >= 1230
     --enable-clang-rewrite-includes \
-    --enable-clang-wrappers \
 %endif
+    --enable-clang-wrappers \
     --libexecdir %_libexecdir
 make %{?jobs:-j %jobs}
 
