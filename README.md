@@ -59,7 +59,7 @@ In case this should not work, here are some links to download Icecream:
     LiveCD](http://forgeftp.novell.com/kiwi-ltsp/icecream/)
 
 If you have questions not answered here, feel free to contact
-coolo@kde.org
+icecream-users@googlegroups.com  (icecream-users+subscribe@googlegroups.com).
 
 How to use icecream
 ---------------------------------------------------------------------------------------
