@@ -172,8 +172,9 @@ version on all nodes, otherwise, nodes running older icecream version
 might be excluded from available nodes.
 
 The icecream version shipped with openSUSE 12.2 is partially incompatible
-with nodes using other icecream versions (12.2 nodes will not be used
-for compilation by other nodes, and they can be identified by having
+with nodes using other icecream versions. 12.2 nodes will not be used for compilation
+by other nodes, and depending on the scheduler version 12.2 nodes will not compile
+on other nodes either. These incompatible nodes can be identified by having 
 'Linux3_' prefix in the platform). Replace the openSUSE 12.2 package
 with a different one (for example from the devel:tools:build repository).
 
