@@ -118,6 +118,9 @@ string find_compiler( const CompileJob& job )
 
 bool compiler_is_clang( const CompileJob& job )
 {
+    if( job.language() == CompileJob::Lang_Custom )
+        return false;
+    assert( job.compilerName().find( '/' ) == string::npos );
     return job.compilerName().find("clang") != string::npos;
 }
 
