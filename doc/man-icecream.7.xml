@@ -168,9 +168,11 @@ ln -s /usr/bin/ccache /opt/ccache/bin/g++
 </screen>
 </para>
 
-<para>Then you can replace /usr/lib/icecc/bin with /opt/ccache/bin in your
-<varname>$PATH</varname> and all icecream calls will go through ccache (and Qt
-will compile in 62s :)</para>
+<para>And then compile with
+<screen>
+export PATH=/opt/ccache/bin:$PATH
+</screen>
+</para>
  
 <para>Note however that ccache isn't really worth the trouble if you're not
 recompiling your project three times a day from scratch (it adds quite some overhead
