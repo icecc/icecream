@@ -73,10 +73,10 @@ It is possible to run the scheduler and the daemon on one machine and
 only the daemon on another, thus forming a compile cluster with two
 nodes.
 
-If you want to compile using icecream, make sure \$prefix/bin is the
+If you want to compile using icecream, make sure \$prefix/lib/icecc/bin is the
 first first entry in your path, e.g. type
 
-     export PATH=/opt/icecream/lib/icecc/bin:$PATH
+     export PATH=/usr/lib/icecc/bin:$PATH
 
 (Hint: put this in \~/.bashrc or /etc/profile to not have to type it in
 everytime)
@@ -111,7 +111,7 @@ TroubleShooting
 -------------------------------------------------------------------------------
 
 Most problems are caused by firewalls and by make using the wrong C
-compiler (e.g. /usr/bin/gcc instead of /opt/icecream/lib/icecc/bin/gcc).
+compiler (e.g. /usr/bin/gcc instead of /usr/lib/icecc/bin/gcc).
 
 ### Firewall
 
@@ -136,7 +136,7 @@ Choose "Custom Rules" -\> Add. Enter Source Networ **0/0** Protocol:
 
 ### C compiler
 
-To make sure your compile job uses /opt/icecream/lib/icecc/bin/gcc (gcc is used as
+To make sure your compile job uses /usr/lib/icecc/bin/gcc (gcc is used as
 an example here, depending on your compile job it can also be g++, cc or
 c++) start your compile using
 
@@ -144,7 +144,7 @@ c++) start your compile using
 
 and wait for a typical compile command to appear, like this one:
 
-     cd /root/kdepim/kode/libkode && /opt/icecream/lib/icecc/bin/c++  -DTest1Area=5121 -D_BSD_SOURCE 
+     cd /root/kdepim/kode/libkode && /usr/lib/icecc/bin/c++  -DTest1Area=5121 -D_BSD_SOURCE 
      -D_XOPEN_SOURCE=500 -D_BSD_SOURCE -DQT_NO_STL 
      -DQT_NO_CAST_TO_ASCII -D_REENTRANT -DKDE_DEPRECATED_WARNINGS 
      -DKDE_DEFAULT_DEBUG_AREA=5295 -DMAKE_KODE_LIB -Wnon-
@@ -152,7 +152,7 @@ and wait for a typical compile command to appear, like this one:
      -Wchar-subscripts-Wall -W -Wpointer-arith -Wformat-security 
      -fno-exceptions -fno-check-new
 
-in this example, the right c compiler is chosen, /opt/icecream/lib/icecc/bin/c++.
+in this example, the right c compiler is chosen, /usr/lib/icecc/bin/c++.
 If the wrong one is chosen, delete CMakeCache.txt (if existing) and
 start the build process again calling ./configure (if existing).
 

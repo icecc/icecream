@@ -56,9 +56,9 @@ over them anyway.</para>
 </listitem>
 </itemizedlist>
 
-<para>If you want to compile using icecream, make sure $prefix/bin is the first
+<para>If you want to compile using icecream, make sure $prefix/lib/icecc/bin is the first
 first entry in your path, e.g. type
-<command>export PATH=/opt/icecream/lib/icecc/bin:$PATH</command>
+<command>export PATH=/usr/lib/icecc/bin:$PATH</command>
 (Hint: put this in ~/.bashrc or /etc/profile to not have to type it in
 everytime)
 </para>
@@ -168,7 +168,7 @@ ln -s /usr/bin/ccache /opt/ccache/bin/g++
 </screen>
 </para>
 
-<para>Then you can replace /opt/icecream/lib/icecc/bin with /opt/ccache/bin in your
+<para>Then you can replace /usr/lib/icecc/bin with /opt/ccache/bin in your
 <varname>$PATH</varname> and all icecream calls will go through ccache (and Qt
 will compile in 62s :)</para>
  
