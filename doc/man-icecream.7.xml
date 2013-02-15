@@ -34,7 +34,7 @@
 <para>Icecream is a distributed compile system for C and C++.</para>
 
 <para>Icecream is created by SUSE and is based on ideas and code by distcc. Like
-distcc it takes compile jobs from your (KDE) build and distributes it to remote
+distcc it takes compile jobs from your build and distributes it to remote
 machines allowing a parallel build on several machines you've got. But unlike
 distcc Icecream uses a central server that schedules the compile jobs to the
 fastest free server and is as this dynamic. This advantage pays off mostly for
@@ -173,7 +173,7 @@ ln -s /usr/bin/ccache /opt/ccache/bin/g++
 will compile in 62s :)</para>
  
 <para>Note however that ccache isn't really worth the trouble if you're not
-recompiling your KDE three times a day from scratch (it adds quite some overhead
+recompiling your project three times a day from scratch (it adds quite some overhead
 in comparing the preprocessor output and uses quite some disc space and I found
 a cache hit of 18% a bit too few, so I disabled it again).</para>
 

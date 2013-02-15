@@ -1,5 +1,5 @@
 [Icecream](Icecream) was created by SUSE based on distcc. Like distcc,
-[Icecream](Icecream) takes compile jobs from a (KDE) build and
+[Icecream](Icecream) takes compile jobs from a build and
 distributes it among remote machines allowing a parallel build. But
 unlike distcc, [Icecream](Icecream) uses a central server that
 dynamically schedules the compile jobs to the fastest free server. This
@@ -330,7 +330,7 @@ And then compile with
      export PATH=/opt/ccache/bin:$PATH
 
 Note however that ccache isn't really worth the trouble if you're not
-recompiling your KDE three times a day from scratch (it adds some
+recompiling your project three times a day from scratch (it adds some
 overhead in comparing the source files and uses quite some disk space).
 
 Debug output
