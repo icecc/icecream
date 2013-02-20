@@ -14,7 +14,7 @@ m4_define([icecream_version],[icecream_version_major.icecream_version_minor.icec
 # Automake init
 # =============
 AC_INIT([icecc], [icecream_version])
-AM_CONFIG_HEADER([config.h])
+AC_CONFIG_HEADERS([config.h])
 AM_INIT_AUTOMAKE([1.11 foreign dist-xz])
 AM_SILENT_RULES([yes])
 AC_LANG([C++])
