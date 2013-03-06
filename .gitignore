@@ -18,6 +18,7 @@ missing
 .deps
 .libs
 Makefile
+stamp-h1
 client/icecc
 compilerwrapper/compilerwrapper
 config.h
