@@ -84,11 +84,12 @@ abs_path()
     local path=$1
     if test -f "$path"; then
         pushd $(dirname $path) > /dev/null 2>&1
-        path=$PWD/$(basename $path)
+        dir_path=`pwd -P`
+        path=$dir_path/$(basename $path)
         popd > /dev/null 2>&1
     elif test -d "$path"; then
         pushd $path > /dev/null 2>&1
-        path=$PWD
+        path=`pwd -P`
         popd > /dev/null 2>&1
     fi
     echo $path
@@ -129,7 +130,7 @@ search_addfile()
             # used to create the tarball file doesn't work well with
             # relative path as installdir.
 
-            compiler_basedir=${compiler%/*/*}
+            compiler_basedir=$(abs_path ${compiler%/*/*})
             file_installdir=${abs_installdir/$compiler_basedir/"/usr"}
         fi
     fi
