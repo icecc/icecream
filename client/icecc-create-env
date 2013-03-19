@@ -185,11 +185,23 @@ if test -n "$gcc"; then
         echo "'$added_gxx' is no executable."
         exit 1
     fi
+    if ! file --mime-type -L "$added_gcc" | grep -q ': application/'; then
+        echo "$added_gcc is not a binary file."
+        exit 1
+    fi
+    if ! file --mime-type -L "$added_gxx" | grep -q ': application/'; then
+        echo "$added_gxx is not a binary file."
+        exit 1
+    fi
 fi
 
 if test -n "$clang"; then
     if ! test -x "$added_clang" ; then
         echo "'$added_clang' is no executable."
+        exit 1
+    fi
+    if ! file --mime-type -L "$added_clang" | grep -q ': application/'; then
+        echo "$added_clang is not a binary file."
         exit 1
     fi
     if ! test -x "$added_compilerwrapper" ; then
