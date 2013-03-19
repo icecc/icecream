@@ -56,5 +56,6 @@ enum dcc_exitcode {
     EXIT_CLIENT_KILLED            = 118
 };
 
+extern int shell_exit_status( int status );
 
 #endif /* _DISTCC_EXITCODE_H */

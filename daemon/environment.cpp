@@ -34,6 +34,7 @@
 #endif
 
 #include "comm.h"
+#include "exitcode.h"
 
 using namespace std;
 
@@ -131,7 +132,7 @@ static bool exec_and_wait( const char *const argv[] )
         int status;
         while ( waitpid( pid, &status, 0 ) < 0 && errno == EINTR )
             ;
-        return WIFEXITED(status) && WEXITSTATUS(status) == 0;
+        return shell_exit_status(status) == 0;
     }
     // child
     _exit(execv(argv[0], const_cast<char *const *>(argv)));
@@ -468,8 +469,8 @@ size_t finalize_install_environment( const std::string &basename, const std::str
     while ( waitpid( pid, &status, 0) < 0 && errno == EINTR)
         ;
 
-    if (!WIFEXITED(status) || WEXITSTATUS(status)) {
-        log_error() << "exit code: " << WEXITSTATUS(status) << endl;
+    if ( shell_exit_status(status) != 0 ) {
+        log_error() << "exit code: " << shell_exit_status(status) << endl;
         remove_environment(basename, target);
         return 0;
     }
@@ -603,7 +604,7 @@ bool verify_env( MsgChannel *client, const string &basedir, const string& target
         int status;
         while ( waitpid( pid, &status, 0 ) < 0 && errno == EINTR )
             ;
-        return WIFEXITED(status) && WEXITSTATUS(status) == 0;
+        return shell_exit_status(status) == 0;
     }
     // child
     reset_debug(0);
