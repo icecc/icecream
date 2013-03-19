@@ -145,6 +145,51 @@ generated.</para>
 </refsect1>
 
 <refsect1>
+<title>Cross-Compiling for multiple targets in the same environment using icecream</title>
+
+<para>When working with toolchains for multiple targets, icecream can be
+configured to support multiple toolchains in the same environment.</para>
+
+<para>Multiple toolchains can be configured by appending =&lt;target&gt; to the
+tarball filename in the <varname>ICECC_VERSION</varname> variable. Where the &lt;target&gt; is
+the cross compiler prefix. There the <varname>ICECC_VERSION</varname> variable will look
+like &lt;native_filename&gt;(,&lt;platform&gt;:&lt;cross_compiler_filename&gt;=&lt;target&gt;)*.</para>
+
+<para>Below an example of how to configure icecream to use two toolchains,
+/work/toolchain1/bin/arm-eabi-[gcc,g++] and /work/toolchain2/bin/arm-linux-androideabi-[gcc,g++],
+for the same host architecture:</para>
+
+<itemizedlist>
+<listitem>
+    <para>Create symbolic links with the cross compilers names
+    (e.g. arm-eabi-[gcc,g++] and arm-linux-androideabi-[gcc,g++])
+    pointing to where the icecc binary is. Make sure these symbolic links are
+    in the $PATH and before the path of the toolchains.</para>
+</listitem>
+<listitem>
+    <para>Create a tarball file for each toolchain that you want to use with
+    icecream. The /usr/lib/icecc/icecc-create-env script can be used to
+    create the tarball file for each toolchain, for example:
+    <command>/usr/lib/icecc/icecc-create-env --gcc /work/toolchain1/bin/arm-eabi-gcc
+    /work/toolchain1/bin/arm-eabi-g++</command>
+    <command>/usr/lib/icecc/icecc-create-env --gcc /work/toolchain2/bin/arm-linux-androideabi-gcc
+    /work/toolchain2/bin/arm-linux-androideabi-gcc</command>.</para>
+</listitem>
+<listitem>
+    <para>Set <varname>ICECC_VERSION</varname> to point to the native tarball file and for each
+    tarball file created to the toolchains (e.g  <varname>ICECC_VERSION</varname>=/work/i386-native.tar.gz,/work/arm-eabi-toolchain1.tar.gz=arm-eabi,/work/arm-linux-androideabi-toolchain2.tar.gz=arm-linux-androideabi).</para>
+</listitem>
+</itemizedlist>
+
+<para>With these steps the icecrem will use /work/arm-eabi-toolchain1.tar.gz file to
+cross compilers with the prefix arm-eabi(e.g arm-eabi-gcc and arm-eabi-g++), use
+/work/arm-linux-androideabi-toolchain2.tar.gz file to cross compilers with the prefix
+arm-linux-androideabi(e.g. arm-linux-androideabi-gcc and arm-linux-androideabi-g++)
+and use /work/i386-native.tar.gz file to compilers without prefix,
+the native compilers.</para>
+</refsect1>
+
+<refsect1>
 <title>How to combine icecream with ccache</title>
 
 <para>The easiest way to use ccache with icecream is to set <varname>CCACHE_PREFIX</varname>

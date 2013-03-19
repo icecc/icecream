@@ -360,7 +360,7 @@ int main(int argc, char **argv)
     if ( !local ) {
         if ( getenv( "ICECC_VERSION" ) ) { // if set, use it, otherwise take default
             try {
-                envs = parse_icecc_version( job.targetPlatform() );
+                envs = parse_icecc_version(job.targetPlatform(), find_prefix(job.compilerName()));
             } catch ( int x ) {
                 // we just build locally
             }
