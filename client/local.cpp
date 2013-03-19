@@ -268,7 +268,7 @@ int build_local(CompileJob& job, MsgChannel *local_daemon, struct rusage *used)
         while( wait4( child_pid, &status, 0, used ) < 0 && errno == EINTR)
             ;
 
-        status = WEXITSTATUS(status);
+        status = shell_exit_status(status);
 
         signal( SIGINT, old_sigint );
         signal( SIGTERM, old_sigterm );
