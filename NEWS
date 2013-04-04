@@ -1,3 +1,31 @@
+1.0.0
+- log error message when cleaning up cache fails during startup
+- if getuid() != 0, then our u/gid will be getu/gid() the whole time
+- chmod/chown envs dir when preparing this
+- be more careful when cleaning up envs directory
+- cleanup envs dir still with root privileges
+- mkdir -p
+- Revert "cleanup envs dir still with root privileges"
+- cleanup envs dir in %post in specfile
+- fix scheduler binary name in suse specfile
+- with cap-ng geteuid() is not a sign of being able to do chroot
+- avoid debug message without endl
+- avoid unused parameter warnings
+- install clang/clang++ wrappers symlinks conditionally again
+- adjust specfile for optional clang symlinks
+- make clang wrappers package also require clang
+- fix clang wrappers build
+- refer to icecream-users@googlegroups.com ML as the contact
+- mention the Linux3_ hack leading to nodes sometimes not being used
+- Linux3_ nodes may not compile on other nodes either, actually
+- prevent icerun-wrapped commands failing if path contains 'clang'
+- remove unnecessary references to KDE to make icecream look KDE-specific
+- adjust references to icecream path
+- sync the ccache section between README.md and the manpage
+- AC_CONFIG_HEADERS instead of obsolete and removed AM_CONFIG_HEADER
+- add the README.md to the tar
+- mild relicensing, the code taken from ksysguardd is really a minor part by now
+
 0.9.98.2 (1.0rc4)
 - suse: Backports from OBS and create symlinks in /opt/icecream/bin on openSUSE <= 12.2.
 - fix libexec dir name in opensuse specfile
