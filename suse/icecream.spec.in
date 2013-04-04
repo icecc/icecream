@@ -107,6 +107,7 @@ rm -rf -- %_localstatedir/cache/icecream/*
 
 %files
 %defattr(-,root,root)
+%doc COPYING README.md NEWS
 %config %_sysconfdir/logrotate.d/icecream
 %config %_sysconfdir/init.d/icecream
 %_bindir/icecc
