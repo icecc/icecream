@@ -27,3 +27,18 @@ install: init.icecream logrotate SuSEfirewall.iceccd SuSEfirewall.scheduler sysc
 	  $(INSTALL) -m 644 $(srcdir)/SuSEfirewall.scheduler $(DESTDIR)$(susefirewallservicesdir)/icecream-scheduler ;\
 	fi
 
+uninstall:
+	if test $(host_vendor) = "suse"; then \
+	  rm $(DESTDIR)$(initdir)/icecream ;\
+	  rmdir $(DESTDIR)/$(initdir) ;\
+	  rm $(DESTDIR)$(sbindir)/rcicecream ;\
+	  rm $(DESTDIR)$(templatesdir)/sysconfig.icecream ;\
+	  rmdir $(DESTDIR)$(templatesdir) ;\
+	  rmdir $(DESTDIR)$(icecreamcachedir) ;\
+	  rmdir $(DESTDIR)$(logdir) ;\
+	  rm $(DESTDIR)$(logrotatedir)/icecream ;\
+	  rm $(DESTDIR)$(susefirewallservicesdir)/iceccd ;\
+	  rm $(DESTDIR)$(susefirewallservicesdir)/icecream-scheduler ;\
+	  rmdir $(DESTDIR)$(susefirewallservicesdir) ;\
+	fi
+
