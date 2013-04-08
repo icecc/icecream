@@ -42,8 +42,8 @@ $LIBTOOLIZE --force --copy || {
     echo "error: libtoolize failed"
     exit 1
 }
-aclocal $ACLOCAL_FLAGS || {
-    echo "error: aclocal $ACLOCAL_FLAGS failed"
+aclocal -I m4 $ACLOCAL_FLAGS || {
+    echo "error: aclocal -I m4 $ACLOCAL_FLAGS failed"
     exit 1
 }
 autoheader || {

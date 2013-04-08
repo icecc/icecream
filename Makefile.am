@@ -1,5 +1,7 @@
 EXTRA_DIST = README.md
 
+ACLOCAL_AMFLAGS = -I m4
+
 SUBDIRS = \
 	minilzo \
 	services \
