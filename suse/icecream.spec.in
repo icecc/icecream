@@ -47,6 +47,9 @@ icecream is the next generation distcc.
 Summary:        For Distributed Compile in the Network
 Group:          Development/Tools/Building
 Requires:       libstdc++-devel
+%if 0%{?suse_version} > 1110
+Requires:       libcap-ng-devel
+%endif
 
 %description -n libicecream-devel
 icecream is the next generation distcc.
