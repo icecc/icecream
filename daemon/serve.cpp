@@ -111,12 +111,6 @@ int handle_connection( const string &basedir, CompileJob *job,
     int obj_fd = -1; // the obj_fd
     string obj_file;
 
-    map<string,string> inc = job->includeFiles();
-    for(map<string,string>::const_iterator it = inc.begin();
-        it != inc.end();
-        ++it )
-        log_info() << "INC:" << it->first << ":" << it->second << endl;
-
     try {
         if ( job->environmentVersion().size() ) {
             string dirname;

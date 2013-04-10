@@ -1166,8 +1166,6 @@ bool Daemon::handle_send_header( Client *client, SendHeaderMsg *msg )
 
 void Daemon::install_header( const string& file, const string& content, const string& md5 )
 {
-    log_info() << "INSTALL HEADER:" << file << ":" << md5 << endl;
-    log_info() << content << endl;
     if( header_md5s.find( md5 ) != header_md5s.end())
         return; // ok
     string includedir = envbasedir + "/headers/";
