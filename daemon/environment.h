@@ -47,5 +47,8 @@ extern size_t remove_native_environment( const std::string &env );
 extern void chdir_to_environment( MsgChannel *c, const std::string &dirname, uid_t user_uid, gid_t user_gid );
 extern bool verify_env( MsgChannel *c, const std::string &basedir, const std::string& target,
                         const std::string &env, uid_t user_uid, gid_t user_gid );
+extern bool prepare_environment_with_includes( CompileJob* job, const std::string& dirname, const std::string& basedir,
+                uid_t uid, gid_t gid );
+extern bool cleanup_directory( const std::string& directory );
 
 #endif

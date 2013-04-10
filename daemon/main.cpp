@@ -481,6 +481,7 @@ struct Daemon
     bool handle_job_done( Client *cl, JobDoneMsg *m ) __attribute_warn_unused_result__;
     bool handle_compile_done (Client* client) __attribute_warn_unused_result__;
     bool handle_verify_env ( Client* client, VerifyEnvMsg *msg ) __attribute_warn_unused_result__;
+    bool handle_send_header ( Client* client, SendHeaderMsg *msg ) __attribute_warn_unused_result__;
     bool handle_blacklist_host_env ( Client* client, Msg *msg ) __attribute_warn_unused_result__;
     int handle_cs_conf( ConfCSMsg *msg);
     string dump_internals() const;
@@ -493,6 +494,8 @@ struct Daemon
     int working_loop();
     bool setup_listen_fds();
     void check_cache_size( const string &new_env );
+    void install_header( const string& file, const string& content, const string& md5 );
+    set< string > header_md5s;
 };
 
 bool Daemon::setup_listen_fds()
@@ -1154,6 +1157,30 @@ bool Daemon::handle_verify_env( Client *client, VerifyEnvMsg *msg )
     return true;
 }
 
+bool Daemon::handle_send_header( Client *client, SendHeaderMsg *msg )
+{
+    assert( msg );
+    install_header( msg->file, msg->content, msg->md5 );
+    return true;
+}
+
+void Daemon::install_header( const string& file, const string& content, const string& md5 )
+{
+    log_info() << "INSTALL HEADER:" << file << ":" << md5 << endl;
+    log_info() << content << endl;
+    if( header_md5s.find( md5 ) != header_md5s.end())
+        return; // ok
+    string includedir = envbasedir + "/headers/";
+    if( mkdir( includedir.c_str(), 0755 ) != 0 && errno != EEXIST ) // 755 TODO
+        {
+        // TODO
+        return;
+        }
+    ofstream outfile(( includedir + md5 ).c_str());
+    outfile << content;
+    header_md5s.insert( md5 );
+}
+
 bool Daemon::handle_blacklist_host_env( Client *client, Msg *msg )
 {
     // just forward
@@ -1379,6 +1406,7 @@ bool Daemon::handle_activity( Client *client )
     case M_JOB_DONE: ret = handle_job_done( client, dynamic_cast<JobDoneMsg*>(msg) ); break;
     case M_VERIFY_ENV: ret = handle_verify_env( client, dynamic_cast<VerifyEnvMsg*>(msg) ); break;
     case M_BLACKLIST_HOST_ENV: ret = handle_blacklist_host_env( client, msg ); break;
+    case M_SEND_HEADER: ret = handle_send_header( client, dynamic_cast< SendHeaderMsg* >( msg )); break;
     default:
         log_error() << "not compile: " << ( char )msg->type << "protocol error on client " << client->dump() << endl;
         client->channel->send_msg( EndMsg() );

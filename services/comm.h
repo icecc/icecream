@@ -35,7 +35,7 @@
 #include "job.h"
 
 // if you increase the PROTOCOL_VERSION, add a macro below and use that
-#define PROTOCOL_VERSION 32
+#define PROTOCOL_VERSION 33
 // if you increase the MIN_PROTOCOL_VERSION, comment out macros below and clean up the code
 #define MIN_PROTOCOL_VERSION 21
 
@@ -56,6 +56,7 @@
 #define IS_PROTOCOL_30( c ) ( (c)->protocol >= 30 )
 #define IS_PROTOCOL_31( c ) ( (c)->protocol >= 31 )
 #define IS_PROTOCOL_32( c ) ( (c)->protocol >= 32 )
+#define IS_PROTOCOL_33( c ) ( (c)->protocol >= 33 )
 
 enum MsgType {
   // so far unknown
@@ -122,7 +123,10 @@ enum MsgType {
   M_VERIFY_ENV,
   M_VERIFY_ENV_RESULT,
   // C --> CS, CS --> S (forwarded from C), to not use given host for given environment
-  M_BLACKLIST_HOST_ENV
+  M_BLACKLIST_HOST_ENV,
+
+  // C --> CS
+  M_SEND_HEADER
 };
 
 class MsgChannel;
@@ -645,6 +649,18 @@ public:
   BlacklistHostEnvMsg() : Msg( M_BLACKLIST_HOST_ENV ) {}
   BlacklistHostEnvMsg( const std::string &_target, const std::string &_environment, const std::string &_hostname )
     : Msg( M_BLACKLIST_HOST_ENV ), environment( _environment ), target( _target ), hostname( _hostname ) {}
+  virtual void fill_from_channel (MsgChannel *c);
+  virtual void send_to_channel (MsgChannel *c) const;
+};
+
+class SendHeaderMsg : public Msg {
+public:
+  std::string file;
+  std::string content;
+  std::string md5;
+  SendHeaderMsg() : Msg( M_SEND_HEADER ) {}
+  SendHeaderMsg( const std::string & _file, const std::string & _content, const std::string& _md5 )
+    : Msg( M_SEND_HEADER ), file( _file ), content( _content ), md5( _md5 ) {}
   virtual void fill_from_channel (MsgChannel *c);
   virtual void send_to_channel (MsgChannel *c) const;
 };

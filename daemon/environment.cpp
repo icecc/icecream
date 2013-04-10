@@ -139,7 +139,7 @@ static bool exec_and_wait( const char *const argv[] )
 }
 
 // Removes everything in the directory recursively, but not the directory itself.
-static bool cleanup_directory( const string& directory )
+bool cleanup_directory( const string& directory )
 {
     DIR* dir = opendir( directory.c_str());
     if( dir == NULL )
@@ -535,6 +535,7 @@ error_client( MsgChannel *client, string error )
 
 void chdir_to_environment( MsgChannel *client, const string &dirname, uid_t user_uid, gid_t user_gid )
 {
+    log_error() << "CD:" << dirname << endl;
 #ifdef HAVE_LIBCAP_NG
     if ( chdir( dirname.c_str() ) < 0 ) {
         error_client( client, string( "chdir to " ) + dirname + "failed" );
@@ -610,4 +611,78 @@ bool verify_env( MsgChannel *client, const string &basedir, const string& target
     reset_debug(0);
     chdir_to_environment( client, dirname, user_uid, user_gid );
     _exit(execl("bin/true", "bin/true", (void*)NULL));
+}
+
+bool recursive_mkdir( const string& dir, uid_t uid, gid_t gid )
+{
+    size_t pos = 1;
+    for(;;) {
+        pos = dir.find( '/', pos );
+        string subdir = dir.substr( 0, pos );
+        if( mkdir( subdir.c_str(), 0755 ) != 0 && errno != EEXIST ) {
+            log_perror( "mkdir" );
+            return false;
+        }
+        chown( subdir.c_str(), uid, gid );
+        if( pos == string::npos )
+            return true;
+        ++pos;
+    }
+}
+
+bool link_to_dir( const string& src, const string& dest )
+{
+    DIR *envdir = opendir( src.c_str() );
+    if ( !envdir ) {
+        log_error() << "LTD1:" << src << endl;
+        return false;
+    }
+    for ( struct dirent *ent = readdir(envdir); ent; ent = readdir( envdir ) ) {
+        if( strcmp( ent->d_name, "." ) == 0 || strcmp( ent->d_name, ".." ) == 0 )
+            continue;
+        if( link(( src + "/" + ent->d_name ).c_str(), ( dest + "/" + ent->d_name ).c_str()) != 0 ) {
+            struct stat st;
+            if( stat(( src + "/" + ent->d_name ).c_str(), &st ) != 0 ) {
+                log_error() << "LTD3:" << (src+"/"+ent->d_name) << endl;
+                return false;
+            }
+            if( S_ISDIR( st.st_mode )) {
+                mkdir(( dest + "/" + ent->d_name ).c_str(), 0755 );
+                if( !link_to_dir( src + "/" + ent->d_name, dest + "/" + ent->d_name ))
+                    return false;
+            }
+            else {
+                log_error() << "LTD5:" << (src+"/"+ent->d_name) << endl;
+                return false;
+            }
+        }
+    }
+    closedir( envdir );
+    return true;
+}
+
+// Create a copy of an environment for the compile job and add all needed includes.
+bool prepare_environment_with_includes( CompileJob* job, const string& dirname, const string& basedir,
+    uid_t uid, gid_t gid )
+{
+    string envdirname = basedir + "/target=" + job->targetPlatform() + "/" + job->environmentVersion();
+    if( access( envdirname.c_str(), R_OK ) != 0 ) {
+        log_error() << "No environment " << envdirname << " for setting up an environment copy." << endl;
+        return false;
+    }
+    recursive_mkdir( dirname, uid, gid );
+    if( !link_to_dir( envdirname, dirname ))
+        return false;
+    map< string, string > includes = job->includeFiles();
+    for( map< string, string >::const_iterator it = includes.begin();
+         it != includes.end();
+         ++it ) {
+        string dir = dirname + it->second.substr( 0, it->second.rfind( '/' ));
+        recursive_mkdir( dir, uid, gid );
+        if( link(( basedir + "/headers/" + it->first ).c_str(), ( dirname + it->second ).c_str()) != 0 ) {
+            log_perror( "link" );
+            return false;
+        }
+    }
+    return true;
 }

@@ -111,9 +111,24 @@ int handle_connection( const string &basedir, CompileJob *job,
     int obj_fd = -1; // the obj_fd
     string obj_file;
 
+    map<string,string> inc = job->includeFiles();
+    for(map<string,string>::const_iterator it = inc.begin();
+        it != inc.end();
+        ++it )
+        log_info() << "INC:" << it->first << ":" << it->second << endl;
+
     try {
         if ( job->environmentVersion().size() ) {
-            string dirname = basedir + "/target=" + job->targetPlatform() + "/" + job->environmentVersion();
+            string dirname;
+            if( !job->includeFiles().empty()) {
+                char pidbuf[ 20 ];
+                sprintf( pidbuf, "%d", getpid());
+                dirname = basedir + "/target=" + job->targetPlatform() + "/" + job->environmentVersion()
+                    + "_includes_" + pidbuf;
+                prepare_environment_with_includes( job, dirname, basedir, user_uid, user_gid );
+            } else {
+                dirname = basedir + "/target=" + job->targetPlatform() + "/" + job->environmentVersion();
+            }
             if ( ::access( string( dirname + "/usr/bin/as" ).c_str(), X_OK ) ) {
                 error_client( client, dirname + "/usr/bin/as is not executable" );
                 log_error() << "I don't have environment " << job->environmentVersion() << "(" << job->targetPlatform() << ") " << job->jobID() << endl;

@@ -57,6 +57,8 @@
 #define O_LARGEFILE 0
 #endif
 
+#include <fstream>
+
 namespace {
 
 struct CharBufferDeleter
@@ -305,6 +307,9 @@ static void write_server_cpp(int cpp_fd, MsgChannel *cserver)
     close( cpp_fd );
 }
 
+static string
+md5_for_file( const string & file );
+
 
 static int build_remote_int(CompileJob &job, UseCSMsg *usecs, MsgChannel *local_daemon, const string &environment,
                             const string &version_file, const char *preproc_file, bool output )
@@ -332,7 +337,7 @@ static int build_remote_int(CompileJob &job, UseCSMsg *usecs, MsgChannel *local_
                 throw ( 2 );
             }
 
-    if ( !got_env ) {
+    if ( !got_env || true ) {
         log_block b("Transfer Environment");
         // transfer env
         struct stat buf;
@@ -381,6 +386,15 @@ static int build_remote_int(CompileJob &job, UseCSMsg *usecs, MsgChannel *local_
         log_warning() << "Host " << hostname << " cannot be verified." << endl;
         throw( 26 );
     }
+
+    ifstream header_file( "/tmp/foo/a.h" );
+    string header_content( ( istreambuf_iterator< char >( header_file )), istreambuf_iterator< char >());
+    string header_md5 = md5_for_file( "/tmp/foo/a.h" );    
+    SendHeaderMsg send_headers( "/tmp/foo/a.h", header_content, header_md5 );
+    cserver->send_msg( send_headers );
+    log_info() << "SEND HEADER:" << header_md5 << endl;
+    log_info() << header_content << endl;
+    job.addIncludeFile( header_md5, "/tmp/foo/a.h" );
 
     CompileFileMsg compile_file( &job );
     {
@@ -584,7 +598,7 @@ maybe_build_local (MsgChannel *local_daemon, UseCSMsg *usecs, CompileJob &job,
 {
     remote_daemon = usecs->hostname;
 
-    if ( usecs->hostname == "127.0.0.1" ) {
+    if ( usecs->hostname == "127.0.0.1" && false ) {
         trace() << "building myself, but telling localhost\n";
         int job_id = usecs->job_id;
         job.setJobID( job_id );

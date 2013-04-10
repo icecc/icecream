@@ -972,6 +972,7 @@ MsgChannel::get_msg(int timeout)
     case M_VERIFY_ENV: m = new VerifyEnvMsg; break;
     case M_VERIFY_ENV_RESULT: m = new VerifyEnvResultMsg; break;
     case M_BLACKLIST_HOST_ENV: m = new BlacklistHostEnvMsg; break;
+    case M_SEND_HEADER: m = new SendHeaderMsg; break;
     case M_TIMEOUT: break;
     }
   if (!m) {
@@ -1360,6 +1361,20 @@ CompileFileMsg::fill_from_channel (MsgChannel *c)
     *c >> compilerName;
     job->setCompilerName( compilerName );
   }
+  if (IS_PROTOCOL_33(c))
+  {
+    list<string> md5s, includes;
+    *c >> md5s >> includes;
+    assert( md5s.size() == includes.size());
+    list<string>::const_iterator it1 = md5s.begin();
+    list<string>::const_iterator it2 = includes.begin();
+    while( it1 != md5s.end())
+    {
+      job->addIncludeFile( *it1, *it2 );
+      ++it1;
+      ++it2;
+    }
+  }
 }
 
 void
@@ -1386,6 +1401,19 @@ CompileFileMsg::send_to_channel (MsgChannel *c) const
   *c << job->targetPlatform();
   if (IS_PROTOCOL_30(c))
     *c << remote_compiler_name();
+  if (IS_PROTOCOL_33(c))
+  {
+    list<string> md5s, includes;
+    map<string,string> include_files = job->includeFiles();
+    for( map<string,string>::const_iterator it = include_files.begin();
+         it != include_files.end();
+         ++it )
+    {
+      md5s.push_back( it->first );
+      includes.push_back( it->second );
+    }
+    *c << md5s << includes;
+  }
 }
 
 // Environments created by icecc-create-env always use the same binary name
@@ -1838,6 +1866,24 @@ BlacklistHostEnvMsg::send_to_channel (MsgChannel *c) const
   *c << environment;
   *c << target;
   *c << hostname;
+}
+
+void
+SendHeaderMsg::fill_from_channel (MsgChannel *c)
+{
+  Msg::fill_from_channel( c );
+  *c >> file;
+  *c >> content;
+  *c >> md5;
+}
+
+void
+SendHeaderMsg::send_to_channel (MsgChannel *c) const
+{
+  Msg::send_to_channel( c );
+  *c << file;
+  *c << content;
+  *c << md5;
 }
 
 /*

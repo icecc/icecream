@@ -1,3 +1,5 @@
+- use FileChunkMsg for headers (compressed)
+
 Release Critical:
 * bind the broadcast listener to fixed local port (8765) (otherwise not firewallable) (matz)
 * chmod TMPDIR/native, as otherwise set umask prevent it from being readable by the client

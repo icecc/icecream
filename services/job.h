@@ -22,6 +22,7 @@
 #define _COMPILE_JOB_H
 
 #include <list>
+#include <map>
 #include <string>
 
 typedef enum { Arg_Unspecified, Arg_Local, Arg_Remote, Arg_Rest } Argument_Type;
@@ -97,6 +98,14 @@ public:
         m_target_platform = _target;
     }
 
+    void addIncludeFile( const std::string& md5, const std::string& filename ) {
+        m_include_files[ md5 ] = filename;
+    }
+
+    std::map< std::string, std::string > includeFiles() const {
+        return m_include_files;
+    }
+
 private:
     std::list<std::string> flags( Argument_Type argumentType ) const;
     void __setTargetPlatform();
@@ -108,6 +117,8 @@ private:
     ArgumentsList m_flags;
     std::string m_input_file, m_output_file;
     std::string m_target_platform;
+    // md5 -> full filename of all include files (used when sending headers)
+    std::map< std::string, std::string > m_include_files;
 };
 
 inline void appendList( std::list<std::string> &list,
