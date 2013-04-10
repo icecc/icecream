@@ -98,6 +98,9 @@ int work_it( CompileJob &j, unsigned int job_stat[], MsgChannel* client,
     std::list<string> list = j.remoteFlags();
     appendList( list, j.restFlags() );
 
+    if( j.hasIncludeFiles())
+        appendList( list, j.localFlags());
+
     int sock_err[2];
     int sock_out[2];
     int sock_in[2];
@@ -181,6 +184,7 @@ int work_it( CompileJob &j, unsigned int job_stat[], MsgChannel* client,
         argc += 4; // gpc parameters
         argc += 1; // -pipe
         argc += 1; // -no-canonical-prefixes
+        argc += 2; // -iquote dir
         char **argv = new char*[argc + 1];
 	int i = 0;
         bool clang = false;
@@ -207,8 +211,10 @@ int work_it( CompileJob &j, unsigned int job_stat[], MsgChannel* client,
                 hasPipe = true;
             argv[i++] = strdup( it->c_str() );
         }
-        if (!clang)
-            argv[i++] = strdup("-fpreprocessed");
+        if (!j.hasIncludeFiles()) {
+            if (!clang)
+                argv[i++] = strdup("-fpreprocessed");
+        }
         if(!hasPipe)
            argv[i++] = strdup("-pipe");
         argv[i++] = strdup( "-" );
@@ -224,6 +230,14 @@ int work_it( CompileJob &j, unsigned int job_stat[], MsgChannel* client,
         }
         if (clang)
             argv[i++] = strdup( "-no-canonical-prefixes" ); // otherwise clang tries to access /proc/self/exe
+
+        if(j.hasIncludeFiles()) {
+            // #include "foo" would try to include the file from the source file's directory,
+            // but now the .cpp file comes from stdin, so there's no such directory,
+            // append -iquote as the last arg to seach the relevant directory.
+            argv[i++] = strdup( "-iquote" );
+            argv[i++] = strdup( j.inputFile().substr( 0, j.inputFile().rfind( '/' )).c_str());
+        }
         // before you add new args, check above for argc
         argv[i] = 0;
         assert(i <= argc);

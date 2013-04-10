@@ -1374,6 +1374,9 @@ CompileFileMsg::fill_from_channel (MsgChannel *c)
       ++it1;
       ++it2;
     }
+    string inputFile;
+    *c >> inputFile;
+    job->setInputFile( inputFile );
   }
 }
 
@@ -1413,6 +1416,7 @@ CompileFileMsg::send_to_channel (MsgChannel *c) const
       includes.push_back( it->second );
     }
     *c << md5s << includes;
+    *c << job->inputFile();
   }
 }
 

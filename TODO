@@ -1,4 +1,5 @@
 - use FileChunkMsg for headers (compressed)
+- do not use all local flags on remote
 
 Release Critical:
 * bind the broadcast listener to fixed local port (8765) (otherwise not firewallable) (matz)

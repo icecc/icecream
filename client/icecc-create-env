@@ -270,6 +270,10 @@ if test -n "$clang"; then
       destfile=$(echo $destfile | sed "s#$clangprefix#/usr#" )
       add_file "$file" "$destfile"
     done
+
+    # clang apparently uses this file to find the gcc directory, and afterwards
+    # uses it to reach libstdc++ includes
+    add_file $(abs_path $($added_clang -print-file-name=crtbegin.o))
 fi
 
 for extrafile in $extrafiles; do

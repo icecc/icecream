@@ -106,6 +106,11 @@ public:
         return m_include_files;
     }
 
+    // Means 'send headers to remote and do not preprocess locally'.
+    bool hasIncludeFiles() const {
+        return !m_include_files.empty();
+    }
+
 private:
     std::list<std::string> flags( Argument_Type argumentType ) const;
     void __setTargetPlatform();

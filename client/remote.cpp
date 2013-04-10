@@ -334,6 +334,7 @@ static int build_remote_int(CompileJob &job, UseCSMsg *usecs, MsgChannel *local_
     bool got_env = usecs->got_env;
     job.setJobID( job_id );
     job.setEnvironmentVersion( environment ); // hoping on the scheduler's wisdom
+    job.setInputFile( get_absfilename( job.inputFile()));
     trace() << "Have to use host " << hostname << ":" << port << " - Job ID: "
         << job.jobID() << " - env: " << usecs->host_platform
         << " - has env: " << (got_env ? "true" : "false")
@@ -412,7 +413,7 @@ static int build_remote_int(CompileJob &job, UseCSMsg *usecs, MsgChannel *local_
         }
     }
 
-    if ( !preproc_file ) {
+    if ( !preproc_file && !job.hasIncludeFiles()) {
         int sockets[2];
         if (pipe(sockets)) {
             /* for all possible cases, this is something severe */
@@ -443,6 +444,13 @@ static int build_remote_int(CompileJob &job, UseCSMsg *usecs, MsgChannel *local_
             cserver = 0;
             return shell_exit_status( status );
         }
+    } else if( job.hasIncludeFiles()) {
+        int cpp_fd = open( job.inputFile().c_str(), O_RDONLY );
+        if ( cpp_fd < 0 )
+            throw ( 11 );
+
+        log_block cpp_block("write_server_cpp");
+        write_server_cpp( cpp_fd, cserver );
     } else {
         int cpp_fd = open( preproc_file, O_RDONLY );
         if ( cpp_fd < 0 )
