@@ -630,7 +630,7 @@ bool recursive_mkdir( const string& dir, uid_t uid, gid_t gid )
     }
 }
 
-bool link_to_dir( const string& src, const string& dest )
+bool link_to_dir( const string& src, const string& dest, uid_t uid, gid_t gid )
 {
     DIR *envdir = opendir( src.c_str() );
     if ( !envdir ) {
@@ -640,19 +640,22 @@ bool link_to_dir( const string& src, const string& dest )
     for ( struct dirent *ent = readdir(envdir); ent; ent = readdir( envdir ) ) {
         if( strcmp( ent->d_name, "." ) == 0 || strcmp( ent->d_name, ".." ) == 0 )
             continue;
-        if( link(( src + "/" + ent->d_name ).c_str(), ( dest + "/" + ent->d_name ).c_str()) != 0 ) {
+        string srcfile = src + "/" + ent->d_name;
+        string destfile = dest + "/" + ent->d_name;
+        if( link( srcfile.c_str(), destfile.c_str()) != 0 ) {
             struct stat st;
-            if( stat(( src + "/" + ent->d_name ).c_str(), &st ) != 0 ) {
-                log_error() << "LTD3:" << (src+"/"+ent->d_name) << endl;
+            if( stat( srcfile.c_str(), &st ) != 0 ) {
+                log_error() << "LTD3:" << srcfile << endl;
                 return false;
             }
             if( S_ISDIR( st.st_mode )) {
-                mkdir(( dest + "/" + ent->d_name ).c_str(), 0755 );
-                if( !link_to_dir( src + "/" + ent->d_name, dest + "/" + ent->d_name ))
+                mkdir( destfile.c_str(), 0755 );
+                chown( destfile.c_str(), uid, gid );
+                if( !link_to_dir( srcfile, destfile, uid, gid ))
                     return false;
             }
             else {
-                log_error() << "LTD5:" << (src+"/"+ent->d_name) << endl;
+                log_error() << "LTD5:" << destfile << endl;
                 return false;
             }
         }
@@ -671,7 +674,7 @@ bool prepare_environment_with_includes( CompileJob* job, const string& dirname, 
         return false;
     }
     recursive_mkdir( dirname, uid, gid );
-    if( !link_to_dir( envdirname, dirname ))
+    if( !link_to_dir( envdirname, dirname, uid, gid ))
         return false;
     map< string, string > includes = job->includeFiles();
     for( map< string, string >::const_iterator it = includes.begin();
