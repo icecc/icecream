@@ -1335,10 +1335,12 @@ CompileFileMsg::fill_from_channel (MsgChannel *c)
 {
   Msg::fill_from_channel (c);
   uint32_t id, lang;
-  list<string> _l1, _l2;
+  list<string> _l1, _l2, _l3;
   string version;
   *c >> lang;
   *c >> id;
+  if (IS_PROTOCOL_33(c))
+    *c >> _l3;
   *c >> _l1;
   *c >> _l2;
   *c >> version;
@@ -1349,6 +1351,8 @@ CompileFileMsg::fill_from_channel (MsgChannel *c)
     l.append( *it, Arg_Remote );
   for (list<string>::const_iterator it = _l2.begin(); it != _l2.end(); ++it)
     l.append( *it, Arg_Rest );
+  for (list<string>::const_iterator it = _l3.begin(); it != _l3.end(); ++it)
+    l.append( *it, Arg_Cpp );
   job->setFlags (l);
   job->setEnvironmentVersion (version);
 
@@ -1386,8 +1390,17 @@ CompileFileMsg::send_to_channel (MsgChannel *c) const
   Msg::send_to_channel (c);
   *c << (uint32_t) job->language();
   *c << job->jobID();
-  if (IS_PROTOCOL_30(c))
+  if (IS_PROTOCOL_33(c))
+  {
+    *c << job->cppFlags();
     *c << job->remoteFlags();
+    *c << job->restFlags();
+  }
+  else if (IS_PROTOCOL_30(c))
+  {
+    *c << job->remoteFlags();
+    *c << job->restFlags();
+  }
   else
   {
     if (job->compilerName().find("clang") != string::npos)
@@ -1398,8 +1411,8 @@ CompileFileMsg::send_to_channel (MsgChannel *c) const
     }
     else
       *c << job->remoteFlags();
+    *c << job->restFlags();
   }
-  *c << job->restFlags();
   *c << job->environmentVersion();
   *c << job->targetPlatform();
   if (IS_PROTOCOL_30(c))

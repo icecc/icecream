@@ -91,6 +91,7 @@ pid_t call_cpp(CompileJob &job, int fdwrite, int fdread)
             argv[2] = 0;
 	} else {
 	    list<string> flags = job.localFlags();
+	    appendList( flags, job.cppFlags());
             /* This has a duplicate meaning. it can either include a file
                for preprocessing or a precompiled header. decide which one.  */
             for (list<string>::iterator it = flags.begin();
@@ -208,6 +209,7 @@ list<string> find_included_headers (const CompileJob &job)
 
 	char **argv;
 	list<string> flags = job.localFlags();
+	appendList( flags, job.cppFlags() );
 	appendList( flags, job.restFlags() );
 	int argc = flags.size();
 	argc++; // the program

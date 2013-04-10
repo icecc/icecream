@@ -41,6 +41,11 @@ list<string> CompileJob::localFlags() const
     return flags( Arg_Local );
 }
 
+list<string> CompileJob::cppFlags() const
+{
+    return flags( Arg_Cpp );
+}
+
 list<string> CompileJob::remoteFlags() const
 {
     return flags( Arg_Remote );

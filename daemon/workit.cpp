@@ -99,7 +99,7 @@ int work_it( CompileJob &j, unsigned int job_stat[], MsgChannel* client,
     appendList( list, j.restFlags() );
 
     if( j.hasIncludeFiles())
-        appendList( list, j.localFlags());
+        appendList( list, j.cppFlags());
 
     int sock_err[2];
     int sock_out[2];

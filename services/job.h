@@ -25,7 +25,13 @@
 #include <map>
 #include <string>
 
-typedef enum { Arg_Unspecified, Arg_Local, Arg_Remote, Arg_Rest } Argument_Type;
+typedef enum {
+    Arg_Local, ///< arguments which definitely must be local (they e.g. create files)
+    Arg_Cpp,   ///< arguments related to preprocessing (used locally or remote depending on mode)
+    Arg_Remote, ///< argument related to actual compiling (used remotely)
+    Arg_Rest   ///< uknown type of argument (always used)
+} Argument_Type;
+
 class ArgumentsList : public std::list< std::pair<std::string, Argument_Type> >
 {
 public:
@@ -62,6 +68,7 @@ public:
         m_flags = flags;
     }
     std::list<std::string> localFlags() const;
+    std::list<std::string> cppFlags() const;
     std::list<std::string> remoteFlags() const;
     std::list<std::string> restFlags() const;
     std::list<std::string> allFlags() const;

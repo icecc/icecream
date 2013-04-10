@@ -110,8 +110,6 @@ bool analyse_argv( const char * const *argv,
     bool seen_mf = false;
     bool seen_md = false;
     bool fno_color_diagnostics = false;
-    // if rewriting includes and precompiling on remote machine, then cpp args are not local
-    Argument_Type Arg_Cpp = compiler_only_rewrite_includes( job ) ? Arg_Rest : Arg_Local;
     if( icerun ) {
         always_local = true;
         job.setLanguage( CompileJob::Lang_Custom );
@@ -276,8 +274,8 @@ bool analyse_argv( const char * const *argv,
                     } else
                         always_local = true; /* Included file is not header.suffix or header.suffix.gch! */
 
-                    args.append(a, Arg_Local);
-                    args.append(argv[i], Arg_Local);
+                    args.append(a, Arg_Cpp);
+                    args.append(argv[i], Arg_Cpp);
                 }
             } else if (str_equal("-include-pch", a)) {
                 /* Clang's precompiled header, it's probably not worth it sending the PCH file. */
@@ -293,12 +291,6 @@ bool analyse_argv( const char * const *argv,
                     args.append(  argv[i], Arg_Cpp );
 		}
             } else if (str_equal("-I", a)
-                       || str_equal("-L", a)
-                       || str_equal("-l", a)
-                       || str_equal("-MF", a)
-                       || str_equal("-MT", a)
-                       || str_equal("-MQ", a)
-                       || str_equal("-imacros", a)
                        || str_equal("-iprefix", a)
                        || str_equal("-iwithprefix", a)
                        || str_equal("-isystem", a)
@@ -307,27 +299,52 @@ bool analyse_argv( const char * const *argv,
                        || str_equal("-isysroot", a)
                        || str_equal("-iwithprefixbefore", a)
                        || str_equal("-idirafter", a) ) {
+                args.append(a, Arg_Cpp);
+                /* skip next word, being option argument */
+                if (argv[i+1]) {
+		    ++i;
+		    if (str_startswith("-O", argv[i]))
+			 always_local = true;
+                    args.append( argv[i], Arg_Cpp );
+		}
+            } else if (str_equal("-L", a)
+                       || str_equal("-l", a)
+                       || str_equal("-MF", a)
+                       || str_equal("-MT", a)
+                       || str_equal("-MQ", a) ) {
                 args.append(a, Arg_Local);
                 /* skip next word, being option argument */
                 if (argv[i+1]) {
 		    ++i;
 		    if (str_startswith("-O", argv[i]))
 			 always_local = true;
-                    args.append(  argv[i], Arg_Local );
+                    args.append( argv[i], Arg_Cpp );
+		}
+            } else if (str_equal("-imacros", a)) {
+                args.append(a, Arg_Local);
+                /* skip next word, being option argument */
+                if (argv[i+1]) {
+		    ++i;
+		    if (str_startswith("-O", argv[i]))
+			 always_local = true;
+//		    else
+// TODO		        job.addIncludeFile( "", argv[ i ] );
+                    args.append( argv[i], Arg_Local );
 		}
             } else if (str_startswith("-Wp,", a)
                  || str_startswith("-D", a)
-                 || str_startswith("-U", a)) {
+                 || str_startswith("-U", a)
+                 || str_startswith("-I", a)) {
                 args.append(a, Arg_Cpp);
-            } else if (str_startswith("-I", a)
-                 || str_startswith("-l", a)
+            } else if (str_startswith("-l", a)
                  || str_startswith("-L", a)) {
                 args.append(a, Arg_Local);
             } else if (str_equal("-undef", a)) {
                 args.append(a, Arg_Cpp);
             } else if (str_equal("-nostdinc", a)
-                 || str_equal("-nostdinc++", a)
-                 || str_equal("-MD", a)
+                 || str_equal("-nostdinc++", a)) {
+                args.append(a, Arg_Cpp);
+            } else if (str_equal("-MD", a)
                  || str_equal("-MMD", a)
                  || str_equal("-MG", a)
                  || str_equal("-MP", a)) {
@@ -498,6 +515,7 @@ bool analyse_argv( const char * const *argv,
 
 #if CLIENT_DEBUG
     trace() << "scanned result: local args=" << concat_args( job.localFlags() )
+            << ", cpp args=" << concat_args( job.cppFlags() )
             << ", remote args=" << concat_args( job.remoteFlags() )
             << ", rest=" << concat_args( job.restFlags() )
             << ", local=" << always_local
