@@ -310,6 +310,20 @@ static void write_server_cpp(int cpp_fd, MsgChannel *cserver)
 static string
 md5_for_file( const string & file );
 
+void send_included_headers(CompileJob& job, MsgChannel* cserver)
+{
+    list<string> headers = find_included_headers( job );
+    for( list<string>::const_iterator it = headers.begin();
+         it != headers.end();
+         ++it ) {
+        string md5 = md5_for_file( *it );
+        job.addIncludeFile( md5, *it );
+        ifstream file( it->c_str());
+        string content( ( istreambuf_iterator< char >( file )), istreambuf_iterator< char >());
+        SendHeaderMsg send_header( *it, content, md5 );
+        cserver->send_msg( send_header );
+    }
+}
 
 static int build_remote_int(CompileJob &job, UseCSMsg *usecs, MsgChannel *local_daemon, const string &environment,
                             const string &version_file, const char *preproc_file, bool output )
@@ -387,20 +401,7 @@ static int build_remote_int(CompileJob &job, UseCSMsg *usecs, MsgChannel *local_
         throw( 26 );
     }
 
-    list<string> headers = find_included_headers( job );
-    for( list<string>::const_iterator it = headers.begin();
-         it != headers.end();
-         ++it )
-        log_error() << "INC:" << *it << endl;
-
-    ifstream header_file( "/tmp/foo/a.h" );
-    string header_content( ( istreambuf_iterator< char >( header_file )), istreambuf_iterator< char >());
-    string header_md5 = md5_for_file( "/tmp/foo/a.h" );    
-    SendHeaderMsg send_headers( "/tmp/foo/a.h", header_content, header_md5 );
-    cserver->send_msg( send_headers );
-    log_info() << "SEND HEADER:" << header_md5 << endl;
-    log_info() << header_content << endl;
-    job.addIncludeFile( header_md5, "/tmp/foo/a.h" );
+    send_included_headers( job, cserver );
 
     CompileFileMsg compile_file( &job );
     {
