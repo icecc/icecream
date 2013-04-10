@@ -45,6 +45,7 @@ extern bool analyse_argv (const char * const *argv, CompileJob &job, bool icerun
 
 /* In cpp.cpp.  */
 extern pid_t call_cpp (CompileJob &job, int fdwrite, int fdread = -1);
+extern std::list<std::string> find_included_headers (const CompileJob &job);
 
 /* In local.cpp.  */
 extern int build_local (CompileJob& job, MsgChannel *daemon, struct rusage *usage =0);

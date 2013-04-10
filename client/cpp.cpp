@@ -33,6 +33,7 @@
 #include <string.h>
 #include <errno.h>
 #include <assert.h>
+#include <limits.h>
 
 #include "client.h"
 
@@ -143,6 +144,109 @@ pid_t call_cpp(CompileJob &job, int fdwrite, int fdread)
             dup2(fdwrite, STDOUT_FILENO);
 	    close(fdwrite);
 	}
+
+        dcc_increment_safeguard();
+
+        _exit(execv(argv[0], argv));
+    }
+}
+
+/*
+ Return a list of filenames of all headers used by the compile job.
+ Use -H to get a list of them. Try to make the compiler as fast as possible
+ otherwise. Manually trying to find out the headers would be too much
+ work (e.g. #include MACRONAME would require duplicating almost the whole
+ preprocessor).
+*/
+list<string> find_included_headers (const CompileJob &job)
+{
+    flush_debug();
+    int pipes[ 2 ];
+    if( pipe( pipes ) < 0 ) {
+        log_perror("pipe");
+        return list<string>();
+    }
+    int fdwrite = pipes[1];
+    int fdread = pipes[0];
+    pid_t pid = fork();
+    if (pid == -1) {
+        log_perror("failed to fork:");
+        return list<string>();
+    } else if (pid != 0) {
+	/* Parent.  Close the write fd.  */
+        close (fdwrite);
+        FILE* file = fdopen( fdread, "r" );
+        list< string > includes;
+        char buffer[ PATH_MAX + 1000 ];
+        char filename[ PATH_MAX + 1 ];
+        while( fgets( buffer, sizeof( buffer ), file )) {
+            // Included files start with '.', gcc also may print other info.
+            if( buffer[ 0 ] == '.' ) {
+                int pos = 0;
+                while( buffer[ pos ] == '.' )
+                    ++pos;
+                while( buffer[ pos ] == ' ' )
+                    ++pos;
+                int len = strlen( buffer );
+                if( buffer[ len - 1 ] == '\n' )
+                    buffer[ len - 1 ] = '\0';
+                if( realpath( buffer + pos, filename )) {
+                    includes.push_back( string( filename ));
+                } else {
+                    log_perror( "realpath" );
+                }
+            }
+        }
+        fclose( file );
+        return includes;
+    } else {
+	/* Child.  Close the read fd.  */
+        close (fdread);
+        int ret = dcc_ignore_sigpipe(0);
+        if (ret)    /* set handler back to default */
+            _exit(ret);
+
+	char **argv;
+	list<string> flags = job.localFlags();
+	appendList( flags, job.restFlags() );
+	int argc = flags.size();
+	argc++; // the program
+	argc += 3; // -E -H file.i
+	argc += 1; // -frewrite-includes/-fdirectives-only
+	argv = new char*[argc + 1];
+   	argv[0] = strdup( find_compiler( job ).c_str() );
+	int i = 1;
+	for ( list<string>::const_iterator it = flags.begin();
+	      it != flags.end(); ++it) {
+	    argv[i++] = strdup( it->c_str() );
+	}
+	argv[i++] = strdup( "-E" );
+	argv[i++] = strdup( "-H" );
+	argv[i++] = strdup( job.inputFile().c_str() );
+	if ( compiler_is_clang( job )) {
+	    // -frewrite-includes makes -E somewhat faster
+	    if( compiler_only_rewrite_includes( job ))
+	        argv[i++] = strdup( "-frewrite-includes" );
+	} else {
+	    // -fdirectives-only makes gcc -E faster
+            argv[i++] = strdup( "-fdirectives-only" );
+	}
+	argv[i++] = 0;
+
+#if 0
+        printf( "forking " );
+        for ( int index = 0; argv[index]; index++ )
+            printf( "%s ", argv[index] );
+        printf( "\n" );
+#endif
+
+	if (fdwrite != STDERR_FILENO) {
+            /* Ignore failure */
+            close(STDERR_FILENO);
+            dup2(fdwrite, STDERR_FILENO);
+	    close(fdwrite);
+	}
+	close(STDOUT_FILENO);
 
         dcc_increment_safeguard();
 

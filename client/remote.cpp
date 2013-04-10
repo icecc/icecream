@@ -387,6 +387,12 @@ static int build_remote_int(CompileJob &job, UseCSMsg *usecs, MsgChannel *local_
         throw( 26 );
     }
 
+    list<string> headers = find_included_headers( job );
+    for( list<string>::const_iterator it = headers.begin();
+         it != headers.end();
+         ++it )
+        log_error() << "INC:" << *it << endl;
+
     ifstream header_file( "/tmp/foo/a.h" );
     string header_content( ( istreambuf_iterator< char >( header_file )), istreambuf_iterator< char >());
     string header_md5 = md5_for_file( "/tmp/foo/a.h" );    
