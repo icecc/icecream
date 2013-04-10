@@ -683,8 +683,12 @@ bool prepare_environment_with_includes( CompileJob* job, const string& dirname, 
         string dir = dirname + it->second.substr( 0, it->second.rfind( '/' ));
         recursive_mkdir( dir, uid, gid );
         if( link(( basedir + "/headers/" + it->first ).c_str(), ( dirname + it->second ).c_str()) != 0 ) {
-            log_perror( "link" );
-            return false;
+            // It may be an internal compiler include, which should be the same like the one
+            // from the environment.
+            if( errno != EEXIST ) {
+                log_perror( "link" );
+                return false;
+            }
         }
     }
     return true;
