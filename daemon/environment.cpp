@@ -483,9 +483,9 @@ size_t finalize_install_environment( const std::string &basename, const std::str
     return sumup_dir (dirname);
 }
 
-size_t remove_environment( const string &basename, const string &env )
+size_t remove_environment( const string &basename, const string &env, const string &includes_suffix )
 {
-    string dirname = basename + "/target=" + env;
+    string dirname = basename + "/target=" + env + includes_suffix;
 
     size_t res = sumup_dir( dirname );
 
@@ -535,7 +535,6 @@ error_client( MsgChannel *client, string error )
 
 void chdir_to_environment( MsgChannel *client, const string &dirname, uid_t user_uid, gid_t user_gid )
 {
-    log_error() << "CD:" << dirname << endl;
 #ifdef HAVE_LIBCAP_NG
     if ( chdir( dirname.c_str() ) < 0 ) {
         error_client( client, string( "chdir to " ) + dirname + "failed" );

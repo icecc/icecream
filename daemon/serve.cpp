@@ -111,6 +111,8 @@ int handle_connection( const string &basedir, CompileJob *job,
     int obj_fd = -1; // the obj_fd
     string obj_file;
 
+    bool clean_envdir = false;
+
     try {
         if ( job->environmentVersion().size() ) {
             string dirname;
@@ -120,6 +122,9 @@ int handle_connection( const string &basedir, CompileJob *job,
                 dirname = basedir + "/target=" + job->targetPlatform() + "/" + job->environmentVersion()
                     + "_includes_" + pidbuf;
                 prepare_environment_with_includes( job, dirname, basedir, user_uid, user_gid );
+                // After the compile finishes, tell parent to clean up the no longer copy of environment
+                // (cannot be done in this child, because it's be in chroot after the compile).
+                clean_envdir = true;
             } else {
                 dirname = basedir + "/target=" + job->targetPlatform() + "/" + job->environmentVersion();
             }
@@ -180,8 +185,9 @@ int handle_connection( const string &basedir, CompileJob *job,
 
         /* wake up parent and tell him that compile finished */
         /* if the write failed, well, doesn't matter */
+        char command = 's';
+        write( out_fd, &command, 1 );
         write( out_fd, job_stat, sizeof( job_stat ) );
-        close( out_fd );
 
         if ( rmsg.status == 0 ) {
             obj_fd = open( obj_file.c_str(), O_RDONLY|O_LARGEFILE );
@@ -224,6 +230,12 @@ int handle_connection( const string &basedir, CompileJob *job,
 
         if ( obj_fd > -1)
             close( obj_fd );
+
+        if( clean_envdir ) {
+            char command = 'c';
+            write( out_fd, &command, 1 );
+        }
+        close( out_fd );
 
         if ( !obj_file.empty() )
             unlink( obj_file.c_str() );

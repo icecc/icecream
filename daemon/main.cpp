@@ -1097,22 +1097,33 @@ bool Daemon::handle_compile_done (Client* client)
 
     unsigned int job_stat[8];
     int end_status = 151;
+    string envforjob = client->job->targetPlatform() + "/" + client->job->environmentVersion();
 
-    if(read(client->pipe_to_child, job_stat, sizeof(job_stat)) == sizeof(job_stat)) {
-        msg->in_uncompressed = job_stat[JobStatistics::in_uncompressed];
-        msg->in_compressed = job_stat[JobStatistics::in_compressed];
-        msg->out_compressed = msg->out_uncompressed = job_stat[JobStatistics::out_uncompressed];
-        end_status = msg->exitcode = job_stat[JobStatistics::exit_code];
-        msg->real_msec = job_stat[JobStatistics::real_msec];
-        msg->user_msec = job_stat[JobStatistics::user_msec];
-        msg->sys_msec = job_stat[JobStatistics::sys_msec];
-        msg->pfaults = job_stat[JobStatistics::sys_pfaults];
-        end_status = job_stat[JobStatistics::exit_code];
+    char command = 0;
+    read(client->pipe_to_child, &command, 1);
+    if( command == 's' ) { // statistics
+        if(read(client->pipe_to_child, job_stat, sizeof(job_stat)) == sizeof(job_stat)) {
+            msg->in_uncompressed = job_stat[JobStatistics::in_uncompressed];
+            msg->in_compressed = job_stat[JobStatistics::in_compressed];
+            msg->out_compressed = msg->out_uncompressed = job_stat[JobStatistics::out_uncompressed];
+            end_status = msg->exitcode = job_stat[JobStatistics::exit_code];
+            msg->real_msec = job_stat[JobStatistics::real_msec];
+            msg->user_msec = job_stat[JobStatistics::user_msec];
+            msg->sys_msec = job_stat[JobStatistics::sys_msec];
+            msg->pfaults = job_stat[JobStatistics::sys_pfaults];
+            end_status = job_stat[JobStatistics::exit_code];
+        }
+        read(client->pipe_to_child, &command, 1);
+    }
+    if( command == 'c' ) { // clean up copy of environment
+        char pidbuf[ 20 ];
+        sprintf( pidbuf, "%d", client->child_pid);
+        remove_environment( envbasedir, envforjob, string( "_includes_" ) + pidbuf );
+        read(client->pipe_to_child, &command, 1);
     }
 
     close(client->pipe_to_child);
     client->pipe_to_child = -1;
-    string envforjob = client->job->targetPlatform() + "/" + client->job->environmentVersion();
     envs_last_use[envforjob] = time( NULL );
 
     bool r = send_scheduler( *msg );

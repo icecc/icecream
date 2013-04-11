@@ -42,7 +42,8 @@ extern pid_t start_install_environment( const std::string &basename,
                             uid_t user_uid, gid_t user_gid );
 extern size_t finalize_install_environment( const std::string &basename, const std::string& target,
         pid_t pid, uid_t user_uid, gid_t user_gid );
-extern size_t remove_environment( const std::string &basedir, const std::string &env);
+extern size_t remove_environment( const std::string &basedir, const std::string &env,
+        const std::string &includes_suffix = std::string());
 extern size_t remove_native_environment( const std::string &env );
 extern void chdir_to_environment( MsgChannel *c, const std::string &dirname, uid_t user_uid, gid_t user_gid );
 extern bool verify_env( MsgChannel *c, const std::string &basedir, const std::string& target,
