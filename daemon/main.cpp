@@ -1162,7 +1162,7 @@ bool Daemon::handle_verify_env( Client *client, VerifyEnvMsg *msg )
     VerifyEnvResultMsg resultmsg( ok );
     if ( !client->channel->send_msg( resultmsg ))
     {
-        log_error() << "sending verify end result failed.." << endl;
+        log_error() << "sending verify env result failed.." << endl;
         return false;
     }
     return true;
