@@ -110,9 +110,14 @@ static void analyze_preprocess_mode( CompileJob& job )
         }
     }
     // Decide on the defaults.
-    job.setPreprocessMode( SendHeaders ); // TODO
-    // TODO depends also on whether the scheduler support selecting
-    // nodes that can handle the mode.
+    // SendHeaders would require enough nodes with support for that and a scheduler
+    // which would return only these selectively (this means IS_PROTOCOL_33 for both).
+    // That's probably too expensive to check here (no connection to scheduler here),
+    // so use SendHeaders for now only if asked for explicitly.
+    if( compiler_has_rewrite_includes( job ))
+        job.setPreprocessMode( RewriteIncludes );
+    else
+        job.setPreprocessMode( SendHeaders );
 }
 
 bool analyse_argv( const char * const *argv,
