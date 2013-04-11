@@ -659,7 +659,7 @@ static bool link_to_dir( const string& src, const string& dest, uid_t uid, gid_t
                     return false;
             }
             else {
-                log_error() << "link_to_dir() unknown file type" );
+                log_error() << "link_to_dir() unknown file type";
                 return false;
             }
         }
