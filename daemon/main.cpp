@@ -1118,7 +1118,7 @@ bool Daemon::handle_compile_done (Client* client)
     if( command == 'c' ) { // clean up copy of environment
         char pidbuf[ 20 ];
         sprintf( pidbuf, "%d", client->child_pid);
-        remove_environment( envbasedir, envforjob, string( "/includes=" ) + pidbuf + "/" );
+        cleanup_directory( envbasedir + string( "/includes=" ) + pidbuf + "/", true );
         read(client->pipe_to_child, &command, 1);
     }
 

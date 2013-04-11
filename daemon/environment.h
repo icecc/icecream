@@ -50,6 +50,6 @@ extern bool verify_env( MsgChannel *c, const std::string &basedir, const std::st
                         const std::string &env, uid_t user_uid, gid_t user_gid );
 extern bool prepare_environment_with_includes( CompileJob* job, const std::string& dirname, const std::string& basedir,
                 uid_t uid, gid_t gid );
-extern bool cleanup_directory( const std::string& directory );
+extern bool cleanup_directory( const std::string& directory, bool self );
 
 #endif

@@ -2,7 +2,6 @@
 - do not send headers that the remote node already has
 - cache somewhere (local daemon?) the md5s for headers, so they don't have to be calculated every time
 - docs for ICECC_PREPROCESS_MODE
-- cleanup the copied environment (with headers)
 - cleanup my modifications allow sending envs to the localhost
 - cleanup my possible TODOs and small hacks
 - should size of sent headers be calculated in some statistics? it is not part of the compile sent sizes

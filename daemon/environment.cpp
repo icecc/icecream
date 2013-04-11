@@ -138,8 +138,9 @@ static bool exec_and_wait( const char *const argv[] )
     _exit(execv(argv[0], const_cast<char *const *>(argv)));
 }
 
-// Removes everything in the directory recursively, but not the directory itself.
-bool cleanup_directory( const string& directory )
+// Removes everything in the directory recursively (and possibly the directory
+// itself too).
+bool cleanup_directory( const string& directory, bool self )
 {
     DIR* dir = opendir( directory.c_str());
     if( dir == NULL )
@@ -154,7 +155,7 @@ bool cleanup_directory( const string& directory )
             return false;
         }
         if ( S_ISDIR( st.st_mode )) {
-            if( !cleanup_directory( fullpath ) || rmdir( fullpath.c_str()) != 0 )
+            if( !cleanup_directory( fullpath, true ))
                 return false;
         } else {
             if( unlink( fullpath.c_str()) != 0 )
@@ -162,6 +163,8 @@ bool cleanup_directory( const string& directory )
         }
     }
     closedir( dir );
+    if( self && rmdir( directory.c_str()) != 0 )
+        return false;
     return true;
 }
 
@@ -169,7 +172,7 @@ bool cleanup_cache( const string &basedir, uid_t user_uid, gid_t user_gid )
 {
     flush_debug();
 
-    if ( access( basedir.c_str(), R_OK ) == 0 && !cleanup_directory( basedir )) {
+    if ( access( basedir.c_str(), R_OK ) == 0 && !cleanup_directory( basedir, false )) {
         log_error() << "failed to clean up envs dir" << endl;
         return false;
     }
