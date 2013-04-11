@@ -132,7 +132,7 @@ file and do the actual preprocessing remotely together with compiling.
 There exists a Clang patch to implement option -frewrite-includes that does
 such #include rewritting, and it's been only recently merged upstream.
 */
-bool compiler_only_rewrite_includes( const CompileJob& job )
+bool compiler_has_rewrite_includes( const CompileJob& job )
 {
     if ( compiler_is_clang( job )) {
         if( const char* rewrite_includes = getenv( "ICECC_CLANG_REMOTE_CPP" ))

@@ -1367,6 +1367,9 @@ CompileFileMsg::fill_from_channel (MsgChannel *c)
   }
   if (IS_PROTOCOL_33(c))
   {
+    uint32_t preprocessMode;
+    *c >> preprocessMode;
+    job->setPreprocessMode( static_cast< PreprocessMode >( preprocessMode ));
     list<string> md5s, includes;
     *c >> md5s >> includes;
     assert( md5s.size() == includes.size());
@@ -1382,6 +1385,8 @@ CompileFileMsg::fill_from_channel (MsgChannel *c)
     *c >> inputFile;
     job->setInputFile( inputFile );
   }
+  else
+    job->setPreprocessMode( LocalPreprocess );
 }
 
 void
@@ -1419,6 +1424,7 @@ CompileFileMsg::send_to_channel (MsgChannel *c) const
     *c << remote_compiler_name();
   if (IS_PROTOCOL_33(c))
   {
+    *c << (uint32_t) job->preprocessMode();
     list<string> md5s, includes;
     map<string,string> include_files = job->includeFiles();
     for( map<string,string>::const_iterator it = include_files.begin();

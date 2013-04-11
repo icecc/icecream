@@ -88,8 +88,7 @@ static void dcc_show_usage(void)
 "   ICECC_PREFERRED_HOST       overrides scheduler decisions if set.\n"
 "   ICECC_CC                   set C compiler name (default gcc).\n"
 "   ICECC_CXX                  set C++ compiler name (default g++).\n"
-"   ICECC_CLANG_REMOTE_CPP     set to 1 or 0 to override remote precompiling with clang\n"
-"                              (requires clang -frewrite-includes option).\n"
+"   ICECC_PREPROCESS_MODE      set to 0 for local -E, 1 for -frewrite-includes, 2 for sending headers)\n"
 "   ICECC_IGNORE_UNVERIFIED    if set, hosts where environment cannot be verified are not used.\n"
 "   ICECC_EXTRAFILES           additional files used in the compilation.\n"
 "\n");

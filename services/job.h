@@ -40,6 +40,30 @@ public:
     }
 };
 
+/// Defines how included headers and preprocessing are handled
+enum PreprocessMode {
+    /**
+    Local -E, remote compile of just the resulting file.
+    */
+    LocalPreprocess,
+    /**
+    Local -frewrite-includes, remote compile of just the resulting file.
+    Clang works suboptimally when handling an already preprocessed source file,
+    for example error messages quote (already preprocessed) parts of the source.
+    Therefore it is better to only locally merge all #include files into the source
+    file and do the actual preprocessing remotely together with compiling.
+    There exists a Clang patch to implement option -frewrite-includes that does
+    such #include rewritting, and it's been only recently merged upstream.
+    */
+    RewriteIncludes,
+    /**
+    Local -H to find out what headers would be included, they'll be sent to remote
+    node for normal compile.
+    */
+    SendHeaders
+};
+
+
 class CompileJob {
 
 public:
@@ -105,17 +129,20 @@ public:
         m_target_platform = _target;
     }
 
+    void setPreprocessMode( PreprocessMode mode ) {
+        m_preprocessMode = mode;
+    }
+
+    PreprocessMode preprocessMode() const {
+        return m_preprocessMode;
+    }
+
     void addIncludeFile( const std::string& md5, const std::string& filename ) {
         m_include_files[ md5 ] = filename;
     }
 
     std::map< std::string, std::string > includeFiles() const {
         return m_include_files;
-    }
-
-    // Means 'send headers to remote and do not preprocess locally'.
-    bool hasIncludeFiles() const {
-        return !m_include_files.empty();
     }
 
 private:
@@ -131,6 +158,7 @@ private:
     std::string m_target_platform;
     // md5 -> full filename of all include files (used when sending headers)
     std::map< std::string, std::string > m_include_files;
+    PreprocessMode m_preprocessMode;
 };
 
 inline void appendList( std::list<std::string> &list,

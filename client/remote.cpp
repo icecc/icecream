@@ -413,7 +413,7 @@ static int build_remote_int(CompileJob &job, UseCSMsg *usecs, MsgChannel *local_
         }
     }
 
-    if ( !preproc_file && !job.hasIncludeFiles()) {
+    if ( !preproc_file && job.preprocessMode() != SendHeaders ) {
         int sockets[2];
         if (pipe(sockets)) {
             /* for all possible cases, this is something severe */
@@ -444,7 +444,7 @@ static int build_remote_int(CompileJob &job, UseCSMsg *usecs, MsgChannel *local_
             cserver = 0;
             return shell_exit_status( status );
         }
-    } else if( job.hasIncludeFiles()) {
+    } else if( job.preprocessMode() == SendHeaders ) {
         int cpp_fd = open( job.inputFile().c_str(), O_RDONLY );
         if ( cpp_fd < 0 )
             throw ( 11 );

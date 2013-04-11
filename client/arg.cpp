@@ -90,6 +90,29 @@ static bool analyze_program(const char* name, CompileJob& job)
     return false;
 }
 
+static void analyze_preprocess_mode( CompileJob& job )
+{
+    if( const char* preprocess_mode = getenv( "ICECC_PREPROCESS_MODE" )) {
+        if( *preprocess_mode == '2' ) {
+            job.setPreprocessMode( SendHeaders );
+            return;
+        }
+        else if( *preprocess_mode == '1' ) {
+            job.setPreprocessMode( RewriteIncludes );
+            return;
+        }
+        else if( *preprocess_mode == '0' ) {
+            job.setPreprocessMode( LocalPreprocess );
+            return;
+        }
+        else {
+            log_error() << "Invalid value for ICECC_PREPROCESS_MODE" << endl;
+        }
+    }
+    // Decide on the defaults.
+    job.setPreprocessMode( SendHeaders ); // TODO
+}
+
 bool analyse_argv( const char * const *argv,
                    CompileJob &job, bool icerun, list<string> *extrafiles )
 {
@@ -105,6 +128,7 @@ bool analyse_argv( const char * const *argv,
 
     bool had_cc = (job.compilerName().size() > 0);
     bool always_local = analyze_program(had_cc ? job.compilerName().c_str() : argv[0], job);
+    analyze_preprocess_mode( job );
     bool seen_c = false;
     bool seen_s = false;
     bool seen_mf = false;
@@ -322,7 +346,7 @@ bool analyse_argv( const char * const *argv,
 		}
             } else if (str_equal("-imacros", a)) {
                 args.append(a, Arg_Local);
-                if(true) // (send_headers)
+                if(job.preprocessMode() != LocalPreprocess)
                     always_local = true;
                 /* skip next word, being option argument */
                 if (argv[i+1]) {

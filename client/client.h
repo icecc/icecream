@@ -51,7 +51,7 @@ extern std::list<std::string> find_included_headers (const CompileJob &job);
 extern int build_local (CompileJob& job, MsgChannel *daemon, struct rusage *usage =0);
 extern std::string find_compiler( const CompileJob& job );
 extern bool compiler_is_clang( const CompileJob& job );
-extern bool compiler_only_rewrite_includes( const CompileJob& job );
+extern bool compiler_has_rewrite_includes( const CompileJob& job );
 extern std::string compiler_path_lookup(const std::string& compiler);
 
 /* In remote.cpp - permill is the probability it will be compiled three times */

@@ -98,7 +98,7 @@ int work_it( CompileJob &j, unsigned int job_stat[], MsgChannel* client,
     std::list<string> list = j.remoteFlags();
     appendList( list, j.restFlags() );
 
-    if( j.hasIncludeFiles())
+    if( j.preprocessMode() == SendHeaders )
         appendList( list, j.cppFlags());
 
     int sock_err[2];
@@ -211,7 +211,7 @@ int work_it( CompileJob &j, unsigned int job_stat[], MsgChannel* client,
                 hasPipe = true;
             argv[i++] = strdup( it->c_str() );
         }
-        if (!j.hasIncludeFiles()) {
+        if (!j.preprocessMode() == LocalPreprocess) {
             if (!clang)
                 argv[i++] = strdup("-fpreprocessed");
         }
@@ -231,7 +231,7 @@ int work_it( CompileJob &j, unsigned int job_stat[], MsgChannel* client,
         if (clang)
             argv[i++] = strdup( "-no-canonical-prefixes" ); // otherwise clang tries to access /proc/self/exe
 
-        if(j.hasIncludeFiles()) {
+        if(j.preprocessMode() == SendHeaders) {
             // #include "foo" would try to include the file from the source file's directory,
             // but now the .cpp file comes from stdin, so there's no such directory,
             // append -iquote as the last arg to seach the relevant directory.

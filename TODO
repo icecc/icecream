@@ -1,9 +1,5 @@
 - use FileChunkMsg for headers (compressed)
-- do not use all local flags on remote
-- -imacros
-    - it probably doesn't work remotely with -frewrite-includes either
-- use a separate flag/function for whether to send headers?
-    - -imacros needs it
+- docs for ICECC_PREPROCESS_MODE
 
 Release Critical:
 * bind the broadcast listener to fixed local port (8765) (otherwise not firewallable) (matz)

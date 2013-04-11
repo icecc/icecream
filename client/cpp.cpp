@@ -127,7 +127,7 @@ pid_t call_cpp(CompileJob &job, int fdwrite, int fdread)
 	    }
 	    argv[i++] = strdup( "-E" );
 	    argv[i++] = strdup( job.inputFile().c_str() );
-	    if ( compiler_only_rewrite_includes( job ))
+	    if ( job.preprocessMode() == RewriteIncludes )
 	        argv[i++] = strdup( "-frewrite-includes" );
 	    argv[i++] = 0;
 	}
@@ -227,7 +227,7 @@ list<string> find_included_headers (const CompileJob &job)
 	argv[i++] = strdup( job.inputFile().c_str() );
 	if ( compiler_is_clang( job )) {
 	    // -frewrite-includes makes -E somewhat faster
-	    if( compiler_only_rewrite_includes( job ))
+	    if( compiler_has_rewrite_includes( job ))
 	        argv[i++] = strdup( "-frewrite-includes" );
 	} else {
 	    // -fdirectives-only makes gcc -E faster
