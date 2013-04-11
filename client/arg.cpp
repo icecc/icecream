@@ -322,13 +322,13 @@ bool analyse_argv( const char * const *argv,
 		}
             } else if (str_equal("-imacros", a)) {
                 args.append(a, Arg_Local);
+                if(true) // (send_headers)
+                    always_local = true;
                 /* skip next word, being option argument */
                 if (argv[i+1]) {
 		    ++i;
 		    if (str_startswith("-O", argv[i]))
 			 always_local = true;
-//		    else
-// TODO		        job.addIncludeFile( "", argv[ i ] );
                     args.append( argv[i], Arg_Local );
 		}
             } else if (str_startswith("-Wp,", a)
