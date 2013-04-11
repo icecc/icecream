@@ -352,7 +352,7 @@ static int build_remote_int(CompileJob &job, UseCSMsg *usecs, MsgChannel *local_
                 throw ( 2 );
             }
 
-    if ( !got_env || true ) {
+    if ( !got_env || getenv( "SEND") ) {
         log_block b("Transfer Environment");
         // transfer env
         struct stat buf;
