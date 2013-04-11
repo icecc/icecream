@@ -486,13 +486,9 @@ size_t finalize_install_environment( const std::string &basename, const std::str
     return sumup_dir (dirname);
 }
 
-size_t remove_environment( const string &basename, const string &env, const string &includes_prefix )
+size_t remove_environment( const string &basename, const string &env )
 {
-    string dirname;
-    if( includes_prefix.empty())
-        dirname = basename + "/target=" + env;
-    else
-        dirname = basename + includes_prefix + env;
+    string dirname = basename + "/target=" + env;
 
     size_t res = sumup_dir( dirname );
 
