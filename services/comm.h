@@ -126,7 +126,9 @@ enum MsgType {
   M_BLACKLIST_HOST_ENV,
 
   // C --> CS
-  M_SEND_HEADER
+  M_SEND_HEADER,
+  M_CHECK_HEADERS,
+  M_CHECK_HEADERS_RESULT
 };
 
 class MsgChannel;
@@ -664,6 +666,26 @@ public:
   SendHeaderMsg() : Msg( M_SEND_HEADER ) {}
   SendHeaderMsg( const std::string & _file, const std::string & _content, const std::string& _md5 )
     : Msg( M_SEND_HEADER ), file( _file ), content( _content ), md5( _md5 ) {}
+  virtual void fill_from_channel (MsgChannel *c);
+  virtual void send_to_channel (MsgChannel *c) const;
+};
+
+class CheckHeadersMsg : public Msg {
+public:
+  std::list<std::string> md5s;
+  CheckHeadersMsg() : Msg( M_CHECK_HEADERS ) {}
+  CheckHeadersMsg( const std::list<std::string> & _md5s )
+    : Msg( M_CHECK_HEADERS ), md5s( _md5s ) {}
+  virtual void fill_from_channel (MsgChannel *c);
+  virtual void send_to_channel (MsgChannel *c) const;
+};
+
+class CheckHeadersResultMsg : public Msg {
+public:
+  std::list<std::string> missing_md5s; // md5s of files that were not present
+  CheckHeadersResultMsg() : Msg( M_CHECK_HEADERS_RESULT ) {}
+  CheckHeadersResultMsg( const std::list<std::string> & _missing_md5s )
+    : Msg( M_CHECK_HEADERS_RESULT ), missing_md5s( _missing_md5s ) {}
   virtual void fill_from_channel (MsgChannel *c);
   virtual void send_to_channel (MsgChannel *c) const;
 };

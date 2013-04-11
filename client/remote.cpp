@@ -44,6 +44,7 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <vector>
+#include <set>
 #ifdef HAVE_RSYNC
 #include <librsync.h>
 #endif
@@ -313,14 +314,31 @@ md5_for_file( const string & file );
 void send_included_headers(CompileJob& job, MsgChannel* cserver)
 {
     list<string> headers = find_included_headers( job );
+    list<string> md5s;
     for( list<string>::const_iterator it = headers.begin();
          it != headers.end();
          ++it ) {
         string md5 = md5_for_file( *it );
         job.addIncludeFile( md5, *it );
-        ifstream file( it->c_str());
+        md5s.push_back( md5 );
+    }
+    CheckHeadersMsg check_headers( md5s );
+    if ( !cserver->send_msg( check_headers ) )
+        throw( 28 );
+    Msg *msg = cserver->get_msg(60);
+    if ( msg == NULL || msg->type != M_CHECK_HEADERS_RESULT )
+        throw( 29 );
+    md5s = static_cast<CheckHeadersResultMsg*>( msg )->missing_md5s;
+    set<string> missing_md5s( md5s.begin(), md5s.end());
+    log_info() << "Sending missing " << md5s.size() << " headers out of " << headers.size() << " total headers." << endl;
+    for( map< string, string >::const_iterator it = job.includeFiles().begin();
+         it != job.includeFiles().end();
+         ++it ) {
+        if( missing_md5s.find( it->first ) == missing_md5s.end())
+            continue;
+        ifstream file( it->second.c_str());
         string content( ( istreambuf_iterator< char >( file )), istreambuf_iterator< char >());
-        SendHeaderMsg send_header( *it, content, md5 );
+        SendHeaderMsg send_header( it->second, content, it->first );
         cserver->send_msg( send_header );
     }
 }

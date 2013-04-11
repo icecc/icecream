@@ -483,6 +483,7 @@ struct Daemon
     bool handle_verify_env ( Client* client, VerifyEnvMsg *msg ) __attribute_warn_unused_result__;
     bool handle_send_header ( Client* client, SendHeaderMsg *msg ) __attribute_warn_unused_result__;
     bool handle_blacklist_host_env ( Client* client, Msg *msg ) __attribute_warn_unused_result__;
+    bool handle_check_headers ( Client* client, CheckHeadersMsg* msg ) __attribute_warn_unused_result__;
     int handle_cs_conf( ConfCSMsg *msg);
     string dump_internals() const;
     string determine_nodename();
@@ -1200,6 +1201,26 @@ bool Daemon::handle_blacklist_host_env( Client *client, Msg *msg )
     return send_scheduler( *msg );
 }
 
+bool Daemon::handle_check_headers( Client* client, CheckHeadersMsg* msg )
+{
+    assert( msg );
+    list<string> missing;
+    for( list<string>::const_iterator it = msg->md5s.begin();
+         it != msg->md5s.end();
+         ++it )
+    {
+        if( access(( envbasedir + "/headers/" + *it ).c_str(), R_OK ) != 0 )
+            missing.push_back( *it );
+    }
+    CheckHeadersResultMsg resultmsg( missing );
+    if ( !client->channel->send_msg( resultmsg ))
+    {
+        log_error() << "sending check headers result failed.." << endl;
+        return false;
+    }
+    return true;
+}
+
 void Daemon::handle_end( Client *client, int exitcode )
 {
 #ifdef ICECC_DEBUG
@@ -1416,6 +1437,7 @@ bool Daemon::handle_activity( Client *client )
     case M_VERIFY_ENV: ret = handle_verify_env( client, dynamic_cast<VerifyEnvMsg*>(msg) ); break;
     case M_BLACKLIST_HOST_ENV: ret = handle_blacklist_host_env( client, msg ); break;
     case M_SEND_HEADER: ret = handle_send_header( client, dynamic_cast< SendHeaderMsg* >( msg )); break;
+    case M_CHECK_HEADERS: ret = handle_check_headers( client, dynamic_cast< CheckHeadersMsg* >( msg )); break;
     default:
         log_error() << "not compile: " << ( char )msg->type << "protocol error on client " << client->dump() << endl;
         client->channel->send_msg( EndMsg() );

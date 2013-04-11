@@ -973,6 +973,8 @@ MsgChannel::get_msg(int timeout)
     case M_VERIFY_ENV_RESULT: m = new VerifyEnvResultMsg; break;
     case M_BLACKLIST_HOST_ENV: m = new BlacklistHostEnvMsg; break;
     case M_SEND_HEADER: m = new SendHeaderMsg; break;
+    case M_CHECK_HEADERS: m = new CheckHeadersMsg; break;
+    case M_CHECK_HEADERS_RESULT: m = new CheckHeadersResultMsg; break;
     case M_TIMEOUT: break;
     }
   if (!m) {
@@ -1926,6 +1928,34 @@ SendHeaderMsg::send_to_channel (MsgChannel *c) const
   *c << file;
   *c << content;
   *c << md5;
+}
+
+void
+CheckHeadersMsg::fill_from_channel (MsgChannel *c)
+{
+  Msg::fill_from_channel( c );
+  *c >> md5s;
+}
+
+void
+CheckHeadersMsg::send_to_channel (MsgChannel *c) const
+{
+  Msg::send_to_channel( c );
+  *c << md5s;
+}
+
+void
+CheckHeadersResultMsg::fill_from_channel (MsgChannel *c)
+{
+  Msg::fill_from_channel( c );
+  *c >> missing_md5s;
+}
+
+void
+CheckHeadersResultMsg::send_to_channel (MsgChannel *c) const
+{
+  Msg::send_to_channel( c );
+  *c << missing_md5s;
 }
 
 /*
