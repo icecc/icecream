@@ -370,7 +370,7 @@ static int build_remote_int(CompileJob &job, UseCSMsg *usecs, MsgChannel *local_
                 throw ( 2 );
             }
 
-    if ( !got_env || getenv( "SEND") ) {
+    if ( !got_env ) {
         log_block b("Transfer Environment");
         // transfer env
         struct stat buf;
@@ -637,7 +637,7 @@ maybe_build_local (MsgChannel *local_daemon, UseCSMsg *usecs, CompileJob &job,
 {
     remote_daemon = usecs->hostname;
 
-    if ( usecs->hostname == "127.0.0.1" && false ) {
+    if ( usecs->hostname == "127.0.0.1" ) {
         trace() << "building myself, but telling localhost\n";
         int job_id = usecs->job_id;
         job.setJobID( job_id );
