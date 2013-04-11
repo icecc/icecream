@@ -402,6 +402,11 @@ static int build_remote_int(CompileJob &job, UseCSMsg *usecs, MsgChannel *local_
         throw( 26 );
     }
 
+    if( !IS_PROTOCOL_33( cserver ) && job.preprocessMode() == SendHeaders ) {
+        log_error() << "Host " << hostname << " does not support remote preprocessing." << endl;
+        throw( 27 );
+    }
+
     if( job.preprocessMode() == SendHeaders )
         send_included_headers( job, cserver );
 
@@ -687,7 +692,7 @@ int build_remote(CompileJob &job, MsgChannel *local_daemon, const Environments &
         GetCSMsg getcs (envs, fake_filename, job.language(), torepeat,
 			job.targetPlatform(), job.argumentFlags(),
 		        preferred_host ? preferred_host : string(),
-		        ignore_unverified());
+		        ignore_unverified(), job.preprocessMode());
         if (!local_daemon->send_msg (getcs)) {
             log_warning() << "asked for CS\n";
             throw( 24 );
@@ -728,7 +733,7 @@ int build_remote(CompileJob &job, MsgChannel *local_daemon, const Environments &
 
         GetCSMsg getcs (envs, get_absfilename( job.inputFile() ), job.language(), torepeat,
                 job.targetPlatform(), job.argumentFlags(), preferred_host ? preferred_host : string(),
-                ignore_unverified());
+                ignore_unverified(), job.preprocessMode());
 
 
         if (!local_daemon->send_msg (getcs)) {

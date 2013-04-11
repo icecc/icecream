@@ -111,6 +111,8 @@ static void analyze_preprocess_mode( CompileJob& job )
     }
     // Decide on the defaults.
     job.setPreprocessMode( SendHeaders ); // TODO
+    // TODO depends also on whether the scheduler support selecting
+    // nodes that can handle the mode.
 }
 
 bool analyse_argv( const char * const *argv,

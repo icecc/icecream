@@ -163,7 +163,7 @@ public:
   CS (int fd, struct sockaddr *_addr, socklen_t _len, bool text_based)
     : MsgChannel(fd, _addr, _len, text_based),
       load(1000), max_jobs(0), noremote(false), submitted_jobs_count(0),
-      state(CONNECTED), type(UNKNOWN), chroot_possible(false)
+      state(CONNECTED), type(UNKNOWN), chroot_possible(false), accepts_headers(false)
   {
     hostid = 0;
     busy_installing = 0;
@@ -183,6 +183,7 @@ public:
   static unsigned int hostid_counter;
   map<int, int> client_map; // map client ID for daemon to our IDs
   map<CS*, Environments> blacklist;
+  bool accepts_headers; // can handle SendHeaders
   bool is_eligible( const Job *job );
   bool check_remote( const Job *job ) const;
 };
@@ -220,6 +221,7 @@ public:
   string language; // for debugging
   string preferred_host; // for debugging daemons
   bool ignore_unverified; // ignore CSs that don't know M_VERIFY_ENV
+  bool accept_headers; // ignore CSs that don't handle SendHeaders
   Job (unsigned int _id, CS *subm)
     : id(_id), local_client_id( 0 ), state(PENDING), server(0),
       submitter(subm),
@@ -534,6 +536,7 @@ handle_cs_request (MsgChannel *c, Msg *_m)
       job->local_client_id = m->client_id;
       job->preferred_host = m->preferred_host;
       job->ignore_unverified = m->ignore_unverified;
+      job->accept_headers = m->accept_headers;
       enqueue_job_request (job);
       std::ostream& dbg = log_info();
       dbg << "NEW " << job->id << " client="
@@ -705,7 +708,8 @@ bool CS::is_eligible( const Job *job )
 {
   bool jobs_okay = int( joblist.size() ) < max_jobs;
   bool load_okay = load < 1000;
-  bool ignore = job->ignore_unverified && !IS_PROTOCOL_31(this);
+  bool ignore = ( job->ignore_unverified && !IS_PROTOCOL_31(this))
+            || ( job->accept_headers && !accepts_headers );
   return jobs_okay
     && chroot_possible
     && load_okay
@@ -1153,6 +1157,7 @@ handle_login (CS *cs, Msg *_m)
     cs->nodename = cs->name;
   cs->host_platform = m->host_platform;
   cs->chroot_possible = m->chroot_possible;
+  cs->accepts_headers = m->accepts_headers;
   cs->pick_new_id();
 
   for (list<string>::const_iterator it = block_css.begin(); it != block_css.end(); ++it)

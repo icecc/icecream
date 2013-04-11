@@ -1281,6 +1281,14 @@ GetCSMsg::fill_from_channel (MsgChannel *c)
     }
   else
     ignore_unverified = false;
+  if (IS_PROTOCOL_33(c))
+  {
+    uint32_t accept_h;
+    *c >> accept_h;
+    accept_headers = ( accept_h != 0 );
+  }
+  else
+    accept_headers = false;
 }
 
 void
@@ -1298,6 +1306,8 @@ GetCSMsg::send_to_channel (MsgChannel *c) const
     *c << preferred_host;
   if (IS_PROTOCOL_31(c))
     *c << uint32_t( ignore_unverified );
+  if (IS_PROTOCOL_33(c))
+    *c << (uint32_t) accept_headers;
 }
 
 void
@@ -1601,7 +1611,8 @@ JobDoneMsg::send_to_channel (MsgChannel *c) const
 }
 
 LoginMsg::LoginMsg(unsigned int myport, const std::string &_nodename, const std::string _host_platform)
-  : Msg(M_LOGIN), port( myport ), noremote( false ), chroot_possible( false ), nodename( _nodename ), host_platform( _host_platform )
+  : Msg(M_LOGIN), port( myport ), noremote( false ), chroot_possible( false ), nodename( _nodename ),
+    host_platform( _host_platform ), accepts_headers( true )
 {
 #ifdef HAVE_LIBCAP_NG
   chroot_possible = capng_have_capability( CAPNG_PERMITTED, CAP_SYS_CHROOT );
@@ -1626,6 +1637,13 @@ LoginMsg::fill_from_channel (MsgChannel *c)
   uint32_t net_noremote = 0;
   if (IS_PROTOCOL_26( c )) *c >> net_noremote;
   noremote = (net_noremote != 0);
+  if (IS_PROTOCOL_33( c )) {
+    uint32_t accept_h;
+    *c >> accept_h;
+    accepts_headers = ( accept_h != 0 );
+  }
+  else
+    accepts_headers = false;
 }
 
 void
@@ -1639,6 +1657,8 @@ LoginMsg::send_to_channel (MsgChannel *c) const
   *c << host_platform;
   *c << chroot_possible;
   if (IS_PROTOCOL_26( c )) *c << noremote;
+  if (IS_PROTOCOL_33( c ))
+    *c << accepts_headers;
 }
 
 void
