@@ -1191,11 +1191,10 @@ void Daemon::install_header( const string& file, const string& content, const st
         return; // ok
     }
     string includedir = envbasedir + "/headers/";
-    if( mkdir( includedir.c_str(), 0755 ) != 0 && errno != EEXIST ) // 755 TODO
-        {
-        // TODO
+    if( mkdir( includedir.c_str(), 0755 ) != 0 && errno != EEXIST ) {
+        log_error() << "Cannot create " << envbasedir << "/headers/" << endl;
         return;
-        }
+    }
     ofstream outfile(( includedir + md5 ).c_str());
     outfile << content;
     HeaderInfo header_info;
