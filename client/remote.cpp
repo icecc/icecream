@@ -402,7 +402,8 @@ static int build_remote_int(CompileJob &job, UseCSMsg *usecs, MsgChannel *local_
         throw( 26 );
     }
 
-    send_included_headers( job, cserver );
+    if( job.preprocessMode() == SendHeaders )
+        send_included_headers( job, cserver );
 
     CompileFileMsg compile_file( &job );
     {
