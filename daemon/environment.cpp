@@ -615,7 +615,8 @@ bool verify_env( MsgChannel *client, const string &basedir, const string& target
     _exit(execl("bin/true", "bin/true", (void*)NULL));
 }
 
-bool recursive_mkdir( const string& dir, uid_t uid, gid_t gid )
+// mkdir -p
+static bool recursive_mkdir( const string& dir, uid_t uid, gid_t gid )
 {
     size_t pos = 1;
     for(;;) {
@@ -632,11 +633,12 @@ bool recursive_mkdir( const string& dir, uid_t uid, gid_t gid )
     }
 }
 
-bool link_to_dir( const string& src, const string& dest, uid_t uid, gid_t gid )
+// Make a copy of the entire directly structure, using hardlinks.
+static bool link_to_dir( const string& src, const string& dest, uid_t uid, gid_t gid )
 {
     DIR *envdir = opendir( src.c_str() );
     if ( !envdir ) {
-        log_error() << "LTD1:" << src << endl;
+        log_error() << "link_to_dir() open failed: " << src << endl;
         return false;
     }
     for ( struct dirent *ent = readdir(envdir); ent; ent = readdir( envdir ) ) {
@@ -647,7 +649,7 @@ bool link_to_dir( const string& src, const string& dest, uid_t uid, gid_t gid )
         if( link( srcfile.c_str(), destfile.c_str()) != 0 ) {
             struct stat st;
             if( stat( srcfile.c_str(), &st ) != 0 ) {
-                log_error() << "LTD3:" << srcfile << endl;
+                log_perror( "link_to_dir() stat" );
                 return false;
             }
             if( S_ISDIR( st.st_mode )) {
@@ -657,7 +659,7 @@ bool link_to_dir( const string& src, const string& dest, uid_t uid, gid_t gid )
                     return false;
             }
             else {
-                log_error() << "LTD5:" << destfile << endl;
+                log_error() << "link_to_dir() unknown file type" );
                 return false;
             }
         }
@@ -687,7 +689,7 @@ bool prepare_environment_with_includes( CompileJob* job, const string& dirname, 
             // It may be an internal compiler include, which should be the same like the one
             // from the environment.
             if( errno != EEXIST ) {
-                log_perror( "link" );
+                log_perror( "prepare_environment_with_includes() link" );
                 return false;
             }
         }
