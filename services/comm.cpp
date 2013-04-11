@@ -1436,9 +1436,8 @@ CompileFileMsg::send_to_channel (MsgChannel *c) const
   {
     *c << (uint32_t) job->preprocessMode();
     list<string> md5s, includes;
-    map<string,string> include_files = job->includeFiles();
-    for( map<string,string>::const_iterator it = include_files.begin();
-         it != include_files.end();
+    for( map<string,string>::const_iterator it = job->includeFiles().begin();
+         it != job->includeFiles().end();
          ++it )
     {
       md5s.push_back( it->first );

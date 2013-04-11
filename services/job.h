@@ -141,7 +141,7 @@ public:
         m_include_files[ md5 ] = filename;
     }
 
-    std::map< std::string, std::string > includeFiles() const {
+    const std::map< std::string, std::string >& includeFiles() const {
         return m_include_files;
     }
 

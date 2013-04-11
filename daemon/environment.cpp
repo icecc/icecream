@@ -682,9 +682,8 @@ bool prepare_environment_with_includes( CompileJob* job, const string& dirname, 
     recursive_mkdir( dirname, uid, gid );
     if( !link_to_dir( envdirname, dirname, uid, gid ))
         return false;
-    map< string, string > includes = job->includeFiles();
-    for( map< string, string >::const_iterator it = includes.begin();
-         it != includes.end();
+    for( map< string, string >::const_iterator it = job->includeFiles().begin();
+         it != job->includeFiles().end();
          ++it ) {
         string dir = dirname + it->second.substr( 0, it->second.rfind( '/' ));
         recursive_mkdir( dir, uid, gid );
