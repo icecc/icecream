@@ -5,6 +5,8 @@
 - cleanup my possible TODOs and small hacks
 - should size of sent headers be calculated in some statistics? it is not part of the compile sent sizes
 - check that the remote actually can accept headers
+- extra option for headers cache size?
+    - it's probably better not to count it as part of the env cache (non-trivial to choose what to remove)
 
 Release Critical:
 * bind the broadcast listener to fixed local port (8765) (otherwise not firewallable) (matz)

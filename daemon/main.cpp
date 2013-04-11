@@ -461,6 +461,7 @@ struct Daemon
         max_scheduler_ping = MAX_SCHEDULER_PING;
         bench_source = "";
         current_kids = 0;
+        last_headers_check = time( NULL );
     }
 
     bool reannounce_environments() __attribute_warn_unused_result__;
@@ -496,7 +497,13 @@ struct Daemon
     bool setup_listen_fds();
     void check_cache_size( const string &new_env );
     void install_header( const string& file, const string& content, const string& md5 );
-    set< string > header_md5s;
+    void check_headers_cache_size();
+    struct HeaderInfo {
+        size_t size;
+        time_t last_needed;
+    };
+    map< string, HeaderInfo > headers; // key is md5
+    time_t last_headers_check;
 };
 
 bool Daemon::setup_listen_fds()
@@ -1178,8 +1185,11 @@ bool Daemon::handle_send_header( Client *client, SendHeaderMsg *msg )
 
 void Daemon::install_header( const string& file, const string& content, const string& md5 )
 {
-    if( header_md5s.find( md5 ) != header_md5s.end())
+    map< string, HeaderInfo >::iterator info = headers.find( md5 );
+    if( info != headers.end()) {
+        info->second.last_needed = time( NULL );
         return; // ok
+    }
     string includedir = envbasedir + "/headers/";
     if( mkdir( includedir.c_str(), 0755 ) != 0 && errno != EEXIST ) // 755 TODO
         {
@@ -1188,7 +1198,10 @@ void Daemon::install_header( const string& file, const string& content, const st
         }
     ofstream outfile(( includedir + md5 ).c_str());
     outfile << content;
-    header_md5s.insert( md5 );
+    HeaderInfo header_info;
+    header_info.size = content.size();
+    header_info.last_needed = time( NULL );
+    headers[ md5 ] = header_info;
 }
 
 bool Daemon::handle_blacklist_host_env( Client *client, Msg *msg )
@@ -1219,6 +1232,39 @@ bool Daemon::handle_check_headers( Client* client, CheckHeadersMsg* msg )
         return false;
     }
     return true;
+}
+
+void Daemon::check_headers_cache_size()
+{
+    time_t current_time = time( NULL );
+    last_headers_check = current_time;
+    size_t headers_size = 0;
+    for( map< string, HeaderInfo >::const_iterator it = headers.begin();
+         it != headers.end();
+         ++it ) {
+        headers_size += it->second.size;
+    }
+    if( headers_size < cache_size_limit )
+        return;
+    log_info() << "Headers cache size " << headers_size << ", cleaning up." << endl;
+    multimap< time_t, string > sorted; // time_t to key, oldest first
+    for( map< string, HeaderInfo >::const_iterator it = headers.begin();
+         it != headers.end();
+         ++it )
+        sorted.insert( make_pair( it->second.last_needed, it->first ));
+    for( multimap< time_t, string >::const_iterator it = sorted.begin();
+         it != sorted.end();
+         ++it ) {
+        // Don't remove anything newer than 5 minutes,
+        // clean up down to 90% max cache size.
+        if( it->first + 5 * 60 >= current_time
+            || headers_size < cache_size_limit * 90 / 100 ) {
+            break;
+        }
+        unlink(( envbasedir + "/headers/" + it->second ).c_str());
+        headers_size -= headers[ it->second ].size;
+        headers.erase( it->second );
+    }
 }
 
 void Daemon::handle_end( Client *client, int exitcode )
@@ -1463,6 +1509,10 @@ int Daemon::answer_client_requests()
         ;
 
     handle_old_request();
+
+    if( last_headers_check + 60 < time( NULL )) {
+        check_headers_cache_size();
+    }
 
     /* collect the stats after the children exited icecream_load */
     if ( scheduler )
