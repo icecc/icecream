@@ -1,14 +1,3 @@
-- use FileChunkMsg for headers (compressed)
-- cache somewhere (local daemon?) the md5s for headers, so they don't have to be calculated every time
-- docs for ICECC_PREPROCESS_MODE
-- cleanup my modifications allow sending envs to the localhost
-- cleanup my possible TODOs and small hacks
-- should size of sent headers be calculated in some statistics? it is not part of the compile sent sizes
-- check that the remote actually can accept headers
-- extra option for headers cache size?
-    - it's probably better not to count it as part of the env cache (non-trivial to choose what to remove)
-- can chroot commands alter the linked headers (malicious environment)?
-
 Release Critical:
 * bind the broadcast listener to fixed local port (8765) (otherwise not firewallable) (matz)
 * chmod TMPDIR/native, as otherwise set umask prevent it from being readable by the client
@@ -32,6 +21,18 @@ Akademy must have's:
   one (for some reason I don't see why this happened, but it did)
 * benchmark/testing jobs (broken machines with broken ram and broken network card on the
   icecream network destroy the fun and are not easy to find manually)
+
+SendHeaders:
+* use FileChunkMsg for headers (compressed)
+    - does it make a difference?
+    - send all files together? (for better compression)
+* cache somewhere (local daemon?) the md5s for headers, so they don't have to be calculated every time
+    - if it actually makes a difference
+* docs for ICECC_PREPROCESS_MODE
+* should size of sent headers be calculated in some statistics? it is not part of the compile sent sizes
+* extra option for headers cache size?
+    - it's probably better not to count it as part of the env cache (non-trivial to choose what to remove)
+* can chroot commands alter the linked headers (malicious environment)?
 
 Random:
 * Option -iiface to specify the interface[s] to listen on for the scheduler, or
