@@ -119,8 +119,8 @@ int handle_connection( const string &basedir, CompileJob *job,
             if( !job->includeFiles().empty()) {
                 char pidbuf[ 20 ];
                 sprintf( pidbuf, "%d", getpid());
-                dirname = basedir + "/target=" + job->targetPlatform() + "/" + job->environmentVersion()
-                    + "_includes_" + pidbuf;
+                dirname = basedir  + "/includes=" + pidbuf + "/"
+                    + job->targetPlatform() + "/" + job->environmentVersion();
                 prepare_environment_with_includes( job, dirname, basedir, user_uid, user_gid );
                 // After the compile finishes, tell parent to clean up the no longer copy of environment
                 // (cannot be done in this child, because it's be in chroot after the compile).
