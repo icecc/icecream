@@ -98,7 +98,7 @@ int work_it( CompileJob &j, unsigned int job_stat[], MsgChannel* client,
     std::list<string> list = j.remoteFlags();
     appendList( list, j.restFlags() );
 
-    if( j.preprocessMode() == SendHeaders )
+    if( j.preprocessMode() != LocalPreprocess )
         appendList( list, j.cppFlags());
 
     int sock_err[2];
