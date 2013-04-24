@@ -474,7 +474,8 @@ int work_it( CompileJob &j, unsigned int job_stat[], MsgChannel* client,
                     rmsg.status = EXIT_OUT_OF_MEMORY;
 
                     if ( mem_used * 100 > 85 * mem_limit * 1024 ||
-                         rmsg.err.find( "memory exhausted" ) != string::npos )
+                         rmsg.err.find( "memory exhausted" ) != string::npos ||
+                         rmsg.err.find( "terminate called after throwing an instance of 'std::bad_alloc'" ) != string::npos )
                     {
                         // the relation between ulimit and memory used is pretty thin ;(
                         return EXIT_OUT_OF_MEMORY;
