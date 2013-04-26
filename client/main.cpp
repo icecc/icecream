@@ -170,7 +170,7 @@ static int create_native( char** args )
     int extracount = 0;
     while ( extrafiles[ extracount ] )
         ++extracount;
-    char **argv = new char*[4+extracount*2];
+    char **argv = new char*[5+extracount*2];
     int pos = 0;
     struct stat st;
     if ( lstat( PLIBDIR "/icecc-create-env", &st ) ) {
