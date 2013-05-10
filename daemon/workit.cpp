@@ -26,7 +26,6 @@
 #include "exitcode.h"
 #include "logging.h"
 #include <sys/select.h>
-#include <algorithm>
 
 #ifdef __FreeBSD__
 #include <sys/param.h>
@@ -56,7 +55,11 @@
 
 #include <stdio.h>
 #include <errno.h>
+
+#include <algorithm> // for_each
 #include <string>
+#include <vector>
+#include <list>
 
 #include "comm.h"
 #include "platform.h"
@@ -93,7 +96,6 @@ int work_it( CompileJob &j, unsigned int job_stat[], MsgChannel* client,
              unsigned long int mem_limit, int client_fd, int /*job_in_fd*/ )
 {
     rmsg.out.erase(rmsg.out.begin(), rmsg.out.end());
-    rmsg.out.erase(rmsg.out.begin(), rmsg.out.end());
 
     std::list<string> list = j.remoteFlags();
     appendList( list, j.restFlags() );
@@ -117,7 +119,7 @@ int work_it( CompileJob &j, unsigned int job_stat[], MsgChannel* client,
     // output buffer. This saves context switches and latencies.
     if (socketpair(AF_UNIX, SOCK_STREAM, 0, sock_in) < 0)
         return EXIT_DISTCC_FAILED;
-    int maxsize = 2*1024*2024;
+    const int maxsize = 2*1024*2024;
 #ifdef SO_SNDBUFFORCE
     if (setsockopt(sock_in[1], SOL_SOCKET, SO_SNDBUFFORCE, &maxsize, sizeof(maxsize)) < 0)
 #endif
@@ -175,58 +177,57 @@ int work_it( CompileJob &j, unsigned int job_stat[], MsgChannel* client,
         }
 #endif
 
-        int argc = list.size();
-        argc++; // the program
-        argc += 6; // -x c - -o file.o -fpreprocessed
-        argc += 4; // gpc parameters
-        argc += 1; // -pipe
-        argc += 1; // -no-canonical-prefixes
-        char **argv = new char*[argc + 1];
-	int i = 0;
+        // currently argv contains:
+        //	all remote flags
+        //  the program name
+        // "-x c - -o file.o -fpreprocessed" (argc += 6)
+        //  gpc parameters (argc += 4)
+        //  -pipe
+        //  -no-canonical-prefixes
+        std::vector<char*> argv;
         bool clang = false;
         if (IS_PROTOCOL_30( client )) {
             assert(!j.compilerName().empty());
             clang = (j.compilerName().find( "clang" ) != string::npos);
-            argv[i++] = strdup(( "usr/bin/" + j.compilerName()).c_str());
-	} else {
+            argv.push_back( strdup(( "usr/bin/" + j.compilerName()).c_str()));
+        } else {
             if (j.language() == CompileJob::Lang_C)
-                argv[i++] = strdup( "usr/bin/gcc" );
+               argv.push_back( strdup( "usr/bin/gcc" ));
             else if (j.language() == CompileJob::Lang_CXX)
-                argv[i++] = strdup( "usr/bin/g++" );
+               argv.push_back( strdup( "usr/bin/g++" ));
             else
                 assert(0);
         }
 
-        argv[i++] = strdup("-x");
-        argv[i++] = strdup((j.language() == CompileJob::Lang_CXX) ? "c++" : "c");
+       argv.push_back( strdup("-x"));
+       argv.push_back( strdup((j.language() == CompileJob::Lang_CXX) ? "c++" : "c"));
 
-        bool hasPipe = false;
-        for ( std::list<string>::const_iterator it = list.begin();
-              it != list.end(); ++it) {
-            if(*it == "-pipe")
-                hasPipe = true;
-            argv[i++] = strdup( it->c_str() );
-        }
-        if (!clang)
-            argv[i++] = strdup("-fpreprocessed");
-        if(!hasPipe)
-           argv[i++] = strdup("-pipe");
-        argv[i++] = strdup( "-" );
-        argv[i++] = strdup( "-o" );
-        argv[i++] = strdup(outfilename.c_str());
+       bool hasPipe = false;
+       for ( std::list<string>::const_iterator it = list.begin();
+               it != list.end(); ++it) {
+           if(*it == "-pipe")
+              hasPipe = true;
+           argv.push_back( strdup( it->c_str() ));
+       }
+       if (!clang)
+           argv.push_back( strdup("-fpreprocessed"));
+       if(!hasPipe)
+           argv.push_back( strdup("-pipe"));
+       argv.push_back( strdup( "-" ));
+       argv.push_back( strdup( "-o" ));
+       argv.push_back( strdup(outfilename.c_str()));
         if (!clang) {
-            argv[i++] = strdup( "--param" );
-            sprintf( buffer, "ggc-min-expand=%d", ggc_min_expand_heuristic( mem_limit ) );
-            argv[i++] = strdup( buffer );
-            argv[i++] = strdup( "--param" );
-            sprintf( buffer, "ggc-min-heapsize=%d", ggc_min_heapsize_heuristic( mem_limit ) );
-            argv[i++] = strdup( buffer );
+           argv.push_back( strdup( "--param" ));
+           sprintf( buffer, "ggc-min-expand=%d", ggc_min_expand_heuristic( mem_limit ) );
+           argv.push_back( strdup( buffer ));
+           argv.push_back( strdup( "--param" ));
+           sprintf( buffer, "ggc-min-heapsize=%d", ggc_min_heapsize_heuristic( mem_limit ) );
+           argv.push_back( strdup( buffer ));
         }
         if (clang)
-            argv[i++] = strdup( "-no-canonical-prefixes" ); // otherwise clang tries to access /proc/self/exe
-        // before you add new args, check above for argc
-        argv[i] = 0;
-        assert(i <= argc);
+           argv.push_back( strdup( "-no-canonical-prefixes" )); // otherwise clang tries to access /proc/self/exe
+        // terminate argv with NULL
+        argv.push_back(NULL);
 
         close_debug();
 
@@ -255,8 +256,11 @@ int work_it( CompileJob &j, unsigned int job_stat[], MsgChannel* client,
         }
 #endif
 
-        execv( argv[0], const_cast<char *const*>( argv ) ); // no return
+        execv( argv[0], const_cast<char *const*>( argv.data() ) ); // no return
         perror( "ICECC: execv" );
+
+        // free memory for argv's duplicated strings
+        std::for_each(argv.begin(), argv.end(), &free);
 
         char resultByte = 1;
         write(main_sock[1], &resultByte, 1);
