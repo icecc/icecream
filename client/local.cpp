@@ -160,7 +160,7 @@ static void handle_user_break( int sig )
     user_break_signal = sig;
 
     if (child_pid != 0)
-      kill ( sig, child_pid);
+      kill ( child_pid, sig );
 
     signal( sig, handle_user_break );
 }
