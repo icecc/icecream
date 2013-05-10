@@ -36,6 +36,9 @@
 #include <comm.h>
 #include "client.h"
 
+#include <vector>
+#include <algorithm>
+
 using namespace std;
 
 extern const char * rs_program_name;
@@ -202,12 +205,13 @@ int build_local(CompileJob& job, MsgChannel *local_daemon, struct rusage *used)
         arguments.push_back( "-o" );
         arguments.push_back( job.outputFile() );
     }
-    char **argv = new char*[arguments.size() + 1];
-    int argc = 0;
+    vector<char*> argv(arguments.size()+1, NULL);
     for ( list<string>::const_iterator it = arguments.begin();
-          it != arguments.end(); ++it )
-        argv[argc++] = strdup( it->c_str() );
-    argv[argc] = 0;
+             it != arguments.end(); ++it )
+           argv.push_back( strdup( it->c_str() ));
+
+    argv.push_back(NULL);
+
 #if CLIENT_DEBUG
     trace() << "execing ";
     for ( int i = 0; argv[i]; i++ )
@@ -274,8 +278,10 @@ int build_local(CompileJob& job, MsgChannel *local_daemon, struct rusage *used)
         signal( SIGTERM, old_sigterm );
         signal( SIGQUIT, old_sigquit );
         signal( SIGHUP, old_sighup );
-        if( user_break_signal )
+        if( user_break_signal ) {
+            for_each(argv.begin(), argv.end(), &free);
             raise( user_break_signal );
+        }
         if ( lock_fd )
             dcc_unlock( lock_fd );
         return status;
@@ -288,14 +294,16 @@ int build_local(CompileJob& job, MsgChannel *local_daemon, struct rusage *used)
             dup2(pf[1], 2);
         }
 
-        int ret = execv( argv[0], argv );
+        int ret = execv( argv[0], argv.data() );
         if ( lock_fd )
-            dcc_unlock( lock_fd ); 
+            dcc_unlock( lock_fd );
         if (ret) {
             char buf[256];
             snprintf(buf, sizeof(buf), "ICECC[%d]: %s:", getpid(), argv[0]);
             log_perror(buf);
         }
+        // free argv
+        for_each(argv.begin(), argv.end(), &free);
         _exit ( ret );
     }
 }
