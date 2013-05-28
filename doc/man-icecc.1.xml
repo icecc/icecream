@@ -2,6 +2,7 @@
 <!-- vim:set ts=4 noet syntax=xml: -->
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN" "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd"
 [
+  <!ENTITY icecc "<application>icecc</application>">
 ]>
 
 <refentry id="icecc">
@@ -31,26 +32,31 @@
 <refsynopsisdiv>
 <cmdsynopsis>
 <command>icecc</command>
-<arg choice="opt">
-  <option>options</option>
-</arg>
-<arg>-o OBJECT</arg>
-<arg>-c SOURCE</arg>
+<arg><replaceable>compiler</replaceable></arg>
+<arg><replaceable>compile options</replaceable></arg>
+<arg choice="plain">-o <replaceable>OBJECT</replaceable></arg>
+<arg choice="plain">-c <replaceable>SOURCE</replaceable></arg>
+</cmdsynopsis>
+<cmdsynopsis>
+<command>icecc</command>
+<arg choice="plain">--build-type</arg>
+<arg><replaceable>compiler type</replaceable></arg>
+<arg choice="plain" rep="repeat"><replaceable>file</replaceable></arg>
 </cmdsynopsis>
 </refsynopsisdiv>
 
 <refsect1>
 <title>Description</title>
-<para>icecc is the Icecream compiler stub. It gets called in place of the actual
+<para>&icecc; is the Icecream compiler stub. It gets called in place of the actual
 compiler and transparently routes the compile requests to the Icecream
-network. You shouldn't call icecc directly, but place the specific compiler
+network. You should not call &icecc; directly, but place the specific compiler
 stubs in your path:
 <command>export PATH=/usr/lib/icecc/bin:$PATH</command>.</para>
 </refsect1>
 
 <refsect1>
 <title>See Also</title>
-<para>icecream, icecc-scheduler, iceccd, icemon</para>
+<para>icecream(7), icecc-scheduler(1), iceccd(1), icemon(1)</para>
 </refsect1>
 
 <refsect1>
