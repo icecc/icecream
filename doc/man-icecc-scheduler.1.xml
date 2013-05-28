@@ -2,89 +2,42 @@
 <!-- vim:set ts=4 noet syntax=xml: -->
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN" "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd"
 [
+  <!ENTITY icecc-scheduler "<application>icecc-scheduler</application>">
 ]>
 
 <refentry id="icecc-scheduler">
 
 <refentryinfo>
-	<title>Icecream User's Manual</title>
-	<author>
-          <personname>
-            <firstname>Cornelius</firstname>
-            <surname>Schumacher</surname>
-          </personname>
-        </author>
-	<date>April 21th, 2005</date>
-	<productname>Icecream</productname>
+  <title>Icecream User's Manual</title>
+  <author>
+    <personname>
+      <firstname>Cornelius</firstname>
+      <surname>Schumacher</surname>
+    </personname>
+  </author>
+  <date>April 21th, 2005</date>
+  <productname>Icecream</productname>
 </refentryinfo>
 
 <refmeta>
-	<refentrytitle>icecc-scheduler</refentrytitle>
-	<manvolnum>1</manvolnum>
+  <refentrytitle>icecc-scheduler</refentrytitle>
+  <manvolnum>1</manvolnum>
 </refmeta>
 
 <refnamediv>
-	<refname>icecc-scheduler</refname>
-	<refpurpose>Icecream scheduler</refpurpose>
+  <refname>icecc-scheduler</refname>
+  <refpurpose>Icecream scheduler</refpurpose>
 </refnamediv>
 
 <refsynopsisdiv>
 <cmdsynopsis>
 <command>icecc-scheduler</command>
-<group>
-  <arg choice="opt">
-    <option>-n</option>
-  </arg>
-  <arg choice="opt">
-    <option>--netname</option>
-  </arg>
-  <replaceable> name</replaceable>
-</group>
-<group>
-  <arg choice="opt">
-    <option>-p</option>
-  </arg>
-  <arg choice="opt">
-    <option>--port</option>
-  </arg>
-  <replaceable> port</replaceable>
-</group>
-<group>
-  <arg choice="opt">
-    <option>-h</option>
-  </arg>
-  <arg choice="opt">
-    <option>--help</option>
-  </arg>
-</group>
-<group>
-  <arg choice="opt">
-    <option>-l</option>
-  </arg>
-  <arg choice="opt">
-    <option>--log-file</option>
-  </arg>
-  <replaceable> file</replaceable>
-</group>
-<group>
-  <arg choice="opt">
-    <option>-d</option>
-  </arg>
-  <arg choice="opt">
-    <option>--daemonize</option>
-  </arg>
-</group>
-<group>
-  <arg choice="opt">
-    <option>-r</option>
-  </arg>
-  <arg choice="opt">
-    <option>--allow-run-as-user</option>
-  </arg>
-</group>
-<arg choice="opt">
-  -v<arg choice="opt">v<arg choice="opt">v</arg></arg>
-</arg>
+<arg>-d</arg>
+<arg>-l <replaceable>log-file</replaceable></arg>
+<arg>-n <replaceable>net-name</replaceable></arg>
+<arg>-p <replaceable>port</replaceable></arg>
+<arg>-u <replaceable>user</replaceable></arg>
+<arg>-v<arg>v<arg>v</arg></arg></arg>
 </cmdsynopsis>
 </refsynopsisdiv>
 
@@ -101,8 +54,24 @@ monitors.</para>
 <variablelist>
 
 <varlistentry>
+<term><option>-d</option>, <option>--daemonize</option></term>
+<listitem><para>Detach daemon from shell.</para></listitem>
+</varlistentry>
+
+<varlistentry>
+<term><option>-h</option>, <option>--help</option></term>
+<listitem><para>Print help message and exit.</para></listitem>
+</varlistentry>
+
+<varlistentry>
+<term><option>-l</option>, <option>--log-file</option>
+<parameter>log-file</parameter></term>
+<listitem><para>Name of file where log output is written to.</para></listitem>
+</varlistentry>
+
+<varlistentry>
 <term><option>-n</option>, <option>--netname</option>
-<parameter>netname</parameter></term>
+<parameter>net-name</parameter></term>
 <listitem><para>The name of the Icecream network the scheduler
 controls.</para></listitem>
 </varlistentry>
@@ -114,35 +83,18 @@ controls.</para></listitem>
 </varlistentry>
 
 <varlistentry>
-<term><option>-h</option>, <option>--help</option></term>
-<listitem><para>Print help message.</para></listitem>
-</varlistentry>
-
-<varlistentry>
-<term><option>-l</option>, <option>--log-file</option>
-<parameter>logfile</parameter></term>
-<listitem><para>Name of file where log output is written to.</para></listitem>
-</varlistentry>
-
-<varlistentry>
-<term>
-<option>-d</option>, <option>--daemonize</option>
-</term>
-<listitem><para>Detach daemon from shell.</para></listitem>
+<term><option>-u</option>, <option>--user-uid</option>
+<parameter>user</parameter></term>
+<listitem><para>Specifiy the system user used by the daemon, which must be
+different than <quote>root</quote>. If not specified, the daemon defaults
+to the <quote>icecc</quote> system user if available, or <quote>nobody</quote>
+if not.</para></listitem>
 </varlistentry>
 
 <varlistentry>
 <term><option>-v</option>, <option>-vv</option>, <option>-vvv</option></term>
 <listitem><para>Control verbosity of daemon. The more v the more
 verbose.</para></listitem>
-</varlistentry>
-
-<varlistentry>
-<term>
-<option>-r</option>, <option>--allow-run-as-user</option>
-</term>
-<listitem><para>Force running the scheduler with user rights. Usually you will
-need to run the scheduler with root rights.</para></listitem>
 </varlistentry>
 
 </variablelist>
@@ -152,7 +104,7 @@ need to run the scheduler with root rights.</para></listitem>
 
 <refsect1>
 <title>See Also</title>
-<para>icecream, iceccd, icemon</para>
+<para>icecream(7), iceccd(1), icemon(1)</para>
 </refsect1>
 
 <refsect1>
