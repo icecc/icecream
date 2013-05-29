@@ -168,7 +168,7 @@ rip_out_paths(const Environments &envs, map<string, string> &version_map, map<st
     string versfile;
 
     for (Environments::const_iterator it = envs.begin(); it != envs.end(); ++it) {
-        for (int i = 0; i < 3; i++)
+        for (int i = 0; i < 4; i++)
             if (endswith(it->second, suffs[i], versfile)) {
                 versionfile_map[it->first] = it->second;
                 versfile = find_basename(versfile);
