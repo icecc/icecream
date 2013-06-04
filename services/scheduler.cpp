@@ -389,7 +389,7 @@ server_speed (CS *cs, Job *job)
       if (job) {
         if (job->submitter == cs) {
         /* The submitter of a job gets more speed if it's capable of handling its requests on its own.
-           So if he is equally fast to the rest of the farm it will be prefered to chose him
+           So if he is equally fast to the rest of the farm it will be preferred to chose him
            to compile the job.  Then this can be done locally without needing the preprocessor.
            However if there are more requests than the number of jobs the submitter can handle,
            it is assumed the submitter is doing a massively parallel build, in which case it is
@@ -592,7 +592,7 @@ platforms_compatible( const string &target, const string &platform )
 {
   if ( target == platform )
     return true;
-  // the below doesn't work as the unmapped platform is transfered back to the
+  // the below doesn't work as the unmapped platform is transferred back to the
   // client and that asks the daemon for a platform he can't install (see TODO)
 
   static multimap<string, string> platform_map;
@@ -1638,7 +1638,7 @@ handle_line (CS *c, Msg *_m)
   return c->send_msg (TextMsg (string ("200 done")));
 }
 
-// return false if some error occured, leaves C open.  */
+// return false if some error occurred, leaves C open.  */
 static bool
 try_login (CS *c, Msg *m)
 {
