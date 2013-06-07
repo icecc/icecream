@@ -365,7 +365,7 @@ static int build_remote_int(CompileJob &job, UseCSMsg *usecs, MsgChannel *local_
                 if( !static_cast<VerifyEnvResultMsg*>( msg )->ok ) {
                     // The remote can't handle the environment at all (e.g. kernel too old),
                     // mark it as never to be used again for this environment.
-                    log_info() << "Host " << hostname << " did not succesfully verify environment." << endl;
+                    log_info() << "Host " << hostname << " did not successfully verify environment." << endl;
                     BlacklistHostEnvMsg blacklist( job.targetPlatform(), job.environmentVersion(), hostname );
                     local_daemon->send_msg( blacklist );
                     throw( 24 );
@@ -627,7 +627,7 @@ int build_remote(CompileJob &job, MsgChannel *local_daemon, const Environments &
 
     int torepeat = 1;
 
-    // older compilers do not support the options we need to make it reproducable
+    // older compilers do not support the options we need to make it reproducible
 #if defined(__GNUC__) && ( ( (__GNUC__ == 3) && (__GNUC_MINOR__ >= 3) ) || (__GNUC__ >=4) )
     if (!compiler_is_clang(job)) {
         if ( rand() % 1000 < permill)

@@ -155,7 +155,7 @@ to the client, and this is dominated by network saturation and latency
 and not by CPU usage. The obvious solution is to notify the scheduler
 about a free slot as soon as compilation (but not write-back) has
 finished. With remote over-booking this resulted in another 3% speedup,
-while no improvments could be measured in the -m 1 case. Given that
+while no improvements could be measured in the -m 1 case. Given that
 it significantly reduced code complexity in the daemon, it should still be
 an improvement (reduced code size by almost 8%!).
 
