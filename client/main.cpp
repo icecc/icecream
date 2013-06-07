@@ -51,6 +51,7 @@
 #include <limits.h>
 #include <sys/time.h>
 #include <comm.h>
+#include <vector>
 #include <sys/types.h>
 #ifdef HAVE_SYS_STAT_H
 #  include <sys/stat.h>
@@ -158,71 +159,78 @@ static string read_output( const char *command )
     return output.substr(0, output.length()-1);
 }
 
-static int create_native( char** args )
+/*
+ * @param args Are [clang,gcc] [extra files...]
+ */
+static int create_native(char** args)
 {
-    // args are [compiler] [files...]
-    const char *compiler = args[ 0 ];
-    char **extrafiles;
-    if( args[ 0 ] )
-        extrafiles = args + 1;
-    else // there were no arguments, set to null list
-        extrafiles = args;
-    int extracount = 0;
-    while ( extrafiles[ extracount ] )
-        ++extracount;
-    char **argv = new char*[4+extracount*2];
-    int pos = 0;
+    bool is_clang = false;
+    char **extrafiles = args;
+
+    // Args[0] maybe a compiler or the first extra file.
+    if (args[0] && (!strcmp(args[0], "clang") && (is_clang = true)
+                || !strcmp(args[0], "gcc"))) {
+            extrafiles++;
+    }
+
+    vector<char*> argv;
     struct stat st;
-    if ( lstat( PLIBDIR "/icecc-create-env", &st ) ) {
-	log_error() << PLIBDIR "/icecc-create-env does not exist\n";
+
+    if (lstat(PLIBDIR "/icecc-create-env", &st)) {
+        log_error() << PLIBDIR "/icecc-create-env does not exist\n";
         return 1;
     }
-    argv[pos++] = strdup( PLIBDIR "/icecc-create-env"  );
 
-    if ( compiler && strcmp( compiler, "clang" ) == 0 ) {
-        string clang = compiler_path_lookup( "clang" );
-        if ( clang.empty()) {
+    argv.push_back(strdup(PLIBDIR "/icecc-create-env"));
+
+    if (is_clang) {
+        string clang = compiler_path_lookup("clang");
+
+        if (clang.empty()) {
             log_error() << "clang compiler not found\n";
-	    return 1;
-	}
-        if ( lstat( PLIBDIR "/compilerwrapper", &st ) ) {
+            return 1;
+        }
+
+        if (lstat(PLIBDIR "/compilerwrapper", &st)) {
             log_error() << PLIBDIR "/compilerwrapper does not exist\n";
             return 1;
         }
-        argv[pos++] = strdup( "--clang" );
-        argv[pos++] = strdup( clang.c_str() );
-        argv[pos++] = strdup( PLIBDIR "/compilerwrapper"  );
+
+        argv.push_back(strdup("--clang"));
+        argv.push_back(strdup(clang.c_str()));
+        argv.push_back(strdup(PLIBDIR "/compilerwrapper"));
     } else { // "gcc" (default)
         string gcc, gpp;
 
         // perhaps we're on gentoo
-        if ( !lstat("/usr/bin/gcc-config", &st) ) {
-            string gccpath=read_output("/usr/bin/gcc-config -B") + "/";
-            gcc=gccpath + "gcc";
-            gpp=gccpath + "g++";
+        if (!lstat("/usr/bin/gcc-config", &st)) {
+            string gccpath = read_output("/usr/bin/gcc-config -B") + "/";
+            gcc = gccpath + "gcc";
+            gpp = gccpath + "g++";
         } else {
-            gcc = compiler_path_lookup( "gcc" );
-            gpp = compiler_path_lookup( "g++" );
+            gcc = compiler_path_lookup("gcc");
+            gpp = compiler_path_lookup("g++");
         }
+
         // both C and C++ compiler are required
-        if ( gcc.empty())
-            gpp.clear();
-        if ( gpp.empty())
-            gcc.clear();
-        if ( gcc.empty() && gpp.empty()) {
+        if (gcc.empty() || gpp.empty()) {
             log_error() << "gcc compiler not found\n";
-	    return 1;
-	}
-        argv[pos++] = strdup( "--gcc" );
-        argv[pos++] = strdup( gcc.c_str() );
-        argv[pos++] = strdup( gpp.c_str() );
+            return 1;
+        }
+
+        argv.push_back(strdup("--gcc"));
+        argv.push_back(strdup(gcc.c_str()));
+        argv.push_back(strdup(gpp.c_str()));
     }
-    for ( extracount = 0; extrafiles[ extracount ]; ++extracount ) {
-        argv[pos++] = strdup( "--addfile" );
-        argv[pos++] = strdup( extrafiles[ extracount ] );
+
+    for (int extracount = 0; extrafiles[extracount]; extracount++) {
+        argv.push_back(strdup("--addfile"));
+        argv.push_back(strdup(extrafiles[extracount]));
     }
-    argv[pos++] = NULL;
-    return execv(argv[0], argv);
+
+    argv.push_back(NULL);
+
+    return execv(argv[0], argv.data());
 }
 
 int main(int argc, char **argv)
