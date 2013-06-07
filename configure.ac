@@ -71,12 +71,15 @@ AC_ARG_WITH(man,
 )
 AS_IF([test "x$with_man" != "xno"], [
     build_man=yes
-    AC_PATH_PROG(DOCBOOK2X,[docbook-to-man])
+    AC_PATH_PROG(DOCBOOK2X,[docbook2x-man])
     AS_IF([test -z "$DOCBOOK2X"], [
-        AC_PATH_PROG(DOCBOOK2X,[docbook2man.pl])
+        AC_PATH_PROG(DOCBOOK2X,[docbook-to-man])
         AS_IF([test -z "$DOCBOOK2X"], [
-            AC_MSG_WARN([docbook-to-man is missing. Install docbook2X package.])
-            DOCBOOK2X='echo docbook-to-man is missing. Install docbook2X package.'
+            AC_PATH_PROG(DOCBOOK2X,[docbook2man.pl])
+            AS_IF([test -z "$DOCBOOK2X"], [
+                AC_MSG_WARN([docbook2x is missing. Install docbook2x package.])
+                DOCBOOK2X='echo docbook2x is missing. Install docbook2x package.'
+            ])
         ])
     ])
 ], [build_man=no])
