@@ -58,7 +58,7 @@ using namespace std;
 /*
  * A generic DoS protection. The biggest messages are of type FileChunk
  * which shouldn't be larger than 100kb. so anything bigger than 10 times
- * of that is definitly fishy, and we must reject it (we're running as root,
+ * of that is definitely fishy, and we must reject it (we're running as root,
  * so be cautious).
  */
 
@@ -823,7 +823,7 @@ string MsgChannel::dump() const
 }
 
 /* Wait blocking until the protocol setup for this channel is complete.
-   Returns false if an error occured.  */
+   Returns false if an error occurred.  */
 bool
 MsgChannel::wait_for_protocol ()
 {
@@ -863,7 +863,7 @@ void MsgChannel::setBulkTransfer()
   int i = 0;
   setsockopt (fd, IPPROTO_TCP, TCP_NODELAY, (char*) &i, sizeof(i));
 
-  // would be nice but not portable accross non-linux
+  // would be nice but not portable across non-linux
 #ifdef __linux__
   i = 1;
   setsockopt (fd, IPPROTO_TCP, TCP_CORK, (char*) &i, sizeof(i));

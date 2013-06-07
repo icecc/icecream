@@ -14,7 +14,7 @@ make install
 
 WARNING: Make sure you specify a prefix, otherwise icecream
 might override your gcc installation! You will need to use this
-prefix instead of /usr when refering to icecream (for example
+prefix instead of /usr when referring to icecream (for example
 when extending the $PATH variable).
 
 The documentation is maintained in README.md for the time being.
