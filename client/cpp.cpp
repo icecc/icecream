@@ -35,6 +35,8 @@
 #include <assert.h>
 
 #include "client.h"
+#include <vector> // argv
+#include <algorithm> // for_each
 
 using namespace std;
 
@@ -80,14 +82,13 @@ pid_t call_cpp(CompileJob &job, int fdwrite, int fdread)
         if (ret)    /* set handler back to default */
             _exit(ret);
 
-	char **argv;
+    vector<char*> argv;
 	if ( dcc_is_preprocessed( job.inputFile() ) ) {
             /* already preprocessed, great.
                write the file to the fdwrite (using cat) */
-            argv = new char*[2+1];
-            argv[0] = strdup( "/bin/cat" );
-            argv[1] = strdup( job.inputFile().c_str() );
-            argv[2] = 0;
+            argv.push_back( strdup( "/bin/cat" ));
+            argv.push_back( strdup( job.inputFile().c_str() ));
+            argv.push_back( NULL);
 	} else {
 	    list<string> flags = job.localFlags();
             /* This has a duplicate meaning. it can either include a file
@@ -116,18 +117,17 @@ pid_t call_cpp(CompileJob &job, int fdwrite, int fdread)
 	    argc++; // the program
 	    argc += 2; // -E file.i
 	    argc += 1; // -frewrite-includes
-	    argv = new char*[argc + 1];
+	    argv.resize(argc + 1);
    	    argv[0] = strdup( find_compiler( job ).c_str() );
-	    int i = 1;
 	    for ( list<string>::const_iterator it = flags.begin();
 		  it != flags.end(); ++it) {
-		argv[i++] = strdup( it->c_str() );
+	    	argv.push_back( strdup( it->c_str() ));
 	    }
-	    argv[i++] = strdup( "-E" );
-	    argv[i++] = strdup( job.inputFile().c_str() );
+	    argv.push_back( strdup( "-E" ) );
+	    argv.push_back( strdup( job.inputFile().c_str() ));
 	    if ( compiler_only_rewrite_includes( job ))
-	        argv[i++] = strdup( "-frewrite-includes" );
-	    argv[i++] = 0;
+	    	argv.push_back( strdup( "-frewrite-includes" ));
+	    argv.push_back(NULL);
 	}
 
 #if 0
@@ -145,7 +145,8 @@ pid_t call_cpp(CompileJob &job, int fdwrite, int fdread)
 	}
 
         dcc_increment_safeguard();
-
-        _exit(execv(argv[0], argv));
+        int status = execv(argv[0], argv.data());
+        std::for_each(argv.begin(), argv.end(), &free);
+        _exit(status);
     }
 }
