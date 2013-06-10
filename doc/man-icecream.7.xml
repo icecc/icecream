@@ -2,6 +2,10 @@
 <!-- vim:set ts=4 noet syntax=xml: -->
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN" "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd"
 [
+  <!ENTITY ccache "<application>ccache</application>">
+  <!ENTITY distcc "<application>distcc</application>">
+  <!ENTITY icecc "<application>icecc</application>">
+  <!ENTITY icemon "<application>icemon</application>">
 ]>
 
 <refentry id="icecream">
@@ -33,69 +37,75 @@
 
 <para>Icecream is a distributed compile system for C and C++.</para>
 
-<para>Icecream is created by SUSE and is based on ideas and code by distcc. Like
-distcc it takes compile jobs from your build and distributes it to remote
-machines allowing a parallel build on several machines you've got. But unlike
-distcc Icecream uses a central server that schedules the compile jobs to the
+<para>Icecream is created by SUSE and is based on ideas and code by &distcc;. Like
+&distcc; it takes compile jobs from your build and distributes it to remote
+machines allowing a parallel build on several machines you have got. But unlike
+&distcc; Icecream uses a central server that schedules the compile jobs to the
 fastest free server and is as this dynamic. This advantage pays off mostly for
-shared computers, if you're the only user on x machines, you have full control
+shared computers, if you are the only user on X machines, you have full control
 over them anyway.</para>
 
 </refsect1>
- 
+
 <refsect1>
 <title>How to use icecream</title>
 
 <para>You need:</para>
 <itemizedlist>
 <listitem>
-  <para>One machine that runs the scheduler ("./icecc-scheduler -d")</para>
+  <para>One machine that runs the scheduler
+  (<command>icecc-scheduler <option>-d</option></command>)</para>
 </listitem>
 <listitem>
-  <para>Many machines that run the daemon ("./iceccd -d")</para>
+  <para>Many machines that run the daemon
+  (<command>iceccd <option>-d</option></command>)</para>
 </listitem>
 </itemizedlist>
 
-<para>If you want to compile using icecream, make sure $prefix/lib/icecc/bin is the first
-first entry in your path, e.g. type
+<para>If you want to compile using icecream, make sure
+<filename class="directory">$prefix/lib/icecc/bin</filename>
+is the first entry in your path, e.g. type
 <command>export PATH=/usr/lib/icecc/bin:$PATH</command>
-(Hint: put this in ~/.bashrc or /etc/profile to not have to type it in
-everytime)
+(Hint: put this in <filename>~/.bashrc</filename> or <filename>/etc/profile</filename>
+to not have to type it in everytime)
 </para>
 
-<para>Then you just compile with <command>make -j &lt;num&gt;</command>, where
-&lt;num&gt; is the amount of jobs you want to compile in parallel. Don't
-exaggerate. Numbers greater than 15 normally cause trouble.</para>
- 
-<para>WARNING: Never use icecream in untrusted environments. Run the deamons and
-the scheduler as unpriviliged user in such networks if you have to! But you will
-have to rely on homogeneous networks then (see below).</para>
+<para>Then you just compile with
+<command>make <option>-j <replaceable>num</replaceable></option></command>,
+where <parameter>num</parameter> is the amount of jobs you want to compile in parallel.
+Do not exaggerate. Numbers greater than 15 normally cause trouble.</para>
 
-<para>If you want funny stats, you might want to run "icemon".</para>
+<para><warning>
+Never use icecream in untrusted environments. Run the daemons and
+the scheduler as unpriviliged user in such networks if you have to! But you will
+have to rely on homogeneous networks then (see below).
+</warning></para>
+
+<para>If you want funny stats, you might want to run &icemon;.</para>
 </refsect1>
 
 <refsect1>
-<title>Using icecream in heterogeneous environments</title> 
+<title>Using icecream in heterogeneous environments</title>
 
-<para>If you are running icecream daemons (note: they _all_ must be running as
-root. In the future icecream might gain the ability to know when machines can't
-accept a different env, but for now it is all or nothing ) in the same icecream
+<para>If you are running icecream daemons (note: they <emphasis>all</emphasis> must be running as
+root. In the future icecream might gain the ability to know when machines cannot
+accept a different environment, but for now it is all or nothing) in the same icecream
 network but on machines with incompatible compiler versions you have to tell
-icecream which environment you are using. Use <command>icecc --build-native</command> to
+icecream which environment you are using. Use <command>icecc <option>--build-native</option></command> to
 create an archive file containing all the files necessary to setup the compiler
 environment. The file will have a random unique name like
-"ddaea39ca1a7c88522b185eca04da2d8.tar.bz2" per default. Rename it to something
-more expressive for your convenience, e.g. "i386-3.3.1.tar.bz2". Set
-<command>ICECC_VERSION=&lt;filename_of_archive_containing_your_environment&gt;</command>
+<filename>ddaea39ca1a7c88522b185eca04da2d8.tar.bz2</filename> per default. Rename it to something
+more expressive for your convenience, e.g. <filename>i386-3.3.1.tar.bz2</filename>. Set
+<command>ICECC_VERSION=<replaceable>filename_of_archive_containing_your_environment</replaceable></command>
 in the shell environment where you start the compile jobs and the file will be
 transfered to the daemons where your compile jobs run and installed to a chroot
 environment for executing the compile jobs in the environment fitting to the
-environment of the client. This requires that the icecream deamon runs as root.
+environment of the client. This requires that the icecream daemon runs as root.
 </para>
 
 <para>If you do not set ICECC_VERSION, the client will use a tar ball provided
-by the daemon running on the same machine. So you can always be sure you're not
-tricked by incompatible gcc versions - and you can share your computer with
+by the daemon running on the same machine. So you can always be sure you are not
+tricked by incompatible GCC versions - and you can share your computer with
 users of other distributions (or different versions of your beloved SUSE
 Linux :)</para>
 </refsect1>
@@ -104,43 +114,49 @@ Linux :)</para>
 <title>Cross-Compiling using icecream</title> 
 
 <para>SUSE got quite some good machines not having a processor from Intel or
-AMD, so icecream is pretty good in using cross-compiler environments similiar
-to the above way of spreading compilers. There the ICECC_VERSION varaible looks
-like &lt;native_filename&gt;(,&lt;platform&gt;:&lt;cross_compiler_filename&gt;)*,
+AMD, so icecream is pretty good in using cross-compiler environments similar
+to the above way of spreading compilers. There the ICECC_VERSION variable looks
+like
+<literal>&lt;native_filename&gt;(,&lt;platform&gt;:&lt;cross_compiler_filename&gt;)*</literal>,
 for example like this:
 <literal>/work/9.1-i386.tar.bz2,ia64:/work/9.1-cross-ia64.tar.bz2</literal>
 </para>
 
 <para>How to package such a cross compiler is pretty straightforward if you look
-what's inside the tarballs generated by <command>icecc --build-native</command>.</para>
- 
+what is inside the tarballs generated by
+<command>icecc <option>--build-native</option></command>.</para>
+
 </refsect1>
 
 <refsect1>
 <title>Cross-Compiling for embedded targets using icecream</title>
 
-<para>When building for embedded targets like ARM often you'll have a toolchain
+<para>When building for embedded targets like ARM often you will have a toolchain
 that runs on your host and produces code for the target. In these situations you
 can exploit the power of icecream as well.</para>
- 
-<para>Create symlinks from where icecc is to the name of your cross compilers
-(e.g. arm-linux-g++ and arm-linux-gcc), make sure that these symlinks are in the
+
+<para>Create symlinks from where &icecc; is to the name of your cross compilers
+(e.g. <filename class="symlink">arm-linux-g++</filename> and
+<filename class="symlink">arm-linux-gcc</filename>), make sure that these symlinks are in the
 path and before the path of your toolchain, with <varname>$ICECC_CC</varname>
 and <varname>$ICECC_CXX</varname> you need to tell icecream which compilers to
 use for preprocessing and local compiling. e.g. set it to
 <command>ICECC_CC=arm-linux-gcc</command> and
 <command>ICECC_CXX=arm-linux-g++</command>.</para>
- 
-<para>As the next step you need to create a .tar.bz2 of your cross compiler,
+
+<para>As the next step you need to create a <literal role="extension">.tar.bz2</literal>
+of your cross compiler,
 check the result of build-native to see what needs to be present.</para>
- 
+
 <para>Finally one needs to set <varname>ICECC_VERSION</varname> and point it to
-the tar.bz2 you've created. When you start compiling your toolchain will be
-used.</para>
- 
-<para>NOTE: with <varname>ICECC_VERSION</varname> you point out on which
+the <literal role="extension">.tar.bz2</literal> you have created.
+When you start compiling your toolchain will be used.</para>
+
+<para><note>
+With <varname>ICECC_VERSION</varname> you point out on which
 platforms your toolchain runs, you do not indicate for which target code will be
-generated.</para>
+generated.
+</note></para>
 
 </refsect1>
 
@@ -168,7 +184,7 @@ for the same host architecture:</para>
 </listitem>
 <listitem>
     <para>Create a tarball file for each toolchain that you want to use with
-    icecream. The /usr/lib/icecc/icecc-create-env script can be used to
+    icecream. The <filename>/usr/lib/icecc/icecc-create-env</filename> script can be used to
     create the tarball file for each toolchain, for example:
     <command>/usr/lib/icecc/icecc-create-env --gcc /work/toolchain1/bin/arm-eabi-gcc
     /work/toolchain1/bin/arm-eabi-g++</command>
@@ -181,30 +197,34 @@ for the same host architecture:</para>
 </listitem>
 </itemizedlist>
 
-<para>With these steps the icecrem will use /work/arm-eabi-toolchain1.tar.gz file to
-cross compilers with the prefix arm-eabi(e.g arm-eabi-gcc and arm-eabi-g++), use
-/work/arm-linux-androideabi-toolchain2.tar.gz file to cross compilers with the prefix
-arm-linux-androideabi(e.g. arm-linux-androideabi-gcc and arm-linux-androideabi-g++)
-and use /work/i386-native.tar.gz file to compilers without prefix,
+<para>With these steps the icecrem will use <filename>/work/arm-eabi-toolchain1.tar.gz</filename>
+file to cross compilers with the prefix <literal>arm-eabi</literal>
+(e.g. <command>arm-eabi-gcc</command> and <command>arm-eabi-g++</command>), use
+<filename>/work/arm-linux-androideabi-toolchain2.tar.gz</filename>
+file to cross compilers with the prefix <literal>arm-linux-androideabi</literal>
+(e.g. <command>arm-linux-androideabi-gcc</command> and <command>arm-linux-androideabi-g++</command>)
+and use <filename>/work/i386-native.tar.gz</filename> file to compilers without prefix,
 the native compilers.</para>
 </refsect1>
 
 <refsect1>
-<title>How to combine icecream with ccache</title>
+<title>How to combine icecream with &ccache;</title>
 
-<para>The easiest way to use ccache with icecream is to set <varname>CCACHE_PREFIX</varname>
-to icecc (the actual icecream client wrapper)
+<para>The easiest way to use &ccache; with icecream is to set <varname>CCACHE_PREFIX</varname>
+to &icecc; (the actual icecream client wrapper)
 
-<screen> 
- export CCACHE_PREFIX=icecc
+<screen>
+<command>export CCACHE_PREFIX=icecc</command>
 </screen>
 </para>
 
-<para>This will make ccache prefix any compilation command it needs to do with icecc,
+<para>This will make &ccache; prefix any compilation command it needs to do with icecc,
 making it use icecream for the compilation (but not for preprocessing alone).</para>
 
-<para>To actually use ccache, the mechanism is the same like with using icecream alone.
-Since ccache does not provide any symlinks in /opt/ccache/bin, you can create them manually:
+<para>To actually use &ccache;, the mechanism is the same like with using icecream alone.
+Since &ccache; does not provide any symlinks in
+<filename class="directory">/opt/ccache/bin</filename>,
+you can create them manually:
 
 <screen>
 mkdir /opt/ccache/bin
@@ -218,8 +238,8 @@ ln -s /usr/bin/ccache /opt/ccache/bin/g++
 export PATH=/opt/ccache/bin:$PATH
 </screen>
 </para>
- 
-<para>Note however that ccache isn't really worth the trouble if you're not
+
+<para>Note however that &ccache; is not really worth the trouble if you are not
 recompiling your project three times a day from scratch (it adds quite some overhead
 in comparing the preprocessor output and uses quite some disc space and I found
 a cache hit of 18% a bit too few, so I disabled it again).</para>
@@ -233,8 +253,9 @@ a cache hit of 18% a bit too few, so I disabled it again).</para>
 control if icecream gives debug output or not. Set it to
 <literal>debug</literal> to get debug output. The other possible values are
 <literal>error</literal>, <literal>warning</literal> and <literal>info</literal>
-(the -v option for daemon and scheduler raise the level per -v on the command
-line - so use -vvv for full debug).</para>
+(the <option>-v</option> option for daemon and scheduler raise the level per
+<option>-v</option> on the command line - so use <option>-vvv</option>
+for full debug).</para>
 
 </refsect1>
 
@@ -261,10 +282,10 @@ it is not possible to upgrade them for some reason, use
 Numbers of my test case (some STL C++ genetic algorithm)
 <itemizedlist>
   <listitem>
-    <para>g++ on my machine: 1.6s</para>
+    <para><command>g++</command> on my machine: 1.6s</para>
   </listitem>
   <listitem>
-    <para>g++ on fast machine: 1.1s</para>
+    <para><command>g++</command> on fast machine: 1.1s</para>
   </listitem>
   <listitem>
     <para>icecream using my machine as remote machine: 1.9s</para>
@@ -276,100 +297,99 @@ Numbers of my test case (some STL C++ genetic algorithm)
 </para>
 
 <para>The icecream overhead is quite huge as you might notice, but the compiler
-can't interleave preprocessing with compilation and the file needs to be
+cannot interleave preprocessing with compilation and the file needs to be
 read/written once more and in between the file is transfered.</para>
- 
-<para>But even if the other computer is faster, using g++ on my local machine
-is faster. If you're (for whatever reason) alone in your network at some point,
+
+<para>But even if the other computer is faster, using <command>g++</command> on my local machine
+is faster. If you are (for whatever reason) alone in your network at some point,
 you loose all advantages of distributed compiling and only add the overhead. So
 icecream got a special case for local compilations (the same special meaning
 that localhost got within $DISTCC_HOSTS). This makes compiling on my machine
 using icecream down to 1.7s (the overhead is actually less than 0.1s in
 average).</para>
- 
+
 <para>As the scheduler is aware of that meaning, it will prefer your own
-computer if it's free and got not less than 70% of the fastest available
+computer if it is free and got not less than 70% of the fastest available
 computer.</para>
- 
+
 <para>Keep in mind, that this affects only the first compile job, the second one
 is distributed anyway. So if I had to compile two of my files, I would get
 <itemizedlist>
   <listitem>
-    <para>g++ -j1 on my machine: 3.2s</para>
+    <para><command>g++ <option>-j1</option></command> on my machine: 3.2s</para>
   </listitem>
   <listitem>
-    <para>g++ -j1 on the fast machine: 2.2s</para>
+    <para><command>g++ <option>-j1</option></command> on the fast machine: 2.2s</para>
   </listitem>
   <listitem>
-    <para>using icecream -j2 on my machine: max(1.7,1.8)=1.8s</para>
+    <para>using icecream <option>-j2</option> on my machine: max(1.7,1.8)=1.8s</para>
   </listitem>
   <listitem>
-    <para>(using icecream -j2 on the other machine: max(1.1,1.8)=1.8s)</para>
+    <para>(using icecream <option>-j2</option> on the other machine: max(1.1,1.8)=1.8s)</para>
   </listitem>
 </itemizedlist> 
 </para>
 
 <para>The math is a bit tricky and depends a lot on the current state of the
-compilation network, but make sure you're not blindly assuming make -j2 halfs
-your compilation time.</para>
+compilation network, but make sure you are not blindly assuming
+<command>make <option>-j2</option></command> halves your compilation time.</para>
 
-</refsect1> 
+</refsect1>
 
 <refsect1>
 <title>What is the best environment for icecream</title>
 
-<para>In most requirements icecream isn't special, e.g. it doesn't matter what
-distributed compile system you use, you won't have fun if your nodes are
+<para>In most requirements icecream is not special, e.g. it does not matter what
+distributed compile system you use, you will not have fun if your nodes are
 connected through than less or equal to 10MBit. Note that icecream compresses
-input and output files (using lzo), so you can calc with ~1MBit per compile job
-- i.e more than make -j10 won't be possible without delays.</para>
- 
+input and output files (using <literal>lzo</literal>), so you can calc with ~1MBit per compile job
+- i.e. more than <command>make <option>-j10</option></command> will not
+be possible without delays.</para>
+
 <para>Remember that more machines are only good if you can use massive
 parallelization, but you will for sure get the best result if your submitting
-machine (the one you called g++ on) will be fast enough to feed the others.
+machine (the one you called <command>g++</command> on) will be fast enough to feed the others.
 Especially if your project consists of many easy to compile files, the
-preprocessing and file IO will be job enough to need a quick machine.</para>
- 
+preprocessing and file I/O will be job enough to need a quick machine.</para>
+
 <para>The scheduler will try to give you the fastest machines available, so even
 if you add old machines, they will be used only in exceptional situations, but
-still you can have bad luck - the scheduler doesn't know how long a job will
+still you can have bad luck - the scheduler does not know how long a job will
 take before it started. So if you have 3 machines and two quick to compile and
-one long to compile source file, you're not safe from a choice where everyone
+one long to compile source file, you are not safe from a choice where everyone
 has to wait on the slow machine. Keep that in mind.</para>
- 
+
 </refsect1>
 
 <refsect1>
 <title>Network setup for Icecream (firewalls)</title>
 
-<para>A short overview of the ports icecream requires: 
+<para>A short overview of the ports icecream requires:
  <itemizedlist>
   <listitem>
-    <para> TCP/10245 on the daemon computers (required) </para>
+    <para>TCP/10245 on the daemon computers (required)</para>
   </listitem>
   <listitem>
-    <para> TCP/8765 for the the scheduler computer (required) </para>
+    <para>TCP/8765 for the the scheduler computer (required)</para>
   </listitem>
   <listitem>
-    <para> TCP/8766 for the telnet interface to the scheduler (optional) </para>
+    <para>TCP/8766 for the telnet interface to the scheduler (optional)</para>
   </listitem>
   <listitem>
-    <para> UDP/8765 for broadcast to find the scheduler (optional) </para>
+    <para>UDP/8765 for broadcast to find the scheduler (optional)</para>
   </listitem>
 </itemizedlist>
 </para>
 
-<para>Note that the SuSEfirewall2 on SUSE &lt; 9.1 got some problems
-configuring broadcast. So you might need the -s option for the daemon
-in any case there. If the monitor can't find the scheduler, use
-USE_SCHEDULER=&lt;host&gt; icemon (or send me a patch :)</para>
- 
+<para>If the monitor cannot find the scheduler, use
+<command>USE_SCHEDULER=<replaceable>host</replaceable> icemon</command>.</para>
+
 </refsect1>
 
 
 <refsect1>
 <title>See Also</title>
-<para>icecream, icecc-scheduler, iceccd, icemon</para>
+<para>icecc-scheduler(1), iceccd(1), icemon(1)</para>
 </refsect1>
 
 <refsect1>
