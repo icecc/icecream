@@ -39,96 +39,106 @@ Which one depends on an extra argument added by icecream.
 
 //#define DEBUG
 
-int main( int argc, char* argv[] )
+int main(int argc, char *argv[])
 {
     bool iscxx = false;
-    int argv0len = strlen( argv[ 0 ] );
-    if( argv0len > 2 && argv[ 0 ][ argv0len - 1 ] == '+' && argv[ 0 ][ argv0len - 2 ] == '+' )
+    int argv0len = strlen(argv[0]);
+
+    if (argv0len > 2 && argv[0][argv0len - 1] == '+' && argv[0][argv0len - 2] == '+') {
         iscxx = true;
+    }
+
 #ifdef DEBUG
-    fprintf( stderr, "Args1:\n" );
-    for( int i = 0;
-         i < argc;
-         ++i )
-        fprintf( stderr, "%s\n", argv[ i ] );
-    fprintf( stderr, "\n" );
+    fprintf(stderr, "Args1:\n");
+
+    for (int i = 0; i < argc; ++i) {
+        fprintf(stderr, "%s\n", argv[i]);
+    }
+
+    fprintf(stderr, "\n");
 #endif
-    bool isclang = argc >= 2 && strcmp( argv[ 1 ], "clang" ) == 0; // the extra argument from icecream
+    bool isclang = argc >= 2 && strcmp(argv[1], "clang") == 0;   // the extra argument from icecream
     // 1 extra for -no-canonical-prefixes
-    char** args = new char*[ argc + 2 ];
-    args[ 0 ] = new char[ strlen( argv[ 0 ] ) + 20 ];
-    strcpy( args[ 0 ], argv[ 0 ] );
-    char* separator = strrchr( args[ 0 ], '/' );
-    if( separator == NULL )
-        args[ 0 ][ 0 ] = '\0';
-    else
-        separator[ 1 ] = '\0'; // after the separator
-    if( isclang )
-        strcat( args[ 0 ], "clang" );
-    else if( iscxx )
-        strcat( args[ 0 ], "g++.bin" );
-    else
-        strcat( args[ 0 ], "gcc.bin" );
+    char **args = new char*[argc + 2];
+    args[0] = new char[strlen(argv[0]) + 20];
+    strcpy(args[0], argv[0]);
+    char *separator = strrchr(args[0], '/');
+
+    if (separator == NULL) {
+        args[0][0] = '\0';
+    } else {
+        separator[1] = '\0';    // after the separator
+    }
+
+    if (isclang) {
+        strcat(args[0], "clang");
+    } else if (iscxx) {
+        strcat(args[0], "g++.bin");
+    } else {
+        strcat(args[0], "gcc.bin");
+    }
+
     int pos = 1;
-    if( isclang )
-        {
-        args[ pos++ ] = strdup( "-no-canonical-prefixes" ); // otherwise clang tries to access /proc/self/exe
+
+    if (isclang) {
+        args[pos++] = strdup("-no-canonical-prefixes");   // otherwise clang tries to access /proc/self/exe
         // clang wants the -x argument early, otherwise it seems to ignore it
         // (and treats the file as already preprocessed)
         int x_arg_pos = -1;
-        for( int i = 2; // 2 - skip the extra "clang" argument
-             i < argc;
-             ++i )
-        {
-            if( strcmp( argv[ i ], "-x" ) == 0 && i + 1 < argc
-                && ( strcmp( argv[ i + 1 ], "c" ) == 0 || strcmp( argv[ i + 1 ], "c++" ) == 0 ))
-            {
+
+        for (int i = 2; // 2 - skip the extra "clang" argument
+                i < argc;
+                ++i) {
+            if (strcmp(argv[i], "-x") == 0 && i + 1 < argc
+                    && (strcmp(argv[i + 1], "c") == 0 || strcmp(argv[i + 1], "c++") == 0)) {
                 x_arg_pos = i;
-                args[ pos++ ] = strdup( "-x" );
-                args[ pos++ ] = strdup( argv[ i + 1 ] );
+                args[pos++] = strdup("-x");
+                args[pos++] = strdup(argv[i + 1]);
                 break;
             }
         }
-        for( int i = 2; // 2 - skip the extra "clang" argument
-             i < argc;
-             ++i )
-        { // strip options that icecream adds but clang doesn't know or need
-            if( strcmp( argv[ i ], "-fpreprocessed" ) == 0 )
-                continue; // clang doesn't know this (it presumably needs to always preprocess anyway)
-            if( strcmp( argv[ i ], "--param" ) == 0 && i + 1 < argc )
-            {
-                if( strncmp( argv[ i + 1 ], "ggc-min-expand=", strlen( "ggc-min-expand=" )) == 0
-                    || strncmp( argv[ i + 1 ], "ggc-min-heapsize=", strlen( "ggc-min-heapsize=" )) == 0 )
-                { // drop --param and the parameter itself
+
+        for (int i = 2; // 2 - skip the extra "clang" argument
+                i < argc;
+                ++i) {
+            // strip options that icecream adds but clang doesn't know or need
+            if (strcmp(argv[i], "-fpreprocessed") == 0) {
+                continue;    // clang doesn't know this (it presumably needs to always preprocess anyway)
+            }
+
+            if (strcmp(argv[i], "--param") == 0 && i + 1 < argc) {
+                if (strncmp(argv[i + 1], "ggc-min-expand=", strlen("ggc-min-expand=")) == 0
+                        || strncmp(argv[i + 1], "ggc-min-heapsize=", strlen("ggc-min-heapsize=")) == 0) {
+                    // drop --param and the parameter itself
                     ++i;
                     continue;
                 }
             }
-            if( i == x_arg_pos )
-            {
+
+            if (i == x_arg_pos) {
                 ++i; // skip following
                 continue; // and skip this one
             }
-            args[ pos++ ] = strdup( argv[ i ] );
+
+            args[pos++] = strdup(argv[i]);
+        }
+    } else { // !isclang , just copy the arguments
+        for (int i = 1; i < argc; ++i) {
+            args[pos++] = strdup(argv[i]);
         }
     }
-    else // !isclang , just copy the arguments
-    {
-        for( int i = 1;
-             i < argc;
-             ++i )
-            args[ pos++ ] = strdup( argv[ i ] );
-    }
-    args[ pos++ ] = NULL;
-    assert( pos <= argc + 2 );
+
+    args[pos++] = NULL;
+    assert(pos <= argc + 2);
 #ifdef DEBUG
-    fprintf( stderr, "Args2:\n" );
-    for( int i = 0;
-         i < pos;
-         ++i )
-        fprintf( stderr, "%s\n", args[ i ] );
-    fprintf( stderr, "\n" );
+    fprintf(stderr, "Args2:\n");
+
+    for (int i = 0; i < pos; ++i) {
+        fprintf(stderr, "%s\n", args[i]);
+    }
+
+    fprintf(stderr, "\n");
 #endif
-    execv( args[ 0 ], args );
+    execv(args[0], args);
     return 1;
 }

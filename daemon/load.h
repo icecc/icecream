@@ -23,7 +23,7 @@
 
 #include <comm.h>
 
-    // 'hint' is used to approximate the load, whenever getloadavg() is unavailable.
-bool fill_stats( unsigned long &myidleload, unsigned long &myniceload, unsigned int &memory_fillgrade, StatsMsg *msg, unsigned int hint );
+// 'hint' is used to approximate the load, whenever getloadavg() is unavailable.
+bool fill_stats(unsigned long &myidleload, unsigned long &myniceload, unsigned int &memory_fillgrade, StatsMsg *msg, unsigned int hint);
 
 #endif

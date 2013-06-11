@@ -127,22 +127,21 @@ public:
      * WAITFORCHILD: Client is waiting for the compile job to finish.
      */
     enum Status { UNKNOWN, GOTNATIVE, PENDING_USE_CS, JOBDONE, LINKJOB, TOINSTALL, TOCOMPILE,
-                  WAITFORCS, WAITCOMPILE, CLIENTWORK, WAITFORCHILD, LASTSTATE=WAITFORCHILD } status;
-    Client()
-    {
+                  WAITFORCS, WAITCOMPILE, CLIENTWORK, WAITFORCHILD, LASTSTATE = WAITFORCHILD
+                } status;
+    Client() {
         job_id = 0;
         channel = 0;
         job = 0;
         usecsmsg = 0;
         client_id = 0;
         status = UNKNOWN;
-	pipe_to_child = -1;
-	child_pid = -1;
+        pipe_to_child = -1;
+        child_pid = -1;
     }
 
-    static string status_str( Status status )
-    {
-        switch ( status ) {
+    static string status_str(Status status) {
+        switch (status) {
         case UNKNOWN:
             return "unknown";
         case GOTNATIVE:
@@ -163,24 +162,26 @@ public:
             return "clientwork";
         case WAITCOMPILE:
             return "waitcompile";
-	case WAITFORCHILD:
-	    return "waitforchild";
+        case WAITFORCHILD:
+            return "waitforchild";
         }
-        assert( false );
+
+        assert(false);
         return string(); // shutup gcc
     }
 
-    ~Client()
-    {
-        status = (Status) -1;
+    ~Client() {
+        status = (Status) - 1;
         delete channel;
         channel = 0;
         delete usecsmsg;
         usecsmsg = 0;
         delete job;
         job = 0;
-	if (pipe_to_child >= 0)
-	    close (pipe_to_child);
+
+        if (pipe_to_child >= 0) {
+            close(pipe_to_child);
+        }
 
     }
     uint32_t job_id;
@@ -192,28 +193,31 @@ public:
     int pipe_to_child; // pipe to child process, only valid if WAITFORCHILD or TOINSTALL
     pid_t child_pid;
 
-    string dump() const
-    {
-        string ret = status_str( status ) + " " + channel->dump();
-        switch ( status ) {
+    string dump() const {
+        string ret = status_str(status) + " " + channel->dump();
+
+        switch (status) {
         case LINKJOB:
-            return ret + " CID: " + toString( client_id ) + " " + outfile;
+            return ret + " CID: " + toString(client_id) + " " + outfile;
         case TOINSTALL:
-            return ret + " " + toString( client_id ) + " " + outfile;
+            return ret + " " + toString(client_id) + " " + outfile;
         case WAITFORCHILD:
-            return ret + " CID: " + toString( client_id ) + " PID: " + toString( child_pid ) + " PFD: " + toString( pipe_to_child );
+            return ret + " CID: " + toString(client_id) + " PID: " + toString(child_pid) + " PFD: " + toString(pipe_to_child);
         default:
-            if ( job_id ) {
+
+            if (job_id) {
                 string jobs;
-                if ( usecsmsg )
-                {
+
+                if (usecsmsg) {
                     jobs = " CS: " + usecsmsg->hostname;
                 }
-                return ret + " CID: " + toString( client_id ) + " ID: " + toString( job_id ) + jobs;
+
+                return ret + " CID: " + toString(client_id) + " ID: " + toString(job_id) + jobs;
+            } else {
+                return ret + " CID: " + toString(client_id);
             }
-            else
-                return ret + " CID: " + toString( client_id );
         }
+
         return ret;
     }
 };
@@ -226,69 +230,83 @@ public:
     }
     unsigned int active_processes;
 
-    Client *find_by_client_id( int id ) const
-    {
-        for ( const_iterator it = begin(); it != end(); ++it )
-            if ( it->second->client_id == id )
+    Client *find_by_client_id(int id) const {
+        for (const_iterator it = begin(); it != end(); ++it)
+            if (it->second->client_id == id) {
                 return it->second;
+            }
+
         return 0;
     }
 
-    Client *find_by_channel( MsgChannel *c ) const {
-        const_iterator it = find( c );
-        if ( it == end() )
+    Client *find_by_channel(MsgChannel *c) const {
+        const_iterator it = find(c);
+
+        if (it == end()) {
             return 0;
+        }
+
         return it->second;
     }
 
-    Client *find_by_pid( pid_t pid ) const {
-        for ( const_iterator it = begin(); it != end(); ++it )
-            if ( it->second->child_pid == pid )
+    Client *find_by_pid(pid_t pid) const {
+        for (const_iterator it = begin(); it != end(); ++it)
+            if (it->second->child_pid == pid) {
                 return it->second;
+            }
+
         return 0;
     }
 
-    Client *first()
-    {
+    Client *first() {
         iterator it = begin();
-        if ( it == end() )
+
+        if (it == end()) {
             return 0;
+        }
+
         Client *cl = it->second;
         return cl;
     }
 
-    string dump_status(Client::Status s) const
-    {
+    string dump_status(Client::Status s) const {
         int count = 0;
-        for ( const_iterator it = begin(); it != end(); ++it )
-        {
-            if ( it->second->status == s )
+
+        for (const_iterator it = begin(); it != end(); ++it) {
+            if (it->second->status == s) {
                 count++;
+            }
         }
-        if ( count )
-            return toString( count ) + " " + Client::status_str( s ) + ", ";
-        else
-            return string();
+
+        if (count) {
+            return toString(count) + " " + Client::status_str(s) + ", ";
+        }
+
+        return string();
     }
 
     string dump_per_status() const {
         string s;
-        for(Client::Status i = Client::UNKNOWN; i <= Client::LASTSTATE;
-                i=Client::Status(int(i)+1))
+
+        for (Client::Status i = Client::UNKNOWN; i <= Client::LASTSTATE;
+                i = Client::Status(int(i) + 1)) {
             s += dump_status(i);
+        }
+
         return s;
     }
-    Client *get_earliest_client( Client::Status s ) const
-    {
+    Client *get_earliest_client(Client::Status s) const {
         // TODO: possibly speed this up in adding some sorted lists
         Client *client = 0;
         int min_client_id = 0;
-        for ( const_iterator it = begin(); it != end(); ++it )
-            if ( it->second->status == s && ( !min_client_id || min_client_id > it->second->client_id ))
-            {
+
+        for (const_iterator it = begin(); it != end(); ++it) {
+            if (it->second->status == s && (!min_client_id || min_client_id > it->second->client_id)) {
                 client = it->second;
                 min_client_id = client->client_id;
             }
+        }
+
         return client;
     }
 };
@@ -309,10 +327,10 @@ static int set_new_pgrp(void)
     if (setpgid(0, 0) == 0) {
         trace() << "entered process group\n";
         return 0;
-    } else {
-        trace() << "setpgid(0, 0) failed: " << strerror(errno) << endl;
-        return EXIT_DISTCC_FAILED;
     }
+
+    trace() << "setpgid(0, 0) failed: " << strerror(errno) << endl;
+    return EXIT_DISTCC_FAILED;
 }
 
 static void dcc_daemon_terminate(int);
@@ -340,12 +358,12 @@ pid_t dcc_master_pid;
  **/
 static void dcc_daemon_terminate(int whichsig)
 {
-   /**
-    * This is a signal handler. don't do stupid stuff.
-    * Don't call printf. and especially don't call the log_*() functions.
-    */
+    /**
+     * This is a signal handler. don't do stupid stuff.
+     * Don't call printf. and especially don't call the log_*() functions.
+     */
 
-    bool am_parent = ( getpid() == dcc_master_pid );
+    bool am_parent = (getpid() == dcc_master_pid);
 
     /* Make sure to remove handler before re-raising signal, or
      * Valgrind gets its kickers in a knot. */
@@ -362,13 +380,14 @@ static void dcc_daemon_terminate(int whichsig)
     raise(whichsig);
 }
 
-void usage(const char* reason = 0)
+void usage(const char *reason = 0)
 {
-  if (reason)
-     cerr << reason << endl;
+    if (reason) {
+        cerr << reason << endl;
+    }
 
-  cerr << "usage: iceccd [-n <netname>] [-m <max_processes>] [--no-remote] [-w] [-d|--daemonize] [-l logfile] [-s <schedulerhost>] [-v[v[v]]] [-r|--run-as-user] [-u|--user-uid <user_uid>] [-b <env-basedir>] [--cache-limit <MB>] [-N <node_name>]" << endl;
-  exit(1);
+    cerr << "usage: iceccd [-n <netname>] [-m <max_processes>] [--no-remote] [-w] [-d|--daemonize] [-l logfile] [-s <schedulerhost>] [-v[v[v]]] [-r|--run-as-user] [-u|--user-uid <user_uid>] [-b <env-basedir>] [--cache-limit <MB>] [-N <node_name>]" << endl;
+    exit(1);
 }
 
 struct timeval last_stat;
@@ -377,8 +396,7 @@ unsigned int max_kids = 0;
 
 size_t cache_size_limit = 100 * 1024 * 1024;
 
-struct NativeEnvironment
-{
+struct NativeEnvironment {
     string name; // the hash
     map<string, time_t> extrafilestimes;
     // Timestamps for compiler binaries, if they have changed since the time
@@ -388,8 +406,7 @@ struct NativeEnvironment
     time_t clang_bin_timestamp;
 };
 
-struct Daemon
-{
+struct Daemon {
     Clients clients;
     map<string, time_t> envs_last_use;
     // Map of native environments, the basic one(s) containing just the compiler
@@ -427,8 +444,9 @@ struct Daemon
     unsigned int current_kids;
 
     Daemon() {
-        if ( getuid() == 0 ) {
+        if (getuid() == 0) {
             struct passwd *pw = getpwnam("icecc");
+
             if (pw) {
                 user_uid = pw->pw_uid;
                 user_gid = pw->pw_gid;
@@ -445,7 +463,7 @@ struct Daemon
 
         envbasedir = "/tmp/icecc-envs";
         tcp_listen_fd = -1;
-	unix_listen_fd = -1;
+        unix_listen_fd = -1;
         new_client_id = 0;
         next_scheduler_connect = 0;
         cache_size = 0;
@@ -465,139 +483,163 @@ struct Daemon
 
     bool reannounce_environments() __attribute_warn_unused_result__;
     int answer_client_requests();
-    bool handle_transfer_env( Client *client, Msg *msg ) __attribute_warn_unused_result__;
-    bool handle_transfer_env_done( Client *client );
-    bool handle_get_native_env( Client *client, GetNativeEnvMsg *msg ) __attribute_warn_unused_result__;
+    bool handle_transfer_env(Client *client, Msg *msg) __attribute_warn_unused_result__;
+    bool handle_transfer_env_done(Client *client);
+    bool handle_get_native_env(Client *client, GetNativeEnvMsg *msg) __attribute_warn_unused_result__;
     void handle_old_request();
-    bool handle_compile_file( Client *client, Msg *msg ) __attribute_warn_unused_result__;
-    bool handle_activity( Client *client ) __attribute_warn_unused_result__;
-    bool handle_file_chunk_env(Client* client, Msg *msg) __attribute_warn_unused_result__;
-    void handle_end( Client *client, int exitcode );
-    int scheduler_get_internals( ) __attribute_warn_unused_result__;
+    bool handle_compile_file(Client *client, Msg *msg) __attribute_warn_unused_result__;
+    bool handle_activity(Client *client) __attribute_warn_unused_result__;
+    bool handle_file_chunk_env(Client *client, Msg *msg) __attribute_warn_unused_result__;
+    void handle_end(Client *client, int exitcode);
+    int scheduler_get_internals() __attribute_warn_unused_result__;
     void clear_children();
-    int scheduler_use_cs( UseCSMsg *msg ) __attribute_warn_unused_result__;
-    bool handle_get_cs( Client *client, Msg *msg ) __attribute_warn_unused_result__;
-    bool handle_local_job( Client *client, Msg *msg ) __attribute_warn_unused_result__;
-    bool handle_job_done( Client *cl, JobDoneMsg *m ) __attribute_warn_unused_result__;
-    bool handle_compile_done (Client* client) __attribute_warn_unused_result__;
-    bool handle_verify_env ( Client* client, VerifyEnvMsg *msg ) __attribute_warn_unused_result__;
-    bool handle_blacklist_host_env ( Client* client, Msg *msg ) __attribute_warn_unused_result__;
-    int handle_cs_conf( ConfCSMsg *msg);
+    int scheduler_use_cs(UseCSMsg *msg) __attribute_warn_unused_result__;
+    bool handle_get_cs(Client *client, Msg *msg) __attribute_warn_unused_result__;
+    bool handle_local_job(Client *client, Msg *msg) __attribute_warn_unused_result__;
+    bool handle_job_done(Client *cl, JobDoneMsg *m) __attribute_warn_unused_result__;
+    bool handle_compile_done(Client *client) __attribute_warn_unused_result__;
+    bool handle_verify_env(Client *client, VerifyEnvMsg *msg) __attribute_warn_unused_result__;
+    bool handle_blacklist_host_env(Client *client, Msg *msg) __attribute_warn_unused_result__;
+    int handle_cs_conf(ConfCSMsg *msg);
     string dump_internals() const;
     string determine_nodename();
     void determine_system();
     bool maybe_stats(bool force = false);
-    bool send_scheduler(const Msg& msg) __attribute_warn_unused_result__;
+    bool send_scheduler(const Msg &msg) __attribute_warn_unused_result__;
     void close_scheduler();
     bool reconnect();
     int working_loop();
     bool setup_listen_fds();
-    void check_cache_size( const string &new_env );
+    void check_cache_size(const string &new_env);
 };
 
 bool Daemon::setup_listen_fds()
 {
     tcp_listen_fd = -1;
+
     if (!noremote) { // if we only listen to local clients, there is no point in going TCP
-	if ((tcp_listen_fd = socket (PF_INET, SOCK_STREAM, 0)) < 0) {
-            log_perror ("socket()");
+        if ((tcp_listen_fd = socket(PF_INET, SOCK_STREAM, 0)) < 0) {
+            log_perror("socket()");
             return false;
         }
 
         int optval = 1;
-        if (setsockopt (tcp_listen_fd, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(optval)) < 0) {
-            log_perror ("setsockopt()");
+
+        if (setsockopt(tcp_listen_fd, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(optval)) < 0) {
+            log_perror("setsockopt()");
             return false;
         }
-        
+
         int count = 5;
-        while ( count ) {
+
+        while (count) {
             struct sockaddr_in myaddr;
             myaddr.sin_family = AF_INET;
-            myaddr.sin_port = htons (PORT);
+            myaddr.sin_port = htons(PORT);
             myaddr.sin_addr.s_addr = INADDR_ANY;
-            if (bind (tcp_listen_fd, (struct sockaddr *) &myaddr,
-                      sizeof (myaddr)) < 0) {
-                log_perror ("bind()");
-                sleep( 2 );
-                if ( !--count )
+
+            if (bind(tcp_listen_fd, (struct sockaddr *)&myaddr,
+                     sizeof(myaddr)) < 0) {
+                log_perror("bind()");
+                sleep(2);
+
+                if (!--count) {
                     return false;
+                }
+
                 continue;
-            } else
+            } else {
                 break;
+            }
         }
-        
-        if (listen (tcp_listen_fd, 20) < 0) {
-            log_perror ("listen()");
+
+        if (listen(tcp_listen_fd, 20) < 0) {
+            log_perror("listen()");
             return false;
         }
-        
+
         fcntl(tcp_listen_fd, F_SETFD, FD_CLOEXEC);
     }
-    
+
     if ((unix_listen_fd = socket(AF_UNIX, SOCK_STREAM, 0)) < 0) {
-        log_perror ("socket()");
+        log_perror("socket()");
         return false;
     }
+
     struct sockaddr_un myaddr;
+
     memset(&myaddr, 0, sizeof(myaddr));
+
     myaddr.sun_family = AF_UNIX;
+
     mode_t old_umask = -1U;
-    if (access("/var/run/icecc", R_OK|W_OK|X_OK) == 0) {
-        strncpy(myaddr.sun_path, "/var/run/icecc/iceccd.socket", sizeof(myaddr.sun_path)-1);
+
+    if (access("/var/run/icecc", R_OK | W_OK | X_OK) == 0) {
+        strncpy(myaddr.sun_path, "/var/run/icecc/iceccd.socket", sizeof(myaddr.sun_path) - 1);
         unlink(myaddr.sun_path);
         old_umask = umask(0);
     } else {
-        strncpy(myaddr.sun_path, getenv("HOME"), sizeof(myaddr.sun_path)-1);
-        strncat(myaddr.sun_path, "/.iceccd.socket", sizeof(myaddr.sun_path)-1-strlen(myaddr.sun_path));
+        strncpy(myaddr.sun_path, getenv("HOME"), sizeof(myaddr.sun_path) - 1);
+        strncat(myaddr.sun_path, "/.iceccd.socket", sizeof(myaddr.sun_path) - 1 - strlen(myaddr.sun_path));
         unlink(myaddr.sun_path);
     }
 
     if (bind(unix_listen_fd, (struct sockaddr*)&myaddr, sizeof(myaddr)) < 0) {
         log_perror("bind()");
-        if (old_umask != -1U)
-            umask(old_umask);
-        return false;
-    }
-    if (old_umask != -1U)
-        umask(old_umask);
 
-    if (listen (unix_listen_fd, 20) < 0) {
-        log_perror ("listen()");
+        if (old_umask != -1U) {
+            umask(old_umask);
+        }
+
         return false;
     }
-    
+
+    if (old_umask != -1U) {
+        umask(old_umask);
+    }
+
+    if (listen(unix_listen_fd, 20) < 0) {
+        log_perror("listen()");
+        return false;
+    }
+
     fcntl(unix_listen_fd, F_SETFD, FD_CLOEXEC);
-    
+
     return true;
 }
 
 void Daemon::determine_system()
 {
     struct utsname uname_buf;
-    if ( uname( &uname_buf ) ) {
-        log_perror( "uname call failed" );
+
+    if (uname(&uname_buf)) {
+        log_perror("uname call failed");
         return;
     }
 
-    if ( nodename.length() && nodename != uname_buf.nodename )
+    if (nodename.length() && (nodename != uname_buf.nodename)) {
         custom_nodename  = true;
+    }
 
-    if (!custom_nodename)
+    if (!custom_nodename) {
         nodename = uname_buf.nodename;
+    }
 
     machine_name = determine_platform();
 }
 
 string Daemon::determine_nodename()
 {
-    if (custom_nodename && !nodename.empty())
+    if (custom_nodename && !nodename.empty()) {
         return nodename;
+    }
 
     // perhaps our host name changed due to network change?
     struct utsname uname_buf;
-    if ( !uname( &uname_buf ) )
+
+    if (!uname(&uname_buf)) {
         nodename = uname_buf.nodename;
+    }
 
     return nodename;
 }
@@ -621,15 +663,16 @@ bool Daemon::send_scheduler(const Msg& msg)
 bool Daemon::reannounce_environments()
 {
     log_error() << "reannounce_environments " << endl;
-    LoginMsg lmsg( 0, nodename, "");
+    LoginMsg lmsg(0, nodename, "");
     lmsg.envs = available_environmnents(envbasedir);
-    return send_scheduler( lmsg );
+    return send_scheduler(lmsg);
 }
 
 void Daemon::close_scheduler()
 {
-    if ( !scheduler )
+    if (!scheduler) {
         return;
+    }
 
     delete scheduler;
     scheduler = 0;
@@ -641,19 +684,21 @@ void Daemon::close_scheduler()
 bool Daemon::maybe_stats(bool send_ping)
 {
     struct timeval now;
-    gettimeofday( &now, 0 );
+    gettimeofday(&now, 0);
 
-    time_t diff_sent = ( now.tv_sec - last_stat.tv_sec ) * 1000 + ( now.tv_usec - last_stat.tv_usec ) / 1000;
-    if ( diff_sent >= max_scheduler_pong * 1000 ) {
+    time_t diff_sent = (now.tv_sec - last_stat.tv_sec) * 1000 + (now.tv_usec - last_stat.tv_usec) / 1000;
+
+    if (diff_sent >= max_scheduler_pong * 1000) {
         StatsMsg msg;
         unsigned int memory_fillgrade;
         unsigned long idleLoad = 0;
         unsigned long niceLoad = 0;
 
-        if ( !fill_stats( idleLoad, niceLoad, memory_fillgrade, &msg, clients.active_processes ) )
+        if (!fill_stats(idleLoad, niceLoad, memory_fillgrade, &msg, clients.active_processes)) {
             return false;
+        }
 
-        time_t diff_stat = ( now.tv_sec - last_stat.tv_sec ) * 1000 + ( now.tv_usec - last_stat.tv_usec ) / 1000;
+        time_t diff_stat = (now.tv_sec - last_stat.tv_sec) * 1000 + (now.tv_usec - last_stat.tv_usec) / 1000;
         last_stat = now;
 
         /* icecream_load contains time in milliseconds we have used for icecream */
@@ -662,13 +707,15 @@ bool Daemon::maybe_stats(bool send_ping)
 
         /* add the time of our childrens, but only the time since the last run */
         struct rusage ru;
+
         if (!getrusage(RUSAGE_CHILDREN, &ru)) {
-            uint32_t ice_msec = ( ( ru.ru_utime.tv_sec - icecream_usage.tv_sec ) * 1000 +
-                ( ru.ru_utime.tv_usec - icecream_usage.tv_usec ) / 1000) / num_cpus;
+            uint32_t ice_msec = ((ru.ru_utime.tv_sec - icecream_usage.tv_sec) * 1000
+                                 + (ru.ru_utime.tv_usec - icecream_usage.tv_usec) / 1000) / num_cpus;
 
             /* heuristics when no child terminated yet: account 25% of total nice as our clients */
-            if ( !ice_msec && current_kids )
+            if (!ice_msec && current_kids) {
                 ice_msec = (niceLoad * diff_stat) / (4 * 1000);
+            }
 
             icecream_load += ice_msec * diff_stat / 1000;
 
@@ -678,32 +725,43 @@ bool Daemon::maybe_stats(bool send_ping)
 
         int idle_average = icecream_load;
 
-        if (diff_sent)
+        if (diff_sent) {
             idle_average = icecream_load * 1000 / diff_sent;
+        }
 
-        if (idle_average > 1000)
+        if (idle_average > 1000) {
             idle_average = 1000;
+        }
 
-        msg.load = ( 700 * (1000 - idle_average) + 300 * memory_fillgrade ) / 1000;
-        if ( memory_fillgrade > 600 )
+        msg.load = ((700 * (1000 - idle_average)) + (300 * memory_fillgrade)) / 1000;
+
+        if (memory_fillgrade > 600) {
             msg.load = 1000;
-        if ( idle_average < 100 )
+        }
+
+        if (idle_average < 100) {
             msg.load = 1000;
+        }
 
 #ifdef HAVE_SYS_VFS_H
         struct statfs buf;
         int ret = statfs(envbasedir.c_str(), &buf);
-        if (!ret && long(buf.f_bavail) < long(max_kids + 1 - current_kids) * 4 * 1024 * 1024 / buf.f_bsize)
+
+        if (!ret && long(buf.f_bavail) < ((long(max_kids + 1 - current_kids) * 4 * 1024 * 1024) / buf.f_bsize)) {
             msg.load = 1000;
+        }
+
 #endif
 
         // Matz got in the urine that not all CPUs are always feed
-        mem_limit = std::max( int( msg.freeMem / std::min( std::max( max_kids, 1U ), 4U ) ), int( 100U ) );
+        mem_limit = std::max(int(msg.freeMem / std::min(std::max(max_kids, 1U), 4U)), int(100U));
 
-        if ( abs(int(msg.load)-current_load) >= 100 || send_ping ) {
-            if (!send_scheduler( msg ) )
+        if (abs(int(msg.load) - current_load) >= 100 || send_ping) {
+            if (!send_scheduler(msg)) {
                 return false;
+            }
         }
+
         icecream_load = 0;
         current_load = msg.load;
     }
@@ -714,87 +772,103 @@ bool Daemon::maybe_stats(bool send_ping)
 string Daemon::dump_internals() const
 {
     string result;
+
     result += "Node Name: " + nodename + "\n";
     result += "  Remote name: " + remote_name + "\n";
-    for (map<int, MsgChannel *>::const_iterator it = fd2chan.begin();
-         it != fd2chan.end(); ++it)  {
-        result += "  fd2chan[" + toString( it->first ) + "] = " + it->second->dump() + "\n";
+
+    for (map<int, MsgChannel *>::const_iterator it = fd2chan.begin(); it != fd2chan.end(); ++it)  {
+        result += "  fd2chan[" + toString(it->first) + "] = " + it->second->dump() + "\n";
     }
-    for (Clients::const_iterator it = clients.begin();
-         it != clients.end(); ++it)  {
-        result += "  client " + toString( it->second->client_id ) + ": " +
-                  it->second->dump() + "\n";
+
+    for (Clients::const_iterator it = clients.begin(); it != clients.end(); ++it)  {
+        result += "  client " + toString(it->second->client_id) + ": " + it->second->dump() + "\n";
     }
-    if ( cache_size )
-        result += "  Cache Size: " + toString( cache_size ) + "\n";
+
+    if (cache_size) {
+        result += "  Cache Size: " + toString(cache_size) + "\n";
+    }
+
     result += "  Architecture: " + machine_name + "\n";
-    for (map<string, NativeEnvironment>::const_iterator it = native_environments.begin();
-         it!= native_environments.end(); ++it)
-        result += "  NativeEnv (" + it->first + "): " + it->second.name + "\n";
 
-    if ( !envs_last_use.empty() )
-        result += "  Now: " + toString( time( 0 ) ) + "\n";
-    for (map<string, time_t>::const_iterator it = envs_last_use.begin();
-         it != envs_last_use.end(); ++it)  {
-        result += "  envs_last_use[" + it->first  + "] = " +
-                  toString( it->second ) + "\n";
+    for (map<string, NativeEnvironment>::const_iterator it = native_environments.begin();
+            it != native_environments.end(); ++it) {
+        result += "  NativeEnv (" + it->first + "): " + it->second.name + "\n";
     }
 
-    result += "  Current kids: " + toString( current_kids ) + " (max: " + toString( max_kids ) + ")\n";
-    if ( scheduler )
-        result += "  Scheduler protocol: " + toString( scheduler->protocol ) + "\n";
+    if (!envs_last_use.empty()) {
+        result += "  Now: " + toString(time(0)) + "\n";
+    }
+
+    for (map<string, time_t>::const_iterator it = envs_last_use.begin();
+            it != envs_last_use.end(); ++it)  {
+        result += "  envs_last_use[" + it->first  + "] = " + toString(it->second) + "\n";
+    }
+
+    result += "  Current kids: " + toString(current_kids) + " (max: " + toString(max_kids) + ")\n";
+
+    if (scheduler) {
+        result += "  Scheduler protocol: " + toString(scheduler->protocol) + "\n";
+    }
 
     StatsMsg msg;
     unsigned int memory_fillgrade = 0;
     unsigned long idleLoad = 0;
     unsigned long niceLoad = 0;
 
-    if ( fill_stats( idleLoad, niceLoad, memory_fillgrade, &msg, clients.active_processes ) )
-    {
-        result += "  cpu: " + toString( idleLoad ) + " idle, " +
-                  toString( niceLoad ) + " nice\n";
-        result += "  load: " + toString( msg.loadAvg1 / 1000. ) + ", icecream_load: " +
-                  toString( icecream_load ) + "\n";
-        result += "  memory: " + toString( memory_fillgrade ) + " (free: " + toString( msg.freeMem ) + ")\n";
+    if (fill_stats(idleLoad, niceLoad, memory_fillgrade, &msg, clients.active_processes)) {
+        result += "  cpu: " + toString(idleLoad) + " idle, "
+                  + toString(niceLoad) + " nice\n";
+        result += "  load: " + toString(msg.loadAvg1 / 1000.) + ", icecream_load: "
+                  + toString(icecream_load) + "\n";
+        result += "  memory: " + toString(memory_fillgrade)
+                  + " (free: " + toString(msg.freeMem) + ")\n";
     }
 
     return result;
 }
 
-int Daemon::scheduler_get_internals( )
+int Daemon::scheduler_get_internals()
 {
     trace() << "handle_get_internals " << dump_internals() << endl;
-    return send_scheduler( StatusTextMsg( dump_internals() ) ) ? 0 : 1;
+    return send_scheduler(StatusTextMsg(dump_internals())) ? 0 : 1;
 }
 
-int Daemon::scheduler_use_cs( UseCSMsg *msg )
+int Daemon::scheduler_use_cs(UseCSMsg *msg)
 {
-    Client *c = clients.find_by_client_id( msg->client_id );
+    Client *c = clients.find_by_client_id(msg->client_id);
     trace() << "handle_use_cs " << msg->job_id << " " << msg->client_id
             << " " << c << " " << msg->hostname << " " << remote_name <<  endl;
-    if ( !c ) {
-        if (send_scheduler( JobDoneMsg( msg->job_id, 107, JobDoneMsg::FROM_SUBMITTER ) ))
+
+    if (!c) {
+        if (send_scheduler(JobDoneMsg(msg->job_id, 107, JobDoneMsg::FROM_SUBMITTER))) {
             return 1;
+        }
+
         return 1;
     }
-    if ( msg->hostname == remote_name ) {
-        c->usecsmsg = new UseCSMsg( msg->host_platform, "127.0.0.1", PORT, msg->job_id, true, 1,
-                msg->matched_job_id );
+
+    if (msg->hostname == remote_name) {
+        c->usecsmsg = new UseCSMsg(msg->host_platform, "127.0.0.1", PORT, msg->job_id, true, 1,
+                                   msg->matched_job_id);
         c->status = Client::PENDING_USE_CS;
     } else {
-        c->usecsmsg = new UseCSMsg( msg->host_platform, msg->hostname, msg->port, 
-                msg->job_id, true, 1, msg->matched_job_id );
-        if (!c->channel->send_msg( *msg )) {
+        c->usecsmsg = new UseCSMsg(msg->host_platform, msg->hostname, msg->port,
+                                   msg->job_id, true, 1, msg->matched_job_id);
+
+        if (!c->channel->send_msg(*msg)) {
             handle_end(c, 143);
             return 0;
         }
+
         c->status = Client::WAITCOMPILE;
     }
+
     c->job_id = msg->job_id;
+
     return 0;
 }
 
-bool Daemon::handle_transfer_env( Client *client, Msg *_msg )
+bool Daemon::handle_transfer_env(Client *client, Msg *_msg)
 {
     log_error() << "handle_transfer_env" << endl;
 
@@ -803,36 +877,42 @@ bool Daemon::handle_transfer_env( Client *client, Msg *_msg )
            client->status != Client::WAITCOMPILE);
     assert(client->pipe_to_child < 0);
 
-    EnvTransferMsg *emsg = static_cast<EnvTransferMsg*>( _msg );
+    EnvTransferMsg *emsg = static_cast<EnvTransferMsg *>(_msg);
     string target = emsg->target;
-    if ( target.empty() )
+
+    if (target.empty()) {
         target =  machine_name;
+    }
 
     int sock_to_stdin = -1;
-    FileChunkMsg* fmsg = 0;
+    FileChunkMsg *fmsg = 0;
 
-    pid_t pid = start_install_environment( envbasedir, target,
-        emsg->name, client->channel, sock_to_stdin, fmsg, user_uid, user_gid );
+    pid_t pid = start_install_environment(envbasedir, target, emsg->name, client->channel,
+                                          sock_to_stdin, fmsg, user_uid, user_gid);
 
     client->status = Client::TOINSTALL;
     client->outfile = emsg->target + "/" + emsg->name;
 
-    if ( pid > 0) {
+    if (pid > 0) {
         log_error() << "got pid " << pid << endl;
         current_kids++;
         client->pipe_to_child = sock_to_stdin;
         client->child_pid = pid;
-        if (!handle_file_chunk_env(client, fmsg))
+
+        if (!handle_file_chunk_env(client, fmsg)) {
             pid = 0;
+        }
     }
-    if (pid <= 0)
-        handle_transfer_env_done (client);
+
+    if (pid <= 0) {
+        handle_transfer_env_done(client);
+    }
 
     delete fmsg;
     return pid > 0;
 }
 
-bool Daemon::handle_transfer_env_done( Client *client )
+bool Daemon::handle_transfer_env_done(Client *client)
 {
     log_error() << "handle_transfer_env_done" << endl;
 
@@ -840,7 +920,7 @@ bool Daemon::handle_transfer_env_done( Client *client )
     assert(client->status == Client::TOINSTALL);
 
     size_t installed_size = finalize_install_environment(envbasedir, client->outfile,
-                              client->child_pid, user_uid, user_gid);
+                            client->child_pid, user_uid, user_gid);
 
     if (client->pipe_to_child >= 0) {
         installed_size = 0;
@@ -852,65 +932,80 @@ bool Daemon::handle_transfer_env_done( Client *client )
     string current = client->outfile;
     client->outfile.clear();
     client->child_pid = -1;
-    assert( current_kids > 0 );
+    assert(current_kids > 0);
     current_kids--;
 
     log_error() << "installed_size: " << installed_size << endl;
 
     if (installed_size) {
         cache_size += installed_size;
-        envs_last_use[current] = time( NULL );
+        envs_last_use[current] = time(NULL);
         log_error() << "installed " << current << " size: " << installed_size
-            << " all: " << cache_size << endl;
+                    << " all: " << cache_size << endl;
     }
-    check_cache_size( current );
+
+    check_cache_size(current);
 
     bool r = reannounce_environments(); // do that before the file compiles
+
     // we do that here so we're not given out in case of full discs
-    if ( !maybe_stats(true) )
+    if (!maybe_stats(true)) {
         r = false;
+    }
+
     return r;
 }
 
-void Daemon::check_cache_size( const string &new_env )
+void Daemon::check_cache_size(const string &new_env)
 {
-    time_t now = time( NULL );
-    while ( cache_size > cache_size_limit ) {
+    time_t now = time(NULL);
+
+    while (cache_size > cache_size_limit) {
         string oldest;
         // I don't dare to use (time_t)-1
-        time_t oldest_time = time( NULL ) + 90000;
+        time_t oldest_time = time(NULL) + 90000;
         bool oldest_is_native = false;
-        for ( map<string, time_t>::const_iterator it = envs_last_use.begin();
-                it != envs_last_use.end(); ++it ) {
+
+        for (map<string, time_t>::const_iterator it = envs_last_use.begin();
+                it != envs_last_use.end(); ++it) {
             trace() << "das ist jetzt so: " << it->first << " " << it->second << " " << oldest_time << endl;
             // ignore recently used envs (they might be in use _right_ now)
             int keep_timeout = 200;
             bool native = false;
+
             // If it is a native environment, allow removing it only after a longer period,
             // unless there are many native environments.
             for (map<string, NativeEnvironment>::const_iterator it2 = native_environments.begin();
-                 it2 != native_environments.end(); ++it2 ) {
+                    it2 != native_environments.end(); ++it2) {
                 if (it2->second.name == it->first) {
                     native = true;
-                    if (native_environments.size() < 5)
-                        keep_timeout = 24 * 60 * 60; // 1 day
+
+                    if (native_environments.size() < 5) {
+                        keep_timeout = 24 * 60 * 60;    // 1 day
+                    }
+
                     break;
                 }
             }
-            if ( it->second < oldest_time && now - it->second > keep_timeout ) {
-                bool env_currently_in_use = false;
-                for (Clients::const_iterator it2 = clients.begin(); it2 != clients.end(); ++it2)  {
-                    if (it2->second->status == Client::TOCOMPILE ||
-                            it2->second->status == Client::TOINSTALL ||
-                            it2->second->status == Client::WAITFORCHILD) {
 
-                        assert( it2->second->job );
+            if (it->second < oldest_time && now - it->second > keep_timeout) {
+                bool env_currently_in_use = false;
+
+                for (Clients::const_iterator it2 = clients.begin(); it2 != clients.end(); ++it2)  {
+                    if (it2->second->status == Client::TOCOMPILE
+                            || it2->second->status == Client::TOINSTALL
+                            || it2->second->status == Client::WAITFORCHILD) {
+
+                        assert(it2->second->job);
                         string envforjob = it2->second->job->targetPlatform() + "/"
-                            + it2->second->job->environmentVersion();
-                        if (envforjob == it->first)
+                                           + it2->second->job->environmentVersion();
+
+                        if (envforjob == it->first) {
                             env_currently_in_use = true;
+                        }
                     }
                 }
+
                 if (!env_currently_in_use) {
                     oldest_time = it->second;
                     oldest = it->first;
@@ -918,170 +1013,201 @@ void Daemon::check_cache_size( const string &new_env )
                 }
             }
         }
-        if ( oldest.empty() || oldest == new_env )
+
+        if (oldest.empty() || oldest == new_env) {
             break;
+        }
+
         size_t removed;
+
         if (oldest_is_native) {
-            removed = remove_native_environment( oldest );
+            removed = remove_native_environment(oldest);
             trace() << "removing " << oldest << " " << oldest_time << " " << removed << endl;
         } else {
-            removed = remove_environment( envbasedir, oldest );
-            trace() << "removing " << envbasedir << "/" << oldest << " " << oldest_time << " " << removed << endl;
+            removed = remove_environment(envbasedir, oldest);
+            trace() << "removing " << envbasedir << "/" << oldest << " " << oldest_time
+                    << " " << removed << endl;
         }
-        cache_size -= min( removed, cache_size );
-        envs_last_use.erase( oldest );
+
+        cache_size -= min(removed, cache_size);
+        envs_last_use.erase(oldest);
     }
 }
 
-bool Daemon::handle_get_native_env( Client *client, GetNativeEnvMsg *msg )
+bool Daemon::handle_get_native_env(Client *client, GetNativeEnvMsg *msg)
 {
     string env_key;
     map<string, time_t> extrafilestimes;
     env_key = msg->compiler;
-    for( list<string>::const_iterator it = msg->extrafiles.begin();
-         it != msg->extrafiles.end(); ++it ) {
+
+    for (list<string>::const_iterator it = msg->extrafiles.begin();
+            it != msg->extrafiles.end(); ++it) {
         env_key += ':';
         env_key += *it;
         struct stat st;
-        if( stat( it->c_str(), &st ) != 0 ) {
+
+        if (stat(it->c_str(), &st) != 0) {
             trace() << "Extra file " << *it << " for environment not found." << endl;
-            client->channel->send_msg( EndMsg() );
-            handle_end( client, 122 );
+            client->channel->send_msg(EndMsg());
+            handle_end(client, 122);
             return false;
         }
-        extrafilestimes[ *it ] = st.st_mtime;
+
+        extrafilestimes[*it] = st.st_mtime;
     }
 
-    if ( native_environments[ env_key ].name.length()) {
-        const NativeEnvironment& env = native_environments[ env_key ];
+    if (native_environments[env_key].name.length()) {
+        const NativeEnvironment &env = native_environments[env_key];
+
         if (!compilers_uptodate(env.gcc_bin_timestamp, env.gpp_bin_timestamp, env.clang_bin_timestamp)
-             || env.extrafilestimes != extrafilestimes
-             || access( env.name.c_str(), R_OK ) != 0) {
+                || env.extrafilestimes != extrafilestimes
+                || access(env.name.c_str(), R_OK) != 0) {
             trace() << "native_env needs rebuild" << endl;
-            cache_size -= remove_native_environment( env.name );
-            envs_last_use.erase( env.name );
-            native_environments.erase( env_key ); // invalidates 'env'
+            cache_size -= remove_native_environment(env.name);
+            envs_last_use.erase(env.name);
+            native_environments.erase(env_key);   // invalidates 'env'
         }
     }
 
-    trace() << "get_native_env " << native_environments[ env_key ].name
-        << " (" << env_key << ")" << endl;
+    trace() << "get_native_env " << native_environments[env_key].name
+            << " (" << env_key << ")" << endl;
 
-    if ( !native_environments[ env_key ].name.length()) {
-        NativeEnvironment& env = native_environments[ env_key ]; // also inserts it
-        size_t installed_size = setup_env_cache( envbasedir, env.name,
-                                                 user_uid, user_gid, msg->compiler, msg->extrafiles );
+    if (!native_environments[env_key].name.length()) {
+        NativeEnvironment &env = native_environments[env_key]; // also inserts it
+        size_t installed_size = setup_env_cache(envbasedir, env.name,
+                                                user_uid, user_gid, msg->compiler, msg->extrafiles);
         // we only clean out cache on next target install
         cache_size += installed_size;
         trace() << "cache_size = " << cache_size << endl;
-        if ( ! installed_size ) {
-            client->channel->send_msg( EndMsg() );
-            handle_end( client, 121 );
+
+        if (!installed_size) {
+            client->channel->send_msg(EndMsg());
+            handle_end(client, 121);
             return false;
         }
+
         env.extrafilestimes = extrafilestimes;
         save_compiler_timestamps(env.gcc_bin_timestamp, env.gpp_bin_timestamp, env.clang_bin_timestamp);
-        envs_last_use[ native_environments[ env_key ].name ] = time( NULL );
-        check_cache_size( env.name );
+        envs_last_use[native_environments[env_key].name] = time(NULL);
+        check_cache_size(env.name);
     }
-    UseNativeEnvMsg m( native_environments[ env_key ].name );
-    if (!client->channel->send_msg( m )) {
+
+    UseNativeEnvMsg m(native_environments[env_key].name);
+
+    if (!client->channel->send_msg(m)) {
         handle_end(client, 138);
         return false;
     }
-    envs_last_use[ native_environments[ env_key ].name ] = time( NULL );
+
+    envs_last_use[native_environments[env_key].name] = time(NULL);
     client->status = Client::GOTNATIVE;
     return true;
 }
 
-bool Daemon::handle_job_done( Client *cl, JobDoneMsg *m )
+bool Daemon::handle_job_done(Client *cl, JobDoneMsg *m)
 {
-    if ( cl->status == Client::CLIENTWORK )
+    if (cl->status == Client::CLIENTWORK) {
         clients.active_processes--;
+    }
+
     cl->status = Client::JOBDONE;
-    JobDoneMsg *msg = static_cast<JobDoneMsg*>( m );
+    JobDoneMsg *msg = static_cast<JobDoneMsg *>(m);
     trace() << "handle_job_done " << msg->job_id << " " << msg->exitcode << endl;
 
-    if(!m->is_from_server()
-       && ( m->user_msec + m->sys_msec ) <= m->real_msec)
+    if (!m->is_from_server()
+            && (m->user_msec + m->sys_msec) <= m->real_msec) {
         icecream_load += (m->user_msec + m->sys_msec) / num_cpus;
+    }
 
     assert(msg->job_id == cl->job_id);
     cl->job_id = 0; // the scheduler doesn't have it anymore
-    return send_scheduler( *msg );
+    return send_scheduler(*msg);
 }
 
 void Daemon::handle_old_request()
 {
-    while ( current_kids + clients.active_processes < max_kids ) {
+    while ((current_kids + clients.active_processes) < max_kids) {
 
         Client *client = clients.get_earliest_client(Client::LINKJOB);
-        if ( client ) {
+
+        if (client) {
             trace() << "send JobLocalBeginMsg to client" << endl;
-            if (!client->channel->send_msg (JobLocalBeginMsg())) {
+
+            if (!client->channel->send_msg(JobLocalBeginMsg())) {
                 log_warning() << "can't send start message to client" << endl;
-                handle_end (client, 112);
+                handle_end(client, 112);
             } else {
                 client->status = Client::CLIENTWORK;
                 clients.active_processes++;
                 trace() << "pushed local job " << client->client_id << endl;
-                if (!send_scheduler( JobLocalBeginMsg( client->client_id, client->outfile ) ))
+
+                if (!send_scheduler(JobLocalBeginMsg(client->client_id, client->outfile))) {
                     return;
+                }
             }
+
             continue;
         }
 
-        client = clients.get_earliest_client( Client::PENDING_USE_CS );
-        if ( client ) {
+        client = clients.get_earliest_client(Client::PENDING_USE_CS);
+
+        if (client) {
             trace() << "pending " << client->dump() << endl;
-            if(client->channel->send_msg( *client->usecsmsg )) {
+
+            if (client->channel->send_msg(*client->usecsmsg)) {
                 client->status = Client::CLIENTWORK;
                 /* we make sure we reserve a spot and the rest is done if the
                  * client contacts as back with a Compile request */
                 clients.active_processes++;
-            }
-            else
+            } else {
                 handle_end(client, 129);
+            }
 
             continue;
         }
 
         /* we don't want to handle TOCOMPILE jobs as long as our load
            is too high */
-        if ( current_load >= 1000)
+        if (current_load >= 1000) {
             break;
+        }
 
-        client = clients.get_earliest_client( Client::TOCOMPILE );
-        if ( client ) {
+        client = clients.get_earliest_client(Client::TOCOMPILE);
+
+        if (client) {
             CompileJob *job = client->job;
-            assert( job );
+            assert(job);
             int sock = -1;
             pid_t pid = -1;
 
             trace() << "requests--" << job->jobID() << endl;
 
             string envforjob = job->targetPlatform() + "/" + job->environmentVersion();
-            envs_last_use[envforjob] = time( NULL );
-            pid = handle_connection( envbasedir, job, client->channel, sock, mem_limit, user_uid, user_gid );
+            envs_last_use[envforjob] = time(NULL);
+            pid = handle_connection(envbasedir, job, client->channel, sock, mem_limit, user_uid, user_gid);
             trace() << "handle connection returned " << pid << endl;
 
-            if ( pid > 0) {
+            if (pid > 0) {
                 current_kids++;
                 client->status = Client::WAITFORCHILD;
                 client->pipe_to_child = sock;
                 client->child_pid = pid;
-                if ( !send_scheduler( JobBeginMsg( job->jobID() ) ) )
+
+                if (!send_scheduler(JobBeginMsg(job->jobID()))) {
                     log_info() << "failed sending scheduler about " << job->jobID() << endl;
-            }
-            else
+                }
+            } else {
                 handle_end(client, 117);
+            }
+
             continue;
         }
+
         break;
     }
 }
 
-bool Daemon::handle_compile_done (Client* client)
+bool Daemon::handle_compile_done(Client *client)
 {
     assert(client->status == Client::WAITFORCHILD);
     assert(client->child_pid > 0);
@@ -1095,7 +1221,7 @@ bool Daemon::handle_compile_done (Client* client)
     unsigned int job_stat[8];
     int end_status = 151;
 
-    if(read(client->pipe_to_child, job_stat, sizeof(job_stat)) == sizeof(job_stat)) {
+    if (read(client->pipe_to_child, job_stat, sizeof(job_stat)) == sizeof(job_stat)) {
         msg->in_uncompressed = job_stat[JobStatistics::in_uncompressed];
         msg->in_compressed = job_stat[JobStatistics::in_compressed];
         msg->out_compressed = msg->out_uncompressed = job_stat[JobStatistics::out_uncompressed];
@@ -1110,87 +1236,93 @@ bool Daemon::handle_compile_done (Client* client)
     close(client->pipe_to_child);
     client->pipe_to_child = -1;
     string envforjob = client->job->targetPlatform() + "/" + client->job->environmentVersion();
-    envs_last_use[envforjob] = time( NULL );
+    envs_last_use[envforjob] = time(NULL);
 
-    bool r = send_scheduler( *msg );
+    bool r = send_scheduler(*msg);
     handle_end(client, end_status);
     delete msg;
     return r;
 }
 
-bool Daemon::handle_compile_file( Client *client, Msg *msg )
+bool Daemon::handle_compile_file(Client *client, Msg *msg)
 {
-    CompileJob *job = dynamic_cast<CompileFileMsg*>( msg )->takeJob();
-    assert( client );
-    assert( job );
+    CompileJob *job = dynamic_cast<CompileFileMsg *>(msg)->takeJob();
+    assert(client);
+    assert(job);
     client->job = job;
-    if ( client->status == Client::CLIENTWORK )
-    {
-        assert( job->environmentVersion() == "__client" );
-        if ( !send_scheduler( JobBeginMsg( job->jobID() ) ) )
-        {
+
+    if (client->status == Client::CLIENTWORK) {
+        assert(job->environmentVersion() == "__client");
+
+        if (!send_scheduler(JobBeginMsg(job->jobID()))) {
             trace() << "can't reach scheduler to tell him about compile file job "
                     << job->jobID() << endl;
             return false;
         }
+
         // no scheduler is not an error case!
-    } else
+    } else {
         client->status = Client::TOCOMPILE;
+    }
+
     return true;
 }
 
-bool Daemon::handle_verify_env( Client *client, VerifyEnvMsg *msg )
+bool Daemon::handle_verify_env(Client *client, VerifyEnvMsg *msg)
 {
-    assert( msg );
-    bool ok = verify_env( client->channel, envbasedir, msg->target, msg->environment, user_uid, user_gid );
-    trace() << "Verify environment done, " << ( ok ? "success" : "failure" ) << ", environment " << msg->environment
-         << " (" << msg->target << ")" << endl;
-    VerifyEnvResultMsg resultmsg( ok );
-    if ( !client->channel->send_msg( resultmsg ))
-    {
+    assert(msg);
+    bool ok = verify_env(client->channel, envbasedir, msg->target, msg->environment, user_uid, user_gid);
+    trace() << "Verify environment done, " << (ok ? "success" : "failure") << ", environment " << msg->environment
+            << " (" << msg->target << ")" << endl;
+    VerifyEnvResultMsg resultmsg(ok);
+
+    if (!client->channel->send_msg(resultmsg)) {
         log_error() << "sending verify end result failed.." << endl;
         return false;
     }
+
     return true;
 }
 
-bool Daemon::handle_blacklist_host_env( Client *client, Msg *msg )
+bool Daemon::handle_blacklist_host_env(Client *client, Msg *msg)
 {
     // just forward
-    assert(dynamic_cast<BlacklistHostEnvMsg*>( msg ));
-    assert( client );
-    if ( !scheduler )
+    assert(dynamic_cast<BlacklistHostEnvMsg *>(msg));
+    assert(client);
+
+    if (!scheduler) {
         return false;
-    return send_scheduler( *msg );
+    }
+
+    return send_scheduler(*msg);
 }
 
-void Daemon::handle_end( Client *client, int exitcode )
+void Daemon::handle_end(Client *client, int exitcode)
 {
 #ifdef ICECC_DEBUG
     trace() << "handle_end " << client->dump() << endl;
     trace() << dump_internals() << endl;
 #endif
-    fd2chan.erase (client->channel->fd);
+    fd2chan.erase(client->channel->fd);
 
-    if (client->status == Client::TOINSTALL && client->pipe_to_child >= 0)
-    {
+    if (client->status == Client::TOINSTALL && client->pipe_to_child >= 0) {
         close(client->pipe_to_child);
         client->pipe_to_child = -1;
         handle_transfer_env_done(client);
     }
 
-    if ( client->status == Client::CLIENTWORK )
+    if (client->status == Client::CLIENTWORK) {
         clients.active_processes--;
+    }
 
-    if ( client->status == Client::WAITCOMPILE && exitcode == 119 ) {
+    if (client->status == Client::WAITCOMPILE && exitcode == 119) {
         /* the client sent us a real good bye, so forget about the scheduler */
- 	client->job_id = 0;
+        client->job_id = 0;
     }
 
     /* Delete from the clients map before send_scheduler, which causes a
        double deletion. */
-    if (!clients.erase( client->channel ))
-    {
+    if (!clients.erase(client->channel)) {
         log_error() << "client can't be erased: " << client->channel << endl;
         flush_debug();
         log_error() << dump_internals() << endl;
@@ -1198,18 +1330,22 @@ void Daemon::handle_end( Client *client, int exitcode )
         assert(false);
     }
 
-    if ( scheduler && client->status != Client::WAITFORCHILD ) {
+    if (scheduler && client->status != Client::WAITFORCHILD) {
         int job_id = client->job_id;
-        if ( client->status == Client::TOCOMPILE )
+
+        if (client->status == Client::TOCOMPILE) {
             job_id = client->job->jobID();
-        if ( client->status == Client::WAITFORCS ) {
-	    job_id = client->client_id; // it's all we have
-	    exitcode = CLIENT_WAS_WAITING_FOR_CS; // this is the message
         }
 
-        if ( job_id > 0 ) {
+        if (client->status == Client::WAITFORCS) {
+            job_id = client->client_id; // it's all we have
+            exitcode = CLIENT_WAS_WAITING_FOR_CS; // this is the message
+        }
+
+        if (job_id > 0) {
             JobDoneMsg::from_type flag = JobDoneMsg::FROM_SUBMITTER;
-            switch ( client->status ) {
+
+            switch (client->status) {
             case Client::TOCOMPILE:
                 flag = JobDoneMsg::FROM_SERVER;
                 break;
@@ -1219,7 +1355,7 @@ void Daemon::handle_end( Client *client, int exitcode )
             case Client::WAITFORCHILD:
             case Client::LINKJOB:
             case Client::TOINSTALL:
-                assert( false ); // should not have a job_id
+                assert(false);   // should not have a job_id
                 break;
             case Client::WAITCOMPILE:
             case Client::PENDING_USE_CS:
@@ -1228,14 +1364,19 @@ void Daemon::handle_end( Client *client, int exitcode )
                 flag = JobDoneMsg::FROM_SUBMITTER;
                 break;
             }
+
             trace() << "scheduler->send_msg( JobDoneMsg( " << client->dump() << ", " << exitcode << "))\n";
-            if (!send_scheduler( JobDoneMsg( job_id, exitcode, flag) ))
+
+            if (!send_scheduler(JobDoneMsg(job_id, exitcode, flag))) {
                 trace() << "failed to reach scheduler for remote job done msg!" << endl;
-        } else if ( client->status == Client::CLIENTWORK ) {
+            }
+        } else if (client->status == Client::CLIENTWORK) {
             // Clientwork && !job_id == LINK
             trace() << "scheduler->send_msg( JobLocalDoneMsg( " << client->client_id << ") );\n";
-            if (!send_scheduler( JobLocalDoneMsg( client->client_id ) ))
+
+            if (!send_scheduler(JobLocalDoneMsg(client->client_id))) {
                 trace() << "failed to reach scheduler for local job done msg!" << endl;
+            }
         }
     }
 
@@ -1244,50 +1385,51 @@ void Daemon::handle_end( Client *client, int exitcode )
 
 void Daemon::clear_children()
 {
-    while ( !clients.empty() ) {
+    while (!clients.empty()) {
         Client *cl = clients.first();
-        handle_end( cl, 116 );
+        handle_end(cl, 116);
     }
 
-    while ( current_kids > 0 ) {
+    while (current_kids > 0) {
         int status;
         pid_t child;
-        while ( (child = waitpid( -1, &status, 0 )) < 0 && errno == EINTR )
-            ;
+
+        while ((child = waitpid(-1, &status, 0)) < 0 && errno == EINTR) {}
+
         current_kids--;
     }
 
     // they should be all in clients too
-    assert( fd2chan.empty() );
+    assert(fd2chan.empty());
 
     fd2chan.clear();
     new_client_id = 0;
     trace() << "cleared children\n";
 }
 
-bool Daemon::handle_get_cs( Client *client, Msg *msg )
+bool Daemon::handle_get_cs(Client *client, Msg *msg)
 {
-    GetCSMsg *umsg = dynamic_cast<GetCSMsg*>( msg );
-    assert( client );
+    GetCSMsg *umsg = dynamic_cast<GetCSMsg *>(msg);
+    assert(client);
     client->status = Client::WAITFORCS;
     umsg->client_id = client->client_id;
     trace() << "handle_get_cs " << umsg->client_id << endl;
-    if ( !scheduler )
-    {
+
+    if (!scheduler) {
         /* now the thing is this: if there is no scheduler
            there is no point in trying to ask him. So we just
            redefine this as local job */
-        client->usecsmsg = new UseCSMsg( umsg->target, "127.0.0.1", PORT, 
-                umsg->client_id, true, 1, 0 );
+        client->usecsmsg = new UseCSMsg(umsg->target, "127.0.0.1", PORT,
+                                        umsg->client_id, true, 1, 0);
         client->status = Client::PENDING_USE_CS;
         client->job_id = umsg->client_id;
         return true;
     }
 
-    return send_scheduler( *umsg );
+    return send_scheduler(*umsg);
 }
 
-int Daemon::handle_cs_conf(ConfCSMsg* msg)
+int Daemon::handle_cs_conf(ConfCSMsg *msg)
 {
     max_scheduler_pong = msg->max_scheduler_pong;
     max_scheduler_ping = msg->max_scheduler_ping;
@@ -1296,10 +1438,10 @@ int Daemon::handle_cs_conf(ConfCSMsg* msg)
     return 0;
 }
 
-bool Daemon::handle_local_job( Client *client, Msg *msg )
+bool Daemon::handle_local_job(Client *client, Msg *msg)
 {
     client->status = Client::LINKJOB;
-    client->outfile = dynamic_cast<JobLocalBeginMsg*>( msg )->outfile;
+    client->outfile = dynamic_cast<JobLocalBeginMsg *>(msg)->outfile;
     return true;
 }
 
@@ -1311,19 +1453,21 @@ bool Daemon::handle_file_chunk_env(Client *client, Msg *msg)
        caching layer inbetween, which causes us to loose partial
        data after the M_END msg of the env transfer.  */
 
-    assert (client && client->status == Client::TOINSTALL);
+    assert(client && client->status == Client::TOINSTALL);
 
-    if (msg->type == M_FILE_CHUNK && client->pipe_to_child >= 0)
-    {
-        FileChunkMsg *fcmsg = static_cast<FileChunkMsg*>( msg );
+    if (msg->type == M_FILE_CHUNK && client->pipe_to_child >= 0) {
+        FileChunkMsg *fcmsg = static_cast<FileChunkMsg *>(msg);
         ssize_t len = fcmsg->len;
         off_t off = 0;
-        while ( len ) {
-            ssize_t bytes = write( client->pipe_to_child, fcmsg->buffer + off, len );
-            if ( bytes < 0 && errno == EINTR )
-                continue;
 
-            if ( bytes == -1 ) {
+        while (len) {
+            ssize_t bytes = write(client->pipe_to_child, fcmsg->buffer + off, len);
+
+            if (bytes < 0 && errno == EINTR) {
+                continue;
+            }
+
+            if (bytes == -1) {
                 log_perror("write to transfer env pipe failed. ");
 
                 delete msg;
@@ -1335,6 +1479,7 @@ bool Daemon::handle_file_chunk_env(Client *client, Msg *msg)
             len -= bytes;
             off += bytes;
         }
+
         return true;
     }
 
@@ -1344,47 +1489,72 @@ bool Daemon::handle_file_chunk_env(Client *client, Msg *msg)
         return handle_transfer_env_done(client);
     }
 
-    if (client->pipe_to_child >= 0)
+    if (client->pipe_to_child >= 0) {
         handle_end(client, 138);
+    }
 
     return false;
 }
 
-bool Daemon::handle_activity( Client *client )
+bool Daemon::handle_activity(Client *client)
 {
     assert(client->status != Client::TOCOMPILE);
 
     Msg *msg = client->channel->get_msg();
-    if ( !msg ) {
-        handle_end( client, 118 );
+
+    if (!msg) {
+        handle_end(client, 118);
         return false;
     }
 
     bool ret = false;
-    if (client->status == Client::TOINSTALL && client->pipe_to_child >= 0)
+
+    if (client->status == Client::TOINSTALL && client->pipe_to_child >= 0) {
         ret = handle_file_chunk_env(client, msg);
+    }
 
     if (ret) {
         delete msg;
         return ret;
     }
 
-    switch ( msg->type ) {
-    case M_GET_NATIVE_ENV: ret = handle_get_native_env( client, dynamic_cast<GetNativeEnvMsg*>(msg) ); break;
-    case M_COMPILE_FILE: ret = handle_compile_file( client, msg ); break;
-    case M_TRANFER_ENV: ret = handle_transfer_env( client, msg ); break;
-    case M_GET_CS: ret = handle_get_cs( client, msg ); break;
-    case M_END: handle_end( client, 119 ); ret = false; break;
-    case M_JOB_LOCAL_BEGIN: ret = handle_local_job (client, msg); break;
-    case M_JOB_DONE: ret = handle_job_done( client, dynamic_cast<JobDoneMsg*>(msg) ); break;
-    case M_VERIFY_ENV: ret = handle_verify_env( client, dynamic_cast<VerifyEnvMsg*>(msg) ); break;
-    case M_BLACKLIST_HOST_ENV: ret = handle_blacklist_host_env( client, msg ); break;
+    switch (msg->type) {
+    case M_GET_NATIVE_ENV:
+        ret = handle_get_native_env(client, dynamic_cast<GetNativeEnvMsg *>(msg));
+        break;
+    case M_COMPILE_FILE:
+        ret = handle_compile_file(client, msg);
+        break;
+    case M_TRANFER_ENV:
+        ret = handle_transfer_env(client, msg);
+        break;
+    case M_GET_CS:
+        ret = handle_get_cs(client, msg);
+        break;
+    case M_END:
+        handle_end(client, 119);
+        ret = false;
+        break;
+    case M_JOB_LOCAL_BEGIN:
+        ret = handle_local_job(client, msg);
+        break;
+    case M_JOB_DONE:
+        ret = handle_job_done(client, dynamic_cast<JobDoneMsg *>(msg));
+        break;
+    case M_VERIFY_ENV:
+        ret = handle_verify_env(client, dynamic_cast<VerifyEnvMsg *>(msg));
+        break;
+    case M_BLACKLIST_HOST_ENV:
+        ret = handle_blacklist_host_env(client, msg);
+        break;
     default:
-        log_error() << "not compile: " << ( char )msg->type << "protocol error on client " << client->dump() << endl;
-        client->channel->send_msg( EndMsg() );
-        handle_end( client, 120 );
+        log_error() << "not compile: " << (char)msg->type << "protocol error on client "
+                    << client->dump() << endl;
+        client->channel->send_msg(EndMsg());
+        handle_end(client, 120);
         ret = false;
     }
+
     delete msg;
     return ret;
 }
@@ -1392,203 +1562,253 @@ bool Daemon::handle_activity( Client *client )
 int Daemon::answer_client_requests()
 {
 #ifdef ICECC_DEBUG
-    if ( clients.size() + current_kids )
+
+    if (clients.size() + current_kids) {
         log_info() << dump_internals() << endl;
-    log_info() << "clients " << clients.dump_per_status() << " " << current_kids << " (" << max_kids << ")" << endl;
+    }
+
+    log_info() << "clients " << clients.dump_per_status() << " " << current_kids
+               << " (" << max_kids << ")" << endl;
 
 #endif
 
     /* reap zombis */
     int status;
-    while (waitpid(-1, &status, WNOHANG) < 0 && errno == EINTR)
-        ;
+
+    while (waitpid(-1, &status, WNOHANG) < 0 && errno == EINTR) {}
 
     handle_old_request();
 
     /* collect the stats after the children exited icecream_load */
-    if ( scheduler )
+    if (scheduler) {
         maybe_stats();
+    }
 
     fd_set listen_set;
     struct timeval tv;
 
-    FD_ZERO( &listen_set );
+    FD_ZERO(&listen_set);
     int max_fd = 0;
+
     if (tcp_listen_fd != -1) {
-      FD_SET( tcp_listen_fd, &listen_set );
-      max_fd = tcp_listen_fd;
+        FD_SET(tcp_listen_fd, &listen_set);
+        max_fd = tcp_listen_fd;
     }
-    FD_SET( unix_listen_fd, &listen_set );
-    if (unix_listen_fd > max_fd) // very likely
-      max_fd = unix_listen_fd;
+
+    FD_SET(unix_listen_fd, &listen_set);
+
+    if (unix_listen_fd > max_fd) { // very likely
+        max_fd = unix_listen_fd;
+    }
 
     for (map<int, MsgChannel *>::const_iterator it = fd2chan.begin();
-         it != fd2chan.end();) {
+            it != fd2chan.end();) {
         int i = it->first;
         MsgChannel *c = it->second;
         ++it;
         /* don't select on a fd that we're currently not interested in.
            Avoids that we wake up on an event we're not handling anyway */
-        Client* client = clients.find_by_channel(c);
+        Client *client = clients.find_by_channel(c);
         assert(client);
         int current_status = client->status;
-        bool ignore_channel = current_status == Client::TOCOMPILE ||
-                              current_status == Client::WAITFORCHILD;
+        bool ignore_channel = current_status == Client::TOCOMPILE
+                              || current_status == Client::WAITFORCHILD;
+
         if (!ignore_channel && (!c->has_msg() || handle_activity(client))) {
-            if (i > max_fd)
+            if (i > max_fd) {
                 max_fd = i;
-            FD_SET (i, &listen_set);
+            }
+
+            FD_SET(i, &listen_set);
         }
 
         if (current_status == Client::WAITFORCHILD
-            && client->pipe_to_child != -1) {
-            if (client->pipe_to_child > max_fd)
+                && client->pipe_to_child != -1) {
+            if (client->pipe_to_child > max_fd) {
                 max_fd = client->pipe_to_child;
-            FD_SET (client->pipe_to_child, &listen_set);
+            }
+
+            FD_SET(client->pipe_to_child, &listen_set);
         }
     }
 
-    if ( scheduler ) {
-        FD_SET( scheduler->fd, &listen_set );
-        if ( max_fd < scheduler->fd )
+    if (scheduler) {
+        FD_SET(scheduler->fd, &listen_set);
+
+        if (max_fd < scheduler->fd) {
             max_fd = scheduler->fd;
-    } else if ( discover && discover->listen_fd() >= 0) {
+        }
+    } else if (discover && discover->listen_fd() >= 0) {
         /* We don't explicitely check for discover->get_fd() being in
-	   the selected set below.  If it's set, we simply will return
-	   and our call will make sure we try to get the scheduler.  */
-        FD_SET( discover->listen_fd(), &listen_set);
-	if ( max_fd < discover->listen_fd() )
-	    max_fd = discover->listen_fd();
+        the selected set below.  If it's set, we simply will return
+        and our call will make sure we try to get the scheduler.  */
+        FD_SET(discover->listen_fd(), &listen_set);
+
+        if (max_fd < discover->listen_fd()) {
+            max_fd = discover->listen_fd();
+        }
     }
 
     tv.tv_sec = max_scheduler_pong;
     tv.tv_usec = 0;
 
-    int ret = select (max_fd + 1, &listen_set, NULL, NULL, &tv);
-    if ( ret < 0 && errno != EINTR ) {
-        log_perror( "select" );
+    int ret = select(max_fd + 1, &listen_set, NULL, NULL, &tv);
+
+    if (ret < 0 && errno != EINTR) {
+        log_perror("select");
         return 5;
     }
 
-    if ( ret > 0 ) {
+    if (ret > 0) {
         bool had_scheduler = scheduler;
-        if ( scheduler && FD_ISSET( scheduler->fd, &listen_set ) ) {
+
+        if (scheduler && FD_ISSET(scheduler->fd, &listen_set)) {
             while (!scheduler->read_a_bit() || scheduler->has_msg()) {
                 Msg *msg = scheduler->get_msg();
-                if ( !msg ) {
+
+                if (!msg) {
                     log_error() << "scheduler closed connection\n";
                     close_scheduler();
                     clear_children();
                     return 1;
-                } else {
-                    ret = 0;
-                    switch ( msg->type )
-                    {
-                    case M_PING:
-                        if (!IS_PROTOCOL_27(scheduler))
-                            ret = !send_scheduler(PingMsg());
-                        break;
-                    case M_USE_CS:
-                        ret = scheduler_use_cs( static_cast<UseCSMsg*>( msg ) );
-                        break;
-                    case M_GET_INTERNALS:
-                        ret = scheduler_get_internals( );
-                        break;
-                    case M_CS_CONF:
-                        ret = handle_cs_conf(static_cast<ConfCSMsg*>( msg ));
-                        break;
-                    default:
-                        log_error() << "unknown scheduler type " << ( char )msg->type << endl;
-                        ret = 1;
-                    }
                 }
+
+                ret = 0;
+
+                switch (msg->type) {
+                case M_PING:
+
+                    if (!IS_PROTOCOL_27(scheduler)) {
+                        ret = !send_scheduler(PingMsg());
+                    }
+
+                    break;
+                case M_USE_CS:
+                    ret = scheduler_use_cs(static_cast<UseCSMsg *>(msg));
+                    break;
+                case M_GET_INTERNALS:
+                    ret = scheduler_get_internals();
+                    break;
+                case M_CS_CONF:
+                    ret = handle_cs_conf(static_cast<ConfCSMsg *>(msg));
+                    break;
+                default:
+                    log_error() << "unknown scheduler type " << (char)msg->type << endl;
+                    ret = 1;
+                }
+
                 delete msg;
-                if (ret)
+
+                if (ret) {
                     return ret;
+                }
             }
         }
 
-	int listen_fd = -1;
-	if ( tcp_listen_fd != -1 && FD_ISSET( tcp_listen_fd, &listen_set ) )
-	  listen_fd = tcp_listen_fd;
-	if ( FD_ISSET( unix_listen_fd, &listen_set ) )
-	  listen_fd = unix_listen_fd;
+        int listen_fd = -1;
 
-        if ( listen_fd != -1) {
+        if (tcp_listen_fd != -1 && FD_ISSET(tcp_listen_fd, &listen_set)) {
+            listen_fd = tcp_listen_fd;
+        }
+
+        if (FD_ISSET(unix_listen_fd, &listen_set)) {
+            listen_fd = unix_listen_fd;
+        }
+
+        if (listen_fd != -1) {
             struct sockaddr cli_addr;
             socklen_t cli_len = sizeof cli_addr;
             int acc_fd = accept(listen_fd, &cli_addr, &cli_len);
-            if (acc_fd < 0)
+
+            if (acc_fd < 0) {
                 log_perror("accept error");
+            }
+
             if (acc_fd == -1 && errno != EINTR) {
                 log_perror("accept failed:");
                 return EXIT_CONNECT_FAILED;
-            } else {
-                MsgChannel *c = Service::createChannel( acc_fd, &cli_addr, cli_len );
-                if ( !c )
-                    return 0;
-                trace() << "accepted " << c->fd << " " << c->name << endl;
+            }
 
-                Client *client = new Client;
-                client->client_id = ++new_client_id;
-                client->channel = c;
-                clients[c] = client;
+            MsgChannel *c = Service::createChannel(acc_fd, &cli_addr, cli_len);
 
-                fd2chan[c->fd] = c;
-                while (!c->read_a_bit() || c->has_msg()) {
-                    if (!handle_activity(client))
-                        break;
-                    if (client->status == Client::TOCOMPILE ||
-                            client->status == Client::WAITFORCHILD)
-                        break;
+            if (!c) {
+                return 0;
+            }
+
+            trace() << "accepted " << c->fd << " " << c->name << endl;
+
+            Client *client = new Client;
+            client->client_id = ++new_client_id;
+            client->channel = c;
+            clients[c] = client;
+
+            fd2chan[c->fd] = c;
+
+            while (!c->read_a_bit() || c->has_msg()) {
+                if (!handle_activity(client)) {
+                    break;
+                }
+
+                if (client->status == Client::TOCOMPILE
+                        || client->status == Client::WAITFORCHILD) {
+                    break;
                 }
             }
         } else {
             for (map<int, MsgChannel *>::const_iterator it = fd2chan.begin();
-                 max_fd && it != fd2chan.end();)  {
+                    max_fd && it != fd2chan.end();)  {
                 int i = it->first;
                 MsgChannel *c = it->second;
-                Client* client = clients.find_by_channel(c);
+                Client *client = clients.find_by_channel(c);
                 assert(client);
                 ++it;
+
                 if (client->status == Client::WAITFORCHILD
-                    && client->pipe_to_child >= 0
-                    && FD_ISSET(client->pipe_to_child, &listen_set) )
-                {
+                        && client->pipe_to_child >= 0
+                        && FD_ISSET(client->pipe_to_child, &listen_set)) {
                     max_fd--;
-                    if (!handle_compile_done(client))
+
+                    if (!handle_compile_done(client)) {
                         return 1;
+                    }
                 }
 
-                if (FD_ISSET (i, &listen_set)) {
+                if (FD_ISSET(i, &listen_set)) {
                     assert(client->status != Client::TOCOMPILE);
+
                     while (!c->read_a_bit() || c->has_msg()) {
-                        if (!handle_activity(client))
+                        if (!handle_activity(client)) {
                             break;
-                        if (client->status == Client::TOCOMPILE ||
-                                client->status == Client::WAITFORCHILD)
+                        }
+
+                        if (client->status == Client::TOCOMPILE
+                                || client->status == Client::WAITFORCHILD) {
                             break;
+                        }
                     }
+
                     max_fd--;
                 }
             }
         }
-        if ( had_scheduler && !scheduler ) {
+
+        if (had_scheduler && !scheduler) {
             clear_children();
             return 2;
         }
 
     }
+
     return 0;
 }
 
 bool Daemon::reconnect()
 {
-    if ( scheduler )
+    if (scheduler) {
         return true;
+    }
 
-    if (!discover &&
-        next_scheduler_connect > time(0)) {
+    if (!discover && next_scheduler_connect > time(0)) {
         trace() << "timeout.." << endl;
         return false;
     }
@@ -1596,37 +1816,41 @@ bool Daemon::reconnect()
 #ifdef ICECC_DEBUG
     trace() << "reconn " << dump_internals() << endl;
 #endif
-    if (!discover
-	|| discover->timed_out())
-    {
+
+    if (!discover || discover->timed_out()) {
         delete discover;
-	discover = new DiscoverSched (netname, max_scheduler_pong, schedname);
+        discover = new DiscoverSched(netname, max_scheduler_pong, schedname);
     }
 
-    scheduler = discover->try_get_scheduler ();
-    if ( !scheduler ) {
+    scheduler = discover->try_get_scheduler();
+
+    if (!scheduler) {
         log_warning() << "scheduler not yet found.\n";
         return false;
     }
+
     delete discover;
     discover = 0;
     sockaddr_in name;
     socklen_t len = sizeof(name);
     int error = getsockname(scheduler->fd, (struct sockaddr*)&name, &len);
-    if ( !error )
-        remote_name = inet_ntoa( name.sin_addr );
-    else
+
+    if (!error) {
+        remote_name = inet_ntoa(name.sin_addr);
+    } else {
         remote_name = string();
+    }
+
     log_info() << "Connected to scheduler (I am known as " << remote_name << ")\n";
     current_load = -1000;
-    gettimeofday( &last_stat, 0 );
+    gettimeofday(&last_stat, 0);
     icecream_load = 0;
-    
-    LoginMsg lmsg( PORT, determine_nodename(), machine_name );
+
+    LoginMsg lmsg(PORT, determine_nodename(), machine_name);
     lmsg.envs = available_environmnents(envbasedir);
     lmsg.max_kids = max_kids;
     lmsg.noremote = noremote;
-    return send_scheduler ( lmsg );
+    return send_scheduler(lmsg);
 }
 
 int Daemon::working_loop()
@@ -1635,19 +1859,21 @@ int Daemon::working_loop()
         reconnect();
 
         int ret = answer_client_requests();
-        if ( ret ) {
+
+        if (ret) {
             trace() << "answer_client_requests returned " << ret << endl;
             close_scheduler();
         }
     }
+
     // never really reached
     return 0;
 }
 
-int main( int argc, char ** argv )
+int main(int argc, char **argv)
 {
     int max_processes = -1;
-    srand( time( 0 ) + getpid() );
+    srand(time(0) + getpid());
 
     Daemon d;
 
@@ -1656,7 +1882,7 @@ int main( int argc, char ** argv )
     bool detach = false;
     nice_level = 5; // defined in serve.h
 
-    while ( true ) {
+    while (true) {
         int option_index = 0;
         static const struct option long_options[] = {
             { "netname", 1, NULL, 'n' },
@@ -1674,36 +1900,45 @@ int main( int argc, char ** argv )
             { 0, 0, 0, 0 }
         };
 
-        const int c = getopt_long( argc, argv, "N:n:m:l:s:whvdrb:u:", long_options, &option_index );
-        if ( c == -1 ) break; // eoo
+        const int c = getopt_long(argc, argv, "N:n:m:l:s:whvdrb:u:", long_options, &option_index);
 
-        switch ( c ) {
-        case 0:
-        {
+        if (c == -1) {
+            break;    // eoo
+        }
+
+        switch (c) {
+        case 0: {
             string optname = long_options[option_index].name;
-            if ( optname == "nice" ) {
-                if ( optarg && *optarg ) {
+
+            if (optname == "nice") {
+                if (optarg && *optarg) {
                     errno = 0;
-                    int tnice = atoi( optarg );
-                    if ( !errno )
+                    int tnice = atoi(optarg);
+
+                    if (!errno) {
                         nice_level = tnice;
-                } else
+                    }
+                } else {
                     usage("Error: --nice requires argument");
-            } else if ( optname == "name" ) {
-                if ( optarg && *optarg )
-                    d.nodename = optarg;
-                else
-                    usage("Error: --name requires argument");
-            } else if ( optname == "cache-limit" ) {
-                if ( optarg && *optarg ) {
-                    errno = 0;
-                    int mb = atoi( optarg );
-                    if ( !errno )
-                        cache_size_limit = mb * 1024 * 1024;
                 }
-                else
+            } else if (optname == "name") {
+                if (optarg && *optarg) {
+                    d.nodename = optarg;
+                } else {
+                    usage("Error: --name requires argument");
+                }
+            } else if (optname == "cache-limit") {
+                if (optarg && *optarg) {
+                    errno = 0;
+                    int mb = atoi(optarg);
+
+                    if (!errno) {
+                        cache_size_limit = mb * 1024 * 1024;
+                    }
+                } else {
                     usage("Error: --cache-limit requires argument");
-            } else if ( optname == "no-remote" ) {
+                }
+            } else if (optname == "no-remote") {
                 d.noremote = true;
             }
 
@@ -1713,64 +1948,90 @@ int main( int argc, char ** argv )
             detach = true;
             break;
         case 'N':
-            if ( optarg && *optarg )
+
+            if (optarg && *optarg) {
                 d.nodename = optarg;
-            else
+            } else {
                 usage("Error: -N requires argument");
+            }
+
             break;
         case 'l':
-            if ( optarg && *optarg )
+
+            if (optarg && *optarg) {
                 logfile = optarg;
-            else
-                usage( "Error: -l requires argument" );
+            } else {
+                usage("Error: -l requires argument");
+            }
+
             break;
         case 'v':
-            if ( debug_level & Warning )
-                if ( debug_level & Info ) // for second call
+
+            if (debug_level & Warning)
+                if (debug_level & Info) { // for second call
                     debug_level |= Debug;
-                else
+                } else {
                     debug_level |= Info;
-            else
+                }
+            else {
                 debug_level |= Warning;
+            }
+
             break;
         case 'n':
-            if ( optarg && *optarg )
+
+            if (optarg && *optarg) {
                 d.netname = optarg;
-            else
+            } else {
                 usage("Error: -n requires argument");
+            }
+
             break;
         case 'm':
-            if ( optarg && *optarg )
+
+            if (optarg && *optarg) {
                 max_processes = atoi(optarg);
-            else
+            } else {
                 usage("Error: -m requires argument");
+            }
+
             break;
         case 's':
-            if ( optarg && *optarg )
+
+            if (optarg && *optarg) {
                 d.schedname = optarg;
-            else
+            } else {
                 usage("Error: -s requires hostname argument");
+            }
+
             break;
         case 'b':
-            if ( optarg && *optarg )
+
+            if (optarg && *optarg) {
                 d.envbasedir = optarg;
+            }
+
             break;
         case 'u':
-            if ( optarg && *optarg )
-            {
-                struct passwd *pw = getpwnam( optarg );
-                if ( !pw ) {
-                    usage( "Error: -u requires a valid username" );
+
+            if (optarg && *optarg) {
+                struct passwd *pw = getpwnam(optarg);
+
+                if (!pw) {
+                    usage("Error: -u requires a valid username");
                 } else {
                     d.user_uid = pw->pw_uid;
                     d.user_gid = pw->pw_gid;
                     d.warn_icecc_user = false;
+
                     if (!d.user_gid || !d.user_uid) {
-                        usage( "Error: -u <username> must not be root");
+                        usage("Error: -u <username> must not be root");
                     }
                 }
-            } else
-                usage( "Error: -u requires a valid username" );
+            } else {
+                usage("Error: -u requires a valid username");
+            }
+
             break;
 
         default:
@@ -1778,16 +2039,17 @@ int main( int argc, char ** argv )
         }
     }
 
-    if (d.warn_icecc_user)
-        log_perror ("Error: no icecc user on system. Falling back to nobody.");
+    if (d.warn_icecc_user) {
+        log_perror("Error: no icecc user on system. Falling back to nobody.");
+    }
 
     umask(022);
 
     if (getuid() == 0) {
         if (!logfile.length() && detach) {
-            if (mkdir("/var/log/icecc", S_IRWXU|S_IRGRP|S_IXGRP|S_IROTH|S_IXOTH)) {
+            if (mkdir("/var/log/icecc", S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH)) {
                 if (errno == EEXIST) {
-                    chmod("/var/log/icecc", S_IRWXU|S_IRGRP|S_IXGRP|S_IROTH|S_IXOTH);
+                    chmod("/var/log/icecc", S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH);
                     chown("/var/log/icecc", d.user_uid, d.user_gid);
                 }
             }
@@ -1795,15 +2057,16 @@ int main( int argc, char ** argv )
             logfile = "/var/log/icecc/iceccd.log";
         }
 
-        if (mkdir("/var/run/icecc", S_IRWXU|S_IRGRP|S_IXGRP|S_IROTH|S_IXOTH) == -1) {
+        if (mkdir("/var/run/icecc", S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH) == -1) {
             if (errno == EEXIST) {
-                chmod("/var/run/icecc", S_IRWXU|S_IRGRP|S_IXGRP|S_IROTH|S_IXOTH);
+                chmod("/var/run/icecc", S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH);
                 chown("/var/run/icecc", d.user_uid, d.user_gid);
             }
         }
+
 #ifdef HAVE_LIBCAP_NG
         capng_clear(CAPNG_SELECT_BOTH);
-        capng_update(CAPNG_ADD, (capng_type_t)(CAPNG_EFFECTIVE|CAPNG_PERMITTED), CAP_SYS_CHROOT);
+        capng_update(CAPNG_ADD, (capng_type_t)(CAPNG_EFFECTIVE | CAPNG_PERMITTED), CAP_SYS_CHROOT);
         capng_change_id(d.user_uid, d.user_gid, CAPNG_NO_FLAG);
         capng_apply(CAPNG_SELECT_BOTH);
 #endif
@@ -1811,28 +2074,30 @@ int main( int argc, char ** argv )
         d.noremote = true;
     }
 
-    setup_debug( debug_level, logfile );
+    setup_debug(debug_level, logfile);
 
     log_info() << "ICECREAM daemon " VERSION " starting up (nice level "
                << nice_level << ") " << endl;
 
     d.determine_system();
 
-    chdir( "/" );
+    chdir("/");
 
-    if ( detach )
+    if (detach)
         if (daemon(0, 0)) {
             log_perror("daemon()");
-            exit (EXIT_DISTCC_FAILED);
+            exit(EXIT_DISTCC_FAILED);
         }
 
-    if (dcc_ncpus(&d.num_cpus) == 0)
+    if (dcc_ncpus(&d.num_cpus) == 0) {
         log_info() << d.num_cpus << " CPU(s) online on this server" << endl;
+    }
 
-    if ( max_processes < 0 )
+    if (max_processes < 0) {
         max_kids = d.num_cpus;
-    else
+    } else {
         max_kids = max_processes;
+    }
 
     log_info() << "allowing up to " << max_kids << " active jobs\n";
 
@@ -1840,20 +2105,22 @@ int main( int argc, char ** argv )
 
     /* Still create a new process group, even if not detached */
     trace() << "not detaching\n";
-    if ((ret = set_new_pgrp()) != 0)
+
+    if ((ret = set_new_pgrp()) != 0) {
         return ret;
+    }
 
     /* Don't catch signals until we've detached or created a process group. */
     dcc_daemon_catch_signals();
 
     if (signal(SIGPIPE, SIG_IGN) == SIG_ERR) {
         log_warning() << "signal(SIGPIPE, ignore) failed: " << strerror(errno) << endl;
-        exit( EXIT_DISTCC_FAILED );
+        exit(EXIT_DISTCC_FAILED);
     }
 
     if (signal(SIGCHLD, SIG_DFL) == SIG_ERR) {
         log_warning() << "signal(SIGCHLD) failed: " << strerror(errno) << endl;
-        exit( EXIT_DISTCC_FAILED );
+        exit(EXIT_DISTCC_FAILED);
     }
 
     /* This is called in the master daemon, whether that is detached or
@@ -1862,22 +2129,26 @@ int main( int argc, char ** argv )
 
     ofstream pidFile;
     string progName = argv[0];
-    progName = progName.substr(progName.rfind('/')+1);
-    pidFilePath = string(RUNDIR)+string("/")+progName+string(".pid");
+    progName = progName.substr(progName.rfind('/') + 1);
+    pidFilePath = string(RUNDIR) + string("/") + progName + string(".pid");
     pidFile.open(pidFilePath.c_str());
     pidFile << dcc_master_pid << endl;
     pidFile.close();
 
-    if ( !cleanup_cache( d.envbasedir, d.user_uid, d.user_gid ) )
+    if (!cleanup_cache(d.envbasedir, d.user_uid, d.user_gid)) {
         return 1;
+    }
 
-    list<string> nl = get_netnames (200);
+    list<string> nl = get_netnames(200);
     trace() << "Netnames:" << endl;
-    for (list<string>::const_iterator it = nl.begin(); it != nl.end(); ++it)
-        trace() << *it << endl;
 
-    if ( !d.setup_listen_fds() ) // error
+    for (list<string>::const_iterator it = nl.begin(); it != nl.end(); ++it) {
+        trace() << *it << endl;
+    }
+
+    if (!d.setup_listen_fds()) { // error
         return 1;
+    }
 
     return d.working_loop();
 }

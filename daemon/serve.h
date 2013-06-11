@@ -29,8 +29,8 @@ class MsgChannel;
 
 extern int nice_level;
 
-int handle_connection( const std::string &basedir, CompileJob *job,
-                       MsgChannel *serv, int & out_fd,
-                       unsigned int mem_limit, uid_t user_uid, gid_t user_gid);
+int handle_connection(const std::string &basedir, CompileJob *job,
+                      MsgChannel *serv, int & out_fd,
+                      unsigned int mem_limit, uid_t user_uid, gid_t user_gid);
 
 #endif
