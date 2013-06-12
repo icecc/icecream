@@ -1,4 +1,4 @@
-/* -*- c-file-style: "java"; indent-tabs-mode: nil; fill-column: 78; -*-
+/* -*- c-file-style: "java"; indent-tabs-mode: nil; fill-column: 99; -*-
  *
  * distcc -- A simple distributed compiler system
  *
@@ -53,19 +53,24 @@ using namespace std;
  *
  * @returns 0 on success, or -1 on error with `errno' set.
  **/
-int set_cloexec_flag (int desc, int value)
+int set_cloexec_flag(int desc, int value)
 {
-    int oldflags = fcntl (desc, F_GETFD, 0);
+    int oldflags = fcntl(desc, F_GETFD, 0);
+
     /* If reading the flags failed, return error indication now. */
-    if (oldflags < 0)
+    if (oldflags < 0) {
         return oldflags;
+    }
+
     /* Set just the flag we want to set. */
-    if (value != 0)
+    if (value != 0) {
         oldflags |= FD_CLOEXEC;
-    else
+    } else {
         oldflags &= ~FD_CLOEXEC;
+    }
+
     /* Store modified flag word in the descriptor. */
-    return fcntl (desc, F_SETFD, oldflags);
+    return fcntl(desc, F_SETFD, oldflags);
 }
 
 /**
@@ -79,10 +84,11 @@ int set_cloexec_flag (int desc, int value)
 int dcc_ignore_sigpipe(int val)
 {
     if (signal(SIGPIPE, val ? SIG_IGN : SIG_DFL) == SIG_ERR) {
-        log_warning() << "signal(SIGPIPE, " << ( val ? "ignore" : "default" ) << ") failed: "
+        log_warning() << "signal(SIGPIPE, " << (val ? "ignore" : "default") << ") failed: "
                       << strerror(errno) << endl;
         return EXIT_DISTCC_FAILED;
     }
+
     return 0;
 }
 
@@ -93,17 +99,23 @@ int dcc_ignore_sigpipe(int val)
  **/
 string find_basename(const string &sfile)
 {
-    size_t index = sfile.find_last_of( '/' );
-    if ( index == string::npos )
+    size_t index = sfile.find_last_of('/');
+
+    if (index == string::npos) {
         return sfile;
-    return sfile.substr( index + 1);
+    }
+
+    return sfile.substr(index + 1);
 }
 
 string find_prefix(const string &basename)
 {
     size_t index = basename.find_last_of('-');
-    if (index == string::npos)
+
+    if (index == string::npos) {
         return "";
+    }
+
     return basename.substr(0, index);
 }
 
@@ -142,6 +154,7 @@ bool dcc_unlock(int lock_fd)
         log_perror("close failed:");
         return false;
     }
+
     return true;
 }
 
@@ -157,7 +170,8 @@ static bool dcc_open_lockfile(const string &fname, int &plockfd)
      * The file is created with the loosest permissions allowed by the user's
      * umask, to give the best chance of avoiding problems if they should
      * happen to use a shared lock dir. */
-    plockfd = open(fname.c_str(), O_WRONLY|O_CREAT, 0666);
+    plockfd = open(fname.c_str(), O_WRONLY | O_CREAT, 0666);
+
     if (plockfd == -1 && errno != EEXIST) {
         log_error() << "failed to creat " << fname << ": " << strerror(errno) << endl;
         return false;
@@ -169,83 +183,90 @@ static bool dcc_open_lockfile(const string &fname, int &plockfd)
 bool dcc_lock_host(int &lock_fd)
 {
     string fname = "/tmp/.icecream-";
-    struct passwd *pwd = getpwuid( getuid() );
-    if ( pwd )
+    struct passwd *pwd = getpwuid(getuid());
+
+    if (pwd) {
         fname += pwd->pw_name;
-    else {
+    } else {
         char buffer[10];
-        sprintf( buffer, "%ld", ( long )getuid() );
+        sprintf(buffer, "%ld", (long)getuid());
         fname += buffer;
     }
 
-    if ( mkdir( fname.c_str(), 0700 ) && errno != EEXIST ) {
-        log_perror( "mkdir" );
+    if (mkdir(fname.c_str(), 0700) && errno != EEXIST) {
+        log_perror("mkdir");
         return false;
     }
 
     fname += "/local_lock";
 
     lock_fd = 0;
-    if (!dcc_open_lockfile(fname, lock_fd) )
+
+    if (!dcc_open_lockfile(fname, lock_fd)) {
         return false;
+    }
 
     if (sys_lock(lock_fd, true) == 0) {
         return true;
-    } else {
-        switch (errno) {
-#if defined(EWOULDBLOCK) && EWOULDBLOCK != EAGAIN
-        case EWOULDBLOCK:
-#endif
-        case EAGAIN:
-        case EACCES: /* HP-UX and Cygwin give this for exclusion */
-            trace() << fname << " is busy" << endl;
-            break;
-        default:
-            log_error() << "lock " << fname << " failed: " << strerror(errno) << endl;
-            break;
-        }
-
-        ::close(lock_fd);
-        return false;
     }
+
+    switch (errno) {
+#if defined(EWOULDBLOCK) && EWOULDBLOCK != EAGAIN
+    case EWOULDBLOCK:
+#endif
+    case EAGAIN:
+    case EACCES: /* HP-UX and Cygwin give this for exclusion */
+        trace() << fname << " is busy" << endl;
+        break;
+    default:
+        log_error() << "lock " << fname << " failed: " << strerror(errno) << endl;
+        break;
+    }
+
+    ::close(lock_fd);
+    return false;
 }
 
 bool colorify_possible()
 {
-  const char* term_env = getenv("TERM");
+    const char* term_env = getenv("TERM");
 
-  return isatty(2) && term_env && strcasecmp(term_env, "DUMB");
+    return isatty(2) && term_env && strcasecmp(term_env, "DUMB");
 }
 
-bool colorify_wanted(const CompileJob& job)
+bool colorify_wanted(const CompileJob &job)
 {
     // Clang has coloring, and an explicit option to force it even if output is not a tty.
-    if (compiler_is_clang(job))
+    if (compiler_is_clang(job)) {
         return false;
+    }
 
-    if (getenv("EMACS"))
+    if (getenv("EMACS")) {
         return false;
+    }
 
     return colorify_possible();
 }
 
-void colorify_output(const string& _s_ccout)
+void colorify_output(const string &_s_ccout)
 {
     string s_ccout(_s_ccout);
     string::size_type end;
 
-    while ( (end = s_ccout.find('\n')) !=  string::npos ) {
+    while ((end = s_ccout.find('\n')) !=  string::npos) {
 
-        string cline = s_ccout.substr(string::size_type(0), end );
-        s_ccout = s_ccout.substr(end+1);
+        string cline = s_ccout.substr(string::size_type(0), end);
+        s_ccout = s_ccout.substr(end + 1);
 
-        if (cline.find(": error:") != string::npos)
+        if (cline.find(": error:") != string::npos) {
             fprintf(stderr, "\x1b[1;31m%s\x1b[0m\n", cline.c_str());
-        else if (cline.find(": warning:") != string::npos)
+        } else if (cline.find(": warning:") != string::npos) {
             fprintf(stderr, "\x1b[36m%s\x1b[0m\n", cline.c_str());
-        else
+        } else {
             fprintf(stderr, "%s\n", cline.c_str());
+        }
     }
+
     fprintf(stderr, "%s", s_ccout.c_str());
 }
 
@@ -261,8 +282,11 @@ int resolve_link(const std::string &file, std::string &resolved)
     buf[PATH_MAX - 1] = '\0';
     const int ret = readlink(file.c_str(), buf, sizeof(buf) - 1);
     const int errno_save = errno;
-    if (ret <= 0)
+
+    if (ret <= 0) {
         return errno_save;
+    }
+
     buf[ret] = 0;
     resolved = std::string(buf);
     return 0;

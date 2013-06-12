@@ -38,62 +38,75 @@
 
 using namespace std;
 
-extern const char * rs_program_name;
+extern const char *rs_program_name;
 
 #define CLIENT_DEBUG 0
 
-string compiler_path_lookup(const string& compiler)
+string compiler_path_lookup(const string &compiler)
 {
-    if ( compiler.at( 0 ) == '/' )
+    if (compiler.at(0) == '/') {
         return compiler;
+    }
 
-    string path = ::getenv( "PATH" );
+    string path = ::getenv("PATH");
     string::size_type begin = 0;
     string::size_type end = 0;
     struct stat s;
     bool after_selflink = false;
     string best_match;
 
-    while ( end != string::npos ) {
-        end = path.find_first_of( ':', begin );
+    while (end != string::npos) {
+        end = path.find_first_of(':', begin);
         string part;
-        if ( end == string::npos )
-            part = path.substr( begin );
-        else
-            part = path.substr( begin, end - begin );
+
+        if (end == string::npos) {
+            part = path.substr(begin);
+        } else {
+            part = path.substr(begin, end - begin);
+        }
+
         begin = end + 1;
 
         part = part + '/' + compiler;
-        if ( !lstat( part.c_str(), &s ) ) {
-            if ( S_ISLNK( s.st_mode ) ) {
+
+        if (!lstat(part.c_str(), &s)) {
+            if (S_ISLNK(s.st_mode)) {
                 std::string buffer;
-                const int ret = resolve_link( part, buffer );
-                if ( ret != 0 ) {
-                    log_error() << "resolve_link failed " << strerror( ret ) << endl;
+                const int ret = resolve_link(part, buffer);
+
+                if (ret != 0) {
+                    log_error() << "resolve_link failed " << strerror(ret) << endl;
                     continue;
                 }
-                string target = find_basename( buffer );
-                if ( target == rs_program_name 
-                     || (after_selflink
-                         && (target == "tbcompiler" || target == "distcc"
-                            || target == "colorgcc"))) {
+
+                string target = find_basename(buffer);
+
+                if (target == rs_program_name
+                        || (after_selflink
+                            && (target == "tbcompiler" || target == "distcc"
+                                || target == "colorgcc"))) {
                     // this is a link pointing to us, ignore it
                     after_selflink = true;
                     continue;
                 }
-            } else if ( !S_ISREG( s.st_mode ) ) {
+            } else if (!S_ISREG(s.st_mode)) {
                 // It's not a link and not a file, so just ignore it. We don't
                 // want to accidentially attempt to execute directories.
                 continue;
             }
+
             best_match = part;
 
-            if ( after_selflink )
+            if (after_selflink) {
                 return part;
+            }
         }
     }
-    if ( best_match.empty() ) 
-    	log_error() << "couldn't find any " << compiler << endl;
+
+    if (best_match.empty()) {
+        log_error() << "couldn't find any " << compiler << endl;
+    }
+
     return best_match;
 }
 
@@ -103,24 +116,30 @@ string compiler_path_lookup(const string& compiler)
  * variable set. This is useful for native cross-compilers.
  * (arm-linux-gcc for example)
  */
-string find_compiler( const CompileJob& job )
+string find_compiler(const CompileJob &job)
 {
     if (job.language() == CompileJob::Lang_C) {
-        if (const char* env = getenv( "ICECC_CC" ))
+        if (const char *env = getenv("ICECC_CC")) {
             return env;
+        }
     }
+
     if (job.language() == CompileJob::Lang_CXX) {
-        if (const char* env = getenv ("ICECC_CXX"))
+        if (const char *env = getenv("ICECC_CXX")) {
             return env;
+        }
     }
+
     return compiler_path_lookup(job.compilerName());
 }
 
-bool compiler_is_clang( const CompileJob& job )
+bool compiler_is_clang(const CompileJob &job)
 {
-    if( job.language() == CompileJob::Lang_Custom )
+    if (job.language() == CompileJob::Lang_Custom) {
         return false;
-    assert( job.compilerName().find( '/' ) == string::npos );
+    }
+
+    assert(job.compilerName().find('/') == string::npos);
     return job.compilerName().find("clang") != string::npos;
 }
 
@@ -132,11 +151,13 @@ file and do the actual preprocessing remotely together with compiling.
 There exists a Clang patch to implement option -frewrite-includes that does
 such #include rewritting, and it's been only recently merged upstream.
 */
-bool compiler_only_rewrite_includes( const CompileJob& job )
+bool compiler_only_rewrite_includes(const CompileJob &job)
 {
-    if ( compiler_is_clang( job )) {
-        if( const char* rewrite_includes = getenv( "ICECC_CLANG_REMOTE_CPP" ))
-            return *rewrite_includes != '\0' && *rewrite_includes != '0';
+    if (compiler_is_clang(job)) {
+        if (const char *rewrite_includes = getenv("ICECC_CLANG_REMOTE_CPP")) {
+            return (*rewrite_includes != '\0') && (*rewrite_includes != '0');
+        }
+
 #ifdef HAVE_CLANG_REWRITE_INCLUDES
         // Assume that we use the same clang (as least as far as capabilities go)
         // as was available when icecream was built. ICECC_CLANG_REMOTE_CPP above
@@ -145,6 +166,7 @@ bool compiler_only_rewrite_includes( const CompileJob& job )
         return true;
 #endif
     }
+
     return false;
 }
 
@@ -152,17 +174,20 @@ static volatile int lock_fd = 0;
 static volatile int user_break_signal = 0;
 static volatile pid_t child_pid;
 
-static void handle_user_break( int sig )
+static void handle_user_break(int sig)
 {
-    if ( lock_fd )
-        dcc_unlock( lock_fd );
+    if (lock_fd) {
+        dcc_unlock(lock_fd);
+    }
+
     lock_fd = 0;
     user_break_signal = sig;
 
-    if (child_pid != 0)
-      kill ( child_pid, sig );
+    if (child_pid != 0) {
+        kill(child_pid, sig);
+    }
 
-    signal( sig, handle_user_break );
+    signal(sig, handle_user_break);
 }
 
 /**
@@ -180,106 +205,74 @@ static void handle_user_break( int sig )
  * log our resource usage.
  *
  **/
-int build_local(CompileJob& job, MsgChannel *local_daemon, struct rusage *used)
+int build_local(CompileJob &job, MsgChannel *local_daemon, struct rusage *used)
 {
     list<string> arguments;
 
-    string compiler_name = find_compiler( job );
+    string compiler_name = find_compiler(job);
 
     trace() << "invoking: " << compiler_name << endl;
 
-    if ( compiler_name.empty() ) {
+    if (compiler_name.empty()) {
         log_error() << "could not find " << job.compilerName() << " in PATH." << endl;
         return EXIT_NO_SUCH_FILE;
     }
 
-    arguments.push_back( compiler_name );
-    appendList( arguments, job.allFlags() );
+    arguments.push_back(compiler_name);
+    appendList(arguments, job.allFlags());
 
-    if ( !job.inputFile().empty() )
-        arguments.push_back( job.inputFile() );
-    if ( !job.outputFile().empty() ) {
-        arguments.push_back( "-o" );
-        arguments.push_back( job.outputFile() );
+    if (!job.inputFile().empty()) {
+        arguments.push_back(job.inputFile());
     }
+
+    if (!job.outputFile().empty()) {
+        arguments.push_back("-o");
+        arguments.push_back(job.outputFile());
+    }
+
     char **argv = new char*[arguments.size() + 1];
     int argc = 0;
-    for ( list<string>::const_iterator it = arguments.begin();
-          it != arguments.end(); ++it )
-        argv[argc++] = strdup( it->c_str() );
+
+    for (list<string>::const_iterator it = arguments.begin(); it != arguments.end(); ++it) {
+        argv[argc++] = strdup(it->c_str());
+    }
+
     argv[argc] = 0;
 #if CLIENT_DEBUG
     trace() << "execing ";
-    for ( int i = 0; argv[i]; i++ )
+
+    for (int i = 0; argv[i]; i++) {
         trace() << argv[i] << " ";
+    }
+
     trace() << endl;
 #endif
 
-    if ( !local_daemon ) {
+    if (!local_daemon) {
         int fd;
-        if ( !dcc_lock_host(fd ) ) {
+
+        if (!dcc_lock_host(fd)) {
             log_error() << "can't lock for local job" << endl;
             return EXIT_DISTCC_FAILED;
         }
+
         lock_fd = fd;
     }
 
     bool color_output = job.language() != CompileJob::Lang_Custom
-        && colorify_wanted(job);
+                        && colorify_wanted(job);
     int pf[2];
 
-    if (color_output && pipe(pf))
+    if (color_output && pipe(pf)) {
         color_output = false;
+    }
 
-    if ( used || color_output ) {
+    if (used || color_output) {
         flush_debug();
         child_pid = fork();
     }
 
-    if ( child_pid ) {
-        if (color_output)
-            close(pf[1]);
-
-        // setup interrupt signals, so that the JobLocalBeginMsg will
-        // have a matching JobLocalDoneMsg
-        void (*old_sigint)(int) = signal( SIGINT, handle_user_break );
-        void (*old_sigterm)(int) = signal( SIGTERM, handle_user_break );
-        void (*old_sigquit)(int) = signal( SIGQUIT, handle_user_break );
-        void (*old_sighup)(int) = signal( SIGHUP, handle_user_break );
-
-        if (color_output) {
-            string s_ccout;
-            char buf[250];
-            int r;
-            for(;;) {
-                while((r = read(pf[0], buf, sizeof(buf)-1)) > 0) {
-                    buf[r] = '\0';
-                    s_ccout.append(buf);
-                }
-                if (r == 0)
-                    break;
-                if ( r < 0 && errno != EINTR)
-                    break;
-            }
-            colorify_output(s_ccout);
-        }
-
-        int status = 1;
-        while( wait4( child_pid, &status, 0, used ) < 0 && errno == EINTR)
-            ;
-
-        status = shell_exit_status(status);
-
-        signal( SIGINT, old_sigint );
-        signal( SIGTERM, old_sigterm );
-        signal( SIGQUIT, old_sigquit );
-        signal( SIGHUP, old_sighup );
-        if( user_break_signal )
-            raise( user_break_signal );
-        if ( lock_fd )
-            dcc_unlock( lock_fd );
-        return status;
-    } else {
+    if (!child_pid) {
         dcc_increment_safeguard();
 
         if (color_output) {
@@ -288,14 +281,73 @@ int build_local(CompileJob& job, MsgChannel *local_daemon, struct rusage *used)
             dup2(pf[1], 2);
         }
 
-        int ret = execv( argv[0], argv );
-        if ( lock_fd )
-            dcc_unlock( lock_fd ); 
+        int ret = execv(argv[0], argv);
+
+        if (lock_fd) {
+            dcc_unlock(lock_fd);
+        }
+
         if (ret) {
             char buf[256];
             snprintf(buf, sizeof(buf), "ICECC[%d]: %s:", getpid(), argv[0]);
             log_perror(buf);
         }
-        _exit ( ret );
+
+        _exit(ret);
     }
+
+    if (color_output) {
+        close(pf[1]);
+    }
+
+    // setup interrupt signals, so that the JobLocalBeginMsg will
+    // have a matching JobLocalDoneMsg
+    void (*old_sigint)(int) = signal(SIGINT, handle_user_break);
+    void (*old_sigterm)(int) = signal(SIGTERM, handle_user_break);
+    void (*old_sigquit)(int) = signal(SIGQUIT, handle_user_break);
+    void (*old_sighup)(int) = signal(SIGHUP, handle_user_break);
+
+    if (color_output) {
+        string s_ccout;
+        char buf[250];
+        int r;
+
+        for (;;) {
+            while ((r = read(pf[0], buf, sizeof(buf) - 1)) > 0) {
+                buf[r] = '\0';
+                s_ccout.append(buf);
+            }
+
+            if (r == 0) {
+                break;
+            }
+
+            if (r < 0 && errno != EINTR) {
+                break;
+            }
+        }
+
+        colorify_output(s_ccout);
+    }
+
+    int status = 1;
+
+    while (wait4(child_pid, &status, 0, used) < 0 && errno == EINTR) {}
+
+    status = shell_exit_status(status);
+
+    signal(SIGINT, old_sigint);
+    signal(SIGTERM, old_sigterm);
+    signal(SIGQUIT, old_sigquit);
+    signal(SIGHUP, old_sighup);
+
+    if (user_break_signal) {
+        raise(user_break_signal);
+    }
+
+    if (lock_fd) {
+        dcc_unlock(lock_fd);
+    }
+
+    return status;
 }

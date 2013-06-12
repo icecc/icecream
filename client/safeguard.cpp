@@ -1,4 +1,4 @@
-/* -*- c-file-style: "java"; indent-tabs-mode: nil; fill-column: 78 -*-
+/* -*- c-file-style: "java"; indent-tabs-mode: nil; fill-column: 99 -*-
  *
  * distcc -- A simple distributed compiler system
  *
@@ -45,11 +45,13 @@ int dcc_recursion_safeguard(void)
 
     if (env) {
         //trace() << "safeguard: " << env << endl;
-        if (!(dcc_safeguard_level = atoi(env)))
+        if (!(dcc_safeguard_level = atoi(env))) {
             dcc_safeguard_level = 1;
-    }
-    else
+        }
+    } else {
         dcc_safeguard_level = 0;
+    }
+
     //trace() << "safeguard level=" << dcc_safeguard_level << endl;
 
     return dcc_safeguard_level;
@@ -58,8 +60,10 @@ int dcc_recursion_safeguard(void)
 
 void dcc_increment_safeguard(void)
 {
-    if (dcc_safeguard_level > 0)
-        dcc_safeguard_set[sizeof dcc_safeguard_set-2] = dcc_safeguard_level+'1';
+    if (dcc_safeguard_level > 0) {
+        dcc_safeguard_set[sizeof dcc_safeguard_set - 2] = dcc_safeguard_level + '1';
+    }
+
     //trace() << "setting safeguard: " << dcc_safeguard_set << endl;
     if ((putenv(strdup(dcc_safeguard_set)) == -1)) {
         log_error() << "putenv failed" << endl;

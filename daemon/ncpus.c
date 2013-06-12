@@ -1,5 +1,5 @@
 /* -*- c-file-style: "java"; indent-tabs-mode: nil; fill-column: 78 -*-
- * 
+ *
  * distcc -- A simple distributed compiler system
  *
  * Copyright (C) 2003 by Martin Pool <mbp@samba.org>
@@ -50,15 +50,16 @@
 
 int dcc_ncpus(int *ncpus)
 {
-    struct pst_dynamic psd; 
+    struct pst_dynamic psd;
+
     if (pstat_getdynamic(&psd, sizeof(psd), 1, 0) != -1) {
         *ncpus = psd.psd_proc_cnt;
         return 0;
-    } else {
-        rs_log_error("pstat_getdynamic failed: %s", strerror(errno));
-        *ncpus = 1;
-        return EXIT_DISTCC_FAILED;
     }
+
+    rs_log_error("pstat_getdynamic failed: %s", strerror(errno));
+    *ncpus = 1;
+    return EXIT_DISTCC_FAILED;
 }
 
 
@@ -70,22 +71,26 @@ int dcc_ncpus(int *ncpus)
 
 #include <module_info.h>
 
-extern void s$get_module_info (char_varying *module_name, void *mip,
-          short int *code);
+extern void s$get_module_info(char_varying *module_name, void *mip,
+                              short int *code);
 
 int dcc_ncpus(int *ncpus)
 {
-short int code;
-module_info mi;
-char_varying(66) module_name;
+    short int code;
+    module_info mi;
+    char_varying(66) module_name;
 
-     strcpy_vstr_nstr (&module_name, "");
-     mi.version = MODULE_INFO_VERSION_1;
-     s$get_module_info ((char_varying *)&module_name, (void *)&mi, &code);
-     if (code != 0)
-          *ncpus = 1;    /* safe guess... */
-     else *ncpus = mi.n_user_cpus;
-     return 0;
+    strcpy_vstr_nstr(&module_name, "");
+    mi.version = MODULE_INFO_VERSION_1;
+    s$get_module_info((char_varying *)&module_name, (void *)&mi, &code);
+
+    if (code != 0) {
+        *ncpus = 1;    /* safe guess... */
+    } else {
+        *ncpus = mi.n_user_cpus;
+    }
+
+    return 0;
 }
 
 #elif defined(__FreeBSD__) || defined(__FreeBSD_kernel__) || defined(__OpenBSD__) || defined(__NetBSD__) || defined(__APPLE__) || defined(__bsdi__) || defined(__DragonFly__)
@@ -111,19 +116,19 @@ int dcc_ncpus(int *ncpus)
     size_t len = sizeof(*ncpus);
     mib[0] = CTL_HW;
     mib[1] = HW_NCPU;
-    if (sysctl(mib, 2, ncpus, &len, NULL, 0) == 0)
+
+    if (sysctl(mib, 2, ncpus, &len, NULL, 0) == 0) {
         return 0;
-    else {
-#ifdef have_rs_log_error
-        rs_log_error("sysctl(CTL_HW:HW_NCPU) failed: %s",
-                     strerror(errno));
-#else
-	fprintf(stderr,"sysctl(CTL_HW:HW_NCPU) failed: %s",
-			strerror(errno));
-#endif
-        *ncpus = 1;
-        return EXIT_DISTCC_FAILED;
     }
+
+#ifdef have_rs_log_error
+    rs_log_error("sysctl(CTL_HW:HW_NCPU) failed: %s",
+                 strerror(errno));
+#else
+    fprintf(stderr, "sysctl(CTL_HW:HW_NCPU) failed: %s", strerror(errno));
+#endif
+    *ncpus = 1;
+    return EXIT_DISTCC_FAILED;
 }
 
 #else /* every other system */
@@ -147,14 +152,17 @@ int dcc_ncpus(int *ncpus)
 #warning "Please port this function"
     *ncpus = -1;                /* unknown */
 #endif
-    
+
     if (*ncpus == -1) {
         *ncpus = 1;
         return EXIT_DISTCC_FAILED;
-    } else if (*ncpus == 0) {
-	/* if there are no cpus, what are we running on?  But it has
-         * apparently been observed to happen on ARM Linux */
-	*ncpus = 1;
+    }
+
+    if (*ncpus == 0) {
+        /* if there are no cpus, what are we running on?  But it has
+         * apparently been observed to happen on ARM Linux
+         */
+        *ncpus = 1;
     }
 
     return 0;

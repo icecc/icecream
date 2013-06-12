@@ -24,8 +24,8 @@
 class CompileJob;
 
 /* util.c */
-extern int set_cloexec_flag (int desc, int value);
-extern int dcc_ignore_sigpipe (int val);
+extern int set_cloexec_flag(int desc, int value);
+extern int dcc_ignore_sigpipe(int val);
 
 extern std::string find_basename(const std::string &sfile);
 extern std::string find_prefix(const std::string &basename);

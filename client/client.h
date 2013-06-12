@@ -37,29 +37,29 @@ class MsgChannel;
 extern std::string remote_daemon;
 
 /* in remote.cpp */
-extern std::string get_absfilename( const std::string &_file );
+extern std::string get_absfilename(const std::string &_file);
 
 /* In arg.cpp.  */
-extern bool analyse_argv (const char * const *argv, CompileJob &job, bool icerun,
-    std::list<std::string> *extrafiles);
+extern bool analyse_argv(const char * const *argv, CompileJob &job, bool icerun,
+                         std::list<std::string> *extrafiles);
 
 /* In cpp.cpp.  */
-extern pid_t call_cpp (CompileJob &job, int fdwrite, int fdread = -1);
+extern pid_t call_cpp(CompileJob &job, int fdwrite, int fdread = -1);
 
 /* In local.cpp.  */
-extern int build_local (CompileJob& job, MsgChannel *daemon, struct rusage *usage =0);
-extern std::string find_compiler( const CompileJob& job );
-extern bool compiler_is_clang( const CompileJob& job );
-extern bool compiler_only_rewrite_includes( const CompileJob& job );
-extern std::string compiler_path_lookup(const std::string& compiler);
+extern int build_local(CompileJob &job, MsgChannel *daemon, struct rusage *usage = 0);
+extern std::string find_compiler(const CompileJob &job);
+extern bool compiler_is_clang(const CompileJob &job);
+extern bool compiler_only_rewrite_includes(const CompileJob &job);
+extern std::string compiler_path_lookup(const std::string &compiler);
 
 /* In remote.cpp - permill is the probability it will be compiled three times */
-extern int build_remote (CompileJob &job, MsgChannel *scheduler, const Environments &envs, int permill);
+extern int build_remote(CompileJob &job, MsgChannel *scheduler, const Environments &envs, int permill);
 
 /* safeguard.cpp */
 extern void dcc_increment_safeguard(void);
 extern int dcc_recursion_safeguard(void);
 
-extern Environments parse_icecc_version( const std::string &target, const std::string &prefix);
+extern Environments parse_icecc_version(const std::string &target, const std::string &prefix);
 
 #endif
