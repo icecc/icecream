@@ -42,10 +42,10 @@ extern const char *rs_program_name;
 
 #define CLIENT_DEBUG 0
 
-string compiler_path_lookup(const string &compiler)
+static string compiler_path_lookup_helper(const string &compiler, const string &original_compiler)
 {
-    if (compiler.at(0) == '/') {
-        return compiler;
+    if (original_compiler.find_first_of('/') != string::npos) {
+        return original_compiler;
     }
 
     string path = ::getenv("PATH");
@@ -110,6 +110,11 @@ string compiler_path_lookup(const string &compiler)
     return best_match;
 }
 
+string compiler_path_lookup(const string& compiler)
+{
+    return compiler_path_lookup_helper(compiler, compiler);
+}
+
 /*
  * Get the name of the compiler depedant on the
  * language of the job and the environment
@@ -130,7 +135,7 @@ string find_compiler(const CompileJob &job)
         }
     }
 
-    return compiler_path_lookup(job.compilerName());
+    return compiler_path_lookup_helper(job.compilerName(), job.originalCompilerName());
 }
 
 bool compiler_is_clang(const CompileJob &job)

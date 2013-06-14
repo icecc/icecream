@@ -44,6 +44,9 @@ public:
     void setCompilerName(const std::string& name) { m_compiler_name = name; }
     std::string compilerName() const { return m_compiler_name; }
 
+    void setOriginalCompilerName(const std::string& name) { m_original_compiler_name = name; }
+    std::string originalCompilerName() const { return m_original_compiler_name; }
+
     void setLanguage( Language lg ) { m_language = lg; }
     Language language() const { return m_language; }
 
@@ -103,6 +106,7 @@ private:
 
     unsigned int m_id;
     Language m_language;
+    std::string m_original_compiler_name;
     std::string m_compiler_name;
     std::string m_environment_version;
     ArgumentsList m_flags;
