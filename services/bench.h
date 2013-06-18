@@ -1,7 +1,8 @@
 /* this is from gcc testsuite. actually anything that takes a while to compile is fine. */
 
 
-const char icecream_bench_code[] = "\n"
+const char icecream_bench_code[] =
+"\n"
 "\n"
 "unsigned foo(int x[64], int y[64])\n"
 "{\n"

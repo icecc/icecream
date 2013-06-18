@@ -27,42 +27,44 @@ extern "C" {
 
 std::string determine_platform_once()
 {
-    using namespace std;
-    string platform;
+  using namespace std;
+  string platform;
 
-    struct utsname uname_buf;
-    if ( uname( &uname_buf ) ) {
-        log_perror( "uname call failed" );
-        throw( "determine_platform: cannot determine OS version and machine architecture" );
-        // return platform;
-    }
-
-    string os = uname_buf.sysname;
-    if ( os == "Darwin" ) {
-        const std::string release = uname_buf.release;
-        const string::size_type pos = release.find( '.' );
-        if ( pos == string::npos )
-            throw( std::string( "determine_platform: Cannot determine Darwin release from release string \"" ) + release + "\"" );
-        os += release.substr( 0, pos );
-    }
-    if ( os != "Linux" )
-        platform = os + '_' + uname_buf.machine;
-    else // Linux
-        platform = uname_buf.machine;
-
-    while (true)
+  struct utsname uname_buf;
+  if (uname (&uname_buf))
     {
-        string::size_type pos = platform.find(" ");
-        if (pos == string::npos)
-            break;
-        platform.erase(pos, 1);
+      log_perror ("uname call failed");
+      throw ("determine_platform: cannot determine OS version and machine architecture");
+      // return platform;
     }
 
-    return platform;
+  string os = uname_buf.sysname;
+  if (os == "Darwin")
+    {
+      const std::string release = uname_buf.release;
+      const string::size_type pos = release.find ('.');
+      if (pos == string::npos)
+        throw (std::string ("determine_platform: Cannot determine Darwin release from release string \"") + release + "\"");
+      os += release.substr (0, pos);
+    }
+  if (os != "Linux")
+    platform = os + '_' + uname_buf.machine;
+  else // Linux
+    platform = uname_buf.machine;
+
+  while (true)
+    {
+      string::size_type pos = platform.find (" ");
+      if (pos == string::npos)
+        break;
+      platform.erase (pos, 1);
+    }
+
+  return platform;
 }
 
-const std::string& determine_platform()
+const std::string &determine_platform()
 {
-    const static std::string platform( determine_platform_once() );
-    return platform;
+  const static std::string platform (determine_platform_once());
+  return platform;
 }

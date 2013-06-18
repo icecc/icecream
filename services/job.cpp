@@ -26,87 +26,88 @@
 
 using namespace std;
 
-list<string> CompileJob::flags( Argument_Type argumentType ) const
+list<string> CompileJob::flags (Argument_Type argumentType) const
 {
-    list<string> args;
-    for ( ArgumentsList::const_iterator it = m_flags.begin();
-          it != m_flags.end(); ++it )
-        if ( it->second == argumentType )
-            args.push_back( it->first );
-    return args;
+  list<string> args;
+  for (ArgumentsList::const_iterator it = m_flags.begin();
+       it != m_flags.end(); ++it)
+    if (it->second == argumentType)
+      args.push_back (it->first);
+  return args;
 }
 
 list<string> CompileJob::localFlags() const
 {
-    return flags( Arg_Local );
+  return flags (Arg_Local);
 }
 
 list<string> CompileJob::remoteFlags() const
 {
-    return flags( Arg_Remote );
+  return flags (Arg_Remote);
 }
 
 list<string> CompileJob::restFlags() const
 {
-    return flags( Arg_Rest );
+  return flags (Arg_Rest);
 }
 
 list<string> CompileJob::allFlags() const
 {
-    list<string> args;
-    for ( ArgumentsList::const_iterator it = m_flags.begin();
-          it != m_flags.end(); ++it )
-        args.push_back( it->first );
-    return args;
+  list<string> args;
+  for (ArgumentsList::const_iterator it = m_flags.begin();
+       it != m_flags.end(); ++it)
+    args.push_back (it->first);
+  return args;
 }
 
 void CompileJob::__setTargetPlatform()
 {
-    m_target_platform = determine_platform();
+  m_target_platform = determine_platform();
 }
 
 unsigned int CompileJob::argumentFlags() const
 {
-    unsigned int result = Flag_None;
+  unsigned int result = Flag_None;
 
-    for ( ArgumentsList::const_iterator it = m_flags.begin();
-          it != m_flags.end(); ++it )
+  for (ArgumentsList::const_iterator it = m_flags.begin();
+       it != m_flags.end(); ++it)
     {
-        const string arg = it->first;
-        if ( arg.at( 0 ) == '-' )
+      const string arg = it->first;
+      if (arg.at (0) == '-')
         {
-	    if (arg.length() == 1)
-		continue;
+          if (arg.length() == 1)
+            continue;
 
-            if ( arg.at( 1 ) == 'g' )
+          if (arg.at (1) == 'g')
             {
-                if ( arg.length() > 2 && arg.at( 2 ) == '3' )
+              if (arg.length() > 2 && arg.at (2) == '3')
                 {
-                    result &= ~Flag_g;
-                    result |= Flag_g3;
+                  result &= ~Flag_g;
+                  result |= Flag_g3;
                 }
-                else
+              else
                 {
-                    result &= ~Flag_g3;
-                    result |= Flag_g;
+                  result &= ~Flag_g3;
+                  result |= Flag_g;
                 }
             }
-            else if ( arg.at( 1 ) == 'O' )
+          else if (arg.at (1) == 'O')
             {
-                result &= ~( Flag_O | Flag_O2 | Flag_Ol2 );
-                if ( arg.length() == 2)
-			result |= Flag_O;
-		else {
-	            assert(arg.length() > 2);
-		    if (arg.at( 2 ) == '2' )
-                       result |= Flag_O2;
-                    else if ( arg.at( 2 ) == '1')
-                    	result |= Flag_O;
-		    else if ( arg.at( 2 ) != '0')
-                        result |= Flag_Ol2;
-		}
+              result &= ~ (Flag_O | Flag_O2 | Flag_Ol2);
+              if (arg.length() == 2)
+                result |= Flag_O;
+              else
+                {
+                  assert (arg.length() > 2);
+                  if (arg.at (2) == '2')
+                    result |= Flag_O2;
+                  else if (arg.at (2) == '1')
+                    result |= Flag_O;
+                  else if (arg.at (2) != '0')
+                    result |= Flag_Ol2;
+                }
             }
         }
     }
-    return result;
+  return result;
 }
