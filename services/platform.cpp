@@ -31,38 +31,47 @@ std::string determine_platform_once()
     string platform;
 
     struct utsname uname_buf;
-    if ( uname( &uname_buf ) ) {
-        log_perror( "uname call failed" );
-        throw( "determine_platform: cannot determine OS version and machine architecture" );
+
+    if (uname(&uname_buf)) {
+        log_perror("uname call failed");
+        throw("determine_platform: cannot determine OS version and machine architecture");
         // return platform;
     }
 
     string os = uname_buf.sysname;
-    if ( os == "Darwin" ) {
-        const std::string release = uname_buf.release;
-        const string::size_type pos = release.find( '.' );
-        if ( pos == string::npos )
-            throw( std::string( "determine_platform: Cannot determine Darwin release from release string \"" ) + release + "\"" );
-        os += release.substr( 0, pos );
-    }
-    if ( os != "Linux" )
-        platform = os + '_' + uname_buf.machine;
-    else // Linux
-        platform = uname_buf.machine;
 
-    while (true)
-    {
+    if (os == "Darwin") {
+        const std::string release = uname_buf.release;
+        const string::size_type pos = release.find('.');
+
+        if (pos == string::npos) {
+            throw(std::string("determine_platform: Cannot determine Darwin release from release string \"") + release + "\"");
+        }
+
+        os += release.substr(0, pos);
+    }
+
+    if (os != "Linux") {
+        platform = os + '_' + uname_buf.machine;
+    } else { // Linux
+        platform = uname_buf.machine;
+    }
+
+    while (true) {
         string::size_type pos = platform.find(" ");
-        if (pos == string::npos)
+
+        if (pos == string::npos) {
             break;
+        }
+
         platform.erase(pos, 1);
     }
 
     return platform;
 }
 
-const std::string& determine_platform()
+const std::string &determine_platform()
 {
-    const static std::string platform( determine_platform_once() );
+    const static std::string platform(determine_platform_once());
     return platform;
 }
