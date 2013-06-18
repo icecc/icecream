@@ -1,5 +1,5 @@
 /* -*- c-file-style: "java"; indent-tabs-mode: nil; fill-column: 78 -*-
- * 
+ *
  * distcc -- A simple distributed compiler system
  *
  * Copyright (C) 2002, 2003 by Martin Pool <mbp@samba.org>
@@ -27,12 +27,12 @@
 /*
  Converts exit status from waitpid() to exit status to be returned by the process.
 */
-int shell_exit_status( int status )
+int shell_exit_status (int status)
 {
-    if( WIFEXITED( status ))
-        return WEXITSTATUS( status );
-    else if( WIFSIGNALED( status ))
-        return WTERMSIG( status ) + 128; // shell does this
-    else
-        return -1;
+  if (WIFEXITED (status))
+    return WEXITSTATUS (status);
+  else if (WIFSIGNALED (status))
+    return WTERMSIG (status) + 128;   // shell does this
+  else
+    return -1;
 }

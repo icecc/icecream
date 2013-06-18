@@ -73,11 +73,11 @@ __ifreq (struct ifreq **ifreqs, int *num_ifs, int sockfd)
       ifc.ifc_buf = NULL;
       ifc.ifc_len = 0;
       if (ioctl (fd, SIOCGIFCONF, &ifc) < 0 || ifc.ifc_len == 0)
-	{
-	  rq_len = RQ_IFS * sizeof (struct ifreq);
-	}
+        {
+          rq_len = RQ_IFS * sizeof (struct ifreq);
+        }
       else
-	rq_len = ifc.ifc_len;
+        rq_len = ifc.ifc_len;
     }
   else
     rq_len = RQ_IFS * sizeof (struct ifreq);
@@ -86,22 +86,22 @@ __ifreq (struct ifreq **ifreqs, int *num_ifs, int sockfd)
   while (1)
     {
       ifc.ifc_len = rq_len;
-      ifc.ifc_buf = (char*) realloc (ifc.ifc_buf, ifc.ifc_len);
+      ifc.ifc_buf = (char *) realloc (ifc.ifc_buf, ifc.ifc_len);
       if (ifc.ifc_buf == NULL || ioctl (fd, SIOCGIFCONF, &ifc) < 0)
-	{
-	  if (ifc.ifc_buf)
-	    free (ifc.ifc_buf);
+        {
+          if (ifc.ifc_buf)
+            free (ifc.ifc_buf);
 
-	  if (fd != sockfd)
-	    close (fd);
+          if (fd != sockfd)
+            close (fd);
 
-	  *num_ifs = 0;
-	  *ifreqs = NULL;
-	  return;
-	}
+          *num_ifs = 0;
+          *ifreqs = NULL;
+          return;
+        }
 
       if (!old_siocgifconf || ifc.ifc_len < rq_len)
-	break;
+        break;
 
       rq_len *= 2;
     }
@@ -112,7 +112,7 @@ __ifreq (struct ifreq **ifreqs, int *num_ifs, int sockfd)
     close (fd);
 
   *num_ifs = nifs;
-  *ifreqs = (ifreq*)realloc (ifc.ifc_buf, nifs * sizeof (struct ifreq));
+  *ifreqs = (ifreq *) realloc (ifc.ifc_buf, nifs * sizeof (struct ifreq));
 }
 
 static inline struct ifreq *
@@ -144,7 +144,7 @@ kde_getifaddrs (struct kde_ifaddrs **ifap)
     return -1;
 
   __ifreq (&ifreqs, &nifs, fd);
-  if (ifreqs == NULL)		/* XXX doesn't distinguish error vs none */
+  if (ifreqs == NULL)  /* XXX doesn't distinguish error vs none */
     {
       close (fd);
       return -1;
@@ -158,87 +158,88 @@ kde_getifaddrs (struct kde_ifaddrs **ifap)
     {
       struct Storage
       {
-	struct kde_ifaddrs ia;
-	struct sockaddr addr, netmask, broadaddr;
-	char name[IF_NAMESIZE];
+        struct kde_ifaddrs ia;
+        struct sockaddr addr, netmask, broadaddr;
+        char name[IF_NAMESIZE];
       } *storage;
       struct ifreq *ifr;
       int i;
 
-      storage = (Storage*) malloc (nifs * sizeof storage[0]);
+      storage = (Storage *) malloc (nifs * sizeof storage[0]);
       if (storage == NULL)
-	{
-	  close (fd);
-	  __if_freereq (ifreqs, nifs);
-	  return -1;
-	}
+        {
+          close (fd);
+          __if_freereq (ifreqs, nifs);
+          return -1;
+        }
 
       i = 0;
       ifr = ifreqs;
       do
-	{
-	  /* Fill in all pointers to the storage we've already allocated.  */
-	  storage[i].ia.ifa_next = &storage[i + 1].ia;
-	  storage[i].ia.ifa_addr = &storage[i].addr;
-	  storage[i].ia.ifa_netmask = &storage[i].netmask;
-	  storage[i].ia.ifa_broadaddr = &storage[i].broadaddr; /* & dstaddr */
+        {
+          /* Fill in all pointers to the storage we've already allocated.  */
+          storage[i].ia.ifa_next = &storage[i + 1].ia;
+          storage[i].ia.ifa_addr = &storage[i].addr;
+          storage[i].ia.ifa_netmask = &storage[i].netmask;
+          storage[i].ia.ifa_broadaddr = &storage[i].broadaddr; /* & dstaddr */
 
-	  /* Now copy the information we already have from SIOCGIFCONF.  */
-	  storage[i].ia.ifa_name = strncpy (storage[i].name, ifr->ifr_name,
-					    sizeof storage[i].name);
-	  storage[i].addr = ifr->ifr_addr;
+          /* Now copy the information we already have from SIOCGIFCONF.  */
+          storage[i].ia.ifa_name = strncpy (storage[i].name, ifr->ifr_name,
+                                            sizeof storage[i].name);
+          storage[i].addr = ifr->ifr_addr;
 
-	  /* The SIOCGIFCONF call filled in only the name and address.
-	     Now we must also ask for the other information we need.  */
+          /* The SIOCGIFCONF call filled in only the name and address.
+             Now we must also ask for the other information we need.  */
 
-	  if (ioctl (fd, SIOCGIFFLAGS, ifr) < 0)
-	    break;
-	  storage[i].ia.ifa_flags = ifr->ifr_flags;
+          if (ioctl (fd, SIOCGIFFLAGS, ifr) < 0)
+            break;
+          storage[i].ia.ifa_flags = ifr->ifr_flags;
 
-	  ifr->ifr_addr = storage[i].addr;
+          ifr->ifr_addr = storage[i].addr;
 
-	  if (ioctl (fd, SIOCGIFNETMASK, ifr) < 0)
-	    break;
-	  storage[i].netmask = ifr->ifr_netmask;
+          if (ioctl (fd, SIOCGIFNETMASK, ifr) < 0)
+            break;
+          storage[i].netmask = ifr->ifr_netmask;
 
-	  if (ifr->ifr_flags & IFF_BROADCAST)
-	    {
-	      ifr->ifr_addr = storage[i].addr;
-	      if (ioctl (fd, SIOCGIFBRDADDR, ifr) < 0)
-		break;
-	      storage[i].broadaddr = ifr->ifr_broadaddr;
-	    }
-	  else if (ifr->ifr_flags & IFF_POINTOPOINT)
-	    {
-	      ifr->ifr_addr = storage[i].addr;
+          if (ifr->ifr_flags & IFF_BROADCAST)
+            {
+              ifr->ifr_addr = storage[i].addr;
+              if (ioctl (fd, SIOCGIFBRDADDR, ifr) < 0)
+                break;
+              storage[i].broadaddr = ifr->ifr_broadaddr;
+            }
+          else if (ifr->ifr_flags & IFF_POINTOPOINT)
+            {
+              ifr->ifr_addr = storage[i].addr;
 // Needed on Cygwin
-#ifndef SIOCGIFDSTADDR 
-  #define SIOCGIFDSTADDR 0x8917
+#ifndef SIOCGIFDSTADDR
+#define SIOCGIFDSTADDR 0x8917
 #endif
-	      if (ioctl (fd, SIOCGIFDSTADDR, ifr) < 0)
-		break;
+              if (ioctl (fd, SIOCGIFDSTADDR, ifr) < 0)
+                break;
 #if HAVE_IFR_DSTADDR
-	      storage[i].broadaddr = ifr->ifr_dstaddr;
+              storage[i].broadaddr = ifr->ifr_dstaddr;
 #else
-	      // Fix for Cygwin
-	      storage[i].broadaddr = ifr->ifr_broadaddr;
+              // Fix for Cygwin
+              storage[i].broadaddr = ifr->ifr_broadaddr;
 #endif
-	    }
-	  else
-	    /* Just 'cause.  */
-	    memset (&storage[i].broadaddr, 0, sizeof storage[i].broadaddr);
+            }
+          else
+            /* Just 'cause.  */
+            memset (&storage[i].broadaddr, 0, sizeof storage[i].broadaddr);
 
-	  storage[i].ia.ifa_data = NULL; /* Nothing here for now.  */
+          storage[i].ia.ifa_data = NULL; /* Nothing here for now.  */
 
-	  ifr = __if_nextreq (ifr);
-	} while (++i < nifs);
+          ifr = __if_nextreq (ifr);
+        }
+      while (++i < nifs);
       if (i < nifs)		/* Broke out early on error.  */
-	{
-	  close (fd);
-	  free (storage);
-	  __if_freereq (ifreqs, nifs);
-	  return -1;
-	}
+        {
+          close (fd);
+          free (storage);
+          __if_freereq (ifreqs, nifs);
+          return -1;
+        }
 
       storage[i - 1].ia.ifa_next = NULL;
 
@@ -258,13 +259,18 @@ kde_freeifaddrs (struct kde_ifaddrs *ifa)
 }
 
 #else
-int kde_getifaddrs(struct kde_ifaddrs **) {
-	return 1;
+int
+kde_getifaddrs (struct kde_ifaddrs **)
+{
+  return 1;
 }
-void kde_freeifaddrs(struct kde_ifaddrs *) {
-}
-struct { } kde_ifaddrs;
 
+void
+kde_freeifaddrs (struct kde_ifaddrs *)
+{
+}
+
+struct { } kde_ifaddrs;
 #endif
 
 #endif

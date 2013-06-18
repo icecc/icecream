@@ -36,118 +36,124 @@ ostream *logfile_warning = 0;
 ostream *logfile_error = 0;
 string logfile_prefix;
 
-static ofstream logfile_null( "/dev/null" );
+static ofstream logfile_null ("/dev/null");
 static ofstream logfile_file;
 static string logfile_filename;
 
-void reset_debug( int );
+void reset_debug (int);
 
-void setup_debug(int level, const string &filename, const string& prefix)
+void setup_debug (int level, const string &filename, const string &prefix)
 {
-    string fname = filename;
-    debug_level = level;
-    logfile_prefix = prefix;
-    logfile_filename = filename;
+  string fname = filename;
+  debug_level = level;
+  logfile_prefix = prefix;
+  logfile_filename = filename;
 
-    if ( logfile_file.is_open() )
-        logfile_file.close();
-    ostream *output = 0;
-    if ( filename.length() ) {
-	logfile_file.clear();
-        logfile_file.open( filename.c_str(), fstream::out | fstream::app );
+  if (logfile_file.is_open())
+    logfile_file.close();
+  ostream *output = 0;
+  if (filename.length())
+    {
+      logfile_file.clear();
+      logfile_file.open (filename.c_str(), fstream::out | fstream::app);
 #ifdef __linux__
-        if (fname[0] != '/') {
-            char buf[256];
-            if (getcwd(buf, sizeof(buf))) {
-                fname.insert(0, "/");
-                fname.insert(0, buf);
+      if (fname[0] != '/')
+        {
+          char buf[256];
+          if (getcwd (buf, sizeof (buf)))
+            {
+              fname.insert (0, "/");
+              fname.insert (0, buf);
             }
         }
-        setenv("SEGFAULT_OUTPUT_NAME", fname.c_str(), false);
+      setenv ("SEGFAULT_OUTPUT_NAME", fname.c_str(), false);
 #endif
-        output = &logfile_file;
-    } else
-        output = &cerr;
+      output = &logfile_file;
+    }
+  else
+    output = &cerr;
 
 #ifdef __linux__
-    (void) dlopen("libSegFault.so", RTLD_NOW | RTLD_LOCAL);
+  (void) dlopen ("libSegFault.so", RTLD_NOW | RTLD_LOCAL);
 #endif
 
-    if ( debug_level & Debug )
-        logfile_trace = output;
-    else
-        logfile_trace = &logfile_null;
+  if (debug_level & Debug)
+    logfile_trace = output;
+  else
+    logfile_trace = &logfile_null;
 
-    if ( debug_level & Info )
-        logfile_info = output;
-    else
-        logfile_info = &logfile_null;
+  if (debug_level & Info)
+    logfile_info = output;
+  else
+    logfile_info = &logfile_null;
 
-    if ( debug_level & Warning )
-        logfile_warning = output;
-    else
-        logfile_warning = &logfile_null;
+  if (debug_level & Warning)
+    logfile_warning = output;
+  else
+    logfile_warning = &logfile_null;
 
-    if ( debug_level & Error )
-        logfile_error = output;
-    else
-        logfile_error = &logfile_null;
+  if (debug_level & Error)
+    logfile_error = output;
+  else
+    logfile_error = &logfile_null;
 
-    signal( SIGHUP, reset_debug );
+  signal (SIGHUP, reset_debug);
 }
 
-void reset_debug( int )
+void reset_debug (int)
 {
-    setup_debug(debug_level, logfile_filename);
+  setup_debug (debug_level, logfile_filename);
 }
 
 void close_debug()
 {
-    if (logfile_null.is_open())
-        logfile_null.close();
-    if (logfile_file.is_open())
-        logfile_file.close();
+  if (logfile_null.is_open())
+    logfile_null.close();
+  if (logfile_file.is_open())
+    logfile_file.close();
 
-    logfile_trace = logfile_info = logfile_warning = logfile_error = 0;
+  logfile_trace = logfile_info = logfile_warning = logfile_error = 0;
 }
 
 /* Flushes all ostreams used for debug messages.  You need to call
    this before forking.  */
 void flush_debug()
 {
-    if (logfile_null.is_open())
-        logfile_null.flush();
-    if (logfile_file.is_open())
-        logfile_file.flush();
+  if (logfile_null.is_open())
+    logfile_null.flush();
+  if (logfile_file.is_open())
+    logfile_file.flush();
 }
 
 #ifdef HAVE_BACKTRACE
 #include <execinfo.h>
 #endif
 
-string get_backtrace() {
-    string s;
+string get_backtrace()
+{
+  string s;
 
 #ifdef HAVE_BACKTRACE
-    void* trace[256];
-    int n = backtrace(trace, 256);
-    if (!n)
-        return s;
-    char** strings = backtrace_symbols (trace, n);
+  void* trace[256];
+  int n = backtrace (trace, 256);
+  if (!n)
+    return s;
+  char** strings = backtrace_symbols (trace, n);
 
-    s = "[\n";
+  s = "[\n";
 
-    for (int i = 0; i < n; ++i) {
-        s += ": ";
-        s += strings[i];
-        s += "\n";
+  for (int i = 0; i < n; ++i)
+    {
+      s += ": ";
+      s += strings[i];
+      s += "\n";
     }
-    s += "]\n";
-    if (strings)
-        free (strings);
+  s += "]\n";
+  if (strings)
+    free (strings);
 #endif
 
-    return s;
+  return s;
 }
 
 unsigned log_block::nesting;
