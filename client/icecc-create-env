@@ -282,7 +282,7 @@ if test -n "$clang"; then
     # clang always uses its internal .h files
     clangincludes=$(dirname $($added_clang -print-file-name=include/limits.h))
     clangprefix=$(dirname $(dirname $added_clang))
-    for file in $clangincludes/*; do
+    for file in $(find $clangincludes -type f); do
       # get path without ..
       # readlink is not portable enough. 
       destfile=$(abs_path $file)
