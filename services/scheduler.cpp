@@ -758,17 +758,26 @@ pick_server(Job *job)
         return 0;
     }
 
-  /* If we have no statistics simply use the first server which is usable.  */
+  /* If we have no statistics simply use any server which is usable.  */
   if (!all_job_stats.size ())
     {
+      CS* selected = NULL;
+      int elligible_count = 0;
       for (it = css.begin(); it != css.end(); ++it)
         {
-          trace() << "no job stats - looking at " << ( *it )->nodename << " load: " << (*it )->load << " can install: " << can_install( *it, job ) << endl;
           if ((*it)->is_eligible( job ))
             {
-              trace() << "returning first " << ( *it )->nodename << endl;
-              return *it;
+              ++elligible_count;
+              // Do not select the first one (which could be broken and so we might never get job stats),
+              // but rather select randomly.
+              if( random() % elligible_count == 0 )
+                selected = *it;
             }
+        }
+      if( selected != NULL )
+        {
+          trace() << "no job stats - returning randomly selected " << selected->nodename << " load: " << selected->load << " can install: " << can_install( selected, job ) << endl;
+          return selected;
         }
       return 0;
     }
