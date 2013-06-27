@@ -543,11 +543,16 @@ bool Daemon::setup_listen_fds()
     memset(&myaddr, 0, sizeof(myaddr));
     myaddr.sun_family = AF_UNIX;
     mode_t old_umask = -1U;
-    if (access("/var/run/icecc", R_OK|W_OK|X_OK) == 0) {
+#ifdef HAVE_LIBCAP_NG
+    // We run as system daemon.
+    if (capng_have_capability( CAPNG_PERMITTED, CAP_SYS_CHROOT )) {
+#else
+    if (getuid()==0) {
+#endif
         strncpy(myaddr.sun_path, "/var/run/icecc/iceccd.socket", sizeof(myaddr.sun_path)-1);
         unlink(myaddr.sun_path);
         old_umask = umask(0);
-    } else {
+    } else { // Started by user.
         strncpy(myaddr.sun_path, getenv("HOME"), sizeof(myaddr.sun_path)-1);
         strncat(myaddr.sun_path, "/.iceccd.socket", sizeof(myaddr.sun_path)-1-strlen(myaddr.sun_path));
         unlink(myaddr.sun_path);
@@ -1785,22 +1790,16 @@ int main( int argc, char ** argv )
 
     if (getuid() == 0) {
         if (!logfile.length() && detach) {
-            if (mkdir("/var/log/icecc", S_IRWXU|S_IRGRP|S_IXGRP|S_IROTH|S_IXOTH)) {
-                if (errno == EEXIST) {
-                    chmod("/var/log/icecc", S_IRWXU|S_IRGRP|S_IXGRP|S_IROTH|S_IXOTH);
-                    chown("/var/log/icecc", d.user_uid, d.user_gid);
-                }
-            }
-
+            mkdir("/var/log/icecc", S_IRWXU|S_IRGRP|S_IXGRP|S_IROTH|S_IXOTH);
+            chmod("/var/log/icecc", S_IRWXU|S_IRGRP|S_IXGRP|S_IROTH|S_IXOTH);
+            chown("/var/log/icecc", d.user_uid, d.user_gid);
             logfile = "/var/log/icecc/iceccd.log";
         }
 
-        if (mkdir("/var/run/icecc", S_IRWXU|S_IRGRP|S_IXGRP|S_IROTH|S_IXOTH) == -1) {
-            if (errno == EEXIST) {
-                chmod("/var/run/icecc", S_IRWXU|S_IRGRP|S_IXGRP|S_IROTH|S_IXOTH);
-                chown("/var/run/icecc", d.user_uid, d.user_gid);
-            }
-        }
+        mkdir("/var/run/icecc", S_IRWXU|S_IRGRP|S_IXGRP|S_IROTH|S_IXOTH);
+        chmod("/var/run/icecc", S_IRWXU|S_IRGRP|S_IXGRP|S_IROTH|S_IXOTH);
+        chown("/var/run/icecc", d.user_uid, d.user_gid);
+
 #ifdef HAVE_LIBCAP_NG
         capng_clear(CAPNG_SELECT_BOTH);
         capng_update(CAPNG_ADD, (capng_type_t)(CAPNG_EFFECTIVE|CAPNG_PERMITTED), CAP_SYS_CHROOT);
