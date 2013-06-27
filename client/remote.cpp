@@ -163,12 +163,12 @@ rip_out_paths(const Environments &envs, map<string, string> &version_map, map<st
 
     Environments env2;
 
-    static const char *suffs[] = { ".tar.bz2", ".tar.gz", ".tar", ".tgz" };
+    static const char *suffs[] = { ".tar.bz2", ".tar.gz", ".tar", ".tgz", NULL };
 
     string versfile;
 
     for (Environments::const_iterator it = envs.begin(); it != envs.end(); ++it) {
-        for (int i = 0; i < 3; i++)
+        for (int i = 0; suffs[i] != NULL; i++)
             if (endswith(it->second, suffs[i], versfile)) {
                 versionfile_map[it->first] = it->second;
                 versfile = find_basename(versfile);
