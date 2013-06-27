@@ -284,6 +284,7 @@ int main(int argc, char **argv)
 
             if (arg.size() > 0) {
                 job.setCompilerName(arg);
+                job.setOriginalCompilerName(arg);
             }
         }
     } else if (find_basename(compiler_name) == "icerun") {
