@@ -61,9 +61,6 @@ In case this should not work, here are some links to download Icecream:
 -   [openSUSE Icecream node
     LiveCD](http://forgeftp.novell.com/kiwi-ltsp/icecream/)
 
-If you have questions not answered here, feel free to contact
-icecream-users@googlegroups.com  (icecream-users+subscribe@googlegroups.com).
-
 How to use icecream
 ---------------------------------------------------------------------------------------
 
