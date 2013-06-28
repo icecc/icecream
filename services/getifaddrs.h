@@ -1,3 +1,5 @@
+/* -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; fill-column: 99; -*- */
+/* vim: set ts=4 sw=4 et tw=99:  */
 /* ifaddrs.h -- declarations for getting network interface addresses
    Copyright (C) 2002 Free Software Foundation, Inc.
    This file is part of the GNU C Library.

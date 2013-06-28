@@ -1,5 +1,6 @@
-/* -*- c-file-style: "java"; indent-tabs-mode: nil -*-
- *
+/* -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; fill-column: 99; -*- */
+/* vim: set ts=4 sw=4 et tw=99:  */
+/*
  * icecc -- A simple distributed compiler system
  *
  * Copyright (C) 2003, 2004 by the Icecream Authors

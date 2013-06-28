@@ -1,3 +1,5 @@
+/* -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; fill-column: 99; -*- */
+/* vim: set ts=4 sw=4 et tw=99:  */
 /*
     Copyright (c) 1999, 2000 Chris Schlaeger <cs@kde.org>
     Copyright (c) 2003 Stephan Kulow <coolo@kde.org>

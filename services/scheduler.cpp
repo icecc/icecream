@@ -1,5 +1,5 @@
-/*  -*- mode: C++; c-file-style: "gnu"; fill-column: 78 -*- */
-/* vim:cinoptions={.5s,g0,p5,t0,(0,^-0.5s,n-0.5s:tw=78:cindent:sw=4: */
+/* -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; fill-column: 99; -*- */
+/* vim: set ts=4 sw=4 et tw=99:  */
 /*
     This file is part of Icecream.
 
