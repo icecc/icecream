@@ -43,6 +43,7 @@ Table of Contents
 -   [Icecream on gentoo](#Icecream_on_gentoo)
 -   [Bug tracker](#Bug_tracker)
 -   [Repository](#Repository)
+-   [Mailing list](#Mailing_list)
 
 Installation
 -------------------------------------------------------------------------
@@ -525,3 +526,8 @@ Repository
 ---------------------------------------------------------------------
 
 The git repository lives at https://github.com/icecc/icecream
+
+Mailing list
+-----------------------------------------------------------------------
+
+icecream-users@googlegroups.com  (icecream-users+subscribe@googlegroups.com)
