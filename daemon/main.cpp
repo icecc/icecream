@@ -1,4 +1,6 @@
-/* -*- c-file-style: "java"; indent-tabs-mode: nil -*-
+/* -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; fill-column: 99; -*- */
+/* vim: set ts=4 sw=4 et tw=99:  */
+/*
     This file is part of Icecream.
 
     Copyright (c) 2004 Stephan Kulow <coolo@suse.de>

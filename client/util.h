@@ -1,5 +1,6 @@
-/* -*- c-file-style: "java"; indent-tabs-mode: nil -*-
- *
+/* -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; fill-column: 99; -*- */
+/* vim: set ts=4 sw=4 et tw=99:  */
+/*
  * distcc -- A simple distributed compiler system
  *
  * Copyright (C) 2002, 2003 by Martin Pool <mbp@samba.org>

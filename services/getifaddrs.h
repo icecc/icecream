@@ -1,3 +1,5 @@
+/* -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; fill-column: 99; -*- */
+/* vim: set ts=4 sw=4 et tw=99:  */
 /* ifaddrs.h -- declarations for getting network interface addresses
    Copyright (C) 2002 Free Software Foundation, Inc.
    This file is part of the GNU C Library.
@@ -31,16 +33,16 @@
 #include <sys/socket.h>
 #include <net/if.h>
 
-#ifndef IFF_POINTOPOINT 
+#ifndef IFF_POINTOPOINT
 #   define IFF_POINTOPOINT 0x10
 #endif
 
 #ifdef HAVE_IFADDRS_H
 #include <ifaddrs.h>
 
-#define kde_getifaddrs(a)  getifaddrs(a)
+#define kde_getifaddrs(a) getifaddrs(a)
 #define kde_freeifaddrs(a) freeifaddrs(a)
-#define kde_ifaddrs        ifaddrs
+#define kde_ifaddrs ifaddrs
 
 #else
 
@@ -52,34 +54,34 @@
 
 /* The `getifaddrs' function generates a linked list of these structures.
    Each element of the list describes one network interface.  */
-struct kde_ifaddrs
-{
-  struct kde_ifaddrs *ifa_next;	/* Pointer to the next structure.  */
+struct kde_ifaddrs {
+    struct kde_ifaddrs *ifa_next; /* Pointer to the next structure.  */
 
-  char *ifa_name;		/* Name of this network interface.  */
-  unsigned int ifa_flags;	/* Flags as from SIOCGIFFLAGS ioctl.  */
+    char *ifa_name;       /* Name of this network interface.  */
+    unsigned int ifa_flags;   /* Flags as from SIOCGIFFLAGS ioctl.  */
 
-  struct sockaddr *ifa_addr;	/* Network address of this interface.  */
-  struct sockaddr *ifa_netmask; /* Netmask of this interface.  */
-  union
-  {
-    /* At most one of the following two is valid.  If the IFF_BROADCAST
-       bit is set in `ifa_flags', then `ifa_broadaddr' is valid.  If the
-       IFF_POINTOPOINT bit is set, then `ifa_dstaddr' is valid.
-       It is never the case that both these bits are set at once.  */
-    struct sockaddr *ifu_broadaddr; /* Broadcast address of this interface. */
-    struct sockaddr *ifu_dstaddr; /* Point-to-point destination address.  */
-  } ifa_ifu;
-  /* These very same macros are defined by <net/if.h> for `struct ifaddr'.
-     So if they are defined already, the existing definitions will be fine.  */
+    struct sockaddr *ifa_addr;    /* Network address of this interface.  */
+    struct sockaddr *ifa_netmask; /* Netmask of this interface.  */
+
+    union {
+        /* At most one of the following two is valid.  If the IFF_BROADCAST
+           bit is set in `ifa_flags', then `ifa_broadaddr' is valid.  If the
+           IFF_POINTOPOINT bit is set, then `ifa_dstaddr' is valid.
+           It is never the case that both these bits are set at once.  */
+        struct sockaddr *ifu_broadaddr; /* Broadcast address of this interface. */
+        struct sockaddr *ifu_dstaddr; /* Point-to-point destination address.  */
+    } ifa_ifu;
+
+    /* These very same macros are defined by <net/if.h> for `struct ifaddr'.
+       So if they are defined already, the existing definitions will be fine.  */
 # ifndef ifa_broadaddr
-#  define ifa_broadaddr	ifa_ifu.ifu_broadaddr
+#  define ifa_broadaddr ifa_ifu.ifu_broadaddr
 # endif
 # ifndef ifa_dstaddr
-#  define ifa_dstaddr	ifa_ifu.ifu_dstaddr
+#  define ifa_dstaddr ifa_ifu.ifu_dstaddr
 # endif
 
-  void *ifa_data;		/* Address-specific data (may be unused).  */
+    void *ifa_data;       /* Address-specific data (may be unused).  */
 };
 
 
@@ -89,12 +91,11 @@ struct kde_ifaddrs
 
    The storage returned in *IFAP is allocated dynamically and can
    only be properly freed by passing it to `freeifaddrs'.  */
-extern int kde_getifaddrs (struct kde_ifaddrs **__ifap);
+extern int kde_getifaddrs(struct kde_ifaddrs **__ifap);
 
 /* Reclaim the storage allocated by a previous `getifaddrs' call.  */
-extern void kde_freeifaddrs (struct kde_ifaddrs *__ifa);
+extern void kde_freeifaddrs(struct kde_ifaddrs *__ifa);
 
 #endif
 
 #endif
-

@@ -1,5 +1,6 @@
-/* -*- c-file-style: "java"; indent-tabs-mode: nil -*-
- * 
+/* -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; fill-column: 99; -*- */
+/* vim: set ts=4 sw=4 et tw=99:  */
+/*
  * distcc -- A simple distributed compiler system
  *
  * Copyright (C) 2002, 2003 by Martin Pool <mbp@samba.org>
@@ -20,11 +21,11 @@
  */
 
 
-                /* "More computing sins are committed in the name of
-                 * efficiency (without necessarily achieving it) than
-                 * for any other single reason - including blind
-                 * stupidity."  -- W.A. Wulf
-                 */
+/* "More computing sins are committed in the name of
+ * efficiency (without necessarily achieving it) than
+ * for any other single reason - including blind
+ * stupidity."  -- W.A. Wulf
+ */
 
 
 
@@ -59,9 +60,7 @@
  * The file will be reopened later, possibly in a child.  But we know
  * that it exists with appropriately tight permissions.
  **/
-int dcc_make_tmpnam(const char *prefix,
-                    const char *suffix,
-                    char **name_ret, int relative)
+int dcc_make_tmpnam(const char *prefix, const char *suffix, char **name_ret, int relative)
 {
     unsigned long random_bits;
     unsigned long tries = 0;
@@ -71,6 +70,7 @@ int dcc_make_tmpnam(const char *prefix,
 
     tmpname_length = strlen(_PATH_TMP) + 1 + strlen(prefix) + 1 + 8 + strlen(suffix) + 1;
     tmpname = malloc(tmpname_length);
+
     if (!tmpname) {
         return EXIT_OUT_OF_MEMORY;
     }
@@ -94,10 +94,10 @@ int dcc_make_tmpnam(const char *prefix,
 
     do {
         if (snprintf(tmpname, tmpname_length, "%s/%s_%08lx%s",
-                     ( relative ? _PATH_TMP + 1 : _PATH_TMP ),
-                      prefix,
-                      random_bits & 0xffffffffUL,
-                      suffix) == -1) {
+                     (relative ? _PATH_TMP + 1 : _PATH_TMP),
+                     prefix,
+                     random_bits & 0xffffffffUL,
+                     suffix) == -1) {
             free(tmpname);
             return EXIT_OUT_OF_MEMORY;
         }
@@ -108,32 +108,38 @@ int dcc_make_tmpnam(const char *prefix,
          * The permissions are tight because nobody but this process
          * and our children should do anything with it. */
         fd = open(tmpname, O_WRONLY | O_CREAT | O_EXCL, 0600);
+
         if (fd == -1) {
-	    /* Don't try getting a file too often.  Safety net against
-	       endless loops. Probably just paranoia.  */
-	    if (++tries > 1000000) {
-	      free(tmpname);
-	      return EXIT_IO_ERROR;
+            /* Don't try getting a file too often.  Safety net against
+               endless loops. Probably just paranoia.  */
+            if (++tries > 1000000) {
+                free(tmpname);
+                return EXIT_IO_ERROR;
             }
-	    /* Some errors won't change by changing the filename,
-	       e.g. ENOENT means that the directory where we try to create
-	       the file was removed from under us.  Don't endlessly loop
-	       in that case.  */
+
+            /* Some errors won't change by changing the filename,
+               e.g. ENOENT means that the directory where we try to create
+               the file was removed from under us.  Don't endlessly loop
+               in that case.  */
             switch (errno) {
-	      case EACCES: case EEXIST: case EISDIR: case ELOOP: 
-		/* try again */
-		random_bits += 7777; /* fairly prime */
-		continue;
-	    }
-	    free(tmpname);
-	    return EXIT_IO_ERROR;
+            case EACCES:
+            case EEXIST:
+            case EISDIR:
+            case ELOOP:
+                /* try again */
+                random_bits += 7777; /* fairly prime */
+                continue;
+            }
+
+            free(tmpname);
+            return EXIT_IO_ERROR;
         }
-        
+
         if (close(fd) == -1) {  /* huh? */
             free(tmpname);
             return EXIT_IO_ERROR;
         }
-        
+
         break;
     } while (1);
 
@@ -141,5 +147,3 @@ int dcc_make_tmpnam(const char *prefix,
 
     return 0;
 }
-
-
