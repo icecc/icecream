@@ -35,6 +35,7 @@ PreReq:         %insserv_prereq
 PreReq:         /usr/sbin/useradd
 PreReq:         /usr/sbin/groupadd
 Requires:       gcc-c++
+Requires:       logrotate
 Version:        @VERSION@
 Release:        0
 Source0:        ftp://ftp.suse.com/pub/projects/icecream/icecc-%{version}.tar.bz2
