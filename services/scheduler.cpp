@@ -1831,9 +1831,8 @@ static bool handle_end(CS *toremove, Msg *m)
 
         break;
     case CS::LINE:
-        if (!toremove->send_msg(TextMsg("200 Good Bye!"))) {
-            controls.remove(toremove);
-        }
+        toremove->send_msg(TextMsg("200 Good Bye!"));
+        controls.remove(toremove);
 
         break;
     default:
