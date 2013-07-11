@@ -1,4 +1,8 @@
 1.0.1
+- use su option for logrotate
+- require logrotate for suse package
+
+1.0.1rc1
 - Remove filenames from md5sum output
 - Fix off-by-one error
 - add missing cap-ng.m4
