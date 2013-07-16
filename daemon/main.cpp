@@ -553,9 +553,14 @@ bool Daemon::setup_listen_fds()
         unlink(myaddr.sun_path);
         old_umask = umask(0);
     } else { // Started by user.
-        strncpy(myaddr.sun_path, getenv("HOME"), sizeof(myaddr.sun_path)-1);
-        strncat(myaddr.sun_path, "/.iceccd.socket", sizeof(myaddr.sun_path)-1-strlen(myaddr.sun_path));
-        unlink(myaddr.sun_path);
+        if( getenv( "HOME" )) {
+            strncpy(myaddr.sun_path, getenv("HOME"), sizeof(myaddr.sun_path)-1);
+            strncat(myaddr.sun_path, "/.iceccd.socket", sizeof(myaddr.sun_path)-1-strlen(myaddr.sun_path));
+            unlink(myaddr.sun_path);
+        } else {
+            log_error() << "launched by user, but $HOME not set" << endl;
+            return false;
+        }
     }
 
     if (bind(unix_listen_fd, (struct sockaddr*)&myaddr, sizeof(myaddr)) < 0) {
