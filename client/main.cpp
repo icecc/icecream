@@ -381,7 +381,7 @@ int main(int argc, char **argv)
         local_daemon = Service::createChannel("/var/run/iceccd.socket");
     }
 
-    if (!local_daemon) {
+    if (!local_daemon && getenv("HOME")) {
         string path = getenv("HOME");
         path += "/.iceccd.socket";
         local_daemon = Service::createChannel(path);
