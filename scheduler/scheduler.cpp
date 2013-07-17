@@ -48,9 +48,9 @@
 #include <string>
 #include <stdio.h>
 #include <pwd.h>
-#include "comm.h"
-#include "logging.h"
-#include "job.h"
+#include "../services/comm.h"
+#include "../services/logging.h"
+#include "../services/job.h"
 #include "config.h"
 #include "bench.h"
 
