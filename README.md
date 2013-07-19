@@ -8,42 +8,42 @@ on x machines, you have full control over them.
 
 Table of Contents
 
--   [Installation](#Installation)
--   [How to use icecream](#How_to_use_icecream)
-    -   [make it persistent](#make_it_persistent)
+-   [Installation](#installation)
+-   [How to use icecream](#how_to_use_icecream)
+    -   [make it persistent](#make-it-persistent)
 
--   [TroubleShooting](#TroubleShooting)
-    -   [Firewall](#Firewall)
-    -   [C compiler](#C_compiler)
-    -   [osc build](#osc_build)
+-   [TroubleShooting](#troubleshooting)
+    -   [Firewall](#firewall)
+    -   [C compiler](#c-compiler)
+    -   [osc build](#osc-build)
     -   [some compilation node aren't
-        used](#some_compilation_node_arent_used)
+        used](#some-compilation-node-arent-used)
 
--   [Supported platforms](#Supported_platforms)
+-   [Supported platforms](#supported-platforms)
 -   [Using icecream in heterogeneous
-    environments](#Using_icecream_in_heterogeneous_environments)
--   [Cross-Compiling using icecream](#CrossCompiling_using_icecream)
--   [Creating cross compiler package](#Creating_cross_compiler_package)
+    environments](#using-icecream-in-heterogeneous-environments)
+-   [Cross-Compiling using icecream](#cross-compiling-using-icecream)
+-   [Creating cross compiler package](#creating-cross-compiler-package)
 -   [Cross-Compiling for embedded targets using
-    icecream](#CrossCompiling_for_embedded_targets_using_icecream)
+    icecream](#cross-compiling-for-embedded-targets-using-icecream)
 -   [Cross-Compiling for multiple targets in the same environment using
-    icecream](#CrossCompiling_for_multiple_targets_in_the_same_environment_using_icecream)
+    icecream](#cross-compiling-for-multiple-targets-in-the-same-environment-using-icecream)
 -   [How to combine icecream with
-    ccache](#How_to_combine_icecream_with_ccache)
--   [Debug output](#Debug_output)
--   [Some Numbers](#Some_Numbers)
+    ccache](#how-to-combine-icecream-with-ccache)
+-   [Debug output](#debug-output)
+-   [Some Numbers](#some-numbers)
 -   [What is the best environment for
-    icecream](#What_is_the_best_environment_for_icecream)
+    icecream](#what-is-the-best-environment-for-icecream)
 -   [Network setup for Icecream
-    (firewalls)](#Network_setup_for_Icecream_firewalls)
+    (firewalls)](#network-setup-for-Icecream-firewalls)
 -   [I use distcc, why should I
-    change?](#I_use_distcc_why_should_I_change)
+    change?](#i-use-distcc-why-should-I-change)
 -   [I use teambuilder, why should I
-    change?](#I_use_teambuilder_why_should_I_change)
--   [Icecream on gentoo](#Icecream_on_gentoo)
--   [Bug tracker](#Bug_tracker)
--   [Repository](#Repository)
--   [Mailing list](#Mailing_list)
+    change?](#i-use-teambuilder-why-should-I-change)
+-   [Icecream on gentoo](#icecream-on-gentoo)
+-   [Bug tracker](#bug-tracker)
+-   [Repository](#repository)
+-   [Mailing list](#mailing-list)
 
 Installation
 -------------------------------------------------------------------------
