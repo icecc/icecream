@@ -17,16 +17,11 @@ ice_HEADERS = \
 	comm.h
 
 noinst_HEADERS = \
-	bench.h \
 	exitcode.h \
 	getifaddrs.h \
 	logging.h \
 	tempfile.h \
 	platform.h
-
-sbin_PROGRAMS = icecc-scheduler
-icecc_scheduler_SOURCES = scheduler.cpp
-icecc_scheduler_LDADD = libicecc.la
 
 pkgconfigdir = $(libdir)/pkgconfig
 pkgconfig_DATA = icecc.pc
