@@ -370,7 +370,7 @@ md5=`for i in $target_files; do $md5sum $tempdir/$i; done | sed -e 's/ .*$//' | 
 echo "creating $md5.tar.gz"
 mydir=`pwd`
 cd $tempdir
-tar -czhf "$mydir/$md5".tar.gz $target_files || {
+tar -czh --numeric-owner -f "$mydir/$md5".tar.gz $target_files || {
   echo "Couldn't create archive"
   exit 3
 }
