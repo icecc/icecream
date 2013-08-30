@@ -91,7 +91,6 @@ static bool analyze_program(const char *name, CompileJob &job)
         job.setLanguage(CompileJob::Lang_C);
     } else {
         job.setLanguage(CompileJob::Lang_Custom);
-        job.setCompilerName(name);   // keep path
         return true;
     }
 

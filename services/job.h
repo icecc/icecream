@@ -86,6 +86,16 @@ public:
         return m_language;
     }
 
+    void setCompilerPathname(const std::string& pathname)
+    {
+        m_compiler_pathname = pathname;
+    }
+
+    std::string compilerPathname() const
+    {
+        return m_compiler_pathname;
+    }
+
     void setEnvironmentVersion(const std::string &ver)
     {
         m_environment_version = ver;
@@ -158,6 +168,7 @@ private:
 
     unsigned int m_id;
     Language m_language;
+    std::string m_compiler_pathname;
     std::string m_compiler_name;
     std::string m_environment_version;
     ArgumentsList m_flags;
