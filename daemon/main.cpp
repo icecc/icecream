@@ -2072,8 +2072,12 @@ int main(int argc, char **argv)
 #ifdef HAVE_LIBCAP_NG
         capng_clear(CAPNG_SELECT_BOTH);
         capng_update(CAPNG_ADD, (capng_type_t)(CAPNG_EFFECTIVE | CAPNG_PERMITTED), CAP_SYS_CHROOT);
-        capng_change_id(d.user_uid, d.user_gid, CAPNG_NO_FLAG);
-        capng_apply(CAPNG_SELECT_BOTH);
+        int r = capng_change_id(d.user_uid, d.user_gid,
+                                (capng_flags_t)(CAPNG_DROP_SUPP_GRP | CAPNG_CLEAR_BOUNDING));
+        if (r) {
+            log_error() << "Error: capng_change_id failed: " << r << endl;
+            exit(EXIT_SETUID_FAILED);
+        }
 #endif
     } else {
         d.noremote = true;
