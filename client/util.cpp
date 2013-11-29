@@ -239,6 +239,9 @@ bool color_output_possible()
 
 bool compiler_has_color_output(const CompileJob &job)
 {
+    if (!color_output_possible())
+        return false;
+
     // Clang has coloring.
     if (compiler_is_clang(job)) {
         return true;
