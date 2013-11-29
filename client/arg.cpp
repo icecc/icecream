@@ -378,6 +378,18 @@ bool analyse_argv(const char * const *argv, CompileJob &job, bool icerun, list<s
             } else if (str_equal("-fcolor-diagnostics", a)) {
                 fno_color_diagnostics = false;
                 args.append(a, Arg_Rest);
+            } else if (str_equal("-fno-diagnostics-color", a)
+                       || str_equal("-fdiagnostics-color=never", a)) {
+                fno_color_diagnostics = true;
+                args.append(a, Arg_Rest);
+            } else if (str_equal("-fdiagnostics-color", a)
+                       || str_equal("-fdiagnostics-color=always", a)) {
+                fno_color_diagnostics = false;
+                args.append(a, Arg_Rest);
+            } else if (str_equal("-fdiagnostics-color=auto", a)) {
+                // Drop the option here, the code below will decide
+                // whether to enable it or not.
+                fno_color_diagnostics = false; 
             } else if (str_equal("-flto", a)) {
                 // pointless when preprocessing, and Clang would emit a warning
                 args.append(a, Arg_Remote);
