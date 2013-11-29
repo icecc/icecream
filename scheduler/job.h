@@ -27,7 +27,6 @@
 #include <list>
 #include <string>
 #include <time.h>
-#include <tuple>
 
 #include "../services/comm.h"
 

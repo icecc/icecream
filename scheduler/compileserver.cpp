@@ -34,26 +34,6 @@
 
 unsigned int CompileServer::s_hostIdCounter = 0;
 
-static multimap<string, string> platform_map = {
-    {"i386", "i486"},
-    {"i386", "i586"},
-    {"i386", "i686"},
-    {"i386", "x86_64"},
-
-    {"i486", "i586"},
-    {"i486", "i686"},
-    {"i486", "x86_64"},
-
-    {"i586", "i686"},
-    {"i586", "x86_64"},
-
-    {"i686", "x86_64"},
-
-    {"ppc", "ppc64"},
-    {"s390", "s390x"}
-};
-
-
 CompileServer::CompileServer(const int fd, struct sockaddr *_addr, const socklen_t _len, const bool text_based)
     : MsgChannel(fd, _addr, _len, text_based)
     , m_remotePort(0)
@@ -99,6 +79,27 @@ bool CompileServer::platforms_compatible(const string &target) const
 
     // the below doesn't work as the unmapped platform is transferred back to the
     // client and that asks the daemon for a platform he can't install (see TODO)
+
+    static multimap<string, string> platform_map;
+
+    if (platform_map.empty()) {
+        platform_map.insert(make_pair(string("i386"), string("i486")));
+        platform_map.insert(make_pair(string("i386"), string("i586")));
+        platform_map.insert(make_pair(string("i386"), string("i686")));
+        platform_map.insert(make_pair(string("i386"), string("x86_64")));
+
+        platform_map.insert(make_pair(string("i486"), string("i586")));
+        platform_map.insert(make_pair(string("i486"), string("i686")));
+        platform_map.insert(make_pair(string("i486"), string("x86_64")));
+
+        platform_map.insert(make_pair(string("i586"), string("i686")));
+        platform_map.insert(make_pair(string("i586"), string("x86_64")));
+
+        platform_map.insert(make_pair(string("i686"), string("x86_64")));
+
+        platform_map.insert(make_pair(string("ppc"), string("ppc64")));
+        platform_map.insert(make_pair(string("s390"), string("s390x")));
+    }
 
     multimap<string, string>::const_iterator end = platform_map.upper_bound(target);
 
