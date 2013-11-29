@@ -562,9 +562,13 @@ bool analyse_argv(const char * const *argv, CompileJob &job, bool icerun, list<s
         always_local = true;
     }
 
-    // redirecting Clang's output will turn off its automatic coloring, so force it, unless disabled
-    if (compiler_is_clang(job) && colorify_possible() && !fno_color_diagnostics) {
-        args.append("-fcolor-diagnostics", Arg_Rest);
+    // redirecting compiler's output will turn off its automatic coloring, so force it
+    // when it would be used, unless explicitly disabled
+    if (compiler_supports_colors(job) && !fno_color_diagnostics) {
+        if (compiler_is_clang(job))
+            args.append("-fcolor-diagnostics", Arg_Rest);
+        else
+            args.append("-fdiagnostics-color", Arg_Rest); // GCC
     }
 
     job.setFlags(args);

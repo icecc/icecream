@@ -228,25 +228,40 @@ bool dcc_lock_host(int &lock_fd)
     return false;
 }
 
-bool colorify_possible()
+bool color_output_possible()
 {
     const char* term_env = getenv("TERM");
 
     return isatty(2) && term_env && strcasecmp(term_env, "DUMB");
 }
 
+bool compiler_supports_colors(const CompileJob &job)
+{
+    // Clang has coloring.
+    if (compiler_is_clang(job)) {
+        return true;
+    }
+    // GCC has it since 4.8, but that'd require detecting what GCC
+    // version is used for the actual compile, so use env.var. for now
+    // and somewhen later switch the default.
+    if (const char *icecc_gcc_colors = getenv("ICECC_GCC_COLORS")) {
+        return (*icecc_gcc_colors != '\0') && (*icecc_gcc_colors != '0');
+    }
+    return false;
+}
+
+// Whether icecream should add colors to the compiler output.
 bool colorify_wanted(const CompileJob &job)
 {
-    // Clang has coloring, and an explicit option to force it even if output is not a tty.
-    if (compiler_is_clang(job)) {
-        return false;
+    if (compiler_supports_colors(job)) {
+        return false; // -fcolor-diagnostics handling lets the compiler do it itself
     }
 
     if (getenv("EMACS")) {
         return false;
     }
 
-    return colorify_possible();
+    return color_output_possible();
 }
 
 void colorify_output(const string &_s_ccout)
