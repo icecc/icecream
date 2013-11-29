@@ -46,6 +46,8 @@
 
 using namespace std;
 
+extern bool explicit_color_diagnostics;
+
 /**
  * Set the `FD_CLOEXEC' flag of DESC if VALUE is nonzero,
  * or clear the flag if VALUE is 0.
@@ -235,17 +237,18 @@ bool color_output_possible()
     return isatty(2) && term_env && strcasecmp(term_env, "DUMB");
 }
 
-bool compiler_supports_colors(const CompileJob &job)
+bool compiler_has_color_output(const CompileJob &job)
 {
     // Clang has coloring.
     if (compiler_is_clang(job)) {
         return true;
     }
     // GCC has it since 4.8, but that'd require detecting what GCC
-    // version is used for the actual compile, so use env.var. for now
-    // and somewhen later switch the default.
-    if (const char *icecc_gcc_colors = getenv("ICECC_GCC_COLORS")) {
-        return (*icecc_gcc_colors != '\0') && (*icecc_gcc_colors != '0');
+    // version is used for the actual compile. However it requires
+    // also GCC_COLORS to be set (and not empty), so use that
+    // for detecting if GCC would use colors.
+    if (const char *gcc_colors = getenv("GCC_COLORS")) {
+        return (*gcc_colors != '\0');
     }
     return false;
 }
@@ -253,8 +256,11 @@ bool compiler_supports_colors(const CompileJob &job)
 // Whether icecream should add colors to the compiler output.
 bool colorify_wanted(const CompileJob &job)
 {
-    if (compiler_supports_colors(job)) {
+    if (compiler_has_color_output(job)) {
         return false; // -fcolor-diagnostics handling lets the compiler do it itself
+    }
+    if (explicit_color_diagnostics) { // colors explicitly enabled/disabled by an option
+        return false;
     }
 
     if (getenv("EMACS")) {

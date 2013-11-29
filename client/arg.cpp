@@ -37,6 +37,9 @@
 
 using namespace std;
 
+// Whether any option controlling color output has been explicitly given.
+bool explicit_color_diagnostics;
+
 #define CLIENT_DEBUG 0
 
 #if CLIENT_DEBUG
@@ -118,9 +121,10 @@ bool analyse_argv(const char * const *argv, CompileJob &job, bool icerun, list<s
     bool seen_s = false;
     bool seen_mf = false;
     bool seen_md = false;
-    bool fno_color_diagnostics = false;
     // if rewriting includes and precompiling on remote machine, then cpp args are not local
     Argument_Type Arg_Cpp = compiler_only_rewrite_includes(job) ? Arg_Rest : Arg_Local;
+
+    explicit_color_diagnostics = false;
 
     if (icerun) {
         always_local = true;
@@ -373,23 +377,23 @@ bool analyse_argv(const char * const *argv, CompileJob &job, bool icerun, list<s
                        || str_equal("-MP", a)) {
                 args.append(a, Arg_Local);
             } else if (str_equal("-fno-color-diagnostics", a)) {
-                fno_color_diagnostics = true;
+                explicit_color_diagnostics = true;
                 args.append(a, Arg_Rest);
             } else if (str_equal("-fcolor-diagnostics", a)) {
-                fno_color_diagnostics = false;
+                explicit_color_diagnostics = true;
                 args.append(a, Arg_Rest);
             } else if (str_equal("-fno-diagnostics-color", a)
                        || str_equal("-fdiagnostics-color=never", a)) {
-                fno_color_diagnostics = true;
+                explicit_color_diagnostics = true;
                 args.append(a, Arg_Rest);
             } else if (str_equal("-fdiagnostics-color", a)
                        || str_equal("-fdiagnostics-color=always", a)) {
-                fno_color_diagnostics = false;
+                explicit_color_diagnostics = true;
                 args.append(a, Arg_Rest);
             } else if (str_equal("-fdiagnostics-color=auto", a)) {
-                // Drop the option here, the code below will decide
-                // whether to enable it or not.
-                fno_color_diagnostics = false; 
+                // Drop the option here and pretend it wasn't given,
+                // the code below will decide whether to enable colors or not.
+                explicit_color_diagnostics = false; 
             } else if (str_equal("-flto", a)) {
                 // pointless when preprocessing, and Clang would emit a warning
                 args.append(a, Arg_Remote);
@@ -563,8 +567,8 @@ bool analyse_argv(const char * const *argv, CompileJob &job, bool icerun, list<s
     }
 
     // redirecting compiler's output will turn off its automatic coloring, so force it
-    // when it would be used, unless explicitly disabled
-    if (compiler_supports_colors(job) && !fno_color_diagnostics) {
+    // when it would be used, unless explicitly set
+    if (compiler_has_color_output(job) && !explicit_color_diagnostics) {
         if (compiler_is_clang(job))
             args.append("-fcolor-diagnostics", Arg_Rest);
         else

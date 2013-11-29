@@ -32,7 +32,7 @@ extern std::string find_basename(const std::string &sfile);
 extern std::string find_prefix(const std::string &basename);
 extern void colorify_output(const std::string &s_ccout);
 extern bool colorify_wanted(const CompileJob &job);
-extern bool compiler_supports_colors(const CompileJob &job);
+extern bool compiler_has_color_output(const CompileJob &job);
 extern bool ignore_unverified();
 extern int resolve_link(const std::string &file, std::string &resolved);
 
