@@ -109,7 +109,6 @@ static std::string pidFilePath;
 #endif
 
 using namespace std;
-using namespace __gnu_cxx; // for the extensions we like, e.g. hash_set
 
 struct Client {
 public:
