@@ -256,19 +256,23 @@ bool analyse_argv(const char * const *argv, CompileJob &job, bool icerun, list<s
 #endif
                 always_local = true;
                 args.append(a, Arg_Local);
-            } else if (!strcmp(a, "-x")) {
-                const char *opt = argv[++i];
-
-                if (!strcmp, opt, "c++") {
-                    job.setLanguage(CompileJob::Lang_CXX);
-                } else if (!strcmp, opt, "c") {
-                    job.setLanguage(CompileJob::Lang_C);
-                } else {
+            } else if (str_equal(a, "-x")) {
+                args.append(a, Arg_Rest);
+                bool unsupported = true;
+                if (const char *opt = argv[i + 1]) {
+                    ++i;
+                    args.append(opt, Arg_Rest);
+                    if (str_equal(opt, "c++") || str_equal(opt, "c")) {
+                        CompileJob::Language lang = str_equal(opt, "c++") ? CompileJob::Lang_CXX : CompileJob::Lang_C;
+                        job.setLanguage(lang); // will cause -x used remotely twice, but shouldn't be a problem
+                        unsupported = false;
+                    }
+                }
+                if (unsupported) {
 #if CLIENT_DEBUG
                     log_info() << "unsupported -x option; running locally" << endl;
 #endif
                     always_local = true;
-                    args.append(a, Arg_Local);
                 }
             } else if (!strcmp(a, "-march=native") || !strcmp(a, "-mcpu=native")
                        || !strcmp(a, "-mtune=native")) {
