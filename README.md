@@ -74,7 +74,7 @@ only the daemon on another, thus forming a compile cluster with two
 nodes.
 
 If you want to compile using icecream, make sure \$prefix/lib/icecc/bin is the
-first first entry in your path, e.g. type
+first entry in your path, e.g. type
 
      export PATH=/usr/lib/icecc/bin:$PATH
 
