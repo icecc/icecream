@@ -1127,7 +1127,7 @@ bool MsgChannel::send_msg(const Msg &m, int flags)
 #include <sys/ioctl.h>
 
 /* Returns a filedesc. or a negative value for errors.  */
-static int open_send_broadcast(void)
+static int open_send_broadcast(int port)
 {
     int ask_fd;
     struct sockaddr_in remote_addr;
@@ -1188,7 +1188,7 @@ static int open_send_broadcast(void)
                        << endl;
 
             remote_addr.sin_family = AF_INET;
-            remote_addr.sin_port = htons(8765);
+            remote_addr.sin_port = htons(port);
             remote_addr.sin_addr = ((sockaddr_in *)addr->ifa_broadaddr)->sin_addr;
 
             if (sendto(ask_fd, &buf, 1, 0, (struct sockaddr *)&remote_addr,
@@ -1244,12 +1244,28 @@ get_broad_answer(int ask_fd, int timeout, char *buf2, struct sockaddr_in *remote
 }
 
 DiscoverSched::DiscoverSched(const std::string &_netname, int _timeout,
+                             const std::string &_schedname, int port)
+    : netname(_netname)
+    , schedname(_schedname)
+    , timeout(_timeout)
+    , ask_fd(-1)
+    , sport(port ? port : 8765)
+{
+    init();
+}
+
+DiscoverSched::DiscoverSched(const std::string &_netname, int _timeout,
                              const std::string &_schedname)
     : netname(_netname)
     , schedname(_schedname)
     , timeout(_timeout)
     , ask_fd(-1)
     , sport(8765)
+{
+    init();
+}
+
+void DiscoverSched::init()
 {
     time0 = time(0);
 
@@ -1269,7 +1285,7 @@ DiscoverSched::DiscoverSched(const std::string &_netname, int _timeout,
         netname = ""; // take whatever the machine is giving us
         attempt_scheduler_connect();
     } else {
-        ask_fd = open_send_broadcast();
+        ask_fd = open_send_broadcast(sport);
     }
 }
 
@@ -1339,7 +1355,7 @@ MsgChannel *DiscoverSched::try_get_scheduler()
     return 0;
 }
 
-list<string> get_netnames(int timeout)
+list<string> get_netnames(int timeout, int port)
 {
     list<string> l;
     int ask_fd;
@@ -1347,7 +1363,7 @@ list<string> get_netnames(int timeout)
     socklen_t remote_len;
     time_t time0 = time(0);
 
-    ask_fd = open_send_broadcast();
+    ask_fd = open_send_broadcast(port);
 
     do {
         char buf2[BROAD_BUFLEN];

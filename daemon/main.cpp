@@ -387,7 +387,8 @@ void usage(const char *reason = 0)
         cerr << reason << endl;
     }
 
-    cerr << "usage: iceccd [-n <netname>] [-m <max_processes>] [--no-remote] [-w] [-d|--daemonize] [-l logfile] [-s <schedulerhost>] [-v[v[v]]] [-u|--user-uid <user_uid>] [-b <env-basedir>] [--cache-limit <MB>] [-N <node_name>]" << endl;
+    cerr << "usage: iceccd [-n <netname>] [-m <max_processes>] [--no-remote] [-w] [-d|--daemonize] [-l logfile] [-s <schedulerhost>]"
+        " [-p <schedulerport>] [-v[v[v]]] [-u|--user-uid <user_uid>] [-b <env-basedir>] [--cache-limit <MB>] [-N <node_name>]" << endl;
     exit(1);
 }
 
@@ -438,6 +439,7 @@ struct Daemon {
     DiscoverSched *discover;
     string netname;
     string schedname;
+    int scheduler_port;
 
     int max_scheduler_pong;
     int max_scheduler_ping;
@@ -476,6 +478,7 @@ struct Daemon {
         num_cpus = 0;
         scheduler = 0;
         discover = 0;
+        scheduler_port = 8765;
         max_scheduler_pong = MAX_SCHEDULER_PONG;
         max_scheduler_ping = MAX_SCHEDULER_PING;
         bench_source = "";
@@ -1830,7 +1833,7 @@ bool Daemon::reconnect()
 
     if (!discover || discover->timed_out()) {
         delete discover;
-        discover = new DiscoverSched(netname, max_scheduler_pong, schedname);
+        discover = new DiscoverSched(netname, max_scheduler_pong, schedname, scheduler_port);
     }
 
     scheduler = discover->try_get_scheduler();
@@ -1908,10 +1911,11 @@ int main(int argc, char **argv)
             { "user-uid", 1, NULL, 'u'},
             { "cache-limit", 1, NULL, 0},
             { "no-remote", 0, NULL, 0},
+            { "port", 1, NULL, 'p'},
             { 0, 0, 0, 0 }
         };
 
-        const int c = getopt_long(argc, argv, "N:n:m:l:s:whvdrb:u:", long_options, &option_index);
+        const int c = getopt_long(argc, argv, "N:n:m:l:s:whvdrb:u:p:", long_options, &option_index);
 
         if (c == -1) {
             break;    // eoo
@@ -2044,7 +2048,19 @@ int main(int argc, char **argv)
             }
 
             break;
+        case 'p':
 
+            if (optarg && *optarg) {
+                d.scheduler_port = atoi(optarg);
+
+                if (0 == d.scheduler_port) {
+                    usage("Error: Invalid port specified");
+                }
+            } else {
+                usage("Error: -p requires argument");
+            }
+
+            break;
         default:
             usage();
         }
@@ -2147,7 +2163,7 @@ int main(int argc, char **argv)
         return 1;
     }
 
-    list<string> nl = get_netnames(200);
+    list<string> nl = get_netnames(200, d.scheduler_port);
     trace() << "Netnames:" << endl;
 
     for (list<string>::const_iterator it = nl.begin(); it != nl.end(); ++it) {

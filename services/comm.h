@@ -265,7 +265,20 @@ class DiscoverSched
 public:
     /* Connect to a scheduler waiting max. TIMEOUT milliseconds.
        schedname can be the hostname of a box running a scheduler, to avoid
-       broadcasting. */
+       broadcasting, port can be specified explicitly */
+#if 0
+    DiscoverSched(const std::string &_netname = std::string(),
+                  int _timeout = 2000,
+                  const std::string &_schedname = std::string(),
+                  int port = 0);
+#else
+    // No default args because of the backwards compatibility overload.
+    DiscoverSched(const std::string &_netname,
+                  int _timeout,
+                  const std::string &_schedname,
+                  int port);
+#endif
+    // Backwards (binary) compatibility.
     DiscoverSched(const std::string &_netname = std::string(),
                   int _timeout = 2000,
                   const std::string &_schedname = std::string());
@@ -312,13 +325,14 @@ private:
     time_t time0;
     unsigned int sport;
 
+    void init();
     void attempt_scheduler_connect();
 };
 // --------------------------------------------------------------------------
 
 /* Return a list of all reachable netnames.  We wait max. WAITTIME
    milliseconds for answers.  */
-std::list<std::string> get_netnames(int waittime = 2000);
+std::list<std::string> get_netnames(int waittime = 2000, int port = 8765);
 
 class PingMsg : public Msg
 {

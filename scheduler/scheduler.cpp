@@ -1646,7 +1646,7 @@ static bool handle_activity(CompileServer *cs)
     return ret;
 }
 
-static int open_broad_listener()
+static int open_broad_listener(int port)
 {
     int listen_fd;
     struct sockaddr_in myaddr;
@@ -1664,7 +1664,7 @@ static int open_broad_listener()
     }
 
     myaddr.sin_family = AF_INET;
-    myaddr.sin_port = htons(8765);
+    myaddr.sin_port = htons(port);
     myaddr.sin_addr.s_addr = INADDR_ANY;
 
     if (bind(listen_fd, (struct sockaddr *) &myaddr, sizeof(myaddr)) < 0) {
@@ -1787,7 +1787,7 @@ int main(int argc, char *argv[])
         static const struct option long_options[] = {
             { "netname", 1, NULL, 'n' },
             { "help", 0, NULL, 'h' },
-            { "port", 0, NULL, 'p' },
+            { "port", 1, NULL, 'p' },
             { "daemonize", 0, NULL, 'd'},
             { "log-file", 1, NULL, 'l'},
             { "user-uid", 1, NULL, 'u'},
@@ -1907,7 +1907,7 @@ int main(int argc, char *argv[])
 
     setup_debug(debug_level, logfile);
 
-    log_info() << "ICECREAM scheduler " VERSION " starting up" << endl;
+    log_info() << "ICECREAM scheduler " VERSION " starting up, port " << port << endl;
 
     if (detach) {
         daemon(0, 0);
@@ -1925,7 +1925,7 @@ int main(int argc, char *argv[])
         return 1;
     }
 
-    broad_fd = open_broad_listener();
+    broad_fd = open_broad_listener(port);
 
     if (broad_fd < 0) {
         return 1;
