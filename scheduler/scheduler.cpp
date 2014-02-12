@@ -1907,6 +1907,8 @@ int main(int argc, char *argv[])
 
     setup_debug(debug_level, logfile);
 
+    log_info() << "ICECREAM scheduler " VERSION " starting up" << endl;
+
     if (detach) {
         daemon(0, 0);
     }
