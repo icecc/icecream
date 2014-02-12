@@ -294,7 +294,7 @@ read/written once more and in between the file is transfered.</para>
 
 <para>But even if the other computer is faster, using <command>g++</command> on my local machine
 is faster. If you are (for whatever reason) alone in your network at some point,
-you loose all advantages of distributed compiling and only add the overhead. So
+you lose all advantages of distributed compiling and only add the overhead. So
 icecream got a special case for local compilations (the same special meaning
 that localhost got within $DISTCC_HOSTS). This makes compiling on my machine
 using icecream down to 1.7s (the overhead is actually less than 0.1s in

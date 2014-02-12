@@ -1461,7 +1461,7 @@ bool Daemon::handle_file_chunk_env(Client *client, Msg *msg)
     /* this sucks, we can block when we're writing
        the file chunk to the child, but we can't let the child
        handle MsgChannel itself due to MsgChannel's stupid
-       caching layer inbetween, which causes us to loose partial
+       caching layer inbetween, which causes us to lose partial
        data after the M_END msg of the env transfer.  */
 
     assert(client && client->status == Client::TOINSTALL);
