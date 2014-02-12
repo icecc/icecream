@@ -1764,7 +1764,7 @@ int main(int argc, char *argv[])
     string logfile;
     uid_t user_uid;
     gid_t user_gid;
-    bool warn_icecc_user = false;
+    int warn_icecc_user_errno = 0;
 
     if (getuid() == 0) {
         struct passwd *pw = getpwnam("icecc");
@@ -1773,7 +1773,7 @@ int main(int argc, char *argv[])
             user_uid = pw->pw_uid;
             user_gid = pw->pw_gid;
         } else {
-            warn_icecc_user = true;
+            warn_icecc_user_errno = errno ? errno : ENOENT; // apparently errno can be 0 on error here
             user_uid = 65534;
             user_gid = 65533;
         }
@@ -1861,7 +1861,7 @@ int main(int argc, char *argv[])
                 } else {
                     user_uid = pw->pw_uid;
                     user_gid = pw->pw_gid;
-                    warn_icecc_user = false;
+                    warn_icecc_user_errno = 0;
 
                     if (!user_gid || !user_uid) {
                         usage("Error: -u <username> must not be root");
@@ -1878,8 +1878,8 @@ int main(int argc, char *argv[])
         }
     }
 
-    if (warn_icecc_user) {
-        log_perror("Error: no icecc user on system. Falling back to nobody.");
+    if (warn_icecc_user_errno != 0) {
+        log_errno("Error: no icecc user on system. Falling back to nobody.", errno);
     }
 
     if (getuid() == 0) {

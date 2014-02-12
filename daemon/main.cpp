@@ -418,7 +418,7 @@ struct Daemon {
     string envbasedir;
     uid_t user_uid;
     gid_t user_gid;
-    bool warn_icecc_user;
+    int warn_icecc_user_errno;
     int tcp_listen_fd;
     int unix_listen_fd;
     string machine_name;
@@ -445,15 +445,15 @@ struct Daemon {
     unsigned int current_kids;
 
     Daemon() {
+        warn_icecc_user_errno = 0;
         if (getuid() == 0) {
             struct passwd *pw = getpwnam("icecc");
 
             if (pw) {
                 user_uid = pw->pw_uid;
                 user_gid = pw->pw_gid;
-                warn_icecc_user = false;
             } else {
-                warn_icecc_user = true;
+                warn_icecc_user_errno = errno ? errno : ENOENT; // apparently errno can be 0 on error here
                 user_uid = 65534;
                 user_gid = 65533;
             }
@@ -2033,7 +2033,7 @@ int main(int argc, char **argv)
                 } else {
                     d.user_uid = pw->pw_uid;
                     d.user_gid = pw->pw_gid;
-                    d.warn_icecc_user = false;
+                    d.warn_icecc_user_errno = 0;
 
                     if (!d.user_gid || !d.user_uid) {
                         usage("Error: -u <username> must not be root");
@@ -2050,8 +2050,8 @@ int main(int argc, char **argv)
         }
     }
 
-    if (d.warn_icecc_user) {
-        log_perror("Error: no icecc user on system. Falling back to nobody.");
+    if (d.warn_icecc_user_errno != 0) {
+        log_errno("Error: no icecc user on system. Falling back to nobody.", d.warn_icecc_user_errno);
     }
 
     umask(022);
