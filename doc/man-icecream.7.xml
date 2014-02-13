@@ -73,7 +73,8 @@ to not have to type it in everytime)
 <para>Then you just compile with
 <command>make <option>-j <replaceable>num</replaceable></option></command>,
 where <parameter>num</parameter> is the amount of jobs you want to compile in parallel.
-Do not exaggerate. Numbers greater than 15 normally cause trouble.</para>
+Do not exaggerate. Too large numbers can overload your machine or the compile cluster
+and make the build in fact slower.</para>
 
 <para><warning>
 Never use icecream in untrusted environments. Run the daemons and
@@ -81,16 +82,25 @@ the scheduler as unpriviliged user in such networks if you have to! But you will
 have to rely on homogeneous networks then (see below).
 </warning></para>
 
-<para>If you want funny stats, you might want to run &icemon;.</para>
+<para>If you want an overview of your icecream compile cluster, or if you just want funny stats,
+you might want to run &icemon;.</para>
 </refsect1>
 
 <refsect1>
 <title>Using icecream in heterogeneous environments</title>
 
-<para>If you are running icecream daemons (note: they <emphasis>all</emphasis> must be running as
+<para>If you are running icecream daemons in the same icecream
+network but on machines with incompatible compiler versions, icecream needs to send
+your build environment to remote machines (note: they <emphasis>all</emphasis> must be running as
 root if compiled without libcap-ng support. In the future icecream might gain the ability to know when machines cannot
-accept a different environment, but for now it is all or nothing) in the same icecream
-network but on machines with incompatible compiler versions you have to tell
+accept a different environment, but for now it is all or nothing).</para>
+
+<para>Under normal circumstances this is handled transparently by the icecream
+daemon, which will prepare a tarball with the environment when needed.
+This is the recommended way, as the daemon will also automatically update
+the tarball whenever your compiler changes.</para>
+
+<para>If you want to handle this manually for some reason, you have to tell
 icecream which environment you are using. Use <command>icecc <option>--build-native</option></command> to
 create an archive file containing all the files necessary to setup the compiler
 environment. The file will have a random unique name like
@@ -103,11 +113,6 @@ environment for executing the compile jobs in the environment fitting to the
 environment of the client. This requires that the icecream daemon runs as root.
 </para>
 
-<para>If you do not set ICECC_VERSION, the client will use a tar ball provided
-by the daemon running on the same machine. So you can always be sure you are not
-tricked by incompatible GCC versions - and you can share your computer with
-users of other distributions (or different versions of your beloved SUSE
-Linux :)</para>
 </refsect1>
 
 <refsect1>
