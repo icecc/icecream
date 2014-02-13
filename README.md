@@ -83,8 +83,13 @@ everytime)
 
 Then you just compile with make -j \<num\>, where
 \<num\> is the amount of jobs you want to compile in parallel.
-As a start, take the number of logical processors multiplied with 2. But
-note that numbers \>15 normally cause trouble. Here is an example:
+As a start, take the number of logical processors multiplied with 2, or a larger
+number if your compile cluster can serve all the compilation jobs. But
+note that too large numbers may in fact make the build slower (for example
+if your local machine gets overloaded with preparing more jobs than it can handle
+at a time).
+
+Here is an example:
 
      make -j6
 
@@ -92,7 +97,8 @@ WARNING: Never use icecream in untrusted environments. Run the daemons
 and the scheduler as unprivileged user in such networks if you have to!
 But you will have to rely on homogeneous networks then (see below).
 
-If you want funny stats, you might want to run "icemon".
+If you want an overview of your icecream compile cluster, or if you just want
+funny stats, you might want to run "icemon" (from a separate repository/package).
 
 ### make it persistent
 
@@ -196,12 +202,19 @@ meaning you can do full cross compiling between them.
 Using icecream in heterogeneous environments
 -----------------------------------------------------------------------------------------------------------------------------------------
 
-If you are running icecream daemons (note: they _all_ must be running
-as root. In the future icecream might gain the ability to know when
-machines can't accept a different env, but for now it is all or nothing
-) in the same icecream network but on machines with incompatible
-compiler versions you have to tell icecream which environment you are
-using. Use
+If you are running icecream daemons in the same icecream network
+but on machines with incompatible compiler versions, icecream needs
+to send your build environment to remote machines (note: they _all_ must
+be running as root. In the future icecream might gain the ability to know
+when machines can't accept a different env, but for now it is all or nothing).
+
+Under normal circumstances this is handled transparently by the icecream
+daemon, which will prepare a tarball with the environment when needed.
+This is the recommended way, as the daemon will also automatically update
+the tarball whenever your compiler changes.
+
+If you want to handle this manually for some reason, you have to tell
+icecream which environment you are using. Use
 
       icecc --build-native
 
@@ -218,12 +231,6 @@ will be transferred to the daemons where your compile jobs run and
 installed to a chroot environment for executing the compile jobs in the
 environment fitting to the environment of the client. This requires that
 the icecream daemon runs as root.
-
-If you do not set ICECC\_VERSION, the client will use a tar ball
-provided by the daemon running on the same machine. So you can always be
-sure you're not tricked by incompatible gcc versions - and you can share
-your computer with users of other distributions (or different versions
-of your beloved SUSE Linux :)
 
 Cross-Compiling using icecream
 ------------------------------------------------------------------------------------------------------------
