@@ -73,7 +73,7 @@ It is possible to run the scheduler and the daemon on one machine and
 only the daemon on another, thus forming a compile cluster with two
 nodes.
 
-If you want to compile using icecream, make sure \$prefix/lib/icecc/bin is the
+If you want to compile using icecream, make sure $prefix/lib/icecc/bin is the
 first entry in your path, e.g. type
 
      export PATH=/usr/lib/icecc/bin:$PATH
@@ -408,7 +408,7 @@ But even if the other computer is faster, using g++ on my local machine
 is faster. If you're (for whatever reason) alone in your network at some
 point, you lose all advantages of distributed compiling and only add
 the overhead. So icecream got a special case for local compilations (the
-same special meaning that localhost got within \$DISTCC\_HOSTS). This
+same special meaning that localhost got within $DISTCC\_HOSTS). This
 makes compiling on my machine using icecream down to 1.7s (the overhead
 is actually less than 0.1s in average).
 
