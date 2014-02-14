@@ -599,7 +599,7 @@ static CompileServer *pick_server(Job *job)
         }
 
         /* Don't use non-chroot-able daemons for remote jobs.  XXX */
-        if (!cs->chrootPossible()) {
+        if (!cs->chrootPossible() && cs != job->submitter()) {
             trace() << cs->nodeName() << " can't use chroot\n";
             continue;
         }
@@ -923,7 +923,7 @@ static bool handle_login(CompileServer *cs, Msg *_m)
 
     cs->setRemotePort(m->port);
     cs->setCompilerVersions(m->envs);
-    cs->setMaxJobs(m->chroot_possible ? m->max_kids : 0);
+    cs->setMaxJobs(m->max_kids);
     cs->setNoRemote(m->noremote);
 
     if (m->nodename.length()) {
