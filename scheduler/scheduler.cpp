@@ -818,6 +818,7 @@ static bool empty_queue()
             job = delay_current_job();
 
             if ((job == first_job) || !job) { // no job found in the whole toanswer list
+                trace() << "No suitable host found, delaying" << endl;
                 return false;
             }
         } else {
