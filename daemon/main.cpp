@@ -983,21 +983,21 @@ void Daemon::check_cache_size(const string &new_env)
         string oldest;
         // I don't dare to use (time_t)-1
         time_t oldest_time = time(NULL) + 90000;
-        bool oldest_is_native = false;
+        string oldest_native_env_key;
 
         for (map<string, time_t>::const_iterator it = envs_last_use.begin();
                 it != envs_last_use.end(); ++it) {
             trace() << "das ist jetzt so: " << it->first << " " << it->second << " " << oldest_time << endl;
             // ignore recently used envs (they might be in use _right_ now)
             int keep_timeout = 200;
-            bool native = false;
+            string native_env_key;
 
             // If it is a native environment, allow removing it only after a longer period,
             // unless there are many native environments.
             for (map<string, NativeEnvironment>::const_iterator it2 = native_environments.begin();
                     it2 != native_environments.end(); ++it2) {
                 if (it2->second.name == it->first) {
-                    native = true;
+                    native_env_key = it2->first;
 
                     if (native_environments.size() < 5) {
                         keep_timeout = 24 * 60 * 60;    // 1 day
@@ -1028,7 +1028,7 @@ void Daemon::check_cache_size(const string &new_env)
                 if (!env_currently_in_use) {
                     oldest_time = it->second;
                     oldest = it->first;
-                    oldest_is_native = native;
+                    oldest_native_env_key = native_env_key;
                 }
             }
         }
@@ -1039,8 +1039,9 @@ void Daemon::check_cache_size(const string &new_env)
 
         size_t removed;
 
-        if (oldest_is_native) {
+        if (!oldest_native_env_key.empty()) {
             removed = remove_native_environment(oldest);
+            native_environments.erase(oldest_native_env_key);
             trace() << "removing " << oldest << " " << oldest_time << " " << removed << endl;
         } else {
             removed = remove_environment(envbasedir, oldest);
