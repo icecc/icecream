@@ -205,18 +205,18 @@ static void add_job_stats(Job *job, JobDoneMsg *msg)
     }
 
 #if DEBUG_SCHEDULER > 1
-    if (job->arg_flags < 7000) {
-        trace() << "add_job_stats " << job->language << " "
+    if (job->argFlags() < 7000) {
+        trace() << "add_job_stats " << job->language() << " "
                 << (time(0) - starttime) << " "
-                << st.compile_time_user << " "
-                << (job->arg_flags & CompileJob::Flag_g ? '1' : '0')
-                << (job->arg_flags & CompileJob::Flag_g3 ? '1' : '0')
-                << (job->arg_flags & CompileJob::Flag_O ? '1' : '0')
-                << (job->arg_flags & CompileJob::Flag_O2 ? '1' : '0')
-                << (job->arg_flags & CompileJob::Flag_Ol2 ? '1' : '0')
-                << " " << st.osize << " " << msg->out_uncompressed << " "
+                << st.compileTimeUser() << " "
+                << (job->argFlags() & CompileJob::Flag_g ? '1' : '0')
+                << (job->argFlags() & CompileJob::Flag_g3 ? '1' : '0')
+                << (job->argFlags() & CompileJob::Flag_O ? '1' : '0')
+                << (job->argFlags() & CompileJob::Flag_O2 ? '1' : '0')
+                << (job->argFlags() & CompileJob::Flag_Ol2 ? '1' : '0')
+                << " " << st.outputSize() << " " << msg->out_uncompressed << " "
                 << job->server()->nodeName() << " "
-                << float(msg->out_uncompressed) / st.compile_time_user << " "
+                << float(msg->out_uncompressed) / st.compileTimeUser() << " "
                 << server_speed(job->server()) << endl;
     }
 #endif
@@ -506,7 +506,7 @@ static CompileServer *pick_server(Job *job)
         list<Job *> jobList = cs->jobList();
         for (list<Job *>::const_iterator it2 = jobList.begin(); it2 != jobList.end(); ++it2) {
             Job *job = *it2;
-            assert(jobs.find(job->id) != jobs.end());
+            assert(jobs.find(job->id()) != jobs.end());
         }
     }
 
@@ -514,9 +514,9 @@ static CompileServer *pick_server(Job *job)
             it != jobs.end(); ++it) {
         Job *j = it->second;
 
-        CompileServer *cs = j->server;
+        CompileServer *cs = j->server();
         list<Job *> jobList = cs->jobList();
-        assert((j->state != j->COMPILING)
+        assert((j->state() != j->COMPILING)
                || (find(jobList.begin(), jobList.end(), j) != jobList.end()));
     }
 
@@ -592,7 +592,7 @@ static CompileServer *pick_server(Job *job)
         // incompatible architecture or busy installing
         if (!cs->can_install(job).size()) {
 #if DEBUG_SCHEDULER > 2
-            trace() << cs->nodeName() << " can't install " << job->id << endl;
+            trace() << cs->nodeName() << " can't install " << job->id() << endl;
 #endif
             continue;
         }
