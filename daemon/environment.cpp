@@ -314,10 +314,10 @@ bool compilers_uptodate(time_t gcc_bin_timestamp, time_t gpp_bin_timestamp, time
     return true;
 }
 
-size_t setup_env_cache(const string &basedir, string &native_environment, uid_t user_uid, gid_t user_gid,
-                       const std::string &compiler, const list<string> &extrafiles)
+// Returns fd for icecc-create-env output
+int start_create_env(const string &basedir, uid_t user_uid, gid_t user_gid,
+                     const std::string &compiler, const list<string> &extrafiles)
 {
-    native_environment = "";
     string nativedir = basedir + "/native/";
 
     if (compiler == "clang") {
@@ -348,38 +348,8 @@ size_t setup_env_cache(const string &basedir, string &native_environment, uid_t 
 
     if (pid) {
         close(pipes[1]);
-        int status = 1;
-
-        while (waitpid(pid, &status, 0) < 0 && errno == EINTR) {}
-
-        trace() << "waitpid " << status << endl;
-
-        if (!status) {
-            char buf[1024];
-            buf[0] = '\0';
-
-            while (read(pipes[0], buf, 1023) < 0 && errno == EINTR) {}
-
-            if (char *nl = strchr(buf, '\n')) {
-                *nl = '\0';
-            }
-
-            native_environment = nativedir + buf;
-        }
-
-        close(pipes[0]);
-        trace() << "native_environment " << native_environment << endl;
-        struct stat st;
-
-        if (!status && !native_environment.empty()
-                && (stat(native_environment.c_str(), &st) == 0)) {
-            return st.st_size;
-        }
-
-        rmdir(nativedir.c_str());
-        return 0;
+        return pipes[0];
     }
-
     // else
 
 #ifndef HAVE_LIBCAP_NG
@@ -424,6 +394,36 @@ size_t setup_env_cache(const string &basedir, string &native_environment, uid_t 
     }
 
     _exit(0);
+}
+
+size_t finish_create_env(int pipe, const string &basedir, string &native_environment)
+{
+// We don't care about waitpid() , icecc-create-env prints the name of the tarball as the very last
+// action before exit, so if there's something in the pipe, just block on it until it closes.
+
+    char buf[1024];
+    buf[0] = '\0';
+
+    while (read(pipe, buf, 1023) < 0 && errno == EINTR) {}
+
+    if (char *nl = strchr(buf, '\n')) {
+        *nl = '\0';
+    }
+
+    string nativedir = basedir + "/native/";
+    native_environment = nativedir + buf;
+
+    close(pipe);
+    trace() << "native_environment " << native_environment << endl;
+    struct stat st;
+
+    if (!native_environment.empty()
+        && (stat(native_environment.c_str(), &st) == 0)) {
+        return st.st_size;
+    }
+
+    rmdir(nativedir.c_str());
+    return 0;
 }
 
 

@@ -126,9 +126,11 @@ public:
      * WAITCOMPILE: Client got a CS and will ask him now (it's not me)
      * CLIENTWORK: Client is busy working and we reserve the spot (job_id is set if it's a scheduler job)
      * WAITFORCHILD: Client is waiting for the compile job to finish.
+     * WAITCREATEENV: We're waiting for icecc-create-env to finish.
      */
     enum Status { UNKNOWN, GOTNATIVE, PENDING_USE_CS, JOBDONE, LINKJOB, TOINSTALL, TOCOMPILE,
-                  WAITFORCS, WAITCOMPILE, CLIENTWORK, WAITFORCHILD, LASTSTATE = WAITFORCHILD
+                  WAITFORCS, WAITCOMPILE, CLIENTWORK, WAITFORCHILD, WAITCREATEENV,
+                  LASTSTATE = WAITCREATEENV
                 } status;
     Client() {
         job_id = 0;
@@ -165,6 +167,8 @@ public:
             return "waitcompile";
         case WAITFORCHILD:
             return "waitforchild";
+        case WAITCREATEENV:
+            return "waitcreateenv";
         }
 
         assert(false);
@@ -193,6 +197,7 @@ public:
     int client_id;
     int pipe_to_child; // pipe to child process, only valid if WAITFORCHILD or TOINSTALL
     pid_t child_pid;
+    string pending_create_env; // only for WAITCREATEENV
 
     string dump() const {
         string ret = status_str(status) + " " + channel->dump();
@@ -204,6 +209,8 @@ public:
             return ret + " " + toString(client_id) + " " + outfile;
         case WAITFORCHILD:
             return ret + " CID: " + toString(client_id) + " PID: " + toString(child_pid) + " PFD: " + toString(pipe_to_child);
+        case WAITCREATEENV:
+            return ret + " " + toString(client_id) + " " + pending_create_env;
         default:
 
             if (job_id) {
@@ -406,6 +413,7 @@ struct NativeEnvironment {
     time_t gcc_bin_timestamp;
     time_t gpp_bin_timestamp;
     time_t clang_bin_timestamp;
+    int create_env_pipe; // if in progress of creating the environment
 };
 
 struct Daemon {
@@ -490,6 +498,7 @@ struct Daemon {
     bool handle_transfer_env(Client *client, Msg *msg) __attribute_warn_unused_result__;
     bool handle_transfer_env_done(Client *client);
     bool handle_get_native_env(Client *client, GetNativeEnvMsg *msg) __attribute_warn_unused_result__;
+    bool finish_get_native_env(Client *client, string env_key);
     void handle_old_request();
     bool handle_compile_file(Client *client, Msg *msg) __attribute_warn_unused_result__;
     bool handle_activity(Client *client) __attribute_warn_unused_result__;
@@ -515,6 +524,7 @@ struct Daemon {
     int working_loop();
     bool setup_listen_fds();
     void check_cache_size(const string &new_env);
+    void create_env_finished(string env_key);
 };
 
 bool Daemon::setup_listen_fds()
@@ -811,7 +821,8 @@ string Daemon::dump_internals() const
 
     for (map<string, NativeEnvironment>::const_iterator it = native_environments.begin();
             it != native_environments.end(); ++it) {
-        result += "  NativeEnv (" + it->first + "): " + it->second.name + "\n";
+        result += "  NativeEnv (" + it->first + "): " + it->second.name
+            + (it->second.create_env_pipe ? " (creating)" : "" ) + "\n";
     }
 
     if (!envs_last_use.empty()) {
@@ -1003,6 +1014,9 @@ void Daemon::check_cache_size(const string &new_env)
                         keep_timeout = 24 * 60 * 60;    // 1 day
                     }
 
+                    if (it2->second.create_env_pipe) {
+                        keep_timeout = 365 * 24 * 60 * 60; // do not remove if it's still being created
+                    }
                     break;
                 }
             }
@@ -1085,6 +1099,10 @@ bool Daemon::handle_get_native_env(Client *client, GetNativeEnvMsg *msg)
             trace() << "native_env needs rebuild" << endl;
             cache_size -= remove_native_environment(env.name);
             envs_last_use.erase(env.name);
+            if (env.create_env_pipe) {
+                close(env.create_env_pipe);
+                // TODO kill the still running icecc-create-env process?
+            }
             native_environments.erase(env_key);   // invalidates 'env'
         }
     }
@@ -1092,26 +1110,28 @@ bool Daemon::handle_get_native_env(Client *client, GetNativeEnvMsg *msg)
     trace() << "get_native_env " << native_environments[env_key].name
             << " (" << env_key << ")" << endl;
 
-    if (!native_environments[env_key].name.length()) {
+    client->status = Client::WAITCREATEENV;
+    client->pending_create_env = env_key;
+
+    if (native_environments[env_key].name.length()) { // already available
+        return finish_get_native_env(client, env_key);
+    } else {
         NativeEnvironment &env = native_environments[env_key]; // also inserts it
-        size_t installed_size = setup_env_cache(envbasedir, env.name,
-                                                user_uid, user_gid, msg->compiler, msg->extrafiles);
-        // we only clean out cache on next target install
-        cache_size += installed_size;
-        trace() << "cache_size = " << cache_size << endl;
-
-        if (!installed_size) {
-            client->channel->send_msg(EndMsg());
-            handle_end(client, 121);
-            return false;
+        if (!env.create_env_pipe) { // start creating it only if not already in progress
+            env.extrafilestimes = extrafilestimes;
+            trace() << "start_create_env " << env_key << endl;
+            env.create_env_pipe = start_create_env(envbasedir, user_uid, user_gid, msg->compiler, msg->extrafiles);
+        } else {
+            trace() << "waiting for already running create_env " << env_key << endl;
         }
-
-        env.extrafilestimes = extrafilestimes;
-        save_compiler_timestamps(env.gcc_bin_timestamp, env.gpp_bin_timestamp, env.clang_bin_timestamp);
-        envs_last_use[native_environments[env_key].name] = time(NULL);
-        check_cache_size(env.name);
     }
+    return true;
+}
 
+bool Daemon::finish_get_native_env(Client *client, string env_key)
+{
+    assert(client->status == Client::WAITCREATEENV);
+    assert(client->pending_create_env == env_key);
     UseNativeEnvMsg m(native_environments[env_key].name);
 
     if (!client->channel->send_msg(m)) {
@@ -1121,7 +1141,43 @@ bool Daemon::handle_get_native_env(Client *client, GetNativeEnvMsg *msg)
 
     envs_last_use[native_environments[env_key].name] = time(NULL);
     client->status = Client::GOTNATIVE;
+    client->pending_create_env.clear();
     return true;
+}
+
+void Daemon::create_env_finished(string env_key)
+{
+    assert(native_environments.count(env_key));
+    NativeEnvironment &env = native_environments[env_key];
+
+    trace() << "create_env_finished " << env_key << endl;
+    assert(env.create_env_pipe);
+    size_t installed_size = finish_create_env(env.create_env_pipe, envbasedir, env.name);
+    env.create_env_pipe = 0;
+
+    // we only clean out cache on next target install
+    cache_size += installed_size;
+    trace() << "cache_size = " << cache_size << endl;
+
+    if (!installed_size) {
+        for (Clients::const_iterator it = clients.begin(); it != clients.end(); ++it)  {
+            if (it->second->pending_create_env == env_key) {
+                it->second->channel->send_msg(EndMsg());
+                handle_end(it->second, 121);
+            }
+        }
+        native_environments.erase(env_key);
+        return;
+    }
+
+    save_compiler_timestamps(env.gcc_bin_timestamp, env.gpp_bin_timestamp, env.clang_bin_timestamp);
+    envs_last_use[env.name] = time(NULL);
+    check_cache_size(env.name);
+
+    for (Clients::const_iterator it = clients.begin(); it != clients.end(); ++it) {
+        if (it->second->pending_create_env == env_key)
+            finish_get_native_env(it->second, env_key);
+    }
 }
 
 bool Daemon::handle_job_done(Client *cl, JobDoneMsg *m)
@@ -1375,6 +1431,7 @@ void Daemon::handle_end(Client *client, int exitcode)
             case Client::WAITFORCHILD:
             case Client::LINKJOB:
             case Client::TOINSTALL:
+            case Client::WAITCREATEENV:
                 assert(false);   // should not have a job_id
                 break;
             case Client::WAITCOMPILE:
@@ -1669,6 +1726,15 @@ int Daemon::answer_client_requests()
         }
     }
 
+    for (map<string, NativeEnvironment>::const_iterator it = native_environments.begin();
+            it != native_environments.end(); ++it) {
+        if (it->second.create_env_pipe) {
+            FD_SET(it->second.create_env_pipe, &listen_set);
+            if (max_fd < it->second.create_env_pipe)
+                max_fd = it->second.create_env_pipe;
+        }
+    }
+
     tv.tv_sec = max_scheduler_pong;
     tv.tv_usec = 0;
 
@@ -1810,6 +1876,14 @@ int Daemon::answer_client_requests()
                     max_fd--;
                 }
             }
+
+            for (map<string, NativeEnvironment>::iterator it = native_environments.begin();
+                 it != native_environments.end(); ++it) {
+                if (it->second.create_env_pipe && FD_ISSET(it->second.create_env_pipe, &listen_set)) {
+                    create_env_finished(it->first);
+                }
+            }
+
         }
 
         if (had_scheduler && !scheduler) {
