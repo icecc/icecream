@@ -1985,7 +1985,7 @@ int main(int argc, char **argv)
             { "daemonize", 0, NULL, 'd'},
             { "log-file", 1, NULL, 'l'},
             { "nice", 1, NULL, 0},
-            { "name", 1, NULL, 'n'},
+            { "name", 1, NULL, 'N'},
             { "scheduler-host", 1, NULL, 's' },
             { "env-basedir", 1, NULL, 'b' },
             { "user-uid", 1, NULL, 'u'},
