@@ -149,7 +149,7 @@ bool CompileServer::is_eligible(const Job *job)
     bool load_okay = m_load < 1000;
     bool ignore = job->ignoreUnverified() && !IS_PROTOCOL_31(this);
     return jobs_okay
-           && m_chrootPossible
+           && (m_chrootPossible || job->submitter() == this)
            && load_okay
            && !ignore
            && can_install(job).size()
