@@ -953,9 +953,9 @@ static bool handle_login(CompileServer *cs, Msg *_m)
 
     handle_monitor_stats(cs);
 
-    /* remove any other clients with the same IP, they must be stale */
+    /* remove any other clients with the same IP and name, they must be stale */
     for (list<CompileServer *>::iterator it = css.begin(); it != css.end();) {
-        if (cs->eq_ip(*(*it))) {
+        if (cs->eq_ip(*(*it)) && cs->nodeName() == (*it)->nodeName()) {
             CompileServer *old = *it;
             ++it;
             handle_end(old, 0);
