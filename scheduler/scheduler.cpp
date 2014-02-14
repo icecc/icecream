@@ -537,14 +537,14 @@ static CompileServer *pick_server(Job *job)
     /* If we have no statistics simply use any server which is usable.  */
     if (!all_job_stats.size ()) {
         CompileServer *selected = NULL;
-        int elligible_count = 0;
+        int eligible_count = 0;
 
         for (it = css.begin(); it != css.end(); ++it) {
             if ((*it)->is_eligible( job )) {
-                ++elligible_count;
+                ++eligible_count;
                 // Do not select the first one (which could be broken and so we might never get job stats),
                 // but rather select randomly.
-                if( random() % elligible_count == 0 )
+                if( random() % eligible_count == 0 )
                   selected = *it;
             }
         }
