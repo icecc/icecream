@@ -1340,16 +1340,15 @@ static bool handle_line(CompileServer *cs, Msg *_m)
 
     if (cmd == "listcs") {
         for (list<CompileServer *>::iterator it = css.begin(); it != css.end(); ++it) {
-            CompileServer *cs = *it;
-            sprintf(buffer, " (%s:%d) ", cs->name.c_str(), cs->remotePort());
-            line = " " + cs->nodeName() + buffer;
-            line += "[" + cs->hostPlatform() + "] speed=";
-            sprintf(buffer, "%.2f jobs=%d/%d load=%d", server_speed(cs),
-                    (int)cs->jobList().size(), cs->maxJobs(), cs->load());
+            sprintf(buffer, " (%s:%d) ", (*it)->name.c_str(), (*it)->remotePort());
+            line = " " + (*it)->nodeName() + buffer;
+            line += "[" + (*it)->hostPlatform() + "] speed=";
+            sprintf(buffer, "%.2f jobs=%d/%d load=%d", server_speed(*it),
+                    (int)(*it)->jobList().size(), (*it)->maxJobs(), (*it)->load());
             line += buffer;
 
-            if (cs->busyInstalling()) {
-                sprintf(buffer, " busy installing since %ld s",  time(0) - cs->busyInstalling());
+            if ((*it)->busyInstalling()) {
+                sprintf(buffer, " busy installing since %ld s",  time(0) - (*it)->busyInstalling());
                 line += buffer;
             }
 
@@ -1357,7 +1356,7 @@ static bool handle_line(CompileServer *cs, Msg *_m)
                 return false;
             }
 
-            list<Job *> jobList = cs->jobList();
+            list<Job *> jobList = (*it)->jobList();
             for (list<Job *>::const_iterator it2 = jobList.begin(); it2 != jobList.end(); ++it2) {
                 if (!cs->send_msg(TextMsg("   " + dump_job(*it2)))) {
                     return false;
