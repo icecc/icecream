@@ -514,10 +514,11 @@ static CompileServer *pick_server(Job *job)
             it != jobs.end(); ++it) {
         Job *j = it->second;
 
-        CompileServer *cs = j->server();
-        list<Job *> jobList = cs->jobList();
-        assert((j->state() != j->COMPILING)
-               || (find(jobList.begin(), jobList.end(), j) != jobList.end()));
+        if (j->state() == Job::COMPILING) {
+            CompileServer *cs = j->server();
+            list<Job *> jobList = cs->jobList();
+            assert(find(jobList.begin(), jobList.end(), j) != jobList.end());
+        }
     }
 
 #endif
