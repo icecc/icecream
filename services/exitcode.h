@@ -54,7 +54,8 @@ enum dcc_exitcode {
     EXIT_NO_SUCH_FILE = 115,
     EXIT_NO_HOSTS = 116,
     EXIT_GONE = 117, /**< No longer relevant */
-    EXIT_CLIENT_KILLED = 118
+    EXIT_CLIENT_KILLED = 118,
+    EXIT_TEST_SOCKET_ERROR = 119
 };
 
 extern int shell_exit_status(int status);

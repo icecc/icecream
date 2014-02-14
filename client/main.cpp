@@ -375,21 +375,30 @@ int main(int argc, char **argv)
         }
     }
 
-    /* try several options to reach the local daemon - 3 sockets, one TCP */
-    MsgChannel *local_daemon = Service::createChannel("/var/run/icecc/iceccd.socket");
+    MsgChannel *local_daemon;
+    if (getenv("ICECC_TEST_SOCKET") == NULL) {
+        /* try several options to reach the local daemon - 3 sockets, one TCP */
+        local_daemon = Service::createChannel("/var/run/icecc/iceccd.socket");
 
-    if (!local_daemon) {
-        local_daemon = Service::createChannel("/var/run/iceccd.socket");
-    }
+        if (!local_daemon) {
+            local_daemon = Service::createChannel("/var/run/iceccd.socket");
+        }
 
-    if (!local_daemon && getenv("HOME")) {
-        string path = getenv("HOME");
-        path += "/.iceccd.socket";
-        local_daemon = Service::createChannel(path);
-    }
+        if (!local_daemon && getenv("HOME")) {
+            string path = getenv("HOME");
+            path += "/.iceccd.socket";
+            local_daemon = Service::createChannel(path);
+        }
 
-    if (!local_daemon) {
-        local_daemon = Service::createChannel("127.0.0.1", 10245, 0/*timeout*/);
+        if (!local_daemon) {
+            local_daemon = Service::createChannel("127.0.0.1", 10245, 0/*timeout*/);
+        }
+    } else {
+        local_daemon = Service::createChannel(getenv("ICECC_TEST_SOCKET"));
+        if (!local_daemon) {
+            log_error() << "test socket error\n";
+            return EXIT_TEST_SOCKET_ERROR;
+        }
     }
 
     if (!local_daemon) {

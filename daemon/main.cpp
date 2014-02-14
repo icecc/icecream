@@ -578,24 +578,29 @@ bool Daemon::setup_listen_fds()
 
     mode_t old_umask = -1U;
 
+    if (getenv("ICECC_TEST_SOCKET") == NULL) {
 #ifdef HAVE_LIBCAP_NG
-    // We run as system daemon.
-    if (capng_have_capability( CAPNG_PERMITTED, CAP_SYS_CHROOT )) {
+        // We run as system daemon.
+        if (capng_have_capability( CAPNG_PERMITTED, CAP_SYS_CHROOT )) {
 #else
-    if (getuid() == 0) {
+        if (getuid() == 0) {
 #endif
-        strncpy(myaddr.sun_path, "/var/run/icecc/iceccd.socket", sizeof(myaddr.sun_path) - 1);
-        unlink(myaddr.sun_path);
-        old_umask = umask(0);
-    } else { // Started by user.
-        if( getenv( "HOME" )) {
-            strncpy(myaddr.sun_path, getenv("HOME"), sizeof(myaddr.sun_path) - 1);
-            strncat(myaddr.sun_path, "/.iceccd.socket", sizeof(myaddr.sun_path) - 1 - strlen(myaddr.sun_path));
+            strncpy(myaddr.sun_path, "/var/run/icecc/iceccd.socket", sizeof(myaddr.sun_path) - 1);
             unlink(myaddr.sun_path);
-        } else {
-            log_error() << "launched by user, but $HOME not set" << endl;
-            return false;
+            old_umask = umask(0);
+        } else { // Started by user.
+            if( getenv( "HOME" )) {
+                strncpy(myaddr.sun_path, getenv("HOME"), sizeof(myaddr.sun_path) - 1);
+                strncat(myaddr.sun_path, "/.iceccd.socket", sizeof(myaddr.sun_path) - 1 - strlen(myaddr.sun_path));
+                unlink(myaddr.sun_path);
+            } else {
+                log_error() << "launched by user, but $HOME not set" << endl;
+                return false;
+            }
         }
+    } else {
+        strncpy(myaddr.sun_path, getenv("ICECC_TEST_SOCKET"), sizeof(myaddr.sun_path) - 1);
+        unlink(myaddr.sun_path);
     }
 
     if (bind(unix_listen_fd, (struct sockaddr*)&myaddr, sizeof(myaddr)) < 0) {
