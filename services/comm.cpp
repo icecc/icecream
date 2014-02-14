@@ -735,7 +735,7 @@ bool MsgChannel::eq_ip(const MsgChannel &s) const
     struct sockaddr_in *s1, *s2;
     s1 = (struct sockaddr_in *) addr;
     s2 = (struct sockaddr_in *) s.addr;
-    return (len == s.len
+    return (addr_len == s.addr_len
             && memcmp(&s1->sin_addr, &s2->sin_addr, sizeof(s1->sin_addr)) == 0);
 }
 
@@ -754,11 +754,11 @@ MsgChannel *Service::createChannel(int fd, struct sockaddr *_a, socklen_t _l)
 MsgChannel::MsgChannel(int _fd, struct sockaddr *_a, socklen_t _l, bool text)
     : fd(_fd)
 {
-    len = _l;
+    addr_len = _l;
 
-    if (len && _a) {
-        addr = (struct sockaddr *)malloc(len);
-        memcpy(addr, _a, len);
+    if (addr_len && _a) {
+        addr = (struct sockaddr *)malloc(addr_len);
+        memcpy(addr, _a, addr_len);
         name = inet_ntoa(((struct sockaddr_in *) addr)->sin_addr);
     } else {
         addr = 0;

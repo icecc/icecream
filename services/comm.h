@@ -246,7 +246,7 @@ private:
 
     // deep copied
     struct sockaddr *addr;
-    socklen_t len;
+    socklen_t addr_len;
 };
 
 // just convenient functions to create MsgChannels

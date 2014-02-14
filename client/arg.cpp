@@ -421,8 +421,6 @@ bool analyse_argv(const char * const *argv, CompileJob &job, bool icerun, list<s
 
                 args.append("-fplugin=" + file, Arg_Rest);
             } else if (str_equal("-Xclang", a)) {
-                string a = argv[i];
-
                 if (argv[i + 1]) {
                     ++i;
                     const char *p = argv[i];

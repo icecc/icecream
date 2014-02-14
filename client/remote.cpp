@@ -393,10 +393,10 @@ static int build_remote_int(CompileJob &job, UseCSMsg *usecs, MsgChannel *local_
                     throw(22);
                 }
 
-                Msg *msg = cserver->get_msg(60);
+                Msg *verify_msg = cserver->get_msg(60);
 
-                if (msg && msg->type == M_VERIFY_ENV_RESULT) {
-                    if (!static_cast<VerifyEnvResultMsg*>(msg)->ok) {
+                if (verify_msg && verify_msg->type == M_VERIFY_ENV_RESULT) {
+                    if (!static_cast<VerifyEnvResultMsg*>(verify_msg)->ok) {
                         // The remote can't handle the environment at all (e.g. kernel too old),
                         // mark it as never to be used again for this environment.
                         log_info() << "Host " << hostname

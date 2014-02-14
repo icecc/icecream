@@ -491,8 +491,6 @@ static string envs_match(CompileServer *cs, const Job *job)
 
 static CompileServer *pick_server(Job *job)
 {
-    list<CompileServer *>::iterator it;
-
 #if DEBUG_SCHEDULER > 1
     trace() << "pick_server " << job->id() << " " << job->targetPlatform() << endl;
 #endif
@@ -525,7 +523,7 @@ static CompileServer *pick_server(Job *job)
 
     /* if the user wants to test/prefer one specific daemon, we look for that one first */
     if (!job->preferredHost().empty()) {
-        for (it = css.begin(); it != css.end(); ++it) {
+        for (list<CompileServer *>::iterator it = css.begin(); it != css.end(); ++it) {
             if (((*it)->nodeName() == job->preferredHost()) && (*it)->is_eligible(job)) {
                 return *it;
             }
@@ -539,7 +537,7 @@ static CompileServer *pick_server(Job *job)
         CompileServer *selected = NULL;
         int eligible_count = 0;
 
-        for (it = css.begin(); it != css.end(); ++it) {
+        for (list<CompileServer *>::iterator it = css.begin(); it != css.end(); ++it) {
             if ((*it)->is_eligible( job )) {
                 ++eligible_count;
                 // Do not select the first one (which could be broken and so we might never get job stats),
@@ -577,7 +575,7 @@ static CompileServer *pick_server(Job *job)
 
     uint matches = 0;
 
-    for (it = css.begin(); it != css.end(); ++it) {
+    for (list<CompileServer *>::iterator it = css.begin(); it != css.end(); ++it) {
         CompileServer *cs = *it;
 
         /* For now ignore overloaded servers.  */
