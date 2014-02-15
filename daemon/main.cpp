@@ -878,7 +878,7 @@ int Daemon::scheduler_use_cs(UseCSMsg *msg)
         return 1;
     }
 
-    if (msg->hostname == remote_name) {
+    if (msg->hostname == remote_name && int(msg->port) == daemon_port) {
         c->usecsmsg = new UseCSMsg(msg->host_platform, "127.0.0.1", daemon_port, msg->job_id, true, 1,
                                    msg->matched_job_id);
         c->status = Client::PENDING_USE_CS;
@@ -2204,6 +2204,8 @@ int main(int argc, char **argv)
                << nice_level << ") " << endl;
     if (remote_disabled)
         log_error() << "Cannot use chroot, no remote jobs accepted." << endl;
+    if (d.noremote)
+        d.daemon_port = 0;
 
     d.determine_system();
 

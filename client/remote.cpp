@@ -650,6 +650,10 @@ maybe_build_local(MsgChannel *local_daemon, UseCSMsg *usecs, CompileJob &job,
     remote_daemon = usecs->hostname;
 
     if (usecs->hostname == "127.0.0.1") {
+        // If this is a test build, do local builds on the local daemon
+        // that has --no-remote, use remote building for the remaining ones.
+        if (getenv("ICECC_TEST_REMOTEBUILD") && usecs->port != 0 )
+            return false;
         trace() << "building myself, but telling localhost\n";
         int job_id = usecs->job_id;
         job.setJobID(job_id);
