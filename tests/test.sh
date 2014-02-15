@@ -12,6 +12,10 @@ mkdir -p "$testdir"
 
 start_ice()
 {
+    rm -f "$testdir"/scheduler.log
+    rm -f "$testdir"/localice.log
+    rm -f "$testdir"/remoteice1.log
+    rm -f "$testdir"/remoteice2.log
     "$prefix"/sbin/icecc-scheduler -p 8767 -l "$testdir"/scheduler.log -v -v -v &
     scheduler_pid=$!
     echo $scheduler_pid > "$testdir"/scheduler.pid
