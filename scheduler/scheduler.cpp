@@ -94,7 +94,7 @@ using namespace std;
 static string pidFilePath;
 
 static map<int, CompileServer *> fd2cs;
-static bool exit_main_loop = false;
+static volatile sig_atomic_t exit_main_loop = false;
 
 time_t starttime;
 
