@@ -87,7 +87,7 @@ run_ice()
     output="$1"
     shift
     echo Running: "$@"
-    ICECC_TEST_SOCKET="$testdir"/socket-localice ICECC_DEBUG=debug "$prefix"/bin/icecc "$@"
+    ICECC_TEST_SOCKET="$testdir"/socket-localice ICECC_PREFERRED_HOST=localice ICECC_DEBUG=debug "$prefix"/bin/icecc "$@"
     localice_exit=$?
     if test -n "$output"; then
         mv "$output" "$output".localice
