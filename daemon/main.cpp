@@ -102,6 +102,7 @@
 #include "platform.h"
 
 static std::string pidFilePath;
+static volatile sig_atomic_t exit_main_loop = 0;
 
 #ifndef __attribute_warn_unused_result__
 #define __attribute_warn_unused_result__
@@ -370,13 +371,20 @@ static void dcc_daemon_terminate(int whichsig)
      * Don't call printf. and especially don't call the log_*() functions.
      */
 
+    if (exit_main_loop > 1) {
+        // The > 1 is because we get one more signal from the kill(0,...) below.
+        // hmm, we got killed already twice. try better
+        static const char msg[] = "forced exit.\n";
+        write(STDERR_FILENO, msg, strlen( msg ));
+        _exit(1);
+    }
+
+    // make BSD happy
+    signal(whichsig, dcc_daemon_terminate);
+
     bool am_parent = (getpid() == dcc_master_pid);
 
-    /* Make sure to remove handler before re-raising signal, or
-     * Valgrind gets its kickers in a knot. */
-    signal(whichsig, SIG_DFL);
-
-    if (am_parent) {
+    if (am_parent && exit_main_loop == 0) {
         /* kill whole group */
         kill(0, whichsig);
 
@@ -384,7 +392,7 @@ static void dcc_daemon_terminate(int whichsig)
         unlink(pidFilePath.c_str());
     }
 
-    raise(whichsig);
+    ++exit_main_loop;
 }
 
 void usage(const char *reason = 0)
@@ -1959,9 +1967,10 @@ int Daemon::working_loop()
             trace() << "answer_client_requests returned " << ret << endl;
             close_scheduler();
         }
-    }
 
-    // never really reached
+        if (exit_main_loop)
+            break;
+    }
     return 0;
 }
 
