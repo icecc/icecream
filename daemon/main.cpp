@@ -2163,6 +2163,7 @@ int main(int argc, char **argv)
 
     umask(022);
 
+    bool remote_disabled = false;
     if (getuid() == 0) {
         if (!logfile.length() && detach) {
             mkdir("/var/log/icecc", S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH);
@@ -2188,15 +2189,21 @@ int main(int argc, char **argv)
     } else {
 #ifdef HAVE_LIBCAP_NG
         // It's possible to have the capability even without being root.
-        if (!capng_have_capability( CAPNG_PERMITTED, CAP_SYS_CHROOT ))
+        if (!capng_have_capability( CAPNG_PERMITTED, CAP_SYS_CHROOT )) {
+#else
+        {
 #endif
             d.noremote = true;
+            remote_disabled = true;
+        }
     }
 
     setup_debug(debug_level, logfile);
 
     log_info() << "ICECREAM daemon " VERSION " starting up (nice level "
                << nice_level << ") " << endl;
+    if (remote_disabled)
+        log_error() << "Cannot use chroot, no remote jobs accepted." << endl;
 
     d.determine_system();
 
