@@ -257,6 +257,7 @@ run_ice "$testdir/plain.ii" "local" g++ -Wall -Werror -E plain.cpp -o "$testdir/
 run_ice "" "remote" g++ -c nonexistent.cpp
 run_ice "" "local" /bin/true
 
+reset_logs local "Closing down"
 stop_ice 1
 check_logs_for_generic_errors
 finish_logs
