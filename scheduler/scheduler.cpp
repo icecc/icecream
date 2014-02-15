@@ -503,8 +503,7 @@ static CompileServer *pick_server(Job *job)
 
         list<Job *> jobList = cs->jobList();
         for (list<Job *>::const_iterator it2 = jobList.begin(); it2 != jobList.end(); ++it2) {
-            Job *job = *it2;
-            assert(jobs.find(job->id()) != jobs.end());
+            assert(jobs.find((*it2)->id()) != jobs.end());
         }
     }
 
