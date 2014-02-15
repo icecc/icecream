@@ -12,10 +12,6 @@ mkdir -p "$testdir"
 
 start_ice()
 {
-    rm -f "$testdir"/scheduler.log
-    rm -f "$testdir"/localice.log
-    rm -f "$testdir"/remoteice1.log
-    rm -f "$testdir"/remoteice2.log
     "$prefix"/sbin/icecc-scheduler -p 8767 -l "$testdir"/scheduler.log -v -v -v &
     scheduler_pid=$!
     echo $scheduler_pid > "$testdir"/scheduler.pid
@@ -87,12 +83,12 @@ run_ice()
     output="$1"
     shift
     echo Running: "$@"
-    ICECC_TEST_SOCKET="$testdir"/socket-localice ICECC_TEST_REMOTEBUILD=1 ICECC_PREFERRED_HOST=localice ICECC_DEBUG=debug "$prefix"/bin/icecc "$@"
+    ICECC_TEST_SOCKET="$testdir"/socket-localice ICECC_TEST_REMOTEBUILD=1 ICECC_PREFERRED_HOST=localice ICECC_DEBUG=debug ICECC_LOGFILE="$testdir"/icecc.log "$prefix"/bin/icecc "$@"
     localice_exit=$?
     if test -n "$output"; then
         mv "$output" "$output".localice
     fi
-    ICECC_TEST_SOCKET="$testdir"/socket-localice ICECC_TEST_REMOTEBUILD=1 ICECC_PREFERRED_HOST=remoteice1 ICECC_DEBUG=debug "$prefix"/bin/icecc "$@"
+    ICECC_TEST_SOCKET="$testdir"/socket-localice ICECC_TEST_REMOTEBUILD=1 ICECC_PREFERRED_HOST=remoteice1 ICECC_DEBUG=debug ICECC_LOGFILE="$testdir"/icecc.log "$prefix"/bin/icecc "$@"
     remoteice_exit=$?
     if test -n "$output"; then
         mv "$output" "$output".remoteice
@@ -125,6 +121,12 @@ run_ice()
         echo
     fi
 }
+
+rm -f "$testdir"/scheduler.log
+rm -f "$testdir"/localice.log
+rm -f "$testdir"/remoteice1.log
+rm -f "$testdir"/remoteice2.log
+rm -f "$testdir"/icecc.log
 
 stop_ice 0
 start_ice
