@@ -19,7 +19,7 @@ start_ice()
     "$prefix"/sbin/icecc-scheduler -p 8767 -l "$testdir"/scheduler.log -v -v -v &
     scheduler_pid=$!
     echo $scheduler_pid > "$testdir"/scheduler.pid
-    ICECC_TEST_SOCKET="$testdir"/socket-localice ICECC_TEST_REMOTEBUILD=1 "$prefix"/sbin/iceccd --no-remote -s localhost:8767 -b "$testdir"/envs-localice -l "$testdir"/localice.log -N localice -v -v -v &
+    ICECC_TEST_SOCKET="$testdir"/socket-localice "$prefix"/sbin/iceccd --no-remote -s localhost:8767 -b "$testdir"/envs-localice -l "$testdir"/localice.log -N localice -v -v -v &
     localice_pid=$!
     echo $localice_pid > "$testdir"/localice.pid
     ICECC_TEST_SOCKET="$testdir"/socket-remoteice1 "$prefix"/sbin/iceccd -p 10246 -s localhost:8767 -b "$testdir"/envs-remoteice1 -l "$testdir"/remoteice1.log -N remoteice1 -v -v -v &
@@ -87,12 +87,12 @@ run_ice()
     output="$1"
     shift
     echo Running: "$@"
-    ICECC_TEST_SOCKET="$testdir"/socket-localice ICECC_PREFERRED_HOST=localice ICECC_DEBUG=debug "$prefix"/bin/icecc "$@"
+    ICECC_TEST_SOCKET="$testdir"/socket-localice ICECC_TEST_REMOTEBUILD=1 ICECC_PREFERRED_HOST=localice ICECC_DEBUG=debug "$prefix"/bin/icecc "$@"
     localice_exit=$?
     if test -n "$output"; then
         mv "$output" "$output".localice
     fi
-    ICECC_TEST_SOCKET="$testdir"/socket-localice ICECC_PREFERRED_HOST=remoteice1 ICECC_DEBUG=debug "$prefix"/bin/icecc "$@"
+    ICECC_TEST_SOCKET="$testdir"/socket-localice ICECC_TEST_REMOTEBUILD=1 ICECC_PREFERRED_HOST=remoteice1 ICECC_DEBUG=debug "$prefix"/bin/icecc "$@"
     remoteice_exit=$?
     if test -n "$output"; then
         mv "$output" "$output".remoteice
