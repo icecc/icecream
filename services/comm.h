@@ -266,22 +266,10 @@ public:
     /* Connect to a scheduler waiting max. TIMEOUT milliseconds.
        schedname can be the hostname of a box running a scheduler, to avoid
        broadcasting, port can be specified explicitly */
-#if 0
     DiscoverSched(const std::string &_netname = std::string(),
                   int _timeout = 2000,
                   const std::string &_schedname = std::string(),
                   int port = 0);
-#else
-    // No default args because of the backwards compatibility overload.
-    DiscoverSched(const std::string &_netname,
-                  int _timeout,
-                  const std::string &_schedname,
-                  int port);
-#endif
-    // Backwards (binary) compatibility.
-    DiscoverSched(const std::string &_netname = std::string(),
-                  int _timeout = 2000,
-                  const std::string &_schedname = std::string());
     ~DiscoverSched();
 
     bool timed_out();
@@ -325,7 +313,6 @@ private:
     time_t time0;
     unsigned int sport;
 
-    void init();
     void attempt_scheduler_connect();
 };
 // --------------------------------------------------------------------------

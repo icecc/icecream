@@ -1251,22 +1251,6 @@ DiscoverSched::DiscoverSched(const std::string &_netname, int _timeout,
     , ask_fd(-1)
     , sport(port ? port : 8765)
 {
-    init();
-}
-
-DiscoverSched::DiscoverSched(const std::string &_netname, int _timeout,
-                             const std::string &_schedname)
-    : netname(_netname)
-    , schedname(_schedname)
-    , timeout(_timeout)
-    , ask_fd(-1)
-    , sport(8765)
-{
-    init();
-}
-
-void DiscoverSched::init()
-{
     time0 = time(0);
 
     if (schedname.empty()) {
