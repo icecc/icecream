@@ -1249,7 +1249,7 @@ DiscoverSched::DiscoverSched(const std::string &_netname, int _timeout,
     , schedname(_schedname)
     , timeout(_timeout)
     , ask_fd(-1)
-    , sport(port ? port : 8765)
+    , sport(port)
 {
     time0 = time(0);
 
@@ -1257,12 +1257,22 @@ DiscoverSched::DiscoverSched(const std::string &_netname, int _timeout,
         const char *get = getenv("USE_SCHEDULER");
 
         if (get) {
-            schedname = get;
+            string scheduler = get;
+            size_t colon = scheduler.rfind( ':' );
+            if( colon == string::npos ) {
+                schedname = scheduler;
+            } else {
+                schedname = scheduler.substr(0, colon);
+                sport = atoi( scheduler.substr( colon + 1 ).c_str());
+            }
         }
     }
 
     if (netname.empty()) {
         netname = "ICECREAM";
+    }
+    if (sport == 0 ) {
+        sport = 8765;
     }
 
     if (!schedname.empty()) {
