@@ -15,43 +15,60 @@ start_ice()
     "$prefix"/sbin/icecc-scheduler -p 8767 -l "$testdir"/scheduler.log -v -v -v &
     scheduler_pid=$!
     echo $scheduler_pid > "$testdir"/scheduler.pid
-    ICECC_TEST_SOCKET="$testdir"/socket "$prefix"/sbin/iceccd -p 8767 -s localhost -b "$testdir"/envs -l "$testdir"/daemon.log -v -v -v &
-    daemon_pid=$!
-    echo $daemon_pid > "$testdir"/daemon.pid
+    ICECC_TEST_SOCKET="$testdir"/socket-localice ICECC_TEST_REMOTEBUILD=1 "$prefix"/sbin/iceccd --no-remote -s localhost:8767 -b "$testdir"/envs-localice -l "$testdir"/localice.log -N localice -v -v -v &
+    localice_pid=$!
+    echo $localice_pid > "$testdir"/localice.pid
+    ICECC_TEST_SOCKET="$testdir"/socket-remoteice1 "$prefix"/sbin/iceccd -p 10246 -s localhost:8767 -b "$testdir"/envs-remoteice1 -l "$testdir"/remoteice1.log -N remoteice1 -v -v -v &
+    remoteice1_pid=$!
+    echo $remoteice1_pid > "$testdir"/remoteice1.pid
+    ICECC_TEST_SOCKET="$testdir"/socket-remoteice2 "$prefix"/sbin/iceccd -p 10247 -s localhost:8767 -b "$testdir"/envs-remoteice2 -l "$testdir"/remoteice2.log -N remoteice2 -v -v -v &
+    remoteice2_pid=$!
+    echo $remoteice2_pid > "$testdir"/remoteice2.pid
     sleep 5
     if ! kill -0 $scheduler_pid; then
         echo Scheduler start failure.
         stop_ice
         exit 1
     fi
-    if ! kill -0 $daemon_pid; then
-        echo Daemon start failure.
-        stop_ice
-        exit 1
-    fi
+    for daemon in localice remoteice1 remoteice2; do
+        pid=${daemon}_pid
+        if ! kill -0 ${!pid}; then
+            echo Daemon $daemon start failure.
+            stop_ice
+            exit 1
+        fi
+    done
 }
 
 stop_ice()
 {
     check_first="$1"
-    daemon_pid=`cat "$testdir"/daemon.pid 2>/dev/null`
     scheduler_pid=`cat "$testdir"/scheduler.pid 2>/dev/null`
+    localice_pid=`cat "$testdir"/localice.pid 2>/dev/null`
+    remoteice1_pid=`cat "$testdir"/remoteice1.pid 2>/dev/null`
+    remoteice2_pid=`cat "$testdir"/remoteice2.pid 2>/dev/null`
     if test $check_first -ne 0; then
         if ! kill -0 $scheduler_pid; then
             echo Scheduler no longer running.
-            stop_ice
+            stop_ice 0
             exit 1
         fi
-        if ! kill -0 $daemon_pid; then
-            echo Daemon no longer running.
-            stop_ice
-            exit 1
+        for daemon in localice remoteice1 remoteice2; do
+            pid=${daemon}_pid
+            if ! kill -0 ${!pid}; then
+                echo Daemon $daemon no longer running.
+                stop_ice 0
+                exit 1
+            fi
+        done
+    fi
+    for daemon in localice remoteice1 remoteice2; do
+        pid=${daemon}_pid
+        if test -n "${!pid}"; then
+            kill "${!pid}" 2>/dev/null
         fi
-    fi
-    if test -n "$daemon_pid"; then
-        kill "$daemon_pid" 2>/dev/null
-    fi
-    rm -f "$testdir"/daemon.pid
+        rm -f "$testdir"/$daemon.pid
+    done
     if test -n "$scheduler_pid"; then
         kill "$scheduler_pid" 2>/dev/null
     fi
@@ -66,25 +83,38 @@ run_ice()
     output="$1"
     shift
     echo Running: "$@"
-    ICECC_TEST_SOCKET="$testdir"/socket ICECC_DEBUG=debug "$prefix"/bin/icecc "$@"
-    ice_exit=$?
+    ICECC_TEST_SOCKET="$testdir"/socket-localice ICECC_DEBUG=debug "$prefix"/bin/icecc "$@"
+    localice_exit=$?
     if test -n "$output"; then
-        mv "$output" "$output".ice
+        mv "$output" "$output".localice
+    fi
+    ICECC_TEST_SOCKET="$testdir"/socket-localice ICECC_PREFERRED_HOST=remoteice1 ICECC_DEBUG=debug "$prefix"/bin/icecc "$@"
+    remoteice_exit=$?
+    if test -n "$output"; then
+        mv "$output" "$output".remoteice
     fi
     "$@"
     normal_exit=$?
-    if test $ice_exit -ne $normal_exit; then
-        echo "Exit code mismatch ($ice_exit vs $normal_exit)"
+    if test $localice_exit -ne $normal_exit; then
+        echo "Exit code mismatch ($localice_exit vs $normal_exit)"
+        exit 1
+    fi
+    if test $remoteice_exit -ne $normal_exit; then
+        echo "Exit code mismatch ($remoteice_exit vs $normal_exit)"
         exit 1
     fi
     if test -n "$output"; then
-        if ! diff -q "$output".ice "$output"; then
-            echo "Output mismatch ($output)"
+        if ! diff -q "$output".localice "$output"; then
+            echo "Output mismatch ($output.localice)"
+            exit 1
+        fi
+        if ! diff -q "$output".remoteice "$output"; then
+            echo "Output mismatch ($output.remoteice)"
             exit 1
         fi
     fi
-    if test $ice_exit -ne 0; then
-        echo "Command failed (matches local result, continuing), exit code: $ice_exit"
+    if test $localice_exit -ne 0; then
+        echo "Command failed (matches local result, continuing), exit code: $localice_exit"
         echo
     else
         echo Command successful.
