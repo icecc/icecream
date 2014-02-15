@@ -255,6 +255,7 @@ echo ===============
 run_ice "$testdir/plain.o" "remote" g++ -Wall -Werror -c plain.cpp -o "$testdir/"plain.o
 run_ice "$testdir/plain.ii" "local" g++ -Wall -Werror -E plain.cpp -o "$testdir/"plain.ii
 run_ice "" "remote" g++ -c nonexistent.cpp
+run_ice "" "local" /bin/true
 
 stop_ice 1
 check_logs_for_generic_errors
