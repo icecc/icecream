@@ -101,7 +101,6 @@
 #include "environment.h"
 #include "platform.h"
 
-const int PORT = 10245;
 static std::string pidFilePath;
 
 #ifndef __attribute_warn_unused_result__
@@ -394,8 +393,8 @@ void usage(const char *reason = 0)
         cerr << reason << endl;
     }
 
-    cerr << "usage: iceccd [-n <netname>] [-m <max_processes>] [--no-remote] [-w] [-d|--daemonize] [-l logfile] [-s <schedulerhost>]"
-        " [-p <schedulerport>] [-v[v[v]]] [-u|--user-uid <user_uid>] [-b <env-basedir>] [--cache-limit <MB>] [-N <node_name>]" << endl;
+    cerr << "usage: iceccd [-n <netname>] [-m <max_processes>] [--no-remote] [-w] [-d|--daemonize] [-l logfile] [-s <schedulerhost[:port]>]"
+        " [-v[v[v]]] [-u|--user-uid <user_uid>] [-b <env-basedir>] [--cache-limit <MB>] [-N <node_name>]" << endl;
     exit(1);
 }
 
@@ -448,6 +447,7 @@ struct Daemon {
     string netname;
     string schedname;
     int scheduler_port;
+    int daemon_port;
 
     int max_scheduler_pong;
     int max_scheduler_ping;
@@ -487,6 +487,7 @@ struct Daemon {
         scheduler = 0;
         discover = 0;
         scheduler_port = 8765;
+        daemon_port = 10245;
         max_scheduler_pong = MAX_SCHEDULER_PONG;
         max_scheduler_ping = MAX_SCHEDULER_PING;
         bench_source = "";
@@ -549,7 +550,7 @@ bool Daemon::setup_listen_fds()
         while (count) {
             struct sockaddr_in myaddr;
             myaddr.sin_family = AF_INET;
-            myaddr.sin_port = htons(PORT);
+            myaddr.sin_port = htons(daemon_port);
             myaddr.sin_addr.s_addr = INADDR_ANY;
 
             if (bind(tcp_listen_fd, (struct sockaddr *)&myaddr,
@@ -878,7 +879,7 @@ int Daemon::scheduler_use_cs(UseCSMsg *msg)
     }
 
     if (msg->hostname == remote_name) {
-        c->usecsmsg = new UseCSMsg(msg->host_platform, "127.0.0.1", PORT, msg->job_id, true, 1,
+        c->usecsmsg = new UseCSMsg(msg->host_platform, "127.0.0.1", daemon_port, msg->job_id, true, 1,
                                    msg->matched_job_id);
         c->status = Client::PENDING_USE_CS;
     } else {
@@ -1496,7 +1497,7 @@ bool Daemon::handle_get_cs(Client *client, Msg *msg)
         /* now the thing is this: if there is no scheduler
            there is no point in trying to ask him. So we just
            redefine this as local job */
-        client->usecsmsg = new UseCSMsg(umsg->target, "127.0.0.1", PORT,
+        client->usecsmsg = new UseCSMsg(umsg->target, "127.0.0.1", daemon_port,
                                         umsg->client_id, true, 1, 0);
         client->status = Client::PENDING_USE_CS;
         client->job_id = umsg->client_id;
@@ -1940,7 +1941,7 @@ bool Daemon::reconnect()
     gettimeofday(&last_stat, 0);
     icecream_load = 0;
 
-    LoginMsg lmsg(PORT, determine_nodename(), machine_name);
+    LoginMsg lmsg(daemon_port, determine_nodename(), machine_name);
     lmsg.envs = available_environmnents(envbasedir);
     lmsg.max_kids = max_kids;
     lmsg.noremote = noremote;
@@ -2094,7 +2095,17 @@ int main(int argc, char **argv)
         case 's':
 
             if (optarg && *optarg) {
-                d.schedname = optarg;
+                string scheduler = optarg;
+                size_t colon = scheduler.rfind( ':' );
+                if( colon == string::npos ) {
+                    d.schedname = scheduler;
+                } else {
+                    d.schedname = scheduler.substr(0, colon);
+                    d.scheduler_port = atoi( scheduler.substr( colon + 1 ).c_str());
+                    if( d.scheduler_port == 0 ) {
+                        usage("Error: -s requires valid port if hostname includes colon");
+                    }
+                }
             } else {
                 usage("Error: -s requires hostname argument");
             }
@@ -2131,9 +2142,9 @@ int main(int argc, char **argv)
         case 'p':
 
             if (optarg && *optarg) {
-                d.scheduler_port = atoi(optarg);
+                d.daemon_port = atoi(optarg);
 
-                if (0 == d.scheduler_port) {
+                if (0 == d.daemon_port) {
                     usage("Error: Invalid port specified");
                 }
             } else {
