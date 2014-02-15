@@ -375,6 +375,8 @@ int start_create_env(const string &basedir, uid_t user_uid, gid_t user_gid,
     dup2(pipes[1], 5);   // icecc-create-env will write the hash there
     close(pipes[1]);
 
+    close(STDOUT_FILENO); // hide output from icecc-create-env
+
     const char **argv;
     argv = new const char*[4 + extrafiles.size()];
     int pos = 0;
