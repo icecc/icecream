@@ -1742,7 +1742,8 @@ static void trigger_exit(int signum)
         exit_main_loop = true;
     } else {
         // hmm, we got killed already. try better
-        cerr << "forced exit." << endl;
+        static const char msg[] = "forced exit.\n";
+        write(STDERR_FILENO, msg, strlen( msg ));
         _exit(1);
     }
 
