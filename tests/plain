@@ -1,0 +1,6 @@
+// C++ feature (so that C++ mode is required)
+template< typename T > T func( T );
+
+void f()
+    {
+    }
