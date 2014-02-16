@@ -94,6 +94,8 @@ stop_ice()
             kill "${!pid}" 2>/dev/null
         fi
         rm -f "$testdir"/$daemon.pid
+        rm -rf "$testdir"/envs-${daemon}
+        rm -f "$testdir"/socket-${daemon}
     done
     if test -n "$scheduler_pid"; then
         kill "$scheduler_pid" 2>/dev/null
@@ -175,6 +177,9 @@ run_ice()
     else
         echo Command successful.
         echo
+    fi
+    if test -n "$output"; then
+        rm "$output" "$output".localice "$output".remoteice
     fi
 }
 
