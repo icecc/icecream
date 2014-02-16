@@ -1,0 +1,14 @@
+all: maketest
+SOURCES = make1.cpp make2.cpp make3.cpp make4.cpp make5.cpp make6.cpp make7.cpp make8.cpp make9.cpp make10.cpp
+OBJS = $(patsubst %.cpp,$(OUTDIR)/%.o,$(SOURCES))
+
+maketest: $(OUTDIR)/maketest
+
+$(OUTDIR)/maketest: $(OBJS)
+	g++ -o $@ $^
+
+$(OUTDIR)/%.o: %.cpp
+	g++ -o $@ -c $^
+
+clean:
+	rm -f $(OBJS) $(OUTDIR)/maketest

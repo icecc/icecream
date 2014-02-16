@@ -23,13 +23,13 @@ start_ice()
     "$prefix"/sbin/icecc-scheduler -p 8767 -l "$testdir"/scheduler.log -v -v -v &
     scheduler_pid=$!
     echo $scheduler_pid > "$testdir"/scheduler.pid
-    ICECC_TEST_SOCKET="$testdir"/socket-localice "$prefix"/sbin/iceccd --no-remote -s localhost:8767 -b "$testdir"/envs-localice -l "$testdir"/localice.log -N localice -v -v -v &
+    ICECC_TEST_SOCKET="$testdir"/socket-localice "$prefix"/sbin/iceccd --no-remote -s localhost:8767 -b "$testdir"/envs-localice -l "$testdir"/localice.log -N localice -m 2 -v -v -v &
     localice_pid=$!
     echo $localice_pid > "$testdir"/localice.pid
-    ICECC_TEST_SOCKET="$testdir"/socket-remoteice1 "$prefix"/sbin/iceccd -p 10246 -s localhost:8767 -b "$testdir"/envs-remoteice1 -l "$testdir"/remoteice1.log -N remoteice1 -v -v -v &
+    ICECC_TEST_SOCKET="$testdir"/socket-remoteice1 "$prefix"/sbin/iceccd -p 10246 -s localhost:8767 -b "$testdir"/envs-remoteice1 -l "$testdir"/remoteice1.log -N remoteice1 -m 2 -v -v -v &
     remoteice1_pid=$!
     echo $remoteice1_pid > "$testdir"/remoteice1.pid
-    ICECC_TEST_SOCKET="$testdir"/socket-remoteice2 "$prefix"/sbin/iceccd -p 10247 -s localhost:8767 -b "$testdir"/envs-remoteice2 -l "$testdir"/remoteice2.log -N remoteice2 -v -v -v &
+    ICECC_TEST_SOCKET="$testdir"/socket-remoteice2 "$prefix"/sbin/iceccd -p 10247 -s localhost:8767 -b "$testdir"/envs-remoteice2 -l "$testdir"/remoteice2.log -N remoteice2 -m 2 -v -v -v &
     remoteice2_pid=$!
     echo $remoteice2_pid > "$testdir"/remoteice2.pid
     notready=
@@ -194,6 +194,28 @@ run_ice()
     fi
 }
 
+make_test()
+{
+    # make test - actually try something somewhat realistic. Since each node is set up to serve
+    # only 2 jobs max, at least some of the 10 jobs should be built remotely.
+    echo Running make test.
+    reset_logs remote "make test"
+    make -f Makefile.test OUTDIR="$testdir" clean -s
+    PATH="$prefix"/lib/icecc/bin:$PATH ICECC_TEST_SOCKET="$testdir"/socket-localice ICECC_TEST_REMOTEBUILD=1 ICECC_DEBUG=debug ICECC_LOGFILE="$testdir"/icecc.log make -f Makefile.test OUTDIR="$testdir" -j10 -s
+    if test $? -ne 0 -o ! -x "$testdir"/maketest; then
+        echo Make test failed.
+        exit 1
+    fi
+    make -f Makefile.test OUTDIR="$testdir" clean -s
+    flush_logs
+    check_logs_for_generic_errors
+    check_log_message icecc "Have to use host 127.0.0.1:10246"
+    check_log_message icecc "Have to use host 127.0.0.1:10247"
+    check_log_message_once icecc "<building_local>"
+    echo Make test successful.
+    echo
+}
+
 reset_logs()
 {
     type="$1"
@@ -234,6 +256,7 @@ check_logs_for_generic_errors()
 {
     check_log_error scheduler "that job isn't handled by"
     check_log_error scheduler "the server isn't the same for job"
+    check_log_error icecc "got exception "
 }
 
 check_log_error()
@@ -250,6 +273,16 @@ check_log_message()
     log="$1"
     if ! grep -q "$2" "$testdir"/${log}.log; then
         echo "Error, $log log does not contain: $2"
+        exit 1
+    fi
+}
+
+check_log_message_once()
+{
+    log="$1"
+    count=`grep "$2" "$testdir"/${log}.log | wc -l`
+    if test $count -ne 1; then
+        echo "Error, $log log does not contain exactly once (${count}x): $2"
         exit 1
     fi
 }
@@ -293,6 +326,8 @@ if test -n "`which clang++ 2>/dev/null`"; then
 else
     skipped_tests="$skipped_tests clang"
 fi
+
+make_test
 
 reset_logs local "Closing down"
 stop_ice 1
