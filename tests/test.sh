@@ -220,14 +220,89 @@ make_test()
         stop_ice 0
         exit 1
     fi
-    make -f Makefile.test OUTDIR="$testdir" clean -s
     flush_logs
     check_logs_for_generic_errors
     check_log_message icecc "Have to use host 127.0.0.1:10246"
     check_log_message icecc "Have to use host 127.0.0.1:10247"
-    check_log_message_once icecc "<building_local>"
+    check_log_message_count icecc 1 "<building_local>"
     echo Make test successful.
     echo
+    make -f Makefile.test OUTDIR="$testdir" clean -s
+}
+
+icerun_test()
+{
+    # test that icerun really serializes jobs and only up to 2 (max jobs of the local daemon) are run at any time
+    echo Running icerun test.
+    reset_logs local "icerun test"
+    rm -rf "$testdir"/icerun
+    mkdir -p "$testdir"/icerun
+    for i in `seq 1 10`; do
+        path=$PATH
+        if test $i -eq 1; then
+            # check icerun with absolute path
+            testbin=`pwd`/icerun-test.sh
+        elif test $i -eq 2; then
+            # check with relative path
+            testbin=../tests/icerun-test.sh
+        elif test $i -eq 3; then
+            # test with PATH
+            testbin=icerun-test.sh
+            path=`pwd`:$PATH
+        else
+            testbin=./icerun-test.sh
+        fi
+        PATH=$path ICECC_TEST_SOCKET="$testdir"/socket-localice ICECC_TEST_REMOTEBUILD=1 ICECC_DEBUG=debug ICECC_LOGFILE="$testdir"/icecc.log "$prefix"/bin/icerun $testbin "$testdir"/icerun $i &
+    done
+    timeout=100
+    while true; do
+        runcount=`ls -1 "$testdir"/icerun/running* 2>/dev/null | wc -l`
+        if test $runcount -gt 2; then
+            echo Icerun test failed, more than expected 2 processes running.
+            stop_ice 0
+            exit 1
+        fi
+        donecount=`ls -1 "$testdir"/icerun/done* 2>/dev/null | wc -l`
+        if test $donecount -eq 10; then
+            break
+        fi
+        sleep 0.1
+        timeout=$((timeout-1))
+        if test $timeout -eq 0; then
+            echo Icerun test timed out.
+            stop_ice 0
+            exit 1
+        fi
+    done
+
+    # check that plain 'icerun-test.sh' doesn't work for the current directory (i.e. ./ must be required just like with normal execution)
+    ICECC_TEST_SOCKET="$testdir"/socket-localice ICECC_TEST_REMOTEBUILD=1 ICECC_DEBUG=debug ICECC_LOGFILE="$testdir"/icecc.log "$prefix"/bin/icerun icerun-test.sh "$testdir"/icerun 0 &
+    icerun_test_pid=$!
+    timeout=20
+    while true; do
+        if ! kill -0 $icerun_test_pid 2>/dev/null; then
+            break
+        fi
+        sleep 0.1
+        timeout=$((timeout-1))
+        if test $timeout -eq 0; then
+            echo Icerun test timed out.
+            stop_ice 0
+            exit 1
+        fi
+    done
+    
+    flush_logs
+    check_logs_for_generic_errors
+    check_log_error icecc "Have to use host 127.0.0.1:10246"
+    check_log_error icecc "Have to use host 127.0.0.1:10247"
+    check_log_error icecc "building myself, but telling localhost"
+    check_log_message_count icecc 11 "<building_local>"
+    check_log_message_count icecc 1 "couldn't find any"
+    check_log_message_count icecc 1 "could not find icerun-test.sh in PATH."
+    echo Icerun test successful.
+    echo
+    rm -r "$testdir"/icerun
 }
 
 reset_logs()
@@ -293,12 +368,14 @@ check_log_message()
     fi
 }
 
-check_log_message_once()
+check_log_message_count()
 {
     log="$1"
-    count=`grep "$2" "$testdir"/${log}.log | wc -l`
-    if test $count -ne 1; then
-        echo "Error, $log log does not contain exactly once (${count}x): $2"
+    expected_count="$2"
+    count=`grep "$3" "$testdir"/${log}.log | wc -l`
+    if test $count -ne $expected_count; then
+        echo "Error, $log log does not contain expected count (${count} vs ${expected_count}): $3"
+        stop_ice 0
         exit 1
     fi
 }
@@ -326,6 +403,12 @@ run_ice "$testdir/includes.o" "remote" g++ -Wall -Werror -c includes.cpp -o "$te
 run_ice "" "remote" g++ -c nonexistent.cpp
 run_ice "" "local" /bin/true
 
+if test -z "$chroot_disabled"; then
+    make_test
+fi
+
+icerun_test
+
 if test -n "`which clang++ 2>/dev/null`"; then
     # There's probably not much point in repeating all tests with Clang, but at least
     # try it works (there's a different icecc-create-env run needed, and -frewrite-includes
@@ -343,8 +426,6 @@ if test -n "`which clang++ 2>/dev/null`"; then
 else
     skipped_tests="$skipped_tests clang"
 fi
-
-make_test
 
 reset_logs local "Closing down"
 stop_ice 1
