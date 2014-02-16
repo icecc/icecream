@@ -306,6 +306,7 @@ int main(int argc, char **argv)
 
             if (arg.size() > 0) {
                 job.setCompilerName(arg);
+                job.setCompilerPathname(arg);
             }
         }
     } else {
