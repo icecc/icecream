@@ -36,6 +36,7 @@
 #include <unistd.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <grp.h>
 #include <time.h>
 #include <getopt.h>
 #include <string>
@@ -1891,6 +1892,11 @@ int main(int argc, char *argv[])
             }
 
             logfile = "/var/log/icecc/scheduler.log";
+        }
+
+        if (setgroups(0, NULL) < 0) {
+            log_perror("setgroups() failed");
+            return 1;
         }
 
         if (setgid(user_gid) < 0) {

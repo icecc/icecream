@@ -27,6 +27,7 @@
 #include <dirent.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <grp.h>
 #include <stdio.h>
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -354,6 +355,11 @@ int start_create_env(const string &basedir, uid_t user_uid, gid_t user_gid,
 
 #ifndef HAVE_LIBCAP_NG
 
+    if (setgroups(0, NULL) < 0) {
+        log_perror("setgroups failed");
+        _exit(143);
+    }
+
     if (setgid(user_gid) < 0) {
         log_perror("setgid failed");
         _exit(143);
@@ -509,6 +515,11 @@ pid_t start_install_environment(const std::string &basename, const std::string &
     // else
 #ifndef HAVE_LIBCAP_NG
 
+    if (setgroups(0, NULL) < 0) {
+        log_perror("setgroups fails");
+        _exit(143);
+    }
+
     if (setgid(user_gid) < 0) {
         log_perror("setgid fails");
         _exit(143);
@@ -663,6 +674,12 @@ void chdir_to_environment(MsgChannel *client, const string &dirname, uid_t user_
             error_client(client, string("chroot ") + dirname + "failed");
             log_perror("chroot() failed");
             _exit(144);
+        }
+
+        if (setgroups(0, NULL) < 0) {
+            error_client(client, string("setgroups failed"));
+            log_perror("setgroups() failed");
+            _exit(143);
         }
 
         if (setgid(user_gid) < 0) {
