@@ -269,6 +269,8 @@ echo Starting tests.
 echo ===============
 
 run_ice "$testdir/plain.o" "remote" g++ -Wall -Werror -c plain.cpp -o "$testdir/"plain.o
+run_ice "$testdir/plain.o" "remote" g++ -Wall -Werror -c plain.cpp -g -o "$testdir/"plain.o
+run_ice "$testdir/plain.o" "remote" g++ -Wall -Werror -c plain.cpp -O2 -o "$testdir/"plain.o
 run_ice "$testdir/plain.ii" "local" g++ -Wall -Werror -E plain.cpp -o "$testdir/"plain.ii
 run_ice "" "remote" g++ -c nonexistent.cpp
 run_ice "" "local" /bin/true
@@ -279,7 +281,10 @@ if test -n "`which clang++ 2>/dev/null`"; then
     # usage needs checking).
     # Clang writes the input filename in the resulting .o , which means the outputs
     # cannot match (remote node will use stdin for the input, while icecc always
-    # builds locally if it itself gets data from stdin). So just do not compare.
+    # builds locally if it itself gets data from stdin). It'd be even worse with -g,
+    # since the -frewrite-includes transformation apparently makes the debugginfo
+    # differ too (although the end results work just as well). So just do not compare.
+    # It'd be still nice to check at least somehow that this really works though.
     run_ice "" "remote" clang++ -Wall -Werror -c plain.cpp -o "$testdir"/plain.o
     rm "$testdir"/plain.o
 else
