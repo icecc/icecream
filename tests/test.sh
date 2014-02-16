@@ -173,20 +173,24 @@ run_ice()
 
     if test $localice_exit -ne $normal_exit; then
         echo "Exit code mismatch ($localice_exit vs $normal_exit)"
+        stop_ice 0
         exit 1
     fi
     if test -z "$chroot_disabled" -a "$remoteice_exit" != "$normal_exit"; then
         echo "Exit code mismatch ($remoteice_exit vs $normal_exit)"
+        stop_ice 0
         exit 1
     fi
     if test -n "$output"; then
         if ! diff -q "$output".localice "$output"; then
             echo "Output mismatch ($output.localice)"
+            stop_ice 0
             exit 1
         fi
         if test -z "$chroot_disabled"; then
             if ! diff -q "$output".remoteice "$output"; then
                 echo "Output mismatch ($output.remoteice)"
+                stop_ice 0
                 exit 1
             fi
         fi
@@ -213,6 +217,7 @@ make_test()
     PATH="$prefix"/lib/icecc/bin:$PATH ICECC_TEST_SOCKET="$testdir"/socket-localice ICECC_TEST_REMOTEBUILD=1 ICECC_DEBUG=debug ICECC_LOGFILE="$testdir"/icecc.log make -f Makefile.test OUTDIR="$testdir" -j10 -s 2>>"$testdir"/stderr.log
     if test $? -ne 0 -o ! -x "$testdir"/maketest; then
         echo Make test failed.
+        stop_ice 0
         exit 1
     fi
     make -f Makefile.test OUTDIR="$testdir" clean -s
@@ -273,6 +278,7 @@ check_log_error()
     log="$1"
     if grep -q "$2" "$testdir"/${log}.log; then
         echo "Error, $log log contains error: $2"
+        stop_ice 0
         exit 1
     fi
 }
@@ -282,6 +288,7 @@ check_log_message()
     log="$1"
     if ! grep -q "$2" "$testdir"/${log}.log; then
         echo "Error, $log log does not contain: $2"
+        stop_ice 0
         exit 1
     fi
 }
