@@ -20,6 +20,7 @@ start_ice()
     echo -n >"$testdir"/remoteice1.log
     echo -n >"$testdir"/remoteice2.log
     echo -n >"$testdir"/icecc.log
+    echo -n >"$testdir"/stderr.log
     "$prefix"/sbin/icecc-scheduler -p 8767 -l "$testdir"/scheduler.log -v -v -v &
     scheduler_pid=$!
     echo $scheduler_pid > "$testdir"/scheduler.pid
@@ -123,7 +124,7 @@ run_ice()
 
     reset_logs local "$@"
     echo Running: "$@"
-    ICECC_TEST_SOCKET="$testdir"/socket-localice ICECC_TEST_REMOTEBUILD=1 ICECC_PREFERRED_HOST=localice ICECC_DEBUG=debug ICECC_LOGFILE="$testdir"/icecc.log "$prefix"/bin/icecc "$@"
+    ICECC_TEST_SOCKET="$testdir"/socket-localice ICECC_TEST_REMOTEBUILD=1 ICECC_PREFERRED_HOST=localice ICECC_DEBUG=debug ICECC_LOGFILE="$testdir"/icecc.log "$prefix"/bin/icecc "$@" 2>>"$testdir"/stderr.log
     localice_exit=$?
     if test -n "$output"; then
         mv "$output" "$output".localice
@@ -142,7 +143,7 @@ run_ice()
 
     if test -z "$chroot_disabled"; then
         reset_logs remote "$@"
-        ICECC_TEST_SOCKET="$testdir"/socket-localice ICECC_TEST_REMOTEBUILD=1 ICECC_PREFERRED_HOST=remoteice1 ICECC_DEBUG=debug ICECC_LOGFILE="$testdir"/icecc.log "$prefix"/bin/icecc "$@"
+        ICECC_TEST_SOCKET="$testdir"/socket-localice ICECC_TEST_REMOTEBUILD=1 ICECC_PREFERRED_HOST=remoteice1 ICECC_DEBUG=debug ICECC_LOGFILE="$testdir"/icecc.log "$prefix"/bin/icecc "$@" 2>>"$testdir"/stderr.log
         remoteice_exit=$?
         if test -n "$output"; then
             mv "$output" "$output".remoteice
@@ -160,8 +161,16 @@ run_ice()
         check_log_error icecc "building myself, but telling localhost"
     fi
 
-    "$@"
+    reset_logs noice "$@"
+    "$@" 2>>"$testdir"/stderr.log
     normal_exit=$?
+    flush_logs
+    check_logs_for_generic_errors
+    check_log_error icecc "Have to use host 127.0.0.1:10246"
+    check_log_error icecc "Have to use host 127.0.0.1:10247"
+    check_log_error icecc "<building_local>"
+    check_log_error icecc "building myself, but telling localhost"
+
     if test $localice_exit -ne $normal_exit; then
         echo "Exit code mismatch ($localice_exit vs $normal_exit)"
         exit 1
@@ -201,7 +210,7 @@ make_test()
     echo Running make test.
     reset_logs remote "make test"
     make -f Makefile.test OUTDIR="$testdir" clean -s
-    PATH="$prefix"/lib/icecc/bin:$PATH ICECC_TEST_SOCKET="$testdir"/socket-localice ICECC_TEST_REMOTEBUILD=1 ICECC_DEBUG=debug ICECC_LOGFILE="$testdir"/icecc.log make -f Makefile.test OUTDIR="$testdir" -j10 -s
+    PATH="$prefix"/lib/icecc/bin:$PATH ICECC_TEST_SOCKET="$testdir"/socket-localice ICECC_TEST_REMOTEBUILD=1 ICECC_DEBUG=debug ICECC_LOGFILE="$testdir"/icecc.log make -f Makefile.test OUTDIR="$testdir" -j10 -s 2>>"$testdir"/stderr.log
     if test $? -ne 0 -o ! -x "$testdir"/maketest; then
         echo Make test failed.
         exit 1
@@ -220,16 +229,16 @@ reset_logs()
 {
     type="$1"
     shift
-    # in case icecc.log doesn't exit, avoid error message
-    touch "$testdir"/icecc.log
-    for log in scheduler localice remoteice1 remoteice2 icecc; do
+    # in case icecc.log or stderr.log don't exit, avoid error message
+    touch "$testdir"/icecc.log "$testdir"/stderr.log
+    for log in scheduler localice remoteice1 remoteice2 icecc stderr; do
         # save (append) previous log
         cat "$testdir"/${log}.log >> "$testdir"/${log}_all.log
         # and start a new one
         echo ============== > "$testdir"/${log}.log
         echo "Test ($type): $@" >> "$testdir"/${log}.log
         echo ============== >> "$testdir"/${log}.log
-        if test "$log" != icecc; then
+        if test "$log" != icecc -a "$log" != stderr; then
             pid=${log}_pid
             kill -HUP ${!pid}
         fi
@@ -238,7 +247,7 @@ reset_logs()
 
 finish_logs()
 {
-    for log in scheduler localice remoteice1 remoteice2 icecc; do
+    for log in scheduler localice remoteice1 remoteice2 icecc stderr; do
         cat "$testdir"/${log}.log >> "$testdir"/${log}_all.log
         rm -f "$testdir"/${log}.log
     done
@@ -292,6 +301,7 @@ rm -f "$testdir"/localice_all.log
 rm -f "$testdir"/remoteice1_all.log
 rm -f "$testdir"/remoteice2_all.log
 rm -f "$testdir"/icecc_all.log
+rm -f "$testdir"/stderr_all.log
 
 echo Starting icecream.
 stop_ice 0
