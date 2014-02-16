@@ -272,6 +272,7 @@ run_ice "$testdir/plain.o" "remote" g++ -Wall -Werror -c plain.cpp -o "$testdir/
 run_ice "$testdir/plain.o" "remote" g++ -Wall -Werror -c plain.cpp -g -o "$testdir/"plain.o
 run_ice "$testdir/plain.o" "remote" g++ -Wall -Werror -c plain.cpp -O2 -o "$testdir/"plain.o
 run_ice "$testdir/plain.ii" "local" g++ -Wall -Werror -E plain.cpp -o "$testdir/"plain.ii
+run_ice "$testdir/includes.o" "remote" g++ -Wall -Werror -c includes.cpp -o "$testdir"/includes.o
 run_ice "" "remote" g++ -c nonexistent.cpp
 run_ice "" "local" /bin/true
 
@@ -287,6 +288,8 @@ if test -n "`which clang++ 2>/dev/null`"; then
     # It'd be still nice to check at least somehow that this really works though.
     run_ice "" "remote" clang++ -Wall -Werror -c plain.cpp -o "$testdir"/plain.o
     rm "$testdir"/plain.o
+    run_ice "" "remote" clang++ -Wall -Werror -c includes.cpp -o "$testdir"/includes.o
+    rm "$testdir"/includes.o
 else
     skipped_tests="$skipped_tests clang"
 fi
