@@ -400,6 +400,7 @@ run_ice "$testdir/plain.o" "remote" g++ -Wall -Werror -c plain.cpp -g -o "$testd
 run_ice "$testdir/plain.o" "remote" g++ -Wall -Werror -c plain.cpp -O2 -o "$testdir/"plain.o
 run_ice "$testdir/plain.ii" "local" g++ -Wall -Werror -E plain.cpp -o "$testdir/"plain.ii
 run_ice "$testdir/includes.o" "remote" g++ -Wall -Werror -c includes.cpp -o "$testdir"/includes.o
+run_ice "$testdir/plain.o" "local" g++ -Wall -Werror -c plain.cpp -mtune=native -o "$testdir"/plain.o
 run_ice "" "remote" g++ -c nonexistent.cpp
 run_ice "" "local" /bin/true
 
