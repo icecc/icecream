@@ -483,7 +483,9 @@ bool analyse_argv(const char * const *argv, CompileJob &job, bool icerun, list<s
                 break;
             }
 
-            if (it->first == "-Xclang") {
+            // Skip compiler arguments which are followed by another
+            // argument not starting with -.
+            if (it->first == "-Xclang" || it->first == "-x") {
                 ++it;
                 ++it;
             } else if (it->second != Arg_Rest || it->first.at(0) == '-'
