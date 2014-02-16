@@ -113,6 +113,7 @@ stop_ice()
 
 # First argument is the expected output file, if any (otherwise specify "").
 # Second argument is "remote" (should be compiled on a remote host) or "local" (cannot be compiled remotely).
+# Third argument is expected exit code.
 # Rest is the command to pass to icecc.
 # Command will be run both locally and using icecc and results compared.
 run_ice()
@@ -120,6 +121,8 @@ run_ice()
     output="$1"
     shift
     remote_type="$1"
+    shift
+    expected_exit=$1
     shift
 
     reset_logs local "$@"
@@ -171,13 +174,18 @@ run_ice()
     check_log_error icecc "<building_local>"
     check_log_error icecc "building myself, but telling localhost"
 
-    if test $localice_exit -ne $normal_exit; then
-        echo "Exit code mismatch ($localice_exit vs $normal_exit)"
+    if test $localice_exit -ne $expected_exit; then
+        echo "Local run exit code mismatch ($localice_exit vs $expected_exit)"
         stop_ice 0
         exit 1
     fi
-    if test -z "$chroot_disabled" -a "$remoteice_exit" != "$normal_exit"; then
-        echo "Exit code mismatch ($remoteice_exit vs $normal_exit)"
+    if test $localice_exit -ne $expected_exit; then
+        echo "Run without icecc exit code mismatch ($normal_exit vs $expected_exit)"
+        stop_ice 0
+        exit 1
+    fi
+    if test -z "$chroot_disabled" -a "$remoteice_exit" != "$expected_exit"; then
+        echo "Remote run exit code mismatch ($remoteice_exit vs $expected_exit)"
         stop_ice 0
         exit 1
     fi
@@ -196,7 +204,7 @@ run_ice()
         fi
     fi
     if test $localice_exit -ne 0; then
-        echo "Command failed (matches local result, continuing), exit code: $localice_exit"
+        echo "Command failed as expected."
         echo
     else
         echo Command successful.
@@ -395,15 +403,15 @@ check_logs_for_generic_errors
 echo Starting tests.
 echo ===============
 
-run_ice "$testdir/plain.o" "remote" g++ -Wall -Werror -c plain.cpp -o "$testdir/"plain.o
-run_ice "$testdir/plain.o" "remote" g++ -Wall -Werror -c plain.cpp -g -o "$testdir/"plain.o
-run_ice "$testdir/plain.o" "remote" g++ -Wall -Werror -c plain.cpp -O2 -o "$testdir/"plain.o
-run_ice "$testdir/plain.ii" "local" g++ -Wall -Werror -E plain.cpp -o "$testdir/"plain.ii
-run_ice "$testdir/includes.o" "remote" g++ -Wall -Werror -c includes.cpp -o "$testdir"/includes.o
-run_ice "$testdir/plain.o" "local" g++ -Wall -Werror -c plain.cpp -mtune=native -o "$testdir"/plain.o
-run_ice "$testdir/plain.o" "remote" gcc -Wall -Werror -x c++ -c plain -o "$testdir"/plain.o
-run_ice "" "remote" g++ -c nonexistent.cpp
-run_ice "" "local" /bin/true
+run_ice "$testdir/plain.o" "remote" 0 g++ -Wall -Werror -c plain.cpp -o "$testdir/"plain.o
+run_ice "$testdir/plain.o" "remote" 0 g++ -Wall -Werror -c plain.cpp -g -o "$testdir/"plain.o
+run_ice "$testdir/plain.o" "remote" 0 g++ -Wall -Werror -c plain.cpp -O2 -o "$testdir/"plain.o
+run_ice "$testdir/plain.ii" "local" 0 g++ -Wall -Werror -E plain.cpp -o "$testdir/"plain.ii
+run_ice "$testdir/includes.o" "remote" 0 g++ -Wall -Werror -c includes.cpp -o "$testdir"/includes.o
+run_ice "$testdir/plain.o" "local" 0 g++ -Wall -Werror -c plain.cpp -mtune=native -o "$testdir"/plain.o
+run_ice "$testdir/plain.o" "remote" 0 gcc -Wall -Werror -x c++ -c plain -o "$testdir"/plain.o
+run_ice "" "remote" 1 g++ -c nonexistent.cpp
+run_ice "" "local" 0 /bin/true
 
 if test -z "$chroot_disabled"; then
     make_test
@@ -421,9 +429,9 @@ if test -n "`which clang++ 2>/dev/null`"; then
     # since the -frewrite-includes transformation apparently makes the debugginfo
     # differ too (although the end results work just as well). So just do not compare.
     # It'd be still nice to check at least somehow that this really works though.
-    run_ice "" "remote" clang++ -Wall -Werror -c plain.cpp -o "$testdir"/plain.o
+    run_ice "" "remote" 0 clang++ -Wall -Werror -c plain.cpp -o "$testdir"/plain.o
     rm "$testdir"/plain.o
-    run_ice "" "remote" clang++ -Wall -Werror -c includes.cpp -o "$testdir"/includes.o
+    run_ice "" "remote" 0 clang++ -Wall -Werror -c includes.cpp -o "$testdir"/includes.o
     rm "$testdir"/includes.o
 else
     skipped_tests="$skipped_tests clang"
