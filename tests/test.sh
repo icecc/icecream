@@ -256,16 +256,35 @@ check_logs_for_generic_errors
 
 echo Starting tests.
 echo ===============
+skipped_tests=
 
 run_ice "$testdir/plain.o" "remote" g++ -Wall -Werror -c plain.cpp -o "$testdir/"plain.o
 run_ice "$testdir/plain.ii" "local" g++ -Wall -Werror -E plain.cpp -o "$testdir/"plain.ii
 run_ice "" "remote" g++ -c nonexistent.cpp
 run_ice "" "local" /bin/true
 
+if test -n "`which clang++ 2>/dev/null`"; then
+    # There's probably not much point in repeating all tests with Clang, but at least
+    # try it works (there's a different icecc-create-env run needed, and -frewrite-includes
+    # usage needs checking).
+    # Clang writes the input filename in the resulting .o , which means the outputs
+    # cannot match (remote node will use stdin for the input, while icecc always
+    # builds locally if it itself gets data from stdin). So just do not compare.
+    run_ice "" "remote" clang++ -Wall -Werror -c plain.cpp -o "$testdir"/plain.o
+    rm "$testdir"/plain.o
+else
+    skipped_tests="$skipped_tests clang"
+fi
+
 reset_logs local "Closing down"
 stop_ice 1
 check_logs_for_generic_errors
 finish_logs
 
-echo All tests OK.
-echo =============
+if test -n "$skipped_tests"; then
+    echo "All tests OK, some were skipped:$skipped_tests"
+    echo =============
+else
+    echo All tests OK.
+    echo =============
+fi
