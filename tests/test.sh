@@ -10,6 +10,9 @@ fi
 
 mkdir -p "$testdir"
 
+skipped_tests=
+chroot_disabled=
+
 start_ice()
 {
     echo -n >"$testdir"/scheduler.log
@@ -62,8 +65,12 @@ start_ice()
         exit 1
     fi
     flush_logs
-    check_log_error remoteice1 "Cannot use chroot, no remote jobs accepted."
-    check_log_error remoteice2 "Cannot use chroot, no remote jobs accepted."
+    grep -q "Cannot use chroot, no remote jobs accepted." "$testdir"/remoteice1.log && chroot_disabled=1
+    grep -q "Cannot use chroot, no remote jobs accepted." "$testdir"/remoteice2.log && chroot_disabled=1
+    if test -n "$chroot_disabled"; then
+        skipped_tests="$skipped_tests CHROOT"
+        echo Chroot not available, remote tests will be skipped.
+    fi
 }
 
 stop_ice()
@@ -133,23 +140,25 @@ run_ice()
     check_log_error icecc "Have to use host 127.0.0.1:10246"
     check_log_error icecc "Have to use host 127.0.0.1:10247"
 
-    reset_logs remote "$@"
-    ICECC_TEST_SOCKET="$testdir"/socket-localice ICECC_TEST_REMOTEBUILD=1 ICECC_PREFERRED_HOST=remoteice1 ICECC_DEBUG=debug ICECC_LOGFILE="$testdir"/icecc.log "$prefix"/bin/icecc "$@"
-    remoteice_exit=$?
-    if test -n "$output"; then
-        mv "$output" "$output".remoteice
+    if test -z "$chroot_disabled"; then
+        reset_logs remote "$@"
+        ICECC_TEST_SOCKET="$testdir"/socket-localice ICECC_TEST_REMOTEBUILD=1 ICECC_PREFERRED_HOST=remoteice1 ICECC_DEBUG=debug ICECC_LOGFILE="$testdir"/icecc.log "$prefix"/bin/icecc "$@"
+        remoteice_exit=$?
+        if test -n "$output"; then
+            mv "$output" "$output".remoteice
+        fi
+        flush_logs
+        check_logs_for_generic_errors
+        if test "$remote_type" = "remote"; then
+            check_log_message icecc "Have to use host 127.0.0.1:10246"
+            check_log_error icecc "<building_local>"
+        else
+            check_log_message icecc "<building_local>"
+            check_log_error icecc "Have to use host 127.0.0.1:10246"
+        fi
+        check_log_error icecc "Have to use host 127.0.0.1:10247"
+        check_log_error icecc "building myself, but telling localhost"
     fi
-    flush_logs
-    check_logs_for_generic_errors
-    if test "$remote_type" = "remote"; then
-        check_log_message icecc "Have to use host 127.0.0.1:10246"
-        check_log_error icecc "<building_local>"
-    else
-        check_log_message icecc "<building_local>"
-        check_log_error icecc "Have to use host 127.0.0.1:10246"
-    fi
-    check_log_error icecc "Have to use host 127.0.0.1:10247"
-    check_log_error icecc "building myself, but telling localhost"
 
     "$@"
     normal_exit=$?
@@ -157,7 +166,7 @@ run_ice()
         echo "Exit code mismatch ($localice_exit vs $normal_exit)"
         exit 1
     fi
-    if test $remoteice_exit -ne $normal_exit; then
+    if test -z "$chroot_disabled" -a "$remoteice_exit" != "$normal_exit"; then
         echo "Exit code mismatch ($remoteice_exit vs $normal_exit)"
         exit 1
     fi
@@ -166,9 +175,11 @@ run_ice()
             echo "Output mismatch ($output.localice)"
             exit 1
         fi
-        if ! diff -q "$output".remoteice "$output"; then
-            echo "Output mismatch ($output.remoteice)"
-            exit 1
+        if test -z "$chroot_disabled"; then
+            if ! diff -q "$output".remoteice "$output"; then
+                echo "Output mismatch ($output.remoteice)"
+                exit 1
+            fi
         fi
     fi
     if test $localice_exit -ne 0; then
@@ -179,7 +190,7 @@ run_ice()
         echo
     fi
     if test -n "$output"; then
-        rm "$output" "$output".localice "$output".remoteice
+        rm -f "$output" "$output".localice "$output".remoteice
     fi
 }
 
@@ -256,7 +267,6 @@ check_logs_for_generic_errors
 
 echo Starting tests.
 echo ===============
-skipped_tests=
 
 run_ice "$testdir/plain.o" "remote" g++ -Wall -Werror -c plain.cpp -o "$testdir/"plain.o
 run_ice "$testdir/plain.ii" "local" g++ -Wall -Werror -E plain.cpp -o "$testdir/"plain.ii
