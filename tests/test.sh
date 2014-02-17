@@ -463,7 +463,6 @@ echo Starting tests.
 echo ===============
 
 run_ice "$testdir/plain.o" "remote" 0 g++ -Wall -Werror -c plain.cpp -o "$testdir/"plain.o
-run_ice "$testdir/plain.o" "remote" 0 g++ -Wall -Werror -c plain.cpp -g -o "$testdir/"plain.o
 run_ice "$testdir/plain.o" "remote" 0 g++ -Wall -Werror -c plain.cpp -O2 -o "$testdir/"plain.o
 run_ice "$testdir/plain.ii" "local" 0 g++ -Wall -Werror -E plain.cpp -o "$testdir/"plain.ii
 run_ice "$testdir/includes.o" "remote" 0 g++ -Wall -Werror -c includes.cpp -o "$testdir"/includes.o
@@ -471,6 +470,11 @@ run_ice "$testdir/plain.o" "local" 0 g++ -Wall -Werror -c plain.cpp -mtune=nativ
 run_ice "$testdir/plain.o" "remote" 0 gcc -Wall -Werror -x c++ -c plain -o "$testdir"/plain.o
 run_ice "" "remote" 1 g++ -c nonexistent.cpp
 run_ice "" "local" 0 /bin/true
+
+# gcc 4.8 and newer produce different debuginfo depending on whether the source file is
+# given on the command line or using stdin (which is how icecream does it), so do not compare output.
+run_ice "" "remote" 0 g++ -Wall -Werror -c plain.cpp -g -o "$testdir/"plain.o
+rm "$testdir"/plain.o
 
 if test -z "$chroot_disabled"; then
     make_test
