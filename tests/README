@@ -1,0 +1,72 @@
+Testuite for Icecream
+=====================
+
+In this directory are tests for Icecream.
+
+How to run the tests:
+=====================
+
+The tests do not conflict with system Icecream, so it is possible to compile
+and test while system Icecream is active.
+
+Since Icecream hardcodes locations of some binaries, it is necessary to
+install Icecream for the tests (really install, no $DESTDIR). It is however
+not necessary to do a system install, simply install somewhere. If you want
+to test also remote builds (recommended), it is necessary for the install to have
+the capability to chroot. This is most easily done by giving the CAP_SYS_CHROOT
+Linux capability to the iceccd binary.
+
+An example of building Icecream and testing it:
+
+  ./configure --prefix=$HOME/iceinstall
+  make
+  make install
+  sudo /sbin/setcap cap_sys_chroot+ep $HOME/iceinstall/sbin/iceccd
+  cd tests
+  ./test.sh $HOME/iceinstall $HOME/icetest
+
+This will build and install Icecream into $HOME/iceinstall prefix and all
+logs and temporary files will be in $HOME/icetest.
+
+Note that the limitations (real install needed in a helper location, chroot capability)
+mean that these tests are not suitable to be run as a part of building binary
+packages, they are meant to be run by developers.
+
+If a test fails, all relevant files should be in the log and temporary directory
+passed to test.sh . The {daemon}.log files contain logs relevant only to the last run test,
+files {daemon}_all.log include complete logs (up to but not including the failed test, if any).
+
+
+Adding new tests:
+=================
+
+The test.sh script is hopefully straightforward and commented enough.
+If you want to test handling of specific flags, see the run_ice function.
+If you want more complex/specific tests, you can also check logs using
+the various check_log_* functions.
+
+Common log messages:
+(icecc.log) "Have to use host 127.0.0.1:" - will be built remotely (one one of the remote hosts)
+(icecc.log) "Have to use host 127.0.0.1:10246" - will be built remotely on remoteice1
+(icecc.log) "Have to use host 127.0.0.1:10247" - will be built remotely on remoteice1
+(icecc.log) "building myself, but telling localhost" - job could be built remotely, but
+    the scheduler selected the local daemon for the build
+(icecc.log) "<building_local>" - the job is forced to be built locally (cannot be built remotely)
+
+
+Internals:
+==========
+
+For most tests, there is a new scheduler run and three daemons, one (localice)
+that serves as the "local" daemon that icecc uses, and two more (remoteice1/2)
+that serve as "remote" daemons that which remote jobs will be distributed.
+
+In order not to interfere with system Icecream, they all use different ports
+and a special socket is used for communication with localice daemon.
+All daemons are set with 2 jobs max, in order to have reliable results
+when testing paralellism.
+
+ICECC_PREFERRED_HOST is used when forcing whether a job should be built
+locally or remotely. The localice daemon also has ICECC_TEST_REMOTEBUILD=1
+to avoid building locally when it in fact should forward to "remote" daemons
+even though they are technically local.
