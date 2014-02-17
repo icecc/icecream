@@ -5,7 +5,7 @@ testdir="$2"
 
 if test -z "$prefix" -o ! -x "$prefix"/bin/icecc; then
     echo Usage: "$0 <install_prefix> <testdir>"
-    exit 1
+    exit 2
 fi
 
 mkdir -p "$testdir"
@@ -34,14 +34,14 @@ start_ice()
         if ! kill -0 $scheduler_pid; then
             echo Scheduler start failure.
             stop_ice 0
-            exit 1
+            exit 2
         fi
         for daemon in localice remoteice1 remoteice2; do
             pid=${daemon}_pid
             if ! kill -0 ${!pid}; then
                 echo Daemon $daemon start failure.
                 stop_ice 0
-                exit 1
+                exit 2
             fi
             if ! grep -q "Connected to scheduler" "$testdir"/${daemon}.log; then
                 # ensure log file flush
@@ -57,7 +57,7 @@ start_ice()
     if test -n "$notready"; then
         echo Icecream not ready, aborting.
         stop_ice 0
-        exit 1
+        exit 2
     fi
     flush_logs
     grep -q "Cannot use chroot, no remote jobs accepted." "$testdir"/remoteice1.log && chroot_disabled=1
@@ -78,13 +78,13 @@ start_only_daemon()
     if ! kill -0 $localice_pid; then
         echo Daemon localice start failure.
         stop_only_daemon 0
-        exit 1
+        exit 2
     fi
     flush_logs
     if ! grep -q "scheduler not yet found." "$testdir"/localice.log; then
         echo Daemon localice not ready, aborting.
         stop_only_daemon 0
-        exit 1
+        exit 2
     fi
 }
 
@@ -99,14 +99,14 @@ stop_ice()
         if ! kill -0 $scheduler_pid; then
             echo Scheduler no longer running.
             stop_ice 0
-            exit 1
+            exit 2
         fi
         for daemon in localice remoteice1 remoteice2; do
             pid=${daemon}_pid
             if ! kill -0 ${!pid}; then
                 echo Daemon $daemon no longer running.
                 stop_ice 0
-                exit 1
+                exit 2
             fi
         done
     fi
@@ -134,7 +134,7 @@ stop_only_daemon()
         if ! kill -0 $localice_pid; then
             echo Daemon localice no longer running.
             stop_only_daemon 0
-            exit 1
+            exit 2
         fi
     fi
     kill $localice_pid 2>/dev/null
@@ -211,29 +211,29 @@ run_ice()
     if test $localice_exit -ne $expected_exit; then
         echo "Local run exit code mismatch ($localice_exit vs $expected_exit)"
         stop_ice 0
-        exit 1
+        exit 2
     fi
     if test $localice_exit -ne $expected_exit; then
         echo "Run without icecc exit code mismatch ($normal_exit vs $expected_exit)"
         stop_ice 0
-        exit 1
+        exit 2
     fi
     if test -z "$chroot_disabled" -a "$remoteice_exit" != "$expected_exit"; then
         echo "Remote run exit code mismatch ($remoteice_exit vs $expected_exit)"
         stop_ice 0
-        exit 1
+        exit 2
     fi
     if test -n "$output"; then
         if ! diff -q "$output".localice "$output"; then
             echo "Output mismatch ($output.localice)"
             stop_ice 0
-            exit 1
+            exit 2
         fi
         if test -z "$chroot_disabled"; then
             if ! diff -q "$output".remoteice "$output"; then
                 echo "Output mismatch ($output.remoteice)"
                 stop_ice 0
-                exit 1
+                exit 2
             fi
         fi
     fi
@@ -260,7 +260,7 @@ make_test()
     if test $? -ne 0 -o ! -x "$testdir"/maketest; then
         echo Make test failed.
         stop_ice 0
-        exit 1
+        exit 2
     fi
     flush_logs
     check_logs_for_generic_errors
@@ -306,7 +306,7 @@ icerun_test()
         if test $runcount -gt 2; then
             echo "Icerun${noscheduler} test failed, more than expected 2 processes running."
             stop_ice 0
-            exit 1
+            exit 2
         fi
         test $runcount -eq 2 && seen2=1
         donecount=`ls -1 "$testdir"/icerun/done* 2>/dev/null | wc -l`
@@ -318,14 +318,14 @@ icerun_test()
         if test $timeout -eq 0; then
             echo "Icerun${noscheduler} test timed out."
             stop_ice 0
-            exit 1
+            exit 2
         fi
     done
     if test -z "$seen2"; then
         # Daemon is set up to run 2 jobs max, which means icerun should serialize only up to (and including) 2 jobs at the same time.
         echo "Icerun${noscheduler} test failed, 2 processes were never run at the same time."
         stop_ice 0
-        exit 1
+        exit 2
     fi
 
     # check that plain 'icerun-test.sh' doesn't work for the current directory (i.e. ./ must be required just like with normal execution)
@@ -341,7 +341,7 @@ icerun_test()
         if test $timeout -eq 0; then
             echo "Icerun${noscheduler} test timed out."
             stop_ice 0
-            exit 1
+            exit 2
         fi
     done
     
@@ -411,7 +411,7 @@ check_log_error()
     if grep -q "$2" "$testdir"/${log}.log; then
         echo "Error, $log log contains error: $2"
         stop_ice 0
-        exit 1
+        exit 2
     fi
 }
 
@@ -421,7 +421,7 @@ check_log_message()
     if ! grep -q "$2" "$testdir"/${log}.log; then
         echo "Error, $log log does not contain: $2"
         stop_ice 0
-        exit 1
+        exit 2
     fi
 }
 
@@ -433,7 +433,7 @@ check_log_message_count()
     if test $count -ne $expected_count; then
         echo "Error, $log log does not contain expected count (${count} vs ${expected_count}): $3"
         stop_ice 0
-        exit 1
+        exit 2
     fi
 }
 
@@ -508,7 +508,9 @@ finish_logs
 if test -n "$skipped_tests"; then
     echo "All tests OK, some were skipped:$skipped_tests"
     echo =============
+    exit 1
 else
     echo All tests OK.
     echo =============
+    exit 0
 fi

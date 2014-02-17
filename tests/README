@@ -38,6 +38,9 @@ If a test fails, all relevant files should be in the log and temporary directory
 passed to test.sh . The {daemon}.log files contain logs relevant only to the last run test,
 files {daemon}_all.log include complete logs (up to but not including the failed test, if any).
 
+Exit status of test.sh is 0 for all tests passing, 1 for all tests passing but some being
+skipped and 2 for errors.
+
 If you want to use icemon for the tests, use 'USE_SCHEDULER=localhost:8767 icemon'. Note that
 icemon needs to be built with recent (Feb 2014) libicecc library for this to work.
 
