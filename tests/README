@@ -26,7 +26,9 @@ An example of building Icecream and testing it:
   ./test.sh $HOME/iceinstall $HOME/icetest
 
 This will build and install Icecream into $HOME/iceinstall prefix and all
-logs and temporary files will be in $HOME/icetest.
+logs and temporary files will be in $HOME/icetest. It is also possible to use 'filecap'
+from cap-ng as 'filecap $HOME/iceinstall/sbin/iceccd sys_chroot' instead of 'setcap',
+but 'filecap' does not report failures (e.g. when forgetting to use sudo).
 
 Note that the limitations (real install needed in a helper location, chroot capability)
 mean that these tests are not suitable to be run as a part of building binary
