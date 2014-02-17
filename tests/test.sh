@@ -280,6 +280,9 @@ icerun_test()
     test -n "$1" && noscheduler=" (no scheduler)"
     echo "Running icerun${noscheduler} test."
     reset_logs local "icerun${noscheduler} test"
+    # remove . from PATH if set
+    save_path=$PATH
+    export PATH=`echo $PATH | sed 's/:.:/:/' | sed 's/^.://' | sed 's/:.$//'`
     rm -rf "$testdir"/icerun
     mkdir -p "$testdir"/icerun
     for i in `seq 1 10`; do
@@ -356,6 +359,7 @@ icerun_test()
     echo "Icerun${noscheduler} test successful."
     echo
     rm -r "$testdir"/icerun
+    export PATH=$save_path
 }
 
 reset_logs()
