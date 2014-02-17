@@ -25,5 +25,7 @@ How to contribute
 Fork on github.com and send a pull request:
 https://github.com/icecc/icecream
 
+There is a testsuite in the tests/ directory, see the README file there.
+
 Mailing list:
 icecream-users@googlegroups.com  (icecream-users+subscribe@googlegroups.com)
