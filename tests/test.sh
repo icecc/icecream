@@ -15,12 +15,6 @@ chroot_disabled=
 
 start_ice()
 {
-    echo -n >"$testdir"/scheduler.log
-    echo -n >"$testdir"/localice.log
-    echo -n >"$testdir"/remoteice1.log
-    echo -n >"$testdir"/remoteice2.log
-    echo -n >"$testdir"/icecc.log
-    echo -n >"$testdir"/stderr.log
     "$prefix"/sbin/icecc-scheduler -p 8767 -l "$testdir"/scheduler.log -v -v -v &
     scheduler_pid=$!
     echo $scheduler_pid > "$testdir"/scheduler.pid
@@ -74,6 +68,26 @@ start_ice()
     fi
 }
 
+# start only local daemon, no scheduler
+start_only_daemon()
+{
+    ICECC_TEST_SOCKET="$testdir"/socket-localice "$prefix"/sbin/iceccd --no-remote -s localhost:8767 -b "$testdir"/envs-localice -l "$testdir"/localice.log -N localice -m 2 -v -v -v &
+    localice_pid=$!
+    echo $localice_pid > "$testdir"/localice.pid
+    sleep 1
+    if ! kill -0 $localice_pid; then
+        echo Daemon localice start failure.
+        stop_only_daemon 0
+        exit 1
+    fi
+    flush_logs
+    if ! grep -q "scheduler not yet found." "$testdir"/localice.log; then
+        echo Daemon localice not ready, aborting.
+        stop_only_daemon 0
+        exit 1
+    fi
+}
+
 stop_ice()
 {
     check_first="$1"
@@ -104,12 +118,32 @@ stop_ice()
         rm -f "$testdir"/$daemon.pid
         rm -rf "$testdir"/envs-${daemon}
         rm -f "$testdir"/socket-${daemon}
+        eval ${pid}=
     done
     if test -n "$scheduler_pid"; then
         kill "$scheduler_pid" 2>/dev/null
+        scheduler_pid=
     fi
     rm -f "$testdir"/scheduler.pid
 }
+
+stop_only_daemon()
+{
+    check_first="$1"
+    if test $check_first -ne 0; then
+        if ! kill -0 $localice_pid; then
+            echo Daemon localice no longer running.
+            stop_only_daemon 0
+            exit 1
+        fi
+    fi
+    kill $localice_pid 2>/dev/null
+    rm -f "$testdir"/localice.pid
+    rm -rf "$testdir"/envs-localice
+    rm -f "$testdir"/socket-localice
+    localice_pid=
+}
+
 
 # First argument is the expected output file, if any (otherwise specify "").
 # Second argument is "remote" (should be compiled on a remote host) or "local" (cannot be compiled remotely).
@@ -238,11 +272,14 @@ make_test()
     make -f Makefile.test OUTDIR="$testdir" clean -s
 }
 
+# 1st argument, if set, means we run without scheduler
 icerun_test()
 {
     # test that icerun really serializes jobs and only up to 2 (max jobs of the local daemon) are run at any time
-    echo Running icerun test.
-    reset_logs local "icerun test"
+    noscheduler=
+    test -n "$1" && noscheduler=" (no scheduler)"
+    echo "Running icerun${noscheduler} test."
+    reset_logs local "icerun${noscheduler} test"
     rm -rf "$testdir"/icerun
     mkdir -p "$testdir"/icerun
     for i in `seq 1 10`; do
@@ -263,13 +300,15 @@ icerun_test()
         PATH=$path ICECC_TEST_SOCKET="$testdir"/socket-localice ICECC_TEST_REMOTEBUILD=1 ICECC_DEBUG=debug ICECC_LOGFILE="$testdir"/icecc.log "$prefix"/bin/icerun $testbin "$testdir"/icerun $i &
     done
     timeout=100
+    seen2=
     while true; do
         runcount=`ls -1 "$testdir"/icerun/running* 2>/dev/null | wc -l`
         if test $runcount -gt 2; then
-            echo Icerun test failed, more than expected 2 processes running.
+            echo "Icerun${noscheduler} test failed, more than expected 2 processes running."
             stop_ice 0
             exit 1
         fi
+        test $runcount -eq 2 && seen2=1
         donecount=`ls -1 "$testdir"/icerun/done* 2>/dev/null | wc -l`
         if test $donecount -eq 10; then
             break
@@ -277,11 +316,17 @@ icerun_test()
         sleep 0.1
         timeout=$((timeout-1))
         if test $timeout -eq 0; then
-            echo Icerun test timed out.
+            echo "Icerun${noscheduler} test timed out."
             stop_ice 0
             exit 1
         fi
     done
+    if test -z "$seen2"; then
+        # Daemon is set up to run 2 jobs max, which means icerun should serialize only up to (and including) 2 jobs at the same time.
+        echo "Icerun${noscheduler} test failed, 2 processes were never run at the same time."
+        stop_ice 0
+        exit 1
+    fi
 
     # check that plain 'icerun-test.sh' doesn't work for the current directory (i.e. ./ must be required just like with normal execution)
     ICECC_TEST_SOCKET="$testdir"/socket-localice ICECC_TEST_REMOTEBUILD=1 ICECC_DEBUG=debug ICECC_LOGFILE="$testdir"/icecc.log "$prefix"/bin/icerun icerun-test.sh "$testdir"/icerun 0 &
@@ -294,7 +339,7 @@ icerun_test()
         sleep 0.1
         timeout=$((timeout-1))
         if test $timeout -eq 0; then
-            echo Icerun test timed out.
+            echo "Icerun${noscheduler} test timed out."
             stop_ice 0
             exit 1
         fi
@@ -308,7 +353,7 @@ icerun_test()
     check_log_message_count icecc 11 "<building_local>"
     check_log_message_count icecc 1 "couldn't find any"
     check_log_message_count icecc 1 "could not find icerun-test.sh in PATH."
-    echo Icerun test successful.
+    echo "Icerun${noscheduler} test successful."
     echo
     rm -r "$testdir"/icerun
 }
@@ -328,7 +373,9 @@ reset_logs()
         echo ============== >> "$testdir"/${log}.log
         if test "$log" != icecc -a "$log" != stderr; then
             pid=${log}_pid
-            kill -HUP ${!pid}
+            if test -n "${!pid}"; then
+                kill -HUP ${!pid}
+            fi
         fi
     done
 }
@@ -345,7 +392,9 @@ flush_logs()
 {
     for daemon in scheduler localice remoteice1 remoteice2; do
         pid=${daemon}_pid
-        kill -HUP ${!pid}
+        if test -n "${!pid}"; then
+            kill -HUP ${!pid}
+        fi
     done
 }
 
@@ -394,6 +443,12 @@ rm -f "$testdir"/remoteice1_all.log
 rm -f "$testdir"/remoteice2_all.log
 rm -f "$testdir"/icecc_all.log
 rm -f "$testdir"/stderr_all.log
+echo -n >"$testdir"/scheduler.log
+echo -n >"$testdir"/localice.log
+echo -n >"$testdir"/remoteice1.log
+echo -n >"$testdir"/remoteice2.log
+echo -n >"$testdir"/icecc.log
+echo -n >"$testdir"/stderr.log
 
 echo Starting icecream.
 stop_ice 0
@@ -440,6 +495,14 @@ fi
 reset_logs local "Closing down"
 stop_ice 1
 check_logs_for_generic_errors
+
+start_only_daemon
+
+# even without scheduler, icerun should still serialize, but still run up to local number of jobs in parallel
+icerun_test "noscheduler"
+
+stop_only_daemon 1
+
 finish_logs
 
 if test -n "$skipped_tests"; then
