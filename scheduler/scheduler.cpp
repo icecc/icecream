@@ -2181,8 +2181,9 @@ int main(int argc, char *argv[])
             else if (buflen == schedbuflen && buf[0] == 'I' && buf[1] == 'C' && buf[2] == 'E') {
                 /* Another scheduler is announcing it's running, disconnect daemons if it has a better version
                    or the same version but was started earlier. */
-                time_t other_time;
-                memcpy(&other_time, buf + 4, sizeof(uint64_t));
+                uint64_t tmp_time;
+                memcpy(&tmp_time, buf + 4, sizeof(uint64_t));
+                time_t other_time = tmp_time;
                 if (buf[3] > PROTOCOL_VERSION || other_time < starttime) {
                     if (!css.empty() || !monitors.empty()) {
                         log_info() << "Scheduler from " << inet_ntoa(broad_addr.sin_addr)
