@@ -354,22 +354,24 @@ int start_create_env(const string &basedir, uid_t user_uid, gid_t user_gid,
     // else
 
 #ifndef HAVE_LIBCAP_NG
+    if (getuid() != user_uid || geteuid() != user_uid
+	|| getgid() != user_gid || getegid() != user_gid) {
 
-    if (setgroups(0, NULL) < 0) {
-        log_perror("setgroups failed");
-        _exit(143);
+        if (setgroups(0, NULL) < 0) {
+            log_perror("setgroups failed");
+            _exit(143);
+        }
+
+        if (setgid(user_gid) < 0) {
+            log_perror("setgid failed");
+            _exit(143);
+        }
+
+        if (!geteuid() && setuid(user_uid) < 0) {
+            log_perror("setuid failed");
+            _exit(142);
+        }
     }
-
-    if (setgid(user_gid) < 0) {
-        log_perror("setgid failed");
-        _exit(143);
-    }
-
-    if (!geteuid() && setuid(user_uid) < 0) {
-        log_perror("setuid failed");
-        _exit(142);
-    }
-
 #endif
 
     if (chdir(nativedir.c_str())) {
