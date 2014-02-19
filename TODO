@@ -13,12 +13,8 @@ Release Critical:
   let the daemon compile with the options, otherwise leave them out. 
 
 Akademy must have's:
-* the scheduler with the newest protocol version wins
-* only one scheduler within the same broadcast domain
 * daemon: only accept connections from a sane net prefix (scheduler can determine
   this and send it out via confMsg) to avoid being exposed to the internet
-* always re-discover scheduler after disconnect, don't just re-connect to the last
-  one (for some reason I don't see why this happened, but it did)
 * benchmark/testing jobs (broken machines with broken ram and broken network card on the
   icecream network destroy the fun and are not easy to find manually)
 
@@ -49,10 +45,11 @@ Random:
   jobs at the same time can pull down your whole system.
   (I can life with a hard coded number of one non compile job but others probably prefer a
   configurable number)
+* Consider launching a scheduler on-demand if there is none available or if a daemon knows
+  it has a better version than the scheduler that is available (https://github.com/icecc/icecream/issues/84).
 
 Suggestions from "Wilson Snyder" sicortex.com:
 - Add ICECREAM_RUN_ICECCD to make the scheduler machine not run iceccd
-- Have schedulers redudant - e.g. as in nmbd
 
 Christoph Thielecke writes:
 > 1) Problem von icecream: icecc hat /usr/bin/gcc-4.2 kopiert (ist aber ein

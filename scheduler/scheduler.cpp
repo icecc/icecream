@@ -98,6 +98,8 @@ static map<int, CompileServer *> fd2cs;
 static volatile sig_atomic_t exit_main_loop = false;
 
 time_t starttime;
+time_t last_announce;
+static unsigned int scheduler_port = 8765;
 
 // A subset of connected_hosts representing the compiler servers
 static list<CompileServer *> css;
@@ -120,6 +122,7 @@ static list<JobStat> all_job_stats;
 static JobStat cum_job_stats;
 
 static float server_speed(CompileServer *cs, Job *job = 0);
+static void broadcast_scheduler_version();
 
 /* Searches the queue for JOB and removes it.
    Returns true if something was deleted.  */
@@ -1716,6 +1719,43 @@ static int open_tcp_listener(short port)
     return fd;
 }
 
+#define BROAD_BUFLEN 32
+#define BROAD_BUFLEN_OLD 16
+static int prepare_broadcast_reply(char* buf, const char* netname)
+{
+    if (buf[0] < 33) { // old client
+        buf[0]++;
+        memset(buf + 1, 0, BROAD_BUFLEN_OLD - 1);
+        snprintf(buf + 1, BROAD_BUFLEN_OLD - 1, "%s", netname);
+        buf[BROAD_BUFLEN_OLD - 1] = 0;
+        return BROAD_BUFLEN_OLD;
+    } else { // net client
+        buf[0] += 2;
+        memset(buf + 1, 0, BROAD_BUFLEN - 1);
+        uint32_t tmp_version = PROTOCOL_VERSION;
+        uint64_t tmp_time = starttime;
+        memcpy(buf + 1, &tmp_version, sizeof(uint32_t));
+        memcpy(buf + 1 + sizeof(uint32_t), &tmp_time, sizeof(uint64_t));
+        const int OFFSET = 1 + sizeof(uint32_t) + sizeof(uint64_t);
+        snprintf(buf + OFFSET, BROAD_BUFLEN - OFFSET, "%s", netname);
+        buf[BROAD_BUFLEN - 1] = 0;
+        return BROAD_BUFLEN;
+    }
+}
+
+static void broadcast_scheduler_version()
+{
+    const int schedbuflen = 4 + sizeof(uint64_t);
+    char buf[ schedbuflen ];
+    buf[0] = 'I';
+    buf[1] = 'C';
+    buf[2] = 'E';
+    buf[3] = PROTOCOL_VERSION;
+    uint64_t tmp_time = starttime;
+    memcpy(buf + 4, &tmp_time, sizeof(uint64_t));
+    DiscoverSched::broadcastData(scheduler_port, buf, sizeof(buf));
+}
+
 static void usage(const char *reason = 0)
 {
     if (reason) {
@@ -1756,7 +1796,6 @@ int main(int argc, char *argv[])
 {
     int listen_fd, remote_fd, broad_fd, text_fd;
     struct sockaddr_in remote_addr;
-    unsigned int port = 8765;
     socklen_t remote_len;
     char *netname = (char *)"ICECREAM";
     bool detach = false;
@@ -1840,10 +1879,9 @@ int main(int argc, char *argv[])
         case 'p':
 
             if (optarg && *optarg) {
-                port = 0;
-                port = atoi(optarg);
+                scheduler_port = atoi(optarg);
 
-                if (0 == port) {
+                if (0 == scheduler_port) {
                     usage("Error: Invalid port specified");
                 }
             } else {
@@ -1912,25 +1950,25 @@ int main(int argc, char *argv[])
 
     setup_debug(debug_level, logfile);
 
-    log_info() << "ICECREAM scheduler " VERSION " starting up, port " << port << endl;
+    log_info() << "ICECREAM scheduler " VERSION " starting up, port " << scheduler_port << endl;
 
     if (detach) {
         daemon(0, 0);
     }
 
-    listen_fd = open_tcp_listener(port);
+    listen_fd = open_tcp_listener(scheduler_port);
 
     if (listen_fd < 0) {
         return 1;
     }
 
-    text_fd = open_tcp_listener(port + 1);
+    text_fd = open_tcp_listener(scheduler_port + 1);
 
     if (text_fd < 0) {
         return 1;
     }
 
-    broad_fd = open_broad_listener(port);
+    broad_fd = open_broad_listener(scheduler_port);
 
     if (broad_fd < 0) {
         return 1;
@@ -1957,6 +1995,9 @@ int main(int argc, char *argv[])
 
     time_t next_listen = 0;
 
+    broadcast_scheduler_version();
+    last_announce = starttime;
+
     while (!exit_main_loop) {
         struct timeval tv;
         tv.tv_usec = 0;
@@ -1964,6 +2005,14 @@ int main(int argc, char *argv[])
 
         while (empty_queue()) {
             continue;
+        }
+
+        /* Announce ourselves from time to time, to make other possible schedulers disconnect
+           their daemons if we are the preferred scheduler (daemons with version new enough
+           should automatically select the best scheduler, but old daemons connect randomly). */
+        if (last_announce + 120 < time(NULL)) {
+            broadcast_scheduler_version();
+            last_announce = time(NULL);
         }
 
         fd_set read_set;
@@ -2096,12 +2145,16 @@ int main(int argc, char *argv[])
 
         if (max_fd && FD_ISSET(broad_fd, &read_set)) {
             max_fd--;
-            char buf[16];
+            char buf[BROAD_BUFLEN];
             struct sockaddr_in broad_addr;
             socklen_t broad_len = sizeof(broad_addr);
+            /* We can get either a daemon request for a scheduler (1 byte) or another scheduler
+               announcing itself (4 bytes + time). */
+            const int schedbuflen = 4 + sizeof(uint64_t);
 
-            if (recvfrom(broad_fd, buf, 1, 0, (struct sockaddr *) &broad_addr,
-                         &broad_len) != 1) {
+            int buflen = recvfrom(broad_fd, buf, max( 1, schedbuflen), 0, (struct sockaddr *) &broad_addr,
+                                  &broad_len);
+            if (buflen != 1 && buflen != schedbuflen) {
                 int err = errno;
                 log_perror("recvfrom()");
 
@@ -2114,18 +2167,33 @@ int main(int argc, char *argv[])
                     return -1;
                 }
             }
-            /* Only answer if daemon would be able to talk to us. */
-            else if (buf[0] >= MIN_PROTOCOL_VERSION) {
+            /* Daemon is searching for a scheduler, only answer if daemon would be able to talk to us. */
+            else if (buflen == 1 && buf[0] >= MIN_PROTOCOL_VERSION) {
                 log_info() << "broadcast from " << inet_ntoa(broad_addr.sin_addr)
-                           << ":" << ntohs(broad_addr.sin_port) << "\n";
-                buf[0]++;
-                memset(buf + 1, 0, sizeof(buf) - 1);
-                snprintf(buf + 1, sizeof(buf) - 1, "%s", netname);
-                buf[sizeof(buf) - 1] = 0;
-
-                if (sendto(broad_fd, buf, sizeof(buf), 0,
-                           (struct sockaddr *) &broad_addr, broad_len) != sizeof(buf)) {
+                           << ":" << ntohs(broad_addr.sin_port)
+                           << " (version " << int(buf[0]) << ")\n";
+                int reply_len = prepare_broadcast_reply(buf, netname);
+                if (sendto(broad_fd, buf, reply_len, 0,
+                           (struct sockaddr *) &broad_addr, broad_len) != reply_len) {
                     log_perror("sendto()");
+                }
+            }
+            else if (buflen == schedbuflen && buf[0] == 'I' && buf[1] == 'C' && buf[2] == 'E') {
+                /* Another scheduler is announcing it's running, disconnect daemons if it has a better version
+                   or the same version but was started earlier. */
+                time_t other_time;
+                memcpy(&other_time, buf + 4, sizeof(uint64_t));
+                if (buf[3] > PROTOCOL_VERSION || other_time < starttime) {
+                    if (!css.empty() || !monitors.empty()) {
+                        log_info() << "Scheduler from " << inet_ntoa(broad_addr.sin_addr)
+                               << ":" << ntohs(broad_addr.sin_port)
+                               << " (version " << int(buf[3]) << ") has announced itself as a preferred"
+                            " scheduler, disconnecting all connections." << endl;
+                        while (!css.empty())
+                            handle_end(css.front(), NULL);
+                        while (!monitors.empty())
+                            handle_end(monitors.front(), NULL);
+                    }
                 }
             }
         }

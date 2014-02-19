@@ -36,7 +36,7 @@
 #include "job.h"
 
 // if you increase the PROTOCOL_VERSION, add a macro below and use that
-#define PROTOCOL_VERSION 32
+#define PROTOCOL_VERSION 33
 // if you increase the MIN_PROTOCOL_VERSION, comment out macros below and clean up the code
 #define MIN_PROTOCOL_VERSION 21
 
@@ -57,6 +57,7 @@
 #define IS_PROTOCOL_30(c) ((c)->protocol >= 30)
 #define IS_PROTOCOL_31(c) ((c)->protocol >= 31)
 #define IS_PROTOCOL_32(c) ((c)->protocol >= 32)
+#define IS_PROTOCOL_33(c) ((c)->protocol >= 33)
 
 enum MsgType {
     // so far unknown
@@ -303,6 +304,9 @@ public:
     {
         return netname;
     }
+
+    /// Broadcasts the given data on the given port.
+    static bool broadcastData(int port, const char* buf, int size);
 
 private:
     struct sockaddr_in remote_addr;

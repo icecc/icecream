@@ -1127,7 +1127,7 @@ bool MsgChannel::send_msg(const Msg &m, int flags)
 #include <sys/ioctl.h>
 
 /* Returns a filedesc. or a negative value for errors.  */
-static int open_send_broadcast(int port)
+static int open_send_broadcast(int port, const char* buf, int size)
 {
     int ask_fd;
     struct sockaddr_in remote_addr;
@@ -1159,8 +1159,6 @@ static int open_send_broadcast(int port)
         return ret;
     }
 
-    char buf = PROTOCOL_VERSION;
-
     for (struct kde_ifaddrs *addr = addrs; addr != NULL; addr = addr->ifa_next) {
         /*
          * See if this interface address is IPv4...
@@ -1191,8 +1189,8 @@ static int open_send_broadcast(int port)
             remote_addr.sin_port = htons(port);
             remote_addr.sin_addr = ((sockaddr_in *)addr->ifa_broadaddr)->sin_addr;
 
-            if (sendto(ask_fd, &buf, 1, 0, (struct sockaddr *)&remote_addr,
-                       sizeof(remote_addr)) != 1) {
+            if (sendto(ask_fd, buf, size, 0, (struct sockaddr *)&remote_addr,
+                       sizeof(remote_addr)) != size) {
                 log_perror("open_send_broadcast sendto");
             }
         }
@@ -1202,7 +1200,8 @@ static int open_send_broadcast(int port)
     return ask_fd;
 }
 
-#define BROAD_BUFLEN 16
+#define BROAD_BUFLEN 32
+#define BROAD_BUFLEN_OLD 16
 
 static bool
 get_broad_answer(int ask_fd, int timeout, char *buf2, struct sockaddr_in *remote_addr,
@@ -1228,19 +1227,48 @@ get_broad_answer(int ask_fd, int timeout, char *buf2, struct sockaddr_in *remote
 
     *remote_len = sizeof(struct sockaddr_in);
 
-    if (recvfrom(ask_fd, buf2, BROAD_BUFLEN, 0, (struct sockaddr *) remote_addr,
-                 remote_len) != BROAD_BUFLEN) {
+    int len = recvfrom(ask_fd, buf2, BROAD_BUFLEN, 0, (struct sockaddr *) remote_addr, remote_len);
+    if (len != BROAD_BUFLEN && len != BROAD_BUFLEN_OLD) {
         log_perror("get_broad_answer recvfrom()");
         return false;
     }
 
-    if (buf + 1 != buf2[0]) {
+    if ((len == BROAD_BUFLEN_OLD && buf2[0] != buf + 1) // PROTOCOL <= 32 scheduler
+        || (len == BROAD_BUFLEN && buf2[0] != buf + 2)) { // PROTOCOL >= 33 scheduler
         log_error() << "wrong answer" << endl;
         return false;
     }
 
-    buf2[BROAD_BUFLEN - 1] = 0;
+    buf2[len - 1] = 0;
     return true;
+}
+
+static void get_broad_data(const char* buf, const char** name, int* version, time_t* start_time)
+{
+    if (buf[0] == PROTOCOL_VERSION + 1) {
+        // Scheduler version 32 or older, didn't send us its version, assume it's 32.
+        if (name != NULL)
+            *name = buf + 1;
+        if (version != NULL)
+            *version = 32;
+        if (start_time != NULL)
+            *start_time = 0; // Unknown too.
+    } else if(buf[0] == PROTOCOL_VERSION + 2) {
+        if (version != NULL) {
+            uint32_t tmp_version;
+            memcpy(&tmp_version, buf + 1, sizeof(uint32_t));
+            *version = tmp_version;
+        }
+        if (start_time != NULL) {
+            uint64_t tmp_time;
+            memcpy(&tmp_time, buf + 1 + sizeof(uint32_t), sizeof(uint64_t));
+            *start_time = tmp_time;
+        }
+        if (name != NULL)
+            *name = buf + 1 + sizeof(uint32_t) + sizeof(uint64_t);
+    } else {
+        abort();
+    }
 }
 
 DiscoverSched::DiscoverSched(const std::string &_netname, int _timeout,
@@ -1279,7 +1307,8 @@ DiscoverSched::DiscoverSched(const std::string &_netname, int _timeout,
         netname = ""; // take whatever the machine is giving us
         attempt_scheduler_connect();
     } else {
-        ask_fd = open_send_broadcast(sport);
+        char buf = PROTOCOL_VERSION;
+        ask_fd = open_send_broadcast(sport, &buf, 1);
     }
 }
 
@@ -1306,30 +1335,63 @@ void DiscoverSched::attempt_scheduler_connect()
     }
 }
 
-
 MsgChannel *DiscoverSched::try_get_scheduler()
 {
     if (schedname.empty()) {
         socklen_t remote_len;
-        bool found = false;
         char buf2[BROAD_BUFLEN];
+        /* Try to get the scheduler with the newest version, and if there
+           are several with the same version, choose the one that's been running
+           for the longest time. It should work like this (and it won't work
+           perfectly if there are schedulers and/or daemons with old (<33) version):
+
+           Whenever a daemon starts, it broadcasts for a scheduler. Schedulers all
+           see the broadcast and respond with their version, start time and netname.
+           Here we select the best one.
+           If a new scheduler is started, it'll broadcast its version and all
+           other schedulers will drop their daemon connections if they have an older
+           version. If the best scheduler quits, all daemons will get their connections
+           closed and will re-discover and re-connect.
+        */
+        int best_version = 0;
+        time_t best_start_time = 0;
+        bool multiple = false;
+        /* Wait at least two seconds to give all schedulers a chance to answer.*/
+        time_t timeout_time = time(NULL) + 2 + 1;
 
         /* Read/test all packages arrived until now.  */
-        while (!found
-               && get_broad_answer(ask_fd, 0/*timeout*/, buf2,
-                                   (struct sockaddr_in *) &remote_addr, &remote_len)) {
-            if (strcasecmp(netname.c_str(), buf2 + 1) == 0) {
-                found = true;
+        while (get_broad_answer(ask_fd, 0/*timeout*/, buf2,
+                                (struct sockaddr_in *) &remote_addr, &remote_len)
+               && time(NULL) < timeout_time) {
+            int version;
+            time_t start_time;
+            const char* name;
+            get_broad_data(buf2, &name, &version, &start_time);
+            if (strcasecmp(netname.c_str(), name) == 0) {
+                if (version < 33) {
+                    log_info() << "Suitable scheduler found at " << inet_ntoa(remote_addr.sin_addr)
+                        << ":" << ntohs(remote_addr.sin_port) << " (unknown version)" << endl;
+                } else {
+                    log_info() << "Suitable scheduler found at " << inet_ntoa(remote_addr.sin_addr)
+                        << ":" << ntohs(remote_addr.sin_port) << " (version: " << version << ")" << endl;
+                }
+                if (best_version != 0)
+                    multiple = true;
+                if (best_version < version || (best_version == version && best_start_time > start_time)) {
+                    schedname = inet_ntoa(remote_addr.sin_addr);
+                    sport = ntohs(remote_addr.sin_port);
+                    best_version = version;
+                    best_start_time = start_time;
+                }
             }
         }
 
-        if (!found) {
+        if (best_version == 0) {
             return 0;
         }
+        if (multiple)
+            log_info() << "Selecting scheduler at " << schedname << ":" << sport << endl;
 
-        schedname = inet_ntoa(remote_addr.sin_addr);
-        sport = ntohs(remote_addr.sin_port);
-        netname = buf2 + 1;
         close(ask_fd);
         ask_fd = -1;
         attempt_scheduler_connect();
@@ -1349,6 +1411,16 @@ MsgChannel *DiscoverSched::try_get_scheduler()
     return 0;
 }
 
+bool DiscoverSched::broadcastData(int port, const char* buf, int len)
+{
+    int fd = open_send_broadcast(port, buf, len);
+    if (fd >= 0) {
+        close(fd);
+        return true;
+    }
+    return false;
+}
+
 list<string> get_netnames(int timeout, int port)
 {
     list<string> l;
@@ -1357,17 +1429,24 @@ list<string> get_netnames(int timeout, int port)
     socklen_t remote_len;
     time_t time0 = time(0);
 
-    ask_fd = open_send_broadcast(port);
+    char buf = PROTOCOL_VERSION;
+    ask_fd = open_send_broadcast(port, &buf, 1);
 
     do {
         char buf2[BROAD_BUFLEN];
         bool first = true;
+        /* Wait at least two seconds to give all schedulers a chance to answer
+           (unless that'd be longer than the timeout).*/
+        time_t timeout_time = time(NULL) + min(2 + 1, timeout);
 
         /* Read/test all arriving packages.  */
         while (get_broad_answer(ask_fd, first ? timeout : 0, buf2,
-                                &remote_addr, &remote_len)) {
+                                &remote_addr, &remote_len)
+               && time(NULL) < timeout_time) {
             first = false;
-            l.push_back(buf2 + 1);
+            const char* name;
+            get_broad_data(buf2, &name, NULL, NULL);
+            l.push_back(name);
         }
     } while (time(0) - time0 < (timeout / 1000));
 
