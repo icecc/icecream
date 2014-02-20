@@ -536,6 +536,15 @@ if test -n "`which clang++ 2>/dev/null`"; then
     rm "$testdir"/plain.o
     run_ice "" "remote" 0 clang++ -Wall -Werror -c includes.cpp -o "$testdir"/includes.o
     rm "$testdir"/includes.o
+
+    # test -frewrite-includes usage
+    clang++ -E -Werror -frewrite-includes clangrewriteincludes.cpp | head -1 | grep -q '^# 1 "clangrewriteincludes.cpp"$' >/dev/null 2>/dev/null
+    if test $? -eq 0; then
+        run_ice "" "remote" 0 clang++ -Wall -c clangrewriteincludes.cpp -o "$testdir"/clangrewriteincludes.o
+        rm "$testdir"/clangrewriteincludes.o
+    else
+        skipped_tests="$skipped_tests clang_rewrite_includes"
+    fi
 else
     skipped_tests="$skipped_tests clang"
 fi
