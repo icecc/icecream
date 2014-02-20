@@ -253,12 +253,19 @@ make_test()
 {
     # make test - actually try something somewhat realistic. Since each node is set up to serve
     # only 2 jobs max, at least some of the 10 jobs should be built remotely.
-    echo Running make test.
-    reset_logs remote "make test"
+
+    # All the test compiles are small, and should produce small .o files, which will make the scheduler
+    # stats for those jobs, so it will not actually have any statistics about nodes (make_test is intentionally
+    # run early to ensure this). So run the test once, first time without stats, second time with stats
+    # (make.h has large data to ensure the first make_test run will finally produce statistics).
+    run_number=$1
+
+    echo Running make test $run_number.
+    reset_logs remote "make test $run_number"
     make -f Makefile.test OUTDIR="$testdir" clean -s
     PATH="$prefix"/lib/icecc/bin:$PATH ICECC_TEST_SOCKET="$testdir"/socket-localice ICECC_TEST_REMOTEBUILD=1 ICECC_DEBUG=debug ICECC_LOGFILE="$testdir"/icecc.log make -f Makefile.test OUTDIR="$testdir" -j10 -s 2>>"$testdir"/stderr.log
     if test $? -ne 0 -o ! -x "$testdir"/maketest; then
-        echo Make test failed.
+        echo Make test $run_numberfailed.
         stop_ice 0
         exit 2
     fi
@@ -267,7 +274,12 @@ make_test()
     check_log_message icecc "Have to use host 127.0.0.1:10246"
     check_log_message icecc "Have to use host 127.0.0.1:10247"
     check_log_message_count icecc 1 "<building_local>"
-    echo Make test successful.
+    if test $run_number -eq 1; then
+        check_log_message scheduler "no job stats - returning randomly selected"
+    else
+        check_log_error scheduler "no job stats - returning randomly selected"
+    fi
+    echo Make test $run_number successful.
     echo
     make -f Makefile.test OUTDIR="$testdir" clean -s
 }
@@ -463,6 +475,12 @@ echo Starting tests.
 echo ===============
 
 run_ice "$testdir/plain.o" "remote" 0 g++ -Wall -Werror -c plain.cpp -o "$testdir/"plain.o
+
+if test -z "$chroot_disabled"; then
+    make_test 1
+    make_test 2
+fi
+
 run_ice "$testdir/plain.o" "remote" 0 g++ -Wall -Werror -c plain.cpp -O2 -o "$testdir/"plain.o
 run_ice "$testdir/plain.ii" "local" 0 g++ -Wall -Werror -E plain.cpp -o "$testdir/"plain.ii
 run_ice "$testdir/includes.o" "remote" 0 g++ -Wall -Werror -c includes.cpp -o "$testdir"/includes.o
@@ -475,10 +493,6 @@ run_ice "" "local" 0 /bin/true
 # given on the command line or using stdin (which is how icecream does it), so do not compare output.
 run_ice "" "remote" 0 g++ -Wall -Werror -c plain.cpp -g -o "$testdir/"plain.o
 rm "$testdir"/plain.o
-
-if test -z "$chroot_disabled"; then
-    make_test
-fi
 
 icerun_test
 
