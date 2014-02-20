@@ -614,7 +614,7 @@ static CompileServer *pick_server(Job *job)
 
 #if DEBUG_SCHEDULER > 1
         trace() << cs->nodeName() << " compiled " << cs->lastCompiledJobs().size() << " got now: " <<
-                cs->jobList().size() << " speed: " << server_speed(cs) << " compile time " <<
+                cs->jobList().size() << " speed: " << server_speed(cs, job) << " compile time " <<
                 cs->cumCompiled().compileTimeUser() << " produced code " << cs->cumCompiled().outputSize() << endl;
 #endif
 
@@ -674,21 +674,21 @@ static CompileServer *pick_server(Job *job)
 
     if (best) {
 #if DEBUG_SCHEDULER > 1
-        trace() << "taking best installed " << best->nodeName() << " " <<  server_speed(best) << endl;
+        trace() << "taking best installed " << best->nodeName() << " " <<  server_speed(best, job) << endl;
 #endif
         return best;
     }
 
     if (bestui) {
 #if DEBUG_SCHEDULER > 1
-        trace() << "taking best uninstalled " << bestui->nodeName() << " " <<  server_speed(bestui) << endl;
+        trace() << "taking best uninstalled " << bestui->nodeName() << " " <<  server_speed(bestui, job) << endl;
 #endif
         return bestui;
     }
 
     if (bestpre) {
 #if DEBUG_SCHEDULER > 1
-        trace() << "taking best preload " << bestui->nodeName() << " " <<  server_speed(bestui) << endl;
+        trace() << "taking best preload " << bestui->nodeName() << " " <<  server_speed(bestui, job) << endl;
 #endif
     }
 
