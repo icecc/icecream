@@ -481,6 +481,7 @@ if test -z "$chroot_disabled"; then
     make_test 2
 fi
 
+run_ice "$testdir/plain.o" "remote" 0 gcc -Wall -Werror -c plain.c -o "$testdir/"plain.o
 run_ice "$testdir/plain.o" "remote" 0 g++ -Wall -Werror -c plain.cpp -O2 -o "$testdir/"plain.o
 run_ice "$testdir/plain.ii" "local" 0 g++ -Wall -Werror -E plain.cpp -o "$testdir/"plain.ii
 run_ice "$testdir/includes.o" "remote" 0 g++ -Wall -Werror -c includes.cpp -o "$testdir"/includes.o
