@@ -14,6 +14,8 @@ fi
 # anything about this for real.
 export LC_ALL=C
 
+export CCACHE_DISABLE
+
 mkdir -p "$testdir"
 
 skipped_tests=
