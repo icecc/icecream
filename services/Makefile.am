@@ -14,7 +14,8 @@ libicecc_la_CXXFLAGS = -fPIC -DPIC
 icedir = $(includedir)/icecc
 ice_HEADERS = \
 	job.h \
-	comm.h
+	comm.h \
+	logging.h
 
 noinst_HEADERS = \
 	exitcode.h \
