@@ -8,6 +8,12 @@ if test -z "$prefix" -o ! -x "$prefix"/bin/icecc; then
     exit 2
 fi
 
+# Remote compiler pretty much runs with this setting (and there are no locale files in the chroot anyway),
+# so force it also locally, otherwise comparing stderr would easily fail because of locale differences (different quotes).
+# Until somebody complains and has a good justification for the effort, don't bother with actually doing
+# anything about this for real.
+export LC_ALL=C
+
 mkdir -p "$testdir"
 
 skipped_tests=
@@ -161,11 +167,12 @@ run_ice()
 
     reset_logs local "$@"
     echo Running: "$@"
-    ICECC_TEST_SOCKET="$testdir"/socket-localice ICECC_TEST_REMOTEBUILD=1 ICECC_PREFERRED_HOST=localice ICECC_DEBUG=debug ICECC_LOGFILE="$testdir"/icecc.log "$prefix"/bin/icecc "$@" 2>>"$testdir"/stderr.log
+    ICECC_TEST_SOCKET="$testdir"/socket-localice ICECC_TEST_REMOTEBUILD=1 ICECC_PREFERRED_HOST=localice ICECC_DEBUG=debug ICECC_LOGFILE="$testdir"/icecc.log "$prefix"/bin/icecc "$@" 2>"$testdir"/stderr.localice
     localice_exit=$?
     if test -n "$output"; then
         mv "$output" "$output".localice
     fi
+    cat "$testdir"/stderr.localice >> "$testdir"/stderr.log
     flush_logs
     check_logs_for_generic_errors
     if test "$remote_type" = "remote"; then
@@ -180,11 +187,12 @@ run_ice()
 
     if test -z "$chroot_disabled"; then
         reset_logs remote "$@"
-        ICECC_TEST_SOCKET="$testdir"/socket-localice ICECC_TEST_REMOTEBUILD=1 ICECC_PREFERRED_HOST=remoteice1 ICECC_DEBUG=debug ICECC_LOGFILE="$testdir"/icecc.log "$prefix"/bin/icecc "$@" 2>>"$testdir"/stderr.log
+        ICECC_TEST_SOCKET="$testdir"/socket-localice ICECC_TEST_REMOTEBUILD=1 ICECC_PREFERRED_HOST=remoteice1 ICECC_DEBUG=debug ICECC_LOGFILE="$testdir"/icecc.log "$prefix"/bin/icecc "$@" 2>"$testdir"/stderr.remoteice
         remoteice_exit=$?
         if test -n "$output"; then
             mv "$output" "$output".remoteice
         fi
+        cat "$testdir"/stderr.remoteice >> "$testdir"/stderr.log
         flush_logs
         check_logs_for_generic_errors
         if test "$remote_type" = "remote"; then
@@ -199,8 +207,9 @@ run_ice()
     fi
 
     reset_logs noice "$@"
-    "$@" 2>>"$testdir"/stderr.log
+    "$@" 2>"$testdir"/stderr
     normal_exit=$?
+    cat "$testdir"/stderr >> "$testdir"/stderr.log
     flush_logs
     check_logs_for_generic_errors
     check_log_error icecc "Have to use host 127.0.0.1:10246"
@@ -222,6 +231,18 @@ run_ice()
         echo "Remote run exit code mismatch ($remoteice_exit vs $expected_exit)"
         stop_ice 0
         exit 2
+    fi
+    if ! diff -q "$testdir"/stderr.localice "$testdir"/stderr; then
+        echo "Stderr mismatch ($"testdir"/stderr.localice)"
+        stop_ice 0
+        exit 2
+    fi
+    if test -z "$chroot_disabled"; then
+        if ! diff -q "$testdir"/stderr.remoteice "$testdir"/stderr; then
+            echo "Stderr mismatch ($"testdir"/stderr.remoteice)"
+            stop_ice 0
+            exit 2
+        fi
     fi
     if test -n "$output"; then
         if ! diff -q "$output".localice "$output"; then
@@ -247,6 +268,7 @@ run_ice()
     if test -n "$output"; then
         rm -f "$output" "$output".localice "$output".remoteice
     fi
+    rm -f "$testdir"/stderr "$testdir"/stderr.localice "$testdir"/stderr.remoteice
 }
 
 make_test()
