@@ -488,6 +488,7 @@ run_ice "$testdir/includes.o" "remote" 0 g++ -Wall -Werror -c includes.cpp -o "$
 run_ice "$testdir/plain.o" "local" 0 g++ -Wall -Werror -c plain.cpp -mtune=native -o "$testdir"/plain.o
 run_ice "$testdir/plain.o" "remote" 0 gcc -Wall -Werror -x c++ -c plain -o "$testdir"/plain.o
 run_ice "" "remote" 1 g++ -c nonexistent.cpp
+run_ice "" "remote" 1 g++ -c syntaxerror.cpp
 run_ice "" "local" 0 /bin/true
 
 # gcc 4.8 and newer produce different debuginfo depending on whether the source file is
