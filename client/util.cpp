@@ -246,7 +246,7 @@ bool compiler_has_color_output(const CompileJob &job)
     if (compiler_is_clang(job)) {
         return true;
     }
-    // GCC has it since 4.8, but that'd require detecting what GCC
+    // GCC has it since 4.9, but that'd require detecting what GCC
     // version is used for the actual compile. However it requires
     // also GCC_COLORS to be set (and not empty), so use that
     // for detecting if GCC would use colors.
