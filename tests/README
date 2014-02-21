@@ -45,6 +45,24 @@ If you want to use icemon for the tests, use 'USE_SCHEDULER=localhost:8767 icemo
 icemon needs to be built with recent (Feb 2014) libicecc library for this to work.
 
 
+Valgrind:
+=========
+
+It is possible to pass --valgrind to test.sh in order to test (almost) everything with Valgrind.
+Note that in order to be able to chroot, it is necessary to give the capability to the actual
+Valgrind binary instead of iceccd (this is because this binary is what actually runs as
+the process):
+
+  sudo /sbin/setcap cap_sys_chroot+ep /usr/lib/valgrind/memcheck-x86-linux
+
+Do not forget to reset it back when done:
+
+  sudo /sbin/setcap -r /usr/lib/valgrind/memcheck-x86-linux
+
+If anything in the test exits with exit code 10, it is very likely because Valgrind detected
+an error. Check valgrind logs in the log directory.
+
+
 Adding new tests:
 =================
 

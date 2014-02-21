@@ -2,10 +2,35 @@
 
 prefix="$1"
 testdir="$2"
+shift
+shift
+valgrind=
+
+usage()
+{
+    echo Usage: "$0 <install_prefix> <testdir> [--valgrind[=command]]"
+    exit 2
+}
+
+while test -n "$1"; do
+    case "$1" in
+        --valgrind)
+            valgrind="valgrind --leak-check=no --error-exitcode=10 --suppressions=valgrind_suppressions --log-file=$testdir/valgrind-%p.log --"
+            rm -f "$testdir"/valgrind-*.log
+            ;;
+        --valgrind=*)
+            valgrind="`echo $1 | sed 's/^--valgrind=//'` --error-exitcode=10 --suppressions=valgrind_suppressions --log-file=$testdir/valgrind-%p.log --"
+            rm -f "$testdir"/valgrind-*.log
+            ;;
+        *)
+            usage
+            ;;
+    esac
+    shift
+done
 
 if test -z "$prefix" -o ! -x "$prefix"/bin/icecc; then
-    echo Usage: "$0 <install_prefix> <testdir>"
-    exit 2
+    usage
 fi
 
 # Remote compiler pretty much runs with this setting (and there are no locale files in the chroot anyway),
@@ -23,20 +48,24 @@ chroot_disabled=
 
 start_ice()
 {
-    "$prefix"/sbin/icecc-scheduler -p 8767 -l "$testdir"/scheduler.log -v -v -v &
+    $valgrind "$prefix"/sbin/icecc-scheduler -p 8767 -l "$testdir"/scheduler.log -v -v -v &
     scheduler_pid=$!
     echo $scheduler_pid > "$testdir"/scheduler.pid
-    ICECC_TEST_SOCKET="$testdir"/socket-localice "$prefix"/sbin/iceccd --no-remote -s localhost:8767 -b "$testdir"/envs-localice -l "$testdir"/localice.log -N localice -m 2 -v -v -v &
+    ICECC_TEST_SOCKET="$testdir"/socket-localice $valgrind "$prefix"/sbin/iceccd --no-remote -s localhost:8767 -b "$testdir"/envs-localice -l "$testdir"/localice.log -N localice -m 2 -v -v -v &
     localice_pid=$!
     echo $localice_pid > "$testdir"/localice.pid
-    ICECC_TEST_SOCKET="$testdir"/socket-remoteice1 "$prefix"/sbin/iceccd -p 10246 -s localhost:8767 -b "$testdir"/envs-remoteice1 -l "$testdir"/remoteice1.log -N remoteice1 -m 2 -v -v -v &
+    ICECC_TEST_SOCKET="$testdir"/socket-remoteice1 $valgrind "$prefix"/sbin/iceccd -p 10246 -s localhost:8767 -b "$testdir"/envs-remoteice1 -l "$testdir"/remoteice1.log -N remoteice1 -m 2 -v -v -v &
     remoteice1_pid=$!
     echo $remoteice1_pid > "$testdir"/remoteice1.pid
-    ICECC_TEST_SOCKET="$testdir"/socket-remoteice2 "$prefix"/sbin/iceccd -p 10247 -s localhost:8767 -b "$testdir"/envs-remoteice2 -l "$testdir"/remoteice2.log -N remoteice2 -m 2 -v -v -v &
+    ICECC_TEST_SOCKET="$testdir"/socket-remoteice2 $valgrind "$prefix"/sbin/iceccd -p 10247 -s localhost:8767 -b "$testdir"/envs-remoteice2 -l "$testdir"/remoteice2.log -N remoteice2 -m 2 -v -v -v &
     remoteice2_pid=$!
     echo $remoteice2_pid > "$testdir"/remoteice2.pid
     notready=
-    sleep 1
+    if test -n "$valgrind"; then
+        sleep 10
+    else
+        sleep 1
+    fi
     for time in `seq 1 5`; do
         notready=
         if ! kill -0 $scheduler_pid; then
@@ -79,17 +108,21 @@ start_ice()
 # start only local daemon, no scheduler
 start_only_daemon()
 {
-    ICECC_TEST_SOCKET="$testdir"/socket-localice "$prefix"/sbin/iceccd --no-remote -s localhost:8767 -b "$testdir"/envs-localice -l "$testdir"/localice.log -N localice -m 2 -v -v -v &
+    ICECC_TEST_SOCKET="$testdir"/socket-localice $valgrind "$prefix"/sbin/iceccd --no-remote -s localhost:8767 -b "$testdir"/envs-localice -l "$testdir"/localice.log -N localice -m 2 -v -v -v &
     localice_pid=$!
     echo $localice_pid > "$testdir"/localice.pid
-    sleep 1
+    if test -n "$valgrind"; then
+        sleep 10
+    else
+        sleep 1
+    fi
     if ! kill -0 $localice_pid; then
         echo Daemon localice start failure.
         stop_only_daemon 0
         exit 2
     fi
     flush_logs
-    if ! grep -q "scheduler not yet found." "$testdir"/localice.log; then
+    if ! grep -q "Netnames:" "$testdir"/localice.log; then
         echo Daemon localice not ready, aborting.
         stop_only_daemon 0
         exit 2
@@ -98,12 +131,17 @@ start_only_daemon()
 
 stop_ice()
 {
-    check_first="$1"
-    scheduler_pid=`cat "$testdir"/scheduler.pid 2>/dev/null`
-    localice_pid=`cat "$testdir"/localice.pid 2>/dev/null`
-    remoteice1_pid=`cat "$testdir"/remoteice1.pid 2>/dev/null`
-    remoteice2_pid=`cat "$testdir"/remoteice2.pid 2>/dev/null`
-    if test $check_first -ne 0; then
+    # 0 - do not check
+    # 1 - check normally
+    # 2 - do not check, do not wait (wait would fail, started by previous shell)
+    check_type="$1"
+    if test $check_type -eq 2; then
+        scheduler_pid=`cat "$testdir"/scheduler.pid 2>/dev/null`
+        localice_pid=`cat "$testdir"/localice.pid 2>/dev/null`
+        remoteice1_pid=`cat "$testdir"/remoteice1.pid 2>/dev/null`
+        remoteice2_pid=`cat "$testdir"/remoteice2.pid 2>/dev/null`
+    fi
+    if test $check_type -eq 1; then
         if ! kill -0 $scheduler_pid; then
             echo Scheduler no longer running.
             stop_ice 0
@@ -122,6 +160,15 @@ stop_ice()
         pid=${daemon}_pid
         if test -n "${!pid}"; then
             kill "${!pid}" 2>/dev/null
+            if test $check_type -eq 1; then
+                wait ${!pid}
+                exitcode=$?
+                if test $exitcode -ne 0; then
+                    echo Daemon $daemon exited with code $exitcode.
+                    stop_ice 0
+                    exit 2
+                fi
+            fi
         fi
         rm -f "$testdir"/$daemon.pid
         rm -rf "$testdir"/envs-${daemon}
@@ -130,6 +177,15 @@ stop_ice()
     done
     if test -n "$scheduler_pid"; then
         kill "$scheduler_pid" 2>/dev/null
+        if test $check_type -eq 1; then
+            wait $scheduler_pid
+            exitcode=$?
+            if test $exitcode -ne 0; then
+                echo Scheduler exited with code $exitcode.
+                stop_ice 0
+                exit 2
+            fi
+        fi
         scheduler_pid=
     fi
     rm -f "$testdir"/scheduler.pid
@@ -169,7 +225,7 @@ run_ice()
 
     reset_logs local "$@"
     echo Running: "$@"
-    ICECC_TEST_SOCKET="$testdir"/socket-localice ICECC_TEST_REMOTEBUILD=1 ICECC_PREFERRED_HOST=localice ICECC_DEBUG=debug ICECC_LOGFILE="$testdir"/icecc.log "$prefix"/bin/icecc "$@" 2>"$testdir"/stderr.localice
+    ICECC_TEST_SOCKET="$testdir"/socket-localice ICECC_TEST_REMOTEBUILD=1 ICECC_PREFERRED_HOST=localice ICECC_DEBUG=debug ICECC_LOGFILE="$testdir"/icecc.log $valgrind "$prefix"/bin/icecc "$@" 2>"$testdir"/stderr.localice
     localice_exit=$?
     if test -n "$output"; then
         mv "$output" "$output".localice
@@ -189,7 +245,7 @@ run_ice()
 
     if test -z "$chroot_disabled"; then
         reset_logs remote "$@"
-        ICECC_TEST_SOCKET="$testdir"/socket-localice ICECC_TEST_REMOTEBUILD=1 ICECC_PREFERRED_HOST=remoteice1 ICECC_DEBUG=debug ICECC_LOGFILE="$testdir"/icecc.log "$prefix"/bin/icecc "$@" 2>"$testdir"/stderr.remoteice
+        ICECC_TEST_SOCKET="$testdir"/socket-localice ICECC_TEST_REMOTEBUILD=1 ICECC_PREFERRED_HOST=remoteice1 ICECC_DEBUG=debug ICECC_LOGFILE="$testdir"/icecc.log $valgrind "$prefix"/bin/icecc "$@" 2>"$testdir"/stderr.remoteice
         remoteice_exit=$?
         if test -n "$output"; then
             mv "$output" "$output".remoteice
@@ -336,7 +392,7 @@ icerun_test()
         else
             testbin=./icerun-test.sh
         fi
-        PATH=$path ICECC_TEST_SOCKET="$testdir"/socket-localice ICECC_TEST_REMOTEBUILD=1 ICECC_DEBUG=debug ICECC_LOGFILE="$testdir"/icecc.log "$prefix"/bin/icerun $testbin "$testdir"/icerun $i &
+        PATH=$path ICECC_TEST_SOCKET="$testdir"/socket-localice ICECC_TEST_REMOTEBUILD=1 ICECC_DEBUG=debug ICECC_LOGFILE="$testdir"/icecc.log $valgrind "$prefix"/bin/icerun $testbin "$testdir"/icerun $i &
     done
     timeout=100
     seen2=
@@ -368,7 +424,7 @@ icerun_test()
     fi
 
     # check that plain 'icerun-test.sh' doesn't work for the current directory (i.e. ./ must be required just like with normal execution)
-    ICECC_TEST_SOCKET="$testdir"/socket-localice ICECC_TEST_REMOTEBUILD=1 ICECC_DEBUG=debug ICECC_LOGFILE="$testdir"/icecc.log "$prefix"/bin/icerun icerun-test.sh "$testdir"/icerun 0 &
+    ICECC_TEST_SOCKET="$testdir"/socket-localice ICECC_TEST_REMOTEBUILD=1 ICECC_DEBUG=debug ICECC_LOGFILE="$testdir"/icecc.log $valgrind "$prefix"/bin/icerun icerun-test.sh "$testdir"/icerun 0 &
     icerun_test_pid=$!
     timeout=20
     while true; do
@@ -495,7 +551,8 @@ echo -n >"$testdir"/icecc.log
 echo -n >"$testdir"/stderr.log
 
 echo Starting icecream.
-stop_ice 0
+stop_ice 2
+reset_logs local "Starting"
 start_ice
 check_logs_for_generic_errors
 
@@ -561,14 +618,20 @@ reset_logs local "Closing down"
 stop_ice 1
 check_logs_for_generic_errors
 
+reset_logs local "Starting only daemon"
 start_only_daemon
 
 # even without scheduler, icerun should still serialize, but still run up to local number of jobs in parallel
 icerun_test "noscheduler"
 
+reset_logs local "Closing down (only daemon)"
 stop_only_daemon 1
 
 finish_logs
+
+if test -n "$valgrind"; then
+    rm -f "$testdir"/valgrind-*.log
+fi
 
 if test -n "$skipped_tests"; then
     echo "All tests OK, some were skipped:$skipped_tests"

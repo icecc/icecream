@@ -1,0 +1,13 @@
+# The error seems to be about the second argument to the capget syscall,
+# but that seems to be actually no problem (at least to me). Either way,
+# not icecream's problem.
+{
+   capget
+   Memcheck:Param
+   capget(data)
+   fun:capget
+   fun:init
+   fun:capng_get_caps_process
+   fun:capng_have_capability
+   fun:main
+}
