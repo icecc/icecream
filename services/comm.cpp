@@ -1774,6 +1774,7 @@ void JobDoneMsg::send_to_channel(MsgChannel *c) const
 LoginMsg::LoginMsg(unsigned int myport, const std::string &_nodename, const std::string _host_platform)
     : Msg(M_LOGIN)
     , port(myport)
+    , max_kids(0)
     , noremote(false)
     , chroot_possible(false)
     , nodename(_nodename)
