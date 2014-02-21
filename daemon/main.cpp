@@ -600,7 +600,7 @@ bool Daemon::setup_listen_fds()
     if (getenv("ICECC_TEST_SOCKET") == NULL) {
 #ifdef HAVE_LIBCAP_NG
         // We run as system daemon (UID has been already changed).
-        if (capng_have_capability( CAPNG_PERMITTED, CAP_SYS_CHROOT )) {
+        if (capng_have_capability( CAPNG_EFFECTIVE, CAP_SYS_CHROOT )) {
 #else
         if (getuid() == 0) {
 #endif
@@ -2198,7 +2198,7 @@ int main(int argc, char **argv)
     } else {
 #ifdef HAVE_LIBCAP_NG
         // It's possible to have the capability even without being root.
-        if (!capng_have_capability( CAPNG_PERMITTED, CAP_SYS_CHROOT )) {
+        if (!capng_have_capability( CAPNG_EFFECTIVE, CAP_SYS_CHROOT )) {
 #else
         {
 #endif

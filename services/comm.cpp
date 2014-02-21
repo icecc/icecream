@@ -1784,7 +1784,7 @@ LoginMsg::LoginMsg(unsigned int myport, const std::string &_nodename, const std:
     , host_platform(_host_platform)
 {
 #ifdef HAVE_LIBCAP_NG
-    chroot_possible = capng_have_capability(CAPNG_PERMITTED, CAP_SYS_CHROOT);
+    chroot_possible = capng_have_capability(CAPNG_EFFECTIVE, CAP_SYS_CHROOT);
 #else
     // check if we're root
     chroot_possible = (geteuid() == 0);
