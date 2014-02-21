@@ -93,7 +93,8 @@ static void dcc_show_usage(void)
         "   ICECC_CLANG_REMOTE_CPP     set to 1 or 0 to override remote preprocessing with clang\n"
         "   ICECC_IGNORE_UNVERIFIED    if set, hosts where environment cannot be verified are not used.\n"
         "   ICECC_EXTRAFILES           additional files used in the compilation.\n"
-        "   ICECC_COLOR_DIAGNOSTICS    set to 1 or 0 to override color diagnostics support\n"
+        "   ICECC_COLOR_DIAGNOSTICS    set to 1 or 0 to override color diagnostics support.\n"
+        "   ICECC_CARET_WORKAROUND     set to 1 or 0 to override gcc show caret workaround.\n"
         "\n");
 }
 
@@ -497,6 +498,10 @@ int main(int argc, char **argv)
                 local_daemon->send_msg(EndMsg());
             }
         } catch (int error) {
+            if (error >= 100) {
+                log_info() << "local build forced by error " << error << endl;
+                goto do_local_error;
+            }
             if (remote_daemon.size()) {
                 log_error() << "got exception " << error
                             << " (" << remote_daemon.c_str() << ") " << endl;

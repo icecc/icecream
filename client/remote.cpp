@@ -509,10 +509,16 @@ static int build_remote_int(CompileJob &job, UseCSMsg *usecs, MsgChannel *local_
         if (status && crmsg->was_out_of_memory) {
             delete crmsg;
             log_info() << "the server ran out of memory, recompiling locally" << endl;
-            throw(17);   // recompile locally - TODO: handle this as a normal local job not an error case
+            throw(101);
         }
 
         if (output) {
+            if ((!crmsg->out.empty() || !crmsg->err.empty()) && output_needs_workaround(job)) {
+                delete crmsg;
+                log_info() << "command needs stdout/stderr workaround, recompiling locally" << endl;
+                throw(102);
+            }
+
             write(STDOUT_FILENO, crmsg->out.c_str(), crmsg->out.size());
 
             if (colorify_wanted(job)) {

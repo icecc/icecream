@@ -47,6 +47,7 @@
 using namespace std;
 
 extern bool explicit_color_diagnostics;
+extern bool explicit_no_show_caret;
 
 /**
  * Set the `FD_CLOEXEC' flag of DESC if VALUE is nonzero,
@@ -307,6 +308,30 @@ void colorify_output(const string &_s_ccout)
 bool ignore_unverified()
 {
     return getenv("ICECC_IGNORE_UNVERIFIED");
+}
+
+// GCC4.8+ has -fdiagnostics-show-caret, but when it prints the source code,
+// it tries to find the source file on the disk, rather than printing the input
+// it got like Clang does. This means that when compiling remotely, it of course
+// won't find the source file in the remote chroot, and will disable the caret
+// silently. As a workaround, make it possible to recompile locally if there's
+// any stdout/stderr.
+// Another way of handling this might be to send all the headers to the remote
+// host, but this has been already tried in the sendheaders branch (for
+// preprocessing remotely too) and performance-wise it just doesn't seem to
+// be worth it.
+bool output_needs_workaround(const CompileJob &job)
+{
+    if (compiler_is_clang(job))
+        return false;
+    if (explicit_no_show_caret)
+        return false;
+    if (const char* caret_workaround = getenv("ICECC_CARET_WORKAROUND"))
+        return *caret_workaround == '1';
+#ifdef HAVE_GCC_SHOW_CARET
+    return true;
+#endif
+    return false;
 }
 
 int resolve_link(const std::string &file, std::string &resolved)

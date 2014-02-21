@@ -443,6 +443,10 @@ check_logs_for_generic_errors()
     check_log_error scheduler "that job isn't handled by"
     check_log_error scheduler "the server isn't the same for job"
     check_log_error icecc "got exception "
+    # consider all non-fatal errors such as running out of memory on the remote
+    # still as problems, except for:
+    # 102 - -fdiagnostics-show-caret forced local build (gcc-4.8+)
+    check_log_error icecc "local build forced by error [^1][^0][^2]"
 }
 
 check_log_error()
@@ -515,6 +519,9 @@ run_ice "" "remote" 1 g++ -c nonexistent.cpp
 run_ice "" "remote" 1 g++ -c syntaxerror.cpp
 run_ice "" "local" 0 /bin/true
 
+run_ice "$testdir/messages.o" "remote" 0 g++ -Wall -c messages.cpp -o "$testdir"/messages.o
+check_log_message stderr "warning: unused variable 'unused'"
+
 # gcc 4.8 and newer produce different debuginfo depending on whether the source file is
 # given on the command line or using stdin (which is how icecream does it), so do not compare output.
 run_ice "" "remote" 0 g++ -Wall -Werror -c plain.cpp -g -o "$testdir/"plain.o
@@ -538,10 +545,11 @@ if test -n "`which clang++ 2>/dev/null`"; then
     rm "$testdir"/includes.o
 
     # test -frewrite-includes usage
-    clang++ -E -Werror -frewrite-includes clangrewriteincludes.cpp | head -1 | grep -q '^# 1 "clangrewriteincludes.cpp"$' >/dev/null 2>/dev/null
+    clang++ -E -Werror -frewrite-includes messages.cpp | head -1 | grep -q '^# 1 "messages.cpp"$' >/dev/null 2>/dev/null
     if test $? -eq 0; then
-        run_ice "" "remote" 0 clang++ -Wall -c clangrewriteincludes.cpp -o "$testdir"/clangrewriteincludes.o
-        rm "$testdir"/clangrewriteincludes.o
+        run_ice "" "remote" 0 clang++ -Wall -c messages.cpp -o "$testdir"/messages.o
+        check_log_message stderr "warning: unused variable 'unused'"
+        rm "$testdir"/messages.o
     else
         skipped_tests="$skipped_tests clang_rewrite_includes"
     fi

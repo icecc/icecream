@@ -338,6 +338,28 @@ else
     true  # do not enable
 fi
 
+AC_ARG_ENABLE(gcc-show-caret,
+    AS_HELP_STRING([--enable-gcc-show-caret],
+        [Assume by default GCC has -fdiagnostics-show-caret option.]))
+
+if test "$enable_gcc_show_caret" = "yes"; then
+    AC_DEFINE(HAVE_GCC_SHOW_CARET, 1, [Define to 1 if gcc supports -fdiagnostics-show-caret])
+elif test "$enable_gcc_show_caret" = "no"; then
+    true  # do not enable
+else
+    AC_CHECK_PROG(GCC_BIN,gcc,gcc)
+    if test -n "$GCC_BIN"; then
+        AC_MSG_CHECKING([for gcc -fdiagnostics-show-caret])
+        $GCC_BIN -Werror -E -fdiagnostics-show-caret - >/dev/null 2>/dev/null
+        if test $? -eq 0; then
+            AC_MSG_RESULT(yes)
+            AC_DEFINE(HAVE_GCC_SHOW_CARET, 1, [Define to 1 if gcc supports -fdiagnostics-show-caret])
+        else
+            AC_MSG_RESULT(no)
+        fi
+    fi
+fi
+
 AC_CONFIG_FILES([ Makefile ])
 AC_CONFIG_FILES([ client/Makefile ])
 AC_CONFIG_FILES([ daemon/Makefile ])

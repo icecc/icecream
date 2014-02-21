@@ -1,5 +1,5 @@
-#ifndef CLANGREWRITEINCLUDES_H
-#define CLANGREWRITEINCLUDES_H
+#ifndef MESSAGES_H
+#define MESSAGES_H
 
 void g()
     {

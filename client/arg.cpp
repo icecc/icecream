@@ -40,6 +40,9 @@ using namespace std;
 // Whether any option controlling color output has been explicitly given.
 bool explicit_color_diagnostics;
 
+// Whether -fno-diagnostics-show-caret was given.
+bool explicit_no_show_caret;
+
 #define CLIENT_DEBUG 0
 
 #if CLIENT_DEBUG
@@ -125,6 +128,7 @@ bool analyse_argv(const char * const *argv, CompileJob &job, bool icerun, list<s
     Argument_Type Arg_Cpp = compiler_only_rewrite_includes(job) ? Arg_Rest : Arg_Local;
 
     explicit_color_diagnostics = false;
+    explicit_no_show_caret = false;
 
     if (icerun) {
         always_local = true;
@@ -405,7 +409,9 @@ bool analyse_argv(const char * const *argv, CompileJob &job, bool icerun, list<s
             } else if (str_equal("-fdiagnostics-color=auto", a)) {
                 // Drop the option here and pretend it wasn't given,
                 // the code below will decide whether to enable colors or not.
-                explicit_color_diagnostics = false; 
+                explicit_color_diagnostics = false;
+            } else if (str_equal("-fno-diagnostics-show-caret", a)) {
+                explicit_no_show_caret = true;
             } else if (str_equal("-flto", a)) {
                 // pointless when preprocessing, and Clang would emit a warning
                 args.append(a, Arg_Remote);
