@@ -759,7 +759,10 @@ MsgChannel::MsgChannel(int _fd, struct sockaddr *_a, socklen_t _l, bool text)
     if (addr_len && _a) {
         addr = (struct sockaddr *)malloc(addr_len);
         memcpy(addr, _a, addr_len);
-        name = inet_ntoa(((struct sockaddr_in *) addr)->sin_addr);
+        char buf[16384] = "";
+        if(int error = getnameinfo(addr, addr_len, buf, sizeof(buf), NULL, 0, NI_NUMERICHOST))
+            log_error() << "getnameinfo(): " << error << endl;
+        name = buf;
     } else {
         addr = 0;
         name = "";
