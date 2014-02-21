@@ -555,9 +555,8 @@ stop_ice 2
 reset_logs local "Starting"
 start_ice
 check_logs_for_generic_errors
-
-echo Starting tests.
-echo ===============
+echo Starting icecream successful.
+echo
 
 run_ice "$testdir/plain.o" "remote" 0 g++ -Wall -Werror -c plain.cpp -o "$testdir/"plain.o
 
