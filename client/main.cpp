@@ -94,6 +94,7 @@ static void dcc_show_usage(void)
         "                              (requires clang -frewrite-includes option).\n"
         "   ICECC_IGNORE_UNVERIFIED    if set, hosts where environment cannot be verified are not used.\n"
         "   ICECC_EXTRAFILES           additional files used in the compilation.\n"
+        "   ICECC_COLOR_DIAGNOSTICS    set to 1 or 0 to override color diagnostics support\n"
         "\n");
 }
 

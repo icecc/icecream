@@ -328,6 +328,16 @@ else
 fi
 AC_SUBST(CLANG_SYMLINK_WRAPPERS)
 
+AC_ARG_ENABLE(gcc-color-diagnostics,
+    AS_HELP_STRING([--enable-gcc-color-diagnostics],
+        [Assume by default GCC has -fdiagnostics-color=auto option.]))
+
+if test "$enable_gcc_color_diagnostics" = "yes"; then
+    AC_DEFINE(HAVE_GCC_COLOR_DIAGNOSTICS, 1, [Define to 1 if gcc supports -fdiagnostics-color=auto])
+else
+    true  # do not enable
+fi
+
 AC_CONFIG_FILES([ Makefile ])
 AC_CONFIG_FILES([ client/Makefile ])
 AC_CONFIG_FILES([ daemon/Makefile ])

@@ -246,6 +246,12 @@ bool compiler_has_color_output(const CompileJob &job)
     if (compiler_is_clang(job)) {
         return true;
     }
+    if (const char* icecc_color_diagnostics = getenv("ICECC_COLOR_DIAGNOSTICS")) {
+        return *icecc_color_diagnostics == '1';
+    }
+#ifdef HAVE_GCC_COLOR_DIAGNOSTICS
+    return true;
+#endif
     // GCC has it since 4.9, but that'd require detecting what GCC
     // version is used for the actual compile. However it requires
     // also GCC_COLORS to be set (and not empty), so use that
@@ -265,6 +271,8 @@ bool colorify_wanted(const CompileJob &job)
     if (explicit_color_diagnostics) { // colors explicitly enabled/disabled by an option
         return false;
     }
+    if (getenv("ICECC_COLOR_DIAGNOSTICS") != NULL)
+        return false; // if set explicitly, assume icecream's colorify is not wanted
 
     if (getenv("EMACS")) {
         return false;
