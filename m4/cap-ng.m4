@@ -1,10 +1,15 @@
 # libcap-ng.m4 - Checks for the libcap-ng support
 # 	Copyright (c) 2009 Steve Grubb sgrubb@redhat.com
 #
-AC_DEFUN([LIBCAP_NG_PATH],
+AC_DEFUN([ICECC_LIBCAP_NG_PATH],
 [
+  case $host in
+    *linux*) capng_auto=no ;;
+    *) capng_auto=yes ;;
+  esac
+
   AC_ARG_WITH(libcap-ng,
-    [  --with-libcap-ng=[auto/yes/no]  Add Libcap-ng support [default=auto]],,
+    [  --with-libcap-ng=[auto/yes/no]  Add Libcap-ng support],,
     with_libcap_ng=auto)
 
   # Check for Libcap-ng API
@@ -24,6 +29,9 @@ AC_DEFUN([LIBCAP_NG_PATH],
       # Check results are usable
       if test x$with_libcap_ng = xyes -a x$CAPNG_LDADD = x ; then
          AC_MSG_ERROR(libcap-ng support was requested and the library was not found)
+      fi
+      if test x$capng_auto = xno -a x$CAPNG_LDADD = x ; then
+         AC_MSG_ERROR(libcap-ng library was not found)
       fi
       if test x$CAPNG_LDADD != x -a $capng_headers = no ; then
          AC_MSG_ERROR(libcap-ng libraries found but headers are missing)
