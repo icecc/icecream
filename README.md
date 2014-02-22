@@ -38,8 +38,6 @@ Table of Contents
     (firewalls)](#network-setup-for-Icecream-firewalls)
 -   [I use distcc, why should I
     change?](#i-use-distcc-why-should-I-change)
--   [I use teambuilder, why should I
-    change?](#i-use-teambuilder-why-should-I-change)
 -   [Icecream on gentoo](#icecream-on-gentoo)
 -   [Bug tracker](#bug-tracker)
 -   [Repository](#repository)
@@ -487,16 +485,6 @@ best choice:
     co-workers that do not like if you overload their workstations when
     they play doom (distcc doesn't have a scheduler)
 -   you like nice compile monitors :)
-
-I use teambuilder, why should I change?
------------------------------------------------------------------------------------------------------------------------------
-
-That part is easier: your evaluation license runs out soon. But even if
-that isn't true: The teambuilder documentation says that it doesn't
-require any system change whatsoever to setup. But this is only true in
-homogeneous networks. If you want to test out the latest gcc CVS you
-must either appear pretty convincing to your co-workers or you're on
-your own and can watch the teambuilder monitor playing for the others.
 
 Icecream on gentoo
 -------------------------------------------------------------------------------------
