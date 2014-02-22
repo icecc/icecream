@@ -234,22 +234,6 @@ dnl Checks for library functions
 AC_CHECK_FUNCS(memcmp memcpy memmove memset)
 dnl === END LZO
 
-AC_MSG_CHECKING([for GLIBC function backtrace])
-AC_TRY_LINK(dnl
-      [
-        #include <execinfo.h>
-      ],
-      [
-        void* trace[256];
-        backtrace(trace, 256);
-      ],
-      [
-        AC_DEFINE(HAVE_BACKTRACE, 1, [Define if execinfo.h exists and defines backtrace (GLIBC >= 2.1)])
-	AC_MSG_RESULT(yes)
-      ],
-      AC_MSG_RESULT(no)
-)
-
 # In DragonFlyBSD daemon needs to be linked against libkinfo.
 case $host_os in
   dragonfly*) LIB_KINFO="-lkinfo" ;;

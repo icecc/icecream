@@ -140,41 +140,4 @@ void flush_debug()
     }
 }
 
-#ifdef HAVE_BACKTRACE
-#include <execinfo.h>
-#endif
-
-string get_backtrace()
-{
-    string s;
-
-#ifdef HAVE_BACKTRACE
-    void *trace[256];
-    int n = backtrace(trace, 256);
-
-    if (!n) {
-        return s;
-    }
-
-    char **strings = backtrace_symbols(trace, n);
-
-    s = "[\n";
-
-    for (int i = 0; i < n; ++i) {
-        s += ": ";
-        s += strings[i];
-        s += "\n";
-    }
-
-    s += "]\n";
-
-    if (strings) {
-        free(strings);
-    }
-
-#endif
-
-    return s;
-}
-
 unsigned log_block::nesting;

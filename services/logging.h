@@ -104,8 +104,6 @@ static inline std::ostream &trace()
     return output_date(*logfile_trace);
 }
 
-std::string get_backtrace();
-
 static inline void log_errno(const char *prefix, int tmp_errno)
 {
     log_error() << prefix << " " << strerror(tmp_errno) << std::endl;
