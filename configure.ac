@@ -27,6 +27,7 @@ AC_PROG_CC
 AC_PROG_CXX
 if test "$GCC" = yes; then
     cast_align=-Wcast-align
+    wshadow=
     AC_MSG_CHECKING([if GCC is actually Clang])
     AC_TRY_COMPILE(
         [],
@@ -42,13 +43,17 @@ if test "$GCC" = yes; then
             # The code has numerous cast alignment warnings that only clang warns about,
             # and it probably(?) doesn't matter in practice.
             cast_align=
+            # Clang is not so overzealous like GCC and doesn't warn about cases which
+            # are very unlikely to be problems (e.g. function argument shadowing
+            # a function elsewhere), so it's not so annoying.
+            wshadow=-Wshadow
         ],
         [ AC_MSG_RESULT(no) ])
     CFLAGS="-g -W -Wall \
 -Wshadow -Wpointer-arith $cast_align -Wwrite-strings \
 -Waggregate-return -Wstrict-prototypes -Wmissing-prototypes \
 -Wnested-externs $CFLAGS"
-    CXXFLAGS=" -g -W -Wall -Wshadow -Wpointer-arith $cast_align -Wwrite-strings $CXXFLAGS"
+    CXXFLAGS=" -g -W -Wall -Wpointer-arith $cast_align $wshadow -Wwrite-strings $CXXFLAGS"
     AC_MSG_NOTICE([Adding gcc options: $CFLAGS])
 fi
 
