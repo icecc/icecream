@@ -459,7 +459,6 @@ struct Daemon {
 
     int max_scheduler_pong;
     int max_scheduler_ping;
-    string bench_source;
     unsigned int current_kids;
 
     Daemon() {
@@ -498,7 +497,6 @@ struct Daemon {
         daemon_port = 10245;
         max_scheduler_pong = MAX_SCHEDULER_PONG;
         max_scheduler_ping = MAX_SCHEDULER_PING;
-        bench_source = "";
         current_kids = 0;
     }
 
@@ -1519,8 +1517,6 @@ int Daemon::handle_cs_conf(ConfCSMsg *msg)
 {
     max_scheduler_pong = msg->max_scheduler_pong;
     max_scheduler_ping = msg->max_scheduler_ping;
-    bench_source = msg->bench_source;
-
     return 0;
 }
 

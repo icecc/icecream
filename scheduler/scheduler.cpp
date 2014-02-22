@@ -53,7 +53,6 @@
 #include "../services/logging.h"
 #include "../services/job.h"
 #include "config.h"
-#include "bench.h"
 
 #include "compileserver.h"
 #include "job.h"
@@ -972,7 +971,7 @@ static bool handle_login(CompileServer *cs, Msg *_m)
 
     /* Configure the daemon */
     if (IS_PROTOCOL_24(cs)) {
-        cs->send_msg(ConfCSMsg(icecream_bench_code));
+        cs->send_msg(ConfCSMsg());
     }
 
     return true;
@@ -1001,7 +1000,7 @@ static bool handle_relogin(MsgChannel *mc, Msg *_m)
 
     /* Configure the daemon */
     if (IS_PROTOCOL_24(cs)) {
-        cs->send_msg(ConfCSMsg(icecream_bench_code));
+        cs->send_msg(ConfCSMsg());
     }
 
     return false;

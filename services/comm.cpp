@@ -1831,6 +1831,7 @@ void ConfCSMsg::fill_from_channel(MsgChannel *c)
     Msg::fill_from_channel(c);
     *c >> max_scheduler_pong;
     *c >> max_scheduler_ping;
+    string bench_source; // unused, kept for backwards compatibility
     *c >> bench_source;
 }
 
@@ -1839,6 +1840,7 @@ void ConfCSMsg::send_to_channel(MsgChannel *c) const
     Msg::send_to_channel(c);
     *c << max_scheduler_pong;
     *c << max_scheduler_ping;
+    string bench_source;
     *c << bench_source;
 }
 

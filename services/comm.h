@@ -631,12 +631,6 @@ public:
 class ConfCSMsg : public Msg
 {
 public:
-    ConfCSMsg(const char *bench)
-        : Msg(M_CS_CONF)
-        , max_scheduler_pong(MAX_SCHEDULER_PONG)
-        , max_scheduler_ping(MAX_SCHEDULER_PING)
-        , bench_source(bench) {}
-
     ConfCSMsg()
         : Msg(M_CS_CONF)
         , max_scheduler_pong(MAX_SCHEDULER_PONG)
@@ -647,7 +641,6 @@ public:
 
     uint32_t max_scheduler_pong;
     uint32_t max_scheduler_ping;
-    std::string bench_source;
 };
 
 class StatsMsg : public Msg
