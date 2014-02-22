@@ -46,9 +46,6 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <vector>
-#ifdef HAVE_RSYNC
-#include <librsync.h>
-#endif
 
 #include <comm.h>
 #include "client.h"
@@ -258,18 +255,6 @@ static void write_server_cpp(int cpp_fd, MsgChannel *cserver)
     size_t uncompressed = 0;
     size_t compressed = 0;
 
-#ifdef HAVE_RSYNC
-    unsigned char buffer_sig_out[256];
-    rs_sig_begin(RS_DEFAULT_BLOCK_LEN, RS_DEFAULT_STRONG_LEN);
-    rs_buffers_t sig_buffer;
-
-    sig_buffer.next_in = (char*) buffer;
-    sig_buffer.avail_in = 0;
-
-    sig_buffer.next_out = (char*) buffer_sig_out;
-    sig_buffer.avail_out = sizeof(buffer_sig_out);
-#endif
-
     do {
         ssize_t bytes;
 
@@ -289,9 +274,6 @@ static void write_server_cpp(int cpp_fd, MsgChannel *cserver)
             break;
         } while (1);
 
-#ifdef HAVE_RSYNC
-        sig_buffer.avail_in += bytes;
-#endif
         offset += bytes;
 
         if (!bytes || offset == sizeof(buffer)) {
