@@ -526,7 +526,7 @@ static CompileServer *pick_server(Job *job)
     /* if the user wants to test/prefer one specific daemon, we look for that one first */
     if (!job->preferredHost().empty()) {
         for (list<CompileServer *>::iterator it = css.begin(); it != css.end(); ++it) {
-            if (((*it)->matches(job->preferredHost()) && (*it)->is_eligible(job)) {
+            if ((*it)->matches(job->preferredHost()) && (*it)->is_eligible(job)) {
                 return *it;
             }
         }
