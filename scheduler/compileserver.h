@@ -69,6 +69,8 @@ public:
     string nodeName() const;
     void setNodeName(const string &name);
 
+    bool matches(const string& nm) const;
+
     time_t busyInstalling() const;
     void setBusyInstalling(const time_t time);
 

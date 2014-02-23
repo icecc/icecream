@@ -526,7 +526,7 @@ static CompileServer *pick_server(Job *job)
     /* if the user wants to test/prefer one specific daemon, we look for that one first */
     if (!job->preferredHost().empty()) {
         for (list<CompileServer *>::iterator it = css.begin(); it != css.end(); ++it) {
-            if (((*it)->nodeName() == job->preferredHost()) && (*it)->is_eligible(job)) {
+            if (((*it)->matches(job->preferredHost()) && (*it)->is_eligible(job)) {
                 return *it;
             }
         }
@@ -938,7 +938,7 @@ static bool handle_login(CompileServer *cs, Msg *_m)
     cs->pick_new_id();
 
     for (list<string>::const_iterator it = block_css.begin(); it != block_css.end(); ++it)
-        if (cs->name == *it) {
+        if (cs->matches(*it)) {
             return false;
         }
 
@@ -1387,7 +1387,7 @@ static bool handle_line(CompileServer *cs, Msg *_m)
         } else {
             for (list<string>::const_iterator si = l.begin(); si != l.end(); ++si) {
                 for (list<CompileServer *>::iterator it = css.begin(); it != css.end(); ++it) {
-                    if ((*it)->nodeName() == *si || (*it)->name == *si) {
+                    if ((*it)->matches(*si)) {
                         if (cmd == "blockcs") {
                             block_css.push_back((*it)->name);
                         }
@@ -1396,6 +1396,20 @@ static bool handle_line(CompileServer *cs, Msg *_m)
                             handle_end(*it, 0);
                         }
 
+                        break;
+                    }
+                }
+            }
+        }
+    } else if (cmd == "unblockcs") {
+        if (l.empty()) {
+            if(!cs->send_msg (TextMsg (string ("401 Sure. But which host?"))))
+                return false;
+        } else {
+            for (list<string>::const_iterator si = l.begin(); si != l.end(); ++si) {
+                for (list<string>::iterator it = block_css.begin(); it != block_css.end(); ++it) {
+                    if (*si == *it) {
+                        block_css.erase(it);
                         break;
                     }
                 }
@@ -1411,7 +1425,7 @@ static bool handle_line(CompileServer *cs, Msg *_m)
                 list<string>::const_iterator si;
 
                 for (si = l.begin(); si != l.end(); ++si) {
-                    if ((*it)->nodeName() == *si || (*it)->name == *si) {
+                    if ((*it)->matches(*si)) {
                         break;
                     }
                 }
@@ -1439,7 +1453,7 @@ static bool handle_line(CompileServer *cs, Msg *_m)
         }
     } else if (cmd == "help") {
         if (!cs->send_msg(TextMsg(
-                             "listcs\nlistblocks\nlistjobs\nremovecs\nblockcs\ninternals\nhelp\nquit"))) {
+                             "listcs\nlistblocks\nlistjobs\nremovecs\nblockcs\nunblockcs\ninternals\nhelp\nquit"))) {
             return false;
         }
     } else {

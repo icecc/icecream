@@ -186,6 +186,11 @@ void CompileServer::setNodeName(const string &name)
     m_nodeName = name;
 }
 
+bool CompileServer::matches(const string& nm) const
+{
+    return m_nodeName == nm || name == nm;
+}
+
 time_t CompileServer::busyInstalling() const
 {
     return m_busyInstalling;
