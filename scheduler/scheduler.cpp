@@ -1386,16 +1386,13 @@ static bool handle_line(CompileServer *cs, Msg *_m)
             }
         } else {
             for (list<string>::const_iterator si = l.begin(); si != l.end(); ++si) {
+                if (cmd == "blockcs")
+                    block_css.push_back(*si);
                 for (list<CompileServer *>::iterator it = css.begin(); it != css.end(); ++it) {
                     if ((*it)->matches(*si)) {
-                        if (cmd == "blockcs") {
-                            block_css.push_back((*it)->name);
-                        }
-
                         if (cs->send_msg(TextMsg(string("removing host ") + *si))) {
                             handle_end(*it, 0);
                         }
-
                         break;
                     }
                 }
