@@ -64,7 +64,10 @@ static string concat_args(const list<string> &args)
 }
 #endif
 
-#define str_equal(a, b) (!strcmp((a), (b)))
+inline bool str_equal(const char* a, const char* b)
+{
+    return strcmp(a, b) == 0;
+}
 
 inline int str_startswith(const char *head, const char *worm)
 {
