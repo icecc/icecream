@@ -345,7 +345,7 @@ make_test()
     make -f Makefile.test OUTDIR="$testdir" clean -s
     PATH="$prefix"/lib/icecc/bin:$PATH ICECC_TEST_SOCKET="$testdir"/socket-localice ICECC_TEST_REMOTEBUILD=1 ICECC_DEBUG=debug ICECC_LOGFILE="$testdir"/icecc.log make -f Makefile.test OUTDIR="$testdir" -j10 -s 2>>"$testdir"/stderr.log
     if test $? -ne 0 -o ! -x "$testdir"/maketest; then
-        echo Make test $run_numberfailed.
+        echo Make test $run_number failed.
         stop_ice 0
         exit 2
     fi
