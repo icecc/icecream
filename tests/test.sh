@@ -39,7 +39,12 @@ fi
 # anything about this for real.
 export LC_ALL=C
 
-export CCACHE_DISABLE
+unset MAKEFLAGS
+
+GCC=/usr/bin/gcc
+GXX=/usr/bin/g++
+CLANG=/usr/bin/clang
+CLANGXX=/usr/bin/clang++
 
 mkdir -p "$testdir"
 
@@ -343,7 +348,7 @@ make_test()
     echo Running make test $run_number.
     reset_logs remote "make test $run_number"
     make -f Makefile.test OUTDIR="$testdir" clean -s
-    PATH="$prefix"/lib/icecc/bin:$PATH ICECC_TEST_SOCKET="$testdir"/socket-localice ICECC_TEST_REMOTEBUILD=1 ICECC_DEBUG=debug ICECC_LOGFILE="$testdir"/icecc.log make -f Makefile.test OUTDIR="$testdir" -j10 -s 2>>"$testdir"/stderr.log
+    PATH="$prefix"/lib/icecc/bin:/usr/local/bin:/usr/bin:/bin ICECC_TEST_SOCKET="$testdir"/socket-localice ICECC_TEST_REMOTEBUILD=1 ICECC_DEBUG=debug ICECC_LOGFILE="$testdir"/icecc.log make -f Makefile.test OUTDIR="$testdir" -j10 -s 2>>"$testdir"/stderr.log
     if test $? -ne 0 -o ! -x "$testdir"/maketest; then
         echo Make test $run_number failed.
         stop_ice 0
@@ -558,34 +563,34 @@ check_logs_for_generic_errors
 echo Starting icecream successful.
 echo
 
-run_ice "$testdir/plain.o" "remote" 0 g++ -Wall -Werror -c plain.cpp -o "$testdir/"plain.o
+run_ice "$testdir/plain.o" "remote" 0 $GXX -Wall -Werror -c plain.cpp -o "$testdir/"plain.o
 
 if test -z "$chroot_disabled"; then
     make_test 1
     make_test 2
 fi
 
-run_ice "$testdir/plain.o" "remote" 0 gcc -Wall -Werror -c plain.c -o "$testdir/"plain.o
-run_ice "$testdir/plain.o" "remote" 0 g++ -Wall -Werror -c plain.cpp -O2 -o "$testdir/"plain.o
-run_ice "$testdir/plain.ii" "local" 0 g++ -Wall -Werror -E plain.cpp -o "$testdir/"plain.ii
-run_ice "$testdir/includes.o" "remote" 0 g++ -Wall -Werror -c includes.cpp -o "$testdir"/includes.o
-run_ice "$testdir/plain.o" "local" 0 g++ -Wall -Werror -c plain.cpp -mtune=native -o "$testdir"/plain.o
-run_ice "$testdir/plain.o" "remote" 0 gcc -Wall -Werror -x c++ -c plain -o "$testdir"/plain.o
-run_ice "" "remote" 1 g++ -c nonexistent.cpp
-run_ice "" "remote" 1 g++ -c syntaxerror.cpp
+run_ice "$testdir/plain.o" "remote" 0 $GCC -Wall -Werror -c plain.c -o "$testdir/"plain.o
+run_ice "$testdir/plain.o" "remote" 0 $GXX -Wall -Werror -c plain.cpp -O2 -o "$testdir/"plain.o
+run_ice "$testdir/plain.ii" "local" 0 $GXX -Wall -Werror -E plain.cpp -o "$testdir/"plain.ii
+run_ice "$testdir/includes.o" "remote" 0 $GXX -Wall -Werror -c includes.cpp -o "$testdir"/includes.o
+run_ice "$testdir/plain.o" "local" 0 $GXX -Wall -Werror -c plain.cpp -mtune=native -o "$testdir"/plain.o
+run_ice "$testdir/plain.o" "remote" 0 $GCC -Wall -Werror -x c++ -c plain -o "$testdir"/plain.o
+run_ice "" "remote" 1 $GXX -c nonexistent.cpp
+run_ice "" "remote" 1 $GXX -c syntaxerror.cpp
 run_ice "" "local" 0 /bin/true
 
-run_ice "$testdir/messages.o" "remote" 0 g++ -Wall -c messages.cpp -o "$testdir"/messages.o
+run_ice "$testdir/messages.o" "remote" 0 $GXX -Wall -c messages.cpp -o "$testdir"/messages.o
 check_log_message stderr "warning: unused variable 'unused'"
 
 # gcc 4.8 and newer produce different debuginfo depending on whether the source file is
 # given on the command line or using stdin (which is how icecream does it), so do not compare output.
-run_ice "" "remote" 0 g++ -Wall -Werror -c plain.cpp -g -o "$testdir/"plain.o
+run_ice "" "remote" 0 $GXX -Wall -Werror -c plain.cpp -g -o "$testdir/"plain.o
 rm "$testdir"/plain.o
 
 icerun_test
 
-if test -n "`which clang++ 2>/dev/null`"; then
+if test -x $CLANGXX; then
     # There's probably not much point in repeating all tests with Clang, but at least
     # try it works (there's a different icecc-create-env run needed, and -frewrite-includes
     # usage needs checking).
@@ -595,15 +600,15 @@ if test -n "`which clang++ 2>/dev/null`"; then
     # since the -frewrite-includes transformation apparently makes the debugginfo
     # differ too (although the end results work just as well). So just do not compare.
     # It'd be still nice to check at least somehow that this really works though.
-    run_ice "" "remote" 0 clang++ -Wall -Werror -c plain.cpp -o "$testdir"/plain.o
+    run_ice "" "remote" 0 $CLANGXX -Wall -Werror -c plain.cpp -o "$testdir"/plain.o
     rm "$testdir"/plain.o
-    run_ice "" "remote" 0 clang++ -Wall -Werror -c includes.cpp -o "$testdir"/includes.o
+    run_ice "" "remote" 0 $CLANGXX -Wall -Werror -c includes.cpp -o "$testdir"/includes.o
     rm "$testdir"/includes.o
 
     # test -frewrite-includes usage
-    clang++ -E -Werror -frewrite-includes messages.cpp | head -1 | grep -q '^# 1 "messages.cpp"$' >/dev/null 2>/dev/null
+    $CLANGXX -E -Werror -frewrite-includes messages.cpp | head -1 | grep -q '^# 1 "messages.cpp"$' >/dev/null 2>/dev/null
     if test $? -eq 0; then
-        run_ice "" "remote" 0 clang++ -Wall -c messages.cpp -o "$testdir"/messages.o
+        run_ice "" "remote" 0 $CLANGXX -Wall -c messages.cpp -o "$testdir"/messages.o
         check_log_message stderr "warning: unused variable 'unused'"
         rm "$testdir"/messages.o
     else
