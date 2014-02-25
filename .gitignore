@@ -31,9 +31,9 @@ config.status
 daemon/iceccd
 libtool
 minilzo/libminilzo.la
+scheduler/icecc-scheduler
 services/icecc.pc
 services/libicecc.la
-services/icecc-scheduler
 suse/icecream.spec
 doc/*.1
 doc/*.7
