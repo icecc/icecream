@@ -19,16 +19,19 @@ Linux capability to the iceccd binary.
 An example of building Icecream and testing it:
 
   ./configure --prefix=$HOME/iceinstall
+  make test
+
+The 'make test' step roughly performs:
+
   make
   make install
-  sudo /sbin/setcap cap_sys_chroot+ep $HOME/iceinstall/sbin/iceccd
+  sudo /sbin/setcap cap_sys_chroot+ep ${prefix}/sbin/iceccd
   cd tests
-  ./test.sh $HOME/iceinstall $HOME/icetest
+  ./test.sh ${prefix} ${builddir}/tests/results
 
 This will build and install Icecream into $HOME/iceinstall prefix and all
-logs and temporary files will be in $HOME/icetest. It is also possible to use 'filecap'
-from cap-ng as 'filecap $HOME/iceinstall/sbin/iceccd sys_chroot' instead of 'setcap',
-but 'filecap' does not report failures (e.g. when forgetting to use sudo).
+logs and temporary files will be in ${builddir}/tests/results. It is also possible to use
+'filecap' from cap-ng instead of 'setcap', but 'filecap' does not report failures.
 
 Note that the limitations (real install needed in a helper location, chroot capability)
 mean that these tests are not suitable to be run as a part of building binary
