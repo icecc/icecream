@@ -276,6 +276,17 @@ else
     fi
 fi
 
+HAVE_CLANG_DEVEL_DEP=
+AC_CHECK_PROG(CLANG,clang,clang)
+AC_LANG_PUSH([C++])
+save_CPPFLAGS=$CPPFLAGS
+CPPFLAGS="$CPPFLAGS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -D__STDC_LIMIT_MACROS"
+AC_CHECK_HEADER(clang/AST/RecursiveASTVisitor.h,
+    [ HAVE_CLANG_DEVEL_DEP=clangplugin ] )
+CPPFLAGS="$save_CPPFLAGS"
+AC_LANG_POP([C++])
+AC_SUBST(HAVE_CLANG_DEVEL_DEP)
+
 AC_ARG_ENABLE(clang-wrappers,
     AS_HELP_STRING([--enable-clang-wrappers],
         [Use symlink wrappers for clang/clang++.]))

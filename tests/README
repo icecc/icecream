@@ -27,7 +27,7 @@ The 'make test' step roughly performs:
   make install
   sudo /sbin/setcap cap_sys_chroot+ep ${prefix}/sbin/iceccd
   cd tests
-  ./test.sh ${prefix} ${builddir}/tests/results
+  ./test.sh ${prefix} ${builddir}/tests/results --builddir=${builddir}/tests
 
 This will build and install Icecream into $HOME/iceinstall prefix and all
 logs and temporary files will be in ${builddir}/tests/results. It is also possible to use

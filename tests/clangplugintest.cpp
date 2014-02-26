@@ -1,0 +1,4 @@
+bool foo()
+    {
+    return false;
+    }

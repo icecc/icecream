@@ -5,10 +5,11 @@ testdir="$2"
 shift
 shift
 valgrind=
+builddir=
 
 usage()
 {
-    echo Usage: "$0 <install_prefix> <testdir> [--valgrind[=command]]"
+    echo Usage: "$0 <install_prefix> <builddir> [--builddir=dir] [--valgrind[=command]]"
     exit 2
 }
 
@@ -21,6 +22,9 @@ while test -n "$1"; do
         --valgrind=*)
             valgrind="`echo $1 | sed 's/^--valgrind=//'` --error-exitcode=10 --suppressions=valgrind_suppressions --log-file=$testdir/valgrind-%p.log --"
             rm -f "$testdir"/valgrind-*.log
+            ;;
+        --builddir=*)
+            builddir=`echo $1 | sed 's/^--builddir=//'`
             ;;
         *)
             usage
@@ -465,7 +469,6 @@ recursive_test()
     echo Running recursive check test.
     reset_logs local "recursive check"
 
-
     PATH="$prefix"/lib/icecc/bin:"$prefix"/lib/icecc/bin:/usr/local/bin:/usr/bin:/bin ICECC_TEST_SOCKET="$testdir"/socket-localice ICECC_TEST_REMOTEBUILD=1 ICECC_DEBUG=debug ICECC_LOGFILE="$testdir"/icecc.log "$prefix"/bin/icecc ./recursive_g++ -Wall -c plain.c -o plain.o 2>>"$testdir"/stderr.log
     if test $? -ne 111; then
         echo Recursive check test failed.
@@ -477,6 +480,36 @@ recursive_test()
     check_log_message icecc "icecream seems to have invoked itself recursively!"
     echo Recursive check test successful.
     echo
+}
+
+# Check that transfering Clang plugin(s) works. While at it, also test ICECC_EXTRAFILES.
+clangplugintest()
+{
+    echo Running Clang plugin test.
+    reset_logs remote "clang plugin"
+
+    # TODO This should be able to also handle the clangpluginextra.txt argument without the absolute path.
+    ICECC_TEST_SOCKET="$testdir"/socket-localice ICECC_TEST_REMOTEBUILD=1 ICECC_PREFERRED_HOST=remoteice1 ICECC_DEBUG=debug ICECC_LOGFILE="$testdir"/icecc.log ICECC_EXTRAFILES=clangpluginextra.txt $valgrind "$prefix"/bin/icecc \
+        $CLANGXX -Wall -c -Xclang -load -Xclang "$builddir"/clangplugin.so -Xclang -add-plugin -Xclang icecreamtest -Xclang -plugin-arg-icecreamtest -Xclang `realpath -s clangpluginextra.txt` clangplugintest.cpp -o "$testdir"/clangplugintest.o 2>>"$testdir"/stderr.log
+    if test $? -ne 0; then
+        echo Clang plugin test failed.
+        stop_ice 0
+        exit 2
+    fi
+    flush_logs
+    check_logs_for_generic_errors
+    check_log_message icecc "Have to use host 127.0.0.1:10246"
+    check_log_error icecc "Have to use host 127.0.0.1:10247"
+    check_log_error icecc "building myself, but telling localhost"
+    check_log_error icecc "<building_local>"
+    check_log_message_count stderr 1 "clangplugintest.cpp:3:5: warning: Icecream plugin found return false"
+    check_log_message_count stderr 1 "warning: Extra file check successful"
+    check_log_error stderr "Extra file open error"
+    check_log_error stderr "Incorrect number of arguments"
+    check_log_error stderr "File contents do not match"
+    echo Clang plugin test successful.
+    echo
+    rm "$testdir"/clangplugintest.o
 }
 
 reset_logs()
@@ -635,6 +668,12 @@ if test -x $CLANGXX; then
         rm "$testdir"/messages.o
     else
         skipped_tests="$skipped_tests clang_rewrite_includes"
+    fi
+
+    if test -n "$builddir" -a -f "$builddir"/clangplugin.so; then
+        clangplugintest
+    else
+        skipped_tests="$skipped_tests clangplugin"
     fi
 else
     skipped_tests="$skipped_tests clang"
