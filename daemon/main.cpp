@@ -1088,7 +1088,7 @@ bool Daemon::handle_get_native_env(Client *client, GetNativeEnvMsg *msg)
         struct stat st;
 
         if (stat(it->c_str(), &st) != 0) {
-            trace() << "Extra file " << *it << " for environment not found." << endl;
+            log_error() << "Extra file " << *it << " for environment not found." << endl;
             client->channel->send_msg(EndMsg());
             handle_end(client, 122);
             return false;

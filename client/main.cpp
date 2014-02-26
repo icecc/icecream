@@ -360,8 +360,9 @@ int main(int argc, char **argv)
                 file = string(extrafilesenv, colon - extrafilesenv);
             }
 
-            struct stat st;
+            file = get_absfilename(file);
 
+            struct stat st;
             if (stat(file.c_str(), &st) == 0) {
                 extrafiles.push_back(file);
             } else {
