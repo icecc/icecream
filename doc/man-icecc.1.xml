@@ -37,12 +37,6 @@
 <arg choice="plain">-o <replaceable>OBJECT</replaceable></arg>
 <arg choice="plain">-c <replaceable>SOURCE</replaceable></arg>
 </cmdsynopsis>
-<cmdsynopsis>
-<command>icecc</command>
-<arg choice="plain">--build-type</arg>
-<arg><replaceable>compiler type</replaceable></arg>
-<arg choice="plain" rep="repeat"><replaceable>file</replaceable></arg>
-</cmdsynopsis>
 </refsynopsisdiv>
 
 <refsect1>
