@@ -46,8 +46,7 @@
 
 <refsect1>
 <title>Description</title>
-<para>&icecc-create-env; (<filename>/usr/lib/icecc/icecc-create-env</filename>)
-is an Icecream helper that creates a new <literal role="extension">.tar.gz</literal>
+<para>&icecc-create-env; is an Icecream helper that creates a new <literal role="extension">.tar.gz</literal>
 archive with all the files (compiler, tools and libraries) needed to setup a
 build environment.</para>
 <para>Specifying <option>--gcc</option> or <option>--clang</option> as first

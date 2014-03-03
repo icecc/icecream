@@ -1,5 +1,6 @@
 bin_PROGRAMS = icecc
-pkglibexec_SCRIPTS = icecc-create-env
+bin_SCRIPTS = icecc-create-env
+
 icecc_SOURCES = \
 	main.cpp \
 	arg.cpp \
@@ -27,6 +28,9 @@ install-exec-local:
 	$(mkinstalldirs) $(DESTDIR)$(bindir)
 	rm -f $(DESTDIR)$(bindir)/icerun
 	$(LN_S) $(bindir)/icecc $(DESTDIR)$(bindir)/icerun
+	$(mkinstalldirs) $(DESTDIR)$(pkglibexecdir)
+	rm -f $(DESTDIR)$(pkglibexecdir)/icecc-create-env
+	$(LN_S) $(bindir)/icecc-create-env $(DESTDIR)$(pkglibexecdir)/icecc-create-env
 
 	$(mkinstalldirs) $(DESTDIR)$(pkglibexecdir)/bin
 	for link in g++ gcc c++ cc $(CLANG_SYMLINK_WRAPPERS); do \
@@ -36,6 +40,7 @@ install-exec-local:
 
 uninstall-local:
 	rm $(DESTDIR)$(bindir)/icerun
+	rm $(DESTDIR)$(pkglibexecdir)/icecc-create-env
 
 	for link in g++ gcc c++ cc $(CLANG_SYMLINK_WRAPPERS); do \
 		rm $(DESTDIR)$(pkglibexecdir)/bin/$$link ;\
