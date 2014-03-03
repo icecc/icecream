@@ -55,6 +55,8 @@ argument decides which compiler (&gcc; or &clang;) is copied in the archive.</pa
 <filename>ddaea39ca1a7c88522b185eca04da2d8.tar.gz</filename>, which can
 then be renamed. See icecream(7) for more information on using the environment
 tarballs.</para>
+<para>Note that in the usual case it is not necessary to invoke icecc-create-env manually, as it will be
+called automatically for the native compiler used whenever necessary.</para>
 </refsect1>
 
 <refsect1>
