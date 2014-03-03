@@ -347,6 +347,7 @@ AC_CONFIG_FILES([ suse/Makefile ])
 AC_CONFIG_FILES([ compilerwrapper/Makefile ])
 AC_CONFIG_FILES([ scheduler/Makefile ])
 AC_CONFIG_FILES([ tests/Makefile ])
+AC_CONFIG_FILES([ client/icecc-create-env ])
 AC_OUTPUT([ suse/icecream.spec ])
 if test "$prefix" = NONE; then
   prefix=$ac_default_prefix
@@ -366,6 +367,10 @@ AC_DEFINE_UNQUOTED(BINDIR, "$mybindir", [Where to look for icecc])
 myorundir='${localstatedir}/run'
 KDE_EXPAND_MAKEVAR(myrundir, myorundir)
 AC_DEFINE_UNQUOTED(RUNDIR, "$myrundir", [Where to place pid files])
+
+KDE_EXPAND_MAKEVAR(mylibexecdir, libexecdir)
+PKGLIBEXECDIR="$mylibexecdir/$PACKAGE"
+AC_SUBST(PKGLIBEXECDIR)
 
 AC_OUTPUT
 

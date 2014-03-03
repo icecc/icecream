@@ -14,7 +14,7 @@ fi
 usage ()
 {
     echo "usage: $0 --gcc <gcc_path> <g++_path>"
-    echo "usage: $0 --clang <clang_path> <compiler_wrapper>"
+    echo "usage: $0 --clang <clang_path>"
     echo "usage: Use --addfile <file> to add extra files."
 }
 
@@ -36,7 +36,7 @@ add_file ()
   fi
   test -z "$name" && return
   # ls -H isn't really the same as readlink, but
-  # readlink is not portable enough. 
+  # readlink is not portable enough.
   path=`ls -H $path`
   toadd="$name=$path"
   if test "$name" = "$path"; then
@@ -179,7 +179,12 @@ else
         added_clang=$1
         shift
         added_compilerwrapper=$1
-        shift
+        if test -n "$added_compilerwrapper"; then
+            # accept 2nd argument being the compilerwrapper binary, for backwards compatibility
+            shift
+        else
+            added_compilerwrapper=@PKGLIBEXECDIR@/compilerwrapper
+        fi
         clang=1
     else
         usage
@@ -284,7 +289,7 @@ if test -n "$clang"; then
     clangprefix=$(dirname $(dirname $added_clang))
     for file in $(find $clangincludes -type f); do
       # get path without ..
-      # readlink is not portable enough. 
+      # readlink is not portable enough.
       destfile=$(abs_path $file)
       # and convert from <prefix> to /usr if needed
       destfile=$(echo $destfile | sed "s#$clangprefix#/usr#" )
@@ -326,7 +331,7 @@ for dir in /lib /lib64 /usr/lib /usr/lib64; do
 done
 
 new_target_files=
-for i in $target_files; do 
+for i in $target_files; do
  case $i in
    *=/*)
     target=`echo $i | cut -d= -f1`
