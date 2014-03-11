@@ -30,4 +30,4 @@ ${builddir}/clangplugin.so: clangplugin.cpp
 clean: clean-clangplugin
 
 clean-clangplugin:
-	rm ${builddir}/clangplugin.so
+	rm -f ${builddir}/clangplugin.so
