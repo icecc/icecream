@@ -157,7 +157,6 @@ bool analyse_argv(const char * const *argv, CompileJob &job, bool icerun, list<s
             } else if (!strcmp(a, "-MD") || !strcmp(a, "-MMD")) {
                 seen_md = true;
                 args.append(a, Arg_Local);
-                log_info() << "argument " << a << ", building locally" << endl;
                 /* These two generate dependencies as a side effect.  They
                  * should work with the way we call cpp. */
             } else if (!strcmp(a, "-MG") || !strcmp(a, "-MP")) {
