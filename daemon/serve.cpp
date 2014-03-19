@@ -205,6 +205,10 @@ int handle_connection(const string &basedir, CompileJob *job,
                 }
 
                 if (!bytes) {
+                    if( !client->send_msg(EndMsg())) {
+                        log_info() << "write of obj end failed " << endl;
+                        throw myexception(EXIT_DISTCC_FAILED);
+                    }
                     break;
                 }
 
@@ -220,10 +224,6 @@ int handle_connection(const string &basedir, CompileJob *job,
         throw myexception(rmsg.status);
 
     } catch (myexception e) {
-        if (client && e.exitcode() == 0) {
-            client->send_msg(EndMsg());
-        }
-
         delete client;
         client = 0;
 
