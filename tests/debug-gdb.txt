@@ -1,0 +1,4 @@
+start
+list main,main
+step
+print debugObject.debugMember

@@ -512,6 +512,74 @@ clangplugintest()
     rm "$testdir"/clangplugintest.o
 }
 
+# Both clang and gcc4.8+ produce different debuginfo depending on whether the source file is
+# given on the command line or using stdin (which is how icecream does it), so do not compare output.
+# But check the functionality is identical to local build.
+# 1st argument is compile command, without -o argument.
+# 2nd argument is first line of debug at which to start comparing.
+debug_test()
+{
+    cmd="$1"
+    debugstart="$2"
+    echo "Running debug test ($cmd)."
+    reset_logs remote "debug test ($cmd)"
+
+    ICECC_TEST_SOCKET="$testdir"/socket-localice ICECC_TEST_REMOTEBUILD=1 ICECC_PREFERRED_HOST=remoteice1 ICECC_DEBUG=debug ICECC_LOGFILE="$testdir"/icecc.log $valgrind "$prefix"/bin/icecc \
+        $cmd -o "$testdir"/debug-remote.o 2>>"$testdir"/stderr.log
+    if test $? -ne 0; then
+        echo Debug test compile failed.
+        stop_ice 0
+        exit 2
+    fi
+    flush_logs
+    check_logs_for_generic_errors
+    check_log_message icecc "Have to use host 127.0.0.1:10246"
+    check_log_error icecc "Have to use host 127.0.0.1:10247"
+    check_log_error icecc "building myself, but telling localhost"
+    check_log_error icecc "<building_local>"
+    $GXX -o "$testdir"/debug-remote "$testdir"/debug-remote.o
+    if test $? -ne 0; then
+        echo Linking in debug test failed.
+        stop_ice 0
+        exit 2
+    fi
+    gdb -nx -batch -x debug-gdb.txt "$testdir"/debug-remote >"$testdir"/debug-stdout-remote.txt 2>/dev/null
+    if ! grep -A 1000 "$debugstart" "$testdir"/debug-stdout-remote.txt >"$testdir"/debug-output-remote.txt ; then
+        echo "Debug check failed (remote)."
+        stop_ice 0
+        exit 2
+    fi
+
+    $cmd -o "$testdir"/debug-local.o 2>>"$testdir"/stderr.log
+    if test $? -ne 0; then
+        echo Debug test compile failed.
+        stop_ice 0
+        exit 2
+    fi
+    $GXX -o "$testdir"/debug-local "$testdir"/debug-local.o
+    if test $? -ne 0; then
+        echo Linking in debug test failed.
+        stop_ice 0
+        exit 2
+    fi
+    gdb -nx -batch -x debug-gdb.txt "$testdir"/debug-local >"$testdir"/debug-stdout-local.txt 2>/dev/null
+    if ! grep -A 1000 "$debugstart" "$testdir"/debug-stdout-local.txt >"$testdir"/debug-output-local.txt ; then
+        echo "Debug check failed (local)."
+        stop_ice 0
+        exit 2
+    fi
+
+    if ! diff -q "$testdir"/debug-output-local.txt "$testdir"/debug-output-remote.txt ; then
+        echo Gdb output different.
+        stop_ice 0
+        exit 2
+    fi
+    rm "$testdir"/debug-remote.o "$testdir"/debug-local.o "$testdir"/debug-remote "$testdir"/debug-local "$testdir"/debug-output-*.txt "$testdir"/debug-stdout-*.txt
+
+    echo Debug test successful.
+    echo
+}
+
 reset_logs()
 {
     type="$1"
@@ -636,10 +704,12 @@ run_ice "" "local" 0 /bin/true
 run_ice "$testdir/messages.o" "remote" 0 $GXX -Wall -c messages.cpp -o "$testdir"/messages.o
 check_log_message stderr "warning: unused variable 'unused'"
 
-# gcc 4.8 and newer produce different debuginfo depending on whether the source file is
-# given on the command line or using stdin (which is how icecream does it), so do not compare output.
-run_ice "" "remote" 0 $GXX -Wall -Werror -c plain.cpp -g -o "$testdir/"plain.o
-rm "$testdir"/plain.o
+if command -v gdb >/dev/null; then
+    debug_test "$GXX -c -g debug.cpp" "Temporary breakpoint 1, main () at debug.cpp:8"
+    debug_test "$GXX -c -g `pwd`/debug/debug2.cpp" "Temporary breakpoint 1, main () at `pwd`/debug/debug2.cpp:8"
+else
+    skipped_tests="$skipped_tests debug"
+fi
 
 icerun_test
 
@@ -668,6 +738,11 @@ if test -x $CLANGXX; then
         rm "$testdir"/messages.o
     else
         skipped_tests="$skipped_tests clang_rewrite_includes"
+    fi
+
+    if command -v gdb >/dev/null; then
+        debug_test "$CLANGXX -c -g debug.cpp" "Temporary breakpoint 1, main () at debug.cpp:8"
+        debug_test "$CLANGXX -c -g `pwd`/debug/debug2.cpp" "Temporary breakpoint 1, main () at `pwd`/debug/debug2.cpp:8"
     fi
 
     if test -n "$builddir" -a -f "$builddir"/clangplugin.so; then
