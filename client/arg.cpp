@@ -271,6 +271,10 @@ bool analyse_argv(const char * const *argv, CompileJob &job, bool icerun, list<s
                 log_info() << "compiler will emit profile info (argument " << a << "); building locally" << endl;
                 always_local = true;
                 args.append(a, Arg_Local);
+            } else if (!strcmp(a, "-gsplit-dwarf")) {
+                log_info() << "split dwarf debuginfo (argument " << a << "); building locally" << endl;
+                always_local = true;
+                args.append(a, Arg_Local);
             } else if (str_equal(a, "-x")) {
                 args.append(a, Arg_Rest);
                 bool unsupported = true;
