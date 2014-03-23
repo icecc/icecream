@@ -34,7 +34,7 @@ PreReq:         %insserv_prereq
 %endif
 PreReq:         /usr/sbin/useradd
 PreReq:         /usr/sbin/groupadd
-Requires:       gcc-c++
+Recommends:     gcc-c++
 Requires:       logrotate
 Version:        @VERSION@
 Release:        0
