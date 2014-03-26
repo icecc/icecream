@@ -9,7 +9,7 @@ on x machines, you have full control over them.
 Table of Contents
 
 -   [Installation](#installation)
--   [How to use icecream](#how_to_use_icecream)
+-   [How to use icecream](#how-to-use-icecream)
     -   [make it persistent](#make-it-persistent)
 
 -   [TroubleShooting](#troubleshooting)
@@ -35,9 +35,9 @@ Table of Contents
 -   [What is the best environment for
     icecream](#what-is-the-best-environment-for-icecream)
 -   [Network setup for Icecream
-    (firewalls)](#network-setup-for-Icecream-firewalls)
+    (firewalls)](#network-setup-for-icecream-firewalls)
 -   [I use distcc, why should I
-    change?](#i-use-distcc-why-should-I-change)
+    change?](#i-use-distcc-why-should-i-change)
 -   [Icecream on gentoo](#icecream-on-gentoo)
 -   [Bug tracker](#bug-tracker)
 -   [Repository](#repository)
