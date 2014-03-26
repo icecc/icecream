@@ -458,11 +458,9 @@ static int build_remote_int(CompileJob &job, UseCSMsg *usecs, MsgChannel *local_
             write_server_cpp(cpp_fd, cserver);
         }
 
-        {
-            if (!cserver->send_msg(EndMsg())) {
-                log_info() << "write of end failed" << endl;
-                throw(12);
-            }
+        if (!cserver->send_msg(EndMsg())) {
+            log_info() << "write of end failed" << endl;
+            throw(12);
         }
 
         Msg *msg;
