@@ -242,8 +242,8 @@ static UseCSMsg *get_server(MsgChannel *local_daemon)
 static void check_for_failure(Msg *msg, MsgChannel *cserver)
 {
     if (msg && msg->type == M_STATUS_TEXT) {
-        log_error() << static_cast<StatusTextMsg*>(msg)->text << " - compiled on "
-                    << cserver->name << endl;
+        log_error() << "Remote status (compiled on " << cserver->name << "): "
+                    << static_cast<StatusTextMsg*>(msg)->text << endl;
         throw(23);
     }
 }
@@ -579,6 +579,13 @@ static int build_remote_int(CompileJob &job, UseCSMsg *usecs, MsgChannel *local_
         }
 
     } catch (int x) {
+        // Handle pending status messages, if any.
+        while( Msg* msg = cserver->get_msg(0)) {
+            if(msg->type == M_STATUS_TEXT)
+                log_error() << "Remote status (compiled on " << cserver->name << "): "
+                            << static_cast<StatusTextMsg*>(msg)->text << endl;
+            delete msg;
+        }
         delete cserver;
         cserver = 0;
         throw(x);
