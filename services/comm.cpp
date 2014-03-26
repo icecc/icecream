@@ -332,6 +332,7 @@ bool MsgChannel::flush_writebuf(bool blocking)
                 /* Timeout or real error --> error.  */
             }
 
+            log_perror("flush_writebuf() failed");
             error = true;
             break;
         } else if (ret == 0) {
