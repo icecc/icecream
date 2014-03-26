@@ -761,9 +761,13 @@ MsgChannel::MsgChannel(int _fd, struct sockaddr *_a, socklen_t _l, bool text)
         addr = (struct sockaddr *)malloc(addr_len);
         memcpy(addr, _a, addr_len);
         char buf[16384] = "";
-        if(int error = getnameinfo(addr, addr_len, buf, sizeof(buf), NULL, 0, NI_NUMERICHOST))
-            log_error() << "getnameinfo(): " << error << endl;
-        name = buf;
+        if(addr->sa_family == AF_UNIX)
+            name = reinterpret_cast<sockaddr_un*>(addr)->sun_path;
+        else {
+            if(int error = getnameinfo(addr, addr_len, buf, sizeof(buf), NULL, 0, NI_NUMERICHOST))
+                log_error() << "getnameinfo(): " << error << endl;
+            name = buf;
+        }
     } else {
         addr = 0;
         name = "";
