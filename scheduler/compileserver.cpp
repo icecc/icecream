@@ -147,11 +147,11 @@ bool CompileServer::is_eligible(const Job *job)
 {
     bool jobs_okay = int(m_jobList.size()) < m_maxJobs;
     bool load_okay = m_load < 1000;
-    bool ignore = job->ignoreUnverified() && !IS_PROTOCOL_31(this);
+    bool version_okay = job->minimalHostVersion() <= protocol;
     return jobs_okay
            && (m_chrootPossible || job->submitter() == this)
            && load_okay
-           && !ignore
+           && version_okay
            && can_install(job).size()
            && this->check_remote(job);
 }

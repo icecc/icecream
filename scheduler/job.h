@@ -91,8 +91,8 @@ public:
     std::string preferredHost() const;
     void setPreferredHost(const std::string &host);
 
-    bool ignoreUnverified() const;
-    void setIgnoreUnverified(const bool value);
+    int minimalHostVersion() const;
+    void setMinimalHostVersion( int version );
 
 private:
     unsigned int m_id;
@@ -117,7 +117,7 @@ private:
     unsigned int m_argFlags;
     std::string m_language; // for debugging
     std::string m_preferredHost; // for debugging daemons
-    bool m_ignoreUnverified; // ignore CompileServers that don't know M_VERIFY_ENV
+    int m_minimalHostVersion; // minimal version required for the the remote server
 };
 
 #endif

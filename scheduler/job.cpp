@@ -40,7 +40,7 @@ Job::Job(const unsigned int _id, CompileServer *subm)
     , m_argFlags(0)
     , m_language()
     , m_preferredHost()
-    , m_ignoreUnverified()
+    , m_minimalHostVersion(0)
 {
     m_submitter->submittedJobsIncrement();
 }
@@ -213,12 +213,12 @@ void Job::setPreferredHost(const std::string &host)
     m_preferredHost = host;
 }
 
-bool Job::ignoreUnverified() const
+int Job::minimalHostVersion() const
 {
-    return m_ignoreUnverified;
+    return m_minimalHostVersion;
 }
 
-void Job::setIgnoreUnverified(const bool value)
+void Job::setMinimalHostVersion(int version)
 {
-    m_ignoreUnverified = value;
+    m_minimalHostVersion = version;
 }

@@ -1493,12 +1493,19 @@ void GetCSMsg::fill_from_channel(MsgChannel *c)
         *c >> preferred_host;
     }
 
+    minimal_host_version = 0;
     if (IS_PROTOCOL_31(c)) {
         uint32_t ign;
         *c >> ign;
-        ignore_unverified = (ign != 0);
-    } else {
-        ignore_unverified = false;
+        // Versions 31-33 had this as a separate field, now set a minimal
+        // remote version if needed.
+        if (ign != 0 && minimal_host_version < 31)
+            minimal_host_version = 31;
+    }
+    if (IS_PROTOCOL_34(c)) {
+        uint32_t version;
+        *c >> version;
+        minimal_host_version = max( minimal_host_version, int( version ));
     }
 }
 
@@ -1518,7 +1525,10 @@ void GetCSMsg::send_to_channel(MsgChannel *c) const
     }
 
     if (IS_PROTOCOL_31(c)) {
-        *c << uint32_t(ignore_unverified);
+        *c << uint32_t(minimal_host_version >= 31 ? 1 : 0);
+    }
+    if (IS_PROTOCOL_34(c)) {
+        *c << minimal_host_version;
     }
 }
 

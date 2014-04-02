@@ -36,7 +36,7 @@
 #include "job.h"
 
 // if you increase the PROTOCOL_VERSION, add a macro below and use that
-#define PROTOCOL_VERSION 33
+#define PROTOCOL_VERSION 34
 // if you increase the MIN_PROTOCOL_VERSION, comment out macros below and clean up the code
 #define MIN_PROTOCOL_VERSION 21
 
@@ -58,6 +58,7 @@
 #define IS_PROTOCOL_31(c) ((c)->protocol >= 31)
 #define IS_PROTOCOL_32(c) ((c)->protocol >= 32)
 #define IS_PROTOCOL_33(c) ((c)->protocol >= 33)
+#define IS_PROTOCOL_34(c) ((c)->protocol >= 34)
 
 enum MsgType {
     // so far unknown
@@ -351,7 +352,7 @@ public:
     GetCSMsg(const Environments &envs, const std::string &f,
              CompileJob::Language _lang, unsigned int _count,
              std::string _target, unsigned int _arg_flags,
-             const std::string &host, bool _ignore_unverified)
+             const std::string &host, int _minimal_host_version)
         : Msg(M_GET_CS)
         , versions(envs)
         , filename(f)
@@ -361,7 +362,7 @@ public:
         , arg_flags(_arg_flags)
         , client_id(0)
         , preferred_host(host)
-        , ignore_unverified(_ignore_unverified) {}
+        , minimal_host_version(_minimal_host_version) {}
 
     virtual void fill_from_channel(MsgChannel *c);
     virtual void send_to_channel(MsgChannel *c) const;
@@ -374,7 +375,7 @@ public:
     uint32_t arg_flags;
     uint32_t client_id;
     std::string preferred_host;
-    bool ignore_unverified;
+    int minimal_host_version;
 };
 
 class UseCSMsg : public Msg

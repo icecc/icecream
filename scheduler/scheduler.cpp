@@ -396,7 +396,7 @@ static bool handle_cs_request(MsgChannel *cs, Msg *_m)
         job->setFileName(m->filename);
         job->setLocalClientId(m->client_id);
         job->setPreferredHost(m->preferred_host);
-        job->setIgnoreUnverified(m->ignore_unverified);
+        job->setMinimalHostVersion(m->minimal_host_version);
         enqueue_job_request(job);
         std::ostream &dbg = log_info();
         dbg << "NEW " << job->id() << " client="

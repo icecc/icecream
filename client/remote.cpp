@@ -694,6 +694,15 @@ maybe_build_local(MsgChannel *local_daemon, UseCSMsg *usecs, CompileJob &job,
     return false;
 }
 
+// Minimal version of remote host that we want to use for the job.
+static int minimalRemoteVersion( const CompileJob& )
+{
+    int version = MIN_PROTOCOL_VERSION;
+    if( ignore_unverified())
+        version = max( version, 31 );
+    return version;
+}
+
 int build_remote(CompileJob &job, MsgChannel *local_daemon, const Environments &_envs, int permill)
 {
     srand(time(0) + getpid());
@@ -739,10 +748,11 @@ int build_remote(CompileJob &job, MsgChannel *local_daemon, const Environments &
         }
 
         fake_filename += get_absfilename(job.inputFile());
+
         GetCSMsg getcs(envs, fake_filename, job.language(), torepeat,
                        job.targetPlatform(), job.argumentFlags(),
                        preferred_host ? preferred_host : string(),
-                       ignore_unverified());
+                       minimalRemoteVersion(job));
 
         if (!local_daemon->send_msg(getcs)) {
             log_warning() << "asked for CS\n";
@@ -789,7 +799,7 @@ int build_remote(CompileJob &job, MsgChannel *local_daemon, const Environments &
         GetCSMsg getcs(envs, get_absfilename(job.inputFile()), job.language(), torepeat,
                        job.targetPlatform(), job.argumentFlags(),
                        preferred_host ? preferred_host : string(),
-                       ignore_unverified());
+                       minimalRemoteVersion(job));
 
 
         if (!local_daemon->send_msg(getcs)) {
