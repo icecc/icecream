@@ -571,10 +571,9 @@ static int build_remote_int(CompileJob &job, UseCSMsg *usecs, MsgChannel *local_
 
             delete msg;
 
-            if (close(obj_fd) == 0) {
-                rename(tmp_file.c_str(), job.outputFile().c_str());
-            } else {
+            if (close(obj_fd) != 0 || rename(tmp_file.c_str(), job.outputFile().c_str()) != 0) {
                 unlink(tmp_file.c_str());
+                throw(30);
             }
         }
 
