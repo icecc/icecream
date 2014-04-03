@@ -426,6 +426,7 @@ bool analyse_argv(const char * const *argv, CompileJob &job, bool icerun, list<s
                 explicit_color_diagnostics = false;
             } else if (str_equal("-fno-diagnostics-show-caret", a)) {
                 explicit_no_show_caret = true;
+                args.append(a, Arg_Rest);
             } else if (str_equal("-flto", a)) {
                 // pointless when preprocessing, and Clang would emit a warning
                 args.append(a, Arg_Remote);
