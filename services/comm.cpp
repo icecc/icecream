@@ -1599,6 +1599,14 @@ void CompileFileMsg::fill_from_channel(MsgChannel *c)
         *c >> compilerName;
         job->setCompilerName(compilerName);
     }
+    if( IS_PROTOCOL_34(c)) {
+        string inputFile;
+        string workingDirectory;
+        *c >> inputFile;
+        *c >> workingDirectory;
+        job->setInputFile(inputFile);
+        job->setWorkingDirectory(workingDirectory);
+    }
 }
 
 void CompileFileMsg::send_to_channel(MsgChannel *c) const
@@ -1626,6 +1634,10 @@ void CompileFileMsg::send_to_channel(MsgChannel *c) const
 
     if (IS_PROTOCOL_30(c)) {
         *c << remote_compiler_name();
+    }
+    if( IS_PROTOCOL_34(c)) {
+        *c << job->inputFile();
+        *c << job->workingDirectory();
     }
 }
 

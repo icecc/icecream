@@ -196,7 +196,7 @@ int work_it(CompileJob &j, unsigned int job_stat[], MsgChannel *client,
         argc += 6; // -x c - -o file.o -fpreprocessed
         argc += 4; // gpc parameters
         argc += 1; // -pipe
-        argc += 1; // -no-canonical-prefixes
+        argc += 9; // clang extra flags
         char **argv = new char*[argc + 1];
         int i = 0;
         bool clang = false;
@@ -217,6 +217,26 @@ int work_it(CompileJob &j, unsigned int job_stat[], MsgChannel *client,
 
         argv[i++] = strdup("-x");
         argv[i++] = strdup((j.language() == CompileJob::Lang_CXX) ? "c++" : "c");
+
+        if( clang ) {
+            // gcc seems to handle setting main file name and working directory fine
+            // (it gets it from the preprocessed info), but clang needs help
+            if( !j.inputFile().empty()) {
+                argv[i++] = strdup("-Xclang");
+                argv[i++] = strdup("-main-file-name");
+                argv[i++] = strdup("-Xclang");
+                argv[i++] = strdup(j.inputFile().c_str());
+            }
+            if( !j.workingDirectory().empty()) {
+                argv[i++] = strdup("-Xclang");
+                argv[i++] = strdup("-fdebug-compilation-dir");
+                argv[i++] = strdup("-Xclang");
+                argv[i++] = strdup(j.workingDirectory().c_str());
+            }
+        }
+
+        // HACK: If in / , Clang records DW_AT_name with / prepended .
+        chdir("/tmp/");
 
         bool hasPipe = false;
 

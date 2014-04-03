@@ -580,6 +580,9 @@ debug_test()
         stop_ice 0
         exit 2
     fi
+    # gcc-4.8+ has -grecord-gcc-switches, which makes the .o differ because of the extra flags the daemon adds,
+    # this changes DW_AT_producer and also offsets
+    readelf -wlLiaprmfFoRt "$testdir"/debug-remote.o | sed 's/offset: 0x[0-9a-fA-F]*//g' | sed 's/[ ]*-fpreprocessed.*$/\t/g' > "$testdir"/readelf-remote.txt
 
     $cmd -o "$testdir"/debug-local.o 2>>"$testdir"/stderr.log
     if test $? -ne 0; then
@@ -599,13 +602,19 @@ debug_test()
         stop_ice 0
         exit 2
     fi
+    readelf -wlLiaprmfFoRt "$testdir"/debug-local.o | sed 's/offset: 0x[0-9a-fA-F]*//g' > "$testdir"/readelf-local.txt
 
     if ! diff -q "$testdir"/debug-output-local.txt "$testdir"/debug-output-remote.txt ; then
         echo Gdb output different.
         stop_ice 0
         exit 2
     fi
-    rm "$testdir"/debug-remote.o "$testdir"/debug-local.o "$testdir"/debug-remote "$testdir"/debug-local "$testdir"/debug-output-*.txt "$testdir"/debug-stdout-*.txt
+    if ! diff -q "$testdir"/readelf-local.txt "$testdir"/readelf-remote.txt ; then
+        echo Readelf output different.
+        stop_ice 0
+        exit 2
+    fi
+    rm "$testdir"/debug-remote.o "$testdir"/debug-local.o "$testdir"/debug-remote "$testdir"/debug-local "$testdir"/debug-*-*.txt "$testdir"/readelf-*.txt
 
     echo Debug test successful.
     echo
@@ -759,8 +768,10 @@ else
 fi
 
 if command -v gdb >/dev/null; then
-    debug_test "$GXX -c -g debug.cpp" "Temporary breakpoint 1, main () at debug.cpp:8"
-    debug_test "$GXX -c -g `pwd`/debug/debug2.cpp" "Temporary breakpoint 1, main () at `pwd`/debug/debug2.cpp:8"
+    if command -v readelf >/dev/null; then
+        debug_test "$GXX -c -g debug.cpp" "Temporary breakpoint 1, main () at debug.cpp:8"
+        debug_test "$GXX -c -g `pwd`/debug/debug2.cpp" "Temporary breakpoint 1, main () at `pwd`/debug/debug2.cpp:8"
+    fi
 else
     skipped_tests="$skipped_tests debug"
 fi
@@ -795,8 +806,10 @@ if test -x $CLANGXX; then
     fi
 
     if command -v gdb >/dev/null; then
-        debug_test "$CLANGXX -c -g debug.cpp" "Temporary breakpoint 1, main () at debug.cpp:8"
-        debug_test "$CLANGXX -c -g `pwd`/debug/debug2.cpp" "Temporary breakpoint 1, main () at `pwd`/debug/debug2.cpp:8"
+        if command -v readelf >/dev/null; then
+            debug_test "$CLANGXX -c -g debug.cpp" "Temporary breakpoint 1, main () at debug.cpp:8"
+            debug_test "$CLANGXX -c -g `pwd`/debug/debug2.cpp" "Temporary breakpoint 1, main () at `pwd`/debug/debug2.cpp:8"
+        fi
     fi
 
     if test -n "$builddir" -a -f "$builddir"/clangplugin.so; then

@@ -137,6 +137,16 @@ public:
         return m_output_file;
     }
 
+    void setWorkingDirectory(const std::string& dir)
+    {
+        m_working_directory = dir;
+    }
+
+    std::string workingDirectory() const
+    {
+        return m_working_directory;
+    }
+
     void setJobID(unsigned int id)
     {
         m_id = id;
@@ -173,6 +183,7 @@ private:
     std::string m_environment_version;
     ArgumentsList m_flags;
     std::string m_input_file, m_output_file;
+    std::string m_working_directory;
     std::string m_target_platform;
 };
 

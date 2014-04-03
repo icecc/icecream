@@ -266,6 +266,10 @@ int main(int argc, char **argv)
     string compiler_name = argv[0];
     dcc_client_catch_signals();
 
+    char cwd[ PATH_MAX ];
+    if( getcwd( cwd, PATH_MAX ) != NULL )
+        job.setWorkingDirectory( cwd );
+
     if (find_basename(compiler_name) == rs_program_name) {
         if (argc > 1) {
             string arg = argv[1];
