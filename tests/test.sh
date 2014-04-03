@@ -235,6 +235,8 @@ stop_only_daemon()
 # First argument is the expected output file, if any (otherwise specify "").
 # Second argument is "remote" (should be compiled on a remote host) or "local" (cannot be compiled remotely).
 # Third argument is expected exit code.
+# Fourth argument is optional, "stderrfix" specifies that the command may result in local recompile because of the gcc
+# stderr workaround.
 # Rest is the command to pass to icecc.
 # Command will be run both locally and using icecc and results compared.
 run_ice()
@@ -245,6 +247,11 @@ run_ice()
     shift
     expected_exit=$1
     shift
+    stderrfix=
+    if test "$1" = "stderrfix"; then
+        stderrfix=1
+        shift
+    fi
 
     reset_logs local "$@"
     echo Running: "$@"
@@ -265,6 +272,9 @@ run_ice()
     fi
     check_log_error icecc "Have to use host 127.0.0.1:10246"
     check_log_error icecc "Have to use host 127.0.0.1:10247"
+    if test -z "$stderrfix"; then
+        check_log_error icecc "local build forced"
+    fi
 
     if test -z "$chroot_disabled"; then
         reset_logs remote "$@"
@@ -285,6 +295,9 @@ run_ice()
         fi
         check_log_error icecc "Have to use host 127.0.0.1:10247"
         check_log_error icecc "building myself, but telling localhost"
+        if test -z "$stderrfix"; then
+            check_log_error icecc "local build forced"
+        fi
     fi
 
     reset_logs noice "$@"
@@ -297,6 +310,7 @@ run_ice()
     check_log_error icecc "Have to use host 127.0.0.1:10247"
     check_log_error icecc "<building_local>"
     check_log_error icecc "building myself, but telling localhost"
+    check_log_error icecc "local build forced"
 
     if test $localice_exit -ne $expected_exit; then
         echo "Local run exit code mismatch ($localice_exit vs $expected_exit)"
@@ -468,6 +482,7 @@ icerun_test()
     check_log_error icecc "Have to use host 127.0.0.1:10246"
     check_log_error icecc "Have to use host 127.0.0.1:10247"
     check_log_error icecc "building myself, but telling localhost"
+    check_log_error icecc "local build forced"
     check_log_message_count icecc 11 "<building_local>"
     check_log_message_count icecc 1 "couldn't find any"
     check_log_message_count icecc 1 "could not find icerun-test.sh in PATH."
@@ -515,6 +530,7 @@ clangplugintest()
     check_log_message icecc "Have to use host 127.0.0.1:10246"
     check_log_error icecc "Have to use host 127.0.0.1:10247"
     check_log_error icecc "building myself, but telling localhost"
+    check_log_error icecc "local build forced"
     check_log_error icecc "<building_local>"
     check_log_message_count stderr 1 "clangplugintest.cpp:3:5: warning: Icecream plugin found return false"
     check_log_message_count stderr 1 "warning: Extra file check successful"
@@ -550,6 +566,7 @@ debug_test()
     check_log_message icecc "Have to use host 127.0.0.1:10246"
     check_log_error icecc "Have to use host 127.0.0.1:10247"
     check_log_error icecc "building myself, but telling localhost"
+    check_log_error icecc "local build forced"
     check_log_error icecc "<building_local>"
     $GXX -o "$testdir"/debug-remote "$testdir"/debug-remote.o
     if test $? -ne 0; then
@@ -642,13 +659,25 @@ check_logs_for_generic_errors()
     # consider all non-fatal errors such as running out of memory on the remote
     # still as problems, except for:
     # 102 - -fdiagnostics-show-caret forced local build (gcc-4.8+)
-    check_log_error icecc "local build forced by error [^1][^0][^2]"
+    check_log_error_except icecc "local build forced" "local build forced by error 102"
 }
 
 check_log_error()
 {
     log="$1"
     if grep -q "$2" "$testdir"/${log}.log; then
+        echo "Error, $log log contains error: $2"
+        stop_ice 0
+        exit 2
+    fi
+}
+
+# check the error message ($2) is not present in log ($1),
+# but the exception ($3) is allowed
+check_log_error_except()
+{
+    log="$1"
+    if cat "$testdir"/${log}.log | grep -v "$3" | grep -q "$2" ; then
         echo "Error, $log log contains error: $2"
         stop_ice 0
         exit 2
@@ -712,11 +741,22 @@ run_ice "$testdir/includes.o" "remote" 0 $GXX -Wall -Werror -c includes.cpp -o "
 run_ice "$testdir/plain.o" "local" 0 $GXX -Wall -Werror -c plain.cpp -mtune=native -o "$testdir"/plain.o
 run_ice "$testdir/plain.o" "remote" 0 $GCC -Wall -Werror -x c++ -c plain -o "$testdir"/plain.o
 run_ice "" "remote" 1 $GXX -c nonexistent.cpp
-run_ice "" "remote" 1 $GXX -c syntaxerror.cpp
 run_ice "" "local" 0 /bin/true
 
-run_ice "$testdir/messages.o" "remote" 0 $GXX -Wall -c messages.cpp -o "$testdir"/messages.o
-check_log_message stderr "warning: unused variable 'unused'"
+if $GXX -E -fdiagnostics-show-caret messages.cpp >/dev/null 2>/dev/null; then
+    # gcc stderr workaround, icecream will force a local recompile
+    run_ice "" "remote" 1 "stderrfix" $GXX -c syntaxerror.cpp
+    run_ice "$testdir/messages.o" "remote" 0 "stderrfix" $GXX -Wall -c messages.cpp -o "$testdir"/messages.o
+    check_log_message stderr "warning: unused variable 'unused'"
+    # try again without the local recompile
+    run_ice "" "remote" 1 $GXX -c -fno-diagnostics-show-caret syntaxerror.cpp
+    run_ice "$testdir/messages.o" "remote" 0 $GXX -Wall -c -fno-diagnostics-show-caret messages.cpp -o "$testdir"/messages.o
+    check_log_message stderr "warning: unused variable 'unused'"
+else
+    run_ice "" "remote" 1 $GXX -c syntaxerror.cpp
+    run_ice "$testdir/messages.o" "remote" 0 $GXX -Wall -c messages.cpp -o "$testdir"/messages.o
+    check_log_message stderr "warning: unused variable 'unused'"
+fi
 
 if command -v gdb >/dev/null; then
     debug_test "$GXX -c -g debug.cpp" "Temporary breakpoint 1, main () at debug.cpp:8"
