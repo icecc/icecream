@@ -166,16 +166,12 @@ int work_it(CompileJob &j, unsigned int job_stat[], MsgChannel *client,
     } else if (pid == 0) {
 
         setenv("PATH", "usr/bin", 1);
-#ifndef HAVE_LIBCAP_NG
 
         // Safety check
         if (getuid() == 0 || getgid() == 0) {
             error_client(client, "UID is 0 - aborting.");
             _exit(142);
         }
-
-#endif
-
 
 #ifdef RLIMIT_AS
         struct rlimit rlim;
