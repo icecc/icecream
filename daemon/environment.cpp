@@ -696,11 +696,8 @@ void chdir_to_environment(MsgChannel *client, const string &dirname, uid_t user_
             _exit(142);
         }
     } else {
-        if (chdir(dirname.c_str())) {
-            log_perror("chdir");
-        } else {
-            trace() << "chdir to " << dirname << endl;
-        }
+        error_client(client, "cannot chroot to environment");
+        _exit(146);
     }
 
 #endif

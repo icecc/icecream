@@ -165,7 +165,7 @@ int work_it(CompileJob &j, unsigned int job_stat[], MsgChannel *client,
         return EXIT_OUT_OF_MEMORY;
     } else if (pid == 0) {
 
-        setenv("PATH", "usr/bin", 1);
+        setenv("PATH", "/usr/bin", 1);
 
         // Safety check
         if (getuid() == 0 || getgid() == 0) {
@@ -204,12 +204,12 @@ int work_it(CompileJob &j, unsigned int job_stat[], MsgChannel *client,
         if (IS_PROTOCOL_30(client)) {
             assert(!j.compilerName().empty());
             clang = (j.compilerName().find("clang") != string::npos);
-            argv[i++] = strdup(("usr/bin/" + j.compilerName()).c_str());
+            argv[i++] = strdup(("/usr/bin/" + j.compilerName()).c_str());
         } else {
             if (j.language() == CompileJob::Lang_C) {
-                argv[i++] = strdup("usr/bin/gcc");
+                argv[i++] = strdup("/usr/bin/gcc");
             } else if (j.language() == CompileJob::Lang_CXX) {
-                argv[i++] = strdup("usr/bin/g++");
+                argv[i++] = strdup("/usr/bin/g++");
             } else {
                 assert(0);
             }

@@ -176,7 +176,9 @@ int handle_connection(const string &basedir, CompileJob *job,
 
             chdir_to_environment(client, dirname, user_uid, user_gid);
         } else {
-            chdir("/");
+            error_client(client, "empty environment");
+            log_error() << "Empty environment (" << job->targetPlatform() << ") " << job->jobID() << endl;
+            throw myexception(EXIT_DISTCC_FAILED);
         }
 
         if (::access(_PATH_TMP + 1, W_OK)) {
