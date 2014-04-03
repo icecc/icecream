@@ -79,6 +79,54 @@ error_client(MsgChannel *client, string error)
     }
 }
 
+static void write_output_file( const string& file, MsgChannel* client )
+{
+    int obj_fd = -1;
+    try {
+        obj_fd = open(file.c_str(), O_RDONLY | O_LARGEFILE);
+
+        if (obj_fd == -1) {
+            log_error() << "open failed\n";
+            error_client(client, "open of object file failed");
+            throw myexception(EXIT_DISTCC_FAILED);
+        }
+
+        unsigned char buffer[100000];
+
+        do {
+            ssize_t bytes = read(obj_fd, buffer, sizeof(buffer));
+
+            if (bytes < 0) {
+                if (errno == EINTR) {
+                    continue;
+                }
+
+                throw myexception(EXIT_DISTCC_FAILED);
+            }
+
+            if (!bytes) {
+                if( !client->send_msg(EndMsg())) {
+                    log_info() << "write of obj end failed " << endl;
+                    throw myexception(EXIT_DISTCC_FAILED);
+                }
+                break;
+            }
+
+            FileChunkMsg fcmsg(buffer, bytes);
+
+            if (!client->send_msg(fcmsg)) {
+                log_info() << "write of obj chunk failed " << bytes << endl;
+                throw myexception(EXIT_DISTCC_FAILED);
+            }
+        } while (1);
+
+    } catch(...) {
+        if( obj_fd != -1 )
+            close( obj_fd );
+        throw;
+    }
+}
+
 /**
  * Read a request, run the compiler, and send a response.
  **/
@@ -114,7 +162,6 @@ int handle_connection(const string &basedir, CompileJob *job,
 
     Msg *msg = 0; // The current read message
     unsigned int job_id = 0;
-    int obj_fd = -1; // the obj_fd
     string obj_file;
 
     try {
@@ -183,42 +230,7 @@ int handle_connection(const string &basedir, CompileJob *job,
         close(out_fd);
 
         if (rmsg.status == 0) {
-            obj_fd = open(obj_file.c_str(), O_RDONLY | O_LARGEFILE);
-
-            if (obj_fd == -1) {
-                log_error() << "open failed\n";
-                error_client(client, "open of object file failed");
-                throw myexception(EXIT_DISTCC_FAILED);
-            }
-
-            unsigned char buffer[100000];
-
-            do {
-                ssize_t bytes = read(obj_fd, buffer, sizeof(buffer));
-
-                if (bytes < 0) {
-                    if (errno == EINTR) {
-                        continue;
-                    }
-
-                    throw myexception(EXIT_DISTCC_FAILED);
-                }
-
-                if (!bytes) {
-                    if( !client->send_msg(EndMsg())) {
-                        log_info() << "write of obj end failed " << endl;
-                        throw myexception(EXIT_DISTCC_FAILED);
-                    }
-                    break;
-                }
-
-                FileChunkMsg fcmsg(buffer, bytes);
-
-                if (!client->send_msg(fcmsg)) {
-                    log_info() << "write of obj chunk failed " << bytes << endl;
-                    throw myexception(EXIT_DISTCC_FAILED);
-                }
-            } while (1);
+            write_output_file(obj_file, client);
         }
 
         throw myexception(rmsg.status);
@@ -229,10 +241,6 @@ int handle_connection(const string &basedir, CompileJob *job,
 
         delete msg;
         delete job;
-
-        if (obj_fd > -1) {
-            close(obj_fd);
-        }
 
         if (!obj_file.empty()) {
             unlink(obj_file.c_str());
