@@ -309,6 +309,66 @@ static void write_server_cpp(int cpp_fd, MsgChannel *cserver)
     close(cpp_fd);
 }
 
+static void receive_file(const string& output_file, MsgChannel* cserver)
+{
+    string tmp_file = output_file + "_icetmp";
+    int obj_fd = open(tmp_file.c_str(), O_CREAT | O_TRUNC | O_WRONLY | O_LARGEFILE, 0666);
+
+    if (obj_fd == -1) {
+        std::string errmsg("can't create ");
+        errmsg += tmp_file + ":";
+        log_perror(errmsg.c_str());
+        throw(31);
+    }
+
+    Msg* msg = 0;
+    size_t uncompressed = 0;
+    size_t compressed = 0;
+
+    while (1) {
+        delete msg;
+
+        msg = cserver->get_msg(40);
+
+        if (!msg) {   // the network went down?
+            unlink(tmp_file.c_str());
+            throw(19);
+        }
+
+        check_for_failure(msg, cserver);
+
+        if (msg->type == M_END) {
+            break;
+        }
+
+        if (msg->type != M_FILE_CHUNK) {
+            unlink(tmp_file.c_str());
+            delete msg;
+            throw(20);
+        }
+
+        FileChunkMsg *fcmsg = dynamic_cast<FileChunkMsg*>(msg);
+        compressed += fcmsg->compressed;
+        uncompressed += fcmsg->len;
+
+        if (write(obj_fd, fcmsg->buffer, fcmsg->len) != (ssize_t)fcmsg->len) {
+            unlink(tmp_file.c_str());
+            delete msg;
+            throw(21);
+        }
+    }
+
+    if (uncompressed)
+        trace() << "got " << compressed << " bytes ("
+                << (compressed * 100 / uncompressed) << "%)" << endl;
+
+    delete msg;
+
+    if (close(obj_fd) != 0 || rename(tmp_file.c_str(), output_file.c_str()) != 0) {
+        unlink(tmp_file.c_str());
+        throw(30);
+    }
+}
 
 static int build_remote_int(CompileJob &job, UseCSMsg *usecs, MsgChannel *local_daemon,
                             const string &environment, const string &version_file,
@@ -517,64 +577,7 @@ static int build_remote_int(CompileJob &job, UseCSMsg *usecs, MsgChannel *local_
         assert(!job.outputFile().empty());
 
         if (status == 0) {
-            string tmp_file = job.outputFile() + "_icetmp";
-            int obj_fd = open(tmp_file.c_str(), O_CREAT | O_TRUNC | O_WRONLY | O_LARGEFILE, 0666);
-
-            if (obj_fd == -1) {
-                std::string errmsg("can't create ");
-                errmsg += tmp_file + ":";
-                log_perror(errmsg.c_str());
-                return EXIT_DISTCC_FAILED;
-            }
-
-            msg = 0;
-            size_t uncompressed = 0;
-            size_t compressed = 0;
-
-            while (1) {
-                delete msg;
-
-                msg = cserver->get_msg(40);
-
-                if (!msg) {   // the network went down?
-                    unlink(tmp_file.c_str());
-                    throw(19);
-                }
-
-                check_for_failure(msg, cserver);
-
-                if (msg->type == M_END) {
-                    break;
-                }
-
-                if (msg->type != M_FILE_CHUNK) {
-                    unlink(tmp_file.c_str());
-                    delete msg;
-                    throw(20);
-                }
-
-                FileChunkMsg *fcmsg = dynamic_cast<FileChunkMsg*>(msg);
-                compressed += fcmsg->compressed;
-                uncompressed += fcmsg->len;
-
-                if (write(obj_fd, fcmsg->buffer, fcmsg->len) != (ssize_t)fcmsg->len) {
-                    unlink(tmp_file.c_str());
-                    delete msg;
-                    throw(21);
-                }
-            }
-
-            if (uncompressed)
-                trace() << "got " << compressed << " bytes ("
-                        << (compressed * 100 / uncompressed) << "%)" << endl;
-
-
-            delete msg;
-
-            if (close(obj_fd) != 0 || rename(tmp_file.c_str(), job.outputFile().c_str()) != 0) {
-                unlink(tmp_file.c_str());
-                throw(30);
-            }
+            receive_file(job.outputFile(), cserver);
         }
 
     } catch (int x) {
