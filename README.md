@@ -522,4 +522,6 @@ The git repository lives at https://github.com/icecc/icecream
 Mailing list
 -----------------------------------------------------------------------
 
-icecream-users@googlegroups.com  (icecream-users+subscribe@googlegroups.com)
+icecream-users@googlegroups.com
+-   Subscribe: icecream-users+subscribe@googlegroups.com
+-   Archive: https://groups.google.com/forum/#!forum/icecream-users
