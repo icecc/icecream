@@ -982,8 +982,8 @@ Msg *MsgChannel::get_msg(int timeout)
     /* If we've seen the EOF, and we don't have a complete message,
        then we won't see it anymore.  Return that to the caller.
        Don't use has_msg() here, as it returns true for eof.  */
-    if (eof && instate != HAS_MSG) {
-        trace() << "eof && !HAS_MSG\n";
+    if (at_eof()) {
+        trace() << "saw eof without complete msg! " << instate << endl;
         return 0;
     }
 
