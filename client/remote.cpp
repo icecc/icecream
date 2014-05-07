@@ -582,14 +582,17 @@ static int build_remote_int(CompileJob &job, UseCSMsg *usecs, MsgChannel *local_
 
     } catch (int x) {
         // Handle pending status messages, if any.
-        while( Msg* msg = cserver->get_msg(0)) {
-            if(msg->type == M_STATUS_TEXT)
-                log_error() << "Remote status (compiled on " << cserver->name << "): "
-                            << static_cast<StatusTextMsg*>(msg)->text << endl;
-            delete msg;
+        if(cserver) {
+            while(Msg* msg = cserver->get_msg(0)) {
+                if(msg->type == M_STATUS_TEXT)
+                    log_error() << "Remote status (compiled on " << cserver->name << "): "
+                                << static_cast<StatusTextMsg*>(msg)->text << endl;
+                delete msg;
+            }
+            delete cserver;
+            cserver = 0;
         }
-        delete cserver;
-        cserver = 0;
+
         throw(x);
     }
 
