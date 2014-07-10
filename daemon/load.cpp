@@ -129,6 +129,7 @@ static void updateCPULoad(CPULoadInfo *load)
     currNiceTicks = ticks[CP_NICE];
     currSysTicks = ticks[CP_SYS];
     currIdleTicks = ticks[CP_IDLE];
+    currWaitTicks = 0;
 
 #elif defined( USE_MACH )
     host_cpu_load_info r_load;
