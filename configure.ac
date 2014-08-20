@@ -221,23 +221,9 @@ AC_CHECK_FUNCS([getloadavg])
 
 AC_CHECK_DECLS([snprintf, vsnprintf, vasprintf, asprintf, strndup])
 
-dnl === LZO
-dnl Checks for typedefs and structures
-AC_CHECK_TYPE(ptrdiff_t,long)
-AC_TYPE_SIZE_T
-AC_CHECK_SIZEOF(unsigned short)
-AC_CHECK_SIZEOF(unsigned)
-AC_CHECK_SIZEOF(unsigned long)
-AC_CHECK_SIZEOF(char *)
-AC_CHECK_SIZEOF(ptrdiff_t)
-AC_CHECK_SIZEOF(size_t)
-
-dnl Checks for compiler characteristics
-dnl AC_C_CONST
-
-dnl Checks for library functions
-AC_CHECK_FUNCS(memcmp memcpy memmove memset)
-dnl === END LZO
+AC_CHECK_LIB(lzo2, lzo1x_1_compress, LZO_LDADD=-llzo2,
+	AC_MSG_ERROR([Could not find lzo2 library - please install lzo-devel]))
+AC_SUBST(LZO_LDADD)
 
 # In DragonFlyBSD daemon needs to be linked against libkinfo.
 case $host_os in
@@ -340,7 +326,6 @@ AC_CONFIG_FILES([ Makefile ])
 AC_CONFIG_FILES([ client/Makefile ])
 AC_CONFIG_FILES([ daemon/Makefile ])
 AC_CONFIG_FILES([ doc/Makefile ])
-AC_CONFIG_FILES([ minilzo/Makefile ])
 AC_CONFIG_FILES([ services/Makefile ])
 AC_CONFIG_FILES([ services/icecc.pc ])
 AC_CONFIG_FILES([ suse/Makefile ])
