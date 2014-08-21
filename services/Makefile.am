@@ -1,10 +1,7 @@
-AM_CPPFLAGS = \
-	-I$(top_srcdir)/minilzo
-
 lib_LTLIBRARIES = libicecc.la
 libicecc_la_SOURCES = job.cpp comm.cpp exitcode.cpp getifaddrs.cpp logging.cpp tempfile.c platform.cpp gcc.cpp
 libicecc_la_LIBADD = \
-	../minilzo/libminilzo.la \
+	$(LZO_LDADD) \
 	$(CAPNG_LDADD) \
 	-ldl
 

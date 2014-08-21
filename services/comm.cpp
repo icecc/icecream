@@ -44,7 +44,7 @@
 #include <string>
 #include <iostream>
 #include <assert.h>
-#include <minilzo.h>
+#include <lzo/lzo1x.h>
 #include <stdio.h>
 #ifdef HAVE_LIBCAP_NG
 #include <cap-ng.h>
