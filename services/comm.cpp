@@ -1336,7 +1336,7 @@ void DiscoverSched::attempt_scheduler_connect()
 {
 
     time0 = time(0) + MAX_SCHEDULER_PONG;
-    log_info() << "scheduler is on " << schedname << ":" << sport << " (net " << netname << ")\n";
+    log_info() << "scheduler is on " << schedname << ":" << sport << " (net " << netname << ")" << endl;
 
     if ((ask_fd = prepare_connect(schedname, sport, remote_addr)) >= 0) {
         fcntl(ask_fd, F_SETFL, O_NONBLOCK);

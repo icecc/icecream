@@ -399,7 +399,7 @@ int start_create_env(const string &basedir, uid_t user_uid, gid_t user_gid,
     argv[pos++] = NULL;
 
     if (!exec_and_wait(argv)) {
-        log_error() << BINDIR "/icecc --build-native failed\n";
+        log_error() << BINDIR "/icecc --build-native failed" << endl;
         _exit(1);
     }
 
