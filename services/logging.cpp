@@ -63,7 +63,7 @@ void setup_debug(int level, const string &filename, const string &prefix)
 #ifdef __linux__
 
         if (fname[0] != '/') {
-            char buf[256];
+            char buf[FILENAME_MAX];
 
             if (getcwd(buf, sizeof(buf))) {
                 fname.insert(0, "/");
