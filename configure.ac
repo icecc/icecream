@@ -76,20 +76,11 @@ AC_ARG_WITH(man,
 )
 AS_IF([test "x$with_man" != "xno"], [
     build_man=yes
-    AC_PATH_PROG(DOCBOOK2X,[docbook2x-man])
+    AC_PATH_PROGS(DOCBOOK2X,
+        [docbook2x-man db2x_docbook2man docbook-to-man docbook2man.pl docbook2man])
     AS_IF([test -z "$DOCBOOK2X"], [
-        AC_PATH_PROG(DOCBOOK2X,[docbook-to-man])
-        AS_IF([test -z "$DOCBOOK2X"], [
-            AC_PATH_PROG(DOCBOOK2X,[docbook2man.pl])
-            AS_IF([test -z "$DOCBOOK2X"], [
-                AC_PATH_PROG(DOCBOOK2X,[docbook2man])
-                AS_IF([test -z "$DOCBOOK2X"], [
-                    AC_MSG_WARN([docbook2x is missing. Install docbook2x package.])
-                    DOCBOOK2X='echo docbook2x is missing. Install docbook2x package.'
-                ])
-            ])
-        ])
-    ])
+        AC_MSG_WARN([docbook2x is missing. Install docbook2x package.])
+        DOCBOOK2X='echo docbook2x is missing. Install docbook2x package.'])
 ], [build_man=no])
 AC_SUBST(DOCBOOK2X)
 AM_CONDITIONAL([WITH_ICECREAM_MAN], [test "x$build_man" != "xno"])
