@@ -559,7 +559,8 @@ int work_it(CompileJob &j, unsigned int job_stat[], MsgChannel *client,
                             || (rmsg.err.find("memory exhausted") != string::npos)
                             || (rmsg.err.find("out of memory allocating") != string::npos)
                             || (rmsg.err.find("annot allocate memory") != string::npos)
-                            || (rmsg.err.find("terminate called after throwing an instance of 'std::bad_alloc'") != string::npos)) {
+                            || (rmsg.err.find("terminate called after throwing an instance of 'std::bad_alloc'") != string::npos)
+                            || (rmsg.err.find("llvm::MallocSlabAllocator::Allocate") != string::npos)) {
                         // the relation between ulimit and memory used is pretty thin ;(
                         return EXIT_OUT_OF_MEMORY;
                     }
