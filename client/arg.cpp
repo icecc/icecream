@@ -298,6 +298,13 @@ bool analyse_argv(const char * const *argv, CompileJob &job, bool icerun, list<s
                            << endl;
                 always_local = true;
                 args.append(a, Arg_Local);
+
+            } else if (!strcmp(a, "-fexec-charset") || !strcmp(a, "-fwide-exec-charset") || !strcmp(a, "-finput-charset") ) {
+#if CLIENT_DEBUG
+                log_info() << "-f*-charset assumes charset conversion in the build environment; must be local" << endl;
+#endif
+                always_local = true;
+                args.append(a, Arg_Local);
             } else if (!strcmp(a, "-c")) {
                 seen_c = true;
             } else if (str_startswith("-o", a)) {
