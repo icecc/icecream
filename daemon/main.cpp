@@ -929,10 +929,10 @@ bool Daemon::handle_transfer_env(Client *client, Msg *_msg)
 
     client->status = Client::TOINSTALL;
     client->outfile = emsg->target + "/" + emsg->name;
+    current_kids++;
 
     if (pid > 0) {
         log_error() << "got pid " << pid << endl;
-        current_kids++;
         client->pipe_to_child = sock_to_stdin;
         client->child_pid = pid;
 
