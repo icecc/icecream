@@ -181,7 +181,7 @@ static int create_native(char **args)
     struct stat st;
 
     if (lstat(PLIBDIR "/icecc-create-env", &st)) {
-        log_error() << PLIBDIR "/icecc-create-env does not exist\n";
+        log_error() << PLIBDIR "/icecc-create-env does not exist" << endl;
         return 1;
     }
 
@@ -191,12 +191,12 @@ static int create_native(char **args)
         string clang = compiler_path_lookup("clang");
 
         if (clang.empty()) {
-            log_error() << "clang compiler not found\n";
+            log_error() << "clang compiler not found" << endl;
             return 1;
         }
 
         if (lstat(PLIBDIR "/compilerwrapper", &st)) {
-            log_error() << PLIBDIR "/compilerwrapper does not exist\n";
+            log_error() << PLIBDIR "/compilerwrapper does not exist" << endl;
             return 1;
         }
 
@@ -218,7 +218,7 @@ static int create_native(char **args)
 
         // both C and C++ compiler are required
         if (gcc.empty() || gpp.empty()) {
-            log_error() << "gcc compiler not found\n";
+            log_error() << "gcc compiler not found" << endl;
             return 1;
         }
 
@@ -403,13 +403,13 @@ int main(int argc, char **argv)
     } else {
         local_daemon = Service::createChannel(getenv("ICECC_TEST_SOCKET"));
         if (!local_daemon) {
-            log_error() << "test socket error\n";
+            log_error() << "test socket error" << endl;
             return EXIT_TEST_SOCKET_ERROR;
         }
     }
 
     if (!local_daemon) {
-        log_warning() << "no local daemon found\n";
+        log_warning() << "no local daemon found" << endl;
         return build_local(job, 0);
     }
 
@@ -423,12 +423,12 @@ int main(int argc, char **argv)
                 // we just build locally
             }
         } else if (!extrafiles.empty() && !IS_PROTOCOL_32(local_daemon)) {
-            log_warning() << "Local daemon is too old to handle compiler plugins.\n";
+            log_warning() << "Local daemon is too old to handle compiler plugins." << endl;
             local = true;
         } else {
             if (!local_daemon->send_msg(GetNativeEnvMsg(compiler_is_clang(job)
                                         ? "clang" : "gcc", extrafiles))) {
-                log_warning() << "failed to write get native environment\n";
+                log_warning() << "failed to write get native environment" << endl;
                 goto do_local_error;
             }
 

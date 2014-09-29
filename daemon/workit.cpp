@@ -383,7 +383,7 @@ int work_it(CompileJob &j, unsigned int job_stat[], MsgChannel *client,
                         job_stat[JobStatistics::in_uncompressed] += fcmsg->len;
                         job_stat[JobStatistics::in_compressed] += fcmsg->compressed;
                     } else {
-                        log_error() << "protocol error while reading preprocessed file\n";
+                        log_error() << "protocol error while reading preprocessed file" << endl;
                         return_value = EXIT_IO_ERROR;
                         client_fd = -1;
                         kill(pid, SIGTERM);
@@ -393,7 +393,7 @@ int work_it(CompileJob &j, unsigned int job_stat[], MsgChannel *client,
                     }
                 }
             } else if (client->at_eof()) {
-                log_error() << "unexpected EOF while reading preprocessed file\n";
+                log_error() << "unexpected EOF while reading preprocessed file" << endl;
                 return_value = EXIT_IO_ERROR;
                 client_fd = -1;
                 kill(pid, SIGTERM);
@@ -456,7 +456,7 @@ int work_it(CompileJob &j, unsigned int job_stat[], MsgChannel *client,
         case 0:
 
             if (!input_complete) {
-                log_error() << "timeout while reading preprocessed file\n";
+                log_error() << "timeout while reading preprocessed file" << endl;
                 kill(pid, SIGTERM); // Won't need it any more ...
                 return_value = EXIT_IO_ERROR;
                 client_fd = -1;

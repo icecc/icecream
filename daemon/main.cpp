@@ -1758,7 +1758,7 @@ int Daemon::answer_client_requests()
                 Msg *msg = scheduler->get_msg();
 
                 if (!msg) {
-                    log_error() << "scheduler closed connection\n";
+                    log_error() << "scheduler closed connection" << endl;
                     close_scheduler();
                     clear_children();
                     return 1;
@@ -1924,7 +1924,7 @@ bool Daemon::reconnect()
     scheduler = discover->try_get_scheduler();
 
     if (!scheduler) {
-        log_warning() << "scheduler not yet found.\n";
+        log_warning() << "scheduler not yet found." << endl;
         return false;
     }
 
@@ -1940,7 +1940,7 @@ bool Daemon::reconnect()
         remote_name = string();
     }
 
-    log_info() << "Connected to scheduler (I am known as " << remote_name << ")\n";
+    log_info() << "Connected to scheduler (I am known as " << remote_name << ")" << endl;
     current_load = -1000;
     gettimeofday(&last_stat, 0);
     icecream_load = 0;
@@ -2232,7 +2232,7 @@ int main(int argc, char **argv)
         max_kids = max_processes;
     }
 
-    log_info() << "allowing up to " << max_kids << " active jobs\n";
+    log_info() << "allowing up to " << max_kids << " active jobs" << endl;
 
     int ret;
 

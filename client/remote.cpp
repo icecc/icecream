@@ -732,7 +732,7 @@ int build_remote(CompileJob &job, MsgChannel *local_daemon, const Environments &
     Environments envs = rip_out_paths(_envs, version_map, versionfile_map);
 
     if (!envs.size()) {
-        log_error() << "$ICECC_VERSION needs to point to .tar files\n";
+        log_error() << "$ICECC_VERSION needs to point to .tar files" << endl;
         throw(22);
     }
 
@@ -760,7 +760,7 @@ int build_remote(CompileJob &job, MsgChannel *local_daemon, const Environments &
                        minimalRemoteVersion(job));
 
         if (!local_daemon->send_msg(getcs)) {
-            log_warning() << "asked for CS\n";
+            log_warning() << "asked for CS" << endl;
             throw(24);
         }
 
@@ -808,7 +808,7 @@ int build_remote(CompileJob &job, MsgChannel *local_daemon, const Environments &
 
 
         if (!local_daemon->send_msg(getcs)) {
-            log_warning() << "asked for CS\n";
+            log_warning() << "asked for CS" << endl;
             throw(0);
         }
 

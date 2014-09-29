@@ -86,7 +86,7 @@ static void write_output_file( const string& file, MsgChannel* client )
         obj_fd = open(file.c_str(), O_RDONLY | O_LARGEFILE);
 
         if (obj_fd == -1) {
-            log_error() << "open failed\n";
+            log_error() << "open failed" << endl;
             error_client(client, "open of object file failed");
             throw myexception(EXIT_DISTCC_FAILED);
         }
@@ -216,7 +216,7 @@ int handle_connection(const string &basedir, CompileJob *job,
         }
 
         if (!client->send_msg(rmsg)) {
-            log_info() << "write of result failed\n";
+            log_info() << "write of result failed" << endl;
             throw myexception(EXIT_DISTCC_FAILED);
         }
 
