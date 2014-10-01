@@ -442,7 +442,7 @@ pid_t start_install_environment(const std::string &basename, const std::string &
                                 int &pipe_to_stdin, FileChunkMsg *&fmsg,
                                 uid_t user_uid, gid_t user_gid)
 {
-    if (!name.size() || (name[0] == '.')) {
+    if (!name.size()) {
         log_error() << "illegal name for environment " << name << endl;
         return 0;
     }

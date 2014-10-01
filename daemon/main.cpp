@@ -969,8 +969,9 @@ bool Daemon::handle_transfer_env_done(Client *client)
     string current = client->outfile;
     client->outfile.clear();
     client->child_pid = -1;
-    assert(current_kids > 0);
-    current_kids--;
+    if (current_kids > 0) {
+        current_kids--;
+    }
 
     log_error() << "installed_size: " << installed_size << endl;
 
