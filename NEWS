@@ -1,3 +1,25 @@
+1.0.1
+- use su option for logrotate
+- require logrotate for suse package
+
+1.0.1rc1
+- Remove filenames from md5sum output
+- Fix off-by-one error
+- add missing cap-ng.m4
+- uninstall also SUSE-specific files when uninstalling
+- install COPYING, README.md and NEWS as useful user documentation
+- use m4/ and ship cap-ng.m4 there
+- if -lcap-ng is needed for icecc.a, add it to .pc file (for icemon)
+- libicecream-devel may require libcap-ng-devel
+- fix icecc-create-env with clang 3.3+
+- fix /var/run/icecc handling
+- make sure to not hide e.g. SEGV from a tool with exit code 0
+- detect bad_alloc as out-of-memory
+- add "[Cc]annot allocate memory" to the list of OOM error messages
+- Detect gcc "out of memory allocating" as EXIT_OUT_OF_MEMORY. Closes #49
+- Avoid symlinks in the absolute paths
+- swap arguments for kill() call, since pid is the first argument
+
 1.0.0
 - log error message when cleaning up cache fails during startup
 - if getuid() != 0, then our u/gid will be getu/gid() the whole time
