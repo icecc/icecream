@@ -53,7 +53,7 @@ To install icecream, issue
 In case this should not work, here are some links to download Icecream:
 
 -   [Binaries from
-    opensuse.org](http://software.opensuse.org/download/home:/coolo/)
+    opensuse.org](http://software.opensuse.org/download.html?project=devel%3Atools%3Abuilding&package=icecream)
 -   [Sources from
     ftp.suse.com](ftp://ftp.suse.com/pub/projects/icecream)
 -   [openSUSE Icecream node
