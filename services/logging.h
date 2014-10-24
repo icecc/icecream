@@ -20,8 +20,8 @@
     51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 */
 
-#ifndef _LOGGING_H
-#define _LOGGING_H
+#ifndef ICECREAM_LOGGING_H_21E35B3CA6F541AEADA03D03F66A9F36
+#define ICECREAM_LOGGING_H_21E35B3CA6F541AEADA03D03F66A9F36
 
 #include <sys/time.h>
 #include <stdlib.h>

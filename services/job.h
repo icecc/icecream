@@ -20,8 +20,8 @@
     51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 */
 
-#ifndef _COMPILE_JOB_H
-#define _COMPILE_JOB_H
+#ifndef ICECREAM_COMPILE_JOB_H_309F2C1A26844BCEA39F8FA791E9A765
+#define ICECREAM_COMPILE_JOB_H_309F2C1A26844BCEA39F8FA791E9A765
 
 #include <list>
 #include <string>

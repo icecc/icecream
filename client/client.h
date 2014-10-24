@@ -21,8 +21,8 @@
     51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 */
 
-#ifndef _CLIENT_H_
-#define _CLIENT_H_
+#ifndef ICECREAM_CLIENT_H_D94065329A5A40D2A14A96901D1A98B1
+#define ICECREAM_CLIENT_H_D94065329A5A40D2A14A96901D1A98B1
 
 #include <job.h>
 #include <comm.h>
