@@ -63,7 +63,7 @@ public:
     CompileJob()
         : m_id(0)
     {
-        __setTargetPlatform();
+        setTargetPlatform();
     }
 
     void setCompilerName(const std::string &name)
@@ -174,7 +174,7 @@ public:
 
 private:
     std::list<std::string> flags(Argument_Type argumentType) const;
-    void __setTargetPlatform();
+    void setTargetPlatform();
 
     unsigned int m_id;
     Language m_language;
