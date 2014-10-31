@@ -6,8 +6,8 @@ AC_PREREQ([2.63])
 # Version informations
 # ====================
 m4_define([icecream_version_major],[1])
-m4_define([icecream_version_minor],[])
-m4_define([icecream_version_micro],[91])
+m4_define([icecream_version_minor],[0])
+m4_define([icecream_version_micro],[98])
 m4_define([icecream_version],[icecream_version_major.icecream_version_minor.icecream_version_micro])
 
 # =============

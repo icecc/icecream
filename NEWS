@@ -1,5 +1,6 @@
 1.1rc1
  - require capng
+ - use system lzo, drop bundled minilzo
  - allow ICECC_VERSION file to start with a .
  - work with different executable names for docbook-to-man on different distributions
  - support color diagnostics if possible
@@ -9,7 +10,6 @@
  - Try to use only the best available scheduler
  - make daemon port configurable
  - USE_SCHEDULER now accepts host:port to change ports
- - use system lzo, drop bundled minilzo
  - force local compilation when required in more cases
  - detect some clang out of memory errors.
  - better support for FreeBSD

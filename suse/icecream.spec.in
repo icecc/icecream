@@ -1,7 +1,7 @@
 #
 # spec file for package icecream
 #
-# Copyright (c) 2013 SUSE LINUX Products GmbH, Nuernberg, Germany.
+# Copyright (c) 2014 SUSE LINUX Products GmbH, Nuernberg, Germany.
 #
 # All modifications and additions to the file contributed by third parties
 # remain the property of their copyright owners, unless otherwise agreed
@@ -19,6 +19,7 @@
 
 Name:           icecream
 BuildRequires:  gcc-c++
+BuildRequires:  lzo-devel
 %if 0%{?suse_version} > 1110
 BuildRequires:  libcap-ng-devel
 %endif
@@ -42,7 +43,7 @@ Source0:        ftp://ftp.suse.com/pub/projects/icecream/icecc-%{version}.tar.bz
 BuildRoot:      %{_tmppath}/%{name}-%{version}-build
 
 %description
-icecream is the next generation distcc.
+Distributed compiler with a central scheduler to share build load
 
 %package -n libicecream-devel
 Summary:        For Distributed Compile in the Network
@@ -114,6 +115,7 @@ rm -rf -- %_localstatedir/cache/icecream/*
 %doc COPYING README.md NEWS
 %config %_sysconfdir/logrotate.d/icecream
 %config %_sysconfdir/init.d/icecream
+%_bindir/icecc-create-env
 %_bindir/icecc
 %_bindir/icerun
 %_sbindir/icecc-scheduler
@@ -124,7 +126,7 @@ rm -rf -- %_localstatedir/cache/icecream/*
 %exclude %_libexecdir/icecc/bin/clang
 %exclude %_libexecdir/icecc/bin/clang++
 %if 0%{?suse_version}
-%_sysconfdir/sysconfig/SuSEfirewall2.d/services/*
+%config %_sysconfdir/sysconfig/SuSEfirewall2.d/services/*
 %_localstatedir/adm/fillup-templates/sysconfig.icecream
 %if 0%{?suse_version} <= 1220
 /opt/icecream
