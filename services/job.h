@@ -20,8 +20,8 @@
   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 */
 
-#ifndef _COMPILE_JOB_H
-#define _COMPILE_JOB_H
+#ifndef ICECREAM_COMPILE_JOB_H_309F2C1A26844BCEA39F8FA791E9A765
+#define ICECREAM_COMPILE_JOB_H_309F2C1A26844BCEA39F8FA791E9A765
 
 #include <list>
 #include <string>
@@ -65,7 +65,7 @@ public:
     CompileJob()
         : m_id(0)
     {
-        __setTargetPlatform();
+        setTargetPlatform();
     }
 
     void setCompilerName(const std::string &name)
@@ -176,7 +176,7 @@ public:
 
 private:
     std::list<std::string> flags(Argument_Type argumentType) const;
-    void __setTargetPlatform();
+    void setTargetPlatform();
 
     unsigned int m_id;
     Language m_language;

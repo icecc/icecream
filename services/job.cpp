@@ -67,7 +67,7 @@ list<string> CompileJob::allFlags() const
     return args;
 }
 
-void CompileJob::__setTargetPlatform()
+void CompileJob::setTargetPlatform()
 {
     m_target_platform = determine_platform();
 }

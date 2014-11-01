@@ -21,8 +21,8 @@
     51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 */
 
-#ifndef _WORKIT_H
-#define _WORKIT_H
+#ifndef ICECREAM_WORKIT_H_4FA1505D55864C7EB68C6CC405D9DCA4
+#define ICECREAM_WORKIT_H_4FA1505D55864C7EB68C6CC405D9DCA4
 
 #include <job.h>
 #include <sys/types.h>
