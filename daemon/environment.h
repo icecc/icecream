@@ -20,8 +20,8 @@
     51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 */
 
-#ifndef _ENVIRONMENT_H
-#define _ENVIRONMENT_H
+#ifndef ICECREAM_ENVIRONMENT_H
+#define ICECREAM_ENVIRONMENT_H
 
 #include <comm.h>
 #include <list>

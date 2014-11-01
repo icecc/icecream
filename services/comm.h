@@ -22,8 +22,8 @@
 */
 
 
-#ifndef _COMM_H
-#define _COMM_H
+#ifndef ICECREAM_COMM_H
+#define ICECREAM_COMM_H
 
 #ifdef __linux__
 #  include <stdint.h>

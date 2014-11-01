@@ -46,8 +46,8 @@
 
 #else
 
-#ifndef _GETIFADDRS_H
-#define _GETIFADDRS_H
+#ifndef GETIFADDRS_H
+#define GETIFADDRS_H
 
 
 #include <sys/socket.h>
