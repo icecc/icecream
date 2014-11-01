@@ -24,12 +24,15 @@ missing
 Makefile
 stamp-h1
 client/icecc
+client/icecc-create-env
+client/libclient.a
 compilerwrapper/compilerwrapper
 config.h
 config.log
 config.status
 daemon/iceccd
 libtool
+test-driver
 minilzo/libminilzo.la
 scheduler/icecc-scheduler
 services/icecc.pc
@@ -38,3 +41,7 @@ suse/icecream.spec
 doc/*.1
 doc/*.7
 doc/index.html
+tests/test-suite.log
+tests/testargs
+tests/testargs.log
+tests/testargs.trs

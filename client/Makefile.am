@@ -1,16 +1,20 @@
 bin_PROGRAMS = icecc
 bin_SCRIPTS = icecc-create-env
 
+noinst_LIBRARIES = libclient.a
+libclient_a_SOURCES = \
+        arg.cpp \
+        cpp.cpp \
+        local.cpp \
+        remote.cpp \
+        util.cpp \
+        md5.c \
+        safeguard.cpp
+
 icecc_SOURCES = \
-	main.cpp \
-	arg.cpp \
-	cpp.cpp \
-	local.cpp \
-	remote.cpp \
-	util.cpp \
-	md5.c \
-	safeguard.cpp
+	main.cpp 
 icecc_LDADD = \
+	libclient.a \
 	../services/libicecc.la \
 	$(LIBRSYNC)
 

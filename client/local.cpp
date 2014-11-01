@@ -40,7 +40,8 @@
 
 using namespace std;
 
-extern const char *rs_program_name;
+/* Name of this program, for trace.c */
+const char *rs_program_name = "icecc";
 
 #define CLIENT_DEBUG 0
 

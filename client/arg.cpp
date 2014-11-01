@@ -45,25 +45,6 @@ bool explicit_no_show_caret;
 
 #define CLIENT_DEBUG 0
 
-#if CLIENT_DEBUG
-static string concat_args(const list<string> &args)
-{
-    size_t len = args.size() - 1;
-    string result = "\"";
-
-    for (list<string>::const_iterator it = args.begin(); it != args.end(); ++it, len--) {
-        result += *it;
-
-        if (len) {
-            result += ", ";
-        }
-    }
-
-    result += "\"";
-    return result;
-}
-#endif
-
 inline bool str_equal(const char* a, const char* b)
 {
     return strcmp(a, b) == 0;
@@ -174,11 +155,11 @@ bool analyse_argv(const char * const *argv, CompileJob &job, bool icerun, list<s
                 /* as above but with extra argument */
             } else if (a[1] == 'M') {
                 /* -M(anything else) causes the preprocessor to
-                    produce a list of make-style dependencies on
-                    header files, either to stdout or to a local file.
-                    It implies -E, so only the preprocessor is run,
-                    not the compiler.  There would be no point trying
-                    to distribute it even if we could. */
+                   produce a list of make-style dependencies on
+                   header files, either to stdout or to a local file.
+                   It implies -E, so only the preprocessor is run,
+                   not the compiler.  There would be no point trying
+                   to distribute it even if we could. */
                 always_local = true;
                 args.append(a, Arg_Local);
                 log_info() << "argument " << a << ", building locally" << endl;
@@ -256,7 +237,7 @@ bool analyse_argv(const char * const *argv, CompileJob &job, bool icerun, list<s
                     always_local = true;
                     args.append(a, Arg_Local);
                     log_info() << "argument " << a << ", building locally" << endl;
-                    } else {
+                } else {
                     args.append(a, Arg_Remote);
                 }
             } else if (!strcmp(a, "-S")) {
@@ -293,8 +274,8 @@ bool analyse_argv(const char * const *argv, CompileJob &job, bool icerun, list<s
                 }
             } else if (!strcmp(a, "-march=native") || !strcmp(a, "-mcpu=native")
                        || !strcmp(a, "-mtune=native")) {
-                log_info() << "-{march,mpcu,mtune}=native optimizes for local machine, "
-                              "building locally"
+                log_info() << "-{march,mpcu,mtune}=native optimizes for local machine, " 
+                           << "building locally"
                            << endl;
                 always_local = true;
                 args.append(a, Arg_Local);
@@ -339,14 +320,14 @@ bool analyse_argv(const char * const *argv, CompileJob &job, bool icerun, list<s
                         string ext = p.substr(dot_index + 1);
 
                         if (ext[0] != 'h' && ext[0] != 'H' && access(p.c_str(), R_OK)
-                                && access((p + ".gch").c_str(), R_OK)) {
-                                log_info() << "include file or gch file for argument " << a << " " << p
-                                    << " missing, building locally" << endl;
-                                always_local = true;
+                            && access((p + ".gch").c_str(), R_OK)) {
+                            log_info() << "include file or gch file for argument " << a << " " << p
+                                       << " missing, building locally" << endl;
+                            always_local = true;
                         }
                     } else {
-                            log_info() << "argument " << a << " " << p << ", building locally" << endl;
-                            always_local = true;    /* Included file is not header.suffix or header.suffix.gch! */
+                        log_info() << "argument " << a << " " << p << ", building locally" << endl;
+                        always_local = true;    /* Included file is not header.suffix or header.suffix.gch! */
                     }
 
                     args.append(a, Arg_Local);
@@ -466,8 +447,8 @@ bool analyse_argv(const char * const *argv, CompileJob &job, bool icerun, list<s
                             } else {
                                 always_local = true;
                                 log_info() << "plugin for argument "
-                                    << a << " " << p << " " << argv[i + 1] << " " << file
-                                    << " missing, building locally" << endl;
+                                           << a << " " << p << " " << argv[i + 1] << " " << file
+                                           << " missing, building locally" << endl;
                             }
 
                             args.append(argv[i + 1], Arg_Rest);
@@ -549,9 +530,9 @@ bool analyse_argv(const char * const *argv, CompileJob &job, bool icerun, list<s
             string ext = ifile.substr(dot_index + 1);
 
             if (ext == "cc"
-                    || ext == "cpp" || ext == "cxx"
-                    || ext == "cp" || ext == "c++"
-                    || ext == "C" || ext == "ii") {
+                || ext == "cpp" || ext == "cxx"
+                || ext == "cp" || ext == "c++"
+                || ext == "C" || ext == "ii") {
 #if CLIENT_DEBUG
 
                 if (job.language() != CompileJob::Lang_CXX) {
@@ -636,10 +617,7 @@ bool analyse_argv(const char * const *argv, CompileJob &job, bool icerun, list<s
             << ", rest=" << concat_args(job.restFlags())
             << ", local=" << always_local
             << ", compiler=" << job.compilerName()
-            << ", lang="
-            << ((job.language() != CompileJob::Lang_Custom)
-                ? ((job.language() == CompileJob::Lang_CXX) ? "C++" : "C")
-                : "<custom>")
+            << ", lang=" << job.language()
             << endl;
 #endif
 

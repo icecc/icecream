@@ -61,10 +61,9 @@
 
 #include "client.h"
 
-/* Name of this program, for trace.c */
-const char *rs_program_name = "icecc";
-
 using namespace std;
+
+extern const char *rs_program_name;
 
 static void dcc_show_usage(void)
 {

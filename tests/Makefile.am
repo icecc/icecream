@@ -31,3 +31,11 @@ clean: clean-clangplugin
 
 clean-clangplugin:
 	rm -f ${builddir}/clangplugin.so
+
+TESTS = testargs
+
+AM_CPPFLAGS = -I$(top_srcdir)/client -I$(top_srcdir)/services
+testargs_LDADD = ../client/libclient.a ../services/libicecc.la $(LIBRSYNC)
+
+check_PROGRAMS = testargs
+testargs_SOURCES = args.cpp
