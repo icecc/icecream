@@ -34,6 +34,7 @@ Table of Contents
 -   [Some Numbers](#some-numbers)
 -   [What is the best environment for
     icecream](#what-is-the-best-environment-for-icecream)
+-   [Some advice on configuration](#some-advice-on-configuration)
 -   [Network setup for Icecream
     (firewalls)](#network-setup-for-icecream-firewalls)
 -   [I use distcc, why should I
@@ -64,7 +65,7 @@ How to use icecream
 
 You need:
 
--   One machine that runs the scheduler ("./icecc-scheduler -d")
+-   At least one machine that runs the scheduler ("./icecc-scheduler -d")
 -   Many machines that run the daemon ("./iceccd -d")
 
 It is possible to run the scheduler and the daemon on one machine and
@@ -451,6 +452,43 @@ how long a job will take before it started. So if you have 3 machines
 and two quick to compile and one long to compile source file, you're not
 safe from a choice where everyone has to wait on the slow machine. Keep
 that in mind.
+
+Some advice on configuration
+-----------------------------------------------------------------------------------------------------------------------------------
+
+Ice cream supports many configurations but you need to understand your network
+to choose what is right for you. 
+
+The easiest is to designate one machine always on machine to be a server and 
+start the clients. This is the best environment for conferences where users are 
+using mixed versions of ice cream and will not be together for long. Ice cream 
+will automatically find the scheduler. This is also the best setup if you have
+any machine that might run versions of ice cream less than 1.1. The downside of
+this setup is the scheduler must be a machine that is always on.
+
+If everyone is running 1.1 or latter you may choose to have everyone run
+a scheduler. The ice cream schedulers will choose one to be the master and
+everyone will connect to it. If the scheduler machine goes down a new master
+will be selected. This is a new feature that is somewhat experimental, but if
+it works it likely the most reliable. If anyone on your network is running
+versions earlier than 1.1 they will have problems with this configuration.
+
+You may also designate a scheduler machine, and then for each client specify
+the scheduler to use. You need to ensure that there is no other scheduler on
+the same network as the scheduler if you do this. This is useful if you have
+developers scattered around the office but only a few are on any given network
+sub-net. If you do this check with IT to ensure that ice cream traffic won't
+overload routers. It is safe to mix ice cream versions less than 1.1 with 1.1
+on this setup.
+
+You might designate a netname. This is useful if your network is using VPN to
+make it seem like developers who are physically a long distance apart seem like
+they are on the same sub-net. While the VPNs are useful, they are typically do
+not have enough bandwidth for ice cream, so by setting a different netname on
+each side of the VPN you can save bandwidth. Netnames can be used to work
+around some limitations above: if a netname is set ice cream schedulers and
+daemons will ignore the existence scheudlers and daemons with any other netname.
+
 
 Network setup for Icecream (firewalls)
 ---------------------------------------------------------------------------------------------------------------------------
