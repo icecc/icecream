@@ -6,9 +6,11 @@ AC_PREREQ([2.63])
 # Version informations
 # ====================
 m4_define([icecream_version_major],[1])
-m4_define([icecream_version_minor],[0])
-m4_define([icecream_version_micro],[98])
-m4_define([icecream_version],[icecream_version_major.icecream_version_minor.icecream_version_micro])
+m4_define([icecream_version_minor],[1rc1])
+#m4_define([icecream_version_micro],[98])
+m4_ifval([icecream_version_micro],
+	m4_define([icecream_version],[icecream_version_major.icecream_version_minor.icecream_version_micro]),
+	m4_define([icecream_version],[icecream_version_major.icecream_version_minor]))
 
 # =============
 # Automake init
