@@ -51,6 +51,7 @@
 #include "workit.h"
 #include "logging.h"
 #include "serve.h"
+#include "util.h"
 
 #include <sys/time.h>
 
@@ -158,7 +159,13 @@ int handle_connection(const string &basedir, CompileJob *job,
     /* internal communication channel, don't inherit to gcc */
     fcntl(out_fd, F_SETFD, FD_CLOEXEC);
 
-    nice(nice_level);
+    errno = 0;
+    int niceval = nice(nice_level);
+    (void) niceval;
+    if (errno != 0) {
+        log_warning() << "failed to set nice value: " << strerror(errno)
+                      << endl;
+    }
 
     Msg *msg = 0; // The current read message
     unsigned int job_id = 0;
@@ -228,7 +235,7 @@ int handle_connection(const string &basedir, CompileJob *job,
 
         /* wake up parent and tell him that compile finished */
         /* if the write failed, well, doesn't matter */
-        write(out_fd, job_stat, sizeof(job_stat));
+        ignore_result(write(out_fd, job_stat, sizeof(job_stat)));
         close(out_fd);
 
         if (rmsg.status == 0) {

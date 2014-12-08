@@ -51,6 +51,7 @@
 #include "client.h"
 #include "tempfile.h"
 #include "md5.h"
+#include "services/util.h"
 
 #ifndef O_LARGEFILE
 #define O_LARGEFILE 0
@@ -559,12 +560,12 @@ static int build_remote_int(CompileJob &job, UseCSMsg *usecs, MsgChannel *local_
                 throw(102);
             }
 
-            write(STDOUT_FILENO, crmsg->out.c_str(), crmsg->out.size());
+            ignore_result(write(STDOUT_FILENO, crmsg->out.c_str(), crmsg->out.size()));
 
             if (colorify_wanted(job)) {
                 colorify_output(crmsg->err);
             } else {
-                write(STDERR_FILENO, crmsg->err.c_str(), crmsg->err.size());
+                ignore_result(write(STDERR_FILENO, crmsg->err.c_str(), crmsg->err.size()));
             }
 
             if (status && (crmsg->err.length() || crmsg->out.length())) {

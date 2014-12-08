@@ -62,6 +62,7 @@
 
 #include "comm.h"
 #include "platform.h"
+#include "util.h"
 
 using namespace std;
 
@@ -72,7 +73,7 @@ extern "C" {
     static void theSigCHLDHandler(int)
     {
         char foo = 0;
-        write(death_pipe[1], &foo, 1);
+        ignore_result(write(death_pipe[1], &foo, 1));
     }
 
 }
@@ -236,7 +237,9 @@ int work_it(CompileJob &j, unsigned int job_stat[], MsgChannel *client,
         }
 
         // HACK: If in / , Clang records DW_AT_name with / prepended .
-        chdir("/tmp/");
+        if (chdir("/tmp/") != 0) {
+            error_client(client, "/tmp dir missing?");
+        }
 
         bool hasPipe = false;
 
@@ -311,7 +314,7 @@ int work_it(CompileJob &j, unsigned int job_stat[], MsgChannel *client,
         perror("ICECC: execv");
 
         char resultByte = 1;
-        write(main_sock[1], &resultByte, 1);
+        ignore_result(write(main_sock[1], &resultByte, 1));
         _exit(-1);
     }
 

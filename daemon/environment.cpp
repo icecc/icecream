@@ -38,6 +38,7 @@
 
 #include "comm.h"
 #include "exitcode.h"
+#include "util.h"
 
 using namespace std;
 
@@ -344,7 +345,10 @@ int start_create_env(const string &basedir, uid_t user_uid, gid_t user_gid,
 
     flush_debug();
     int pipes[2];
-    pipe(pipes);
+    if (pipe(pipes) == -1) {
+        log_error() << "failed to create pipe: " << strerror(errno) << endl;
+        _exit(147);
+    }
     pid_t pid = fork();
 
     if (pid) {
@@ -577,9 +581,15 @@ size_t finalize_install_environment(const std::string &basename, const std::stri
     }
 
     string dirname = basename + "/target=" + target;
+
+    errno = 0;
     mkdir((dirname + "/tmp").c_str(), 01775);
-    chown((dirname + "/tmp").c_str(), user_uid, user_gid);
+    ignore_result(chown((dirname + "/tmp").c_str(), user_uid, user_gid));
     chmod((dirname + "/tmp").c_str(), 01775);
+    if (errno == -1) {
+        log_error() << "failed to setup " << dirname << "/tmp :"
+                    << strerror(errno) << endl;
+    }
 
     return sumup_dir(dirname);
 }

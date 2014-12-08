@@ -100,6 +100,7 @@
 #include "load.h"
 #include "environment.h"
 #include "platform.h"
+#include "util.h"
 
 static std::string pidFilePath;
 static volatile sig_atomic_t exit_main_loop = 0;
@@ -375,7 +376,7 @@ static void dcc_daemon_terminate(int whichsig)
         // The > 1 is because we get one more signal from the kill(0,...) below.
         // hmm, we got killed already twice. try better
         static const char msg[] = "forced exit.\n";
-        write(STDERR_FILENO, msg, strlen( msg ));
+        ignore_result(write(STDERR_FILENO, msg, strlen( msg )));
         _exit(1);
     }
 
@@ -2173,13 +2174,13 @@ int main(int argc, char **argv)
         if (!logfile.length() && detach) {
             mkdir("/var/log/icecc", S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH);
             chmod("/var/log/icecc", S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH);
-            chown("/var/log/icecc", d.user_uid, d.user_gid);
+            ignore_result(chown("/var/log/icecc", d.user_uid, d.user_gid));
             logfile = "/var/log/icecc/iceccd.log";
         }
 
         mkdir("/var/run/icecc", S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH);
         chmod("/var/run/icecc", S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH);
-        chown("/var/run/icecc", d.user_uid, d.user_gid);
+        ignore_result(chown("/var/run/icecc", d.user_uid, d.user_gid));
 
 #ifdef HAVE_LIBCAP_NG
         capng_clear(CAPNG_SELECT_BOTH);
@@ -2214,7 +2215,11 @@ int main(int argc, char **argv)
 
     d.determine_system();
 
-    chdir("/");
+    if (chdir("/") != 0) {
+        log_error() << "failed to switch to root directory: "
+                    << strerror(errno) << endl;
+        exit(EXIT_DISTCC_FAILED);
+    }
 
     if (detach)
         if (daemon(0, 0)) {
