@@ -32,9 +32,7 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/wait.h>
-#ifdef HAVE_SIGNAL_H
 #include <signal.h>
-#endif
 
 #include "comm.h"
 #include "exitcode.h"
