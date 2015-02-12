@@ -304,10 +304,8 @@ done
 if test "$is_darwin" = 1; then
     # add dynamic linker
     add_file /usr/lib/dyld
-    real_file=`/usr/bin/gcc --version | head -n 1 2>&1 | cut -d" " -f1`
-    add_file /usr/bin/$real_file
-    real_file=`/usr/bin/g++ --version | head -n 1 2>&1 | cut -d" " -f1`
-    add_file /usr/bin/$real_file
+    add_file /usr/bin/gcc
+    add_file /usr/bin/g++
     real_file=`/usr/bin/as -micha -- < /dev/null 2>&1 | sed -n 's,^[^/]*\(/[^ :]*\).*,\1,p'`
     add_file $(abs_path "$real_file")
 fi
