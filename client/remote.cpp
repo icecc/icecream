@@ -51,6 +51,7 @@
 #include "client.h"
 #include "tempfile.h"
 #include "md5.h"
+#include "util.h"
 #include "services/util.h"
 
 #ifndef O_LARGEFILE
@@ -191,13 +192,7 @@ get_absfilename(const string &_file)
     }
 
     if (_file.at(0) != '/') {
-        static std::vector<char> buffer(1024);
-
-        while (getcwd(&buffer[0], buffer.size() - 1) == 0 && errno == ERANGE) {
-            buffer.resize(buffer.size() + 1024);
-        }
-
-        file = string(&buffer[0]) + '/' + _file;
+        file = get_cwd() + '/' + _file;
     } else {
         file = _file;
     }
