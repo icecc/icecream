@@ -177,14 +177,10 @@ if test x"$ac_cv_func_connect" = x"no"; then
     fi
 fi
 
-AC_CHECK_FUNCS([flock lockf strerror setuid])
-AC_CHECK_FUNCS([getuid geteuid wait4 waitpid setgroups getcwd])
-AC_CHECK_FUNCS([snprintf])
-AC_CHECK_FUNCS([getrusage strsignal gettimeofday])
-AC_CHECK_FUNCS([getnameinfo inet_ntoa])
+AC_CHECK_FUNCS([flock lockf])
+AC_CHECK_FUNCS([wait4 setgroups])
+AC_CHECK_FUNCS([strsignal])
 AC_CHECK_FUNCS([getloadavg])
-
-AC_CHECK_DECLS([snprintf])
 
 AC_CHECK_LIB(lzo2, lzo1x_1_compress, LZO_LDADD=-llzo2,
 	AC_MSG_ERROR([Could not find lzo2 library - please install lzo-devel]))
