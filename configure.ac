@@ -178,7 +178,6 @@ if test x"$ac_cv_func_connect" = x"no"; then
 fi
 
 AC_CHECK_FUNCS([flock lockf])
-AC_CHECK_FUNCS([wait4 setgroups])
 AC_CHECK_FUNCS([strsignal])
 AC_CHECK_FUNCS([getloadavg])
 
