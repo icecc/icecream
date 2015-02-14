@@ -265,11 +265,11 @@ public:
 class DiscoverSched
 {
 public:
-    /* Connect to a scheduler waiting max. TIMEOUT milliseconds.
+    /* Connect to a scheduler waiting max. TIMEOUT seconds.
        schedname can be the hostname of a box running a scheduler, to avoid
        broadcasting, port can be specified explicitly */
     DiscoverSched(const std::string &_netname = std::string(),
-                  int _timeout = 2000,
+                  int _timeout = 2,
                   const std::string &_schedname = std::string(),
                   int port = 0);
     ~DiscoverSched();
@@ -292,6 +292,9 @@ public:
         return listen_fd();
     }
 
+    /* if this returns NULL you should wait for either more data on listen_fd()
+       (use select), or a timeout of your own.  Continue to call this until
+       it returns NULL and timed_out() returns true. */
     MsgChannel *try_get_scheduler();
 
     // Returns the hostname of the scheduler - set by constructor or by try_get_scheduler
@@ -317,6 +320,9 @@ private:
     int ask_fd;
     time_t time0;
     unsigned int sport;
+    int best_version;
+    time_t best_start_time;
+    bool multiple;
 
     void attempt_scheduler_connect();
 };

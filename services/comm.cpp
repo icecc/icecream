@@ -1286,6 +1286,9 @@ DiscoverSched::DiscoverSched(const std::string &_netname, int _timeout,
     , timeout(_timeout)
     , ask_fd(-1)
     , sport(port)
+    , best_version(0)
+    , best_start_time(0)
+    , multiple(false)
 {
     time0 = time(0);
 
@@ -1345,7 +1348,7 @@ void DiscoverSched::attempt_scheduler_connect()
 
 MsgChannel *DiscoverSched::try_get_scheduler()
 {
-    if (schedname.empty()) {
+    if (schedname.empty() || 0 != best_version) {
         socklen_t remote_len;
         char buf2[BROAD_BUFLEN];
         /* Try to get the scheduler with the newest version, and if there
@@ -1361,16 +1364,10 @@ MsgChannel *DiscoverSched::try_get_scheduler()
            version. If the best scheduler quits, all daemons will get their connections
            closed and will re-discover and re-connect.
         */
-        int best_version = 0;
-        time_t best_start_time = 0;
-        bool multiple = false;
-        /* Wait at least two seconds to give all schedulers a chance to answer.*/
-        time_t timeout_time = time(NULL) + 2 + 1;
 
         /* Read/test all packages arrived until now.  */
         while (get_broad_answer(ask_fd, 0/*timeout*/, buf2,
-                                (struct sockaddr_in *) &remote_addr, &remote_len)
-               && time(NULL) < timeout_time) {
+                                (struct sockaddr_in *) &remote_addr, &remote_len)) {
             int version;
             time_t start_time;
             const char* name;
@@ -1394,18 +1391,32 @@ MsgChannel *DiscoverSched::try_get_scheduler()
             }
         }
 
-        if (best_version == 0) {
-            return 0;
+        if(timed_out())
+        {
+            if (best_version == 0) {
+                return 0;
+            }
+            if (multiple)
+                log_info() << "Selecting scheduler at " << schedname << ":" << sport << endl;
+
+            close(ask_fd);
+            ask_fd = -1;
+            attempt_scheduler_connect();
+
+            if (ask_fd >= 0) {
+                errno = 0;
+                int status = connect(ask_fd, (struct sockaddr *) &remote_addr, sizeof(remote_addr));
+
+                if (status == 0 || (status < 0 && (errno == EISCONN || errno == EINPROGRESS))) {
+                    int fd = ask_fd;
+                    ask_fd = -1;
+                    return Service::createChannel(fd,
+                                                  (struct sockaddr *) &remote_addr, sizeof(remote_addr));
+                }
+            }
         }
-        if (multiple)
-            log_info() << "Selecting scheduler at " << schedname << ":" << sport << endl;
-
-        close(ask_fd);
-        ask_fd = -1;
-        attempt_scheduler_connect();
     }
-
-    if (ask_fd >= 0) {
+    else if (ask_fd >= 0) {
         int status = connect(ask_fd, (struct sockaddr *) &remote_addr, sizeof(remote_addr));
 
         if (status == 0 || (status < 0 && errno == EISCONN)) {
