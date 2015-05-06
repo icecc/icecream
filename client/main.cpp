@@ -422,7 +422,7 @@ int main(int argc, char **argv)
         if (getenv("ICECC_VERSION")) {     // if set, use it, otherwise take default
             try {
                 envs = parse_icecc_version(job.targetPlatform(), find_prefix(job.compilerName()));
-            } catch (int x) {
+            } catch (std::exception) {
                 // we just build locally
             }
         } else if (!extrafiles.empty() && !IS_PROTOCOL_32(local_daemon)) {
@@ -521,26 +521,6 @@ int main(int argc, char **argv)
             /* currently debugging a client? throw an error then */
             if (debug_level != Error) {
                 return error.errorCode;
-            }
-
-            goto do_local_error;
-        }
-        catch (int error) {
-            if (error >= 100) {
-                log_info() << "local build forced by error " << error << endl;
-                goto do_local_error;
-            }
-            if (remote_daemon.size()) {
-                log_error() << "got exception " << error
-                            << " (" << remote_daemon.c_str() << ") " << endl;
-            } else {
-                log_error() << "got exception " << error << " (this should be an exception!)" <<
-                            endl;
-            }
-
-            /* currently debugging a client? throw an error then */
-            if (debug_level != Error) {
-                return error;
             }
 
             goto do_local_error;

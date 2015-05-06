@@ -864,11 +864,6 @@ int build_remote(CompileJob &job, MsgChannel *local_daemon, const Environments &
                     kill(getpid(), SIGTERM);
                     return 0; // shouldn't matter
                 }
-                catch (int error) {
-                    log_info() << "build_remote_int failed and has thrown " << error << endl;
-                    kill(getpid(), SIGTERM);
-                    return 0; // shouldn't matter
-                }
 
                 _exit(ret);
                 return 0; // doesn't matter
