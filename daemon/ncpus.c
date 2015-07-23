@@ -115,10 +115,8 @@ int dcc_ncpus(int *ncpus)
 {
     int mib[2];
     size_t len = sizeof(*ncpus);
-    mib[0] = CTL_HW;
-    mib[1] = HW_NCPU;
 
-    if (sysctl(mib, 2, ncpus, &len, NULL, 0) == 0) {
+    if (sysctlbyname("hw.physicalcpu", ncpus, &len, NULL, 0) == 0) {
         return 0;
     }
 
