@@ -24,7 +24,8 @@ noinst_HEADERS = \
 	util.h
 AM_CPPFLAGS = \
 	-DPLIBDIR=\"$(pkglibexecdir)\" \
-	-I$(top_srcdir)/services
+	-I$(top_srcdir)/services \
+	-I$(top_srcdir)/
 
 EXTRA_DIST = icecc-create-env
 
