@@ -5,6 +5,19 @@
 
 using namespace std;
 
+static const char *ICECC_COLOR_DIAGNOSTICS = NULL;
+void backup_icecc_color_diagnostics() {
+  ICECC_COLOR_DIAGNOSTICS = getenv("ICECC_COLOR_DIAGNOSTICS");
+  setenv("ICECC_COLOR_DIAGNOSTICS", "0", 1);
+}
+
+void restore_icecc_color_diagnostics() {
+  if (ICECC_COLOR_DIAGNOSTICS)
+    setenv("ICECC_COLOR_DIAGNOSTICS", ICECC_COLOR_DIAGNOSTICS, 1);
+  else
+    unsetenv("ICECC_COLOR_DIAGNOSTICS");
+}
+
 void test_run(const string &prefix, const char * const *argv, bool icerun, const string expected) {
   list<string> extrafiles;
   CompileJob job;
@@ -25,17 +38,23 @@ void test_run(const string &prefix, const char * const *argv, bool icerun, const
 
 static void test_1() {
    const char * argv[] = { "gcc", "-D", "TEST=1", "-c", "main.cpp", "-o", "main.o", 0 };
+   backup_icecc_color_diagnostics();
    test_run("1", argv, false, "local:0 language:C++ compiler:gcc local:'-D, TEST=1' remote:'-c' rest:''");
+   restore_icecc_color_diagnostics();
 }
 
 static void test_2() {
    const char * argv[] = { "gcc", "-DTEST=1", "-c", "main.cpp", "-o", "main.o", 0 };
+   backup_icecc_color_diagnostics();
    test_run("2", argv, false, "local:0 language:C++ compiler:gcc local:'-DTEST=1' remote:'-c' rest:''");
+   restore_icecc_color_diagnostics();
 }
 
 static void test_3() {
    const char * argv[] = { "clang", "-D", "TEST1=1", "-I.", "-c", "make1.cpp", "-o", "make.o", 0};
+   backup_icecc_color_diagnostics();
    test_run("3", argv, false, "local:0 language:C++ compiler:clang local:'-D, TEST1=1, -I.' remote:'-c' rest:''");
+   restore_icecc_color_diagnostics();
 }
 
 int main() {
