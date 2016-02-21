@@ -175,8 +175,11 @@ static int create_native(char **args)
     if (machine_name.find("Darwin") == 0)
         is_clang = true;
     // Args[0] may be a compiler or the first extra file.
-    if (args[0] && ((!strcmp(args[0], "clang") && (is_clang = true))
-                    || (!strcmp(args[0], "gcc") && (is_clang = false)))) {
+    if (args[0] && !strcmp(args[0], "clang")) {
+        is_clang = true;
+        extrafiles++;
+    } else if (args[0] && !strcmp(args[0], "gcc")) {
+        is_clang = false;
         extrafiles++;
     }
 
