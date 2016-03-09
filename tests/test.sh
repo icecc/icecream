@@ -252,13 +252,23 @@ run_ice()
         stderrfix=1
         shift
     fi
+    split_dwarf=
+    if test "$1" = "yes"; then
+        split_dwarf=$(echo $output | sed 's/\.[^.]*//g').dwo
+        shift
+    fi
 
     reset_logs local "$@"
     echo Running: "$@"
     ICECC_TEST_SOCKET="$testdir"/socket-localice ICECC_TEST_REMOTEBUILD=1 ICECC_PREFERRED_HOST=localice ICECC_DEBUG=debug ICECC_LOGFILE="$testdir"/icecc.log $valgrind "$prefix"/bin/icecc "$@" 2>"$testdir"/stderr.localice
+    #sleep 400
+
     localice_exit=$?
     if test -n "$output"; then
         mv "$output" "$output".localice
+    fi
+    if test -n "$split_dwarf"; then
+        mv "$split_dwarf" "$split_dwarf".localice
     fi
     cat "$testdir"/stderr.localice >> "$testdir"/stderr.log
     flush_logs
@@ -282,6 +292,9 @@ run_ice()
         remoteice_exit=$?
         if test -n "$output"; then
             mv "$output" "$output".remoteice
+        fi
+        if test -n "$split_dwarf"; then
+            mv "$split_dwarf" "$split_dwarf".remoteice
         fi
         cat "$testdir"/stderr.remoteice >> "$testdir"/stderr.log
         flush_logs
@@ -353,6 +366,20 @@ run_ice()
             fi
         fi
     fi
+    if test -n "$split_dwarf"; then
+        if ! diff -q "$split_dwarf".localice "$split_dwarf"; then
+            echo "Output DWO mismatch ($split_dwarf.localice)"
+            stop_ice 0
+            exit 2
+        fi
+        if test -z "$chroot_disabled"; then
+            if ! diff -q "$split_dwarf".remoteice "$split_dwarf"; then
+                echo "Output DWO mismatch ($split_dwarf.remoteice)"
+                stop_ice 0
+                exit 2
+            fi
+        fi
+    fi
     if test $localice_exit -ne 0; then
         echo "Command failed as expected."
         echo
@@ -362,6 +389,9 @@ run_ice()
     fi
     if test -n "$output"; then
         rm -f "$output" "$output".localice "$output".remoteice
+    fi
+    if test -n "$split_dwarf"; then
+        rm -f "$split_dwarf" "$split_dwarf".localice "$split_dwarf".remoteice
     fi
     rm -f "$testdir"/stderr "$testdir"/stderr.localice "$testdir"/stderr.remoteice
 }
@@ -736,6 +766,7 @@ check_logs_for_generic_errors
 echo Starting icecream successful.
 echo
 
+run_ice "$testdir/plain.o" "remote" 0 "yes" $GXX -Wall -gsplit-dwarf -Werror -c plain.cpp -o "$testdir/"plain.o
 run_ice "$testdir/plain.o" "remote" 0 $GXX -Wall -Werror -c plain.cpp -o "$testdir/"plain.o
 
 if test -z "$chroot_disabled"; then

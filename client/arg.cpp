@@ -92,6 +92,7 @@ bool analyse_argv(const char * const *argv, CompileJob &job, bool icerun, list<s
 {
     ArgumentsList args;
     string ofile;
+    string dwofile;
 
 #if CLIENT_DEBUG > 1
     trace() << "scanning arguments ";
@@ -109,6 +110,7 @@ bool analyse_argv(const char * const *argv, CompileJob &job, bool icerun, list<s
     bool seen_s = false;
     bool seen_mf = false;
     bool seen_md = false;
+    bool seen_split_dwarf = false;
     // if rewriting includes and precompiling on remote machine, then cpp args are not local
     Argument_Type Arg_Cpp = compiler_only_rewrite_includes(job) ? Arg_Rest : Arg_Local;
 
@@ -253,9 +255,7 @@ bool analyse_argv(const char * const *argv, CompileJob &job, bool icerun, list<s
                 always_local = true;
                 args.append(a, Arg_Local);
             } else if (!strcmp(a, "-gsplit-dwarf")) {
-                log_info() << "split dwarf debuginfo (argument " << a << "); building locally" << endl;
-                always_local = true;
-                args.append(a, Arg_Local);
+                seen_split_dwarf = true;
             } else if (str_equal(a, "-x")) {
                 args.append(a, Arg_Rest);
                 bool unsupported = true;
@@ -483,6 +483,9 @@ bool analyse_argv(const char * const *argv, CompileJob &job, bool icerun, list<s
         args.append("-S", Arg_Remote);
     } else {
         args.append("-c", Arg_Remote);
+        if (seen_split_dwarf) {
+            job.setDwarfFissionEnabled(true);
+        }
     }
 
     if (!always_local) {

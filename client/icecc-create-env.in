@@ -301,6 +301,8 @@ for extrafile in $extrafiles; do
     add_file $extrafile
 done
 
+add_file /usr/bin/objcopy
+
 if test "$is_darwin" = 1; then
     # add dynamic linker
     add_file /usr/lib/dyld

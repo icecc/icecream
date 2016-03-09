@@ -51,8 +51,8 @@ enum job_stat_fields { in_compressed, in_uncompressed, out_uncompressed, exit_co
                      };
 }
 
-extern int work_it(CompileJob &j, unsigned int job_stats[], MsgChannel *client,
-                   CompileResultMsg &msg, const std::string &outfilename,
+extern int work_it(CompileJob &j, unsigned int job_stats[], MsgChannel *client, CompileResultMsg &msg,
+                   const std::string &tmp_root, const std::string &build_path, const std::string &file_name,
                    unsigned long int mem_limit, int client_fd, int job_in_fd);
 
 #endif

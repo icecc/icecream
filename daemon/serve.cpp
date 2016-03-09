@@ -52,6 +52,7 @@
 #include "logging.h"
 #include "serve.h"
 #include "util.h"
+#include "file_util.h"
 
 #include <sys/time.h>
 
@@ -128,6 +129,7 @@ static void write_output_file( const string& file, MsgChannel* client )
     }
 }
 
+
 /**
  * Read a request, run the compiler, and send a response.
  **/
@@ -169,7 +171,7 @@ int handle_connection(const string &basedir, CompileJob *job,
 
     Msg *msg = 0; // The current read message
     unsigned int job_id = 0;
-    string obj_file;
+    string tmp_path, obj_file, dwo_file;
 
     try {
         if (job->environmentVersion().size()) {
@@ -205,14 +207,66 @@ int handle_connection(const string &basedir, CompileJob *job,
         char prefix_output[32]; // 20 for 2^64 + 6 for "icecc-" + 1 for trailing NULL
         sprintf(prefix_output, "icecc-%d", job_id);
 
-        if ((ret = dcc_make_tmpnam(prefix_output, ".o", &tmp_output, 0)) == 0) {
-            obj_file = tmp_output;
-            ret = work_it(*job, job_stat, client, rmsg, obj_file, mem_limit, client->fd, -1);
+        if (job->dwarfFissionEnabled() && (ret = dcc_make_tmpdir(&tmp_output)) == 0) {
+            tmp_path = tmp_output;
             free(tmp_output);
-        }
 
-        delete job;
-        job = 0;
+            // dwo information is embedded in the final object file, but the compiler
+            // hard codes the path to the dwo file based on the given path to the
+            // object output file. In every case, we must recreate the directory structure of
+            // the client system inside our tmp directory, including both the working
+            // directory the compiler will be run from as well as the relative path from
+            // that directory to the specified output file.
+            //
+            // the work_it() function will rewrite the tmp build directory as root, effectively
+            // letting us set up a "chroot"ed environment inside the build folder and letting
+            // us set up the paths to mimic the client system
+
+            string file_name;
+            string job_output_file = job->outputFile();
+            string job_working_dir = job->workingDirectory();
+            string job_output_file_dir = job_output_file.substr(0, job_output_file.find_last_of('/'));
+
+            size_t slash_index = job_output_file.find_last_of('/');
+            if (slash_index != string::npos) {
+                file_name = job_output_file.substr(slash_index+1);
+            }
+            else {
+                file_name = job_output_file;
+            }
+
+            string output_dir, relative_file_path;
+            if (job_output_file_dir[0] == '/') { // output dir is absolute, convert to relative
+                relative_file_path = get_relative_path(tmp_path + job_output_file, tmp_path + job_working_dir);
+                output_dir = tmp_path + job_output_file_dir;
+            }
+            else { // output file is already relative
+                relative_file_path = job_output_file;
+                output_dir = tmp_path + job_working_dir + '/' + job_output_file_dir; // need the path separator since this is relative
+            }
+
+            if (!mkpath(output_dir)) {
+                error_client(client, "could not create object file location in tmp directory");
+                throw myexception(EXIT_IO_ERROR);
+            }
+            if (!mkpath(tmp_path + job_working_dir))  {
+                error_client(client, "could not create compiler working directory in tmp directory");
+                throw myexception(EXIT_IO_ERROR);
+            }
+
+            obj_file = output_dir + '/' + file_name;
+            dwo_file = obj_file.substr(0, obj_file.find_last_of('.')) + ".dwo";
+
+            ret = work_it(*job, job_stat, client, rmsg, tmp_path, job_working_dir, relative_file_path, mem_limit, client->fd, -1);
+        }
+        else if ((ret = dcc_make_tmpnam(prefix_output, ".o", &tmp_output, 0)) == 0) {
+            obj_file = tmp_output;
+            free(tmp_output);
+            string build_path = obj_file.substr(0, obj_file.find_last_of('/'));
+            string file_name = obj_file.substr(obj_file.find_last_of('/')+1);
+
+            ret = work_it(*job, job_stat, client, rmsg, build_path, "", file_name, mem_limit, client->fd, -1);
+        }
 
         if (ret) {
             if (ret == EXIT_OUT_OF_MEMORY) {   // we catch that as special case
@@ -240,6 +294,9 @@ int handle_connection(const string &basedir, CompileJob *job,
 
         if (rmsg.status == 0) {
             write_output_file(obj_file, client);
+            if (rmsg.have_dwo_file) {
+                write_output_file(dwo_file, client);
+            }
         }
 
         throw myexception(rmsg.status);
@@ -248,12 +305,18 @@ int handle_connection(const string &basedir, CompileJob *job,
         delete client;
         client = 0;
 
-        delete msg;
-        delete job;
-
         if (!obj_file.empty()) {
             unlink(obj_file.c_str());
         }
+        if (!dwo_file.empty()) {
+            unlink(dwo_file.c_str());
+        }
+        if (!tmp_path.empty()) {
+            rmpath(tmp_path.c_str());
+        }
+
+        delete msg;
+        delete job;
 
         _exit(e.exitcode());
     }

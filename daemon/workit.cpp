@@ -59,6 +59,7 @@
 #include <stdio.h>
 #include <errno.h>
 #include <string>
+#include <sys/stat.h>
 
 #include "comm.h"
 #include "platform.h"
@@ -92,8 +93,8 @@ error_client(MsgChannel *client, string error)
  * (in the error cases which exit quickly).
  */
 
-int work_it(CompileJob &j, unsigned int job_stat[], MsgChannel *client,
-            CompileResultMsg &rmsg, const string &outfilename,
+int work_it(CompileJob &j, unsigned int job_stat[], MsgChannel *client, CompileResultMsg &rmsg,
+            const std::string &tmp_root, const std::string &build_path, const std::string &file_name,
             unsigned long int mem_limit, int client_fd, int /*job_in_fd*/)
 {
     rmsg.out.erase(rmsg.out.begin(), rmsg.out.end());
@@ -101,6 +102,10 @@ int work_it(CompileJob &j, unsigned int job_stat[], MsgChannel *client,
 
     std::list<string> list = j.remoteFlags();
     appendList(list, j.restFlags());
+
+    if (j.dwarfFissionEnabled()) {
+        list.push_back("-gsplit-dwarf");
+    }
 
     int sock_err[2];
     int sock_out[2];
@@ -237,7 +242,7 @@ int work_it(CompileJob &j, unsigned int job_stat[], MsgChannel *client,
         }
 
         // HACK: If in / , Clang records DW_AT_name with / prepended .
-        if (chdir("/tmp/") != 0) {
+        if (chdir((tmp_root + build_path).c_str()) != 0) {
             error_client(client, "/tmp dir missing?");
         }
 
@@ -262,7 +267,7 @@ int work_it(CompileJob &j, unsigned int job_stat[], MsgChannel *client,
 
         argv[i++] = strdup("-");
         argv[i++] = strdup("-o");
-        argv[i++] = strdup(outfilename.c_str());
+        argv[i++] = strdup(file_name.c_str());
 
         if (!clang) {
             argv[i++] = strdup("--param");
@@ -275,6 +280,11 @@ int work_it(CompileJob &j, unsigned int job_stat[], MsgChannel *client,
 
         if (clang) {
             argv[i++] = strdup("-no-canonical-prefixes");    // otherwise clang tries to access /proc/self/exe
+        }
+
+        if (!clang && j.dwarfFissionEnabled()) {
+            sprintf(buffer, "-fdebug-prefix-map=%s/=/", tmp_root.c_str());
+            argv[i++] = strdup(buffer);
         }
 
         // before you add new args, check above for argc
@@ -573,6 +583,7 @@ int work_it(CompileJob &j, unsigned int job_stat[], MsgChannel *client,
                     struct timeval endtv;
                     gettimeofday(&endtv, 0);
                     rmsg.status = shell_exit_status(status);
+                    rmsg.have_dwo_file = j.dwarfFissionEnabled();
                     job_stat[JobStatistics::exit_code] = shell_exit_status(status);
                     job_stat[JobStatistics::real_msec] = ((endtv.tv_sec - starttv.tv_sec) * 1000)
                                                          + ((long(endtv.tv_usec) - long(starttv.tv_usec)) / 1000);

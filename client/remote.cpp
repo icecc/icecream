@@ -573,12 +573,17 @@ static int build_remote_int(CompileJob &job, UseCSMsg *usecs, MsgChannel *local_
             }
         }
 
+        bool have_dwo_file = crmsg->have_dwo_file;
         delete crmsg;
 
         assert(!job.outputFile().empty());
 
         if (status == 0) {
             receive_file(job.outputFile(), cserver);
+            if (have_dwo_file) {
+                string dwo_output = job.outputFile().substr(0, job.outputFile().find_last_of('.')) + ".dwo";
+                receive_file(dwo_output, cserver);
+            }
         }
 
     } catch (int x) {
@@ -714,6 +719,7 @@ int build_remote(CompileJob &job, MsgChannel *local_daemon, const Environments &
     srand(time(0) + getpid());
 
     int torepeat = 1;
+    bool has_split_dwarf = job.dwarfFissionEnabled();
 
     // older compilers do not support the options we need to make it reproducible
 #if defined(__GNUC__) && ( ( (__GNUC__ == 3) && (__GNUC_MINOR__ >= 3) ) || (__GNUC__ >=4) )
@@ -902,6 +908,10 @@ int build_remote(CompileJob &job, MsgChannel *local_daemon, const Environments &
                                     << " and " << umsgs[0]->hostname << " compiled with exit code "
                                     << exit_codes[0] << " - aborting!\n";
                         ::unlink(jobs[0].outputFile().c_str());
+                        if (has_split_dwarf) {
+                            string dwo_file = jobs[0].outputFile().substr(0, jobs[0].outputFile().find_last_of('.')) + ".dwo";
+                            ::unlink(dwo_file.c_str());
+                        }
                         exit_codes[0] = -1; // overwrite
                         break;
                     }
@@ -917,19 +927,35 @@ int build_remote(CompileJob &job, MsgChannel *local_daemon, const Environments &
                         rename(jobs[0].outputFile().c_str(),
                                (jobs[0].outputFile() + ".caught").c_str());
                         rename(preproc, (string(preproc) + ".caught").c_str());
+                        if (has_split_dwarf) {
+                            string dwo_file = jobs[0].outputFile().substr(0, jobs[0].outputFile().find_last_of('.')) + ".dwo";
+                            rename(dwo_file.c_str(), (dwo_file + ".caught").c_str());
+                        }
                         exit_codes[0] = -1; // overwrite
                         break;
                     }
                 }
 
                 ::unlink(jobs[i].outputFile().c_str());
+                if (has_split_dwarf) {
+                    string dwo_file = jobs[i].outputFile().substr(0, jobs[i].outputFile().find_last_of('.')) + ".dwo";
+                    ::unlink(dwo_file.c_str());
+                }
                 delete umsgs[i];
             }
         } else {
             ::unlink(jobs[0].outputFile().c_str());
+            if (has_split_dwarf) {
+                string dwo_file = jobs[0].outputFile().substr(0, jobs[0].outputFile().find_last_of('.')) + ".dwo";
+                ::unlink(dwo_file.c_str());
+            }
 
             for (int i = 1; i < torepeat; i++) {
                 ::unlink(jobs[i].outputFile().c_str());
+                if (has_split_dwarf) {
+                    string dwo_file = jobs[i].outputFile().substr(0, jobs[i].outputFile().find_last_of('.')) + ".dwo";
+                    ::unlink(dwo_file.c_str());
+                }
                 delete umsgs[i];
             }
         }
