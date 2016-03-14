@@ -59,7 +59,6 @@
 #include <stdio.h>
 #include <errno.h>
 #include <string>
-#include <sys/stat.h>
 
 #include "comm.h"
 #include "platform.h"

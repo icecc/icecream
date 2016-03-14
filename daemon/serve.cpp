@@ -129,7 +129,6 @@ static void write_output_file( const string& file, MsgChannel* client )
     }
 }
 
-
 /**
  * Read a request, run the compiler, and send a response.
  **/
@@ -222,13 +221,13 @@ int handle_connection(const string &basedir, CompileJob *job,
             // letting us set up a "chroot"ed environment inside the build folder and letting
             // us set up the paths to mimic the client system
 
-            string file_name;
             string job_output_file = job->outputFile();
             string job_working_dir = job->workingDirectory();
-            string job_output_file_dir = job_output_file.substr(0, job_output_file.find_last_of('/'));
 
             size_t slash_index = job_output_file.find_last_of('/');
+            string file_dir, file_name;
             if (slash_index != string::npos) {
+                file_dir = job_output_file.substr(0, job_output_file.find_last_of('/'));
                 file_name = job_output_file.substr(slash_index+1);
             }
             else {
@@ -236,13 +235,13 @@ int handle_connection(const string &basedir, CompileJob *job,
             }
 
             string output_dir, relative_file_path;
-            if (job_output_file_dir[0] == '/') { // output dir is absolute, convert to relative
-                relative_file_path = get_relative_path(tmp_path + job_output_file, tmp_path + job_working_dir);
-                output_dir = tmp_path + job_output_file_dir;
+            if (!file_dir.empty() && file_dir[0] == '/') { // output dir is absolute, convert to relative
+                relative_file_path = get_relative_path(tmp_path + get_canonicalized_path(job_output_file), tmp_path + get_canonicalized_path(job_working_dir));
+                output_dir = tmp_path + get_canonicalized_path(file_dir);
             }
             else { // output file is already relative
                 relative_file_path = job_output_file;
-                output_dir = tmp_path + job_working_dir + '/' + job_output_file_dir; // need the path separator since this is relative
+                output_dir = tmp_path + get_canonicalized_path(job_working_dir + '/' + file_dir); // need the path separator since this is relative
             }
 
             if (!mkpath(output_dir)) {

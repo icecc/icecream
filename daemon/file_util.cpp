@@ -69,6 +69,53 @@ string get_relative_path(const string &to, const string &from) {
 }
 
 /**
+ * Returns a string without '..' and '.'
+ *
+ * Preconditions:  path must be an absolute path
+ * Postconditions: if path is empty or not an absolute path, return original
+ *                 path, otherwise, return path after resolving '..' and '.'
+ */
+string get_canonicalized_path(const string &path) {
+    if (path.empty() || path[0] != '/') {
+        return path;
+    }
+
+    vector<string> parts = split(path, '/');
+    vector<string> canonicalized_path;
+
+    vector<string>::const_iterator parts_it = parts.begin(),
+                                   parts_end = parts.end();
+
+    while (parts_it != parts_end) {
+        if (*parts_it == ".." && !canonicalized_path.empty()) {
+            canonicalized_path.pop_back();
+        }
+        else if (*parts_it != ".") {
+            canonicalized_path.push_back(*parts_it);
+        }
+
+        ++parts_it;
+    }
+
+    vector<string>::const_iterator path_it = canonicalized_path.begin(),
+                                   path_end = canonicalized_path.end();
+
+    string output;
+    output.reserve(path.size());
+    output += "/";
+    while (path_it != path_end) {
+        output += *path_it;
+
+        ++path_it;
+        if (path_it != path_end) {
+            output += "/";
+        }
+    }
+
+    return output;
+}
+
+/**
  * Adapted from an answer by "Mark" from this stack overflow question:
  * http://stackoverflow.com/questions/675039/how-can-i-create-directory-tree-in-c-linux
  */
