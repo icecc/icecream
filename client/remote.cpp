@@ -686,8 +686,12 @@ maybe_build_local(MsgChannel *local_daemon, UseCSMsg *usecs, CompileJob &job,
 
         struct stat st;
 
+        msg.out_uncompressed = 0;
         if (!stat(job.outputFile().c_str(), &st)) {
-            msg.out_uncompressed = st.st_size;
+            msg.out_uncompressed += st.st_size;
+        }
+        if (!stat((job.outputFile().substr(0, job.outputFile().find_last_of('.')) + ".dwo").c_str(), &st)) {
+            msg.out_uncompressed += st.st_size;
         }
 
         msg.user_msec = ru.ru_utime.tv_sec * 1000 + ru.ru_utime.tv_usec / 1000;

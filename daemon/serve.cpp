@@ -283,7 +283,10 @@ int handle_connection(const string &basedir, CompileJob *job,
         struct stat st;
 
         if (!stat(obj_file.c_str(), &st)) {
-            job_stat[JobStatistics::out_uncompressed] = st.st_size;
+            job_stat[JobStatistics::out_uncompressed] += st.st_size;
+        }
+        if (!stat(dwo_file.c_str(), &st)) {
+            job_stat[JobStatistics::out_uncompressed] += st.st_size;
         }
 
         /* wake up parent and tell him that compile finished */
