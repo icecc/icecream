@@ -248,6 +248,7 @@ bool analyse_argv(const char * const *argv, CompileJob &job, bool icerun, list<s
                        || !strcmp(a, "-fprofile-generate")
                        || !strcmp(a, "-fprofile-use")
                        || !strcmp(a, "-save-temps")
+                       || !strcmp(a, "--save-temps")
                        || !strcmp(a, "-fbranch-probabilities")) {
                 log_info() << "compiler will emit profile info (argument " << a << "); building locally" << endl;
                 always_local = true;
