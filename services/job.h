@@ -64,6 +64,7 @@ public:
 
     CompileJob()
         : m_id(0)
+        , m_dwarf_fission(false)
     {
         setTargetPlatform();
     }
@@ -139,6 +140,16 @@ public:
         return m_output_file;
     }
 
+    void setDwarfFissionEnabled(bool flag)
+    {
+        m_dwarf_fission = flag;
+    }
+
+    bool dwarfFissionEnabled() const
+    {
+        return m_dwarf_fission;
+    }
+
     void setWorkingDirectory(const std::string& dir)
     {
         m_working_directory = dir;
@@ -187,6 +198,7 @@ private:
     std::string m_input_file, m_output_file;
     std::string m_working_directory;
     std::string m_target_platform;
+    bool m_dwarf_fission;
 };
 
 inline void appendList(std::list<std::string> &list, const std::list<std::string> &toadd)

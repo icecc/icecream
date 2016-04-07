@@ -252,13 +252,22 @@ run_ice()
         stderrfix=1
         shift
     fi
+    split_dwarf=
+    if test "$1" = "split_dwarf"; then
+        split_dwarf=$(echo $output | sed 's/\.[^.]*//g').dwo
+        shift
+    fi
 
     reset_logs local "$@"
     echo Running: "$@"
     ICECC_TEST_SOCKET="$testdir"/socket-localice ICECC_TEST_REMOTEBUILD=1 ICECC_PREFERRED_HOST=localice ICECC_DEBUG=debug ICECC_LOGFILE="$testdir"/icecc.log $valgrind "$prefix"/bin/icecc "$@" 2>"$testdir"/stderr.localice
+
     localice_exit=$?
     if test -n "$output"; then
         mv "$output" "$output".localice
+    fi
+    if test -n "$split_dwarf"; then
+        mv "$split_dwarf" "$split_dwarf".localice
     fi
     cat "$testdir"/stderr.localice >> "$testdir"/stderr.log
     flush_logs
@@ -282,6 +291,9 @@ run_ice()
         remoteice_exit=$?
         if test -n "$output"; then
             mv "$output" "$output".remoteice
+        fi
+        if test -n "$split_dwarf"; then
+            mv "$split_dwarf" "$split_dwarf".remoteice
         fi
         cat "$testdir"/stderr.remoteice >> "$testdir"/stderr.log
         flush_logs
@@ -339,15 +351,37 @@ run_ice()
             exit 2
         fi
     fi
+
+    remove_debug_info="s/DW_AT_\(GNU_dwo_\(id\|name\)\|comp_dir\|producer\|linkage_name\|name\).*//g"
     if test -n "$output"; then
-        if ! diff -q "$output".localice "$output"; then
+        readelf -wlLiaprmfFoRt "$output" | sed -e $remove_debug_info > "$output".readelf.txt || cp "$output" "$output".readelf.txt
+        readelf -wlLiaprmfFoRt "$output".localice | sed -e $remove_debug_info > "$output".local.readelf.txt || cp "$output" "$output".local.readelf.txt
+        if ! diff -q "$output".local.readelf.txt "$output".readelf.txt; then
             echo "Output mismatch ($output.localice)"
             stop_ice 0
             exit 2
         fi
         if test -z "$chroot_disabled"; then
-            if ! diff -q "$output".remoteice "$output"; then
+            readelf -wlLiaprmfFoRt "$output".remoteice | sed -e "$remove_debug_info" > "$output".remote.readelf.txt || cp "$output" "$output".remote.readelf.txt
+            if ! diff -q "$output".remote.readelf.txt "$output".readelf.txt; then
                 echo "Output mismatch ($output.remoteice)"
+                stop_ice 0
+                exit 2
+            fi
+        fi
+    fi
+    if test -n "$split_dwarf"; then
+        readelf -wlLiaprmfFoRt "$split_dwarf" | sed -e $remove_debug_info > "$split_dwarf".readelf.txt || cp "$split_dwarf" "$split_dwarf".readelf.txt
+        readelf -wlLiaprmfFoRt "$split_dwarf".localice | sed -e $remove_debug_info > "$split_dwarf".local.readelf.txt || cp "$split_dwarf" "$split_dwarf".local.readelf.txt
+        if ! diff -q "$split_dwarf".local.readelf.txt "$split_dwarf".readelf.txt; then
+            echo "Output DWO mismatch ($split_dwarf.localice)"
+            stop_ice 0
+            exit 2
+        fi
+        if test -z "$chroot_disabled"; then
+            readelf -wlLiaprmfFoRt "$split_dwarf".remoteice | sed -e "$remove_debug_info" > "$split_dwarf".remote.readelf.txt || cp "$split_dwarf" "$split_dwarf".remote.readelf.txt
+            if ! diff -q "$split_dwarf".remote.readelf.txt "$split_dwarf".readelf.txt; then
+                echo "Output DWO mismatch ($split_dwarf.remoteice)"
                 stop_ice 0
                 exit 2
             fi
@@ -361,7 +395,10 @@ run_ice()
         echo
     fi
     if test -n "$output"; then
-        rm -f "$output" "$output".localice "$output".remoteice
+        rm -f "$output" "$output".localice "$output".remoteice "$output".readelf.txt "$output".local.readelf.txt "$output".remote.readelf.txt
+    fi
+    if test -n "$split_dwarf"; then
+        rm -f "$split_dwarf" "$split_dwarf".localice "$split_dwarf".remoteice "$split_dwarf".readelf.txt "$split_dwarf".local.readelf.txt "$split_dwarf".remote.readelf.txt
     fi
     rm -f "$testdir"/stderr "$testdir"/stderr.localice "$testdir"/stderr.remoteice
 }
@@ -380,7 +417,7 @@ make_test()
     echo Running make test $run_number.
     reset_logs remote "make test $run_number"
     make -f Makefile.test OUTDIR="$testdir" clean -s
-    PATH="$prefix"/lib/icecc/bin:/usr/local/bin:/usr/bin:/bin ICECC_TEST_SOCKET="$testdir"/socket-localice ICECC_TEST_REMOTEBUILD=1 ICECC_DEBUG=debug ICECC_LOGFILE="$testdir"/icecc.log make -f Makefile.test OUTDIR="$testdir" -j10 -s 2>>"$testdir"/stderr.log
+    PATH="$prefix"/libexec/icecc/bin:/usr/local/bin:/usr/bin:/bin ICECC_TEST_SOCKET="$testdir"/socket-localice ICECC_TEST_REMOTEBUILD=1 ICECC_DEBUG=debug ICECC_LOGFILE="$testdir"/icecc.log make -f Makefile.test OUTDIR="$testdir" -j10 -s 2>>"$testdir"/stderr.log
     if test $? -ne 0 -o ! -x "$testdir"/maketest; then
         echo Make test $run_number failed.
         stop_ice 0
@@ -574,7 +611,7 @@ debug_test()
         stop_ice 0
         exit 2
     fi
-    gdb -nx -batch -x debug-gdb.txt "$testdir"/debug-remote >"$testdir"/debug-stdout-remote.txt 2>/dev/null
+    gdb -nx -batch -x debug-gdb.txt "$testdir"/debug-remote >"$testdir"/debug-stdout-remote.txt  2>/dev/null
     if ! grep -A 1000 "$debugstart" "$testdir"/debug-stdout-remote.txt >"$testdir"/debug-output-remote.txt ; then
         echo "Debug check failed (remote)."
         stop_ice 0
@@ -582,7 +619,8 @@ debug_test()
     fi
     # gcc-4.8+ has -grecord-gcc-switches, which makes the .o differ because of the extra flags the daemon adds,
     # this changes DW_AT_producer and also offsets
-    readelf -wlLiaprmfFoRt "$testdir"/debug-remote.o | sed 's/offset: 0x[0-9a-fA-F]*//g' | sed 's/[ ]*-fpreprocessed.*$/\t/g' > "$testdir"/readelf-remote.txt
+    remove_debug_info="s/DW_AT_\(GNU_dwo_\(id\|name\)\|comp_dir\|producer\|linkage_name\|name\).*//g"
+    readelf -wlLiaprmfFoRt "$testdir"/debug-remote.o | sed -e 's/offset: 0x[0-9a-fA-F]*//g' -e 's/[ ]*--param ggc-min-expand.*heapsize\=[0-9]\+//g' -e $remove_debug_info > "$testdir"/readelf-remote.txt
 
     $cmd -o "$testdir"/debug-local.o 2>>"$testdir"/stderr.log
     if test $? -ne 0; then
@@ -602,7 +640,7 @@ debug_test()
         stop_ice 0
         exit 2
     fi
-    readelf -wlLiaprmfFoRt "$testdir"/debug-local.o | sed 's/offset: 0x[0-9a-fA-F]*//g' > "$testdir"/readelf-local.txt
+    readelf -wlLiaprmfFoRt "$testdir"/debug-local.o | sed -e 's/offset: 0x[0-9a-fA-F]*//g' -e $remove_debug_info > "$testdir"/readelf-local.txt
 
     if ! diff -q "$testdir"/debug-output-local.txt "$testdir"/debug-output-remote.txt ; then
         echo Gdb output different.
@@ -736,6 +774,7 @@ check_logs_for_generic_errors
 echo Starting icecream successful.
 echo
 
+run_ice "$testdir/plain.o" "remote" 0 "split_dwarf" $GXX -Wall -Werror -gsplit-dwarf -g -c plain.cpp -o "$testdir/"plain.o
 run_ice "$testdir/plain.o" "remote" 0 $GXX -Wall -Werror -c plain.cpp -o "$testdir/"plain.o
 
 if test -z "$chroot_disabled"; then
@@ -743,12 +782,14 @@ if test -z "$chroot_disabled"; then
     make_test 2
 fi
 
+run_ice "$testdir/plain.o" "remote" 0 "split_dwarf" $GCC -Wall -Werror -gsplit-dwarf -c plain.c -o "$testdir/"plain.o
 run_ice "$testdir/plain.o" "remote" 0 $GCC -Wall -Werror -c plain.c -o "$testdir/"plain.o
 run_ice "$testdir/plain.o" "remote" 0 $GXX -Wall -Werror -c plain.cpp -O2 -o "$testdir/"plain.o
 run_ice "$testdir/plain.ii" "local" 0 $GXX -Wall -Werror -E plain.cpp -o "$testdir/"plain.ii
 run_ice "$testdir/includes.o" "remote" 0 $GXX -Wall -Werror -c includes.cpp -o "$testdir"/includes.o
 run_ice "$testdir/plain.o" "local" 0 $GXX -Wall -Werror -c plain.cpp -mtune=native -o "$testdir"/plain.o
 run_ice "$testdir/plain.o" "remote" 0 $GCC -Wall -Werror -x c++ -c plain -o "$testdir"/plain.o
+run_ice "" "remote" 1 "split_dwarf" $GXX -gsplit-dwarf -c nonexistent.cpp
 run_ice "" "remote" 1 $GXX -c nonexistent.cpp
 run_ice "" "local" 0 /bin/true
 
@@ -770,7 +811,9 @@ fi
 if command -v gdb >/dev/null; then
     if command -v readelf >/dev/null; then
         debug_test "$GXX -c -g debug.cpp" "Temporary breakpoint 1, main () at debug.cpp:8"
+        debug_test "$GXX -c -g debug.cpp -gsplit-dwarf" "Temporary breakpoint 1, main () at debug.cpp:8"
         debug_test "$GXX -c -g `pwd`/debug/debug2.cpp" "Temporary breakpoint 1, main () at `pwd`/debug/debug2.cpp:8"
+        debug_test "$GXX -c -g `pwd`/debug/debug2.cpp -gsplit-dwarf" "Temporary breakpoint 1, main () at `pwd`/debug/debug2.cpp:8"
     fi
 else
     skipped_tests="$skipped_tests debug"
@@ -808,7 +851,9 @@ if test -x $CLANGXX; then
     if command -v gdb >/dev/null; then
         if command -v readelf >/dev/null; then
             debug_test "$CLANGXX -c -g debug.cpp" "Temporary breakpoint 1, main () at debug.cpp:8"
+            debug_test "$CLANGXX -c -g debug.cpp -gsplit-dwarf" "Temporary breakpoint 1, main () at debug.cpp:8"
             debug_test "$CLANGXX -c -g `pwd`/debug/debug2.cpp" "Temporary breakpoint 1, main () at `pwd`/debug/debug2.cpp:8"
+            debug_test "$CLANGXX -c -g `pwd`/debug/debug2.cpp -gsplit-dwarf" "Temporary breakpoint 1, main () at `pwd`/debug/debug2.cpp:8"
         fi
     fi
 

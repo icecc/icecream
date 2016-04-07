@@ -1607,6 +1607,14 @@ void CompileFileMsg::fill_from_channel(MsgChannel *c)
         job->setInputFile(inputFile);
         job->setWorkingDirectory(workingDirectory);
     }
+    if (IS_PROTOCOL_35(c)) {
+        string outputFile;
+        uint32_t dwarfFissionEnabled = 0;
+        *c >> outputFile;
+        *c >> dwarfFissionEnabled;
+        job->setOutputFile(outputFile);
+        job->setDwarfFissionEnabled(dwarfFissionEnabled);
+    }
 }
 
 void CompileFileMsg::send_to_channel(MsgChannel *c) const
@@ -1638,6 +1646,10 @@ void CompileFileMsg::send_to_channel(MsgChannel *c) const
     if( IS_PROTOCOL_34(c)) {
         *c << job->inputFile();
         *c << job->workingDirectory();
+    }
+    if (IS_PROTOCOL_35(c)) {
+        *c << job->outputFile();
+        *c << (uint32_t) job->dwarfFissionEnabled();
     }
 }
 
@@ -1698,6 +1710,11 @@ void CompileResultMsg::fill_from_channel(MsgChannel *c)
     uint32_t was = 0;
     *c >> was;
     was_out_of_memory = was;
+    if (IS_PROTOCOL_35(c)) {
+        uint32_t dwo = 0;
+        *c >> dwo;
+        have_dwo_file = dwo;
+    }
 }
 
 void CompileResultMsg::send_to_channel(MsgChannel *c) const
@@ -1707,6 +1724,9 @@ void CompileResultMsg::send_to_channel(MsgChannel *c) const
     *c << out;
     *c << status;
     *c << (uint32_t) was_out_of_memory;
+    if (IS_PROTOCOL_35(c)) {
+        *c << (uint32_t) have_dwo_file;
+    }
 }
 
 void JobBeginMsg::fill_from_channel(MsgChannel *c)

@@ -27,6 +27,7 @@ extern "C" {
     int dcc_make_tmpnam(const char *prefix,
                         const char *suffix,
                         char **name_ret, int relative);
+    int dcc_make_tmpdir(char **name_ret);
 
 #ifdef __cplusplus
 }

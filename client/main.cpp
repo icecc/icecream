@@ -176,7 +176,7 @@ static int create_native(char **args)
         is_clang = true;
     // Args[0] may be a compiler or the first extra file.
     if (args[0] && ((!strcmp(args[0], "clang") && (is_clang = true))
-                    || (!strcmp(args[0], "gcc") && (is_clang = false)))) {
+                    || (!strcmp(args[0], "gcc") && !(is_clang = false)))) {
         extrafiles++;
     }
 

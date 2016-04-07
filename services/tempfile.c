@@ -147,3 +147,45 @@ int dcc_make_tmpnam(const char *prefix, const char *suffix, char **name_ret, int
 
     return 0;
 }
+
+int dcc_make_tmpdir(char **name_ret) {
+    unsigned long tries = 0;
+    char template[] = "icecc-XXXXXX";
+    size_t tmpname_length = strlen(_PATH_TMP) + 1 + strlen(template) + 1;
+    char *tmpname = malloc(tmpname_length);
+
+    if (!tmpname) {
+        return EXIT_OUT_OF_MEMORY;
+    }
+
+    if (snprintf(tmpname, tmpname_length, "%s/%s", _PATH_TMP, template) == -1) {
+        free(tmpname);
+        return EXIT_OUT_OF_MEMORY;
+    }
+
+    do {
+        if (!mkdtemp(tmpname)) {
+            if (++tries > 1000000) {
+                free(tmpname);
+                return EXIT_IO_ERROR;
+            }
+
+            switch (errno) {
+            case EACCES:
+            case EEXIST:
+            case EISDIR:
+            case ELOOP:
+                continue;
+            }
+
+            free(tmpname);
+            return EXIT_IO_ERROR;
+        }
+
+        break;
+    } while (1);
+
+    *name_ret = tmpname;
+
+    return 0;
+}
