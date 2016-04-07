@@ -1917,12 +1917,10 @@ bool Daemon::reconnect()
     trace() << "reconn " << dump_internals() << endl;
 #endif
 
-    if (!discover || discover->timed_out()) {
+    if (!discover || (NULL == (scheduler = discover->try_get_scheduler()) && discover->timed_out())) {
         delete discover;
         discover = new DiscoverSched(netname, max_scheduler_pong, schedname, scheduler_port);
     }
-
-    scheduler = discover->try_get_scheduler();
 
     if (!scheduler) {
         log_warning() << "scheduler not yet found." << endl;
