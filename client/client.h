@@ -30,6 +30,8 @@
 #include <sys/time.h>
 #include <sys/resource.h>
 
+#include <stdexcept>
+
 #include "exitcode.h"
 #include "logging.h"
 #include "util.h"
@@ -63,5 +65,25 @@ extern void dcc_increment_safeguard(void);
 extern int dcc_recursion_safeguard(void);
 
 extern Environments parse_icecc_version(const std::string &target, const std::string &prefix);
+
+class client_error :  public std::runtime_error
+{
+    public:
+    client_error(int code, const std::string& what) 
+    : std::runtime_error(what)
+    , errorCode(code)
+    {}
+
+    const int errorCode;
+};
+
+class remote_error : public client_error
+{
+    public:
+    remote_error(int code, const std::string& what) 
+    : client_error(code, what)
+    {}
+};
+
 
 #endif

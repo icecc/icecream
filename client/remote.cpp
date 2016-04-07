@@ -233,7 +233,7 @@ static UseCSMsg *get_server(MsgChannel *local_daemon)
     if (!umsg || umsg->type != M_USE_CS) {
         log_warning() << "replied not with use_cs " << (umsg ? (char)umsg->type : '0')  << endl;
         delete umsg;
-        throw(1);
+        throw client_error(1, "Error 1 - expected use_cs reply, but got something else");
     }
 
     UseCSMsg *usecs = dynamic_cast<UseCSMsg *>(umsg);
@@ -245,7 +245,8 @@ static void check_for_failure(Msg *msg, MsgChannel *cserver)
     if (msg && msg->type == M_STATUS_TEXT) {
         log_error() << "Remote status (compiled on " << cserver->name << "): "
                     << static_cast<StatusTextMsg*>(msg)->text << endl;
-        throw(23);
+        throw client_error(23, "Error 23 - Remote status (compiled on " + cserver->name + ")\n" +
+                                 static_cast<StatusTextMsg*>(msg)->text );
     }
 }
 
@@ -269,7 +270,7 @@ static void write_server_cpp(int cpp_fd, MsgChannel *cserver)
             if (bytes < 0) {
                 log_perror("reading from cpp_fd");
                 close(cpp_fd);
-                throw(16);
+                throw client_error(16, "Error 16 - error reading local cpp file");
             }
 
             break;
@@ -289,7 +290,7 @@ static void write_server_cpp(int cpp_fd, MsgChannel *cserver)
                                 << cserver->name.c_str() << endl;
                     log_perror("failed ");
                     close(cpp_fd);
-                    throw(15);
+                    throw client_error(15, "write do host failed");
                 }
 
                 uncompressed += fcmsg.len;
@@ -319,7 +320,7 @@ static void receive_file(const string& output_file, MsgChannel* cserver)
         std::string errmsg("can't create ");
         errmsg += tmp_file + ":";
         log_perror(errmsg.c_str());
-        throw(31);
+        throw client_error(31, "Error 31 - " + errmsg);
     }
 
     Msg* msg = 0;
@@ -333,7 +334,7 @@ static void receive_file(const string& output_file, MsgChannel* cserver)
 
         if (!msg) {   // the network went down?
             unlink(tmp_file.c_str());
-            throw(19);
+            throw client_error(19, "Error 19 - (network failure?)");
         }
 
         check_for_failure(msg, cserver);
@@ -345,7 +346,7 @@ static void receive_file(const string& output_file, MsgChannel* cserver)
         if (msg->type != M_FILE_CHUNK) {
             unlink(tmp_file.c_str());
             delete msg;
-            throw(20);
+            throw client_error(20, "Error 20 - unexpcted message");
         }
 
         FileChunkMsg *fcmsg = dynamic_cast<FileChunkMsg*>(msg);
@@ -355,7 +356,7 @@ static void receive_file(const string& output_file, MsgChannel* cserver)
         if (write(obj_fd, fcmsg->buffer, fcmsg->len) != (ssize_t)fcmsg->len) {
             unlink(tmp_file.c_str());
             delete msg;
-            throw(21);
+            throw client_error(21, "Error 21 - error writing file");
         }
     }
 
@@ -367,7 +368,7 @@ static void receive_file(const string& output_file, MsgChannel* cserver)
 
     if (close(obj_fd) != 0 || rename(tmp_file.c_str(), output_file.c_str()) != 0) {
         unlink(tmp_file.c_str());
-        throw(30);
+        throw client_error(30, "Error 30 - error closing temp file");
     }
 }
 
@@ -397,7 +398,7 @@ static int build_remote_int(CompileJob &job, UseCSMsg *usecs, MsgChannel *local_
         if (!cserver) {
             log_error() << "no server found behind given hostname " << hostname << ":"
                         << port << endl;
-            throw(2);
+            throw client_error(2, "Error 2 - no server found at " + hostname);
         }
 
         if (!got_env) {
@@ -407,33 +408,33 @@ static int build_remote_int(CompileJob &job, UseCSMsg *usecs, MsgChannel *local_
 
             if (stat(version_file.c_str(), &buf)) {
                 log_perror("error stat'ing version file");
-                throw(4);
+                throw client_error(4, "Error 4 - unable to stat version file");
             }
 
             EnvTransferMsg msg(job.targetPlatform(), job.environmentVersion());
 
             if (!cserver->send_msg(msg)) {
-                throw(6);
+                throw client_error(6, "Error 6 - send environment to remove failed");
             }
 
             int env_fd = open(version_file.c_str(), O_RDONLY);
 
             if (env_fd < 0) {
-                throw(5);
+                throw client_error(5, "Error 5 - unable to open version file:\n\t" + version_file);
             }
 
             write_server_cpp(env_fd, cserver);
 
             if (!cserver->send_msg(EndMsg())) {
                 log_error() << "write of environment failed" << endl;
-                throw(8);
+                throw client_error(8, "Error 8 - write enviornment to remote failed");
             }
 
             if (IS_PROTOCOL_31(cserver)) {
                 VerifyEnvMsg verifymsg(job.targetPlatform(), job.environmentVersion());
 
                 if (!cserver->send_msg(verifymsg)) {
-                    throw(22);
+                    throw client_error(22, "Error 22 - error sending environment");
                 }
 
                 Msg *verify_msg = cserver->get_msg(60);
@@ -448,20 +449,20 @@ static int build_remote_int(CompileJob &job, UseCSMsg *usecs, MsgChannel *local_
                         BlacklistHostEnvMsg blacklist(job.targetPlatform(),
                                                       job.environmentVersion(), hostname);
                         local_daemon->send_msg(blacklist);
-                        throw(24);
+                        throw client_error(24, "Error 24 - remote " + hostname + " unable to handle environment");
                     } else
                         trace() << "Verified host " << hostname << " for environment "
                                 << job.environmentVersion() << " (" << job.targetPlatform() << ")"
                                 << endl;
                 } else {
-                    throw(25);
+                    throw client_error(25, "Error 25 - other error verifying enviornment on remote");
                 }
             }
         }
 
         if (!IS_PROTOCOL_31(cserver) && ignore_unverified()) {
             log_warning() << "Host " << hostname << " cannot be verified." << endl;
-            throw(26);
+            throw client_error(26, "Error 26 - environment on " + hostname + " cannot be verified");
         }
 
         CompileFileMsg compile_file(&job);
@@ -470,7 +471,7 @@ static int build_remote_int(CompileJob &job, UseCSMsg *usecs, MsgChannel *local_
 
             if (!cserver->send_msg(compile_file)) {
                 log_info() << "write of job failed" << endl;
-                throw(9);
+                throw client_error(9, "Error 9 - error sending file to remote");
             }
         }
 
@@ -488,15 +489,15 @@ static int build_remote_int(CompileJob &job, UseCSMsg *usecs, MsgChannel *local_
             pid_t cpp_pid = call_cpp(job, sockets[1], sockets[0]);
 
             if (cpp_pid == -1) {
-                throw(18);
+                throw client_error(18, "Error 18 - (fork error?)");
             }
 
             try {
                 log_block bl2("write_server_cpp from cpp");
                 write_server_cpp(sockets[0], cserver);
-            } catch (int error) {
+            } catch (...) {
                 kill(cpp_pid, SIGTERM);
-                throw(error);
+                throw;
             }
 
             log_block wait_cpp("wait for cpp");
@@ -512,7 +513,7 @@ static int build_remote_int(CompileJob &job, UseCSMsg *usecs, MsgChannel *local_
             int cpp_fd = open(preproc_file, O_RDONLY);
 
             if (cpp_fd < 0) {
-                throw(11);
+                throw client_error(11, "Error 11 - unable to open preprocessed file");
             }
 
             log_block cpp_block("write_server_cpp");
@@ -521,7 +522,7 @@ static int build_remote_int(CompileJob &job, UseCSMsg *usecs, MsgChannel *local_
 
         if (!cserver->send_msg(EndMsg())) {
             log_info() << "write of end failed" << endl;
-            throw(12);
+            throw client_error(12, "Error 12 - failed to send file to remote");
         }
 
         Msg *msg;
@@ -530,7 +531,7 @@ static int build_remote_int(CompileJob &job, UseCSMsg *usecs, MsgChannel *local_
             msg = cserver->get_msg(12 * 60);
 
             if (!msg) {
-                throw(14);
+                throw client_error(14, "Error 14 - error reading message from remote");
             }
         }
 
@@ -539,7 +540,7 @@ static int build_remote_int(CompileJob &job, UseCSMsg *usecs, MsgChannel *local_
         if (msg->type != M_COMPILE_RESULT) {
             log_warning() << "waited for compile result, but got " << (char)msg->type << endl;
             delete msg;
-            throw(13);
+            throw client_error(13, "Error 13 - did not get compile response message");
         }
 
         CompileResultMsg *crmsg = dynamic_cast<CompileResultMsg*>(msg);
@@ -550,14 +551,14 @@ static int build_remote_int(CompileJob &job, UseCSMsg *usecs, MsgChannel *local_
         if (status && crmsg->was_out_of_memory) {
             delete crmsg;
             log_info() << "the server ran out of memory, recompiling locally" << endl;
-            throw(101);
+            throw remote_error(101, "Error 101 - the server ran out of memory, recompiling locally");
         }
 
         if (output) {
             if ((!crmsg->out.empty() || !crmsg->err.empty()) && output_needs_workaround(job)) {
                 delete crmsg;
                 log_info() << "command needs stdout/stderr workaround, recompiling locally" << endl;
-                throw(102);
+                throw remote_error(102, "Error 102 command needs stdout/stderr workaround, recompiling locally");
             }
 
             ignore_result(write(STDOUT_FILENO, crmsg->out.c_str(), crmsg->out.size()));
@@ -586,7 +587,7 @@ static int build_remote_int(CompileJob &job, UseCSMsg *usecs, MsgChannel *local_
             }
         }
 
-    } catch (int x) {
+    } catch (...) {
         // Handle pending status messages, if any.
         if(cserver) {
             while(Msg* msg = cserver->get_msg(0)) {
@@ -599,7 +600,7 @@ static int build_remote_int(CompileJob &job, UseCSMsg *usecs, MsgChannel *local_
             cserver = 0;
         }
 
-        throw(x);
+        throw;
     }
 
     delete cserver;
@@ -666,7 +667,7 @@ maybe_build_local(MsgChannel *local_daemon, UseCSMsg *usecs, CompileJob &job,
 
         if (!local_daemon->send_msg(compile_file)) {
             log_info() << "write of job failed" << endl;
-            throw(29);
+            throw client_error(29, "Error 29 - write of job failed");
         }
 
         struct timeval begintv,  endtv;
@@ -744,7 +745,7 @@ int build_remote(CompileJob &job, MsgChannel *local_daemon, const Environments &
 
     if (!envs.size()) {
         log_error() << "$ICECC_VERSION needs to point to .tar files" << endl;
-        throw(22);
+        throw client_error(22, "Error 22 - $ICECC_VERSION needs to point to .tar files");
     }
 
     const char *preferred_host = getenv("ICECC_PREFERRED_HOST");
@@ -772,7 +773,7 @@ int build_remote(CompileJob &job, MsgChannel *local_daemon, const Environments &
 
         if (!local_daemon->send_msg(getcs)) {
             log_warning() << "asked for CS" << endl;
-            throw(24);
+            throw client_error(24, "Error 24 - asked for CS");
         }
 
         UseCSMsg *usecs = get_server(local_daemon);
@@ -797,7 +798,7 @@ int build_remote(CompileJob &job, MsgChannel *local_daemon, const Environments &
 
         if (cpp_pid == -1) {
             ::unlink(preproc);
-            throw(10);
+            throw client_error(10, "Error 10 - (unable to fork process?)");
         }
 
         int status = 255;
@@ -820,7 +821,7 @@ int build_remote(CompileJob &job, MsgChannel *local_daemon, const Environments &
 
         if (!local_daemon->send_msg(getcs)) {
             log_warning() << "asked for CS" << endl;
-            throw(0);
+            throw client_error(0, "Error 0 - asked for CS");
         }
 
         map<pid_t, int> jobmap;
@@ -868,8 +869,8 @@ int build_remote(CompileJob &job, MsgChannel *local_daemon, const Environments &
                                   version_map[umsgs[i]->host_platform],
                                   versionfile_map[umsgs[i]->host_platform],
                                   preproc, i == 0);
-                } catch (int error) {
-                    log_info() << "build_remote_int failed and has thrown " << error << endl;
+                } catch (std::exception& error) {
+                    log_info() << "build_remote_int failed and has thrown " << error.what() << endl;
                     kill(getpid(), SIGTERM);
                     return 0; // shouldn't matter
                 }
@@ -975,7 +976,7 @@ int build_remote(CompileJob &job, MsgChannel *local_daemon, const Environments &
         delete [] exit_codes;
 
         if (misc_error) {
-            throw(27);
+            throw client_error(27, "Error 27 - misc error");
         }
 
         return ret;
