@@ -320,8 +320,9 @@ bool analyse_argv(const char * const *argv, CompileJob &job, bool icerun, list<s
                     if (dot_index != string::npos) {
                         string ext = p.substr(dot_index + 1);
 
-                        if (ext[0] != 'h' && ext[0] != 'H' && access(p.c_str(), R_OK)
-                            && access((p + ".gch").c_str(), R_OK)) {
+                        if (ext[0] != 'h' && ext[0] != 'H'
+                            && (access(p.c_str(), R_OK)
+                                || access((p + ".gch").c_str(), R_OK))) {
                             log_info() << "include file or gch file for argument " << a << " " << p
                                        << " missing, building locally" << endl;
                             always_local = true;
