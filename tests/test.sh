@@ -783,6 +783,7 @@ if test -z "$chroot_disabled"; then
 fi
 
 run_ice "$testdir/plain.o" "remote" 0 "split_dwarf" $GCC -Wall -Werror -gsplit-dwarf -c plain.c -o "$testdir/"plain.o
+run_ice "$testdir/plain.o" "remote" 0 "split_dwarf" $GCC -Wall -Werror -gsplit-dwarf -c plain.c -o "../../../../../../../..$testdir/plain.o"
 run_ice "$testdir/plain.o" "remote" 0 $GCC -Wall -Werror -c plain.c -o "$testdir/"plain.o
 run_ice "$testdir/plain.o" "remote" 0 $GXX -Wall -Werror -c plain.cpp -O2 -o "$testdir/"plain.o
 run_ice "$testdir/plain.ii" "local" 0 $GXX -Wall -Werror -E plain.cpp -o "$testdir/"plain.ii

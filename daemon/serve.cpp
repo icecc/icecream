@@ -236,12 +236,13 @@ int handle_connection(const string &basedir, CompileJob *job,
 
             string output_dir, relative_file_path;
             if (!file_dir.empty() && file_dir[0] == '/') { // output dir is absolute, convert to relative
-                relative_file_path = get_relative_path(tmp_path + get_canonicalized_path(job_output_file), tmp_path + get_canonicalized_path(job_working_dir));
+                relative_file_path = get_relative_path(get_canonicalized_path(job_output_file), get_canonicalized_path(job_working_dir));
                 output_dir = tmp_path + get_canonicalized_path(file_dir);
             }
-            else { // output file is already relative
-                relative_file_path = job_output_file;
-                output_dir = tmp_path + get_canonicalized_path(job_working_dir + '/' + file_dir); // need the path separator since this is relative
+            else { // output file is already relative, canonicalize in relation to working dir
+                string canonicalized_dir = get_canonicalized_path(job_working_dir + '/' + file_dir);
+                relative_file_path = get_relative_path(canonicalized_dir + '/' + file_name, get_canonicalized_path(job_working_dir));
+                output_dir = tmp_path + canonicalized_dir;
             }
 
             if (!mkpath(output_dir)) {

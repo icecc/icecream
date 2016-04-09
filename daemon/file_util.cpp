@@ -90,7 +90,7 @@ string get_canonicalized_path(const string &path) {
         if (*parts_it == ".." && !canonicalized_path.empty()) {
             canonicalized_path.pop_back();
         }
-        else if (*parts_it != ".") {
+        else if (*parts_it != "." && *parts_it != "..") {
             canonicalized_path.push_back(*parts_it);
         }
 
