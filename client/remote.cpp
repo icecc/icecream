@@ -290,7 +290,7 @@ static void write_server_cpp(int cpp_fd, MsgChannel *cserver)
                                 << cserver->name.c_str() << endl;
                     log_perror("failed ");
                     close(cpp_fd);
-                    throw client_error(15, "write do host failed");
+                    throw client_error(15, "Error 15 - write to host failed");
                 }
 
                 uncompressed += fcmsg.len;
@@ -558,7 +558,7 @@ static int build_remote_int(CompileJob &job, UseCSMsg *usecs, MsgChannel *local_
             if ((!crmsg->out.empty() || !crmsg->err.empty()) && output_needs_workaround(job)) {
                 delete crmsg;
                 log_info() << "command needs stdout/stderr workaround, recompiling locally" << endl;
-                throw remote_error(102, "Error 102 command needs stdout/stderr workaround, recompiling locally");
+                throw remote_error(102, "Error 102 - command needs stdout/stderr workaround, recompiling locally");
             }
 
             ignore_result(write(STDOUT_FILENO, crmsg->out.c_str(), crmsg->out.size()));

@@ -506,7 +506,7 @@ int main(int argc, char **argv)
                 local_daemon->send_msg(EndMsg());
             }
         } catch (remote_error& error) {
-            log_info() << "local build forced by error " << error.what() << endl;
+            log_info() << "local build forced by remote exception: " << error.what() << endl;
             goto do_local_error;
         }
         catch (client_error& error) {

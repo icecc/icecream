@@ -706,7 +706,7 @@ check_logs_for_generic_errors()
     # consider all non-fatal errors such as running out of memory on the remote
     # still as problems, except for:
     # 102 - -fdiagnostics-show-caret forced local build (gcc-4.8+)
-    check_log_error_except icecc "local build forced" "local build forced by error 102"
+    check_log_error_except icecc "local build forced" "local build forced by remote exception: Error 102 - command needs stdout/stderr workaround, recompiling locally"
 }
 
 check_log_error()
