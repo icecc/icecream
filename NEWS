@@ -1,3 +1,7 @@
+1.1rc2
+ - -gsplit-dwarf support for debug fission (https://gcc.gnu.org/wiki/DebugFission)
+ - bug fixes since 1.1rc1
+
 1.1rc1
  - require capng
  - use system lzo, drop bundled minilzo
@@ -27,7 +31,7 @@
  - make signal handlers more robust
  - work better if user "icecc" does not exist
  - find compilers outside of PATH when building locally
- 
+
 1.0.1
 - use su option for logrotate
 - require logrotate for suse package
