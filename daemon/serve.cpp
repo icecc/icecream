@@ -227,7 +227,7 @@ int handle_connection(const string &basedir, CompileJob *job,
             size_t slash_index = job_output_file.find_last_of('/');
             string file_dir, file_name;
             if (slash_index != string::npos) {
-                file_dir = job_output_file.substr(0, job_output_file.find_last_of('/'));
+                file_dir = job_output_file.substr(0, slash_index);
                 file_name = job_output_file.substr(slash_index+1);
             }
             else {
