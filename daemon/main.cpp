@@ -532,7 +532,7 @@ struct Daemon {
     int working_loop();
     bool setup_listen_fds();
     void check_cache_size(const string &new_env);
-    void create_env_finished(string env_key);
+    bool create_env_finished(string env_key);
 };
 
 bool Daemon::setup_listen_fds()
@@ -1153,7 +1153,7 @@ bool Daemon::finish_get_native_env(Client *client, string env_key)
     return true;
 }
 
-void Daemon::create_env_finished(string env_key)
+bool Daemon::create_env_finished(string env_key)
 {
     assert(native_environments.count(env_key));
     NativeEnvironment &env = native_environments[env_key];
@@ -1174,8 +1174,7 @@ void Daemon::create_env_finished(string env_key)
                 handle_end(it->second, 121);
             }
         }
-        native_environments.erase(env_key);
-        return;
+        return false;
     }
 
     save_compiler_timestamps(env.gcc_bin_timestamp, env.gpp_bin_timestamp, env.clang_bin_timestamp);
@@ -1186,6 +1185,7 @@ void Daemon::create_env_finished(string env_key)
         if (it->second->pending_create_env == env_key)
             finish_get_native_env(it->second, env_key);
     }
+    return true;
 }
 
 bool Daemon::handle_job_done(Client *cl, JobDoneMsg *m)
@@ -1884,10 +1884,15 @@ int Daemon::answer_client_requests()
             }
 
             for (map<string, NativeEnvironment>::iterator it = native_environments.begin();
-                 it != native_environments.end(); ++it) {
+                 it != native_environments.end(); ) {
                 if (it->second.create_env_pipe && FD_ISSET(it->second.create_env_pipe, &listen_set)) {
-                    create_env_finished(it->first);
+                    if(!create_env_finished(it->first))
+                    {
+                        native_environments.erase(it++);
+                        continue;
+                    }
                 }
+                ++it;
             }
 
         }
