@@ -24,6 +24,9 @@
 
 #include <config.h>
 
+#ifdef HAVE_SIGNAL_H
+#include <signal.h>
+#endif
 #include <sys/types.h>
 #include <netinet/in.h>
 #include <sys/socket.h>
