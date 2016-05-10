@@ -211,7 +211,6 @@ AC_CHECK_FUNCS([getrusage strsignal gettimeofday])
 AC_CHECK_FUNCS([getaddrinfo getnameinfo inet_ntop inet_ntoa])
 AC_CHECK_FUNCS([strndup mmap strlcpy])
 AC_CHECK_FUNCS([getloadavg])
-AC_CHECK_FUNCS([signal])
 
 AC_CHECK_DECLS([snprintf, vsnprintf, vasprintf, asprintf, strndup])
 
