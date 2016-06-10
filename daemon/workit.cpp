@@ -238,6 +238,7 @@ int work_it(CompileJob &j, unsigned int job_stat[], MsgChannel *client, CompileR
                 argv[i++] = strdup("-Xclang");
                 argv[i++] = strdup(j.workingDirectory().c_str());
             }
+            trace() << "Compiling " << j.inputFile().c_str() << endl;
         }
 
         // HACK: If in / , Clang records DW_AT_name with / prepended .
@@ -289,6 +290,11 @@ int work_it(CompileJob &j, unsigned int job_stat[], MsgChannel *client, CompileR
         // before you add new args, check above for argc
         argv[i] = 0;
         assert(i <= argc);
+
+        for (int currArg = 0; currArg < i; currArg++) {
+          trace() << argv[currArg];
+        }
+        trace() << endl;
 
         close_debug();
 
