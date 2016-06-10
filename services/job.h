@@ -50,6 +50,7 @@ public:
         Lang_C,
         Lang_CXX,
         Lang_OBJC,
+        Lang_OBJCXX,
         Lang_Custom
     } Language;
 
@@ -222,6 +223,9 @@ inline std::ostream &operator<<( std::ostream &output,
         break;
     case CompileJob::Lang_OBJC:
         output << "ObjC";
+        break;
+    case CompileJob::Lang_OBJCXX:
+        output << "ObjC++";
         break;
     }
     return output;
