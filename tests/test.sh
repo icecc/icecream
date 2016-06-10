@@ -529,6 +529,21 @@ icerun_test()
     export PATH=$save_path
 }
 
+# Check that icecc --build-native works.
+buildnativetest()
+{
+    echo Running icecc --build-native test.
+    local tgz=$(PATH="$prefix"/bin:/bin:/usr/bin icecc --build-native 2>&1 | \
+        grep "^creating .*\.tar\.gz$" | sed -e "s/^creating //")
+    if test $? -ne 0; then
+        echo icecc --build-native test failed.
+        exit 2
+    fi
+    rm -f $tgz
+    echo icecc --build-native test successful.
+    echo
+}
+
 # Check that icecc recursively invoking itself is detected.
 recursive_test()
 {
@@ -752,6 +767,8 @@ check_log_message_count()
         exit 2
     fi
 }
+
+buildnativetest
 
 rm -f "$testdir"/scheduler_all.log
 rm -f "$testdir"/localice_all.log

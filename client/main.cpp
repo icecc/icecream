@@ -183,12 +183,12 @@ static int create_native(char **args)
     vector<char*> argv;
     struct stat st;
 
-    if (lstat(PLIBDIR "/icecc-create-env", &st)) {
-        log_error() << PLIBDIR "/icecc-create-env does not exist" << endl;
+    if (lstat(BINDIR "/icecc-create-env", &st)) {
+        log_error() << BINDIR "/icecc-create-env does not exist" << endl;
         return 1;
     }
 
-    argv.push_back(strdup(PLIBDIR "/icecc-create-env"));
+    argv.push_back(strdup(BINDIR "/icecc-create-env"));
 
     if (is_clang) {
         string clang = compiler_path_lookup("clang");
