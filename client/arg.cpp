@@ -716,10 +716,11 @@ bool analyse_argv(const char * const *argv, CompileJob &job, bool icerun, list<s
 
 #endif
                 job.setLanguage(CompileJob::Lang_CXX);
-            } else if (ext == "mi" || ext == "m"
-                       || ext == "mii" || ext == "mm"
-                       || ext == "M") {
+            } else if (ext == "mi" || ext == "m") {
                 job.setLanguage(CompileJob::Lang_OBJC);
+            } else if (ext == "mii" || ext == "mm"
+                       || ext == "M") {
+                job.setLanguage(CompileJob::Lang_OBJCXX);
             } else if (ext == "s" || ext == "S" // assembler
                        || ext == "ads" || ext == "adb" // ada
                        || ext == "f" || ext == "for" // fortran

@@ -248,7 +248,18 @@ int work_it(CompileJob &j, unsigned int job_stat[], MsgChannel *client, CompileR
         }
 
         argv[i++] = strdup("-x");
-        argv[i++] = strdup((j.language() == CompileJob::Lang_CXX) ? "c++" : "c");
+        if (j.language() == CompileJob::Lang_CXX) {
+          argv[i++] = strdup("c++");
+        } else if (j.language() == CompileJob::Lang_OBJC) {
+          argv[i++] = strdup("objective-c");
+        } else if (j.language() == CompileJob::Lang_OBJCXX) {
+          argv[i++] = strdup("objective-c++");
+        } else if (j.language() == CompileJob::Lang_C) {
+          argv[i++] = strdup("c");
+        } else {
+            error_client(client, "language not supported");
+            log_perror("language not supported");
+        }
 
         if( clang ) {
             // gcc seems to handle setting main file name and working directory fine
