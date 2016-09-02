@@ -301,7 +301,9 @@ for extrafile in $extrafiles; do
     add_file $extrafile
 done
 
-add_file /usr/bin/objcopy
+if [ -e /usr/bin/objcopy ]; then
+    add_file /usr/bin/objcopy
+fi
 
 if test "$is_darwin" = 1; then
     # add dynamic linker
