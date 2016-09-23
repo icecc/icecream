@@ -1006,7 +1006,7 @@ void Daemon::check_cache_size(const string &new_env)
 
         for (map<string, time_t>::const_iterator it = envs_last_use.begin();
                 it != envs_last_use.end(); ++it) {
-            trace() << "das ist jetzt so: " << it->first << " " << it->second << " " << oldest_time << endl;
+            trace() << "considering cached environment: " << it->first << " " << it->second << " " << oldest_time << endl;
             // ignore recently used envs (they might be in use _right_ now)
             int keep_timeout = 200;
             string native_env_key;
