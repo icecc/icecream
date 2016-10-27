@@ -427,7 +427,7 @@ static int build_remote_int(CompileJob &job, UseCSMsg *usecs, MsgChannel *local_
 
             if (!cserver->send_msg(EndMsg())) {
                 log_error() << "write of environment failed" << endl;
-                throw client_error(8, "Error 8 - write enviornment to remote failed");
+                throw client_error(8, "Error 8 - write environment to remote failed");
             }
 
             if (IS_PROTOCOL_31(cserver)) {
@@ -455,7 +455,7 @@ static int build_remote_int(CompileJob &job, UseCSMsg *usecs, MsgChannel *local_
                                 << job.environmentVersion() << " (" << job.targetPlatform() << ")"
                                 << endl;
                 } else {
-                    throw client_error(25, "Error 25 - other error verifying enviornment on remote");
+                    throw client_error(25, "Error 25 - other error verifying environment on remote");
                 }
             }
         }
