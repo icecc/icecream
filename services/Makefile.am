@@ -3,7 +3,7 @@ libicecc_la_SOURCES = job.cpp comm.cpp exitcode.cpp getifaddrs.cpp logging.cpp t
 libicecc_la_LIBADD = \
 	$(LZO_LDADD) \
 	$(CAPNG_LDADD) \
-	-ldl
+	$(DL_LDADD)
 
 libicecc_la_CFLAGS = -fPIC -DPIC
 libicecc_la_CXXFLAGS = -fPIC -DPIC
