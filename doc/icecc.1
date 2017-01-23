@@ -1,0 +1,33 @@
+.\" -*- coding: us-ascii -*-
+.if \n(.g .ds T< \\FC
+.if \n(.g .ds T> \\F[\n[.fam]]
+.de URL
+\\$2 \(la\\$1\(ra\\$3
+..
+.if \n(.g .mso www.tmac
+.TH icecc 1 "April 21th, 2005" "" ""
+.SH NAME
+icecc \- Icecream compiler stub
+.SH SYNOPSIS
+'nh
+.fi
+.ad l
+\fBicecc\fR \kx
+.if (\nx>(\n(.l/2)) .nr x (\n(.l/5)
+'in \n(.iu+\nxu
+[
+\fBoptions\fR
+] [-o OBJECT] [-c SOURCE]
+'in \n(.iu-\nxu
+.ad b
+'hy
+.SH DESCRIPTION
+icecc is the Icecream compiler stub. It gets called in place of the actual
+compiler and transparently routes the compile requests to the Icecream
+network. You shouldn't call icecc directly, but place the specific compiler
+stubs in your path:
+\fBexport PATH=/usr/lib/icecc/bin:$PATH\fR.
+.SH "SEE ALSO"
+icecream, icecc-scheduler, iceccd, icemon
+.SH AUTHOR
+Cornelius Schumacher

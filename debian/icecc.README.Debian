@@ -1,0 +1,15 @@
+icecc for Debian
+----------------
+
+The startup of iceccd and icecc-scheduler is now configured exclusively using
+the init system.  This means that icecc-scheduler can be enabled at boot using
+update-rc.d:
+  # update-rc.d icecc-scheduler enable
+
+Likewise, both iceccd (which is started by default) and icecc-scheduler
+can be disabled using
+  # update-rc.d iceccd disable
+  # update-rc.d icecc-scheduler disable
+
+Please refer to update-rc.d(8) for more information on update-rc.d usage.
+

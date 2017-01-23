@@ -1,0 +1,424 @@
+icecc (1.1.0-1) unstable; urgency=medium
+
+  * Added new Class PortCustomConfig in comm.h file
+   - Schedulerport & daemonport are new vars in this file.
+     Configuration ports are now DyNaMiCs !
+  * Added new SCHEDULER_PORT & DAEMON_PORT in icecc.conf file to be able to
+    change the ports of the Scheduler and the daemon
+  * Modified the postrm & prerm script to have a better behavior when remove/purge
+  
+
+ -- GREGOIRE Julien <juliengregroire@outlook.com>  Mon, 18 Jan 2016 10:13:09 +0100
+
+icecc (1.0.1-1) unstable; urgency=low
+
+  * New upstream release.
+
+  [ Pino Toscano ]
+  * Fix update-rc.d command typo in icecc.README.Debian.
+  * icecc: recommend logrotate for for logs rotation.
+
+ -- Mark Purcell <msp@debian.org>  Sat, 12 Oct 2013 15:03:34 +1100
+
+icecc (1.0.0-1) unstable; urgency=low
+
+  * New upstream release:
+    - fixes compilation with GCC 4.8 (Closes: #701295)
+  * Update patches:
+    - 10_rename_scheduler.diff: remove, obsolete
+    - fix_gcc_4.6_support.diff: remove, obsolete
+    - fix_pkglibdir_bug661413.diff: remove, obsolete
+  * Bump the debhelper compatibility to 9:
+    - bump compat to 9
+    - bump the debhelper build dependency to 9
+    - keep the libexecdir as a non-multiarch path
+    - adjust libicecc-dev.install
+  * Update icecc.install.
+  * Remove icecc.links, obsolete now.
+  * Remove the Debian-provided man pages of icecc, iceccd, and icecc-scheduler;
+    make use of their version shipped upstream.
+  * Export V=1 to make the build verbose.
+  * Generate the Debian-provided man pages at build time, instead of at
+    configure time.
+  * Remove ${shlibs:Depends} from libicecc-dev.
+  * Fix Vcs-* headers.
+  * Since the build system is no more patched, there is no need to autoreconf:
+    - drop the autoconf, automake, and libtool build dependencies
+    - stop calling autoreconf at configure time
+  * Pass --fail-missing to dh_install to make sure to not really miss anything,
+    removing the libtool's .la file before.
+  * Add the docbook-to-man and docbook-xml build dependencies for man pages
+    regeneration.
+  * Remove the dpkg 1.9.0 dependency in icecc, since that dpkg version is
+    available already since Woody (!).
+  * Rename docs to icecc.docs.
+  * Generate the Debian man pages in an own build directory, and clean it
+    properly.
+  * Rework the startup of iceccd and icecc-scheduler:
+    - split the init script in two init scripts for iceccd and icecc-scheduler
+    - remove the debconf usage to determine whether start daemons; other than
+      being uncommon to use debconf this way, it also overwrites a conffile,
+      /etc/defaults/icecc (which has been removed now, although still used if
+      present) (Closes: #656089)
+    - stop using $START_ICECC and $START_ICECC_SCHEDULER in init scripts
+    - skip debhelper init scripts for icecc-scheduler, manually handling
+      registration (which disables icecc-scheduler only when upgrading from
+      < 1.0.0 or when installing), stop and removal
+    - add NEWS and README.Debian to document how startup is handled
+  * icecc.postrm: do not manually remove the conffiles in /etc, since dpkg does
+    that already.
+  * Bump Standards-Version to 3.9.4, no changes required.
+  * Cleanup the old conffiles: remove /etc/init.d/icecc, and move away
+    /etc/defaults/icecc.
+  * Implement the "status" action in the init scripts.
+  * Fix typo in the icecc-create-env man page.
+  * Since icerun is a symlink to icecc, create a symlink to the icecc man page
+    as man page for icerun.
+  * Update config.guess and config.sub during build:
+    - add the autotools-dev build dependency
+    - use the autotools_dev dh addon
+  * Override the hyphen-used-as-minus-sign lintian tags, since all the
+    man pages shipped are generated from docbook.
+  * Add the file dependency in icecc, as icecc-create-env uses it.
+  * Add myself to Uploaders.
+
+ -- Pino Toscano <pino@debian.org>  Thu, 06 Jun 2013 00:19:48 +0200
+
+icecc (0.9.7-5) unstable; urgency=low
+
+  * Fix pkglibdir as  not a legitimate directory for `SCRIPTS'.
+    Thanks to Leo Iannacone. (Closes: #661413)
+  * Add Danish translation of the debconf templates for icecc.
+    Thanks to Joe Dalton :). (Closes: #656641)
+  * Update description to mention Icecream. (Closes: #657186)
+
+ -- Fathi Boudra <fabo@debian.org>  Tue, 13 Mar 2012 17:46:23 +0200
+
+icecc (0.9.7-4) unstable; urgency=low
+
+  * Fix typo: ICECC_ALLOW_REMOTE.
+
+ -- Fathi Boudra <fabo@debian.org>  Sat, 17 Sep 2011 16:26:59 +0300
+
+icecc (0.9.7-3) unstable; urgency=low
+
+  * Add ICECREAM_ALLOW_REMOTE support.
+
+ -- Fathi Boudra <fabo@debian.org>  Wed, 14 Sep 2011 16:10:47 +0300
+
+icecc (0.9.7-2) unstable; urgency=low
+
+  * Fix GCC 4.6 support. It reverts to use the correc -print-file-name option.
+    Cherry picked upstream patch svn r1233883. (Closes: 630504)
+
+ -- Fathi Boudra <fabo@debian.org>  Sun, 14 Aug 2011 09:56:52 +0300
+
+icecc (0.9.7-1) unstable; urgency=low
+
+  * New upstream release.
+    - remote compilation fails with missing g++ plugin (Closes: #630504)
+  * Bump Standards-Version to 3.9.1 (no changes needed).
+  * Use dpkg wildcards for kfreebsd architecture. (Closes: #634317)
+  * Apply patch from Aloisio Almeida to resolve broken logging when iceccd is
+    launched from its initscript. (Closes: #635564)
+  * Remove libicecc.la file.
+
+ -- Fathi Boudra <fabo@debian.org>  Thu, 28 Jul 2011 15:06:47 +0300
+
+icecc (0.9.6-1) unstable; urgency=low
+
+  * New upstream release.
+  * Remove patches:
+    - 20_fix_ftbfs_on_kfreebsd.diff - merged upstream.
+    - 21_glibc-2.11-ldconfig.diff - stolen upstream.
+  * Bump Standards-Version to 3.9.1 (no changes needed).
+
+ -- Fathi Boudra <fabo@debian.org>  Mon, 09 Aug 2010 10:57:08 +0300
+
+icecc (0.9.5-2) unstable; urgency=low
+
+  * Fix postrm script: handle properly echoed strings. (Closes: #567663)
+  * Add Spanish debconf template translation for icecc.
+    Thanks to Camaleón. (Closes: #584443)
+  * Fix build against eglibc 2.11. (Closes: #585967)
+
+ -- Fathi Boudra <fabo@debian.org>  Sat, 19 Jun 2010 07:32:44 +0300
+
+icecc (0.9.5-1) unstable; urgency=low
+
+  * New upstream release:
+    - Install an "icerun" symlink that will serialize
+      commands through icecream's local daemon.
+  * Fix typos in manpages.
+  * Add DEP-3 headers to patches.
+  * Update debian/control:
+    - Remove quilt build dependency.
+    - Bump Standards-Version to 3.8.4 (no changes needed).
+    - Add dependency to g++ | c++-compiler | c-compiler.
+  * Refresh debian/copyright file.
+  * Update debian/icecc.install: Add icerun.
+  * Update debian/rules:
+    - Enable parallel build (pass --parallel option to dh).
+    - List missing files (pass --list-missing option to dh).
+    - Cleanup quilt bits.
+
+ -- Fathi Boudra <fabo@debian.org>  Thu, 22 Apr 2010 09:12:27 +0300
+
+icecc (0.9.4-2) unstable; urgency=low
+
+  * Add Japanese debconf template translation. (Closes: #558075)
+    Thanks to Hideki Yamane <henrich@debian.or.jp>
+  * Add Russian debconf templates translation. (Closes: #545212)
+    Thanks to Yuri Kozlov <yuray@komyakino.ru>
+  * Bump Standards-Version to 3.8.3 (no changes needed).
+
+ -- Fathi Boudra <fabo@debian.org>  Tue, 22 Dec 2009 17:07:38 +0100
+
+icecc (0.9.4-1.2) unstable; urgency=low
+
+  * Non-maintainer upload.
+  * Fix FTBFS due to auto* version mismatch:
+     - Add autoconf to Build-Depends.
+     - Use “autoreconf -vfi” to regenerate everything.
+
+ -- Cyril Brulebois <kibi@debian.org>  Sun, 13 Dec 2009 18:28:15 +0100
+
+icecc (0.9.4-1.1) unstable; urgency=low
+
+  * Non-maintainer upload.
+  * Fix FTBFS on GNU/kFreeBSD (Closes: #544576):
+     - Add libdevstat-dev to Build-Depends and to libicecc-dev's Depends,
+       only for kfreebsd-*.
+     - Add upstream patch: 20_fix_ftbfs_on_kfreebsd.diff
+     - Thanks to Petr Salinger for both Debian and upstream patches.
+
+ -- Cyril Brulebois <kibi@debian.org>  Sun, 06 Dec 2009 17:03:00 +0100
+
+icecc (0.9.4-1) unstable; urgency=low
+
+  * New upstream release.
+  * Update generated configuration files (autoreconf) as services/Makefile.am
+    is patched. (Closes: #527509)
+  * Fix postrm script: deluser/delgroup calls should not fail.
+    Thanks to Holger.
+  * Update debian/control:
+    - Update section from kde to devel.
+    - Remove cdbs build dependency. Switch to debhelper only.
+  * Update debian/rules since cdbs to debhelper switch.
+
+ -- Fathi Boudra <fabo@debian.org>  Fri, 08 May 2009 12:10:00 +0200
+
+icecc (0.9.3-1) unstable; urgency=low
+
+  * New upstream release.
+  * Remove patches:
+    - 11_gcc4.3_support_bug417230.diff. Not needed.
+    - 12_fix_crosstool_distribution_bug494692.diff
+    - 13_fix_nonblocking_sockets_for_icemon_bug503152.diff
+    - 14_gcc4.4_support_bug505118.diff. Merged upstream.
+  * Bump compat/debhelper to 7. No changes needed.
+  * Bump Standards-Version to 3.8.1.
+  * Switch to quilt patch system. Add build-dependency to quilt.
+
+ -- Fathi Boudra <fabo@debian.org>  Thu, 09 Apr 2009 10:18:31 +0200
+
+icecc (0.9.2-1) unstable; urgency=low
+
+  * New upstream release:
+    - Only localize job if we find -Wa,.*-a[a-z]*= in an argument. Otherwise,
+      we would also force local on things like -Wa,-mtune=something.
+      Thanks to Dmitry Baryshkov. (Closes: #494685)
+  * Add patch to fix crosstool distribution. Thanks to Sebastian Siewior.
+    (Closes: #494692)
+  * Add Swedish strings for icecc debconf. Thanks to Martin Bagge.
+    (Closes: #504246)
+  * Add patch to fix icecc 0.9.x connection by icecc-monitor.
+    (Closes: #503152)
+  * Add patch to fix FTBFS with GCC 4.4 from Martin. (Closes: #505118)
+  * Bump Standards-Version to 3.8.0. No changes needed.
+  * Remove README.Debian file.
+
+ -- Fathi Boudra <fabo@debian.org>  Wed, 12 Nov 2008 11:43:24 +0100
+
+icecc (0.9.1-1) unstable; urgency=low
+
+  * New upstream release.
+    - icecc - ICECC_CXX regression fix André Wöbbeking. (Closes: #483088)
+  * Add a trigger to restart iceccd when gcc changes - Petr Rockai.
+    - iceccd needs to be restarted upon gcc/g++ upgrades. (Closes: #486668)
+
+ -- Mark Purcell <msp@debian.org>  Mon, 30 Jun 2008 22:26:37 +1000
+
+icecc (0.9.0-1) unstable; urgency=low
+
+  * New upstream release.
+  * [INTL:pt] Updated Portuguese translation for debconf messages.
+    (Closes: #444719)
+  * Depends: c++-compiler | c-compiler.
+    - icecc does not work if g++ is not installed. (Closes: #458769)
+  * Add Homepage: Vcs-Svn: & Vcs-Browser: headers.
+  * Section: libdevel.
+
+ -- Mark Purcell <msp@debian.org>  Wed, 21 May 2008 20:26:30 +1000
+
+icecc (0.8.0-2) unstable; urgency=low
+
+  * conditional call on deluser/delgroup in postrm. (Closes: #431509)
+
+ -- Fathi Boudra <fboudra@free.fr>  Thu, 19 Jul 2007 23:39:30 +0200
+
+icecc (0.8.0-1) unstable; urgency=low
+
+  * New upstream release.
+  * Add [INTL:nl] Dutch po-debconf translation. (Closes: #423042)
+  * Update clean target in rules to fix FTBFS if built twice in a row.
+    (Closes: #424415)
+
+ -- Fathi Boudra <fboudra@free.fr>  Tue, 12 Jun 2007 12:01:53 +0200
+
+icecc (0.7.14-5) unstable; urgency=low
+
+  * Include gcc4.3 patch from Martin. (Closes: #417230)
+  * Add get-orig-source: target
+  * Add debconf translations
+    - [INTL:de] initial German debconf translation (Closes: #413407)
+    - [INTL:pt] Portuguese translation for debconf messages
+    (Closes: #414917)
+
+ -- Mark Purcell <msp@debian.org>  Wed, 02 May 2007 21:35:37 +0100
+
+icecc (0.7.14-4) unstable; urgency=low
+
+  * Add czech and french debconf templates translations
+    (Closes: #389802, #391477)
+
+ -- Fathi Boudra <fboudra@free.fr>  Sat, 14 Oct 2006 19:44:40 +0200
+
+icecc (0.7.14-3) unstable; urgency=low
+
+  * Fix comparisons in init script.
+    Thanks to Jens Reinsberger (Closes: #388166)
+
+ -- Fathi Boudra <fboudra@free.fr>  Tue, 19 Sep 2006 11:31:49 +0200
+
+icecc (0.7.14-2) unstable; urgency=low
+
+  * Make init script LSB compliant
+  * Split configuration file instead of embedding it in postinst
+  * Unmark Default field as translatable in debconf templates (Closes: #387521)
+  * Rewrite long description (Closes: #387096)
+
+ -- Fathi Boudra <fboudra@free.fr>  Sun, 17 Sep 2006 23:26:54 +0200
+
+icecc (0.7.14-1) unstable; urgency=low
+
+  * New upstream release
+  * watch: fix ftp address
+
+ -- Fathi Boudra <fboudra@free.fr>  Wed, 13 Sep 2006 19:38:28 +0200
+
+icecc (0.7.12-1) unstable; urgency=low
+
+  * New upstream release
+
+ -- Fathi Boudra <fboudra@free.fr>  Mon, 11 Sep 2006 21:32:02 +0200
+
+icecc (0.7.7-1) unstable; urgency=low
+
+  * Initial Debian release (Closes: #327462)
+  * Merge Andre Woebbeking and Jonathan Riddell package
+  * Convert package to cdbs
+  * control:
+    * add cdebconf depends
+    * remove unneeded depends: coreutils and grep
+    * update descriptions
+  * copyright: complete copyrights and licence informations
+
+ -- Fathi Boudra <fboudra@free.fr>  Sun, 27 Aug 2006 12:21:38 +0200
+
+icecc (0.7.6-1) unstable; urgency=low
+
+  * New upstream version.
+
+ -- Andre Woebbeking <Woebbeking@web.de>  Sun, 16 Jul 2006 19:52:23 +0200
+
+icecc (0.7.5-1) unstable; urgency=low
+
+  * New upstream version.
+
+ -- Andre Woebbeking <Woebbeking@web.de>  Wed, 12 Jul 2006 21:11:42 +0200
+
+icecc (0.7.4-1) unstable; urgency=low
+
+  * New upstream version.
+  * Patches are applied upstream (rename from icecream to icecc).
+
+ -- Andre Woebbeking <Woebbeking@web.de>  Sun, 09 Jul 2006 10:01:12 +0200
+
+icecc (0.7.3a-4ubuntu2) edgy; urgency=low
+
+  * Add missing build-dep on docbook2x
+
+ -- Jonathan Riddell <jriddell@ubuntu.com>  Thu, 13 Jul 2006 12:28:15 +0000
+
+icecc (0.7.3a-4ubuntu1) edgy; urgency=low
+
+  * New upstream release
+  * Merge with upstream
+
+ -- Jonathan Riddell <jriddell@ubuntu.com>  Fri,  7 Jul 2006 11:25:44 +0000
+
+icecc (0.7.3-4) unstable; urgency=low
+
+  * Also create a group icecc for the user icecc.
+  * Build with -O2.
+
+ -- Andre Woebbeking <Woebbeking@web.de>  Mon, 03 Jun 2006 23:50:12 +0200
+
+icecc (0.7.3-3) unstable; urgency=low
+
+  * Create libicecc-dev package.
+  * Simplified debian files.
+
+ -- Andre Woebbeking <Woebbeking@web.de>  Sun, 02 Jun 2006 19:00:51 +0200
+
+icecc (0.7.3-2) unstable; urgency=low
+
+  * Made icecc --build-native work.
+
+ -- Andre Woebbeking <Woebbeking@web.de>  Sat, 01 Jun 2006 21:30:51 +0200
+
+icecc (0.7.3-1) unstable; urgency=low
+
+  * New upstream version with new protocol (changed in 0.7.0).
+  * /usr/bin/create-env is now /usr/lib/icecc/icecc-create-env
+
+ -- Andre Woebbeking <Woebbeking@web.de>  Sat, 01 Jun 2006 20:36:15 +0200
+
+icecc (0.6.1-1) unstable; urgency=low
+
+  * It still builds at the new location so just bump the version number.
+
+ -- Andre Woebbeking <Woebbeking@web.de>  Sat, 29 Apr 2006 20:36:15 +0200
+
+icecc (0.6svn20060501-0ubuntu2) dapper; urgency=low
+
+  * Create links for cc and c++
+
+ -- Jonathan Riddell <jriddell@ubuntu.com>  Thu, 25 May 2006 14:34:38 +0100
+
+icecc (0.6svn20060501-0ubuntu1) dapper; urgency=low
+
+  * Initial Ubuntu upload
+  * Updated version from SVN
+  * Add manpages
+  * Depend on adduser
+  * Remove use of debconf
+
+ -- Jonathan Riddell <jriddell@ubuntu.com>  Sat, 29 Apr 2006 20:36:15 +0200
+
+icecc (0.6-1) unstable; urgency=low
+
+  * Initial Release.
+
+ -- Andre Woebbeking <Woebbeking@web.de>  Sat, 27 Nov 2004 15:36:15 +0200

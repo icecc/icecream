@@ -1,0 +1,40 @@
+#!/usr/bin/make -f
+
+DEB_HOST_MULTIARCH ?= $(shell dpkg-architecture -qDEB_HOST_MULTIARCH)
+
+# make the build verbose
+export V=1
+
+%:
+	dh $@ --parallel --with autotools_dev
+
+override_dh_auto_clean:
+	dh_auto_clean
+	rm -rf debian/out
+
+override_dh_auto_configure:
+	dh_auto_configure -- --libexecdir='$${prefix}/lib'
+
+override_dh_auto_build:
+	dh_auto_build
+	mkdir -p debian/out
+	cd debian/out && for i in ../man/*.xml; do \
+		/usr/bin/docbook2x-man $$i; \
+	done
+
+override_dh_auto_install:
+	dh_auto_install
+	# remove libtool file
+	rm -f debian/tmp/usr/lib/$(DEB_HOST_MULTIARCH)/libicecc.la
+
+override_dh_install:
+	dh_install --fail-missing
+
+override_dh_installinit:
+	dh_installinit -picecc --name=iceccd
+	dh_installinit -picecc --name=icecc-scheduler --noscripts
+
+get-orig-source-dpatch:
+	@@dh_testdir
+	@@[ -d ../tarballs/. ]||mkdir -p ../tarballs
+	@@dpatch-get-origtargz ../tarballs

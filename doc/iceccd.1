@@ -1,0 +1,123 @@
+.\" -*- coding: us-ascii -*-
+.if \n(.g .ds T< \\FC
+.if \n(.g .ds T> \\F[\n[.fam]]
+.de URL
+\\$2 \(la\\$1\(ra\\$3
+..
+.if \n(.g .mso www.tmac
+.TH iceccd 1 "April 21th, 2005" "" ""
+.SH NAME
+iceccd \- Icecream daemon
+.SH SYNOPSIS
+'nh
+.fi
+.ad l
+\fBiceccd\fR \kx
+.if (\nx>(\n(.l/2)) .nr x (\n(.l/5)
+'in \n(.iu+\nxu
+[
+\fB-n \fInetname\fB\fR
+] [
+\fB-m \fImax_processes\fB\fR
+] [
+\fB--no-remote\fR
+] [
+\fB-w\fR
+] [
+\fB-d\fR
+| 
+\fB--daemonize\fR
+] [
+\fB-l \fIlogfile\fB\fR
+] [
+\fB-s \fIschedulerhost\fB\fR
+] [
+-v[v[v]]
+] [
+\fB-r\fR
+| 
+\fB--run-as-user\fR
+] [
+\fB-b \fIenv-basedir\fB\fR
+] [
+\fB-u\fR
+| 
+\fB--nobody-uid\fR
+| nobodyuid] [
+\fB--cache-limit \fIMB\fB\fR
+] [
+\fB-N \fIhostname\fB\fR
+]
+'in \n(.iu-\nxu
+.ad b
+'hy
+.SH DESCRIPTION
+The Icecream daemon has to run on all nodes being part of the Icecream
+compile cluster. It receives compile jobs and executes them in a chroot
+environment. The compile clients send their compile environment the first time
+they send a job to a particular daemon, so that the environment of the daemon
+doesn't have to match the one of the client.
+.PP
+The daemon also has to run on clients sending compile jobs to the Icecream
+network. If a node should be able to send compile jobs, but never receive any,
+start the daemon with the option \*(T<\-m 0\*(T>.
+.PP
+All Icecream daemons need to have contact to the Icecream scheduler which
+controls the distribution of data between compile nodes. Normally the daemon
+will automatically find the right scheduler. If this is not the case you can
+explicitly specify the name of the Icecream network and the host running the
+scheduler.
+.SH OPTIONS
+.TP 
+\*(T<\fB\-n\fR\*(T> \*(T<netname\*(T>
+The name of the icecream network the daemon should connect to.
+There has to be a scheduler running for the network under the same network
+name.
+.TP 
+\*(T<\fB\-m\fR\*(T> \*(T<max_processes\*(T>
+Maximum number of compile jobs started in parallel on machine
+running the daemon.
+.TP 
+\*(T<\fB\-\-no\-remote\fR\*(T>
+Prevents jobs from other nodes being scheduled on this one.
+.TP 
+\*(T<\fB\-w\fR\*(T>
+.TP 
+\*(T<\fB\-d\fR\*(T>, \*(T<\fB\-\-daemonize\fR\*(T> 
+Detach daemon from shell.
+.TP 
+\*(T<\fB\-l\fR\*(T> \*(T<logfile\*(T>
+Name of file where log output is written to.
+.TP 
+\*(T<\fB\-s\fR\*(T> \*(T<scheduler_host\*(T>
+Name of host running the scheduler for the network the daemon
+should connect to. This option might help if the scheduler can't broadcast its
+presence to the clients due to firewall settings or similar
+reasons.
+.TP 
+\*(T<\fB\-v\fR\*(T>, \*(T<\fB\-vv\fR\*(T>, \*(T<\fB\-vvv\fR\*(T>
+Control verbosity of daemon. The more v the more
+verbose.
+.TP 
+\*(T<\fB\-r\fR\*(T>, \*(T<\fB\-\-run\-as\-user\fR\*(T> 
+Force running the daemon with user rights. Usually you will need
+to run the daemon with root rights.
+.TP 
+\*(T<\fB\-b\fR\*(T> \*(T<env_basedir\*(T>
+Base directory for storing compile environments sent to the
+daemon by the compile clients.
+.TP 
+\*(T<\fB\-u\fR\*(T>, \*(T<\fB\-\-nobody\-uid\fR\*(T> \*(T<nobodyuid\*(T> 
+Id of user nobody. This user id is used when the daemon is
+dropping privileges.
+.TP 
+\*(T<\fB\-\-cache\-limit\fR\*(T> \*(T<MB\*(T> 
+Maximum size in Mega Bytes of cache used to store compile
+environments of compile clients.
+.TP 
+\*(T<\fB\-N\fR\*(T> \*(T<hostname\*(T>
+The name of the icecream host on the network.
+.SH "SEE ALSO"
+icecream, icecc-scheduler, iceccd, icemon
+.SH AUTHOR
+Cornelius Schumacher

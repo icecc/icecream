@@ -1,5 +1,3 @@
-/* -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; fill-column: 99; -*- */
-/* vim: set ts=4 sw=4 et tw=99:  */
 /*
     This file is part of Icecream.
 
@@ -12,12 +10,12 @@
 
     This program is distributed in the hope that it will be useful,
     but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
     GNU General Public License for more details.
 
-    You should have received a copy of the GNU General Public License along
-    with this program; if not, write to the Free Software Foundation, Inc.,
-    51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, write to the Free Software
+    Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 */
 
 #include <config.h>
@@ -38,91 +36,77 @@ ostream *logfile_warning = 0;
 ostream *logfile_error = 0;
 string logfile_prefix;
 
-static ofstream logfile_null("/dev/null");
+static ofstream logfile_null( "/dev/null" );
 static ofstream logfile_file;
 static string logfile_filename;
 
-void reset_debug(int);
+void reset_debug( int );
 
-void setup_debug(int level, const string &filename, const string &prefix)
+void setup_debug(int level, const string &filename, const string& prefix)
 {
     string fname = filename;
     debug_level = level;
     logfile_prefix = prefix;
     logfile_filename = filename;
 
-    if (logfile_file.is_open()) {
+    if ( logfile_file.is_open() )
         logfile_file.close();
-    }
-
     ostream *output = 0;
-
-    if (filename.length()) {
-        logfile_file.clear();
-        logfile_file.open(filename.c_str(), fstream::out | fstream::app);
+    if ( filename.length() ) {
+	logfile_file.clear();
+        logfile_file.open( filename.c_str(), fstream::out | fstream::app );
 #ifdef __linux__
-
         if (fname[0] != '/') {
-            char buf[FILENAME_MAX];
-
+            char buf[256];
             if (getcwd(buf, sizeof(buf))) {
                 fname.insert(0, "/");
                 fname.insert(0, buf);
             }
         }
-
         setenv("SEGFAULT_OUTPUT_NAME", fname.c_str(), false);
 #endif
         output = &logfile_file;
-    } else {
+    } else
         output = &cerr;
-    }
 
 #ifdef __linux__
     (void) dlopen("libSegFault.so", RTLD_NOW | RTLD_LOCAL);
 #endif
 
-    if (debug_level & Debug) {
+    if ( debug_level & Debug )
         logfile_trace = output;
-    } else {
+    else
         logfile_trace = &logfile_null;
-    }
 
-    if (debug_level & Info) {
+    if ( debug_level & Info )
         logfile_info = output;
-    } else {
+    else
         logfile_info = &logfile_null;
-    }
 
-    if (debug_level & Warning) {
+    if ( debug_level & Warning )
         logfile_warning = output;
-    } else {
+    else
         logfile_warning = &logfile_null;
-    }
 
-    if (debug_level & Error) {
+    if ( debug_level & Error )
         logfile_error = output;
-    } else {
+    else
         logfile_error = &logfile_null;
-    }
 
-    signal(SIGHUP, reset_debug);
+    signal( SIGHUP, reset_debug );
 }
 
-void reset_debug(int)
+void reset_debug( int )
 {
     setup_debug(debug_level, logfile_filename);
 }
 
 void close_debug()
 {
-    if (logfile_null.is_open()) {
+    if (logfile_null.is_open())
         logfile_null.close();
-    }
-
-    if (logfile_file.is_open()) {
+    if (logfile_file.is_open())
         logfile_file.close();
-    }
 
     logfile_trace = logfile_info = logfile_warning = logfile_error = 0;
 }
@@ -131,13 +115,39 @@ void close_debug()
    this before forking.  */
 void flush_debug()
 {
-    if (logfile_null.is_open()) {
+    if (logfile_null.is_open())
         logfile_null.flush();
-    }
-
-    if (logfile_file.is_open()) {
+    if (logfile_file.is_open())
         logfile_file.flush();
+}
+
+#ifdef HAVE_BACKTRACE
+#include <execinfo.h>
+#endif
+
+string get_backtrace() {
+    string s;
+
+#ifdef HAVE_BACKTRACE
+    void* trace[256];
+    int n = backtrace(trace, 256);
+    if (!n)
+        return s;
+    char** strings = backtrace_symbols (trace, n);
+
+    s = "[\n";
+
+    for (int i = 0; i < n; ++i) {
+        s += ": ";
+        s += strings[i];
+        s += "\n";
     }
+    s += "]\n";
+    if (strings)
+        free (strings);
+#endif
+
+    return s;
 }
 
 unsigned log_block::nesting;

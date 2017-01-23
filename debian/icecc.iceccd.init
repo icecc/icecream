@@ -1,0 +1,117 @@
+#!/bin/sh
+### BEGIN INIT INFO
+# Provides:          iceccd
+# Required-Start:    $local_fs $remote_fs
+# Required-Stop:     $local_fs $remote_fs
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: control icecc daemon start at boot time
+# Description:       control icecc daemon start at boot time by
+#                    sourcing /etc/default/icecc and /etc/icecc/icecc.conf.
+### END INIT INFO
+
+DAEMON=/usr/sbin/iceccd
+CONFIGFILE=/etc/icecc/icecc.conf
+DEFAULTFILE=/etc/default/icecc
+
+# Read configuration files
+[ -r $CONFIGFILE ] && . $CONFIGFILE
+[ -r $DEFAULTFILE ] && . $DEFAULTFILE
+
+test -x $DAEMON || exit 0
+
+. /lib/lsb/init-functions
+
+netname=
+if test -n "$ICECC_NETNAME"; then
+	netname="-n $ICECC_NETNAME"
+fi
+
+schedulerport=""
+if [ "x${ICECC_SCHEDULER_PORT}" = "x" ] ; then
+        schedulerport="8765"
+else
+        schedulerport="$ICECC_SCHEDULER_PORT"
+fi
+export schedulerport
+
+
+
+daemonport=""
+if [ "x${ICECC_DAEMON_PORT}" = "x" ] ; then
+        daemonport="10245"
+else
+        daemonport="$ICECC_DAEMON_PORT"
+fi
+export daemonport
+
+
+start_icecc_daemon() {
+	logfile=""
+	if test -n "$ICECC_LOG_FILE"; then
+		logfile="-l $ICECC_LOG_FILE"
+	fi
+	nice= 
+	if test -n "$ICECC_NICE_LEVEL"; then
+		nice="--nice $ICECC_NICE_LEVEL"
+	fi
+	scheduler=
+	if test -n "$ICECC_SCHEDULER_HOST"; then
+		scheduler="-s $ICECC_SCHEDULER_HOST"
+	fi
+	basedir=
+	if test -n "$ICECC_BASEDIR"; then
+		basedir="-b $ICECC_BASEDIR"
+	fi
+	noremote=
+	if test "$ICECC_ALLOW_REMOTE" = "no"; then
+		noremote="--no-remote"
+	fi
+	maxjobs=
+	if test -n "$ICECC_MAX_JOBS"; then
+		if test "$ICECC_MAX_JOBS" -eq 0; then
+			maxjobs="-m 1"
+			noremote="--no-remote"
+		else
+			maxjobs="-m $ICECC_MAX_JOBS"
+		fi
+	fi
+
+	start-stop-daemon --start --quiet --exec $DAEMON -- \
+	-d $logfile $nice $scheduler $netname -u icecc $basedir $maxjobs $noremote
+}
+
+stop_icecc_daemon() {
+	start-stop-daemon --stop --quiet --signal TERM --oknodo --exec $DAEMON
+}
+
+case "$1" in
+  start)
+        log_daemon_msg "Starting distributed compiler daemon" "iceccd"
+        start_icecc_daemon
+        log_end_msg $?
+        ;;
+  stop)
+        log_daemon_msg "Stopping distributed compiler daemon" "iceccd"
+        stop_icecc_daemon
+        log_end_msg $?
+        ;;
+  restart|force-reload)
+        log_daemon_msg "Restarting distributed compiler daemon" "iceccd"
+        stop_icecc_daemon
+        sleep 1
+        start_icecc_daemon
+        log_end_msg $?
+        ;;
+  status)
+        status_of_proc "$DAEMON" "iceccd" && exit 0 || exit $?
+        ;;
+  *)
+        N=/etc/init.d/iceccd
+        echo "Usage: $N {start|stop|restart|force-reload|status}" >&2
+        exit 1
+        ;;
+esac
+
+exit 0
+

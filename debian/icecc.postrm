@@ -1,0 +1,54 @@
+#!/bin/sh
+# postrm script for icecc
+
+set -e
+
+# configure some variables
+ICECC_GROUP=icecc
+ICECC_USER=icecc
+
+case "$1" in
+	purge)
+		if [ -x "$(command -v deluser)" ]; then
+			deluser --quiet --system $ICECC_USER > /dev/null || true
+		else
+			echo "deluser command was not found." >&2
+			echo "$ICECC_USER user not deleted." >&2
+		fi
+
+		if [ -x "$(command -v delgroup)" ]; then
+			delgroup --quiet --system $ICECC_GROUP > /dev/null || true
+		else
+			echo "delgroup command was not found." >&2
+			echo "$ICECC_GROUP group not deleted." >&2
+		fi
+
+		rm -rf /var/cache/icecc
+		;;
+	remove)
+		;;
+	upgrade|failed-upgrade|abort-install|abort-upgrade|disappear)
+		;;
+	*)
+		echo "postrm called with unknown argument \`$1" >&2
+		exit 1
+		;;
+esac
+
+if [ -f "/etc/init.d/icecc-scheduler" ]; then 
+	rm /etc/init.d/icecc-scheduler || exit $?
+fi
+
+if [ -f "/etc/init.d/iceccd" ]; then
+	rm /etc/init.d/iceccd || exit $?
+fi
+
+if [ -d "/run/icecc" ]; then
+	rm -rf /run/icecc || exit $?
+fi
+
+
+
+#DEBHELPER#
+
+exit 0

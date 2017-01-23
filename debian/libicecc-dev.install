@@ -1,0 +1,4 @@
+usr/include/icecc/comm.h
+usr/include/icecc/job.h
+usr/lib/*/libicecc.a
+usr/lib/*/pkgconfig/icecc.pc

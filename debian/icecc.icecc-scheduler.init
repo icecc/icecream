@@ -1,0 +1,94 @@
+#!/bin/sh
+### BEGIN INIT INFO
+# Provides:          icecc-scheduler
+# Required-Start:    $local_fs $remote_fs
+# Required-Stop:     $local_fs $remote_fs
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: control icecc scheduler start at boot time
+# Description:       control icecc scheduler start at boot time by
+#                    sourcing /etc/default/icecc and /etc/icecc/icecc.conf.
+### END INIT INFO
+
+SCHEDULER=/usr/sbin/icecc-scheduler
+CONFIGFILE=/etc/icecc/icecc.conf
+DEFAULTFILE=/etc/default/icecc
+
+# Read configuration files
+[ -r $CONFIGFILE ] && . $CONFIGFILE
+[ -r $DEFAULTFILE ] && . $DEFAULTFILE
+
+test -x $SCHEDULER || exit 0
+
+. /lib/lsb/init-functions
+
+netname=
+if test -n "$ICECC_NETNAME"; then
+	netname="-n $ICECC_NETNAME"
+fi
+
+schedulerport=""
+if [ "x${ICECC_SCHEDULER_PORT}" = "x" ] ; then
+        schedulerport="8765"
+else
+        schedulerport="$ICECC_SCHEDULER_PORT"
+fi
+export schedulerport
+
+
+
+daemonport=""
+if [ "x${ICECC_DAEMON_PORT}" = "x" ] ; then
+        daemonport="10245"
+else
+        daemonport="$ICECC_DAEMON_PORT"
+fi
+export daemonport
+
+
+start_icecc_scheduler() {
+	if test -z "$ICECC_SCHEDULER_LOG_FILE"; then
+		ICECC_SCHEDULER_LOG_FILE="/var/log/icecc_scheduler"
+	fi
+
+	logfile="-l $ICECC_SCHEDULER_LOG_FILE"
+	: > $ICECC_SCHEDULER_LOG_FILE
+	chown icecc $ICECC_SCHEDULER_LOG_FILE
+	start-stop-daemon --start --quiet --chuid icecc \
+	--exec $SCHEDULER -- -d $logfile $netname
+}
+
+stop_icecc_scheduler() {
+	start-stop-daemon --stop --quiet --signal TERM --oknodo --exec $SCHEDULER
+}
+
+case "$1" in
+  start)
+        log_daemon_msg "Starting distributed compiler scheduler" "icecc-scheduler"
+        start_icecc_scheduler
+        log_end_msg $?
+        ;;
+  stop)
+        log_daemon_msg "Stopping distributed compiler scheduler" "icecc_scheduler"
+        stop_icecc_scheduler
+        log_end_msg $?
+        ;;
+  restart|force-reload)
+        log_daemon_msg "Restarting distributed compiler scheduler" "icecc-scheduler"
+        stop_icecc_scheduler
+        sleep 1
+        start_icecc_scheduler
+        log_end_msg $?
+        ;;
+  status)
+        status_of_proc "$SCHEDULER" "icecc-scheduler" && exit 0 || exit $?
+        ;;
+  *)
+        N=/etc/init.d/icecc-scheduler
+        echo "Usage: $N {start|stop|restart|force-reload|status}" >&2
+        exit 1
+        ;;
+esac
+
+exit 0
+

@@ -1,0 +1,340 @@
+/* config.h.in.  Generated from configure.ac by autoheader.  */
+
+/* Where to look for icecc */
+#undef BINDIR
+
+/* Define to 1 if you have the <alloca.h> header file. */
+#undef HAVE_ALLOCA_H
+
+/* Define to 1 if you have the <arpa/nameser.h> header file. */
+#undef HAVE_ARPA_NAMESER_H
+
+/* Define to 1 if you have the `asprintf' function. */
+#undef HAVE_ASPRINTF
+
+/* Define if execinfo.h exists and defines backtrace (GLIBC >= 2.1) */
+#undef HAVE_BACKTRACE
+
+/* Define to 1 if clang supports -frewrite-includes */
+#undef HAVE_CLANG_REWRITE_INCLUDES
+
+/* Whether the system has connect() */
+#undef HAVE_CONNECT
+
+/* Define to 1 if you have the <ctype.h> header file. */
+#undef HAVE_CTYPE_H
+
+/* Define to 1 if you have the declaration of `asprintf', and to 0 if you
+   don't. */
+#undef HAVE_DECL_ASPRINTF
+
+/* Define to 1 if you have the declaration of `snprintf', and to 0 if you
+   don't. */
+#undef HAVE_DECL_SNPRINTF
+
+/* Define to 1 if you have the declaration of `strndup', and to 0 if you
+   don't. */
+#undef HAVE_DECL_STRNDUP
+
+/* Define to 1 if you have the declaration of `vasprintf', and to 0 if you
+   don't. */
+#undef HAVE_DECL_VASPRINTF
+
+/* Define to 1 if you have the declaration of `vsnprintf', and to 0 if you
+   don't. */
+#undef HAVE_DECL_VSNPRINTF
+
+/* Define to 1 if you have the <devstat.h> header file. */
+#undef HAVE_DEVSTAT_H
+
+/* Define to 1 if you have the <dlfcn.h> header file. */
+#undef HAVE_DLFCN_H
+
+/* Define to 1 if you have the <float.h> header file. */
+#undef HAVE_FLOAT_H
+
+/* Define to 1 if you have the `flock' function. */
+#undef HAVE_FLOCK
+
+/* Define to 1 if you have the `getaddrinfo' function. */
+#undef HAVE_GETADDRINFO
+
+/* Define to 1 if you have the `getcwd' function. */
+#undef HAVE_GETCWD
+
+/* Define to 1 if you have the `geteuid' function. */
+#undef HAVE_GETEUID
+
+/* Define to 1 if you have the `getloadavg' function. */
+#undef HAVE_GETLOADAVG
+
+/* Define to 1 if you have the `getnameinfo' function. */
+#undef HAVE_GETNAMEINFO
+
+/* Define to 1 if you have the `getrusage' function. */
+#undef HAVE_GETRUSAGE
+
+/* Define to 1 if you have the `gettimeofday' function. */
+#undef HAVE_GETTIMEOFDAY
+
+/* Define to 1 if you have the `getuid' function. */
+#undef HAVE_GETUID
+
+/* Define to 1 if you have the `getwd' function. */
+#undef HAVE_GETWD
+
+/* Define to 1 if you have the `hstrerror' function. */
+#undef HAVE_HSTRERROR
+
+/* Define to 1 if you have the <ifaddrs.h> header file. */
+#undef HAVE_IFADDRS_H
+
+/* Set to 0 if struct ifr_ifru has no ifr_dstaddr */
+#undef HAVE_IFR_DSTADDR
+
+/* Define to 1 if you have the `inet_ntoa' function. */
+#undef HAVE_INET_NTOA
+
+/* Define to 1 if you have the `inet_ntop' function. */
+#undef HAVE_INET_NTOP
+
+/* Define to 1 if you have the <inttypes.h> header file. */
+#undef HAVE_INTTYPES_H
+
+/* Define to 1 if the system has the type `in_addr_t'. */
+#undef HAVE_IN_ADDR_T
+
+/* Define to 1 if the system has the type `in_port_t'. */
+#undef HAVE_IN_PORT_T
+
+/* Define to 1 if you have the <kinfo.h> header file. */
+#undef HAVE_KINFO_H
+
+/* libcap-ng support */
+#undef HAVE_LIBCAP_NG
+
+/* Define to 1 if you have the `inet' library (-linet). */
+#undef HAVE_LIBINET
+
+/* Define to 1 if you have the `nsl' library (-lnsl). */
+#undef HAVE_LIBNSL
+
+/* Define to 1 if you have the `nsl_s' library (-lnsl_s). */
+#undef HAVE_LIBNSL_S
+
+/* Define to 1 if you have the `resolv' library (-lresolv). */
+#undef HAVE_LIBRESOLV
+
+/* Define to 1 if you have the `socket' library (-lsocket). */
+#undef HAVE_LIBSOCKET
+
+/* Define to 1 if you have the `lockf' function. */
+#undef HAVE_LOCKF
+
+/* Define to 1 if you have the <mach/host_info.h> header file. */
+#undef HAVE_MACH_HOST_INFO_H
+
+/* Define to 1 if you have the `mcheck' function. */
+#undef HAVE_MCHECK
+
+/* Define to 1 if you have the <mcheck.h> header file. */
+#undef HAVE_MCHECK_H
+
+/* Define to 1 if you have the `memcmp' function. */
+#undef HAVE_MEMCMP
+
+/* Define to 1 if you have the `memcpy' function. */
+#undef HAVE_MEMCPY
+
+/* Define to 1 if you have the `memmove' function. */
+#undef HAVE_MEMMOVE
+
+/* Define to 1 if you have the <memory.h> header file. */
+#undef HAVE_MEMORY_H
+
+/* Define to 1 if you have the `memset' function. */
+#undef HAVE_MEMSET
+
+/* Define to 1 if you have the `mmap' function. */
+#undef HAVE_MMAP
+
+/* Define to 1 if you have the <netinet/in.h> header file. */
+#undef HAVE_NETINET_IN_H
+
+/* Define to 1 if you have the <netinet/tcp.h> header file. */
+#undef HAVE_NETINET_TCP_H
+
+/* Define to 1 if you have the <netinet/tcp_var.h> header file. */
+#undef HAVE_NETINET_TCP_VAR_H
+
+/* Define to 1 if you have the <resolv.h> header file. */
+#undef HAVE_RESOLV_H
+
+/* Define if librsync.h exists and can be used */
+#undef HAVE_RSYNC
+
+/* Define to 1 if the system has the type `sa_family_t'. */
+#undef HAVE_SA_FAMILY_T
+
+/* Define to 1 if you have the `setgroups' function. */
+#undef HAVE_SETGROUPS
+
+/* Define to 1 if you have the `setreuid' function. */
+#undef HAVE_SETREUID
+
+/* Define to 1 if you have the `setsid' function. */
+#undef HAVE_SETSID
+
+/* Define to 1 if you have the `setuid' function. */
+#undef HAVE_SETUID
+
+/* Define to 1 if you have the <signal.h> header file. */
+#undef HAVE_SIGNAL_H
+
+/* Define to 1 if you have the `snprintf' function. */
+#undef HAVE_SNPRINTF
+
+/* Define to 1 if the system has the type `socklen_t'. */
+#undef HAVE_SOCKLEN_T
+
+/* Define to 1 if you have the <stdint.h> header file. */
+#undef HAVE_STDINT_H
+
+/* Define to 1 if you have the <stdlib.h> header file. */
+#undef HAVE_STDLIB_H
+
+/* Define to 1 if you have the `strerror' function. */
+#undef HAVE_STRERROR
+
+/* Define to 1 if you have the <strings.h> header file. */
+#undef HAVE_STRINGS_H
+
+/* Define to 1 if you have the <string.h> header file. */
+#undef HAVE_STRING_H
+
+/* Define to 1 if you have the `strlcpy' function. */
+#undef HAVE_STRLCPY
+
+/* Define to 1 if you have the `strndup' function. */
+#undef HAVE_STRNDUP
+
+/* Define to 1 if you have the `strsignal' function. */
+#undef HAVE_STRSIGNAL
+
+/* Define to 1 if you have the <sys/mman.h> header file. */
+#undef HAVE_SYS_MMAN_H
+
+/* Define to 1 if you have the <sys/param.h> header file. */
+#undef HAVE_SYS_PARAM_H
+
+/* Define to 1 if you have the <sys/resource.h> header file. */
+#undef HAVE_SYS_RESOURCE_H
+
+/* Define to 1 if you have the <sys/select.h> header file. */
+#undef HAVE_SYS_SELECT_H
+
+/* Define to 1 if you have the <sys/signal.h> header file. */
+#undef HAVE_SYS_SIGNAL_H
+
+/* Define to 1 if you have the <sys/socketvar.h> header file. */
+#undef HAVE_SYS_SOCKETVAR_H
+
+/* Define to 1 if you have the <sys/socket.h> header file. */
+#undef HAVE_SYS_SOCKET_H
+
+/* Define to 1 if you have the <sys/stat.h> header file. */
+#undef HAVE_SYS_STAT_H
+
+/* Define to 1 if you have the <sys/types.h> header file. */
+#undef HAVE_SYS_TYPES_H
+
+/* Define to 1 if you have the <sys/user.h> header file. */
+#undef HAVE_SYS_USER_H
+
+/* Define to 1 if you have the <sys/vfs.h> header file. */
+#undef HAVE_SYS_VFS_H
+
+/* Define to 1 if you have the <unistd.h> header file. */
+#undef HAVE_UNISTD_H
+
+/* Define to 1 if you have the `vasprintf' function. */
+#undef HAVE_VASPRINTF
+
+/* Define to 1 if you have the `vsnprintf' function. */
+#undef HAVE_VSNPRINTF
+
+/* Define to 1 if you have the `wait3' function. */
+#undef HAVE_WAIT3
+
+/* Define to 1 if you have the `wait4' function. */
+#undef HAVE_WAIT4
+
+/* Define to 1 if you have the `waitpid' function. */
+#undef HAVE_WAITPID
+
+/* Define to the sub-directory in which libtool stores uninstalled libraries.
+   */
+#undef LT_OBJDIR
+
+/* Name of package */
+#undef PACKAGE
+
+/* Define to the address where bug reports for this package should be sent. */
+#undef PACKAGE_BUGREPORT
+
+/* Define to the full name of this package. */
+#undef PACKAGE_NAME
+
+/* Define to the full name and version of this package. */
+#undef PACKAGE_STRING
+
+/* Define to the one symbol short name of this package. */
+#undef PACKAGE_TARNAME
+
+/* Define to the home page for this package. */
+#undef PACKAGE_URL
+
+/* Define to the version of this package. */
+#undef PACKAGE_VERSION
+
+/* Where to place pid files */
+#undef RUNDIR
+
+/* The size of `char *', as computed by sizeof. */
+#undef SIZEOF_CHAR_P
+
+/* The size of `ptrdiff_t', as computed by sizeof. */
+#undef SIZEOF_PTRDIFF_T
+
+/* The size of `size_t', as computed by sizeof. */
+#undef SIZEOF_SIZE_T
+
+/* The size of `unsigned', as computed by sizeof. */
+#undef SIZEOF_UNSIGNED
+
+/* The size of `unsigned long', as computed by sizeof. */
+#undef SIZEOF_UNSIGNED_LONG
+
+/* The size of `unsigned short', as computed by sizeof. */
+#undef SIZEOF_UNSIGNED_SHORT
+
+/* Define to 1 if you have the ANSI C header files. */
+#undef STDC_HEADERS
+
+/* Define path to tar */
+#undef TAR
+
+/* Version number of package */
+#undef VERSION
+
+/* Define to `__inline__' or `__inline' if that's what the C compiler
+   calls it, or to nothing if 'inline' is not supported under any name.  */
+#ifndef __cplusplus
+#undef inline
+#endif
+
+/* Define to `long' if <sys/types.h> does not define. */
+#undef ptrdiff_t
+
+/* Define to `unsigned int' if <sys/types.h> does not define. */
+#undef size_t
