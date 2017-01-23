@@ -91,6 +91,8 @@
 
 using namespace std;
 
+PortCustomConfig ahoh;
+
 static string pidFilePath;
 
 static map<int, CompileServer *> fd2cs;
@@ -98,7 +100,7 @@ static volatile sig_atomic_t exit_main_loop = false;
 
 time_t starttime;
 time_t last_announce;
-static unsigned int scheduler_port = 8765;
+static unsigned int scheduler_port = ahoh.schedulerport;
 
 // A subset of connected_hosts representing the compiler servers
 static list<CompileServer *> css;

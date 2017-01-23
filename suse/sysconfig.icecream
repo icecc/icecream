@@ -90,3 +90,17 @@ ICECREAM_ALLOW_REMOTE="yes"
 # path if your /tmp is small - but the user icecream has to write to it.
 # 
 ICECREAM_BASEDIR="/var/cache/icecream"
+
+# Julien gregoire Patch here !
+
+## Type: Integer(1:65535)
+## Description: Scheduler port, to receive broadcast signals from the nodes and to maintain the connection between nodes and scheduler.
+## Default: 8765
+ICECREAM_SCHEDULER_PORT=""
+
+
+## Type: Integer(1:65535)
+## Description: DAEMON port, to receive compilation jobs sent by the scheduler
+## Default: 10245
+ICECREAM_DAEMON_PORT=""
+

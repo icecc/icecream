@@ -64,6 +64,8 @@
 
 using namespace std;
 
+PortCustomConfig ahah;
+
 extern const char *rs_program_name;
 
 static void dcc_show_usage(void)
@@ -403,7 +405,7 @@ int main(int argc, char **argv)
         }
 
         if (!local_daemon) {
-            local_daemon = Service::createChannel("127.0.0.1", 10245, 0/*timeout*/);
+            local_daemon = Service::createChannel("127.0.0.1", ahah.daemonport, 0/*timeout*/);
         }
     } else {
         local_daemon = Service::createChannel(getenv("ICECC_TEST_SOCKET"));

@@ -57,6 +57,8 @@
 
 using namespace std;
 
+PortCustomConfig ohoh;
+
 /*
  * A generic DoS protection. The biggest messages are of type FileChunk
  * which shouldn't be larger than 100kb. so anything bigger than 10 times
@@ -1195,7 +1197,7 @@ static int open_send_broadcast(int port, const char* buf, int size)
                        << endl;
 
             remote_addr.sin_family = AF_INET;
-            remote_addr.sin_port = htons(port);
+            remote_addr.sin_port = htons(ohoh.schedulerport);
             remote_addr.sin_addr = ((sockaddr_in *)addr->ifa_broadaddr)->sin_addr;
 
             if (sendto(ask_fd, buf, size, 0, (struct sockaddr *)&remote_addr,
@@ -1286,7 +1288,7 @@ DiscoverSched::DiscoverSched(const std::string &_netname, int _timeout,
     , schedname(_schedname)
     , timeout(_timeout)
     , ask_fd(-1)
-    , sport(port)
+    , sport(ohoh.schedulerport)
     , best_version(0)
     , best_start_time(0)
     , multiple(false)
