@@ -1,4 +1,5 @@
 Release Critical:
+* bind the broadcast listener to fixed local port (8765) (otherwise not firewallable) (matz)
 * chmod TMPDIR/native, as otherwise set umask prevent it from being readable by the client
    I'm wondering if it doesn't make sense to leave the daemon out of the game and let the
    client package the environment - it could either cache it in /tmp and leave a note in
@@ -12,8 +13,12 @@ Release Critical:
   let the daemon compile with the options, otherwise leave them out. 
 
 Akademy must have's:
+* the scheduler with the newest protocol version wins
+* only one scheduler within the same broadcast domain
 * daemon: only accept connections from a sane net prefix (scheduler can determine
   this and send it out via confMsg) to avoid being exposed to the internet
+* always re-discover scheduler after disconnect, don't just re-connect to the last
+  one (for some reason I don't see why this happened, but it did)
 * benchmark/testing jobs (broken machines with broken ram and broken network card on the
   icecream network destroy the fun and are not easy to find manually)
 
@@ -44,11 +49,10 @@ Random:
   jobs at the same time can pull down your whole system.
   (I can life with a hard coded number of one non compile job but others probably prefer a
   configurable number)
-* Consider launching a scheduler on-demand if there is none available or if a daemon knows
-  it has a better version than the scheduler that is available (https://github.com/icecc/icecream/issues/84).
 
 Suggestions from "Wilson Snyder" sicortex.com:
 - Add ICECREAM_RUN_ICECCD to make the scheduler machine not run iceccd
+- Have schedulers redudant - e.g. as in nmbd
 
 Christoph Thielecke writes:
 > 1) Problem von icecream: icecc hat /usr/bin/gcc-4.2 kopiert (ist aber ein

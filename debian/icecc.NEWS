@@ -1,0 +1,14 @@
+icecc (1.0.0-1) unstable; urgency=low
+
+  Starting from this version, icecc does not make use of debconf anymore to ask
+  whether start iceccd and icecc-scheduler; likewise, the variables START_ICECC
+  and START_ICECC_SCHEDULER, previously in /etc/defaults/icecc, are no more
+  used.
+
+  icecc now uses update-rc.d to configure whether start iceccd and
+  icecc-scheduler.  By default iceccd is started and icecc-scheduler is not.
+
+  Please read /usr/share/doc/icecc/README.Debian for more information on how
+  to start and stop the two services.
+
+ -- Pino Toscano <pino@debian.org>  Fri, 24 May 2013 14:33:53 +0200

@@ -1,0 +1,80 @@
+.\" -*- coding: us-ascii -*-
+.if \n(.g .ds T< \\FC
+.if \n(.g .ds T> \\F[\n[.fam]]
+.de URL
+\\$2 \(la\\$1\(ra\\$3
+..
+.if \n(.g .mso www.tmac
+.TH icecc-scheduler 1 "April 21th, 2005" "" ""
+.SH NAME
+icecc-scheduler \- Icecream scheduler
+.SH SYNOPSIS
+'nh
+.fi
+.ad l
+\fBicecc-scheduler\fR \kx
+.if (\nx>(\n(.l/2)) .nr x (\n(.l/5)
+'in \n(.iu+\nxu
+[
+\fB-n\fR
+| 
+\fB--netname\fR
+| name] [
+\fB-p\fR
+| 
+\fB--port\fR
+| port] [
+\fB-h\fR
+| 
+\fB--help\fR
+] [
+\fB-l\fR
+| 
+\fB--log-file\fR
+| file] [
+\fB-d\fR
+| 
+\fB--daemonize\fR
+] [
+\fB-r\fR
+| 
+\fB--allow-run-as-user\fR
+] [
+-v[v[v]]
+]
+'in \n(.iu-\nxu
+.ad b
+'hy
+.SH DESCRIPTION
+The Icecream scheduler is the central instance of an Icecream compile
+network. It distributes the compile jobs and provides the data for the
+monitors.
+.SH OPTIONS
+.TP 
+\*(T<\fB\-n\fR\*(T>, \*(T<\fB\-\-netname\fR\*(T> \*(T<netname\*(T>
+The name of the Icecream network the scheduler
+controls.
+.TP 
+\*(T<\fB\-p\fR\*(T>, \*(T<\fB\-\-port\fR\*(T> \*(T<port\*(T>
+IP port the scheduler uses.
+.TP 
+\*(T<\fB\-h\fR\*(T>, \*(T<\fB\-\-help\fR\*(T>
+Print help message.
+.TP 
+\*(T<\fB\-l\fR\*(T>, \*(T<\fB\-\-log\-file\fR\*(T> \*(T<logfile\*(T>
+Name of file where log output is written to.
+.TP 
+\*(T<\fB\-d\fR\*(T>, \*(T<\fB\-\-daemonize\fR\*(T> 
+Detach daemon from shell.
+.TP 
+\*(T<\fB\-v\fR\*(T>, \*(T<\fB\-vv\fR\*(T>, \*(T<\fB\-vvv\fR\*(T>
+Control verbosity of daemon. The more v the more
+verbose.
+.TP 
+\*(T<\fB\-r\fR\*(T>, \*(T<\fB\-\-allow\-run\-as\-user\fR\*(T> 
+Force running the scheduler with user rights. Usually you will
+need to run the scheduler with root rights.
+.SH "SEE ALSO"
+icecream, iceccd, icemon
+.SH AUTHOR
+Cornelius Schumacher

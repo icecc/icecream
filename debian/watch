@@ -1,0 +1,2 @@
+version=3
+opts=pasv ftp://ftp.suse.com/pub/projects/icecream/icecc-(.*)\.tar\.bz2 debian svn-upgrade

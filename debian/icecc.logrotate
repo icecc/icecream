@@ -1,0 +1,18 @@
+# logrotate.d example configuration for icecc, contributed by Dag
+# Wieers.
+
+# The "copytruncate" option means icecc can keep appending to the
+# same filehandle.  You would otherwise need to shut down and restart
+# iceccd.
+
+/var/log/iceccd.log {
+       missingok
+       copytruncate
+       notifempty
+}
+
+/var/log/icecc_scheduler.log {
+       missingok
+       copytruncate
+       notifempty
+}

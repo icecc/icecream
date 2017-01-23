@@ -1,0 +1,59 @@
+#!/bin/sh -e
+# postinst script for icecc
+
+set -e
+
+if test "$1" = triggered; then
+    invoke-rc.d iceccd restart
+    exit 0
+fi
+
+# configure some variables
+ICECC_GROUP=icecc
+ICECC_USER=icecc
+ICECC_HOME=/var/cache/icecc
+
+# create group
+grep -q $ICECC_GROUP /etc/group || ( echo Creating $ICECC_GROUP group... ; \
+addgroup --quiet --system $ICECC_GROUP)
+
+# create user
+grep -q $ICECC_USER /etc/passwd || ( echo Creating $ICECC_USER user... ; \
+adduser --quiet --system --ingroup $ICECC_GROUP \
+--home $ICECC_HOME --no-create-home $ICECC_USER )
+
+chown $ICECC_USER:$ICECC_GROUP $ICECC_HOME
+
+if [ -x "/etc/init.d/icecc-scheduler" ]; then
+        update-rc.d icecc-scheduler defaults >/dev/null
+        # disable icecc-scheduler either when upgrading from < 1.0.0, or when
+        # doing a new installation
+        if test -z "$2" || dpkg --compare-versions "$2" lt "1.0.0-1~"; then
+                update-rc.d icecc-scheduler disable >/dev/null || exit $?
+        fi
+fi
+
+if [ "$1" = "configure" ]; then
+        if test -n "$2" && dpkg --compare-versions "$2" lt "1.0.0-1~"; then
+                # unregister the old init script
+                update-rc.d icecc remove >/dev/null
+                if [ -e /etc/default/icecc ]; then
+                        # move away the old /etc/defaults/icecc; since the
+                        # old version was modified in postinst, it cannot
+                        # be removed by looking at its md5sum
+                        echo "Moving obsolete conffile /etc/default/icecc out of the way..."
+                        mv -f "/etc/default/icecc" "/etc/default/icecc.dpkg-bak"
+                fi
+                # cleanup the old debconf keys
+                if [ -e /usr/share/debconf/confmodule ]; then
+                        . /usr/share/debconf/confmodule
+                        db_purge
+                        # done with debconf
+                        db_stop
+                fi
+        fi
+fi
+
+#DEBHELPER#
+
+exit 0

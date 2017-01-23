@@ -1,5 +1,3 @@
-/* -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; fill-column: 99; -*- */
-/* vim: set ts=4 sw=4 et tw=99:  */
 /*
     This file is part of Icecream.
 
@@ -12,12 +10,12 @@
 
     This program is distributed in the hope that it will be useful,
     but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
     GNU General Public License for more details.
 
-    You should have received a copy of the GNU General Public License along
-    with this program; if not, write to the Free Software Foundation, Inc.,
-    51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, write to the Free Software
+    Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 */
 
 #ifndef PLATFORM_H
@@ -25,7 +23,7 @@
 
 #include <string>
 
-extern const std::string &determine_platform();
+extern const std::string& determine_platform();
 
 extern int ggc_min_expand_heuristic(unsigned int mem_limit);
 extern unsigned int ggc_min_heapsize_heuristic(unsigned int mem_limit);

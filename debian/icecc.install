@@ -1,0 +1,15 @@
+debian/icecc.conf etc/icecc/
+usr/bin/icecc
+usr/bin/icerun
+usr/lib/icecc/bin/c++
+usr/lib/icecc/bin/cc
+usr/lib/icecc/bin/g++
+usr/lib/icecc/bin/gcc
+usr/lib/icecc/compilerwrapper
+usr/lib/icecc/icecc-create-env
+usr/sbin/icecc-scheduler
+usr/sbin/iceccd
+usr/share/man/man1/icecc-scheduler.1
+usr/share/man/man1/icecc.1
+usr/share/man/man1/iceccd.1
+usr/share/man/man7/icecream.7

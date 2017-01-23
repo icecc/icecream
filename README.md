@@ -1,4 +1,3 @@
-[![Stories in Ready](https://badge.waffle.io/icecc/icecream.png?label=ready&title=Ready)](https://waffle.io/icecc/icecream)
 [Icecream](Icecream) was created by SUSE based on distcc. Like distcc,
 [Icecream](Icecream) takes compile jobs from a build and
 distributes it among remote machines allowing a parallel build. But
@@ -9,41 +8,39 @@ on x machines, you have full control over them.
 
 Table of Contents
 
--   [Installation](#installation)
--   [How to use icecream](#how-to-use-icecream)
-    -   [make it persistent](#make-it-persistent)
+-   [Installation](#Installation)
+-   [How to use icecream](#How_to_use_icecream)
+    -   [make it persistent](#make_it_persistent)
 
--   [TroubleShooting](#troubleshooting)
-    -   [Firewall](#firewall)
-    -   [C compiler](#c-compiler)
-    -   [osc build](#osc-build)
+-   [TroubleShooting](#TroubleShooting)
+    -   [Firewall](#Firewall)
+    -   [C compiler](#C_compiler)
+    -   [osc build](#osc_build)
     -   [some compilation node aren't
-        used](#some-compilation-node-arent-used)
+        used](#some_compilation_node_arent_used)
 
--   [Supported platforms](#supported-platforms)
+-   [Supported platforms](#Supported_platforms)
 -   [Using icecream in heterogeneous
-    environments](#using-icecream-in-heterogeneous-environments)
--   [Cross-Compiling using icecream](#cross-compiling-using-icecream)
--   [Creating cross compiler package](#creating-cross-compiler-package)
+    environments](#Using_icecream_in_heterogeneous_environments)
+-   [Cross-Compiling using icecream](#CrossCompiling_using_icecream)
+-   [Creating cross compiler package](#Creating_cross_compiler_package)
 -   [Cross-Compiling for embedded targets using
-    icecream](#cross-compiling-for-embedded-targets-using-icecream)
--   [Cross-Compiling for multiple targets in the same environment using
-    icecream](#cross-compiling-for-multiple-targets-in-the-same-environment-using-icecream)
+    icecream](#CrossCompiling_for_embedded_targets_using_icecream)
 -   [How to combine icecream with
-    ccache](#how-to-combine-icecream-with-ccache)
--   [Debug output](#debug-output)
--   [Some Numbers](#some-numbers)
+    ccache](#How_to_combine_icecream_with_ccache)
+-   [Debug output](#Debug_output)
+-   [Some Numbers](#Some_Numbers)
 -   [What is the best environment for
-    icecream](#what-is-the-best-environment-for-icecream)
--   [Some advice on configuration](#some-advice-on-configuration)
+    icecream](#What_is_the_best_environment_for_icecream)
 -   [Network setup for Icecream
-    (firewalls)](#network-setup-for-icecream-firewalls)
+    (firewalls)](#Network_setup_for_Icecream_firewalls)
 -   [I use distcc, why should I
-    change?](#i-use-distcc-why-should-i-change)
--   [Icecream on gentoo](#icecream-on-gentoo)
--   [Bug tracker](#bug-tracker)
--   [Repository](#repository)
--   [Mailing list](#mailing-list)
+    change?](#I_use_distcc_why_should_I_change)
+-   [I use teambuilder, why should I
+    change?](#I_use_teambuilder_why_should_I_change)
+-   [Icecream on gentoo](#Icecream_on_gentoo)
+-   [Bug tracker](#Bug_tracker)
+-   [Repository](#Repository)
 
 Installation
 -------------------------------------------------------------------------
@@ -55,26 +52,29 @@ To install icecream, issue
 In case this should not work, here are some links to download Icecream:
 
 -   [Binaries from
-    opensuse.org](http://software.opensuse.org/download.html?project=devel%3Atools%3Abuilding&package=icecream)
+    opensuse.org](http://software.opensuse.org/download/home:/coolo/)
 -   [Sources from
     ftp.suse.com](ftp://ftp.suse.com/pub/projects/icecream)
 -   [openSUSE Icecream node
     LiveCD](http://forgeftp.novell.com/kiwi-ltsp/icecream/)
+
+If you have questions not answered here, feel free to contact
+icecream-users@googlegroups.com  (icecream-users+subscribe@googlegroups.com).
 
 How to use icecream
 ---------------------------------------------------------------------------------------
 
 You need:
 
--   At least one machine that runs the scheduler ("./icecc-scheduler -d")
+-   One machine that runs the scheduler ("./icecc-scheduler -d")
 -   Many machines that run the daemon ("./iceccd -d")
 
 It is possible to run the scheduler and the daemon on one machine and
 only the daemon on another, thus forming a compile cluster with two
 nodes.
 
-If you want to compile using icecream, make sure $prefix/lib/icecc/bin is the
-first entry in your path, e.g. type
+If you want to compile using icecream, make sure \$prefix/lib/icecc/bin is the
+first first entry in your path, e.g. type
 
      export PATH=/usr/lib/icecc/bin:$PATH
 
@@ -83,13 +83,8 @@ everytime)
 
 Then you just compile with make -j \<num\>, where
 \<num\> is the amount of jobs you want to compile in parallel.
-As a start, take the number of logical processors multiplied with 2, or a larger
-number if your compile cluster can serve all the compilation jobs. But
-note that too large numbers may in fact make the build slower (for example
-if your local machine gets overloaded with preparing more jobs than it can handle
-at a time).
-
-Here is an example:
+As a start, take the number of logical processors multiplied with 2. But
+note that numbers \>15 normally cause trouble. Here is an example:
 
      make -j6
 
@@ -97,8 +92,7 @@ WARNING: Never use icecream in untrusted environments. Run the daemons
 and the scheduler as unprivileged user in such networks if you have to!
 But you will have to rely on homogeneous networks then (see below).
 
-If you want an overview of your icecream compile cluster, or if you just want
-funny stats, you might want to run "icemon" (from a separate repository/package).
+If you want funny stats, you might want to run "icemon".
 
 ### make it persistent
 
@@ -202,19 +196,12 @@ meaning you can do full cross compiling between them.
 Using icecream in heterogeneous environments
 -----------------------------------------------------------------------------------------------------------------------------------------
 
-If you are running icecream daemons in the same icecream network
-but on machines with incompatible compiler versions, icecream needs
-to send your build environment to remote machines (note: they _all_ must
-be running as root. In the future icecream might gain the ability to know
-when machines can't accept a different env, but for now it is all or nothing).
-
-Under normal circumstances this is handled transparently by the icecream
-daemon, which will prepare a tarball with the environment when needed.
-This is the recommended way, as the daemon will also automatically update
-the tarball whenever your compiler changes.
-
-If you want to handle this manually for some reason, you have to tell
-icecream which environment you are using. Use
+If you are running icecream daemons (note: they _all_ must be running
+as root. In the future icecream might gain the ability to know when
+machines can't accept a different env, but for now it is all or nothing
+) in the same icecream network but on machines with incompatible
+compiler versions you have to tell icecream which environment you are
+using. Use
 
       icecc --build-native
 
@@ -231,6 +218,12 @@ will be transferred to the daemons where your compile jobs run and
 installed to a chroot environment for executing the compile jobs in the
 environment fitting to the environment of the client. This requires that
 the icecream daemon runs as root.
+
+If you do not set ICECC\_VERSION, the client will use a tar ball
+provided by the daemon running on the same machine. So you can always be
+sure you're not tricked by incompatible gcc versions - and you can share
+your computer with users of other distributions (or different versions
+of your beloved SUSE Linux :)
 
 Cross-Compiling using icecream
 ------------------------------------------------------------------------------------------------------------
@@ -312,46 +305,6 @@ NOTE: with ICECC\_VERSION you point out on which platforms your
 toolchain runs, you do not indicate for which target code will be
 generated.
 
-Cross-Compiling for multiple targets in the same environment using icecream
--------------------------------------------------------------------------------------
-
-When working with toolchains for multiple targets, icecream can be
-configured to support multiple toolchains in the same environment.
-
-Multiple toolchains can be configured by appending =\<target\> to the
-tarball filename in the ICECC\_VERSION variable. Where the \<target\> is
-the cross compiler prefix. There the ICECC\_VERSION variable will look
-like \<native\_filename\>(,\<platform\>:\<cross\_compiler\_filename\>=\<target\>)\*.
-
-Below an example of how to configure icecream to use two toolchains,
-/work/toolchain1/bin/arm-eabi-\[gcc,g++\] and /work/toolchain2/bin/arm-linux-androideabi-\[gcc,g++\],
-for the same host architecture:
-
--   Create symbolic links with the cross compilers names
-    (e.g. arm-eabi-\[gcc,g++\] and arm-linux-androideabi-\[gcc,g++\])
-    pointing to where the icecc binary is. Make sure these symbolic links are
-    in the $PATH and before the path of the toolchains.
-
--   Create a tarball file for each toolchain that you want to use with
-    icecream. The /usr/lib/icecc/icecc-create-env script can be used to
-    create the tarball file for each toolchain, for example:
-
-    /usr/lib/icecc/icecc-create-env --gcc /work/toolchain1/bin/arm-eabi-gcc
-                                          /work/toolchain1/bin/arm-eabi-g++
-
-    /usr/lib/icecc/icecc-create-env --gcc /work/toolchain2/bin/arm-linux-androideabi-gcc
-                                          /work/toolchain2/bin/arm-linux-androideabi-gcc
-
--   Set ICECC\_VERSION to point to the native tarball file and for each
-    tarball file created to the toolchains (e.g  ICECC\_VERSION=/work/i386-native.tar.gz,/work/arm-eabi-toolchain1.tar.gz=arm-eabi,/work/arm-linux-androideabi-toolchain2.tar.gz=arm-linux-androideabi).
-
-With these steps the icecrem will use /work/arm-eabi-toolchain1.tar.gz file to
-cross compilers with the prefix arm-eabi(e.g arm-eabi-gcc and arm-eabi-g++), use
-/work/arm-linux-androideabi-toolchain2.tar.gz file to cross compilers with the prefix
-arm-linux-androideabi(e.g. arm-linux-androideabi-gcc and arm-linux-androideabi-g++)
-and use /work/i386-native.tar.gz file to compilers without prefix,
-the native compilers.
-
 How to combine icecream with ccache
 -----------------------------------------------------------------------------------------------------------------------
 
@@ -406,9 +359,9 @@ transferred.
 
 But even if the other computer is faster, using g++ on my local machine
 is faster. If you're (for whatever reason) alone in your network at some
-point, you lose all advantages of distributed compiling and only add
+point, you loose all advantages of distributed compiling and only add
 the overhead. So icecream got a special case for local compilations (the
-same special meaning that localhost got within $DISTCC\_HOSTS). This
+same special meaning that localhost got within \$DISTCC\_HOSTS). This
 makes compiling on my machine using icecream down to 1.7s (the overhead
 is actually less than 0.1s in average).
 
@@ -454,43 +407,6 @@ and two quick to compile and one long to compile source file, you're not
 safe from a choice where everyone has to wait on the slow machine. Keep
 that in mind.
 
-Some advice on configuration
------------------------------------------------------------------------------------------------------------------------------------
-
-Icecream supports many configurations but you need to understand your network
-to choose what is right for you. 
-
-The easiest is to designate one machine always on machine to be a server and 
-start the clients. This is the best environment for conferences where users are 
-using mixed versions of icecream and will not be together for long. icecream 
-will automatically find the scheduler. This is also the best setup if you have
-any machine that might run versions of icecream less than 1.1. The downside of
-this setup is the scheduler must be a machine that is always on.
-
-If everyone is running 1.1 or latter you may choose to have everyone run
-a scheduler. The icecream schedulers will choose one to be the master and
-everyone will connect to it. If the scheduler machine goes down a new master
-will be selected. This is a new feature that is somewhat experimental, but if
-it works it likely the most reliable. If anyone on your network is running
-versions earlier than 1.1 they will have problems with this configuration.
-
-You may also designate a scheduler machine, and then for each client specify
-the scheduler to use. You need to ensure that there is no other scheduler on
-the same network as the scheduler if you do this. This is useful if you have
-developers scattered around the office but only a few are on any given network
-sub-net. If you do this check with IT to ensure that icecream traffic won't
-overload routers. It is safe to mix icecream versions less than 1.1 with 1.1
-on this setup.
-
-You might designate a netname. This is useful if your network is using VPN to
-make it seem like developers who are physically a long distance apart seem like
-they are on the same sub-net. While the VPNs are useful, they are typically do
-not have enough bandwidth for icecream, so by setting a different netname on
-each side of the VPN you can save bandwidth. Netnames can be used to work
-around some limitations above: if a netname is set icecream schedulers and
-daemons will ignore the existence scheudlers and daemons with any other netname.
-
-
 Network setup for Icecream (firewalls)
 ---------------------------------------------------------------------------------------------------------------------------
 
@@ -525,6 +441,16 @@ best choice:
     they play doom (distcc doesn't have a scheduler)
 -   you like nice compile monitors :)
 
+I use teambuilder, why should I change?
+-----------------------------------------------------------------------------------------------------------------------------
+
+That part is easier: your evaluation license runs out soon. But even if
+that isn't true: The teambuilder documentation says that it doesn't
+require any system change whatsoever to setup. But this is only true in
+homogeneous networks. If you want to test out the latest gcc CVS you
+must either appear pretty convincing to your co-workers or you're on
+your own and can watch the teambuilder monitor playing for the others.
+
 Icecream on gentoo
 -------------------------------------------------------------------------------------
 
@@ -557,10 +483,3 @@ Repository
 ---------------------------------------------------------------------
 
 The git repository lives at https://github.com/icecc/icecream
-
-Mailing list
------------------------------------------------------------------------
-
-icecream-users@googlegroups.com
--   Subscribe: icecream-users+subscribe@googlegroups.com
--   Archive: https://groups.google.com/forum/#!forum/icecream-users

@@ -6,11 +6,9 @@ AC_PREREQ([2.63])
 # Version informations
 # ====================
 m4_define([icecream_version_major],[1])
-m4_define([icecream_version_minor],[1rc2])
-#m4_define([icecream_version_micro],[98])
-m4_ifval([icecream_version_micro],
-	m4_define([icecream_version],[icecream_version_major.icecream_version_minor.icecream_version_micro]),
-	m4_define([icecream_version],[icecream_version_major.icecream_version_minor]))
+m4_define([icecream_version_minor],[0])
+m4_define([icecream_version_micro],[1])
+m4_define([icecream_version],[icecream_version_major.icecream_version_minor.icecream_version_micro])
 
 # =============
 # Automake init
@@ -29,7 +27,6 @@ AC_PROG_CC
 AC_PROG_CXX
 if test "$GCC" = yes; then
     cast_align=-Wcast-align
-    wshadow=
     AC_MSG_CHECKING([if GCC is actually Clang])
     AC_TRY_COMPILE(
         [],
@@ -45,17 +42,13 @@ if test "$GCC" = yes; then
             # The code has numerous cast alignment warnings that only clang warns about,
             # and it probably(?) doesn't matter in practice.
             cast_align=
-            # Clang is not so overzealous like GCC and doesn't warn about cases which
-            # are very unlikely to be problems (e.g. function argument shadowing
-            # a function elsewhere), so it's not so annoying.
-            wshadow=-Wshadow
         ],
         [ AC_MSG_RESULT(no) ])
     CFLAGS="-g -W -Wall \
 -Wshadow -Wpointer-arith $cast_align -Wwrite-strings \
 -Waggregate-return -Wstrict-prototypes -Wmissing-prototypes \
 -Wnested-externs $CFLAGS"
-    CXXFLAGS=" -g -W -Wall -Wpointer-arith $cast_align $wshadow -Wwrite-strings $CXXFLAGS"
+    CXXFLAGS=" -g -W -Wall -Wpointer-arith $cast_align -Wwrite-strings $CXXFLAGS"
     AC_MSG_NOTICE([Adding gcc options: $CFLAGS])
 fi
 
@@ -66,7 +59,7 @@ AC_DISABLE_SHARED
 AC_ENABLE_STATIC
 AC_PROG_LIBTOOL
 
-ICECC_LIBCAP_NG_PATH
+LIBCAP_NG_PATH
 
 # =============
 # Documentation
@@ -78,11 +71,14 @@ AC_ARG_WITH(man,
 )
 AS_IF([test "x$with_man" != "xno"], [
     build_man=yes
-    AC_PATH_PROGS(DOCBOOK2X,
-        [docbook2x-man db2x_docbook2man docbook-to-man docbook2man.pl docbook2man])
+    AC_PATH_PROG(DOCBOOK2X,[docbook-to-man])
     AS_IF([test -z "$DOCBOOK2X"], [
-        AC_MSG_WARN([docbook2x is missing. Install docbook2x package.])
-        DOCBOOK2X='echo docbook2x is missing. Install docbook2x package.'])
+        AC_PATH_PROG(DOCBOOK2X,[docbook2man.pl])
+        AS_IF([test -z "$DOCBOOK2X"], [
+            AC_MSG_WARN([docbook-to-man is missing. Install docbook2X package.])
+            DOCBOOK2X='echo docbook-to-man is missing. Install docbook2X package.'
+        ])
+    ])
 ], [build_man=no])
 AC_SUBST(DOCBOOK2X)
 AM_CONDITIONAL([WITH_ICECREAM_MAN], [test "x$build_man" != "xno"])
@@ -214,9 +210,63 @@ AC_CHECK_FUNCS([getloadavg])
 
 AC_CHECK_DECLS([snprintf, vsnprintf, vasprintf, asprintf, strndup])
 
-AC_CHECK_LIB(lzo2, lzo1x_1_compress, LZO_LDADD=-llzo2,
-	AC_MSG_ERROR([Could not find lzo2 library - please install lzo-devel]))
-AC_SUBST(LZO_LDADD)
+dnl === LZO
+dnl Checks for typedefs and structures
+AC_CHECK_TYPE(ptrdiff_t,long)
+AC_TYPE_SIZE_T
+AC_CHECK_SIZEOF(unsigned short)
+AC_CHECK_SIZEOF(unsigned)
+AC_CHECK_SIZEOF(unsigned long)
+AC_CHECK_SIZEOF(char *)
+AC_CHECK_SIZEOF(ptrdiff_t)
+AC_CHECK_SIZEOF(size_t)
+
+dnl Checks for compiler characteristics
+dnl AC_C_CONST
+
+dnl Checks for library functions
+AC_CHECK_FUNCS(memcmp memcpy memmove memset)
+dnl === END LZO
+
+AC_MSG_CHECKING([for GLIBC function backtrace])
+AC_TRY_LINK(dnl
+      [
+        #include <execinfo.h>
+      ],
+      [
+        void* trace[256];
+        backtrace(trace, 256);
+      ],
+      [
+        AC_DEFINE(HAVE_BACKTRACE, 1, [Define if execinfo.h exists and defines backtrace (GLIBC >= 2.1)])
+	AC_MSG_RESULT(yes)
+      ],
+      AC_MSG_RESULT(no)
+)
+
+save_LIBS=$LIBS
+LIBS="$LIBS -lrsync"
+
+AC_MSG_CHECKING([for librsync])
+AC_TRY_LINK(dnl
+      [
+        #include <stdio.h>
+        #include <stdlib.h>
+        #include <librsync.h>
+      ],
+      [
+        rs_job_t* job = rs_sig_begin (RS_DEFAULT_BLOCK_LEN, RS_DEFAULT_STRONG_LEN);
+      ],
+      [
+        AC_DEFINE(HAVE_RSYNC, 1, [Define if librsync.h exists and can be used])
+        LIBRSYNC="-lrsync"
+	AC_MSG_RESULT(yes)
+      ],
+      AC_MSG_RESULT(no)
+)
+
+AC_SUBST(LIBRSYNC)
+LIBS=$save_LIBS
 
 # In DragonFlyBSD daemon needs to be linked against libkinfo.
 case $host_os in
@@ -255,17 +305,6 @@ else
     fi
 fi
 
-HAVE_CLANG_DEVEL_DEP=
-AC_CHECK_PROG(CLANG,clang,clang)
-AC_LANG_PUSH([C++])
-save_CPPFLAGS=$CPPFLAGS
-CPPFLAGS="$CPPFLAGS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -D__STDC_LIMIT_MACROS"
-AC_CHECK_HEADER(clang/AST/RecursiveASTVisitor.h,
-    [ HAVE_CLANG_DEVEL_DEP=clangplugin ] )
-CPPFLAGS="$save_CPPFLAGS"
-AC_LANG_POP([C++])
-AC_SUBST(HAVE_CLANG_DEVEL_DEP)
-
 AC_ARG_ENABLE(clang-wrappers,
     AS_HELP_STRING([--enable-clang-wrappers],
         [Use symlink wrappers for clang/clang++.]))
@@ -283,49 +322,15 @@ else
 fi
 AC_SUBST(CLANG_SYMLINK_WRAPPERS)
 
-AC_ARG_ENABLE(gcc-color-diagnostics,
-    AS_HELP_STRING([--enable-gcc-color-diagnostics],
-        [Assume by default GCC has -fdiagnostics-color=auto option.]))
-
-if test "$enable_gcc_color_diagnostics" = "yes"; then
-    AC_DEFINE(HAVE_GCC_COLOR_DIAGNOSTICS, 1, [Define to 1 if gcc supports -fdiagnostics-color=auto])
-else
-    true  # do not enable
-fi
-
-AC_ARG_ENABLE(gcc-show-caret,
-    AS_HELP_STRING([--enable-gcc-show-caret],
-        [Assume by default GCC has -fdiagnostics-show-caret option.]))
-
-if test "$enable_gcc_show_caret" = "yes"; then
-    AC_DEFINE(HAVE_GCC_SHOW_CARET, 1, [Define to 1 if gcc supports -fdiagnostics-show-caret])
-elif test "$enable_gcc_show_caret" = "no"; then
-    true  # do not enable
-else
-    AC_CHECK_PROG(GCC_BIN,gcc,gcc)
-    if test -n "$GCC_BIN"; then
-        AC_MSG_CHECKING([for gcc -fdiagnostics-show-caret])
-        $GCC_BIN -Werror -E -fdiagnostics-show-caret - >/dev/null 2>/dev/null
-        if test $? -eq 0; then
-            AC_MSG_RESULT(yes)
-            AC_DEFINE(HAVE_GCC_SHOW_CARET, 1, [Define to 1 if gcc supports -fdiagnostics-show-caret])
-        else
-            AC_MSG_RESULT(no)
-        fi
-    fi
-fi
-
 AC_CONFIG_FILES([ Makefile ])
 AC_CONFIG_FILES([ client/Makefile ])
 AC_CONFIG_FILES([ daemon/Makefile ])
 AC_CONFIG_FILES([ doc/Makefile ])
+AC_CONFIG_FILES([ minilzo/Makefile ])
 AC_CONFIG_FILES([ services/Makefile ])
 AC_CONFIG_FILES([ services/icecc.pc ])
 AC_CONFIG_FILES([ suse/Makefile ])
 AC_CONFIG_FILES([ compilerwrapper/Makefile ])
-AC_CONFIG_FILES([ scheduler/Makefile ])
-AC_CONFIG_FILES([ tests/Makefile ])
-AC_CONFIG_FILES([ client/icecc-create-env ])
 AC_OUTPUT([ suse/icecream.spec ])
 if test "$prefix" = NONE; then
   prefix=$ac_default_prefix
@@ -345,10 +350,6 @@ AC_DEFINE_UNQUOTED(BINDIR, "$mybindir", [Where to look for icecc])
 myorundir='${localstatedir}/run'
 KDE_EXPAND_MAKEVAR(myrundir, myorundir)
 AC_DEFINE_UNQUOTED(RUNDIR, "$myrundir", [Where to place pid files])
-
-KDE_EXPAND_MAKEVAR(mylibexecdir, libexecdir)
-PKGLIBEXECDIR="$mylibexecdir/$PACKAGE"
-AC_SUBST(PKGLIBEXECDIR)
 
 AC_OUTPUT
 

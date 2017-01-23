@@ -1,5 +1,3 @@
-/* -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; fill-column: 99; -*- */
-/* vim: set ts=4 sw=4 et tw=99:  */
 /*
     This file is part of Icecream.
 
@@ -12,12 +10,12 @@
 
     This program is distributed in the hope that it will be useful,
     but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
     GNU General Public License for more details.
 
-    You should have received a copy of the GNU General Public License along
-    with this program; if not, write to the Free Software Foundation, Inc.,
-    51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, write to the Free Software
+    Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 */
 
 #include "job.h"
@@ -28,46 +26,41 @@
 
 using namespace std;
 
-list<string> CompileJob::flags(Argument_Type argumentType) const
+list<string> CompileJob::flags( Argument_Type argumentType ) const
 {
     list<string> args;
-
-    for (ArgumentsList::const_iterator it = m_flags.begin(); it != m_flags.end(); ++it) {
-        if (it->second == argumentType) {
-            args.push_back(it->first);
-        }
-    }
-
+    for ( ArgumentsList::const_iterator it = m_flags.begin();
+          it != m_flags.end(); ++it )
+        if ( it->second == argumentType )
+            args.push_back( it->first );
     return args;
 }
 
 list<string> CompileJob::localFlags() const
 {
-    return flags(Arg_Local);
+    return flags( Arg_Local );
 }
 
 list<string> CompileJob::remoteFlags() const
 {
-    return flags(Arg_Remote);
+    return flags( Arg_Remote );
 }
 
 list<string> CompileJob::restFlags() const
 {
-    return flags(Arg_Rest);
+    return flags( Arg_Rest );
 }
 
 list<string> CompileJob::allFlags() const
 {
     list<string> args;
-
-    for (ArgumentsList::const_iterator it = m_flags.begin(); it != m_flags.end(); ++it) {
-        args.push_back(it->first);
-    }
-
+    for ( ArgumentsList::const_iterator it = m_flags.begin();
+          it != m_flags.end(); ++it )
+        args.push_back( it->first );
     return args;
 }
 
-void CompileJob::setTargetPlatform()
+void CompileJob::__setTargetPlatform()
 {
     m_target_platform = determine_platform();
 }
@@ -76,41 +69,44 @@ unsigned int CompileJob::argumentFlags() const
 {
     unsigned int result = Flag_None;
 
-    for (ArgumentsList::const_iterator it = m_flags.begin(); it != m_flags.end(); ++it) {
+    for ( ArgumentsList::const_iterator it = m_flags.begin();
+          it != m_flags.end(); ++it )
+    {
         const string arg = it->first;
+        if ( arg.at( 0 ) == '-' )
+        {
+	    if (arg.length() == 1)
+		continue;
 
-        if (arg.at(0) == '-') {
-            if (arg.length() == 1) {
-                continue;
-            }
-
-            if (arg.at(1) == 'g') {
-                if (arg.length() > 2 && arg.at(2) == '3') {
+            if ( arg.at( 1 ) == 'g' )
+            {
+                if ( arg.length() > 2 && arg.at( 2 ) == '3' )
+                {
                     result &= ~Flag_g;
                     result |= Flag_g3;
-                } else {
+                }
+                else
+                {
                     result &= ~Flag_g3;
                     result |= Flag_g;
                 }
-            } else if (arg.at(1) == 'O') {
-                result &= ~(Flag_O | Flag_O2 | Flag_Ol2);
-
-                if (arg.length() == 2) {
-                    result |= Flag_O;
-                } else {
-                    assert(arg.length() > 2);
-
-                    if (arg.at(2) == '2') {
-                        result |= Flag_O2;
-                    } else if (arg.at(2) == '1') {
-                        result |= Flag_O;
-                    } else if (arg.at(2) != '0') {
+            }
+            else if ( arg.at( 1 ) == 'O' )
+            {
+                result &= ~( Flag_O | Flag_O2 | Flag_Ol2 );
+                if ( arg.length() == 2)
+			result |= Flag_O;
+		else {
+	            assert(arg.length() > 2);
+		    if (arg.at( 2 ) == '2' )
+                       result |= Flag_O2;
+                    else if ( arg.at( 2 ) == '1')
+                    	result |= Flag_O;
+		    else if ( arg.at( 2 ) != '0')
                         result |= Flag_Ol2;
-                    }
-                }
+		}
             }
         }
     }
-
     return result;
 }

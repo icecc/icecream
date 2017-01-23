@@ -1,0 +1,4 @@
+# updaterc.d can be called a second time to disable it
+icecc: duplicate-updaterc.d-calls-in-postinst icecc-scheduler
+# all the man pages are generated from docbook
+icecc: hyphen-used-as-minus-sign

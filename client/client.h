@@ -1,5 +1,3 @@
-/* -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; fill-column: 99; -*- */
-/* vim: set ts=4 sw=4 et tw=99:  */
 /*
     This file is part of icecc.
 
@@ -13,12 +11,12 @@
 
     This program is distributed in the hope that it will be useful,
     but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
     GNU General Public License for more details.
 
-    You should have received a copy of the GNU General Public License along
-    with this program; if not, write to the Free Software Foundation, Inc.,
-    51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, write to the Free Software
+    Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 */
 
 #ifndef _CLIENT_H_
@@ -30,8 +28,6 @@
 #include <sys/time.h>
 #include <sys/resource.h>
 
-#include <stdexcept>
-
 #include "exitcode.h"
 #include "logging.h"
 #include "util.h"
@@ -41,49 +37,29 @@ class MsgChannel;
 extern std::string remote_daemon;
 
 /* in remote.cpp */
-extern std::string get_absfilename(const std::string &_file);
+extern std::string get_absfilename( const std::string &_file );
 
 /* In arg.cpp.  */
-extern bool analyse_argv(const char * const *argv, CompileJob &job, bool icerun,
-                         std::list<std::string> *extrafiles);
+extern bool analyse_argv (const char * const *argv, CompileJob &job, bool icerun,
+    std::list<std::string> *extrafiles);
 
 /* In cpp.cpp.  */
-extern pid_t call_cpp(CompileJob &job, int fdwrite, int fdread = -1);
+extern pid_t call_cpp (CompileJob &job, int fdwrite, int fdread = -1);
 
 /* In local.cpp.  */
-extern int build_local(CompileJob &job, MsgChannel *daemon, struct rusage *usage = 0);
-extern std::string find_compiler(const CompileJob &job);
-extern bool compiler_is_clang(const CompileJob &job);
-extern bool compiler_only_rewrite_includes(const CompileJob &job);
-extern std::string compiler_path_lookup(const std::string &compiler);
+extern int build_local (CompileJob& job, MsgChannel *daemon, struct rusage *usage =0);
+extern std::string find_compiler( const CompileJob& job );
+extern bool compiler_is_clang( const CompileJob& job );
+extern bool compiler_only_rewrite_includes( const CompileJob& job );
+extern std::string compiler_path_lookup(const std::string& compiler);
 
 /* In remote.cpp - permill is the probability it will be compiled three times */
-extern int build_remote(CompileJob &job, MsgChannel *scheduler, const Environments &envs, int permill);
+extern int build_remote (CompileJob &job, MsgChannel *scheduler, const Environments &envs, int permill);
 
 /* safeguard.cpp */
 extern void dcc_increment_safeguard(void);
 extern int dcc_recursion_safeguard(void);
 
-extern Environments parse_icecc_version(const std::string &target, const std::string &prefix);
-
-class client_error :  public std::runtime_error
-{
-    public:
-    client_error(int code, const std::string& what) 
-    : std::runtime_error(what)
-    , errorCode(code)
-    {}
-
-    const int errorCode;
-};
-
-class remote_error : public client_error
-{
-    public:
-    remote_error(int code, const std::string& what) 
-    : client_error(code, what)
-    {}
-};
-
+extern Environments parse_icecc_version( const std::string &target );
 
 #endif

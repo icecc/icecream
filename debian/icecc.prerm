@@ -1,0 +1,19 @@
+#!/bin/sh
+# prerm script for icecc
+
+set -e
+
+#DEBHELPER#
+
+if [ -x "/etc/init.d/icecc-scheduler" ]; then
+        /etc/init.d/icecc-scheduler stop || exit $?
+fi
+
+if [ -x "/etc/init.d/iceccd" ]; then
+	/etc/init.d/iceccd stop || exit $?
+fi
+
+update-rc.d -f icecc-scheduler remove >/dev/null
+update-rc.d -f iceccd remove >/dev/null
+
+exit 0

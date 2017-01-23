@@ -1,0 +1,1 @@
+rm_conffile /etc/init.d/icecc 1.0.0-1~ icecc

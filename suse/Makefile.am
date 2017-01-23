@@ -13,7 +13,7 @@ logrotatedir=$(sysconfdir)/logrotate.d
 susefirewallservicesdir=$(sysconfdir)/sysconfig/SuSEfirewall2.d/services
 
 install: init.icecream logrotate SuSEfirewall.iceccd SuSEfirewall.scheduler sysconfig.icecream
-	if test $(host_vendor) = "suse" -o $(host_vendor) = "ibm" ; then \
+	if test $(host_vendor) = "suse"; then \
 	  mkdir -p $(DESTDIR)/$(initdir) ;\
 	  $(INSTALL) -m 755 $(srcdir)/init.icecream $(DESTDIR)$(initdir)/icecream ;\
 	  ln -sf $(initdir)/icecream $(DESTDIR)$(sbindir)/rcicecream ;\

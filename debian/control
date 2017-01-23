@@ -1,0 +1,41 @@
+Source: icecc
+Section: devel
+Priority: optional
+Maintainer: Debian KDE Extras Team <pkg-kde-extras@lists.alioth.debian.org> 
+Uploaders: Fathi Boudra <fabo@debian.org>, Mark Purcell <msp@debian.org>,
+ Pino Toscano <pino@debian.org>
+Build-Depends: debhelper (>= 9),
+ autotools-dev,
+ docbook2x, docbook-to-man, docbook-xml,
+ libdevstat-dev [kfreebsd-any]
+Homepage: http://en.opensuse.org/Icecream
+Standards-Version: 3.9.4
+Vcs-Svn: svn://anonscm.debian.org/pkg-kde/kde-extras/icecream/trunk/
+Vcs-Browser: http://anonscm.debian.org/viewvc/pkg-kde/kde-extras/icecream/
+
+Package: icecc
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}, adduser, lsb-base, file,
+ g++ | c++-compiler | c-compiler
+Recommends: logrotate
+Suggests: icecc-monitor
+Description: distributed compiler (client and server)
+ icecc (also known as Icecream) is a distributed compile system. It allows
+ parallel compiling by distributing the compile jobs to several nodes of
+ a compile network running the icecc daemon. The icecc scheduler routes
+ the jobs and provides status and statistics information to the icecc monitor.
+ .
+ Each compile node can accept one or more compile jobs depending on the number
+ of processors and the settings of the daemon. Link jobs and other jobs which
+ cannot be distributed are executed locally on the node where the compilation
+ is started.
+
+Package: libicecc-dev
+Architecture: any
+Section: libdevel
+Depends: ${misc:Depends}, libdevstat-dev [kfreebsd-any]
+Description: development files for icecc (distributed compiler)
+ This package is part if icecc. It provides files which are necessary to build
+ icecc-monitor.
+ .
+ See the 'icecc' package for more information.
