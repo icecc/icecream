@@ -73,9 +73,15 @@ static bool analyze_program(const char *name, CompileJob &job)
         suffix = compiler_name.substr(compiler_name.size() - 2);
     }
 
-    if ((suffix == "++") || (suffix == "CC")) {
+    // Check for versioned compilers, eg: "gcc-4.8", "clang++-3.6".
+    bool vgcc = compiler_name.find("gcc-") != string::npos;
+    bool vgpp = compiler_name.find("g++-") != string::npos;
+    bool vclang = compiler_name.find("clang-") != string::npos;
+    bool vclangpp = compiler_name.find("clang++-") != string::npos;
+
+    if ((suffix == "++") || (suffix == "CC") || vgpp || vclangpp) {
         job.setLanguage(CompileJob::Lang_CXX);
-    } else if (suffix == "cc") {
+    } else if ((suffix == "cc") || vgcc || vclang) {
         job.setLanguage(CompileJob::Lang_C);
     } else if (compiler_name == "clang") {
         job.setLanguage(CompileJob::Lang_C);
