@@ -711,11 +711,17 @@ maybe_build_local(MsgChannel *local_daemon, UseCSMsg *usecs, CompileJob &job,
 }
 
 // Minimal version of remote host that we want to use for the job.
-static int minimalRemoteVersion( const CompileJob& )
+static int minimalRemoteVersion( const CompileJob& job)
 {
     int version = MIN_PROTOCOL_VERSION;
-    if( ignore_unverified())
-        version = max( version, 31 );
+    if (ignore_unverified()) {
+        version = max(version, 31);
+    }
+
+    if (job.dwarfFissionEnabled()) {
+        version = max(version, 35);
+    }
+
     return version;
 }
 
