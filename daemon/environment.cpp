@@ -510,10 +510,11 @@ pid_t start_install_environment(const std::string &basename, const std::string &
     flush_debug();
     pid_t pid = fork();
 
-    if(-1 == pid) {
+    if (pid == -1) {
         log_perror("fork - trying to run tar");
         return 0;
-    } else if (pid) {
+    }
+    if (pid) {
         trace() << "pid " << pid << endl;
         close(fds[0]);
         pipe_to_stdin = fds[1];
@@ -568,7 +569,7 @@ pid_t start_install_environment(const std::string &basename, const std::string &
     argv[5] = 0;
     execv(argv[0], argv);
     log_perror("execv failed");
-    _exit(142);
+    _exit(100);
 }
 
 
