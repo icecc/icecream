@@ -322,12 +322,15 @@ bool ignore_unverified()
 // be worth it.
 bool output_needs_workaround(const CompileJob &job)
 {
+    const char *caret_workaround(getenv("ICECC_CARET_WORKAROUND"));
+    if (!caret_workaround)
+        return false;
+    if (*caret_workaround != '1')
+        return false;
     if (compiler_is_clang(job))
         return false;
     if (explicit_no_show_caret)
         return false;
-    if (const char* caret_workaround = getenv("ICECC_CARET_WORKAROUND"))
-        return *caret_workaround == '1';
 #ifdef HAVE_GCC_SHOW_CARET
     return true;
 #endif
