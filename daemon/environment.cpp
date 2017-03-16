@@ -510,6 +510,10 @@ pid_t start_install_environment(const std::string &basename, const std::string &
     flush_debug();
     pid_t pid = fork();
 
+    if (pid == -1) {
+        log_perror("fork - trying to run tar");
+        return 0;
+    }
     if (pid) {
         trace() << "pid " << pid << endl;
         close(fds[0]);
@@ -563,7 +567,9 @@ pid_t start_install_environment(const std::string &basename, const std::string &
 
     argv[4] = strdup("-");
     argv[5] = 0;
-    _exit(execv(argv[0], argv));
+    execv(argv[0], argv);
+    log_perror("execv failed");
+    _exit(100);
 }
 
 
@@ -718,6 +724,8 @@ bool verify_env(MsgChannel *client, const string &basedir, const string &target,
                 uid_t user_uid, gid_t user_gid)
 {
     if (target.empty() || env.empty()) {
+        error_client(client, "verify_env: target or env empty");
+        log_error() << "verify_env target or env empty\n\t" << target << "\n\t" << env << endl;
         return false;
     }
 
