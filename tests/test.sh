@@ -73,16 +73,20 @@ debug_fission_supported()
 {
     # Echo YES if the local compiler supports debug fission,
     # otherwise echo NO.
-    local tempdir=$(mktemp -d)
-    local supported=YES
-    pushd "$tempdir" > /dev/null
-    touch empty.c
-    if ! $GCC -gsplit-dwarf -c empty.c 2> /dev/null ; then
-        supported=NO
+    if [[ -n "${ICECC_TEST_DEBUG_FUSSION}" ]] ; then
+        echo ${ICECC_TEST_DEBUG_FUSSION}
+    else
+        local tempdir=$(mktemp -d)
+        local supported=YES
+        pushd "$tempdir" > /dev/null
+        touch empty.c
+        if ! $GCC -gsplit-dwarf -c empty.c 2> /dev/null ; then
+            supported=NO
+        fi
+        popd > /dev/null
+        rm -rf "$tempdir"
+        echo $supported
     fi
-    popd "$tempdir" > /dev/null
-    rm -rf "$tempdir"
-    echo $supported
 }
 
 debug_fission=$(debug_fission_supported)
