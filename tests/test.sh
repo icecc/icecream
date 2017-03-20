@@ -252,7 +252,7 @@ stop_only_daemon()
 
 # First argument is the expected output file, if any (otherwise specify "").
 # Second argument is "remote" (should be compiled on a remote host) or "local" (cannot be compiled remotely).
-# Third argument is expected exit code.
+# Third argument is expected exit code - if this is greater than 128 the exit code will be determined by invoking the compiler locally
 # Fourth argument is optional, "stderrfix" specifies that the command may result in local recompile because of the gcc
 # stderr workaround.
 # Rest is the command to pass to icecc.
@@ -274,6 +274,11 @@ run_ice()
     if test "$1" = "split_dwarf"; then
         split_dwarf=$(echo $output | sed 's/\.[^.]*//g').dwo
         shift
+    fi
+
+    if [[ $expected_exit -gt 128 ]]; then
+        $@
+        expected_exit=$?
     fi
 
     reset_logs local "$@"
@@ -832,7 +837,7 @@ run_ice "$testdir/plain.o" "remote" 0 $GCC -Wall -Werror -x c++ -c plain -o "$te
 if [ "$debug_fission" = YES ] ; then
     run_ice "" "remote" 1 "split_dwarf" $GXX -gsplit-dwarf -c nonexistent.cpp
 fi
-run_ice "" "remote" 1 $GXX -c nonexistent.cpp
+run_ice "" "remote" 300 $GXX -c nonexistent.cpp
 run_ice "" "local" 0 /bin/true
 
 if $GXX -E -fdiagnostics-show-caret messages.cpp >/dev/null 2>/dev/null; then
