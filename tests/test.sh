@@ -69,23 +69,11 @@ mkdir -p "$testdir"
 skipped_tests=
 chroot_disabled=
 
-debug_fission_supported()
-{
-    # Echo YES if the local compiler supports debug fission,
-    # otherwise echo NO.
-    local tempdir=$(mktemp -d)
-    local supported=YES
-    pushd "$tempdir" > /dev/null
-    touch empty.c
-    if ! $GCC -gsplit-dwarf -c empty.c 2> /dev/null ; then
-        supported=NO
-    fi
-    popd "$tempdir" > /dev/null
-    rm -rf "$tempdir"
-    echo $supported
-}
-
-debug_fission=$(debug_fission_supported)
+debug_fission_disabled=
+$GXX -E -gsplit-dwarf messages.cpp 2>/dev/null >/dev/null || debug_fission_disabled=1
+if test -n "$debug_fission_disabled"; then
+    skipped_tests="$skipped_tests split-dwarf(g++)"
+fi
 
 start_ice()
 {
@@ -137,6 +125,7 @@ start_ice()
         stop_ice 0
         exit 2
     fi
+    sleep 5 # Give the scheduler time to get everything set up
     flush_logs
     grep -q "Cannot use chroot, no remote jobs accepted." "$testdir"/remoteice1.log && chroot_disabled=1
     grep -q "Cannot use chroot, no remote jobs accepted." "$testdir"/remoteice2.log && chroot_disabled=1
@@ -619,8 +608,10 @@ clangplugintest()
 # 2nd argument is first line of debug at which to start comparing.
 debug_test()
 {
-    cmd="$1"
-    debugstart="$2"
+    compiler="$1"
+    args="$2"
+    cmd="$1 $2"
+    debugstart="$3"
     echo "Running debug test ($cmd)."
     reset_logs remote "debug test ($cmd)"
 
@@ -638,7 +629,7 @@ debug_test()
     check_log_error icecc "building myself, but telling localhost"
     check_log_error icecc "local build forced"
     check_log_error icecc "<building_local>"
-    $GXX -o "$testdir"/debug-remote "$testdir"/debug-remote.o
+    $compiler -o "$testdir"/debug-remote "$testdir"/debug-remote.o
     if test $? -ne 0; then
         echo Linking in debug test failed.
         stop_ice 0
@@ -661,7 +652,7 @@ debug_test()
         stop_ice 0
         exit 2
     fi
-    $GXX -o "$testdir"/debug-local "$testdir"/debug-local.o
+    $compiler -o "$testdir"/debug-local "$testdir"/debug-local.o
     if test $? -ne 0; then
         echo Linking in debug test failed.
         stop_ice 0
@@ -809,17 +800,17 @@ check_logs_for_generic_errors
 echo Starting icecream successful.
 echo
 
-if [ "$debug_fission" = YES ] ; then
-    run_ice "$testdir/plain.o" "remote" 0 "split_dwarf" $GXX -Wall -Werror -gsplit-dwarf -g -c plain.cpp -o "$testdir/"plain.o
-fi
-run_ice "$testdir/plain.o" "remote" 0 $GXX -Wall -Werror -c plain.cpp -o "$testdir/"plain.o
-
 if test -z "$chroot_disabled"; then
     make_test 1
     make_test 2
 fi
 
-if [ "$debug_fission" = YES ] ; then
+if test -z "$debug_fission_disabled"; then
+    run_ice "$testdir/plain.o" "remote" 0 "split_dwarf" $GXX -Wall -Werror -gsplit-dwarf -g -c plain.cpp -o "$testdir/"plain.o
+fi
+run_ice "$testdir/plain.o" "remote" 0 $GXX -Wall -Werror -c plain.cpp -o "$testdir/"plain.o
+
+if test -z "$debug_fission_disabled"; then
     run_ice "$testdir/plain.o" "remote" 0 "split_dwarf" $GCC -Wall -Werror -gsplit-dwarf -c plain.c -o "$testdir/"plain.o
     run_ice "$testdir/plain.o" "remote" 0 "split_dwarf" $GCC -Wall -Werror -gsplit-dwarf -c plain.c -o "../../../../../../../..$testdir/plain.o"
 fi
@@ -829,7 +820,7 @@ run_ice "$testdir/plain.ii" "local" 0 $GXX -Wall -Werror -E plain.cpp -o "$testd
 run_ice "$testdir/includes.o" "remote" 0 $GXX -Wall -Werror -c includes.cpp -o "$testdir"/includes.o
 run_ice "$testdir/plain.o" "local" 0 $GXX -Wall -Werror -c plain.cpp -mtune=native -o "$testdir"/plain.o
 run_ice "$testdir/plain.o" "remote" 0 $GCC -Wall -Werror -x c++ -c plain -o "$testdir"/plain.o
-if [ "$debug_fission" = YES ] ; then
+if test -z "$debug_fission_disabled"; then
     run_ice "" "remote" 1 "split_dwarf" $GXX -gsplit-dwarf -c nonexistent.cpp
 fi
 run_ice "" "remote" 1 $GXX -c nonexistent.cpp
@@ -852,12 +843,12 @@ fi
 
 if command -v gdb >/dev/null; then
     if command -v readelf >/dev/null; then
-        debug_test "$GXX -c -g debug.cpp" "Temporary breakpoint 1, main () at debug.cpp:8"
-        if [ "$debug_fission" = YES ] ; then
-            debug_test "$GXX -c -g debug.cpp -gsplit-dwarf" "Temporary breakpoint 1, main () at debug.cpp:8"
-            debug_test "$GXX -c -g `pwd`/debug/debug2.cpp -gsplit-dwarf" "Temporary breakpoint 1, main () at `pwd`/debug/debug2.cpp:8"
+        debug_test "$GXX" "-c -g debug.cpp" "Temporary breakpoint 1, main () at debug.cpp:8"
+        if test -z "$debug_fission_disabled"; then
+            debug_test "$GXX" "-c -g debug.cpp -gsplit-dwarf" "Temporary breakpoint 1, main () at debug.cpp:8"
+            debug_test "$GXX" "-c -g `pwd`/debug/debug2.cpp -gsplit-dwarf" "Temporary breakpoint 1, main () at `pwd`/debug/debug2.cpp:8"
         fi
-        debug_test "$GXX -c -g `pwd`/debug/debug2.cpp" "Temporary breakpoint 1, main () at `pwd`/debug/debug2.cpp:8"
+        debug_test "$GXX" "-c -g `pwd`/debug/debug2.cpp" "Temporary breakpoint 1, main () at `pwd`/debug/debug2.cpp:8"
     fi
 else
     skipped_tests="$skipped_tests debug"
@@ -883,7 +874,7 @@ if test -x $CLANGXX; then
     rm "$testdir"/includes.o
 
     # test -frewrite-includes usage
-    $CLANGXX -E -Werror -frewrite-includes messages.cpp | head -1 | grep -q '^# 1 "messages.cpp"$' >/dev/null 2>/dev/null
+    $CLANGXX -E -Werror -frewrite-includes messages.cpp | grep -q '^# 1 "messages.cpp"$' >/dev/null 2>/dev/null
     if test $? -eq 0; then
         run_ice "" "remote" 0 $CLANGXX -Wall -c messages.cpp -o "$testdir"/messages.o
         check_log_message stderr "warning: unused variable 'unused'"
@@ -892,14 +883,20 @@ if test -x $CLANGXX; then
         skipped_tests="$skipped_tests clang_rewrite_includes"
     fi
 
+    clang_debug_fission_disabled=
+    $CLANGXX -E -gsplit-dwarf messages.cpp 2>/dev/null >/dev/null || clang_debug_fission_disabled=1
+    if test -n "$debug_fission_disabled"; then
+        skipped_tests="$skipped_tests split-dwarf(clang++)"
+    fi
+
     if command -v gdb >/dev/null; then
         if command -v readelf >/dev/null; then
-            debug_test "$CLANGXX -c -g debug.cpp" "Temporary breakpoint 1, main () at debug.cpp:8"
-            if [ "$debug_fission" = YES ] ; then
-                debug_test "$CLANGXX -c -g debug.cpp -gsplit-dwarf" "Temporary breakpoint 1, main () at debug.cpp:8"
-                debug_test "$CLANGXX -c -g `pwd`/debug/debug2.cpp -gsplit-dwarf" "Temporary breakpoint 1, main () at `pwd`/debug/debug2.cpp:8"
+            debug_test "$CLANGXX" "-c -g debug.cpp" "Temporary breakpoint 1, main () at debug.cpp:8"
+            if test -z "$clang_debug_fission_disabled"; then
+                debug_test "$CLANGXX" "-c -g debug.cpp -gsplit-dwarf" "Temporary breakpoint 1, main () at debug.cpp:8"
+                debug_test "$CLANGXX" "-c -g `pwd`/debug/debug2.cpp -gsplit-dwarf" "Temporary breakpoint 1, main () at `pwd`/debug/debug2.cpp:8"
             fi
-            debug_test "$CLANGXX -c -g `pwd`/debug/debug2.cpp" "Temporary breakpoint 1, main () at `pwd`/debug/debug2.cpp:8"
+            debug_test "$CLANGXX" "-c -g `pwd`/debug/debug2.cpp" "Temporary breakpoint 1, main () at `pwd`/debug/debug2.cpp:8"
         fi
     fi
 
@@ -934,9 +931,9 @@ fi
 if test -n "$skipped_tests"; then
     echo "All tests OK, some were skipped:$skipped_tests"
     echo =============
-    exit 1
 else
     echo All tests OK.
     echo =============
-    exit 0
 fi
+
+exit 0
