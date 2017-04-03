@@ -382,7 +382,7 @@ int work_it(CompileJob &j, unsigned int job_stat[], MsgChannel *client, CompileR
                     if (msg->type == M_END) {
                         input_complete = true;
 
-                        if (!fcmsg) {
+                        if (!fcmsg && sock_in[1] != -1) {
                             close(sock_in[1]);
                             sock_in[1] = -1;
                         }
@@ -427,6 +427,16 @@ int work_it(CompileJob &j, unsigned int job_stat[], MsgChannel *client, CompileR
 
         int max_fd = std::max(sock_out[0], sock_err[0]);
 
+        if (sock_in[1] == -1 && fcmsg) {
+            // This state can occur when the compiler has terminated before
+            // all file input is received from the client.  The daemon must continue
+            // reading all file input from the client because the client expects it to.
+            // Deleting the file chunk message here tricks the select() below to continue
+            // listening for more file data from the client even though it is being
+            // thrown away.
+            delete fcmsg;
+            fcmsg = 0;
+        }
         if (client_fd >= 0 && !fcmsg) {
             FD_SET(client_fd, &rfds);
 
@@ -438,16 +448,27 @@ int work_it(CompileJob &j, unsigned int job_stat[], MsgChannel *client, CompileR
             // we poll it in every iteration.
         }
 
-        FD_SET(death_pipe[0], &rfds);
+        // If all file data has been received from the client then start
+        // listening on the death_pipe to know when the compiler has
+        // terminated.  The daemon can't start listening for the death of
+        // the compiler sooner or else it might close the client socket before the
+        // client had time to write all of the file data and wait for a response.
+        // The client isn't coded to properly handle the closing of the socket while
+        // sending all file data to the daemon.
+        if (input_complete) {
+            FD_SET(death_pipe[0], &rfds);
 
-        if (death_pipe[0] > max_fd) {
-            max_fd = death_pipe[0];
+            if (death_pipe[0] > max_fd) {
+                max_fd = death_pipe[0];
+            }
         }
 
         fd_set wfds, *wfdsp = 0;
         FD_ZERO(&wfds);
 
-        if (fcmsg) {
+        // Don't try to write to sock_in it if was already closed because
+        // the compile terminated before reading all of the file data.
+        if (fcmsg && sock_in[1] != -1) {
             FD_SET(sock_in[1], &wfds);
             wfdsp = &wfds;
 
@@ -501,11 +522,13 @@ int work_it(CompileJob &j, unsigned int job_stat[], MsgChannel *client, CompileR
                     }
 
                     kill(pid, SIGTERM); // Most likely crashed anyway ...
-                    return_value = EXIT_COMPILER_CRASHED;
-                    client_fd = -1;
-                    input_complete = true;
+                    if (input_complete) {
+                        return_value = EXIT_COMPILER_CRASHED;
+                    }
                     delete fcmsg;
                     fcmsg = 0;
+                    close(sock_in[1]);
+                    sock_in[1] = -1;
                     continue;
                 }
 
