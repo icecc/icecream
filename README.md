@@ -1,14 +1,14 @@
 [![Stories in Ready](https://badge.waffle.io/icecc/icecream.png?label=ready&title=Ready)](https://waffle.io/icecc/icecream)
-[Icecream](Icecream) was created by SUSE based on distcc. Like distcc,
-[Icecream](Icecream) takes compile jobs from a build and
+
+Icecream was created by SUSE based on distcc. Like distcc,
+Icecream takes compile jobs from a build and
 distributes it among remote machines allowing a parallel build. But
-unlike distcc, [Icecream](Icecream) uses a central server that
+unlike distcc, Icecream uses a central server that
 dynamically schedules the compile jobs to the fastest free server. This
 advantage pays off mostly for shared computers, if you're the only user
 on x machines, you have full control over them.
 
 Table of Contents
-
 -   [Installation](#installation)
 -   [How to use icecream](#how-to-use-icecream)
     -   [make it persistent](#make-it-persistent)
@@ -19,15 +19,16 @@ Table of Contents
     -   [osc build](#osc-build)
     -   [some compilation node aren't
         used](#some-compilation-node-arent-used)
+    -   [My build with a lot of warnings is slow](#My-build-with-a-lot-of-warnings-is-slow)
 
 -   [Supported platforms](#supported-platforms)
 -   [Using icecream in heterogeneous
     environments](#using-icecream-in-heterogeneous-environments)
--   [Cross-Compiling using icecream](#cross-compiling-using-icecream)
--   [Creating cross compiler package](#creating-cross-compiler-package)
--   [Cross-Compiling for embedded targets using
+    -   [Cross-Compiling using icecream](#cross-compiling-using-icecream)
+    -   [Creating cross compiler packages manually](#creating-cross-compiler-packages-manually)
+    -   [Cross-Compiling for embedded targets using
     icecream](#cross-compiling-for-embedded-targets-using-icecream)
--   [Cross-Compiling for multiple targets in the same environment using
+    -   [Cross-Compiling for multiple targets in the same environment using
     icecream](#cross-compiling-for-multiple-targets-in-the-same-environment-using-icecream)
 -   [How to combine icecream with
     ccache](#how-to-combine-icecream-with-ccache)
@@ -48,26 +49,21 @@ Table of Contents
 Installation
 -------------------------------------------------------------------------
 
-To install icecream, issue
+Generally you should use packages provided by your distribution. Packages provided by your distribution should integrate icecream with the startup scripts and have other changes to make icecream work well with your system.
 
-     yast -i icecream icecream-monitor
+When installing icecream we recommend you install the separate icecream-monitor program as well.
 
-In case this should not work, here are some links to download Icecream:
-
--   [Binaries from
-    opensuse.org](http://software.opensuse.org/download.html?project=devel%3Atools%3Abuilding&package=icecream)
--   [Sources from
-    ftp.suse.com](ftp://ftp.suse.com/pub/projects/icecream)
--   [openSUSE Icecream node
-    LiveCD](http://forgeftp.novell.com/kiwi-ltsp/icecream/)
+If you want to build from scratch see the separate README file provided with the source code.
 
 How to use icecream
 ---------------------------------------------------------------------------------------
 
+Before reading the section consult your distribution's documentation. Most packages provide automation for at least some of the required steps. If your distribution conflicts with these instructions they may have made changes.
+
 You need:
 
--   At least one machine that runs the scheduler ("./icecc-scheduler -d")
--   Many machines that run the daemon ("./iceccd -d")
+-   At least one machine that runs the scheduler ("icecc-scheduler -d")
+-   Many machines that run the daemon ("iceccd -d")
 
 It is possible to run the scheduler and the daemon on one machine and
 only the daemon on another, thus forming a compile cluster with two
@@ -79,7 +75,7 @@ first entry in your path, e.g. type
      export PATH=/usr/lib/icecc/bin:$PATH
 
 (Hint: put this in \~/.bashrc or /etc/profile to not have to type it in
-everytime)
+every time)
 
 Then you just compile with make -j \<num\>, where
 \<num\> is the amount of jobs you want to compile in parallel.
@@ -102,16 +98,9 @@ funny stats, you might want to run "icemon" (from a separate repository/package)
 
 ### make it persistent
 
-If you restart a computer, you still want it to be in the icecream
-cluster after reboot. With the SUSE packages, this is easy to
-accomplish, just set the service to be started on boot:
+Consult the documentation for your distribution. There are many different init systems that can start icecream. Each is configured differently.
 
-     chkconfig icecream on
-
-You can verify if the icecream service is running like this:
-
-     /etc/init.d/icecream status
-     Checking for Distributed Compiler Daemon:                             running
+Generally you need to start the daemon on each machine on every boot, and the scheduler or the scheduler machines.
 
 TroubleShooting
 -------------------------------------------------------------------------------
@@ -121,24 +110,10 @@ compiler (e.g. /usr/bin/gcc instead of /usr/lib/icecc/bin/gcc).
 
 ### Firewall
 
-For testing purposes, you can stop your firewall like this:
+**We do not recommend you mess with your firewall if you do not understand what you are doing. Mistakes can be disastrous even when things seem to be working correctly**. If you do not know what you are doing you should consult with someone who does.
 
-     rcSuSEfirewall2 stop
+Icecream uses network ports that are normally blocked. Your distribution's packages should add the correct configuration to open the firewall to icecream, but if not (or if you have custom rules) see [Network setup for Icecream (firewalls)](#network-setup-for-icecream-firewalls) for which ports to open.
 
-To open the right ports in your firewall, call
-
-     yast2 firewall
-
-Choose "allowed services" -\> Advanced. Enter for TCP: **10245 8765
-8766** and for UDP **8765**
-
-If you have scheduler running on another system, you should open
-broadcasting response :
-
-     yast2 firewall
-
-Choose "Custom Rules" -\> Add. Enter Source Networ **0/0** Protocol:
-**UDP** Source Port **8765**
 
 ### C compiler
 
@@ -174,15 +149,40 @@ build" and you must start icecream daemon.
 
 If, when using icecream monitor (icemon), you notice some nodes not
 being used at all for compilation, check you have the same icecream
-version on all nodes, otherwise, nodes running older icecream version
+version on all nodes, otherwise, nodes running older icecream versions
 might be excluded from available nodes.
 
-The icecream version shipped with openSUSE 12.2 is partially incompatible
-with nodes using other icecream versions. 12.2 nodes will not be used for compilation
-by other nodes, and depending on the scheduler version 12.2 nodes will not compile
-on other nodes either. These incompatible nodes can be identified by having 
-'Linux3_' prefix in the platform). Replace the openSUSE 12.2 package
-with a different one (for example from the devel:tools:build repository).
+
+### My build with a lot of warnings is slow
+
+GCC4.8+ has -fdiagnostics-show-caret, but when it prints the source code,
+it tries to find the source file on the disk, rather than printing the input
+it got like Clang does. This means that when compiling remotely, it of course
+won't find the source file in the remote chroot, will disable the caret
+silently and print much shorter messages. 
+
+As a workaround, Icecream will recompile locally if there is any stdout/stderr 
+and then print the full message. This means that files with warnings are 
+compiled twice, once on remote node and one on local node. In projects with many 
+warnings this has severe impact on performance.
+
+The best solution to this problem is to fix all warnings. Modern compilers tend
+to have good warnings with a low false positive rate. Fixing warnings will make
+your code better and solve this problem.
+
+We recognize that there are times when you cannot fix the warnings and want to 
+faster build. There are two possible work arounds. The first is to pass 
+
+    -fno-diagnostics-show-caret
+
+to your compiler. This can be done on a file by file basis by your build
+system which may help with keeping existing files warning free. The other
+option is to set
+
+    ICECC_CARET_WORKAROUND=1
+
+in the shell environment where you start the compile jobs.
+
 
 Supported platforms
 ---------------------------------------------------------------------------------------
@@ -235,27 +235,22 @@ the icecream daemon runs as root.
 Cross-Compiling using icecream
 ------------------------------------------------------------------------------------------------------------
 
-SUSE got quite some good machines not having a processor from Intel or
-AMD, so icecream is pretty good in using cross-compiler environments
+Icecream is pretty good in using cross-compiler environments
 similar to the above way of spreading compilers. There the
 ICECC\_VERSION variable looks like \<native\_filename\>(,\<platform\>:\<cross\_compiler\_filename\>)\*,
 for example like this:
 
      /work/9.1-i386.tar.bz2,ia64:/work/9.1-cross-ia64.tar.bz2,Darwin_PowerPCMac:/work/osx-generate-i386.tar.gz
 
-To get this working on openSuse machines there are some packages
-containing the cross-compiler environments. Here is a sample case
-showing how to do to get it working. Let's assume that we want to build
-for x86\_64 but use some i386 machines for the build as well. On the
-x86\_64 machine, go to
-[http://software.opensuse.org,](http://software.opensuse.org) search
-for **icecream x86\_64** and download and install the version for i586.
-Then add this to the ICECC\_VERSION and build.
+Some distributions provide packages that you can install that provide cross compile environments for various CPUs.
 
      i386:/usr/share/icecream-envs/cross-x86_64-gcc-icecream-backend_i386.tar.gz
 
-Creating cross compiler package
+Creating cross compiler packages manually
 ---------------------------------------------------------------------------------------------------------------
+
+Note, using icecc-create-env (described below) is generally better than
+following these steps to create it manually.
 
 How to package such a cross compiler is pretty straightforward if you
 look what's inside the tarballs generated by icecc. You basically need a
@@ -283,9 +278,6 @@ them until gcc generates an empty.o without error. You can double check
 with "file empty.o" if it's really a i586-linux object file.
 
 -   now tar that directory and use it on your client as specified above.
-
-My cross compiler for the above case is under
-[http://ktown.kde.org/\~coolo/ppc-osx-create-i586.tar.gz](http://ktown.kde.org/~coolo/ppc-osx-create-i586.tar.gz)
 
 Cross-Compiling for embedded targets using icecream
 ------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -345,7 +337,7 @@ for the same host architecture:
 -   Set ICECC\_VERSION to point to the native tarball file and for each
     tarball file created to the toolchains (e.g  ICECC\_VERSION=/work/i386-native.tar.gz,/work/arm-eabi-toolchain1.tar.gz=arm-eabi,/work/arm-linux-androideabi-toolchain2.tar.gz=arm-linux-androideabi).
 
-With these steps the icecrem will use /work/arm-eabi-toolchain1.tar.gz file to
+With these steps the icecream will use /work/arm-eabi-toolchain1.tar.gz file to
 cross compilers with the prefix arm-eabi(e.g arm-eabi-gcc and arm-eabi-g++), use
 /work/arm-linux-androideabi-toolchain2.tar.gz file to cross compilers with the prefix
 arm-linux-androideabi(e.g. arm-linux-androideabi-gcc and arm-linux-androideabi-g++)
@@ -497,14 +489,9 @@ Network setup for Icecream (firewalls)
 A short overview of the ports icecream requires:
 
 -   TCP/10245 on the daemon computers (required)
--   TCP/8765 for the the scheduler computer (required)
+-   TCP/8765 for the scheduler computer (required)
 -   TCP/8766 for the telnet interface to the scheduler (optional)
 -   UDP/8765 for broadcast to find the scheduler (optional)
-
-Note that the [SuSEfirewall2](SuSEfirewall2) on SUSE \< 9.1 got some
-problems configuring broadcast. So you might need the -s option for the
-daemon in any case there. If the monitor can't find the scheduler, use
-USE\_SCHEDULER=\<host\> icemon (or send me a patch :)
 
 I use distcc, why should I change?
 -------------------------------------------------------------------------------------------------------------------
@@ -525,28 +512,9 @@ best choice:
     they play doom (distcc doesn't have a scheduler)
 -   you like nice compile monitors :)
 
-Icecream on gentoo
--------------------------------------------------------------------------------------
-
--   It is recommended to remove all processor specific optimizations
-    from the CFLAGS line in /etc/make.conf. On the aKademy cluster it
-    proved useful to use only "-O2", otherwise there are often internal
-    compiler errors, if not all computers have the same processor
-    type/version
-
-**Be aware** that you have to change the CFLAGS during ich gcc update
-too.
-
--   To use icecream with emerge/ebuild use PREROOTPATH=/opt/icecream/lib/icecc/bin
-    emerge bla
--   Be aware, because your gcc/glibc/binutils are normally compiled with
-    processor-specific flags, there is a high chance that your compiler
-    won't work on other machines. The best would be to build gcc, glibc
-    and binutils without those flags and copying the needed files into
-    your tarball for distribution, e.g. CFLAGS="-mcpu=i686 -O3
-    -fomit-frame-pointer -pipe" CXXFLAGS="$CFLAGS" ebuild
-    /usr/portage/sys-devel/gcc-yourver.ebuild install ; cp
-    /var/tmp/portage...
+Note that distcc is a moving target. They are always improving their
+tool. Some of the above may no longer be true. You will need to
+compare features and decide what is best for you.
 
 Bug tracker
 -----------------------------------------------------------------------
