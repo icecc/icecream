@@ -19,6 +19,7 @@ Table of Contents
     -   [osc build](#osc-build)
     -   [some compilation node aren't
         used](#some-compilation-node-arent-used)
+    -   [short warnings from GCC](#short-warnings-from-gcc)
 
 -   [Supported platforms](#supported-platforms)
 -   [Using icecream in heterogeneous
@@ -183,6 +184,26 @@ by other nodes, and depending on the scheduler version 12.2 nodes will not compi
 on other nodes either. These incompatible nodes can be identified by having 
 'Linux3_' prefix in the platform). Replace the openSUSE 12.2 package
 with a different one (for example from the devel:tools:build repository).
+
+### short warnings from GCC
+
+GCC4.8+ has -fdiagnostics-show-caret, but when it prints the source code,
+it tries to find the source file on the disk, rather than printing the input
+it got like Clang does. This means that when compiling remotely, it of course
+won't find the source file in the remote chroot, will disable the caret
+silently and print much shorter messages. 
+
+As a workaround, Icecream can recompile locally if there is any stdout/stderr 
+and then print the full message. But it means that files with warnings are 
+compiled twice, once on remote node and one on local node. In projects with many 
+warnigns this has severe impact on performance, so the workaround is disabled
+by default.
+
+To enable it, set
+
+    ICECC_CARET_WORKAROUND=1
+
+in the shell environment where you start the compile jobs.
 
 Supported platforms
 ---------------------------------------------------------------------------------------
