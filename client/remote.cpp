@@ -80,7 +80,10 @@ parse_icecc_version(const string &target_platform, const string &prefix)
     Environments envs;
 
     string icecc_version = getenv("ICECC_VERSION");
-    assert(!icecc_version.empty());
+    if (icecc_version.empty()) {
+        log_error() << "$ICECC_VERSION has to point to an existing file" << endl;
+        return envs;
+    }
 
     // free after the C++-Programming-HOWTO
     string::size_type lastPos = icecc_version.find_first_not_of(',', 0);
