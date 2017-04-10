@@ -19,6 +19,7 @@ Table of Contents
     -   [osc build](#osc-build)
     -   [some compilation node aren't
         used](#some-compilation-node-arent-used)
+    -   [build with -Werror fails when using icecream ](#build-with--werror-fails-when-using-icecream)
 
 -   [Supported platforms](#supported-platforms)
 -   [Using icecream in heterogeneous
@@ -183,6 +184,21 @@ by other nodes, and depending on the scheduler version 12.2 nodes will not compi
 on other nodes either. These incompatible nodes can be identified by having 
 'Linux3_' prefix in the platform). Replace the openSUSE 12.2 package
 with a different one (for example from the devel:tools:build repository).
+
+### build with -Werror fails when using icecream
+
+This happens with gcc when `-Werror` is used and preprocessor generates code that issues
+warning. For example this code (taken from ltrace project):
+
+    assert(info->type != info->type);
+
+When building locally, gcc performs preprocessing and compilation in one step
+and ignores this warning (see gcc
+[bugzilla](https://gcc.gnu.org/bugzilla/show_bug.cgi?id=80369)). But icecream splits 
+preprocessing (done locally) and compilation (done remotely), which makes gcc trigger 
+a warning message and compilation fails (because of `-Werror`).
+   
+There is no known workaround, either disable `-Werror` or fix the code.
 
 Supported platforms
 ---------------------------------------------------------------------------------------
