@@ -1,4 +1,6 @@
 [![Stories in Ready](https://badge.waffle.io/icecc/icecream.png?label=ready&title=Ready)](https://waffle.io/icecc/icecream)
+[![Build Status](https://travis-ci.org/icecc/icecream.svg?branch=master)](https://travis-ci.org/icecc/icecream)
+
 [Icecream](Icecream) was created by SUSE based on distcc. Like distcc,
 [Icecream](Icecream) takes compile jobs from a build and
 distributes it among remote machines allowing a parallel build. But
