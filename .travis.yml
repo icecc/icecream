@@ -1,0 +1,25 @@
+language: cpp
+
+script:
+  - ./autogen.sh
+  - ./configure --prefix=$PWD/_inst
+  - make
+  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then make test; fi
+
+matrix:
+  include:
+  - os: linux
+    sudo: true # for setcap so we can run the tests in chroot.
+  - os: osx
+    before_install:
+      - brew update
+      - brew install lzo docbook2x
+
+addons:
+  apt:
+    packages:
+    - libcap-ng-dev
+    - libcap-ng-utils
+    - liblzo2-dev
+    - docbook2x
+    - realpath
