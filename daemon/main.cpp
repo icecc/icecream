@@ -1244,7 +1244,7 @@ bool Daemon::handle_job_done(Client *cl, JobDoneMsg *m)
 
 void Daemon::handle_old_request()
 {
-    while ((current_kids + clients.active_processes) < max_kids) {
+    while ((current_kids + clients.active_processes) < std::max((unsigned int)1, max_kids)) {
 
         Client *client = clients.get_earliest_client(Client::LINKJOB);
 
