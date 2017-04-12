@@ -590,6 +590,12 @@ static CompileServer *pick_server(Job *job)
             continue;
         }
 
+        // Ignore ineligible servers
+        if (!cs->is_eligible(job)) {
+            trace() << cs->nodeName() << " not eligible" << endl;
+            continue;
+        }
+
         // incompatible architecture or busy installing
         if (!cs->can_install(job).size()) {
 #if DEBUG_SCHEDULER > 2
