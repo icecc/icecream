@@ -364,17 +364,29 @@ run_ice()
         fi
     fi
 
-    remove_debug_info="s/DW_AT_\(GNU_dwo_\(id\|name\)\|comp_dir\|producer\|linkage_name\|name\).*//g"
+    local remove_offset_number="s/<[A-Fa-f0-9]*>/<>/g"
+    local remove_debug_info="s/\(Length\|DW_AT_\(GNU_dwo_\(id\|name\)\|comp_dir\|producer\|linkage_name\|name\)\).*/\1/g"
+    local remove_debug_pubnames="/Offset\s*Name/{n;s/\( *\)[A-Fa-f0-9]*\(\s*.*\)/\1\t\2/}"
+    local remove_size_of_area="s/\(Size of area in.*section:\)\s*[0-9]*/\1/g"
     if test -n "$output"; then
-        readelf -wlLiaprmfFoRt "$output" | sed -e $remove_debug_info > "$output".readelf.txt || cp "$output" "$output".readelf.txt
-        readelf -wlLiaprmfFoRt "$output".localice | sed -e $remove_debug_info > "$output".local.readelf.txt || cp "$output" "$output".local.readelf.txt
+        readelf -wlLiaprmfFoRt "$output" | sed -e "$remove_debug_info" \
+            -e "$remove_offset_number" \
+            -e "$remove_debug_pubnames" \
+            -e "$remove_size_of_area" > "$output".readelf.txt || cp "$output" "$output".readelf.txt
+        readelf -wlLiaprmfFoRt "$output".localice | sed -e "$remove_debug_info" \
+            -e "$remove_offset_number" \
+            -e "$remove_debug_pubnames" \
+            -e "$remove_size_of_area" > "$output".local.readelf.txt || cp "$output" "$output".local.readelf.txt
         if ! diff -q "$output".local.readelf.txt "$output".readelf.txt; then
             echo "Output mismatch ($output.localice)"
             stop_ice 0
             exit 2
         fi
         if test -z "$chroot_disabled"; then
-            readelf -wlLiaprmfFoRt "$output".remoteice | sed -e "$remove_debug_info" > "$output".remote.readelf.txt || cp "$output" "$output".remote.readelf.txt
+            readelf -wlLiaprmfFoRt "$output".remoteice | sed -e "$remove_debug_info" \
+                -e "$remove_offset_number" \
+                -e "$remove_debug_pubnames" \
+                -e "$remove_size_of_area" > "$output".remote.readelf.txt || cp "$output" "$output".remote.readelf.txt
             if ! diff -q "$output".remote.readelf.txt "$output".readelf.txt; then
                 echo "Output mismatch ($output.remoteice)"
                 stop_ice 0
@@ -383,15 +395,18 @@ run_ice()
         fi
     fi
     if test -n "$split_dwarf"; then
-        readelf -wlLiaprmfFoRt "$split_dwarf" | sed -e $remove_debug_info > "$split_dwarf".readelf.txt || cp "$split_dwarf" "$split_dwarf".readelf.txt
-        readelf -wlLiaprmfFoRt "$split_dwarf".localice | sed -e $remove_debug_info > "$split_dwarf".local.readelf.txt || cp "$split_dwarf" "$split_dwarf".local.readelf.txt
+        readelf -wlLiaprmfFoRt "$split_dwarf" | \
+            sed -e "$remove_debug_info" -e "$remove_offset_number" > "$split_dwarf".readelf.txt || cp "$split_dwarf" "$split_dwarf".readelf.txt
+        readelf -wlLiaprmfFoRt "$split_dwarf".localice | \
+            sed -e $remove_debug_info -e "$remove_offset_number" > "$split_dwarf".local.readelf.txt || cp "$split_dwarf" "$split_dwarf".local.readelf.txt
         if ! diff -q "$split_dwarf".local.readelf.txt "$split_dwarf".readelf.txt; then
             echo "Output DWO mismatch ($split_dwarf.localice)"
             stop_ice 0
             exit 2
         fi
         if test -z "$chroot_disabled"; then
-            readelf -wlLiaprmfFoRt "$split_dwarf".remoteice | sed -e "$remove_debug_info" > "$split_dwarf".remote.readelf.txt || cp "$split_dwarf" "$split_dwarf".remote.readelf.txt
+            readelf -wlLiaprmfFoRt "$split_dwarf".remoteice | \
+                sed -e "$remove_debug_info" -e "$remove_offset_number" > "$split_dwarf".remote.readelf.txt || cp "$split_dwarf" "$split_dwarf".remote.readelf.txt
             if ! diff -q "$split_dwarf".remote.readelf.txt "$split_dwarf".readelf.txt; then
                 echo "Output DWO mismatch ($split_dwarf.remoteice)"
                 stop_ice 0
@@ -646,10 +661,17 @@ debug_test()
         stop_ice 0
         exit 2
     fi
+
     # gcc-4.8+ has -grecord-gcc-switches, which makes the .o differ because of the extra flags the daemon adds,
     # this changes DW_AT_producer and also offsets
-    remove_debug_info="s/DW_AT_\(GNU_dwo_\(id\|name\)\|comp_dir\|producer\|linkage_name\|name\).*//g"
-    readelf -wlLiaprmfFoRt "$testdir"/debug-remote.o | sed -e 's/offset: 0x[0-9a-fA-F]*//g' -e 's/[ ]*--param ggc-min-expand.*heapsize\=[0-9]\+//g' -e $remove_debug_info > "$testdir"/readelf-remote.txt
+    local remove_debug_info="s/\(Length\|DW_AT_\(GNU_dwo_\(id\|name\)\|comp_dir\|producer\|linkage_name\|name\)\).*/\1/g"
+    local remove_offset_number="s/<[A-Fa-f0-9]*>/<>/g"
+    local remove_size_of_area="s/\(Size of area in.*section:\)\s*[0-9]*/\1/g"
+    readelf -wlLiaprmfFoRt "$testdir"/debug-remote.o | sed -e 's/offset: 0x[0-9a-fA-F]*//g' \
+        -e 's/[ ]*--param ggc-min-expand.*heapsize\=[0-9]\+//g' \
+        -e $remove_debug_info \
+        -e "$remove_offset_number" \
+        -e $remove_size_of_area > "$testdir"/readelf-remote.txt
 
     $cmd -o "$testdir"/debug-local.o 2>>"$testdir"/stderr.log
     if test $? -ne 0; then
@@ -669,7 +691,10 @@ debug_test()
         stop_ice 0
         exit 2
     fi
-    readelf -wlLiaprmfFoRt "$testdir"/debug-local.o | sed -e 's/offset: 0x[0-9a-fA-F]*//g' -e $remove_debug_info > "$testdir"/readelf-local.txt
+    readelf -wlLiaprmfFoRt "$testdir"/debug-local.o | sed -e 's/offset: 0x[0-9a-fA-F]*//g' \
+        -e $remove_debug_info \
+        -e $remove_offset_number \
+        -e $remove_size_of_area > "$testdir"/readelf-local.txt
 
     if ! diff -q "$testdir"/debug-output-local.txt "$testdir"/debug-output-remote.txt ; then
         echo Gdb output different.
@@ -826,8 +851,9 @@ run_ice "$testdir/includes.o" "remote" 0 $GXX -Wall -Werror -c includes.cpp -o "
 run_ice "$testdir/plain.o" "local" 0 $GXX -Wall -Werror -c plain.cpp -mtune=native -o "$testdir"/plain.o
 run_ice "$testdir/plain.o" "remote" 0 $GCC -Wall -Werror -x c++ -c plain -o "$testdir"/plain.o
 if test -z "$debug_fission_disabled"; then
-    run_ice "" "remote" 1 "split_dwarf" $GXX -gsplit-dwarf -c nonexistent.cpp
+    run_ice "" "remote" 300 "split_dwarf" $GXX -gsplit-dwarf -c nonexistent.cpp
 fi
+
 run_ice "" "remote" 300 $GXX -c nonexistent.cpp
 run_ice "" "local" 0 /bin/true
 
