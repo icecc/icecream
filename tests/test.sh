@@ -10,7 +10,7 @@ builddir=
 usage()
 {
     echo Usage: "$0 <install_prefix> <builddir> [--builddir=dir] [--valgrind[=command]]"
-    exit 2
+    exit 3
 }
 
 while test -n "$1"; do
@@ -75,6 +75,17 @@ if test -n "$debug_fission_disabled"; then
     skipped_tests="$skipped_tests split-dwarf(g++)"
 fi
 
+abort_tests()
+{
+    for logfile in "$testdir"/*.log*; do
+        echo "Log file: ${logfile}"
+        cat ${logfile}
+    done
+
+    exit 2
+}
+
+
 start_ice()
 {
     $valgrind "$prefix"/sbin/icecc-scheduler -p 8767 -l "$testdir"/scheduler.log -v -v -v &
@@ -100,14 +111,14 @@ start_ice()
         if ! kill -0 $scheduler_pid; then
             echo Scheduler start failure.
             stop_ice 0
-            exit 2
+            abort_tests
         fi
         for daemon in localice remoteice1 remoteice2; do
             pid=${daemon}_pid
             if ! kill -0 ${!pid}; then
                 echo Daemon $daemon start failure.
                 stop_ice 0
-                exit 2
+                abort_tests
             fi
             if ! grep -q "Connected to scheduler" "$testdir"/${daemon}.log; then
                 # ensure log file flush
@@ -123,7 +134,7 @@ start_ice()
     if test -n "$notready"; then
         echo Icecream not ready, aborting.
         stop_ice 0
-        exit 2
+        abort_tests
     fi
     sleep 5 # Give the scheduler time to get everything set up
     flush_logs
@@ -149,13 +160,13 @@ start_only_daemon()
     if ! kill -0 $localice_pid; then
         echo Daemon localice start failure.
         stop_only_daemon 0
-        exit 2
+        abort_tests
     fi
     flush_logs
     if ! grep -q "Netnames:" "$testdir"/localice.log; then
         echo Daemon localice not ready, aborting.
         stop_only_daemon 0
-        exit 2
+        abort_tests
     fi
 }
 
@@ -175,14 +186,14 @@ stop_ice()
         if ! kill -0 $scheduler_pid; then
             echo Scheduler no longer running.
             stop_ice 0
-            exit 2
+            abort_tests
         fi
         for daemon in localice remoteice1 remoteice2; do
             pid=${daemon}_pid
             if ! kill -0 ${!pid}; then
                 echo Daemon $daemon no longer running.
                 stop_ice 0
-                exit 2
+                abort_tests
             fi
         done
     fi
@@ -196,7 +207,7 @@ stop_ice()
                 if test $exitcode -ne 0; then
                     echo Daemon $daemon exited with code $exitcode.
                     stop_ice 0
-                    exit 2
+                    abort_tests
                 fi
             fi
         fi
@@ -213,7 +224,7 @@ stop_ice()
             if test $exitcode -ne 0; then
                 echo Scheduler exited with code $exitcode.
                 stop_ice 0
-                exit 2
+                abort_tests
             fi
         fi
         scheduler_pid=
@@ -228,7 +239,7 @@ stop_only_daemon()
         if ! kill -0 $localice_pid; then
             echo Daemon localice no longer running.
             stop_only_daemon 0
-            exit 2
+            abort_tests
         fi
     fi
     kill $localice_pid 2>/dev/null
@@ -339,28 +350,28 @@ run_ice()
     if test $localice_exit -ne $expected_exit; then
         echo "Local run exit code mismatch ($localice_exit vs $expected_exit)"
         stop_ice 0
-        exit 2
+        abort_tests
     fi
     if test $localice_exit -ne $expected_exit; then
         echo "Run without icecc exit code mismatch ($normal_exit vs $expected_exit)"
         stop_ice 0
-        exit 2
+        abort_tests
     fi
     if test -z "$chroot_disabled" -a "$remoteice_exit" != "$expected_exit"; then
         echo "Remote run exit code mismatch ($remoteice_exit vs $expected_exit)"
         stop_ice 0
-        exit 2
+        abort_tests
     fi
     if ! diff -q "$testdir"/stderr.localice "$testdir"/stderr; then
         echo "Stderr mismatch ($"testdir"/stderr.localice)"
         stop_ice 0
-        exit 2
+        abort_tests
     fi
     if test -z "$chroot_disabled"; then
         if ! diff -q "$testdir"/stderr.remoteice "$testdir"/stderr; then
             echo "Stderr mismatch ($"testdir"/stderr.remoteice)"
             stop_ice 0
-            exit 2
+            abort_tests
         fi
     fi
 
@@ -371,14 +382,14 @@ run_ice()
         if ! diff -q "$output".local.readelf.txt "$output".readelf.txt; then
             echo "Output mismatch ($output.localice)"
             stop_ice 0
-            exit 2
+            abort_tests
         fi
         if test -z "$chroot_disabled"; then
             readelf -wlLiaprmfFoRt "$output".remoteice | sed -e "$remove_debug_info" > "$output".remote.readelf.txt || cp "$output" "$output".remote.readelf.txt
             if ! diff -q "$output".remote.readelf.txt "$output".readelf.txt; then
                 echo "Output mismatch ($output.remoteice)"
                 stop_ice 0
-                exit 2
+                abort_tests
             fi
         fi
     fi
@@ -388,14 +399,14 @@ run_ice()
         if ! diff -q "$split_dwarf".local.readelf.txt "$split_dwarf".readelf.txt; then
             echo "Output DWO mismatch ($split_dwarf.localice)"
             stop_ice 0
-            exit 2
+            abort_tests
         fi
         if test -z "$chroot_disabled"; then
             readelf -wlLiaprmfFoRt "$split_dwarf".remoteice | sed -e "$remove_debug_info" > "$split_dwarf".remote.readelf.txt || cp "$split_dwarf" "$split_dwarf".remote.readelf.txt
             if ! diff -q "$split_dwarf".remote.readelf.txt "$split_dwarf".readelf.txt; then
                 echo "Output DWO mismatch ($split_dwarf.remoteice)"
                 stop_ice 0
-                exit 2
+                abort_tests
             fi
         fi
     fi
@@ -433,7 +444,7 @@ make_test()
     if test $? -ne 0 -o ! -x "$testdir"/maketest; then
         echo Make test $run_number failed.
         stop_ice 0
-        exit 2
+        abort_tests
     fi
     flush_logs
     check_logs_for_generic_errors
@@ -487,7 +498,7 @@ icerun_test()
         if test $runcount -gt 2; then
             echo "Icerun${noscheduler} test failed, more than expected 2 processes running."
             stop_ice 0
-            exit 2
+            abort_tests
         fi
         test $runcount -eq 2 && seen2=1
         donecount=`ls -1 "$testdir"/icerun/done* 2>/dev/null | wc -l`
@@ -499,14 +510,14 @@ icerun_test()
         if test $timeout -eq 0; then
             echo "Icerun${noscheduler} test timed out."
             stop_ice 0
-            exit 2
+            abort_tests
         fi
     done
     if test -z "$seen2"; then
         # Daemon is set up to run 2 jobs max, which means icerun should serialize only up to (and including) 2 jobs at the same time.
         echo "Icerun${noscheduler} test failed, 2 processes were never run at the same time."
         stop_ice 0
-        exit 2
+        abort_tests
     fi
 
     # check that plain 'icerun-test.sh' doesn't work for the current directory (i.e. ./ must be required just like with normal execution)
@@ -522,7 +533,7 @@ icerun_test()
         if test $timeout -eq 0; then
             echo "Icerun${noscheduler} test timed out."
             stop_ice 0
-            exit 2
+            abort_tests
         fi
     done
     
@@ -549,7 +560,7 @@ buildnativetest()
         grep "^creating .*\.tar\.gz$" | sed -e "s/^creating //")
     if test $? -ne 0; then
         echo icecc --build-native test failed.
-        exit 2
+        abort_tests
     fi
     rm -f $tgz
     echo icecc --build-native test successful.
@@ -566,7 +577,7 @@ recursive_test()
     if test $? -ne 111; then
         echo Recursive check test failed.
         stop_ice 0
-        exit 2
+        abort_tests
     fi
     flush_logs
     check_logs_for_generic_errors
@@ -587,7 +598,7 @@ clangplugintest()
     if test $? -ne 0; then
         echo Clang plugin test failed.
         stop_ice 0
-        exit 2
+        abort_tests
     fi
     flush_logs
     check_logs_for_generic_errors
@@ -625,7 +636,7 @@ debug_test()
     if test $? -ne 0; then
         echo Debug test compile failed.
         stop_ice 0
-        exit 2
+        abort_tests
     fi
     flush_logs
     check_logs_for_generic_errors
@@ -638,13 +649,13 @@ debug_test()
     if test $? -ne 0; then
         echo Linking in debug test failed.
         stop_ice 0
-        exit 2
+        abort_tests
     fi
     gdb -nx -batch -x debug-gdb.txt "$testdir"/debug-remote >"$testdir"/debug-stdout-remote.txt  2>/dev/null
     if ! grep -A 1000 "$debugstart" "$testdir"/debug-stdout-remote.txt >"$testdir"/debug-output-remote.txt ; then
         echo "Debug check failed (remote)."
         stop_ice 0
-        exit 2
+        abort_tests
     fi
     # gcc-4.8+ has -grecord-gcc-switches, which makes the .o differ because of the extra flags the daemon adds,
     # this changes DW_AT_producer and also offsets
@@ -655,31 +666,31 @@ debug_test()
     if test $? -ne 0; then
         echo Debug test compile failed.
         stop_ice 0
-        exit 2
+        abort_tests
     fi
     $compiler -o "$testdir"/debug-local "$testdir"/debug-local.o
     if test $? -ne 0; then
         echo Linking in debug test failed.
         stop_ice 0
-        exit 2
+        abort_tests
     fi
     gdb -nx -batch -x debug-gdb.txt "$testdir"/debug-local >"$testdir"/debug-stdout-local.txt 2>/dev/null
     if ! grep -A 1000 "$debugstart" "$testdir"/debug-stdout-local.txt >"$testdir"/debug-output-local.txt ; then
         echo "Debug check failed (local)."
         stop_ice 0
-        exit 2
+        abort_tests
     fi
     readelf -wlLiaprmfFoRt "$testdir"/debug-local.o | sed -e 's/offset: 0x[0-9a-fA-F]*//g' -e $remove_debug_info > "$testdir"/readelf-local.txt
 
     if ! diff -q "$testdir"/debug-output-local.txt "$testdir"/debug-output-remote.txt ; then
         echo Gdb output different.
         stop_ice 0
-        exit 2
+        abort_tests
     fi
     if ! diff -q "$testdir"/readelf-local.txt "$testdir"/readelf-remote.txt ; then
         echo Readelf output different.
         stop_ice 0
-        exit 2
+        abort_tests
     fi
     rm "$testdir"/debug-remote.o "$testdir"/debug-local.o "$testdir"/debug-remote "$testdir"/debug-local "$testdir"/debug-*-*.txt "$testdir"/readelf-*.txt
 
@@ -744,7 +755,7 @@ check_log_error()
     if grep -q "$2" "$testdir"/${log}.log; then
         echo "Error, $log log contains error: $2"
         stop_ice 0
-        exit 2
+        abort_tests
     fi
 }
 
@@ -756,7 +767,7 @@ check_log_error_except()
     if cat "$testdir"/${log}.log | grep -v "$3" | grep -q "$2" ; then
         echo "Error, $log log contains error: $2"
         stop_ice 0
-        exit 2
+        abort_tests
     fi
 }
 
@@ -766,7 +777,7 @@ check_log_message()
     if ! grep -q "$2" "$testdir"/${log}.log; then
         echo "Error, $log log does not contain: $2"
         stop_ice 0
-        exit 2
+        abort_tests
     fi
 }
 
@@ -778,7 +789,7 @@ check_log_message_count()
     if test $count -ne $expected_count; then
         echo "Error, $log log does not contain expected count (${count} vs ${expected_count}): $3"
         stop_ice 0
-        exit 2
+        abort_tests
     fi
 }
 
