@@ -231,9 +231,11 @@ static UseCSMsg *get_server(MsgChannel *local_daemon)
     Msg *umsg = local_daemon->get_msg(4 * 60);
 
     if (!umsg || umsg->type != M_USE_CS) {
-        log_warning() << "replied not with use_cs " << (umsg ? (char)umsg->type : '0')  << endl;
+        log_warning() << "reply was not expected use_cs " << (umsg ? (char)umsg->type : '0')  << endl;
+        ostringstream unexpected_msg;
+        unexpected_msg << "Error 1 - expected use_cs reply, but got " << (umsg ? (char)umsg->type : '0') << " instead";
         delete umsg;
-        throw client_error(1, "Error 1 - expected use_cs reply, but got something else");
+        throw client_error(1, unexpected_msg.str());
     }
 
     UseCSMsg *usecs = dynamic_cast<UseCSMsg *>(umsg);
