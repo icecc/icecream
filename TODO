@@ -6,6 +6,9 @@ Release Critical:
    the compilers to verify it's the right environment - think NFS users changing machines.
    This would simplify some things and avoid the above bugs (and it would make it more
    convenient for users of /opt/gcc-cvs/bin too)
+   This would also help users who are running in a chroot enviornment where the local
+   daemon cannot even find the path to the compiler
+
 * Improve Documentation (cschum)
 * make the protocol version an uint32, not a hand-build array.
 * let the client specify it was compiled with recent compiler (supporting -param). If so,
@@ -64,3 +67,15 @@ Andi Kleen writes to protect against misconfiguration:
 >and then run with
 >-include somefile.h
 > (this file needs to be in the environment created by create_env)
+
+From thedrow (distcc maintainer)
+>Merging this back might just mean feature parity with what icecream currently
+>provides or merging some of the code directly to distcc.
+>I think that the entire Linux community will gain from one tool that is able to
+>distribute compilation of large C/C++ components that provides more flexibility
+>and allows you to grow from the easy to setup distcc type of deployment to the 100
+>machines build farm that icecc provides.
+>Are there more features that diverged from distcc except for the server/client
+>architecture?
+  We think the the only other feature is better support for automatic chroot.
+
