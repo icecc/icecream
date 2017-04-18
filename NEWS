@@ -1,3 +1,10 @@
+Current
+ - Fix broken pipe race condition
+ - Better error handling
+ - crash fixes
+ - Documentation update
+ - include objcopy in environment if it exists
+
 1.1rc2
  - -gsplit-dwarf support for debug fission (https://gcc.gnu.org/wiki/DebugFission)
  - bug fixes since 1.1rc1
