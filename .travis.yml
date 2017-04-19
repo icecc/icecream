@@ -10,6 +10,7 @@ matrix:
   include:
   - os: linux
     sudo: true # for setcap so we can run the tests in chroot.
+    dist: trusty
   - os: osx
     before_install:
       - brew update
