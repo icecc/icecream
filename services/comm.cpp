@@ -756,16 +756,16 @@ MsgChannel *Service::createChannel(int fd, struct sockaddr *_a, socklen_t _l)
 MsgChannel::MsgChannel(int _fd, struct sockaddr *_a, socklen_t _l, bool text)
     : fd(_fd)
 {
-    addr_len = _l;
-
+    addr_len = (sizeof(struct sockaddr) > _l) ? sizeof(struct sockaddr) : _l;
+ 
     if (addr_len && _a) {
         addr = (struct sockaddr *)malloc(addr_len);
-        memcpy(addr, _a, addr_len);
+        memcpy(addr, _a, _l);
         char buf[16384] = "";
         if(addr->sa_family == AF_UNIX)
             name = reinterpret_cast<sockaddr_un*>(addr)->sun_path;
         else {
-            if(int error = getnameinfo(addr, addr_len, buf, sizeof(buf), NULL, 0, NI_NUMERICHOST))
+            if(int error = getnameinfo(addr, _l, buf, sizeof(buf), NULL, 0, NI_NUMERICHOST))
                 log_error() << "getnameinfo(): " << error << endl;
             name = buf;
         }
