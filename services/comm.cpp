@@ -761,10 +761,10 @@ MsgChannel::MsgChannel(int _fd, struct sockaddr *_a, socklen_t _l, bool text)
     if (addr_len && _a) {
         addr = (struct sockaddr *)malloc(addr_len);
         memcpy(addr, _a, _l);
-        char buf[16384] = "";
-        if(addr->sa_family == AF_UNIX)
-            name = reinterpret_cast<sockaddr_un*>(addr)->sun_path;
-        else {
+        if(addr->sa_family == AF_UNIX) {
+            name = "local unix domain socket";
+        } else {
+            char buf[16384] = "";
             if(int error = getnameinfo(addr, _l, buf, sizeof(buf), NULL, 0, NI_NUMERICHOST))
                 log_error() << "getnameinfo(): " << error << endl;
             name = buf;
