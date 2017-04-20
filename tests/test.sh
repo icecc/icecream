@@ -9,7 +9,7 @@ builddir=
 
 usage()
 {
-    echo Usage: "$0 <install_prefix> <builddir> [--builddir=dir] [--valgrind[=command]]"
+    echo Usage: "$0 <install_prefix> <testddir> [--builddir=dir] [--valgrind[=command]]"
     exit 3
 }
 
@@ -33,7 +33,16 @@ while test -n "$1"; do
     shift
 done
 
-if test -z "$prefix" -o ! -x "$prefix"/bin/icecc; then
+icecc="${prefix}/bin/icecc"
+iceccd="${prefix}/sbin/iceccd"
+icecc_scheduler="${prefix}/sbin/icecc-scheduler"
+if [[ -n "${builddir}" ]]; then
+    icecc="${builddir}/../client/icecc"
+    iceccd="${builddir}/../daemon/iceccd"
+    icecc_scheduler="${builddir}/../scheduler/icecc-scheduler"
+fi
+
+if test -z "$prefix" -o ! -x "$icecc"; then
     usage
 fi
 
@@ -88,16 +97,16 @@ abort_tests()
 
 start_ice()
 {
-    $valgrind "$prefix"/sbin/icecc-scheduler -p 8767 -l "$testdir"/scheduler.log -v -v -v &
+    $valgrind "${icecc_scheduler}" -p 8767 -l "$testdir"/scheduler.log -v -v -v &
     scheduler_pid=$!
     echo $scheduler_pid > "$testdir"/scheduler.pid
-    ICECC_TEST_SOCKET="$testdir"/socket-localice $valgrind "$prefix"/sbin/iceccd --no-remote -s localhost:8767 -b "$testdir"/envs-localice -l "$testdir"/localice.log -N localice -m 2 -v -v -v &
+    ICECC_TEST_SOCKET="$testdir"/socket-localice $valgrind "${iceccd}" --no-remote -s localhost:8767 -b "$testdir"/envs-localice -l "$testdir"/localice.log -N localice -m 2 -v -v -v &
     localice_pid=$!
     echo $localice_pid > "$testdir"/localice.pid
-    ICECC_TEST_SOCKET="$testdir"/socket-remoteice1 $valgrind "$prefix"/sbin/iceccd -p 10246 -s localhost:8767 -b "$testdir"/envs-remoteice1 -l "$testdir"/remoteice1.log -N remoteice1 -m 2 -v -v -v &
+    ICECC_TEST_SOCKET="$testdir"/socket-remoteice1 $valgrind "${iceccd}" -p 10246 -s localhost:8767 -b "$testdir"/envs-remoteice1 -l "$testdir"/remoteice1.log -N remoteice1 -m 2 -v -v -v &
     remoteice1_pid=$!
     echo $remoteice1_pid > "$testdir"/remoteice1.pid
-    ICECC_TEST_SOCKET="$testdir"/socket-remoteice2 $valgrind "$prefix"/sbin/iceccd -p 10247 -s localhost:8767 -b "$testdir"/envs-remoteice2 -l "$testdir"/remoteice2.log -N remoteice2 -m 2 -v -v -v &
+    ICECC_TEST_SOCKET="$testdir"/socket-remoteice2 $valgrind "${iceccd}" -p 10247 -s localhost:8767 -b "$testdir"/envs-remoteice2 -l "$testdir"/remoteice2.log -N remoteice2 -m 2 -v -v -v &
     remoteice2_pid=$!
     echo $remoteice2_pid > "$testdir"/remoteice2.pid
     notready=
@@ -149,7 +158,7 @@ start_ice()
 # start only local daemon, no scheduler
 start_only_daemon()
 {
-    ICECC_TEST_SOCKET="$testdir"/socket-localice $valgrind "$prefix"/sbin/iceccd --no-remote -s localhost:8767 -b "$testdir"/envs-localice -l "$testdir"/localice.log -N localice -m 2 -v -v -v &
+    ICECC_TEST_SOCKET="$testdir"/socket-localice $valgrind "${iceccd}" --no-remote -s localhost:8767 -b "$testdir"/envs-localice -l "$testdir"/localice.log -N localice -m 2 -v -v -v &
     localice_pid=$!
     echo $localice_pid > "$testdir"/localice.pid
     if test -n "$valgrind"; then
@@ -283,7 +292,7 @@ run_ice()
 
     reset_logs local "$@"
     echo Running: "$@"
-    ICECC_TEST_SOCKET="$testdir"/socket-localice ICECC_TEST_REMOTEBUILD=1 ICECC_PREFERRED_HOST=localice ICECC_DEBUG=debug ICECC_LOGFILE="$testdir"/icecc.log $valgrind "$prefix"/bin/icecc "$@" 2>"$testdir"/stderr.localice
+    ICECC_TEST_SOCKET="$testdir"/socket-localice ICECC_TEST_REMOTEBUILD=1 ICECC_PREFERRED_HOST=localice ICECC_DEBUG=debug ICECC_LOGFILE="$testdir"/icecc.log $valgrind "${icecc}" "$@" 2>"$testdir"/stderr.localice
 
     localice_exit=$?
     if test -n "$output"; then
@@ -310,7 +319,7 @@ run_ice()
 
     if test -z "$chroot_disabled"; then
         reset_logs remote "$@"
-        ICECC_TEST_SOCKET="$testdir"/socket-localice ICECC_TEST_REMOTEBUILD=1 ICECC_PREFERRED_HOST=remoteice1 ICECC_DEBUG=debug ICECC_LOGFILE="$testdir"/icecc.log $valgrind "$prefix"/bin/icecc "$@" 2>"$testdir"/stderr.remoteice
+        ICECC_TEST_SOCKET="$testdir"/socket-localice ICECC_TEST_REMOTEBUILD=1 ICECC_PREFERRED_HOST=remoteice1 ICECC_DEBUG=debug ICECC_LOGFILE="$testdir"/icecc.log $valgrind "${icecc}" "$@" 2>"$testdir"/stderr.remoteice
         remoteice_exit=$?
         if test -n "$output"; then
             mv "$output" "$output".remoteice
@@ -588,7 +597,7 @@ recursive_test()
     echo Running recursive check test.
     reset_logs local "recursive check"
 
-    PATH="$prefix"/lib/icecc/bin:"$prefix"/bin:/usr/local/bin:/usr/bin:/bin ICECC_TEST_SOCKET="$testdir"/socket-localice ICECC_TEST_REMOTEBUILD=1 ICECC_DEBUG=debug ICECC_LOGFILE="$testdir"/icecc.log "$prefix"/bin/icecc ./recursive_g++ -Wall -c plain.c -o plain.o 2>>"$testdir"/stderr.log
+    PATH="$prefix"/lib/icecc/bin:"$prefix"/bin:/usr/local/bin:/usr/bin:/bin ICECC_TEST_SOCKET="$testdir"/socket-localice ICECC_TEST_REMOTEBUILD=1 ICECC_DEBUG=debug ICECC_LOGFILE="$testdir"/icecc.log "${icecc}" ./recursive_g++ -Wall -c plain.c -o plain.o 2>>"$testdir"/stderr.log
     if test $? -ne 111; then
         echo Recursive check test failed.
         stop_ice 0
@@ -608,7 +617,7 @@ clangplugintest()
     reset_logs remote "clang plugin"
 
     # TODO This should be able to also handle the clangpluginextra.txt argument without the absolute path.
-    ICECC_TEST_SOCKET="$testdir"/socket-localice ICECC_TEST_REMOTEBUILD=1 ICECC_PREFERRED_HOST=remoteice1 ICECC_DEBUG=debug ICECC_LOGFILE="$testdir"/icecc.log ICECC_EXTRAFILES=clangpluginextra.txt $valgrind "$prefix"/bin/icecc \
+    ICECC_TEST_SOCKET="$testdir"/socket-localice ICECC_TEST_REMOTEBUILD=1 ICECC_PREFERRED_HOST=remoteice1 ICECC_DEBUG=debug ICECC_LOGFILE="$testdir"/icecc.log ICECC_EXTRAFILES=clangpluginextra.txt $valgrind "${icecc}" \
         $CLANGXX -Wall -c -Xclang -load -Xclang "$builddir"/clangplugin.so -Xclang -add-plugin -Xclang icecreamtest -Xclang -plugin-arg-icecreamtest -Xclang `realpath -s clangpluginextra.txt` clangplugintest.cpp -o "$testdir"/clangplugintest.o 2>>"$testdir"/stderr.log
     if test $? -ne 0; then
         echo Clang plugin test failed.
@@ -646,7 +655,7 @@ debug_test()
     echo "Running debug test ($cmd)."
     reset_logs remote "debug test ($cmd)"
 
-    ICECC_TEST_SOCKET="$testdir"/socket-localice ICECC_TEST_REMOTEBUILD=1 ICECC_PREFERRED_HOST=remoteice1 ICECC_DEBUG=debug ICECC_LOGFILE="$testdir"/icecc.log $valgrind "$prefix"/bin/icecc \
+    ICECC_TEST_SOCKET="$testdir"/socket-localice ICECC_TEST_REMOTEBUILD=1 ICECC_PREFERRED_HOST=remoteice1 ICECC_DEBUG=debug ICECC_LOGFILE="$testdir"/icecc.log $valgrind "${icecc}" \
         $cmd -o "$testdir"/debug-remote.o 2>>"$testdir"/stderr.log
     if test $? -ne 0; then
         echo Debug test compile failed.
