@@ -603,13 +603,23 @@ bool Daemon::setup_listen_fds()
 #else
         if (getuid() == 0) {
 #endif
-            strncpy(myaddr.sun_path, "/var/run/icecc/iceccd.socket", sizeof(myaddr.sun_path) - 1);
+            string default_socket = "/var/run/icecc/iceccd.socket";
+            strncpy(myaddr.sun_path, default_socket.c_str() , sizeof(myaddr.sun_path) - 1);
+            myaddr.sun_path[sizeof(myaddr.sun_path) - 1] = '\0';
+            if(default_socket.length() > sizeof(myaddr.sun_path) - 1) {
+                log_error() << "default socket path too long for sun_path" << endl;	
+            }
             unlink(myaddr.sun_path);
             old_umask = umask(0);
         } else { // Started by user.
             if( getenv( "HOME" )) {
-                strncpy(myaddr.sun_path, getenv("HOME"), sizeof(myaddr.sun_path) - 1);
-                strncat(myaddr.sun_path, "/.iceccd.socket", sizeof(myaddr.sun_path) - 1 - strlen(myaddr.sun_path));
+                string socket_path = getenv("HOME");
+                socket_path.append("/.iceccd.socket");
+                strncpy(myaddr.sun_path, socket_path.c_str(), sizeof(myaddr.sun_path) - 1);
+                myaddr.sun_path[sizeof(myaddr.sun_path) - 1] = '\0';
+                if(socket_path.length() > sizeof(myaddr.sun_path) - 1) {
+                    log_error() << "$HOME/.iceccd.socket path too long for sun_path" << endl;
+                }
                 unlink(myaddr.sun_path);
             } else {
                 log_error() << "launched by user, but $HOME not set" << endl;
@@ -617,7 +627,12 @@ bool Daemon::setup_listen_fds()
             }
         }
     } else {
-        strncpy(myaddr.sun_path, getenv("ICECC_TEST_SOCKET"), sizeof(myaddr.sun_path) - 1);
+        string test_socket = getenv("ICECC_TEST_SOCKET");
+        strncpy(myaddr.sun_path, test_socket.c_str(), sizeof(myaddr.sun_path) - 1);
+        myaddr.sun_path[sizeof(myaddr.sun_path) - 1] = '\0';
+        if(test_socket.length() > sizeof(myaddr.sun_path) - 1) {
+            log_error() << "$ICECC_TEST_SOCKET path too long for sun_path" << endl;
+        }
         unlink(myaddr.sun_path);
     }
 

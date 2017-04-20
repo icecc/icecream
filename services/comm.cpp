@@ -708,6 +708,10 @@ MsgChannel *Service::createChannel(const string &socket_path)
 
     remote_addr.sun_family = AF_UNIX;
     strncpy(remote_addr.sun_path, socket_path.c_str(), sizeof(remote_addr.sun_path) - 1);
+    remote_addr.sun_path[sizeof(remote_addr.sun_path) - 1] = '\0';
+    if(socket_path.length() > sizeof(remote_addr.sun_path) - 1) {
+        log_error() << "socket_path path too long for sun_path" << endl;		
+    }
 
     if (connect(remote_fd, (struct sockaddr *) &remote_addr, sizeof(remote_addr)) < 0) {
         close(remote_fd);
