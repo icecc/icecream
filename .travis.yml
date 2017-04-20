@@ -10,15 +10,65 @@ matrix:
   include:
   - os: linux
     sudo: true # for setcap so we can run the tests in chroot.
+    compiler: gcc
+    dist: trusty
+  - os: linux
+    sudo: true # for setcap so we can run the tests in chroot.
+    compiler: clang
+    dist: trusty
+  - os: linux
+    sudo: true # for setcap so we can run the tests in chroot.
+    compiler: clang
+    env: BUILD_TYPE=asan
+    dist: trusty
+  - os: linux
+    sudo: true # for setcap so we can run the tests in chroot.
+    compiler: clang
+    env: BUILD_TYPE=lsan
+    dist: trusty
+  - os: linux
+    sudo: true # for setcap so we can run the tests in chroot.
+    compiler: clang
+    env: BUILD_TYPE=ubsan
     dist: trusty
   - os: osx
     before_install:
       - brew update
       - brew install lzo docbook2x
+  allow_failures:
+  - compiler: clang
+    env: BUILD_TYPE=asan
+  - compiler: clang
+    env: BUILD_TYPE=lsan
+
+before_script:
+  - |
+     if [ "$BUILD_TYPE" == "asan" ]; then
+         export SAN_FLAGS="-fsanitize=address -fno-omit-frame-pointer"
+     fi
+  - |
+     if [ "$BUILD_TYPE" == "lsan" ]; then
+         export SAN_FLAGS="-fsanitize=leak -fno-omit-frame-pointer"
+     fi
+  - |
+     if [ "$BUILD_TYPE" == "msan" ]; then
+         export SAN_FLAGS="-fsanitize=memory-fno-omit-frame-pointer"
+     fi
+  - |
+     if [ "$BUILD_TYPE" == "ubsan" ]; then
+         export SAN_FLAGS="-fsanitize=undefined -fno-omit-frame-pointer"
+         export LDFLAGS="$UBSAN_FLAGS ${LDFLAGS}"
+     fi
+  - |
+      export CFLAGS="${SAN_FLAGS} ${CFLAGS} -Wall -Wextra"
+      export CXXFLAGS="${SAN_FLAGS} ${CXXFLAGS} -Wall -Wextra"
+      export LDFLAGS="${SAN_FLAGS} ${LDFLAGS}"
+
 
 addons:
   apt:
     packages:
+    - clang
     - libcap-ng-dev
     - libcap-ng-utils
     - liblzo2-dev
