@@ -377,7 +377,7 @@ run_ice()
 
     local remove_offset_number="s/<[A-Fa-f0-9]*>/<>/g"
     local remove_debug_info="s/\(Length\|DW_AT_\(GNU_dwo_\(id\|name\)\|comp_dir\|producer\|linkage_name\|name\)\).*/\1/g"
-    local remove_debug_pubnames="/Offset\s*Name/{n;s/\( *\)[A-Fa-f0-9]*\(\s*.*\)/\1\t\2/}"
+    local remove_debug_pubnames="/^\s*Offset\s*Name/,/^\s*$/s/\s*[A-Fa-f0-9]*\s*//"
     local remove_size_of_area="s/\(Size of area in.*section:\)\s*[0-9]*/\1/g"
     if test -n "$output"; then
         readelf -wlLiaprmfFoRt "$output" | sed -e "$remove_debug_info" \
@@ -678,11 +678,13 @@ debug_test()
     local remove_debug_info="s/\(Length\|DW_AT_\(GNU_dwo_\(id\|name\)\|comp_dir\|producer\|linkage_name\|name\)\).*/\1/g"
     local remove_offset_number="s/<[A-Fa-f0-9]*>/<>/g"
     local remove_size_of_area="s/\(Size of area in.*section:\)\s*[0-9]*/\1/g"
+    local remove_debug_pubnames="/^\s*Offset\s*Name/,/^\s*$/s/\s*[A-Fa-f0-9]*\s*//"
     readelf -wlLiaprmfFoRt "$testdir"/debug-remote.o | sed -e 's/offset: 0x[0-9a-fA-F]*//g' \
         -e 's/[ ]*--param ggc-min-expand.*heapsize\=[0-9]\+//g' \
-        -e $remove_debug_info \
+        -e "$remove_debug_info" \
         -e "$remove_offset_number" \
-        -e $remove_size_of_area > "$testdir"/readelf-remote.txt
+        -e "$remove_size_of_area" \
+        -e "$remove_debug_pubnames" > "$testdir"/readelf-remote.txt
 
     $cmd -o "$testdir"/debug-local.o 2>>"$testdir"/stderr.log
     if test $? -ne 0; then
@@ -703,9 +705,10 @@ debug_test()
         abort_tests
     fi
     readelf -wlLiaprmfFoRt "$testdir"/debug-local.o | sed -e 's/offset: 0x[0-9a-fA-F]*//g' \
-        -e $remove_debug_info \
-        -e $remove_offset_number \
-        -e $remove_size_of_area > "$testdir"/readelf-local.txt
+        -e "$remove_debug_info" \
+        -e "$remove_offset_number" \
+        -e "$remove_size_of_area" \
+        -e "$remove_debug_pubnames" > "$testdir"/readelf-local.txt
 
     if ! diff -q "$testdir"/debug-output-local.txt "$testdir"/debug-output-remote.txt ; then
         echo Gdb output different.
