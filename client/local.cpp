@@ -243,9 +243,7 @@ int build_local(CompileJob &job, MsgChannel *local_daemon, struct rusage *used)
         arguments.push_back(job.outputFile());
     }
 
-    //char **argv = new char*[arguments.size() + 1];
-    vector<char*> argv;
-    //int argc = 0;
+    vector<char*> argv; 
 
     for (list<string>::const_iterator it = arguments.begin(); it != arguments.end(); ++it) {
         argv.push_back(strdup(it->c_str()));
