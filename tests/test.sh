@@ -94,21 +94,48 @@ abort_tests()
     exit 2
 }
 
+start_iceccd()
+{
+    name=$1
+    ICECC_TEST_SOCKET="$testdir"/socket-${name} $valgrind "${prefix}/sbin/iceccd" 6 -s localhost:8767 -b "$testdir"/envs-${name} -l "$testdir"/${name}.log -N ${name}  -v -v -v "$@" &
+    pid=$!
+    eval ${name}_pid=${pid}
+    echo ${pid} > "$testdir"/${name}.pid
+}
+
+kill_daemon()
+{
+    daemon=$1
+
+    pid=${daemon}_pid
+    if test -n "${!pid}"; then
+        kill "${!pid}" 2>/dev/null
+        if test $check_type -eq 1; then
+            wait ${!pid}
+            exitcode=$?
+            if test $exitcode -ne 0; then
+                echo Daemon $daemon exited with code $exitcode.
+                stop_ice 0
+                abort_tests
+            fi
+        fi
+    fi
+    rm -f "$testdir"/$daemon.pid
+    rm -rf "$testdir"/envs-${daemon}
+    rm -f "$testdir"/socket-${daemon}
+    eval ${pid}=
+}
 
 start_ice()
 {
     $valgrind "${icecc_scheduler}" -p 8767 -l "$testdir"/scheduler.log -v -v -v &
     scheduler_pid=$!
     echo $scheduler_pid > "$testdir"/scheduler.pid
-    ICECC_TEST_SOCKET="$testdir"/socket-localice $valgrind "${iceccd}" --no-remote -s localhost:8767 -b "$testdir"/envs-localice -l "$testdir"/localice.log -N localice -m 2 -v -v -v &
-    localice_pid=$!
-    echo $localice_pid > "$testdir"/localice.pid
-    ICECC_TEST_SOCKET="$testdir"/socket-remoteice1 $valgrind "${iceccd}" -p 10246 -s localhost:8767 -b "$testdir"/envs-remoteice1 -l "$testdir"/remoteice1.log -N remoteice1 -m 2 -v -v -v &
-    remoteice1_pid=$!
-    echo $remoteice1_pid > "$testdir"/remoteice1.pid
-    ICECC_TEST_SOCKET="$testdir"/socket-remoteice2 $valgrind "${iceccd}" -p 10247 -s localhost:8767 -b "$testdir"/envs-remoteice2 -l "$testdir"/remoteice2.log -N remoteice2 -m 2 -v -v -v &
-    remoteice2_pid=$!
-    echo $remoteice2_pid > "$testdir"/remoteice2.pid
+
+    start_iceccd localice --no-remote -m 2
+    start_iceccd remoteice1 -p 10246 -m 2
+    start_iceccd remoteice2 -p 10247 -m 2
+
     notready=
     if test -n "$valgrind"; then
         sleep 10
@@ -207,23 +234,7 @@ stop_ice()
         done
     fi
     for daemon in localice remoteice1 remoteice2; do
-        pid=${daemon}_pid
-        if test -n "${!pid}"; then
-            kill "${!pid}" 2>/dev/null
-            if test $check_type -eq 1; then
-                wait ${!pid}
-                exitcode=$?
-                if test $exitcode -ne 0; then
-                    echo Daemon $daemon exited with code $exitcode.
-                    stop_ice 0
-                    abort_tests
-                fi
-            fi
-        fi
-        rm -f "$testdir"/$daemon.pid
-        rm -rf "$testdir"/envs-${daemon}
-        rm -f "$testdir"/socket-${daemon}
-        eval ${pid}=
+        kill_daemon $daemon
     done
     if test -n "$scheduler_pid"; then
         kill "$scheduler_pid" 2>/dev/null
@@ -648,6 +659,13 @@ clangplugintest()
 # 2nd argument is first line of debug at which to start comparing.
 debug_test()
 {
+    # debug tests fail when the daemon is not running in the install directory
+    # Sanitizers will not give good output on error as a result
+    kill_daemon localice
+    ICECC_TEST_SOCKET="$testdir"/socket-localice $valgrind "${prefix}/sbin/iceccd" 6 -s localhost:8767 -b "$testdir"/envs-localice -l "$testdir"/localice.log -N localice  -v -v -v --no-remote -m 2 &
+    localice_pid=$!
+    echo ${localice_pid} > "$testdir"/${localice}.pid
+
     compiler="$1"
     args="$2"
     cmd="$1 $2"
@@ -662,6 +680,7 @@ debug_test()
         stop_ice 0
         abort_tests
     fi
+
     flush_logs
     check_logs_for_generic_errors
     check_log_message icecc "Have to use host 127.0.0.1:10246"
@@ -733,6 +752,10 @@ debug_test()
 
     echo Debug test successful.
     echo
+
+    # restart local daemon to the as built one
+    kill_daemon localice
+    start_iceccd localice --no-remote -m 2
 }
 
 reset_logs()
