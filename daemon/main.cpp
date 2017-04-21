@@ -1983,8 +1983,10 @@ int Daemon::working_loop()
             close_scheduler();
         }
 
-        if (exit_main_loop)
+        if (exit_main_loop) {
+            close_scheduler();
             break;
+        }
     }
     return 0;
 }
