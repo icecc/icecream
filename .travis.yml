@@ -69,7 +69,6 @@ addons:
   apt:
     packages:
     - clang
-    - gdb
     - libcap-ng-dev
     - libcap-ng-utils
     - liblzo2-dev
