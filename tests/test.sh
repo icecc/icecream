@@ -97,7 +97,7 @@ abort_tests()
 start_iceccd()
 {
     name=$1
-    ICECC_TEST_SOCKET="$testdir"/socket-${name} $valgrind "${prefix}/sbin/iceccd" 6 -s localhost:8767 -b "$testdir"/envs-${name} -l "$testdir"/${name}.log -N ${name}  -v -v -v "$@" &
+    ICECC_TEST_SOCKET="$testdir"/socket-${name} $valgrind "${iceccd}" 6 -s localhost:8767 -b "$testdir"/envs-${name} -l "$testdir"/${name}.log -N ${name}  -v -v -v "$@" &
     pid=$!
     eval ${name}_pid=${pid}
     echo ${pid} > "$testdir"/${name}.pid
