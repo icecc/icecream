@@ -1,9 +1,11 @@
 Current
  - Fix broken pipe race condition
  - Better error handling
- - crash fixes
+ - Crash fixes
  - Documentation update
- - include objcopy in environment if it exists
+ - Include objcopy in environment if it exists
+ - Add CI builds on travis-ci: OSX, ubuntu trusty
+ - Fixed several memory errors
 
 1.1rc2
  - -gsplit-dwarf support for debug fission (https://gcc.gnu.org/wiki/DebugFission)
