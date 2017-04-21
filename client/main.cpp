@@ -488,10 +488,12 @@ int main(int argc, char **argv)
         /* If we can't talk to the daemon anymore we need to fall back
            to lock file locking.  */
         if (!startme || startme->type != M_JOB_LOCAL_BEGIN) {
+            delete startme;
             goto do_local_error;
         }
 
         ret = build_local(job, local_daemon, &ru);
+        delete startme;
     } else {
         try {
             // check if it should be compiled three times

@@ -35,11 +35,6 @@ matrix:
     before_install:
       - brew update
       - brew install lzo docbook2x
-  allow_failures:
-  - compiler: clang
-    env: BUILD_TYPE=asan
-  - compiler: clang
-    env: BUILD_TYPE=lsan
 
 before_script:
   - |
