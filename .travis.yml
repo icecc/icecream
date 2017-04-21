@@ -58,6 +58,7 @@ before_script:
      if [ "$BUILD_TYPE" == "ubsan" ]; then
          export SAN_FLAGS="-fsanitize=undefined -fno-omit-frame-pointer"
          export LDFLAGS="$UBSAN_FLAGS ${LDFLAGS}"
+         export UBSAN_OPTIONS=print_stacktrace=1
      fi
   - |
       export CFLAGS="${SAN_FLAGS} ${CFLAGS} -Wall -Wextra"
@@ -69,7 +70,6 @@ addons:
   apt:
     packages:
     - clang
-    - gdb
     - libcap-ng-dev
     - libcap-ng-utils
     - liblzo2-dev
