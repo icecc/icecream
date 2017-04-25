@@ -25,6 +25,7 @@
 #include "logging.h"
 #include <fstream>
 #include <signal.h>
+#include <limits.h>
 #ifdef __linux__
 #include <dlfcn.h>
 #endif
@@ -63,7 +64,7 @@ void setup_debug(int level, const string &filename, const string &prefix)
 #ifdef __linux__
 
         if (fname[0] != '/') {
-            char buf[FILENAME_MAX];
+            char buf[PATH_MAX];
 
             if (getcwd(buf, sizeof(buf))) {
                 fname.insert(0, "/");
