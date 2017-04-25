@@ -61,6 +61,7 @@
 
 #include "client.h"
 #include "platform.h"
+#include "util.h"
 
 using namespace std;
 
@@ -271,8 +272,8 @@ int main(int argc, char **argv)
     string compiler_name = argv[0];
     dcc_client_catch_signals();
 
-    char cwd[ PATH_MAX ];
-    if( getcwd( cwd, PATH_MAX ) != NULL )
+    std::string cwd = get_cwd();
+    if(!cwd.empty())
         job.setWorkingDirectory( cwd );
 
     if (find_basename(compiler_name) == rs_program_name) {
