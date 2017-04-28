@@ -147,7 +147,7 @@ static bool exec_and_wait(const char *const argv[])
     pid_t pid = fork();
 
     if (pid == -1) {
-        log_perror("fork");
+        log_perror("failed to fork");
         return false;
     }
 
@@ -161,7 +161,9 @@ static bool exec_and_wait(const char *const argv[])
     }
 
     // child
-    _exit(execv(argv[0], const_cast<char * const *>(argv)));
+    execv(argv[0], const_cast<char * const *>(argv));
+    log_perror("execv failed");
+    _exit(-1);
 }
 
 // Removes everything in the directory recursively, but not the directory itself.
@@ -339,7 +341,10 @@ int start_create_env(const string &basedir, uid_t user_uid, gid_t user_gid,
 
     if (chown(nativedir.c_str(), user_uid, user_gid) ||
             chmod(nativedir.c_str(), 0775)) {
-        rmdir(nativedir.c_str());
+        log_perror("chown/chmod failed");
+        if (-1 == rmdir(nativedir.c_str())){
+            log_perror("rmdir failed");
+        }
         return 0;
     }
 
@@ -351,8 +356,15 @@ int start_create_env(const string &basedir, uid_t user_uid, gid_t user_gid,
     }
     pid_t pid = fork();
 
+    if (pid == -1) {
+        log_perror("failed to fork");
+        _exit(147);
+    }
+
     if (pid) {
-        close(pipes[1]);
+        if ((-1 == close(pipes[1])) && (errno != EBADF)){
+            log_perror("close failed");
+        }
         return pipes[0];
     }
     // else
@@ -383,11 +395,21 @@ int start_create_env(const string &basedir, uid_t user_uid, gid_t user_gid,
         _exit(1);
     }
 
-    close(pipes[0]);
-    dup2(pipes[1], 5);   // icecc-create-env will write the hash there
-    close(pipes[1]);
+    if ((-1 == close(pipes[0])) && (errno != EBADF)){
+        log_perror("close failed");
+    }
 
-    close(STDOUT_FILENO); // hide output from icecc-create-env
+    if (-1 == dup2(pipes[1], 5)){   // icecc-create-env will write the hash there
+        log_perror("dup2 failed");
+    }
+
+    if ((-1 == close(pipes[1])) && (errno != EBADF)){
+        log_perror("close failed");
+    }
+
+    if ((-1 == close(STDOUT_FILENO)) && (errno != EBADF)){ // hide output from icecc-create-env
+        log_perror("close failed");
+    }
 
     const char **argv;
     argv = new const char*[4 + extrafiles.size()];
@@ -427,7 +449,9 @@ size_t finish_create_env(int pipe, const string &basedir, string &native_environ
     string nativedir = basedir + "/native/";
     native_environment = nativedir + buf;
 
-    close(pipe);
+    if ((-1 == close(pipe)) && (errno != EBADF)){
+        log_perror("close failed");
+    }
     trace() << "native_environment " << native_environment << endl;
     struct stat st;
 
@@ -436,7 +460,9 @@ size_t finish_create_env(int pipe, const string &basedir, string &native_environ
         return st.st_size;
     }
 
-    rmdir(nativedir.c_str());
+    if (-1 == rmdir(nativedir.c_str())){
+        log_perror("rmdir failed");
+    }
     return 0;
 }
 
@@ -503,7 +529,8 @@ pid_t start_install_environment(const std::string &basename, const std::string &
 
     int fds[2];
 
-    if (pipe(fds)) {
+    if (pipe(fds) == -1) {
+        log_perror("pipe failed");
         return 0;
     }
 
@@ -516,7 +543,10 @@ pid_t start_install_environment(const std::string &basename, const std::string &
     }
     if (pid) {
         trace() << "pid " << pid << endl;
-        close(fds[0]);
+
+        if ((-1 == close(fds[0])) && (errno != EBADF)){
+            log_perror("close failed");
+        }
         pipe_to_stdin = fds[1];
 
         return pid;
@@ -547,9 +577,17 @@ pid_t start_install_environment(const std::string &basename, const std::string &
     signal(SIGCHLD, SIG_DFL);
     signal(SIGPIPE, SIG_DFL);
 
-    close(0);
-    close(fds[1]);
-    dup2(fds[0], 0);
+    if ((-1 == close(0)) && (errno != EBADF)){
+        log_perror("close failed");
+    }
+
+    if ((-1 == close(fds[1])) && (errno != EBADF)){
+        log_perror("close failed");
+    }
+
+    if (-1 == dup2(fds[0], 0)){
+        log_perror("dup2 failed");
+    }
 
     char **argv;
     argv = new char*[6];
@@ -609,6 +647,11 @@ size_t remove_environment(const string &basename, const string &env)
     flush_debug();
     pid_t pid = fork();
 
+    if (pid == -1) {
+        log_perror("failed to fork");
+        return 0;
+    }
+
     if (pid) {
         int status = 0;
 
@@ -632,7 +675,9 @@ size_t remove_environment(const string &basename, const string &env)
     argv[3] = strdup(dirname.c_str());
     argv[4] = NULL;
 
-    _exit(execv(argv[0], argv));
+    execv(argv[0], argv);
+    log_perror("execv failed");
+    _exit(-1);
 }
 
 size_t remove_native_environment(const string &env)
@@ -644,7 +689,9 @@ size_t remove_native_environment(const string &env)
     struct stat st;
 
     if (stat(env.c_str(), &st) == 0) {
-        unlink(env.c_str());
+        if (-1 == unlink(env.c_str())){
+            log_perror("unlink failed");
+        }
         return st.st_size;
     }
 
@@ -752,5 +799,8 @@ bool verify_env(MsgChannel *client, const string &basedir, const string &target,
     // child
     reset_debug(0);
     chdir_to_environment(client, dirname, user_uid, user_gid);
-    _exit(execl("bin/true", "bin/true", (void*)NULL));
+    execl("bin/true", "bin/true", (void*)NULL);
+    log_perror("execl failed");
+    _exit(-1);
+
 }

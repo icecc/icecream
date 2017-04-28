@@ -186,7 +186,9 @@ public:
         job = 0;
 
         if (pipe_to_child >= 0) {
-            close(pipe_to_child);
+            if (-1 == close(pipe_to_child) && (errno != EBADF)){
+                log_perror("close failed");
+            }
         }
 
     }
@@ -328,7 +330,14 @@ static int set_new_pgrp(void)
 
     /* Does everyone have getpgrp()?  It's in POSIX.1.  We used to call
      * getpgid(0), but that is not available on BSD/OS. */
-    if (getpgrp() == getpid()) {
+    int pgrp_id = getpgrp();
+
+    if (-1 == pgrp_id){
+        log_perror("getpgrp() failed");
+        return EXIT_DISTCC_FAILED;
+    }
+
+    if (pgrp_id == getpid()) {
         trace() << "already a process group leader\n";
         return 0;
     }
@@ -390,7 +399,9 @@ static void dcc_daemon_terminate(int whichsig)
         kill(0, whichsig);
 
         /* Remove pid file */
-        unlink(pidFilePath.c_str());
+        if (-1 == unlink(pidFilePath.c_str())){
+            log_perror("unlink failed");
+        }
     }
 
     ++exit_main_loop;
@@ -609,7 +620,9 @@ bool Daemon::setup_listen_fds()
             if(default_socket.length() > sizeof(myaddr.sun_path) - 1) {
                 log_error() << "default socket path too long for sun_path" << endl;	
             }
-            unlink(myaddr.sun_path);
+            if (-1 == unlink(myaddr.sun_path)){
+                log_perror("unlink failed");
+            }
             old_umask = umask(0);
         } else { // Started by user.
             if( getenv( "HOME" )) {
@@ -620,7 +633,9 @@ bool Daemon::setup_listen_fds()
                 if(socket_path.length() > sizeof(myaddr.sun_path) - 1) {
                     log_error() << "$HOME/.iceccd.socket path too long for sun_path" << endl;
                 }
-                unlink(myaddr.sun_path);
+                if (-1 == unlink(myaddr.sun_path)){
+                    log_perror("unlink failed");
+                }
             } else {
                 log_error() << "launched by user, but $HOME not set" << endl;
                 return false;
@@ -633,7 +648,9 @@ bool Daemon::setup_listen_fds()
         if(test_socket.length() > sizeof(myaddr.sun_path) - 1) {
             log_error() << "$ICECC_TEST_SOCKET path too long for sun_path" << endl;
         }
-        unlink(myaddr.sun_path);
+        if (-1 == unlink(myaddr.sun_path)){
+            log_perror("unlink failed");
+        }
     }
 
     if (bind(unix_listen_fd, (struct sockaddr*)&myaddr, sizeof(myaddr)) < 0) {
@@ -1123,7 +1140,9 @@ bool Daemon::handle_get_native_env(Client *client, GetNativeEnvMsg *msg)
             cache_size -= remove_native_environment(env.name);
             envs_last_use.erase(env.name);
             if (env.create_env_pipe) {
-                close(env.create_env_pipe);
+                if ((-1 == close(env.create_env_pipe)) && (errno != EBADF)){
+                    log_perror("close failed");
+                }
                 // TODO kill the still running icecc-create-env process?
             }
             native_environments.erase(env_key);   // invalidates 'env'
