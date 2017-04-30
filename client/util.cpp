@@ -200,7 +200,7 @@ bool dcc_lock_host(int &lock_fd)
     }
 
     if (mkdir(fname.c_str(), 0700) && errno != EEXIST) {
-        log_perror("mkdir");
+        log_error() << "mkdir(" << fname << ") failed" << endl;
         return false;
     }
 
