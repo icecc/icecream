@@ -400,7 +400,7 @@ static void dcc_daemon_terminate(int whichsig)
 
         /* Remove pid file */
         if (-1 == unlink(pidFilePath.c_str())){
-            log_perror("unlink failed");
+            log_perror("unlink failed") << "\t" << pidFilePath << endl;
         }
     }
 
@@ -621,7 +621,7 @@ bool Daemon::setup_listen_fds()
                 log_error() << "default socket path too long for sun_path" << endl;	
             }
             if (-1 == unlink(myaddr.sun_path)){
-                log_perror("unlink failed");
+                log_perror("unlink failed") << "\t" << myaddr.sun_path << endl;
             }
             old_umask = umask(0);
         } else { // Started by user.
@@ -634,7 +634,7 @@ bool Daemon::setup_listen_fds()
                     log_error() << "$HOME/.iceccd.socket path too long for sun_path" << endl;
                 }
                 if (-1 == unlink(myaddr.sun_path)){
-                    log_perror("unlink failed");
+                    log_perror("unlink failed") << "\t" << myaddr.sun_path << endl;
                 }
             } else {
                 log_error() << "launched by user, but $HOME not set" << endl;
@@ -649,7 +649,7 @@ bool Daemon::setup_listen_fds()
             log_error() << "$ICECC_TEST_SOCKET path too long for sun_path" << endl;
         }
         if (-1 == unlink(myaddr.sun_path)){
-            log_perror("unlink failed");
+            log_perror("unlink failed") << "\t" << myaddr.sun_path << endl;
         }
     }
 
