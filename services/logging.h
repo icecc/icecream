@@ -104,14 +104,14 @@ static inline std::ostream &trace()
     return output_date(*logfile_trace);
 }
 
-static inline void log_errno(const char *prefix, int tmp_errno)
+static inline std::ostream & log_errno(const char *prefix, int tmp_errno)
 {
-    log_error() << prefix << " " << strerror(tmp_errno) << std::endl;
+    return log_error() << prefix << " " << strerror(tmp_errno) << std::endl;
 }
 
-static inline void log_perror(const char *prefix)
+static inline std::ostream & log_perror(const char *prefix)
 {
-    log_errno(prefix, errno);
+    return log_errno(prefix, errno);
 }
 
 class log_block
