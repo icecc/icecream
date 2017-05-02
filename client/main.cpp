@@ -239,8 +239,10 @@ static int create_native(char **args)
     }
 
     argv.push_back(NULL);
+    execv(argv[0], argv.data());
+    log_perror("execv failed");
+    return -1;
 
-    return execv(argv[0], argv.data());
 }
 
 int main(int argc, char **argv)

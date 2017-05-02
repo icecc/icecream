@@ -142,5 +142,6 @@ int main(int argc, char *argv[])
     fprintf(stderr, "\n");
 #endif
     execv(args[0], args);
+    fprintf(stderr, "execv failed\n");
     return 1;
 }

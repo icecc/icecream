@@ -1934,8 +1934,13 @@ int main(int argc, char *argv[])
         if (!logfile.size() && detach) {
             if (mkdir("/var/log/icecc", S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH)) {
                 if (errno == EEXIST) {
-                    chmod("/var/log/icecc", S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH);
-                    chown("/var/log/icecc", user_uid, user_gid);
+                    if (-1 == chmod("/var/log/icecc", S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH)){
+                        log_perror("chmod() failure");
+                    }
+
+                    if (-1 == chown("/var/log/icecc", user_uid, user_gid)){
+                        log_perror("chown() failure");
+                    }
                 }
             }
 
@@ -2231,7 +2236,11 @@ int main(int argc, char *argv[])
     }
 
     shutdown(broad_fd, SHUT_RDWR);
-    close(broad_fd);
-    unlink(pidFilePath.c_str());
+    if ((-1 == close(broad_fd)) && (errno != EBADF)){
+        log_perror("close failed");
+    }
+    if (-1 == unlink(pidFilePath.c_str())){
+        log_perror("unlink failed");
+    }
     return 0;
 }
