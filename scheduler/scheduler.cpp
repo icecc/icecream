@@ -2240,7 +2240,7 @@ int main(int argc, char *argv[])
         log_perror("close failed");
     }
     if (-1 == unlink(pidFilePath.c_str())){
-        log_perror("unlink failed");
+        log_perror("unlink failed") << "\t" << pidFilePath << endl;
     }
     return 0;
 }

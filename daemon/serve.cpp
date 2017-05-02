@@ -317,12 +317,12 @@ int handle_connection(const string &basedir, CompileJob *job,
 
         if (!obj_file.empty()) {
             if (-1 == unlink(obj_file.c_str())){
-                log_perror("unlink failure");
+                log_perror("unlink failure") << "\t" << obj_file << endl;
             }
         }
         if (!dwo_file.empty()) {
             if (-1 == unlink(dwo_file.c_str())){
-                log_perror("unlink failure");
+                log_perror("unlink failure") << "\t" << dwo_file << endl;
             }
         }
         if (!tmp_path.empty()) {

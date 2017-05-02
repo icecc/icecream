@@ -690,7 +690,7 @@ size_t remove_native_environment(const string &env)
 
     if (stat(env.c_str(), &st) == 0) {
         if (-1 == unlink(env.c_str())){
-            log_perror("unlink failed");
+            log_perror("unlink failed") << "\t" << env << endl;
         }
         return st.st_size;
     }
