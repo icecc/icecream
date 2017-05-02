@@ -404,7 +404,7 @@ static int build_remote_int(CompileJob &job, UseCSMsg *usecs, MsgChannel *local_
             struct stat buf;
 
             if (stat(version_file.c_str(), &buf)) {
-                log_perror("error stat'ing version file");
+                log_error() << "error stat'ing " << version_file << endl;
                 throw client_error(4, "Error 4 - unable to stat version file");
             }
 

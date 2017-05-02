@@ -214,14 +214,14 @@ bool cleanup_cache(const string &basedir, uid_t user_uid, gid_t user_gid)
         if (errno == EPERM) {
             log_error() << "permission denied on mkdir " << basedir << endl;
         } else {
-            log_perror("mkdir in cleanup_cache() failed");
+            log_error() << "mkdir(" << basedir << ") in cleanup_cache() failed" << endl;
         }
 
         return false;
     }
 
     if (chown(basedir.c_str(), user_uid, user_gid) || chmod(basedir.c_str(), 0775)) {
-        log_perror("chown/chmod in cleanup_cache() failed");
+        log_error() << "chown/chmod " << basedir << " in cleanup_cache() failed" << endl;
         return false;
     }
 
@@ -379,7 +379,7 @@ int start_create_env(const string &basedir, uid_t user_uid, gid_t user_gid,
 #endif
 
     if (chdir(nativedir.c_str())) {
-        log_perror("chdir");
+        log_error() << "chdir(" << nativedir << ") failed" << endl;
         _exit(1);
     }
 
@@ -480,24 +480,24 @@ pid_t start_install_environment(const std::string &basename, const std::string &
     }
 
     if (mkdir(dirname.c_str(), 0770) && errno != EEXIST) {
-        log_perror("mkdir target");
+        log_error() << "mkdir(" << dirname << ") failed" << endl;
         return 0;
     }
 
     if (chown(dirname.c_str(), user_uid, user_gid) || chmod(dirname.c_str(), 0770)) {
-        log_perror("chown,chmod target");
+        log_error() << "chown,chmod " << dirname << " failed" << endl;
         return 0;
     }
 
     dirname = dirname + "/" + name;
 
     if (mkdir(dirname.c_str(), 0770)) {
-        log_perror("mkdir name");
+        log_error() << "mkdir(" << dirname << ") failed" << endl;
         return 0;
     }
 
     if (chown(dirname.c_str(), user_uid, user_gid) || chmod(dirname.c_str(), 0770)) {
-        log_perror("chown,chmod name");
+        log_error() << "chown,chmod " << dirname << " failed" << endl;
         return 0;
     }
 
@@ -665,13 +665,13 @@ void chdir_to_environment(MsgChannel *client, const string &dirname, uid_t user_
 
     if (chdir(dirname.c_str()) < 0) {
         error_client(client, string("chdir to ") + dirname + "failed");
-        log_perror("chdir() failed");
+        log_error() << "chdir(" << dirname << ") failed" << endl;
         _exit(145);
     }
 
     if (chroot(dirname.c_str()) < 0) {
         error_client(client, string("chroot ") + dirname + "failed");
-        log_perror("chroot() failed");
+        log_error() << "chroot(" << dirname << ") failed" << endl;
         _exit(144);
     }
 
@@ -684,13 +684,13 @@ void chdir_to_environment(MsgChannel *client, const string &dirname, uid_t user_
         // jail right away
         if (chdir(dirname.c_str()) < 0) {
             error_client(client, string("chdir to ") + dirname + "failed");
-            log_perror("chdir() failed");
+            log_error() << "chdir(" << dirname << ") failed" << endl;
             _exit(145);
         }
 
         if (chroot(dirname.c_str()) < 0) {
             error_client(client, string("chroot ") + dirname + "failed");
-            log_perror("chroot() failed");
+            log_error() << "chroot(" << dirname << ") failed" << endl;
             _exit(144);
         }
 
