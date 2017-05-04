@@ -794,6 +794,9 @@ bool verify_env(MsgChannel *client, const string &basedir, const string &target,
         while (waitpid(pid, &status, 0) < 0 && errno == EINTR) {}
 
         return shell_exit_status(status) == 0;
+    } else if (pid < 0) {
+        log_perror("fork failed");
+        return false;
     }
 
     // child
