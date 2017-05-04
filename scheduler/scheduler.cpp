@@ -2236,6 +2236,10 @@ int main(int argc, char *argv[])
     }
 
     shutdown(broad_fd, SHUT_RDWR);
+    while (!css.empty())
+        handle_end(css.front(), NULL);
+    while (!monitors.empty())
+        handle_end(monitors.front(), NULL);
     if ((-1 == close(broad_fd)) && (errno != EBADF)){
         log_perror("close failed");
     }

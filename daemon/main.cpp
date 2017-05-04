@@ -512,6 +512,10 @@ struct Daemon {
         current_kids = 0;
     }
 
+    ~Daemon() {
+        delete discover;
+    }
+
     bool reannounce_environments() __attribute_warn_unused_result__;
     int answer_client_requests();
     bool handle_transfer_env(Client *client, Msg *msg) __attribute_warn_unused_result__;
