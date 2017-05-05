@@ -448,12 +448,15 @@ static int build_remote_int(CompileJob &job, UseCSMsg *usecs, MsgChannel *local_
                         BlacklistHostEnvMsg blacklist(job.targetPlatform(),
                                                       job.environmentVersion(), hostname);
                         local_daemon->send_msg(blacklist);
+                        delete verify_msg;
                         throw client_error(24, "Error 24 - remote " + hostname + " unable to handle environment");
                     } else
                         trace() << "Verified host " << hostname << " for environment "
                                 << job.environmentVersion() << " (" << job.targetPlatform() << ")"
                                 << endl;
+                    delete verify_msg;
                 } else {
+                    delete verify_msg;
                     throw client_error(25, "Error 25 - other error verifying environment on remote");
                 }
             }
