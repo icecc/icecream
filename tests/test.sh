@@ -794,24 +794,49 @@ zero_local_jobs_test()
     reset_logs remote $GXX -Wall -Werror -c testfunc.cpp -o "${testdir}/testfunc.o"
     echo Running: $GXX -Wall -Werror -c testfunc.cpp -o "${testdir}/testfunc.o"
     ICECC_TEST_SOCKET="$testdir"/socket-localice ICECC_TEST_REMOTEBUILD=1 ICECC_PREFERRED_HOST=remoteice1 ICECC_DEBUG=debug ICECC_LOGFILE="$testdir"/icecc.log $valgrind "${icecc}" $GXX -Wall -Werror -c testfunc.cpp -o "${testdir}/testfunc.o"
+    if test $? -ne 0; then
+        echo "Error, failed to compile testfunc.cpp"
+        stop_ice 0
+        abort_tests
+    fi
 
     reset_logs remote $GXX -Wall -Werror -c testmainfunc.cpp -o "${testdir}/testmainfunc.o"
     echo Running: $GXX -Wall -Werror -c testmainfunc.cpp -o "${testdir}/testmainfunc.o"
     ICECC_TEST_SOCKET="$testdir"/socket-localice ICECC_TEST_REMOTEBUILD=1 ICECC_PREFERRED_HOST=remoteice2 ICECC_DEBUG=debug ICECC_LOGFILE="$testdir"/icecc.log $valgrind "${icecc}" $GXX -Wall -Werror -c testmainfunc.cpp -o "${testdir}/testmainfunc.o"
+    if test $? -ne 0; then
+        echo "Error, failed to compile testfunc.cpp"
+        stop_ice 0
+        abort_tests
+    fi
 
     ar rcs "${libdir}/libtestlib1.a" "${testdir}/testmainfunc.o"
+    if test $? -ne 0; then
+        echo "Error, 'ar' failed to create the ${libdir}/libtestlib1.a static library from object ${testdir}/testmainfunc.o"
+        stop_ice 0
+        abort_tests
+    fi
     ar rcs "${libdir}/libtestlib2.a" "${testdir}/testfunc.o"
+    if test $? -ne 0; then
+        echo "Error, 'ar' failed to create the ${libdir}/libtestlib2.a static library from object ${testdir}/testfunc.o"
+        stop_ice 0
+        abort_tests
+    fi
 
     reset_logs local $GXX -Wall -Werror "-L${libdir}" "-ltestlib1" "-ltestlib2" -o "${testdir}/linkedapp"
     echo Running: $GXX -Wall -Werror "-L${libdir}" "-ltestlib1" "-ltestlib2" -o "${testdir}/linkedapp"
     ICECC_TEST_SOCKET="$testdir"/socket-localice ICECC_TEST_REMOTEBUILD=1 ICECC_PREFERRED_HOST=localice ICECC_DEBUG=debug ICECC_LOGFILE="$testdir"/icecc.log $valgrind "${icecc}" $GXX -Wall -Werror "-L${libdir}" "-ltestlib1" "-ltestlib2" -o "${testdir}/linkedapp" 2>"$testdir"/stderr.remoteice
+    if test $? -ne 0; then
+        echo "Error, failed to link testlib1 and testlib2 into linkedapp"
+        stop_ice 0
+        abort_tests
+    fi
 
     "${testdir}/linkedapp" 2>>"$testdir"/stderr.log
     app_ret=$?
     if test ${app_ret} -ne 123; then
         echo "Error, failed to create a test app by building remotely and linking locally"
         stop_ice 0
-        exit 2
+        abort_tests
     fi
     rm -rf  "${libdir}"
 
