@@ -2008,6 +2008,7 @@ int Daemon::working_loop()
 
         if (exit_main_loop) {
             close_scheduler();
+            clear_children();
             break;
         }
     }
