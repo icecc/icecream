@@ -206,7 +206,8 @@ There is no known workaround, either disable `-Werror` or fix the code.
 ### clang tries to read /proc/cpuinfo and fails
 
 This is because of a change in clang 4.0. We are still debating what the correct
-fix is. For now you can work around this by creating your environment
+fix is. For now you can work around this by creating your environment and adding
+/proc/cpuinfo.  See issue #176 for more information.
 
 ```
 /usr/lib/icecc/icecc-create-env --clang /usr/bin/clang /usr/lib/icecc/compilerwrapper --addfile /proc/cpuinfo
