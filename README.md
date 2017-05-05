@@ -22,6 +22,7 @@ Table of Contents
     -   [some compilation node aren't
         used](#some-compilation-node-arent-used)
     -   [build with -Werror fails when using icecream ](#build-with--werror-fails-when-using-icecream)
+    -   [clang tries to read /proc/cpuinfo and fails](#clang-tries-to-read-/proc/cpuinfo-and-fails)
 
 -   [Supported platforms](#supported-platforms)
 -   [Using icecream in heterogeneous
@@ -201,6 +202,17 @@ preprocessing (done locally) and compilation (done remotely), which makes gcc tr
 a warning message and compilation fails (because of `-Werror`).
    
 There is no known workaround, either disable `-Werror` or fix the code.
+
+### clang tries to read /proc/cpuinfo and fails
+
+This is because of a change in clang 4.0. We are still debating what the correct
+fix is. For now you can work around this by creating your environment
+
+```
+/usr/lib/icecc/icecc-create-env --clang /usr/bin/clang /usr/lib/icecc/compilerwrapper --addfile /proc/cpuinfo
+```
+
+see (#Using-icecream-in-heterogeneous-environments) for more information on using this.
 
 Supported platforms
 ---------------------------------------------------------------------------------------
