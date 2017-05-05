@@ -22,7 +22,7 @@ Table of Contents
     -   [some compilation node aren't
         used](#some-compilation-node-arent-used)
     -   [build with -Werror fails when using icecream ](#build-with--werror-fails-when-using-icecream)
-    -   [clang tries to read /proc/cpuinfo and fails](#clang-tries-to-read-/proc/cpuinfo-and-fails)
+    -   [clang tries to read /proc/cpuinfo and fails](#clang-tries-to-read-proccpuinfo-and-fails)
 
 -   [Supported platforms](#supported-platforms)
 -   [Using icecream in heterogeneous
@@ -212,7 +212,8 @@ fix is. For now you can work around this by creating your environment
 /usr/lib/icecc/icecc-create-env --clang /usr/bin/clang /usr/lib/icecc/compilerwrapper --addfile /proc/cpuinfo
 ```
 
-see (#Using-icecream-in-heterogeneous-environments) for more information on using this.
+see [Using icecream in heterogeneous environments](#using-icecream-in-heterogeneous-environments) 
+for more information on using this.
 
 Supported platforms
 ---------------------------------------------------------------------------------------
