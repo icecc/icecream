@@ -97,10 +97,26 @@ abort_tests()
 start_iceccd()
 {
     name=$1
-    ICECC_TEST_SOCKET="$testdir"/socket-${name} $valgrind "${iceccd}" 6 -s localhost:8767 -b "$testdir"/envs-${name} -l "$testdir"/${name}.log -N ${name}  -v -v -v "$@" &
+    shift
+    ICECC_TEST_SOCKET="$testdir"/socket-${name} $valgrind "${iceccd}" -s localhost:8767 -b "$testdir"/envs-${name} -l "$testdir"/${name}.log -N ${name}  -v -v -v "$@" 2>>"$testdir"/iceccdstderr_${name}.log &
     pid=$!
+    wait_for_proc_sleep 10 ${pid}
     eval ${name}_pid=${pid}
     echo ${pid} > "$testdir"/${name}.pid
+}
+
+wait_for_proc_sleep()
+{
+    local wait_timeout=$1
+    shift
+    local pid_list="$@"
+    local proc_count=$#
+    local ps_state_field="state"
+    for wait_count in $(seq 1 ${wait_timeout}); do
+        local int_sleep_count=$(ps -ho ${ps_state_field} -p ${pid_list} | grep --count "S")
+        ((${int_sleep_count} == ${proc_count})) && break
+        sleep 1
+    done
 }
 
 kill_daemon()
@@ -662,9 +678,10 @@ debug_test()
     # debug tests fail when the daemon is not running in the install directory
     # Sanitizers will not give good output on error as a result
     kill_daemon localice
-    ICECC_TEST_SOCKET="$testdir"/socket-localice $valgrind "${prefix}/sbin/iceccd" 6 -s localhost:8767 -b "$testdir"/envs-localice -l "$testdir"/localice.log -N localice  -v -v -v --no-remote -m 2 &
+    ICECC_TEST_SOCKET="$testdir"/socket-localice $valgrind "${prefix}/sbin/iceccd" -s localhost:8767 -b "$testdir"/envs-localice -l "$testdir"/localice.log -N localice  -v -v -v --no-remote -m 2 &
     localice_pid=$!
     echo ${localice_pid} > "$testdir"/${localice}.pid
+    wait_for_proc_sleep 10 $localice_pid
 
     compiler="$1"
     args="$2"
@@ -756,6 +773,85 @@ debug_test()
     # restart local daemon to the as built one
     kill_daemon localice
     start_iceccd localice --no-remote -m 2
+}
+
+zero_local_jobs_test()
+{
+    echo Running zero_local_jobs test.
+
+    reset_logs local "Running zero_local_jobs test"
+    reset_logs remote  "Running zero_local_jobs test"
+
+    kill_daemon localice
+
+    start_iceccd localice --no-remote -m 0
+
+    libdir="${testdir}/libs"
+    rm -rf  "${libdir}"
+    mkdir "${libdir}"
+
+    reset_logs remote $GXX -Wall -Werror -c testfunc.cpp -o "${testdir}/testfunc.o"
+    echo Running: $GXX -Wall -Werror -c testfunc.cpp -o "${testdir}/testfunc.o"
+    ICECC_TEST_SOCKET="$testdir"/socket-localice ICECC_TEST_REMOTEBUILD=1 ICECC_PREFERRED_HOST=remoteice1 ICECC_DEBUG=debug ICECC_LOGFILE="$testdir"/icecc.log $valgrind "${icecc}" $GXX -Wall -Werror -c testfunc.cpp -o "${testdir}/testfunc.o"
+    if [[ $? -ne 0 ]]; then
+        echo "failed to build testfunc.o"
+        grep -q "AddressSanitizer failed to allocate"  "$testdir"/iceccdstderr_remoteice1.log
+        if [[ $? ]]; then
+            echo "address sanitizer broke, skipping test"
+            skipped_tests="$skipped_tests zero_local_jobs_test"
+            reset_logs local "skipping zero_local_jobs_test"
+            start_iceccd localice --no-remote -m 2
+            return 0
+        fi
+        stop_ice 0
+        abort_tests
+    fi
+
+    reset_logs remote $GXX -Wall -Werror -c testmainfunc.cpp -o "${testdir}/testmainfunc.o"
+    echo Running: $GXX -Wall -Werror -c testmainfunc.cpp -o "${testdir}/testmainfunc.o"
+    ICECC_TEST_SOCKET="$testdir"/socket-localice ICECC_TEST_REMOTEBUILD=1 ICECC_PREFERRED_HOST=remoteice2 ICECC_DEBUG=debug ICECC_LOGFILE="$testdir"/icecc.log $valgrind "${icecc}" $GXX -Wall -Werror -c testmainfunc.cpp -o "${testdir}/testmainfunc.o"
+    if test $? -ne 0; then
+        echo "Error, failed to compile testfunc.cpp"
+        stop_ice 0
+        abort_tests
+    fi
+
+    ar rcs "${libdir}/libtestlib1.a" "${testdir}/testmainfunc.o"
+    if test $? -ne 0; then
+        echo "Error, 'ar' failed to create the ${libdir}/libtestlib1.a static library from object ${testdir}/testmainfunc.o"
+        stop_ice 0
+        abort_tests
+    fi
+    ar rcs "${libdir}/libtestlib2.a" "${testdir}/testfunc.o"
+    if test $? -ne 0; then
+        echo "Error, 'ar' failed to create the ${libdir}/libtestlib2.a static library from object ${testdir}/testfunc.o"
+        stop_ice 0
+        abort_tests
+    fi
+
+    reset_logs local $GXX -Wall -Werror "-L${libdir}" "-ltestlib1" "-ltestlib2" -o "${testdir}/linkedapp"
+    echo Running: $GXX -Wall -Werror "-L${libdir}" "-ltestlib1" "-ltestlib2" -o "${testdir}/linkedapp"
+    ICECC_TEST_SOCKET="$testdir"/socket-localice ICECC_TEST_REMOTEBUILD=1 ICECC_PREFERRED_HOST=localice ICECC_DEBUG=debug ICECC_LOGFILE="$testdir"/icecc.log $valgrind "${icecc}" $GXX -Wall -Werror "-L${libdir}" "-ltestlib1" "-ltestlib2" -o "${testdir}/linkedapp" 2>"$testdir"/stderr.remoteice
+    if test $? -ne 0; then
+        echo "Error, failed to link testlib1 and testlib2 into linkedapp"
+        stop_ice 0
+        abort_tests
+    fi
+
+    "${testdir}/linkedapp" 2>>"$testdir"/stderr.log
+    app_ret=$?
+    if test ${app_ret} -ne 123; then
+        echo "Error, failed to create a test app by building remotely and linking locally"
+        stop_ice 0
+        abort_tests
+    fi
+    rm -rf  "${libdir}"
+
+    kill_daemon localice
+    start_iceccd localice --no-remote -m 2
+
+    echo zero_local_jobs test successful.
+    echo
 }
 
 reset_logs()
@@ -934,6 +1030,8 @@ fi
 icerun_test
 
 recursive_test
+
+zero_local_jobs_test
 
 if test -x $CLANGXX; then
     # There's probably not much point in repeating all tests with Clang, but at least
