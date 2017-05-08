@@ -98,7 +98,7 @@ start_iceccd()
 {
     name=$1
     shift
-    ICECC_TEST_SOCKET="$testdir"/socket-${name} $valgrind "${iceccd}" -s localhost:8767 -b "$testdir"/envs-${name} -l "$testdir"/${name}.log -N ${name}  -v -v -v "$@" &
+    ICECC_TEST_SOCKET="$testdir"/socket-${name} $valgrind "${iceccd}" -s localhost:8767 -b "$testdir"/envs-${name} -l "$testdir"/${name}.log -N ${name}  -v -v -v "$@" 2>>"$testdir"/iceccdstderr_${name}.log &
     pid=$!
     wait_for_proc_sleep 10 ${pid}
     eval ${name}_pid=${pid}
@@ -793,8 +793,16 @@ zero_local_jobs_test()
     reset_logs remote $GXX -Wall -Werror -c testfunc.cpp -o "${testdir}/testfunc.o"
     echo Running: $GXX -Wall -Werror -c testfunc.cpp -o "${testdir}/testfunc.o"
     ICECC_TEST_SOCKET="$testdir"/socket-localice ICECC_TEST_REMOTEBUILD=1 ICECC_PREFERRED_HOST=remoteice1 ICECC_DEBUG=debug ICECC_LOGFILE="$testdir"/icecc.log $valgrind "${icecc}" $GXX -Wall -Werror -c testfunc.cpp -o "${testdir}/testfunc.o"
-    if test $? -ne 0; then
-        echo "Error, failed to compile testfunc.cpp"
+    if [[ $? -ne 0 ]]; then
+        echo "failed to build testfunc.o"
+        grep -q "AddressSanitizer failed to allocate"  "$testdir"/iceccdstderr_remoteice1.log
+        if [[ $? ]]; then
+            echo "address sanitizer broke, skipping test"
+            skipped_tests="$skipped_tests zero_local_jobs_test"
+            reset_logs local "skipping zero_local_jobs_test"
+            start_iceccd localice --no-remote -m 2
+            return 0
+        fi
         stop_ice 0
         abort_tests
     fi
