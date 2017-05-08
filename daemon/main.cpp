@@ -399,9 +399,7 @@ static void dcc_daemon_terminate(int whichsig)
         kill(0, whichsig);
 
         /* Remove pid file */
-        if (-1 == unlink(pidFilePath.c_str())){
-            log_perror("unlink failed") << "\t" << pidFilePath << endl;
-        }
+        unlink(pidFilePath.c_str());
     }
 
     ++exit_main_loop;
