@@ -100,6 +100,7 @@ start_iceccd()
     shift
     ICECC_TEST_SOCKET="$testdir"/socket-${name} $valgrind "${iceccd}" -s localhost:8767 -b "$testdir"/envs-${name} -l "$testdir"/${name}.log -N ${name}  -v -v -v "$@" &
     pid=$!
+    wait_for_proc_sleep 10 ${pid}
     eval ${name}_pid=${pid}
     echo ${pid} > "$testdir"/${name}.pid
 }
@@ -784,8 +785,6 @@ zero_local_jobs_test()
     kill_daemon localice
 
     start_iceccd localice --no-remote -m 0
-
-    wait_for_proc_sleep 10 $localice_pid
 
     libdir="${testdir}/libs"
     rm -rf  "${libdir}"
