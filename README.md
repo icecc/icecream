@@ -22,7 +22,7 @@ Table of Contents
     -   [some compilation node aren't
         used](#some-compilation-node-arent-used)
     -   [build with -Werror fails when using icecream ](#build-with--werror-fails-when-using-icecream)
-    -   [clang tries to read /proc/cpuinfo and fails](#clang-tries-to-read-proccpuinfo-and-fails)
+    -   [clang 4.0 tries to read /proc/cpuinfo and fails](#clang-tries-to-read-proccpuinfo-and-fails)
 
 -   [Supported platforms](#supported-platforms)
 -   [Using icecream in heterogeneous
@@ -205,16 +205,21 @@ There is no known workaround, either disable `-Werror` or fix the code.
 
 ### clang tries to read /proc/cpuinfo and fails
 
-This is because of a change in clang 4.0. We are still debating what the correct
-fix is. For now you can work around this by creating your environment and adding
-/proc/cpuinfo.  See issue #176 for more information.
+This is a bug in clang 4.0. https://bugs.llvm.org/show_bug.cgi?id=33008 
+It should be fixed in the future, but if you have a broken release you can work around this by
+creating a custom environment and adding /proc/cpuinfo to it.
 
 ```
 /usr/lib/icecc/icecc-create-env --clang /usr/bin/clang /usr/lib/icecc/compilerwrapper --addfile /proc/cpuinfo
 ```
 
+Do not apply this work around if you do not need it. /proc/cpuinfo is machine specific so and this work 
+around will place wrong infomation in it. In the case of the bug in clang 4.0 this file is checked for 
+existance but the contents are not actually used, but it is possible future versions of clang/gcc will use
+this file if it exists for something else.
+
 see [Using icecream in heterogeneous environments](#using-icecream-in-heterogeneous-environments) 
-for more information on using this.
+for more information on using icecc-create-env.
 
 Supported platforms
 ---------------------------------------------------------------------------------------
