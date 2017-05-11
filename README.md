@@ -206,7 +206,7 @@ There is no known workaround, either disable `-Werror` or fix the code.
 ### clang tries to read /proc/cpuinfo and fails
 
 This is a bug in clang 4.0. https://bugs.llvm.org/show_bug.cgi?id=33008 
-Hopefully they fix it in future release, but if you have a broken release you can work around this by
+It should be fixed in the future, but if you have a broken release you can work around this by
 creating a custom environment and adding /proc/cpuinfo to it.
 
 ```
