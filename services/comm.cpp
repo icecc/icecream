@@ -1986,6 +1986,9 @@ void EnvTransferMsg::fill_from_channel(MsgChannel *c)
     Msg::fill_from_channel(c);
     *c >> name;
     *c >> target;
+    uint32_t unsigned_priority;
+    *c >> unsigned_priority;
+    extract_priority = static_cast<int>(unsigned_priority);
 }
 
 void EnvTransferMsg::send_to_channel(MsgChannel *c) const
@@ -1993,6 +1996,7 @@ void EnvTransferMsg::send_to_channel(MsgChannel *c) const
     Msg::send_to_channel(c);
     *c << name;
     *c << target;
+    *c << static_cast<uint32_t>(extract_priority);
 }
 
 void MonGetCSMsg::fill_from_channel(MsgChannel *c)

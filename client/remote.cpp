@@ -23,9 +23,11 @@
 
 #include "config.h"
 
-#include <sys/types.h>
+#include <sys/resource.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
+#include <sys/time.h>
+#include <sys/types.h>
 #include <sys/wait.h>
 
 
@@ -410,7 +412,13 @@ static int build_remote_int(CompileJob &job, UseCSMsg *usecs, MsgChannel *local_
                 throw client_error(4, "Error 4 - unable to stat version file");
             }
 
-            EnvTransferMsg msg(job.targetPlatform(), job.environmentVersion());
+            int extract_priority = getpriority(PRIO_PROCESS, 0);
+            if (-1 == extract_priority){
+                log_perror("Unable to determine process priority");
+                extract_priority = 0;
+            }
+
+            EnvTransferMsg msg(job.targetPlatform(), job.environmentVersion(), extract_priority);
 
             if (!cserver->send_msg(msg)) {
                 throw client_error(6, "Error 6 - send environment to remove failed");

@@ -42,7 +42,7 @@ extern pid_t start_install_environment(const std::string &basename,
                                        const std::string &name,
                                        MsgChannel *c, int& pipe_to_child,
                                        FileChunkMsg*& fmsg,
-                                       uid_t user_uid, gid_t user_gid);
+                                       uid_t user_uid, gid_t user_gid, int extract_priority);
 extern size_t finalize_install_environment(const std::string &basename, const std::string &target,
         pid_t pid, uid_t user_uid, gid_t user_gid);
 extern size_t remove_environment(const std::string &basedir, const std::string &env);

@@ -29,7 +29,9 @@
 #include <fcntl.h>
 #include <grp.h>
 #include <stdio.h>
+#include <sys/resource.h>
 #include <sys/stat.h>
+#include <sys/time.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 #ifdef HAVE_SIGNAL_H
@@ -470,7 +472,7 @@ size_t finish_create_env(int pipe, const string &basedir, string &native_environ
 pid_t start_install_environment(const std::string &basename, const std::string &target,
                                 const std::string &name, MsgChannel *c,
                                 int &pipe_to_stdin, FileChunkMsg *&fmsg,
-                                uid_t user_uid, gid_t user_gid)
+                                uid_t user_uid, gid_t user_gid, int extract_priority)
 {
     if (!name.size()) {
         log_error() << "illegal name for environment " << name << endl;
@@ -587,6 +589,10 @@ pid_t start_install_environment(const std::string &basename, const std::string &
 
     if (-1 == dup2(fds[0], 0)){
         log_perror("dup2 failed");
+    }
+
+    if (-1 == setpriority(PRIO_PROCESS, 0, extract_priority)){
+        log_perror("archive extraction setpriority failed");
     }
 
     char **argv;
