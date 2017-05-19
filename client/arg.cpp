@@ -101,10 +101,10 @@ bool analyse_argv(const char * const *argv, CompileJob &job, bool icerun, list<s
     string dwofile;
 
 #if CLIENT_DEBUG > 1
-    trace() << "scanning arguments ";
+    trace() << "scanning arguments" << endl;
 
     for (int index = 0; argv[index]; index++) {
-        trace() << argv[index] << " ";
+        trace() << " " << argv[index] << endl;
     }
 
     trace() << endl;
