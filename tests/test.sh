@@ -854,74 +854,6 @@ zero_local_jobs_test()
     echo
 }
 
-environment_extraction_priority_test()
-{
-    echo Running environment_extraction_priority_test test.
-    reset_logs remote "$@"
-
-    mkdir "$testdir/new_test/" &> /dev/null
-
-    test_priorities=(10 12 15)
-    for compile_priority in ${test_priorities[@]}; do
-        kill_daemon remoteice1
-        start_iceccd remoteice1 -p 10246 -m 2
-        for time in $(seq 1 10); do
-            notready=
-            if ! kill  -0 ${remoteice1_pid}; then
-                echo Daemon remoteice1 start failure.
-                stop_ice 0
-                abort_tests
-            fi
-            if ! grep -q "Connected to scheduler" "$testdir/remoteice1.log"; then
-                # ensure log file flush
-                kill -HUP ${remoteice1_pid}
-                grep -q "Connected to scheduler" "$testdir/remoteice1.log" || notready=1
-            fi
-            if test -z "$notready"; then
-                break;
-            fi
-            sleep 1
-        done
-        if test -n "$notready"; then
-            echo Icecream not ready, aborting.
-            stop_ice 0
-            abort_tests
-        fi
-        sleep 5 # Give the scheduler time to get everything set up
-        flush_logs
-        ICECC_TEST_SOCKET="$testdir"/socket-localice ICECC_TEST_REMOTEBUILD=1 ICECC_PREFERRED_HOST=remoteice1 ICECC_DEBUG=debug ICECC_LOGFILE="$testdir"/icecc.log \
-            nice -n ${compile_priority} $valgrind "${icecc}" $GXX -Wall -Werror -g -c plain.cpp -o "$testdir/new_test/plain.o" 2>"$testdir"/stderr.remoteice &
-        compile_pid=$!
-        for wait_count in $(seq 1 100); do
-            tar_priority=$(ps -ho nice,comm --ppid "${remoteice1_pid}" | awk '/tar/{print $1}')
-            if [[ -z ${tar_priority} ]]; then
-                sleep 0.1
-            else
-                check_log_error icecc "archive extraction setpriority failed"
-                check_log_error icecc "Unable to determine process priority"
-                if [[ $compile_priority -ne ${tar_priority} ]]; then
-                    echo "expected tar priority: $compile_priority actual tar priority: ${tar_priority}"
-                    stop_ice 0
-                    abort_tests
-                fi
-                break
-            fi
-        done
-        if [[ -z ${tar_priority} ]]; then
-            echo "Tar did not execute"
-            stop_ice 0
-            abort_tests
-        fi
-        wait ${compile_pid}
-        flush_logs
-        check_logs_for_generic_errors
-        rm "$testdir/new_test/plain.o"
-    done
-
-    echo environment_extraction_priority test successful.
-    echo
-}
-
 reset_logs()
 {
     type="$1"
@@ -1101,10 +1033,8 @@ recursive_test
 
 if test -z "$chroot_disabled"; then
     zero_local_jobs_test
-
-    environment_extraction_priority_test
 else
-    skipped_tests="$skipped_tests zero_local_jobs_test environment_extraction_priority_test"
+    skipped_tests="$skipped_tests zero_local_jobs_test"
 fi
 
 if test -x $CLANGXX; then
