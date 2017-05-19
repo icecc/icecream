@@ -404,6 +404,18 @@ bool analyse_argv(const char * const *argv, CompileJob &job, bool icerun, list<s
                        || str_equal("-MG", a)
                        || str_equal("-MP", a)) {
                 args.append(a, Arg_Local);
+            } else if (str_equal("-arch", a)) {
+                args.append(a, Arg_Remote);
+                /* skip next word, being option argument */
+                if (argv[i + 1]) {
+                    args.append(argv[++i], Arg_Remote);
+                }
+            } else if (str_equal("-target", a)) {
+                args.append(a, Arg_Remote);
+                /* skip next word, being option argument */
+                if (argv[i + 1]) {
+                    args.append(argv[++i], Arg_Remote);
+                }
             } else if (str_equal("-fno-color-diagnostics", a)) {
                 explicit_color_diagnostics = true;
                 args.append(a, Arg_Rest);
