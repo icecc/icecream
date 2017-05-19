@@ -367,6 +367,8 @@ bool analyse_argv(const char * const *argv, CompileJob &job, bool icerun, list<s
                        || str_equal("-iprefix", a)
                        || str_equal("-iwithprefix", a)
                        || str_equal("-isystem", a)
+                       || str_equal("-cxx-isystem", a)
+                       || str_equal("-c-isystem", a)
                        || str_equal("-iquote", a)
                        || str_equal("-imultilib", a)
                        || str_equal("-isysroot", a)
