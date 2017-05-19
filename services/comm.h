@@ -691,18 +691,16 @@ public:
     EnvTransferMsg()
         : Msg(M_TRANFER_ENV) {}
 
-    EnvTransferMsg(const std::string &_target, const std::string &_name, int _extract_priority)
+    EnvTransferMsg(const std::string &_target, const std::string &_name)
         : Msg(M_TRANFER_ENV)
         , name(_name)
-        , target(_target)
-        , extract_priority(_extract_priority) {}
+        , target(_target) {}
 
     virtual void fill_from_channel(MsgChannel *c);
     virtual void send_to_channel(MsgChannel *c) const;
 
     std::string name;
     std::string target;
-    int extract_priority;
 };
 
 class GetInternalStatus : public Msg

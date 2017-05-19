@@ -29,9 +29,7 @@
 #include <fcntl.h>
 #include <grp.h>
 #include <stdio.h>
-#include <sys/resource.h>
 #include <sys/stat.h>
-#include <sys/time.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 #ifdef HAVE_SIGNAL_H
@@ -591,8 +589,9 @@ pid_t start_install_environment(const std::string &basename, const std::string &
         log_perror("dup2 failed");
     }
 
-    if (-1 == setpriority(PRIO_PROCESS, 0, extract_priority)){
-        log_perror("archive extraction setpriority failed");
+    int niceval = nice(extract_priority);
+    if (-1 == niceval){
+        log_warning() << "failed to set nice value: " << strerror(errno) << endl;
     }
 
     char **argv;
