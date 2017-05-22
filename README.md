@@ -52,18 +52,15 @@ Table of Contents
 Installation
 -------------------------------------------------------------------------
 
-To install icecream, issue
+We recomend that you use packages maintained by your distribution if possible.
+Your distribution should provide customized startup scripts that make icecream
+fit better into the way your system is configured.
 
-     yast -i icecream icecream-monitor
+We highly recomend you install [icemon](https://github.com/icecc/icemon) with
+icecream.
 
-In case this should not work, here are some links to download Icecream:
-
--   [Binaries from
-    opensuse.org](http://software.opensuse.org/download.html?project=devel%3Atools%3Abuilding&package=icecream)
--   [Sources from
-    ftp.suse.com](ftp://ftp.suse.com/pub/projects/icecream)
--   [openSUSE Icecream node
-    LiveCD](http://forgeftp.novell.com/kiwi-ltsp/icecream/)
+If you want to install from source see the instructions in the README file 
+provided in the source package.
 
 How to use icecream
 ---------------------------------------------------------------------------------------
@@ -107,15 +104,9 @@ funny stats, you might want to run "icemon" (from a separate repository/package)
 ### make it persistent
 
 If you restart a computer, you still want it to be in the icecream
-cluster after reboot. With the SUSE packages, this is easy to
-accomplish, just set the service to be started on boot:
-
-     chkconfig icecream on
-
-You can verify if the icecream service is running like this:
-
-     /etc/init.d/icecream status
-     Checking for Distributed Compiler Daemon:                             running
+cluster after reboot. Consult your distribution's documentation on this. If you
+uses packages provided by your distribution this should be automatic (or a 
+simple configuration change)
 
 TroubleShooting
 -------------------------------------------------------------------------------
