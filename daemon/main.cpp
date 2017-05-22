@@ -960,7 +960,7 @@ bool Daemon::handle_transfer_env(Client *client, Msg *_msg)
     FileChunkMsg *fmsg = 0;
 
     pid_t pid = start_install_environment(envbasedir, target, emsg->name, client->channel,
-                                          sock_to_stdin, fmsg, user_uid, user_gid);
+                                          sock_to_stdin, fmsg, user_uid, user_gid, nice_level);
 
     client->status = Client::TOINSTALL;
     client->outfile = emsg->target + "/" + emsg->name;

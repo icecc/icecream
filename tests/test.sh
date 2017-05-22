@@ -158,7 +158,7 @@ start_ice()
     else
         sleep 1
     fi
-    for time in `seq 1 5`; do
+    for time in `seq 1 10`; do
         notready=
         if ! kill -0 $scheduler_pid; then
             echo Scheduler start failure.
@@ -1031,7 +1031,11 @@ icerun_test
 
 recursive_test
 
-zero_local_jobs_test
+if test -z "$chroot_disabled"; then
+    zero_local_jobs_test
+else
+    skipped_tests="$skipped_tests zero_local_jobs_test"
+fi
 
 if test -x $CLANGXX; then
     # There's probably not much point in repeating all tests with Clang, but at least
