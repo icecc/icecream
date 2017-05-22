@@ -6,6 +6,9 @@ Current
  - Include objcopy in environment if it exists
  - Add CI builds on travis-ci: OSX, ubuntu trusty
  - Fixed several memory errors
+ - Extract enviornments with compile priority, not daemon priority
+ - Handle spaces in the parameters following -MT
+ - Handle -target -arch -c-isystem and -cxx-isystem (clang)
 
 1.1rc2
  - -gsplit-dwarf support for debug fission (https://gcc.gnu.org/wiki/DebugFission)
