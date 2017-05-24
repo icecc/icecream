@@ -56,6 +56,8 @@ CompileServer::CompileServer(const int fd, struct sockaddr *_addr, const socklen
     , m_cumRequested()
     , m_clientMap()
     , m_blacklist()
+    , m_inConnAttempt(0)
+    , m_nextConnTime(0)
 {
 }
 
@@ -400,4 +402,53 @@ bool CompileServer::blacklisted(const Job *job, const pair<string, string> &envi
 {
     Environments blacklist = job->submitter()->getEnvsForBlacklistedCS(this);
     return find(blacklist.begin(), blacklist.end(), environment) != blacklist.end();
+}
+
+bool CompileServer::incomingConnectionTestRequired() const
+{
+    if(m_noRemote || (time(0) < m_nextConnTime))
+    {
+        return false;
+    }
+
+    return true;
+}
+
+bool CompileServer::incomingConnectionAccepted()
+{
+#if DEBUG_SCHEDULER > 0
+        trace()  << "Verifying  " << nodeName() << " is accepting incoming connections" << endl;
+#endif
+    //Time between retries are doubled each failed attempt(seconds)
+    //The delay between retry attempts are capped at 4096s (~1 hr)
+    static const size_t table_size = 12;
+    static const time_t time_offset_table[table_size] = {
+           2,    4,    8,    16,    32,
+          64,  128,  256,   512,  1024,
+        2048, 4096
+    };
+
+    //On a successful connection, we should still check back every 5min
+    static const time_t check_back_time = 325;
+
+    MsgChannel *test_channel = Service::createChannel(name, remotePort(), 5);
+    time_t cur_time = time(0);
+    if (test_channel)
+    {
+        delete test_channel;
+        m_inConnAttempt = 0;
+        m_nextConnTime = cur_time + check_back_time;
+        return true;
+    }
+
+    m_nextConnTime = cur_time + time_offset_table[m_inConnAttempt];
+    trace()  << nodeName() << " failed to accept an incoming connection on "
+                << name << ":" << m_remotePort << " attempting again in "
+                << m_nextConnTime - cur_time << " seconds" << endl;
+    if (m_inConnAttempt < (table_size - 1))
+    {
+        m_inConnAttempt++;
+    }
+
+    return false;
 }

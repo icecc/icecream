@@ -105,6 +105,7 @@ static list<CompileServer *> css;
 static list<CompileServer *> monitors;
 static list<CompileServer *> controls;
 static list<string> block_css;
+static list<CompileServer *> css_temp_hold;
 static unsigned int new_job_id;
 static map<unsigned int, Job *> jobs;
 
@@ -722,7 +723,41 @@ static time_t prune_servers()
         ++it;
     }
 
-    for (it = css.begin(); it != css.end();) {
+    list<CompileServer *> css_all;
+    css_all.insert(css_all.begin(), css.begin(), css.end());
+    css_all.insert(css_all.begin(), css_temp_hold.begin(), css_temp_hold.end());
+
+    for (it = css_all.begin(); it != css_all.end();) {
+        if ((*it)->incomingConnectionTestRequired())
+        {
+            if (find(css.begin(), css.end(), (*it)) != css.end() && !(*it)->incomingConnectionAccepted())
+            {
+                trace() << "Client (" << (*it)->nodeName() <<
+                    " " << (*it)->name <<
+                    ":" << (*it)->remotePort() <<
+                    ") connected but is not able to accept incoming connections." << endl;
+                //move or copy cs(old) to list css_temp_hold;(copy means that we can still do
+                //disconnection checks and removals from the css list)
+                CompileServer *hold = *it;
+                css_temp_hold.push_back(hold);
+                css.remove(hold);
+                ++it;
+                continue;
+            }
+            else if (find(css_temp_hold.begin(), css_temp_hold.end(), (*it)) != css_temp_hold.end() && (*it)->incomingConnectionAccepted())
+            {
+                trace() << "Client (" << (*it)->nodeName() <<
+                    " " << (*it)->name <<
+                    ":" << (*it)->remotePort() <<
+                    ") is accepting incoming connections." << endl;
+                CompileServer *restore = *it;
+                css.push_back(restore);
+                css_temp_hold.remove(restore);
+                ++it;
+                continue;
+            }
+        }
+
         if ((*it)->busyInstalling() && ((now - (*it)->busyInstalling()) >= MAX_BUSY_INSTALLING)) {
             trace() << "busy installing for a long time - removing " << (*it)->nodeName() << endl;
             CompileServer *old = *it;
@@ -1528,7 +1563,14 @@ static bool handle_end(CompileServer *toremove, Msg *m)
         There might be still clients connected running on the machine on which
          the daemon died.  We expect that the daemon dying makes the client
          disconnect soon too.  */
-        css.remove(toremove);
+        if (find(css_temp_hold.begin(), css_temp_hold.end(), toremove) != css_temp_hold.end())
+        {
+            css_temp_hold.remove(toremove);
+        }
+        else if (find(css.begin(), css.end(), toremove) != css.end())
+        {
+            css.remove(toremove);
+        }
 
         /* Unfortunately the toanswer queues are also tagged based on the daemon,
            so we need to clean them up also.  */
@@ -1582,6 +1624,9 @@ static bool handle_end(CompileServer *toremove, Msg *m)
         }
 
         for (list<CompileServer *>::iterator itr = css.begin(); itr != css.end(); ++itr) {
+            (*itr)->eraseCSFromBlacklist(toremove);
+        }
+        for (list<CompileServer *>::iterator itr = css_temp_hold.begin(); itr != css_temp_hold.end(); ++itr) {
             (*itr)->eraseCSFromBlacklist(toremove);
         }
 

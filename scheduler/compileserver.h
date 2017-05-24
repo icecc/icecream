@@ -132,6 +132,9 @@ public:
     void blacklistCompileServer(CompileServer *cs, const std::pair<std::string, std::string> &env);
     void eraseCSFromBlacklist(CompileServer *cs);
 
+    bool incomingConnectionTestRequired() const;
+    bool incomingConnectionAccepted();
+
 private:
     bool blacklisted(const Job *job, const pair<string, string> &environment);
 
@@ -162,6 +165,9 @@ private:
     static unsigned int s_hostIdCounter;
     map<int, int> m_clientMap; // map client ID for daemon to our IDs
     map<CompileServer *, Environments> m_blacklist;
+
+    unsigned int m_inConnAttempt;
+    time_t m_nextConnTime;
 };
 
 #endif
