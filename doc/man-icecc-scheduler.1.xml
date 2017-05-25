@@ -61,7 +61,7 @@ monitors.</para>
 
 <varlistentry>
 <term><option>-r</option>, <option>--persistent-client-connection</option></term>
-<listitem><para>Client connections are not disconnected from the scheduler if there is a better scheduler available.</para></listitem>
+<listitem><para>Client connections are not disconnected from the scheduler even if there is a better scheduler available.</para></listitem>
 </varlistentry>
 
 <varlistentry>
