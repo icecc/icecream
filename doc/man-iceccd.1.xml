@@ -137,7 +137,7 @@ name.</para></listitem>
 <listitem><para>Name of host running the scheduler for the network the daemon
 should connect to. This option might help if the scheduler cannot broadcast its
 presence to the clients due to firewall settings or similar
-reasons.</para></listitem>
+reasons, when this is enabled scheduler should use --persistent-client-connection.</para></listitem>
 </varlistentry>
 
 <varlistentry>
