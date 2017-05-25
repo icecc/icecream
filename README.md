@@ -108,6 +108,10 @@ cluster after reboot. Consult your distribution's documentation on this. If you
 uses packages provided by your distribution this should be automatic (or a 
 simple configuration change)
 
+How to make scheduler persistent:
+
+By adding an option --scheduler-host for daemon and --persistent-client-connection for scheduler
+,the client connections are not disconnected from the scheduler even there is an availability of better scheduler.
 TroubleShooting
 -------------------------------------------------------------------------------
 

@@ -1788,6 +1788,7 @@ static void usage(const char *reason = 0)
          << "  -d, --daemonize\n"
          << "  -u, --user-uid\n"
          << "  -v[v[v]]]\n"
+         << "  -r, --persistent-client-connection\n"
          << endl;
 
     exit(1);
@@ -1815,6 +1816,7 @@ int main(int argc, char *argv[])
     socklen_t remote_len;
     char *netname = (char *)"ICECREAM";
     bool detach = false;
+    bool persistent_clients = false;
     int debug_level = Error;
     string logfile;
     uid_t user_uid;
@@ -1842,6 +1844,7 @@ int main(int argc, char *argv[])
         static const struct option long_options[] = {
             { "netname", 1, NULL, 'n' },
             { "help", 0, NULL, 'h' },
+            { "persistent-client-connection", 0, NULL, 'r' },
             { "port", 1, NULL, 'p' },
             { "daemonize", 0, NULL, 'd'},
             { "log-file", 1, NULL, 'l'},
@@ -1849,7 +1852,7 @@ int main(int argc, char *argv[])
             { 0, 0, 0, 0 }
         };
 
-        const int c = getopt_long(argc, argv, "n:p:hl:vdr:u:", long_options, &option_index);
+        const int c = getopt_long(argc, argv, "n:p:hl:vdr:u:r:", long_options, &option_index);
 
         if (c == -1) {
             break;    // eoo
@@ -1861,6 +1864,9 @@ int main(int argc, char *argv[])
             break;
         case 'd':
             detach = true;
+            break;
+        case 'r':
+            persistent_clients= true;
             break;
         case 'l':
             if (optarg && *optarg) {
@@ -2199,7 +2205,7 @@ int main(int argc, char *argv[])
                     log_perror("sendto()");
                 }
             }
-            else if (buflen == schedbuflen && buf[0] == 'I' && buf[1] == 'C' && buf[2] == 'E') {
+            else if (!persistent_clients && buflen == schedbuflen && buf[0] == 'I' && buf[1] == 'C' && buf[2] == 'E') {
                 /* Another scheduler is announcing it's running, disconnect daemons if it has a better version
                    or the same version but was started earlier. */
                 uint64_t tmp_time;
