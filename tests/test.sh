@@ -1051,6 +1051,10 @@ if test -x $CLANGXX; then
     rm "$testdir"/plain.o
     run_ice "" "remote" 0 $CLANGXX -Wall -Werror -c includes.cpp -o "$testdir"/includes.o
     rm "$testdir"/includes.o
+    run_ice "" "remote" 0 $CLANGXX -Wall -Werror -cxx-isystem ./ -c includes.cpp -o "$testdir"/includes.o
+    rm "$testdir"/includes.o
+    run_ice "" "remote" 0 $CLANGXX -Wall -Werror -target $(uname -m) -c includes.cpp -o "$testdir"/includes.o
+    rm "$testdir"/includes.o
 
     # test -frewrite-includes usage
     $CLANGXX -E -Werror -frewrite-includes messages.cpp | grep -q '^# 1 "messages.cpp"$' >/dev/null 2>/dev/null
