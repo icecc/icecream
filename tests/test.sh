@@ -1053,7 +1053,7 @@ if test -x $CLANGXX; then
     rm "$testdir"/includes.o
     run_ice "" "remote" 0 $CLANGXX -Wall -Werror -cxx-isystem ./ -c includes.cpp -o "$testdir"/includes.o
     rm "$testdir"/includes.o
-    run_ice "" "remote" 0 $CLANGXX -Wall -Werror -target $(uname -m) -c includes.cpp -o "$testdir"/includes.o
+    run_ice "" "remote" 0 $CLANGXX -Wall -Werror -target x86_64-linux-gnu -c includes.cpp -o "$testdir"/includes.o
     rm "$testdir"/includes.o
 
     # test -frewrite-includes usage
