@@ -105,7 +105,6 @@ static list<CompileServer *> css;
 static list<CompileServer *> monitors;
 static list<CompileServer *> controls;
 static list<string> block_css;
-static list<CompileServer *> css_temp_hold;
 static unsigned int new_job_id;
 static map<unsigned int, Job *> jobs;
 
@@ -723,39 +722,16 @@ static time_t prune_servers()
         ++it;
     }
 
-    list<CompileServer *> css_all;
-    css_all.insert(css_all.begin(), css.begin(), css.end());
-    css_all.insert(css_all.begin(), css_temp_hold.begin(), css_temp_hold.end());
-
-    for (it = css_all.begin(); it != css_all.end();) {
-        if ((*it)->incomingConnectionTestRequired())
+    for (it = css.begin(); it != css.end();) {
+        if ((*it)->startInConnectionTest() != -1)
         {
-            if (find(css.begin(), css.end(), (*it)) != css.end() && !(*it)->incomingConnectionAccepted())
-            {
-                trace() << "Client (" << (*it)->nodeName() <<
-                    " " << (*it)->name <<
-                    ":" << (*it)->remotePort() <<
-                    ") connected but is not able to accept incoming connections." << endl;
-                //move or copy cs(old) to list css_temp_hold;(copy means that we can still do
-                //disconnection checks and removals from the css list)
-                CompileServer *hold = *it;
-                css_temp_hold.push_back(hold);
-                css.remove(hold);
-                ++it;
-                continue;
-            }
-            else if (find(css_temp_hold.begin(), css_temp_hold.end(), (*it)) != css_temp_hold.end() && (*it)->incomingConnectionAccepted())
-            {
-                trace() << "Client (" << (*it)->nodeName() <<
-                    " " << (*it)->name <<
-                    ":" << (*it)->remotePort() <<
-                    ") is accepting incoming connections." << endl;
-                CompileServer *restore = *it;
-                css.push_back(restore);
-                css_temp_hold.remove(restore);
-                ++it;
-                continue;
-            }
+            min_time = min(min_time, (*it)->getConnectionTimeout());
+        }
+        else if((*it)->getNextConnTime() > time(0))
+        {
+            time_t until_connect = (*it)->getNextConnTime() - time(0);
+            until_connect = (until_connect > 0) ? until_connect : 0;
+            min_time = min(min_time, until_connect);
         }
 
         if ((*it)->busyInstalling() && ((now - (*it)->busyInstalling()) >= MAX_BUSY_INSTALLING)) {
@@ -1563,11 +1539,7 @@ static bool handle_end(CompileServer *toremove, Msg *m)
         There might be still clients connected running on the machine on which
          the daemon died.  We expect that the daemon dying makes the client
          disconnect soon too.  */
-        if (find(css_temp_hold.begin(), css_temp_hold.end(), toremove) != css_temp_hold.end())
-        {
-            css_temp_hold.remove(toremove);
-        }
-        else if (find(css.begin(), css.end(), toremove) != css.end())
+        if (find(css.begin(), css.end(), toremove) != css.end())
         {
             css.remove(toremove);
         }
@@ -1624,9 +1596,6 @@ static bool handle_end(CompileServer *toremove, Msg *m)
         }
 
         for (list<CompileServer *>::iterator itr = css.begin(); itr != css.end(); ++itr) {
-            (*itr)->eraseCSFromBlacklist(toremove);
-        }
-        for (list<CompileServer *>::iterator itr = css_temp_hold.begin(); itr != css_temp_hold.end(); ++itr) {
             (*itr)->eraseCSFromBlacklist(toremove);
         }
 
@@ -2087,9 +2056,10 @@ int main(int argc, char *argv[])
             last_announce = time(NULL);
         }
 
-        fd_set read_set;
+        fd_set read_set, write_set;
         int max_fd = 0;
         FD_ZERO(&read_set);
+        FD_ZERO(&write_set);
 
         if (time(0) >= next_listen) {
             max_fd = listen_fd;
@@ -2131,7 +2101,23 @@ int main(int argc, char *argv[])
             }
         }
 
-        max_fd = select(max_fd + 1, &read_set, NULL, NULL, &tv);
+        list<pair<int, CompileServer *> > sock_to_cs_list;
+        for (list<CompileServer *>::iterator it = css.begin(); it != css.end(); ++it)
+        {
+            if ((*it)->getConnectionInProgress())
+            {
+                int csInFd = (*it)->getInFd();
+                sock_to_cs_list.push_back(make_pair(csInFd, *it));
+                if(csInFd > max_fd)
+                {
+                    max_fd = csInFd;
+                }
+                FD_SET(csInFd, &read_set);
+                FD_SET(csInFd, &write_set);
+            }
+        }
+
+        max_fd = select(max_fd + 1, &read_set, &write_set, NULL, &tv);
 
         if (max_fd < 0 && errno == EINTR) {
             continue;
@@ -2288,6 +2274,25 @@ int main(int argc, char *argv[])
                 }
 
                 max_fd--;
+            }
+        }
+
+        for (list<pair<int, CompileServer *> >::const_iterator it = sock_to_cs_list.begin();
+                it != sock_to_cs_list.end();) {
+            int i = (*it).first;
+            CompileServer *cs = (*it).second;
+            ++it;
+
+            if (max_fd && FD_ISSET(i, &read_set) || FD_ISSET(i, &write_set)) {
+                max_fd--;
+
+                cs->inConnectionResponse();
+            }
+            else if (cs->getConnectionInProgress() && cs->getConnectionTimeout() == 0)
+            {
+                close(cs->getInFd());
+                cs->setInFd(-1);
+                cs->inConnectionResponse();
             }
         }
     }
