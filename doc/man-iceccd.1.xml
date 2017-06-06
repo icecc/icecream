@@ -35,6 +35,7 @@
 <arg>-b <replaceable>env-basedir</replaceable></arg>
 <arg>--cache-limit <replaceable>MB</replaceable></arg>
 <arg>-d</arg>
+<arg>--extra-name <replaceable>name</replaceable></arg>
 <arg>-l <replaceable>log-file</replaceable></arg>
 <arg>-m <replaceable>max-processes</replaceable></arg>
 <arg>-N <replaceable>hostname</replaceable></arg>
@@ -88,6 +89,19 @@ environments of compile clients.</para></listitem>
 <varlistentry>
 <term><option>-d</option>, <option>--daemonize</option></term>
 <listitem><para>Detach daemon from shell.</para></listitem>
+</varlistentry>
+
+<varlistentry>
+<term><option>--extra-name</option> <parameter>name</parameter></term>
+<listitem>
+<para>Use an additional name (IP address) when considering which jobs coming
+from the scheduler are in fact local jobs that bounced back. This can be useful
+if the scheduler sees the daemon's IP as something the daemon was unable to
+discover, due to NAT between the daemon and the scheduler for example.
+</para>
+<para>This option can be passed by the environment variable ICECC_EXTRA_NAME
+as well; the command line option overrides the environment variable.</para>
+</listitem>
 </varlistentry>
 
 <varlistentry>
