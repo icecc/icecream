@@ -9,6 +9,7 @@ Current
  - Extract enviornments with compile priority, not daemon priority
  - Handle spaces in the parameters following -MT
  - Handle -target -arch -c-isystem and -cxx-isystem (clang)
+ - Add --extra-name flag for use in some NAT situations
 
 1.1rc2
  - -gsplit-dwarf support for debug fission (https://gcc.gnu.org/wiki/DebugFission)
