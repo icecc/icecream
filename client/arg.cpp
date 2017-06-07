@@ -159,7 +159,18 @@ bool analyse_argv(const char * const *argv, CompileJob &job, bool icerun, list<s
                 /* as above but with extra argument */
             } else if (!strcmp(a, "-MT") || !strcmp(a, "-MQ")) {
                 args.append(a, Arg_Local);
-                args.append(argv[++i], Arg_Local);
+                ++i;
+                if (argv[i][0] == '"') {
+                    std::string value = argv[i];
+
+                    while (*value.rbegin() != '"') {
+                        value.append(" ").append(argv[++i]);
+                    };
+
+                    args.append(value, Arg_Local);
+                } else {
+                    args.append(argv[i], Arg_Local);
+                }
                 /* as above but with extra argument */
             } else if (a[1] == 'M') {
                 /* -M(anything else) causes the preprocessor to
