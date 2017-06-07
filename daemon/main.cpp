@@ -735,7 +735,7 @@ bool Daemon::send_scheduler(const Msg& msg)
 bool Daemon::reannounce_environments()
 {
     log_error() << "reannounce_environments " << endl;
-    LoginMsg lmsg(0, nodename, "");
+    LoginMsg lmsg(0, nodename, netname, "");
     lmsg.envs = available_environmnents(envbasedir);
     return send_scheduler(lmsg);
 }
@@ -1987,7 +1987,7 @@ bool Daemon::reconnect()
     gettimeofday(&last_stat, 0);
     icecream_load = 0;
 
-    LoginMsg lmsg(daemon_port, determine_nodename(), machine_name);
+    LoginMsg lmsg(daemon_port, determine_nodename(), netname, machine_name);
     lmsg.envs = available_environmnents(envbasedir);
     lmsg.max_kids = max_kids;
     lmsg.noremote = noremote;
