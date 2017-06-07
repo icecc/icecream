@@ -36,7 +36,7 @@
 #include "job.h"
 
 // if you increase the PROTOCOL_VERSION, add a macro below and use that
-#define PROTOCOL_VERSION 35
+#define PROTOCOL_VERSION 36
 // if you increase the MIN_PROTOCOL_VERSION, comment out macros below and clean up the code
 #define MIN_PROTOCOL_VERSION 21
 
@@ -60,6 +60,7 @@
 #define IS_PROTOCOL_33(c) ((c)->protocol >= 33)
 #define IS_PROTOCOL_34(c) ((c)->protocol >= 34)
 #define IS_PROTOCOL_35(c) ((c)->protocol >= 35)
+#define IS_PROTOCOL_36(c) ((c)->protocol >= 36)
 
 enum MsgType {
     // so far unknown
@@ -624,7 +625,7 @@ public:
 class LoginMsg : public Msg
 {
 public:
-    LoginMsg(unsigned int myport, const std::string &_nodename, const std::string _host_platform);
+    LoginMsg(unsigned int myport, const std::string &_nodename, const std::string &_netname, const std::string _host_platform);
     LoginMsg()
         : Msg(M_LOGIN)
         , port(0) {}
@@ -638,6 +639,7 @@ public:
     bool noremote;
     bool chroot_possible;
     std::string nodename;
+    std::string netname;
     std::string host_platform;
 };
 
