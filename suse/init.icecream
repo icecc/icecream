@@ -75,6 +75,23 @@ case "$1" in
                 maxjobs="-m $ICECREAM_MAX_JOBS"
             fi
         fi
+        
+	schedulerport=""
+	if [ "x${ICECREAM_SCHEDULER_PORT}" = "x" ] ; then
+			schedulerport="8765"
+	else
+			schedulerport="$ICECC_SCHEDULER_PORT"
+	fi
+	export schedulerport
+
+	daemonport=""
+	if [ "x${ICECREAM_DAEMON_PORT}" = "x" ] ; then
+			daemonport="10245"
+	else
+			daemonport="$ICECC_DAEMON_PORT"
+	fi
+	export daemonport
+
 	startproc /usr/sbin/iceccd -d $logfile $nice $scheduler $netname -u icecream -b "$ICECREAM_BASEDIR" $maxjobs $noremote
 	rc_status -v
 	;;

@@ -102,6 +102,11 @@
 #include "platform.h"
 #include "util.h"
 
+PortCustomConfig ahah;
+
+const int dPORT = ahah.daemonport;
+const int sPORT = ahah.scheduler_port;
+
 static std::string pidFilePath;
 static volatile sig_atomic_t exit_main_loop = 0;
 
@@ -504,8 +509,8 @@ struct Daemon {
         num_cpus = 0;
         scheduler = 0;
         discover = 0;
-        scheduler_port = 8765;
-        daemon_port = 10245;
+        scheduler_port = sPORT;
+        daemon_port = dPORT;
         max_scheduler_pong = MAX_SCHEDULER_PONG;
         max_scheduler_ping = MAX_SCHEDULER_PING;
         current_kids = 0;

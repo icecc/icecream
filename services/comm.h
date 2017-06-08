@@ -61,6 +61,54 @@
 #define IS_PROTOCOL_34(c) ((c)->protocol >= 34)
 #define IS_PROTOCOL_35(c) ((c)->protocol >= 35)
 
+
+/*
+ * juliengregoire@outlook.com Patch:
+ * Create a class for reading the environement variables and replace the 
+ * the hardcoded ports !
+ *
+ */
+
+class PortCustomConfig
+{	
+	public:
+	
+	unsigned int daemonport;
+	unsigned int schedulerport;
+		
+	char* dp;
+	char* sp;
+	
+	PortCustomConfig()
+	{
+		if(getenv("daemonport") && getenv("schedulerport") != 0)
+		{
+			dp = getenv("daemonport");
+			sp = getenv("schedulerport");
+			this->daemonport = atoi(dp);
+			this->schedulerport = atoi(sp);
+			
+			if(this->daemonport == 0)
+			{
+				this->daemonport = 10245;	
+			}
+			
+			if(this->schedulerport == 0)
+			{
+				this->schedulerport = 8765;
+			}
+		}
+		else
+		{
+			this->daemonport = 10245;
+			this->schedulerport = 8765;			
+		}
+		
+	}
+};
+
+
+
 enum MsgType {
     // so far unknown
     M_UNKNOWN = 'A',
