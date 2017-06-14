@@ -1539,10 +1539,7 @@ static bool handle_end(CompileServer *toremove, Msg *m)
         There might be still clients connected running on the machine on which
          the daemon died.  We expect that the daemon dying makes the client
          disconnect soon too.  */
-        if (find(css.begin(), css.end(), toremove) != css.end())
-        {
-            css.remove(toremove);
-        }
+        css.remove(toremove);
 
         /* Unfortunately the toanswer queues are also tagged based on the daemon,
            so we need to clean them up also.  */
@@ -2278,10 +2275,9 @@ int main(int argc, char *argv[])
         }
 
         for (list<pair<int, CompileServer *> >::const_iterator it = sock_to_cs_list.begin();
-                it != sock_to_cs_list.end();) {
+                it != sock_to_cs_list.end(); ++it) {
             int i = (*it).first;
             CompileServer *cs = (*it).second;
-            ++it;
 
             if (max_fd && FD_ISSET(i, &read_set) || FD_ISSET(i, &write_set)) {
                 max_fd--;
