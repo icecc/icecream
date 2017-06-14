@@ -723,15 +723,11 @@ static time_t prune_servers()
     }
 
     for (it = css.begin(); it != css.end();) {
-        if ((*it)->startInConnectionTest() != -1)
+        (*it)->startInConnectionTest();
+        time_t cs_in_conn_timeout = (*it)->getNextTimeout();
+        if(cs_in_conn_timeout != -1)
         {
-            min_time = min(min_time, (*it)->getConnectionTimeout());
-        }
-        else if((*it)->getNextConnTime() > time(0))
-        {
-            time_t until_connect = (*it)->getNextConnTime() - time(0);
-            until_connect = (until_connect > 0) ? until_connect : 0;
-            min_time = min(min_time, until_connect);
+            min_time = min(min_time, cs_in_conn_timeout);
         }
 
         if ((*it)->busyInstalling() && ((now - (*it)->busyInstalling()) >= MAX_BUSY_INSTALLING)) {
@@ -2276,20 +2272,8 @@ int main(int argc, char *argv[])
 
         for (list<pair<int, CompileServer *> >::const_iterator it = sock_to_cs_list.begin();
                 it != sock_to_cs_list.end(); ++it) {
-            int i = (*it).first;
             CompileServer *cs = (*it).second;
-
-            if (max_fd && FD_ISSET(i, &read_set) || FD_ISSET(i, &write_set)) {
-                max_fd--;
-
-                cs->inConnectionResponse();
-            }
-            else if (cs->getConnectionInProgress() && cs->getConnectionTimeout() == 0)
-            {
-                close(cs->getInFd());
-                cs->setInFd(-1);
-                cs->inConnectionResponse();
-            }
+            cs->inConnectionResponse(max_fd, read_set, write_set);
         }
     }
 

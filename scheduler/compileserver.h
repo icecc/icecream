@@ -135,10 +135,11 @@ public:
     int getInFd() const;
     void setInFd(int fd);
     int getInConnectionAttempt();
-    int startInConnectionTest();
-    void inConnectionResponse();
+    void startInConnectionTest();
+    void inConnectionResponse(int selectRet, fd_set read_set, fd_set write_set);
     time_t getNextConnTime();
     time_t getConnectionTimeout();
+    time_t getNextTimeout();
     bool getConnectionInProgress();
     bool isConnected();
     void setAcceptingInConnection(bool isAccepting);

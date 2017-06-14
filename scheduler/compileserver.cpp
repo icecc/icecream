@@ -421,19 +421,11 @@ void CompileServer::setInFd(int fd)
     m_inFd = fd;
 }
 
-int CompileServer::startInConnectionTest()
+void CompileServer::startInConnectionTest()
 {
-    if (m_noRemote)
+    if (m_noRemote || getConnectionInProgress() || (m_nextConnTime > time(0)))
     {
-        return -1;
-    }
-    else if (m_inFd != -1)
-    {
-        return m_inFd;
-    }
-    else if (m_nextConnTime > time(0))
-    {
-        return m_inFd;
+        return;
     }
 
     m_inFd = socket(PF_INET, SOCK_STREAM, 0);
@@ -457,10 +449,9 @@ int CompileServer::startInConnectionTest()
         close(m_inFd);
         m_inFd = -1;
     }
-    return m_inFd;
 }
 
-void CompileServer::inConnectionResponse()
+void CompileServer::inConnectionResponse(int selectRet, fd_set read_set, fd_set write_set)
 {
     static const time_t time_offset_table[] = {
            2,    4,    8,    16,    32,
@@ -472,7 +463,11 @@ void CompileServer::inConnectionResponse()
     //On a successful connection, we should still check back every 1min
     static const time_t check_back_time = 60;
 
-    if (isConnected())
+    if(!getConnectionInProgress())
+    {
+        return;
+    }
+    else if(selectRet && (FD_ISSET(m_inFd, &read_set) || FD_ISSET(m_inFd, &write_set)) && isConnected())
     {
         if(!m_acceptingInConnection)
         {
@@ -484,8 +479,10 @@ void CompileServer::inConnectionResponse()
                 ") is accepting incoming connections." << endl;
         }
         m_nextConnTime = time(0) + check_back_time;
+        close(m_inFd);
+        m_inFd = -1;
     }
-    else
+    else if((!selectRet && getConnectionTimeout() == 0) || (selectRet && (FD_ISSET(m_inFd, &read_set) || FD_ISSET(m_inFd, &write_set)) && !isConnected()))
     {
         if(m_acceptingInConnection)
         {
@@ -499,9 +496,9 @@ void CompileServer::inConnectionResponse()
         trace()  << nodeName() << " failed to accept an incoming connection on "
                  << name << ":" << m_remotePort << " attempting again in "
                  << m_nextConnTime - time(0) << " seconds" << endl;
+        close(m_inFd);
+        m_inFd = -1;
     }
-    close(m_inFd);
-    m_inFd = -1;
 }
 
 int CompileServer::getInConnectionAttempt()
@@ -511,7 +508,7 @@ int CompileServer::getInConnectionAttempt()
 
 bool CompileServer::isConnected()
 {
-    if (m_inFd == -1 || getConnectionTimeout() == 0)
+    if (getConnectionTimeout() == 0)
     {
         return false;
     }
@@ -545,4 +542,18 @@ time_t CompileServer::getConnectionTimeout()
 bool CompileServer::getConnectionInProgress()
 {
     return (getInFd() != -1);
+}
+
+time_t CompileServer::getNextTimeout()
+{
+    if (m_noRemote)
+    {
+        return -1;
+    }
+    if (m_inFd != -1)
+    {
+        return getConnectionTimeout();
+    }
+    time_t until_connect = m_nextConnTime - time(0);
+    return (until_connect > 0) ? until_connect : 0;
 }
