@@ -435,22 +435,22 @@ void CompileServer::startInConnectionTest()
     memset(remote_addr.sin_zero, '\0', sizeof(remote_addr.sin_zero));
 
     int status = connect(m_inFd, (struct sockaddr *)&remote_addr, sizeof(remote_addr));
-    if ((status < 0) && (errno == EINPROGRESS || errno == EAGAIN))
+    if(status == 0)
     {
-        m_lastConnStartTime=time(0);
+        updateInConnectivity(isConnected());
     }
-    else
+    else if (!(errno == EINPROGRESS || errno == EAGAIN))
     {
-        close(m_inFd);
-        m_inFd = -1;
+        updateInConnectivity(false);
     }
+    m_lastConnStartTime=time(0);
 }
 
-void CompileServer::inConnectionResponse(int selectRet, fd_set read_set, fd_set write_set)
+void CompileServer::updateInConnectivity(bool acceptingIn)
 {
     static const time_t time_offset_table[] = {
-           2,    4,    8,    16,    32,
-          64,  128,  256,   512,  1024,
+        2,    4,    8,    16,    32,
+        64,  128,  256,   512,  1024,
         2048, 4096
     };
     static const size_t table_size = sizeof(time_offset_table);
@@ -458,11 +458,7 @@ void CompileServer::inConnectionResponse(int selectRet, fd_set read_set, fd_set 
     //On a successful connection, we should still check back every 1min
     static const time_t check_back_time = 60;
 
-    if(!getConnectionInProgress())
-    {
-        return;
-    }
-    else if(selectRet && (FD_ISSET(m_inFd, &read_set) || FD_ISSET(m_inFd, &write_set)) && isConnected())
+    if(acceptingIn)
     {
         if(!m_acceptingInConnection)
         {
@@ -477,7 +473,7 @@ void CompileServer::inConnectionResponse(int selectRet, fd_set read_set, fd_set 
         close(m_inFd);
         m_inFd = -1;
     }
-    else if((!selectRet || (FD_ISSET(m_inFd, &read_set) || FD_ISSET(m_inFd, &write_set))) && !isConnected())
+    else
     {
         if(m_acceptingInConnection)
         {
@@ -487,12 +483,29 @@ void CompileServer::inConnectionResponse(int selectRet, fd_set read_set, fd_set 
                 ":" << m_remotePort <<
                 ") connected but is not able to accept incoming connections." << endl;
         }
-        m_nextConnTime = time(0) + time_offset_table[m_inConnAttempt++];
+        m_nextConnTime = time(0) + time_offset_table[m_inConnAttempt];
+        if(m_inConnAttempt < table_size) m_inConnAttempt++;
         trace()  << nodeName() << " failed to accept an incoming connection on "
-                 << name << ":" << m_remotePort << " attempting again in "
-                 << m_nextConnTime - time(0) << " seconds" << endl;
+            << name << ":" << m_remotePort << " attempting again in "
+            << m_nextConnTime - time(0) << " seconds" << endl;
         close(m_inFd);
         m_inFd = -1;
+    }
+
+}
+
+void CompileServer::inConnectionResponse(int selectRet, fd_set read_set, fd_set write_set)
+{
+    if(getConnectionInProgress())
+    {
+        if(selectRet && (FD_ISSET(m_inFd, &read_set) || FD_ISSET(m_inFd, &write_set)) && isConnected())
+        {
+            updateInConnectivity(true);
+        }
+        else if((!selectRet || (FD_ISSET(m_inFd, &read_set) || FD_ISSET(m_inFd, &write_set))) && !isConnected())
+        {
+            updateInConnectivity(false);
+        }
     }
 }
 

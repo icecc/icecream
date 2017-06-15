@@ -145,6 +145,7 @@ public:
 
 private:
     bool blacklisted(const Job *job, const pair<string, string> &environment);
+    void updateInConnectivity(bool acceptingIn);
 
     /* The listener port, on which it takes compile requests.  */
     unsigned int m_remotePort;
