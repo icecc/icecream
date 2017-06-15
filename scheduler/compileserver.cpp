@@ -416,11 +416,6 @@ int CompileServer::getInFd() const
     return m_inFd;
 }
 
-void CompileServer::setInFd(int fd)
-{
-    m_inFd = fd;
-}
-
 void CompileServer::startInConnectionTest()
 {
     if (m_noRemote || getConnectionInProgress() || (m_nextConnTime > time(0)))
@@ -482,7 +477,7 @@ void CompileServer::inConnectionResponse(int selectRet, fd_set read_set, fd_set 
         close(m_inFd);
         m_inFd = -1;
     }
-    else if((!selectRet && getConnectionTimeout() == 0) || (selectRet && (FD_ISSET(m_inFd, &read_set) || FD_ISSET(m_inFd, &write_set)) && !isConnected()))
+    else if((!selectRet || (FD_ISSET(m_inFd, &read_set) || FD_ISSET(m_inFd, &write_set))) && !isConnected())
     {
         if(m_acceptingInConnection)
         {
@@ -541,7 +536,7 @@ time_t CompileServer::getConnectionTimeout()
 
 bool CompileServer::getConnectionInProgress()
 {
-    return (getInFd() != -1);
+    return (m_inFd != -1);
 }
 
 time_t CompileServer::getNextTimeout()

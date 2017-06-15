@@ -133,7 +133,6 @@ public:
     void eraseCSFromBlacklist(CompileServer *cs);
 
     int getInFd() const;
-    void setInFd(int fd);
     int getInConnectionAttempt();
     void startInConnectionTest();
     void inConnectionResponse(int selectRet, fd_set read_set, fd_set write_set);

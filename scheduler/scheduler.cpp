@@ -2094,13 +2094,13 @@ int main(int argc, char *argv[])
             }
         }
 
-        list<pair<int, CompileServer *> > sock_to_cs_list;
+        list<CompileServer *> cs_in_tsts;
         for (list<CompileServer *>::iterator it = css.begin(); it != css.end(); ++it)
         {
             if ((*it)->getConnectionInProgress())
             {
                 int csInFd = (*it)->getInFd();
-                sock_to_cs_list.push_back(make_pair(csInFd, *it));
+                cs_in_tsts.push_back(*it);
                 if(csInFd > max_fd)
                 {
                     max_fd = csInFd;
@@ -2270,10 +2270,9 @@ int main(int argc, char *argv[])
             }
         }
 
-        for (list<pair<int, CompileServer *> >::const_iterator it = sock_to_cs_list.begin();
-                it != sock_to_cs_list.end(); ++it) {
-            CompileServer *cs = (*it).second;
-            cs->inConnectionResponse(max_fd, read_set, write_set);
+        for (list<CompileServer *>::const_iterator it = cs_in_tsts.begin();
+                it != cs_in_tsts.end(); ++it) {
+            (*it)->inConnectionResponse(max_fd, read_set, write_set);
         }
     }
 
