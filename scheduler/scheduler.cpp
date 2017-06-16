@@ -723,6 +723,13 @@ static time_t prune_servers()
     }
 
     for (it = css.begin(); it != css.end();) {
+        (*it)->startInConnectionTest();
+        time_t cs_in_conn_timeout = (*it)->getNextTimeout();
+        if(cs_in_conn_timeout != -1)
+        {
+            min_time = min(min_time, cs_in_conn_timeout);
+        }
+
         if ((*it)->busyInstalling() && ((now - (*it)->busyInstalling()) >= MAX_BUSY_INSTALLING)) {
             trace() << "busy installing for a long time - removing " << (*it)->nodeName() << endl;
             CompileServer *old = *it;
@@ -2042,9 +2049,10 @@ int main(int argc, char *argv[])
             last_announce = time(NULL);
         }
 
-        fd_set read_set;
+        fd_set read_set, write_set;
         int max_fd = 0;
         FD_ZERO(&read_set);
+        FD_ZERO(&write_set);
 
         if (time(0) >= next_listen) {
             max_fd = listen_fd;
@@ -2086,7 +2094,23 @@ int main(int argc, char *argv[])
             }
         }
 
-        max_fd = select(max_fd + 1, &read_set, NULL, NULL, &tv);
+        list<CompileServer *> cs_in_tsts;
+        for (list<CompileServer *>::iterator it = css.begin(); it != css.end(); ++it)
+        {
+            if ((*it)->getConnectionInProgress())
+            {
+                int csInFd = (*it)->getInFd();
+                cs_in_tsts.push_back(*it);
+                if(csInFd > max_fd)
+                {
+                    max_fd = csInFd;
+                }
+                FD_SET(csInFd, &read_set);
+                FD_SET(csInFd, &write_set);
+            }
+        }
+
+        max_fd = select(max_fd + 1, &read_set, &write_set, NULL, &tv);
 
         if (max_fd < 0 && errno == EINTR) {
             continue;
@@ -2243,6 +2267,22 @@ int main(int argc, char *argv[])
                 }
 
                 max_fd--;
+            }
+        }
+
+        for (list<CompileServer *>::const_iterator it = cs_in_tsts.begin();
+                it != cs_in_tsts.end(); ++it) {
+            if((*it)->getConnectionInProgress())
+            {
+                if(max_fd && (FD_ISSET((*it)->getInFd(), &read_set) || FD_ISSET((*it)->getInFd(), &write_set)) && (*it)->isConnected())
+                {
+                    max_fd--;
+                    (*it)->updateInConnectivity(true);
+                }
+                else if((!max_fd || (FD_ISSET((*it)->getInFd(), &read_set) || FD_ISSET((*it)->getInFd(), &write_set))) && !(*it)->isConnected())
+                {
+                    (*it)->updateInConnectivity(false);
+                }
             }
         }
     }
