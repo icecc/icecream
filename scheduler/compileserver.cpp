@@ -495,11 +495,6 @@ void CompileServer::updateInConnectivity(bool acceptingIn)
 
 }
 
-int CompileServer::getInConnectionAttempt()
-{
-    return m_inConnAttempt;
-}
-
 bool CompileServer::isConnected()
 {
     if (getConnectionTimeout() == 0)
@@ -518,11 +513,6 @@ bool CompileServer::isConnected()
     socklen_t err_len= sizeof(error);
     return (getsockopt(m_inFd, SOL_SOCKET, SO_ERROR, &error, &err_len) == 0 && error == 0);
 
-}
-
-time_t CompileServer::getNextConnTime()
-{
-    return m_nextConnTime;
 }
 
 time_t CompileServer::getConnectionTimeout()

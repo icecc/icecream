@@ -133,14 +133,11 @@ public:
     void eraseCSFromBlacklist(CompileServer *cs);
 
     int getInFd() const;
-    int getInConnectionAttempt();
     void startInConnectionTest();
-    time_t getNextConnTime();
     time_t getConnectionTimeout();
     time_t getNextTimeout();
     bool getConnectionInProgress();
     bool isConnected();
-    void setAcceptingInConnection(bool isAccepting);
     void updateInConnectivity(bool acceptingIn);
 
 private:
