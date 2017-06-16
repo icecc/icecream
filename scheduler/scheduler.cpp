@@ -2272,7 +2272,18 @@ int main(int argc, char *argv[])
 
         for (list<CompileServer *>::const_iterator it = cs_in_tsts.begin();
                 it != cs_in_tsts.end(); ++it) {
-            (*it)->inConnectionResponse(max_fd, read_set, write_set);
+            if((*it)->getConnectionInProgress())
+            {
+                if(max_fd && (FD_ISSET((*it)->getInFd(), &read_set) || FD_ISSET((*it)->getInFd(), &write_set)) && (*it)->isConnected())
+                {
+                    max_fd--;
+                    (*it)->updateInConnectivity(true);
+                }
+                else if((!max_fd || (FD_ISSET((*it)->getInFd(), &read_set) || FD_ISSET((*it)->getInFd(), &write_set))) && !(*it)->isConnected())
+                {
+                    (*it)->updateInConnectivity(false);
+                }
+            }
         }
     }
 

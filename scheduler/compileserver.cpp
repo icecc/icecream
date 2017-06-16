@@ -484,7 +484,8 @@ void CompileServer::updateInConnectivity(bool acceptingIn)
                 ") connected but is not able to accept incoming connections." << endl;
         }
         m_nextConnTime = time(0) + time_offset_table[m_inConnAttempt];
-        if(m_inConnAttempt < table_size) m_inConnAttempt++;
+        if(m_inConnAttempt < (table_size - 1))
+            m_inConnAttempt++;
         trace()  << nodeName() << " failed to accept an incoming connection on "
             << name << ":" << m_remotePort << " attempting again in "
             << m_nextConnTime - time(0) << " seconds" << endl;
@@ -492,21 +493,6 @@ void CompileServer::updateInConnectivity(bool acceptingIn)
         m_inFd = -1;
     }
 
-}
-
-void CompileServer::inConnectionResponse(int selectRet, fd_set read_set, fd_set write_set)
-{
-    if(getConnectionInProgress())
-    {
-        if(selectRet && (FD_ISSET(m_inFd, &read_set) || FD_ISSET(m_inFd, &write_set)) && isConnected())
-        {
-            updateInConnectivity(true);
-        }
-        else if((!selectRet || (FD_ISSET(m_inFd, &read_set) || FD_ISSET(m_inFd, &write_set))) && !isConnected())
-        {
-            updateInConnectivity(false);
-        }
-    }
 }
 
 int CompileServer::getInConnectionAttempt()

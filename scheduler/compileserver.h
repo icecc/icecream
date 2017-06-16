@@ -135,17 +135,16 @@ public:
     int getInFd() const;
     int getInConnectionAttempt();
     void startInConnectionTest();
-    void inConnectionResponse(int selectRet, fd_set read_set, fd_set write_set);
     time_t getNextConnTime();
     time_t getConnectionTimeout();
     time_t getNextTimeout();
     bool getConnectionInProgress();
     bool isConnected();
     void setAcceptingInConnection(bool isAccepting);
+    void updateInConnectivity(bool acceptingIn);
 
 private:
     bool blacklisted(const Job *job, const pair<string, string> &environment);
-    void updateInConnectivity(bool acceptingIn);
 
     /* The listener port, on which it takes compile requests.  */
     unsigned int m_remotePort;
