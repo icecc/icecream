@@ -101,10 +101,10 @@ bool analyse_argv(const char * const *argv, CompileJob &job, bool icerun, list<s
     string dwofile;
 
 #if CLIENT_DEBUG > 1
-    trace() << "scanning arguments ";
+    trace() << "scanning arguments" << endl;
 
     for (int index = 0; argv[index]; index++) {
-        trace() << argv[index] << " ";
+        trace() << " " << argv[index] << endl;
     }
 
     trace() << endl;
@@ -367,6 +367,8 @@ bool analyse_argv(const char * const *argv, CompileJob &job, bool icerun, list<s
                        || str_equal("-iprefix", a)
                        || str_equal("-iwithprefix", a)
                        || str_equal("-isystem", a)
+                       || str_equal("-cxx-isystem", a)
+                       || str_equal("-c-isystem", a)
                        || str_equal("-iquote", a)
                        || str_equal("-imultilib", a)
                        || str_equal("-isysroot", a)
@@ -402,6 +404,18 @@ bool analyse_argv(const char * const *argv, CompileJob &job, bool icerun, list<s
                        || str_equal("-MG", a)
                        || str_equal("-MP", a)) {
                 args.append(a, Arg_Local);
+            } else if (str_equal("-arch", a)) {
+                args.append(a, Arg_Remote);
+                /* skip next word, being option argument */
+                if (argv[i + 1]) {
+                    args.append(argv[++i], Arg_Remote);
+                }
+            } else if (str_equal("-target", a)) {
+                args.append(a, Arg_Remote);
+                /* skip next word, being option argument */
+                if (argv[i + 1]) {
+                    args.append(argv[++i], Arg_Remote);
+                }
             } else if (str_equal("-fno-color-diagnostics", a)) {
                 explicit_color_diagnostics = true;
                 args.append(a, Arg_Rest);

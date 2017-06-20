@@ -455,6 +455,7 @@ struct Daemon {
     map<int, MsgChannel *> fd2chan;
     int new_client_id;
     string remote_name;
+    string extra_remote_name;
     time_t next_scheduler_connect;
     unsigned long icecream_load;
     struct timeval icecream_usage;
@@ -845,7 +846,7 @@ string Daemon::dump_internals() const
     string result;
 
     result += "Node Name: " + nodename + "\n";
-    result += "  Remote name: " + remote_name + "\n";
+    result += "  Remote name: " + remote_name + " [" + extra_remote_name + "]\n";
 
     for (map<int, MsgChannel *>::const_iterator it = fd2chan.begin(); it != fd2chan.end(); ++it)  {
         result += "  fd2chan[" + toString(it->first) + "] = " + it->second->dump() + "\n";
@@ -919,7 +920,7 @@ int Daemon::scheduler_use_cs(UseCSMsg *msg)
         return 1;
     }
 
-    if (msg->hostname == remote_name && int(msg->port) == daemon_port) {
+    if ((msg->hostname == remote_name || msg->hostname == extra_remote_name) && int(msg->port) == daemon_port) {
         c->usecsmsg = new UseCSMsg(msg->host_platform, "127.0.0.1", daemon_port, msg->job_id, true, 1,
                                    msg->matched_job_id);
         c->status = Client::PENDING_USE_CS;
@@ -1980,7 +1981,8 @@ bool Daemon::reconnect()
         remote_name = string();
     }
 
-    log_info() << "Connected to scheduler (I am known as " << remote_name << ")" << endl;
+    log_info() << "Connected to scheduler (I am known as " << remote_name
+               << " [" << extra_remote_name << "]" << ")" << endl;
     current_load = -1000;
     gettimeofday(&last_stat, 0);
     icecream_load = 0;
@@ -2025,6 +2027,11 @@ int main(int argc, char **argv)
     bool detach = false;
     nice_level = 5; // defined in serve.h
 
+    const char* extra_name = getenv("ICECC_EXTRA_NAME");
+    if (extra_name && *extra_name) {
+        d.extra_remote_name = extra_name;
+    }
+
     while (true) {
         int option_index = 0;
         static const struct option long_options[] = {
@@ -2041,6 +2048,7 @@ int main(int argc, char **argv)
             { "cache-limit", 1, NULL, 0},
             { "no-remote", 0, NULL, 0},
             { "port", 1, NULL, 'p'},
+            { "extra-name", 1, NULL, 0},
             { 0, 0, 0, 0 }
         };
 
@@ -2084,8 +2092,11 @@ int main(int argc, char **argv)
                 }
             } else if (optname == "no-remote") {
                 d.noremote = true;
+            } else if (optname == "extra-name") {
+                if (optarg && *optarg) {
+                    d.extra_remote_name = optarg;
+                }
             }
-
         }
         break;
         case 'd':
