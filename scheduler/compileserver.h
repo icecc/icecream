@@ -66,9 +66,6 @@ public:
     unsigned int hostId() const;
     void setHostId(const unsigned int id);
 
-    string netname() const;
-    void setNetName(const string &name);
-
     string nodeName() const;
     void setNodeName(const string &name);
 
@@ -150,7 +147,6 @@ private:
     unsigned int m_remotePort;
     unsigned int m_hostId;
     string m_nodeName;
-    string m_netname;
     time_t m_busyInstalling;
     string m_hostPlatform;
 

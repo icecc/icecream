@@ -946,10 +946,6 @@ static bool handle_login(CompileServer *cs, Msg *_m)
         cs->setNodeName(cs->name);
     }
 
-    if (m->netname.length()) {
-        cs->setNetName(m->netname);
-    }
-
     cs->setHostPlatform(m->host_platform);
     cs->setChrootPossible(m->chroot_possible);
     cs->pick_new_id();
@@ -1772,9 +1768,9 @@ static int prepare_broadcast_reply(char* buf, const char* netname)
 
 static void broadcast_scheduler_version(const char* netname)
 {
-    char length_netname = sizeof(netname);
+    const char length_netname = strlen(netname);
     const int schedbuflen = 5 + sizeof(uint64_t) + length_netname;
-    char buf[ schedbuflen ];
+    char *buf = new char[ schedbuflen ];
     buf[0] = 'I';
     buf[1] = 'C';
     buf[2] = 'E';
@@ -1782,8 +1778,10 @@ static void broadcast_scheduler_version(const char* netname)
     uint64_t tmp_time = starttime;
     memcpy(buf + 4, &tmp_time, sizeof(uint64_t));
     buf[4 + sizeof(uint64_t)] = length_netname;
-    memcpy(buf + 5 + sizeof(uint64_t), netname, length_netname);
-    DiscoverSched::broadcastData(scheduler_port, buf, sizeof(buf));
+    strncpy(buf + 5 + sizeof(uint64_t), netname, length_netname);
+    DiscoverSched::broadcastData(scheduler_port, buf, schedbuflen);
+    delete[] buf;
+    buf = 0;
 }
 
 static void usage(const char *reason = 0)
@@ -1823,7 +1821,7 @@ static void trigger_exit(int signum)
     signal(signum, trigger_exit);
 }
 
-static void handle_scheduler_announce(char* buf, const char* netname, int schedbuflen, bool persistent_clients, struct sockaddr_in broad_addr)
+static void handle_scheduler_announce(const char* buf, const char* netname, bool persistent_clients, struct sockaddr_in broad_addr)
 {
     /* Another scheduler is announcing it's running, disconnect daemons if it has a better version
        or the same version but was started earlier. */
@@ -1833,11 +1831,11 @@ static void handle_scheduler_announce(char* buf, const char* netname, int schedb
         time_t other_time = tmp_time;
         int other_scheduler_protocol = buf[3];
         string recv_netname;
+        string local_netname = netname;
         if (other_scheduler_protocol >= 36)
         {
-            buf[schedbuflen] = '\0';
             recv_netname = buf + 5 + sizeof(uint64_t);
-            if (recv_netname == netname)
+            if (recv_netname == local_netname)
             {
                 if (other_scheduler_protocol > PROTOCOL_VERSION || (other_scheduler_protocol == PROTOCOL_VERSION && other_time < starttime))
                 {
@@ -1855,47 +1853,6 @@ static void handle_scheduler_announce(char* buf, const char* netname, int schedb
                         {
                             handle_end(monitors.front(), NULL);
                         }
-                    }
-                }
-            }
-            else
-            {
-                for(list<CompileServer *>::iterator it = css.begin();it != css.end();++it)
-                {
-                    if ((*it)->netname() == recv_netname)
-                    {
-                        log_info() << "Scheduler from " << inet_ntoa(broad_addr.sin_addr)
-                            << ":" << ntohs(broad_addr.sin_port)
-                            << " (version " << int(other_scheduler_protocol) << " netname " << recv_netname << ") has announced itself as a preferred"
-                            " scheduler, disconnecting " << (*it)->name << endl;
-                        handle_end(*it, NULL);
-                    }
-                    else if ((*it)->netname() != netname)
-                    {
-                        log_info() << "Scheduler from " << inet_ntoa(broad_addr.sin_addr)
-                            << ":" << ntohs(broad_addr.sin_port)
-                            << " (version " << int(other_scheduler_protocol) << " netname " << recv_netname << ") has announced itself as a preferred"
-                            " scheduler, disconnecting " << (*it)->name << endl;
-                        handle_end(*it, NULL);
-                    }
-                }
-                for(list<CompileServer *>::iterator it = monitors.begin();it != monitors.end();++it)
-                {
-                    if ((*it)->netname() == recv_netname)
-                    {
-                        log_info() << "Scheduler from " << inet_ntoa(broad_addr.sin_addr)
-                            << ":" << ntohs(broad_addr.sin_port)
-                            << " (version " << int(other_scheduler_protocol) << " netname " << recv_netname << ") has announced itself as a preferred"
-                            " scheduler, disconnecting " << (*it)->name << endl;
-                        handle_end(*it, NULL);
-                    }
-                    else if ((*it)->netname() != netname)
-                    {
-                        log_info() << "Scheduler from " << inet_ntoa(broad_addr.sin_addr)
-                            << ":" << ntohs(broad_addr.sin_port)
-                            << " (version " << int(other_scheduler_protocol) << " netname " << recv_netname << ") has announced itself as a preferred"
-                            " scheduler, disconnecting " << (*it)->name << endl;
-                        handle_end(*it, NULL);
                     }
                 }
             }
@@ -2294,6 +2251,19 @@ int main(int argc, char *argv[])
             int buflen = recvfrom(broad_fd, buf, BROAD_BUFLEN, 0, (struct sockaddr *) &broad_addr,
                     &broad_len);
             /* Daemon is searching for a scheduler, only answer if daemon would be able to talk to us. */
+            if (buflen < 0 || buflen > BROAD_BUFLEN){
+                int err = errno;
+                log_perror("recvfrom()");
+
+                /* Some linux 2.6 kernels can return from select with
+                   data available, and then return from read() with EAGAIN
+                   even on a blocking socket (breaking POSIX).  Happens
+                   when the arriving packet has a wrong checksum.  So
+                   we ignore EAGAIN here, but still abort for all other errors. */
+                if (err != EAGAIN) {
+                    return -1;
+                }
+            }
             if (buflen == 1) {
                 if (buf[0] >= MIN_PROTOCOL_VERSION){
                     log_info() << "broadcast from " << inet_ntoa(broad_addr.sin_addr)
@@ -2324,7 +2294,7 @@ int main(int argc, char *argv[])
                         return -1;
                     }
                 }
-                handle_scheduler_announce(buf, netname, schedbuflen, persistent_clients, broad_addr);
+                handle_scheduler_announce(buf, netname, persistent_clients, broad_addr);
             }
         }
 

@@ -42,7 +42,6 @@ CompileServer::CompileServer(const int fd, struct sockaddr *_addr, const socklen
     , m_remotePort(0)
     , m_hostId(0)
     , m_nodeName()
-    , m_netname()
     , m_busyInstalling(0)
     , m_hostPlatform()
     , m_load(1000)
@@ -194,16 +193,6 @@ string CompileServer::nodeName() const
 void CompileServer::setNodeName(const string &name)
 {
     m_nodeName = name;
-}
-
-string CompileServer::netname() const
-{
-    return m_netname;
-}
-
-void CompileServer::setNetName(const string &name)
-{
-    m_netname = name;
 }
 
 bool CompileServer::matches(const string& nm) const
