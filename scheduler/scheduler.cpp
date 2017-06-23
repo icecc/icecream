@@ -1829,12 +1829,12 @@ static void handle_scheduler_announce(const char* buf, const char* netname, bool
         uint64_t tmp_time;
         memcpy(&tmp_time, buf + 4, sizeof(uint64_t));
         time_t other_time = tmp_time;
-        int other_scheduler_protocol = buf[3];
-        string recv_netname;
-        string local_netname = netname;
+        const unsigned char other_scheduler_protocol = buf[3];
         if (other_scheduler_protocol >= 36)
         {
-            recv_netname = buf + 5 + sizeof(uint64_t);
+            const unsigned char recv_netname_len = buf[4 + sizeof(uint64_t)];
+            string local_netname = netname;
+            string recv_netname = string(buf + 5 + sizeof(uint64_t), recv_netname_len);
             if (recv_netname == local_netname)
             {
                 if (other_scheduler_protocol > PROTOCOL_VERSION || (other_scheduler_protocol == PROTOCOL_VERSION && other_time < starttime))
