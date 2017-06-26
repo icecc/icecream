@@ -121,7 +121,7 @@ static list<JobStat> all_job_stats;
 static JobStat cum_job_stats;
 
 static float server_speed(CompileServer *cs, Job *job = 0);
-static void broadcast_scheduler_version();
+static void broadcast_scheduler_version(const char* netname);
 
 /* Searches the queue for JOB and removes it.
    Returns true if something was deleted.  */
@@ -1742,7 +1742,7 @@ static int open_tcp_listener(short port)
     return fd;
 }
 
-#define BROAD_BUFLEN 32
+#define BROAD_BUFLEN 268
 #define BROAD_BUFLEN_OLD 16
 static int prepare_broadcast_reply(char* buf, const char* netname)
 {
@@ -1766,17 +1766,22 @@ static int prepare_broadcast_reply(char* buf, const char* netname)
     }
 }
 
-static void broadcast_scheduler_version()
+static void broadcast_scheduler_version(const char* netname)
 {
-    const int schedbuflen = 4 + sizeof(uint64_t);
-    char buf[ schedbuflen ];
+    const char length_netname = strlen(netname);
+    const int schedbuflen = 5 + sizeof(uint64_t) + length_netname;
+    char *buf = new char[ schedbuflen ];
     buf[0] = 'I';
     buf[1] = 'C';
     buf[2] = 'E';
     buf[3] = PROTOCOL_VERSION;
     uint64_t tmp_time = starttime;
     memcpy(buf + 4, &tmp_time, sizeof(uint64_t));
-    DiscoverSched::broadcastData(scheduler_port, buf, sizeof(buf));
+    buf[4 + sizeof(uint64_t)] = length_netname;
+    strncpy(buf + 5 + sizeof(uint64_t), netname, length_netname);
+    DiscoverSched::broadcastData(scheduler_port, buf, schedbuflen);
+    delete[] buf;
+    buf = 0;
 }
 
 static void usage(const char *reason = 0)
@@ -1814,6 +1819,45 @@ static void trigger_exit(int signum)
 
     // make BSD happy
     signal(signum, trigger_exit);
+}
+
+static void handle_scheduler_announce(const char* buf, const char* netname, bool persistent_clients, struct sockaddr_in broad_addr)
+{
+    /* Another scheduler is announcing it's running, disconnect daemons if it has a better version
+       or the same version but was started earlier. */
+    if (!persistent_clients){
+        uint64_t tmp_time;
+        memcpy(&tmp_time, buf + 4, sizeof(uint64_t));
+        time_t other_time = tmp_time;
+        const unsigned char other_scheduler_protocol = buf[3];
+        if (other_scheduler_protocol >= 36)
+        {
+            const unsigned char recv_netname_len = buf[4 + sizeof(uint64_t)];
+            string local_netname = netname;
+            string recv_netname = string(buf + 5 + sizeof(uint64_t), recv_netname_len);
+            if (recv_netname == local_netname)
+            {
+                if (other_scheduler_protocol > PROTOCOL_VERSION || (other_scheduler_protocol == PROTOCOL_VERSION && other_time < starttime))
+                {
+                    if (!css.empty() || !monitors.empty())
+                    {
+                        log_info() << "Scheduler from " << inet_ntoa(broad_addr.sin_addr)
+                            << ":" << ntohs(broad_addr.sin_port)
+                            << " (version " << int(other_scheduler_protocol) << ") has announced itself as a preferred"
+                            " scheduler, disconnecting all connections." << endl;
+                        while (!css.empty())
+                        {
+                            handle_end(css.front(), NULL);
+                        }
+                        while (!monitors.empty())
+                        {
+                            handle_end(monitors.front(), NULL);
+                        }
+                    }
+                }
+            }
+        }
+    }
 }
 
 int main(int argc, char *argv[])
@@ -2029,7 +2073,7 @@ int main(int argc, char *argv[])
 
     time_t next_listen = 0;
 
-    broadcast_scheduler_version();
+    broadcast_scheduler_version(netname);
     last_announce = starttime;
 
     while (!exit_main_loop) {
@@ -2045,7 +2089,7 @@ int main(int argc, char *argv[])
            their daemons if we are the preferred scheduler (daemons with version new enough
            should automatically select the best scheduler, but old daemons connect randomly). */
         if (last_announce + 120 < time(NULL)) {
-            broadcast_scheduler_version();
+            broadcast_scheduler_version(netname);
             last_announce = time(NULL);
         }
 
@@ -2196,57 +2240,61 @@ int main(int argc, char *argv[])
 
         if (max_fd && FD_ISSET(broad_fd, &read_set)) {
             max_fd--;
-            char buf[BROAD_BUFLEN];
+            char buf[BROAD_BUFLEN + 1];
             struct sockaddr_in broad_addr;
             socklen_t broad_len = sizeof(broad_addr);
             /* We can get either a daemon request for a scheduler (1 byte) or another scheduler
                announcing itself (4 bytes + time). */
-            const int schedbuflen = 4 + sizeof(uint64_t);
 
-            int buflen = recvfrom(broad_fd, buf, max( 1, schedbuflen), 0, (struct sockaddr *) &broad_addr,
-                                  &broad_len);
-            if (buflen != 1 && buflen != schedbuflen) {
+            int schedbuflen = 4 + sizeof(uint64_t);
+
+            int buflen = recvfrom(broad_fd, buf, BROAD_BUFLEN, 0, (struct sockaddr *) &broad_addr,
+                    &broad_len);
+            /* Daemon is searching for a scheduler, only answer if daemon would be able to talk to us. */
+            if (buflen < 0 || buflen > BROAD_BUFLEN){
                 int err = errno;
                 log_perror("recvfrom()");
 
                 /* Some linux 2.6 kernels can return from select with
                    data available, and then return from read() with EAGAIN
-                even on a blocking socket (breaking POSIX).  Happens
-                 when the arriving packet has a wrong checksum.  So
-                 we ignore EAGAIN here, but still abort for all other errors. */
+                   even on a blocking socket (breaking POSIX).  Happens
+                   when the arriving packet has a wrong checksum.  So
+                   we ignore EAGAIN here, but still abort for all other errors. */
                 if (err != EAGAIN) {
                     return -1;
                 }
             }
-            /* Daemon is searching for a scheduler, only answer if daemon would be able to talk to us. */
-            else if (buflen == 1 && buf[0] >= MIN_PROTOCOL_VERSION) {
-                log_info() << "broadcast from " << inet_ntoa(broad_addr.sin_addr)
-                           << ":" << ntohs(broad_addr.sin_port)
-                           << " (version " << int(buf[0]) << ")\n";
-                int reply_len = prepare_broadcast_reply(buf, netname);
-                if (sendto(broad_fd, buf, reply_len, 0,
-                           (struct sockaddr *) &broad_addr, broad_len) != reply_len) {
-                    log_perror("sendto()");
-                }
-            }
-            else if (!persistent_clients && buflen == schedbuflen && buf[0] == 'I' && buf[1] == 'C' && buf[2] == 'E') {
-                /* Another scheduler is announcing it's running, disconnect daemons if it has a better version
-                   or the same version but was started earlier. */
-                uint64_t tmp_time;
-                memcpy(&tmp_time, buf + 4, sizeof(uint64_t));
-                time_t other_time = tmp_time;
-                if (buf[3] > PROTOCOL_VERSION || other_time < starttime) {
-                    if (!css.empty() || !monitors.empty()) {
-                        log_info() << "Scheduler from " << inet_ntoa(broad_addr.sin_addr)
-                               << ":" << ntohs(broad_addr.sin_port)
-                               << " (version " << int(buf[3]) << ") has announced itself as a preferred"
-                            " scheduler, disconnecting all connections." << endl;
-                        while (!css.empty())
-                            handle_end(css.front(), NULL);
-                        while (!monitors.empty())
-                            handle_end(monitors.front(), NULL);
+            if (buflen == 1) {
+                if (buf[0] >= MIN_PROTOCOL_VERSION){
+                    log_info() << "broadcast from " << inet_ntoa(broad_addr.sin_addr)
+                        << ":" << ntohs(broad_addr.sin_port)
+                        << " (version " << int(buf[0]) << ")\n";
+                    int reply_len = prepare_broadcast_reply(buf, netname);
+                    if (sendto(broad_fd, buf, reply_len, 0,
+                                (struct sockaddr *) &broad_addr, broad_len) != reply_len) {
+                        log_perror("sendto()");
                     }
                 }
+            }
+            else if(buflen >= schedbuflen && buf[0] == 'I' && buf[1] == 'C' && buf[2] == 'E') {
+                if(buf[3] > 35)
+                {
+                    schedbuflen += 1 + buf[schedbuflen];
+                }
+                if (buflen != schedbuflen){
+                    int err = errno;
+                    log_perror("recvfrom()");
+
+                    /* Some linux 2.6 kernels can return from select with
+                       data available, and then return from read() with EAGAIN
+                       even on a blocking socket (breaking POSIX).  Happens
+                       when the arriving packet has a wrong checksum.  So
+                       we ignore EAGAIN here, but still abort for all other errors. */
+                    if (err != EAGAIN) {
+                        return -1;
+                    }
+                }
+                handle_scheduler_announce(buf, netname, persistent_clients, broad_addr);
             }
         }
 

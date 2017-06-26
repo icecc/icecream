@@ -36,7 +36,7 @@
 #include "job.h"
 
 // if you increase the PROTOCOL_VERSION, add a macro below and use that
-#define PROTOCOL_VERSION 35
+#define PROTOCOL_VERSION 36
 // if you increase the MIN_PROTOCOL_VERSION, comment out macros below and clean up the code
 #define MIN_PROTOCOL_VERSION 21
 
@@ -60,6 +60,7 @@
 #define IS_PROTOCOL_33(c) ((c)->protocol >= 33)
 #define IS_PROTOCOL_34(c) ((c)->protocol >= 34)
 #define IS_PROTOCOL_35(c) ((c)->protocol >= 35)
+#define IS_PROTOCOL_36(c) ((c)->protocol >= 36)
 
 enum MsgType {
     // so far unknown
