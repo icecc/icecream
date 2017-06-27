@@ -478,6 +478,23 @@ static int build_remote_int(CompileJob &job, UseCSMsg *usecs, MsgChannel *local_
         }
 
         if (!preproc_file) {
+            local_daemon->send_msg(JobLocalBeginMsg(0, get_absfilename(job.inputFile())));
+            /* Now wait until the daemon gives us the start signal.  40 minutes
+               should be enough for all normal compile or link jobs.  */
+            Msg *startme = 0L;
+            startme = local_daemon->get_msg(40 * 60);
+            if (!startme) {
+                throw client_error(32, "Error 32 - did not receive job_local_begin reply, before timeout ");
+            }
+            else if(startme->type != M_JOB_LOCAL_BEGIN)
+            {
+                ostringstream unexpected_msg;
+                unexpected_msg <<  "Error 33 - expected job_local_begin reply, but got " << startme->type << " instead";
+                delete startme;
+                throw client_error(33, unexpected_msg.str());
+            }
+            delete startme;
+
             int sockets[2];
 
             if (pipe(sockets)) {
@@ -799,6 +816,24 @@ int build_remote(CompileJob &job, MsgChannel *local_daemon, const Environments &
         char *preproc = 0;
         dcc_make_tmpnam("icecc", ".ix", &preproc, 0);
         const CharBufferDeleter preproc_holder(preproc);
+
+        local_daemon->send_msg(JobLocalBeginMsg(0, get_absfilename(job.inputFile())));
+        /* Now wait until the daemon gives us the start signal.  40 minutes
+           should be enough for all normal compile or link jobs.  */
+        Msg *startme = 0L;
+        startme = local_daemon->get_msg(40 * 60);
+        if (!startme) {
+            throw client_error(32, "Error 32 - did not receive job_local_begin reply, before timeout ");
+        }
+        else if(startme->type != M_JOB_LOCAL_BEGIN)
+        {
+            ostringstream unexpected_msg;
+            unexpected_msg <<  "Error 33 - expected job_local_begin reply, but got " << startme->type << " instead";
+            delete startme;
+            throw client_error(33, unexpected_msg.str());
+        }
+        delete startme;
+
         int cpp_fd = open(preproc, O_WRONLY);
         /* When call_cpp returns normally (for the parent) it will have closed
            the write fd, i.e. cpp_fd.  */
