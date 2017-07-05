@@ -539,13 +539,6 @@ problems configuring broadcast. So you might need the -s option for the
 daemon in any case there. If the monitor can't find the scheduler, use
 USE\_SCHEDULER=\<host\> icemon (or send me a patch :)
 
-Note: If there is NAT between a daemon and the scheduler, you may experience
-failures when occasionally jobs bounce back to be compiled on the local daemon
-that issued the compile. You may try the --extra-name option on these daemons
-if you know ahead of time what is the external IP as seen by the scheduler,
-for example in a virtualized setup with 1-1 NAT floating IPs that a startup
-script can obtain, but that are not visible in normal networking tools.
-
 I use distcc, why should I change?
 -------------------------------------------------------------------------------------------------------------------
 
