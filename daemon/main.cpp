@@ -529,6 +529,7 @@ struct Daemon {
     int scheduler_get_internals() __attribute_warn_unused_result__;
     void clear_children();
     int scheduler_use_cs(UseCSMsg *msg) __attribute_warn_unused_result__;
+    int scheduler_no_cs(NoCSMsg *msg) __attribute_warn_unused_result__;
     bool handle_get_cs(Client *client, Msg *msg) __attribute_warn_unused_result__;
     bool handle_local_job(Client *client, Msg *msg) __attribute_warn_unused_result__;
     bool handle_job_done(Client *cl, JobDoneMsg *m) __attribute_warn_unused_result__;
@@ -939,6 +940,29 @@ int Daemon::scheduler_use_cs(UseCSMsg *msg)
     c->job_id = msg->job_id;
 
     return 0;
+}
+
+int Daemon::scheduler_no_cs(NoCSMsg *msg)
+{
+    Client *c = clients.find_by_client_id(msg->client_id);
+    trace() << "handle_use_cs " << msg->job_id << " " << msg->client_id
+            << " " << c << " " <<  endl;
+
+    if (!c) {
+        if (send_scheduler(JobDoneMsg(msg->job_id, 107, JobDoneMsg::FROM_SUBMITTER))) {
+            return 1;
+        }
+
+        return 1;
+    }
+
+    c->usecsmsg = new UseCSMsg(string(), "127.0.0.1", daemon_port, msg->job_id, true, 1, 0);
+    c->status = Client::PENDING_USE_CS;
+
+    c->job_id = msg->job_id;
+
+    return 0;
+
 }
 
 bool Daemon::handle_transfer_env(Client *client, Msg *_msg)
@@ -1814,6 +1838,9 @@ int Daemon::answer_client_requests()
                     break;
                 case M_USE_CS:
                     ret = scheduler_use_cs(static_cast<UseCSMsg *>(msg));
+                    break;
+                case M_NO_CS:
+                    ret = scheduler_no_cs(static_cast<NoCSMsg *>(msg));
                     break;
                 case M_GET_INTERNALS:
                     ret = scheduler_get_internals();

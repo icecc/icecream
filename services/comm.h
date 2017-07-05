@@ -36,7 +36,7 @@
 #include "job.h"
 
 // if you increase the PROTOCOL_VERSION, add a macro below and use that
-#define PROTOCOL_VERSION 36
+#define PROTOCOL_VERSION 37
 // if you increase the MIN_PROTOCOL_VERSION, comment out macros below and clean up the code
 #define MIN_PROTOCOL_VERSION 21
 
@@ -61,6 +61,7 @@
 #define IS_PROTOCOL_34(c) ((c)->protocol >= 34)
 #define IS_PROTOCOL_35(c) ((c)->protocol >= 35)
 #define IS_PROTOCOL_36(c) ((c)->protocol >= 36)
+#define IS_PROTOCOL_37(c) ((c)->protocol >= 37)
 
 enum MsgType {
     // so far unknown
@@ -85,6 +86,8 @@ enum MsgType {
     M_GET_CS,
     // S --> C
     M_USE_CS,  // = 'G'
+    // S --> CS
+    M_NO_CS,
 
     // C --> CS
     M_COMPILE_FILE, // = 'I'
@@ -415,6 +418,23 @@ public:
     uint32_t got_env;
     uint32_t client_id;
     uint32_t matched_job_id;
+};
+
+class NoCSMsg : public Msg
+{
+public:
+    NoCSMsg()
+        : Msg(M_NO_CS) {}
+    NoCSMsg(unsigned int id, unsigned int _client_id)
+        : Msg(M_NO_CS),
+          job_id(id),
+          client_id(_client_id) {}
+
+    virtual void fill_from_channel(MsgChannel *c);
+    virtual void send_to_channel(MsgChannel *c) const;
+
+    uint32_t job_id;
+    uint32_t client_id;
 };
 
 class GetNativeEnvMsg : public Msg

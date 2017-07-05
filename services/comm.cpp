@@ -1031,6 +1031,9 @@ Msg *MsgChannel::get_msg(int timeout)
     case M_USE_CS:
         m = new UseCSMsg;
         break;
+    case M_NO_CS:
+        m = new NoCSMsg;
+        break;
     case M_COMPILE_FILE:
         m = new CompileFileMsg(new CompileJob, true);
         break;
@@ -1601,6 +1604,21 @@ void UseCSMsg::send_to_channel(MsgChannel *c) const
         *c << matched_job_id;
     }
 }
+
+void NoCSMsg::fill_from_channel(MsgChannel *c)
+{
+    Msg::fill_from_channel(c);
+    *c >> job_id;
+    *c >> client_id;
+}
+
+void NoCSMsg::send_to_channel(MsgChannel *c) const
+{
+    Msg::send_to_channel(c);
+    *c << job_id;
+    *c << client_id;
+}
+
 
 void CompileFileMsg::fill_from_channel(MsgChannel *c)
 {
