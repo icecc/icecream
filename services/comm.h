@@ -86,9 +86,6 @@ enum MsgType {
     M_GET_CS,
     // S --> C
     M_USE_CS,  // = 'G'
-    // S --> CS
-    M_NO_CS,
-
     // C --> CS
     M_COMPILE_FILE, // = 'I'
     // generic file transfer
@@ -130,7 +127,9 @@ enum MsgType {
     M_VERIFY_ENV,
     M_VERIFY_ENV_RESULT,
     // C --> CS, CS --> S (forwarded from C), to not use given host for given environment
-    M_BLACKLIST_HOST_ENV
+    M_BLACKLIST_HOST_ENV,
+    // S --> CS
+    M_NO_CS
 };
 
 class MsgChannel;
