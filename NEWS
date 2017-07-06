@@ -1,3 +1,19 @@
+1.1rc3
+ - Fix broken pipe race condition
+ - Better error handling
+ - Crash fixes
+ - Documentation update
+ - Include objcopy in environment if it exists
+ - Add CI builds on travis-ci: OSX, ubuntu trusty
+ - Fixed several memory errors
+ - Extract enviornments with compile priority, not daemon priority
+ - Handle spaces in the parameters following -MT
+ - Handle -target -arch -c-isystem and -cxx-isystem (clang)
+ - Handle NAT situations better
+ - Add load control for preprocessing
+ - Handle scheduler unable to reach remote machine
+ - Make scheduler election algorithm handle multiple netnames
+
 1.1rc2
  - -gsplit-dwarf support for debug fission (https://gcc.gnu.org/wiki/DebugFission)
  - bug fixes since 1.1rc1
