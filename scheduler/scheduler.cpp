@@ -464,10 +464,6 @@ static bool handle_local_job_done(CompileServer *cs, Msg *_m)
    platform).  */
 static string envs_match(CompileServer *cs, const Job *job)
 {
-    if (job->submitter() == cs) {
-        return cs->hostPlatform();    // it will compile itself
-    }
-
     Environments compilerVersions = cs->compilerVersions();
 
     /* Check all installed envs on the candidate CS ...  */
