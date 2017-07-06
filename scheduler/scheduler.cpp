@@ -877,15 +877,26 @@ static bool empty_queue()
             break;
         }
     }
-
-    UseCSMsg m2(host_platform, cs->name, cs->remotePort(), job->id(),
-                gotit, job->localClientId(), matched_job_id);
-
-    if (!job->submitter()->send_msg(m2)) {
-        trace() << "failed to deliver job " << job->id() << endl;
-        handle_end(job->submitter(), 0);   // will care for the rest
-        return true;
+    if(IS_PROTOCOL_37(job->submitter()) && cs == job->submitter())
+    {
+        NoCSMsg m2(job->id(), job->localClientId());
+        if (!job->submitter()->send_msg(m2)) {
+            trace() << "failed to deliver job " << job->id() << endl;
+            handle_end(job->submitter(), 0);   // will care for the rest
+            return true;
+        }
     }
+    else
+    {
+        UseCSMsg m2(host_platform, cs->name, cs->remotePort(), job->id(),
+                gotit, job->localClientId(), matched_job_id);
+        if (!job->submitter()->send_msg(m2)) {
+            trace() << "failed to deliver job " << job->id() << endl;
+            handle_end(job->submitter(), 0);   // will care for the rest
+            return true;
+        }
+    }
+
 
 #if DEBUG_SCHEDULER >= 0
     if (!gotit) {
