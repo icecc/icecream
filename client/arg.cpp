@@ -94,6 +94,84 @@ static bool analyze_program(const char *name, CompileJob &job)
     return false;
 }
 
+static bool is_argument_with_space(const char* argument)
+{
+    // List taken from https://clang.llvm.org/docs/genindex.html
+    // TODO: Add support for arguments with two or three values
+    //         -sectalign <arg1> <arg2> <arg3>
+    //         -sectcreate <arg1> <arg2> <arg3>
+    //         -sectobjectsymbols <arg1> <arg2>
+    //         -sectorder <arg1> <arg2> <arg3>
+    //         -segaddr <arg1> <arg2>
+    //         -segcreate <arg1> <arg2> <arg3>
+    //         -segprot <arg1> <arg2> <arg3>
+    //       Move some arguments to Arg_Cpp or Arg_Local
+    if (str_equal("-dyld-prefix", argument)
+        || str_equal("-gcc-toolchain", argument)
+        || str_equal("--param", argument)
+        || str_equal("--sysroot", argument)
+        || str_equal("--system-header-prefix", argument)
+        || str_equal("-target", argument)
+        || str_equal("--assert", argument)
+        || str_equal("--allowable_client", argument)
+        || str_equal("-arch", argument)
+        || str_equal("-arch_only", argument)
+        || str_equal("-arcmt-migrate-report-output", argument)
+        || str_equal("--prefix", argument)
+        || str_equal("-bundle_loader", argument)
+        || str_equal("-dependency-dot", argument)
+        || str_equal("-dependency-file", argument)
+        || str_equal("-dylib_file", argument)
+        || str_equal("-exported_symbols_list", argument)
+        || str_equal("--bootclasspath", argument)
+        || str_equal("--CLASSPATH", argument)
+        || str_equal("--classpath", argument)
+        || str_equal("--resource", argument)
+        || str_equal("--encoding", argument)
+        || str_equal("--extdirs", argument)
+        || str_equal("-filelist", argument)
+        || str_equal("-fmodule-implementation-of", argument)
+        || str_equal("-fmodule-name", argument)
+        || str_equal("-fmodules-user-build-path", argument)
+        || str_equal("-fnew-alignment", argument)
+        || str_equal("-force_load", argument)
+        || str_equal("--output-class-directory", argument)
+        || str_equal("-framework", argument)
+        || str_equal("-frewrite-map-file", argument)
+        || str_equal("-ftrapv-handler", argument)
+        || str_equal("-image_base", argument)
+        || str_equal("-init", argument)
+        || str_equal("-install_name", argument)
+        || str_equal("-lazy_framework", argument)
+        || str_equal("-lazy_library", argument)
+        || str_equal("-meabi", argument)
+        || str_equal("-mhwdiv", argument)
+        || str_equal("-mllvm", argument)
+        || str_equal("-module-dependency-dir", argument)
+        || str_equal("-mthread-model", argument)
+        || str_equal("-multiply_defined", argument)
+        || str_equal("-multiply_defined_unused", argument)
+        || str_equal("-rpath", argument)
+        || str_equal("--rtlib", argument)
+        || str_equal("-seg_addr_table", argument)
+        || str_equal("-seg_addr_table_filename", argument)
+        || str_equal("-segs_read_only_addr", argument)
+        || str_equal("-segs_read_write_addr", argument)
+        || str_equal("-serialize-diagnostics", argument)
+        || str_equal("-std", argument)
+        || str_equal("--stdlib", argument)
+        || str_equal("--force-link", argument)
+        || str_equal("-umbrella", argument)
+        || str_equal("-unexported_symbols_list", argument)
+        || str_equal("-weak_library", argument)
+        || str_equal("-weak_reference_mismatches", argument)) {
+
+        return true;
+    }
+
+    return false;
+}
+
 bool analyse_argv(const char * const *argv, CompileJob &job, bool icerun, list<string> *extrafiles)
 {
     ArgumentsList args;
@@ -358,22 +436,35 @@ bool analyse_argv(const char * const *argv, CompileJob &job, bool icerun, list<s
                     args.append(argv[i], Arg_Cpp);
                 }
             } else if (str_equal("-I", a)
+                       || str_equal("-i", a)
+                       || str_equal("--include-directory", a)
                        || str_equal("-L", a)
                        || str_equal("-l", a)
+                       || str_equal("--library-directory", a)
                        || str_equal("-MF", a)
                        || str_equal("-MT", a)
                        || str_equal("-MQ", a)
-                       || str_equal("-imacros", a)
-                       || str_equal("-iprefix", a)
-                       || str_equal("-iwithprefix", a)
-                       || str_equal("-isystem", a)
                        || str_equal("-cxx-isystem", a)
                        || str_equal("-c-isystem", a)
-                       || str_equal("-iquote", a)
+                       || str_equal("-idirafter", a)
+                       || str_equal("--include-directory-after", a)
+                       || str_equal("-iframework", a)
+                       || str_equal("-iframeworkwithsysroot", a)
+                       || str_equal("-imacros", a)
                        || str_equal("-imultilib", a)
+                       || str_equal("-iprefix", a)
+                       || str_equal("--include-prefix", a)
+                       || str_equal("-iquote", a)
                        || str_equal("-isysroot", a)
+                       || str_equal("-isystem", a)
+                       || str_equal("-isystem-after", a)
+                       || str_equal("-ivfsoverlay", a)
+                       || str_equal("-iwithprefix", a)
+                       || str_equal("--include-with-prefix", a)
+                       || str_equal("--include-with-prefix-after", a)
                        || str_equal("-iwithprefixbefore", a)
-                       || str_equal("-idirafter", a)) {
+                       || str_equal("--include-with-prefix-before", a)
+                       || str_equal("-iwithsysroot", a)) {
                 args.append(a, Arg_Local);
 
                 /* skip next word, being option argument */
@@ -404,18 +495,6 @@ bool analyse_argv(const char * const *argv, CompileJob &job, bool icerun, list<s
                        || str_equal("-MG", a)
                        || str_equal("-MP", a)) {
                 args.append(a, Arg_Local);
-            } else if (str_equal("-arch", a)) {
-                args.append(a, Arg_Remote);
-                /* skip next word, being option argument */
-                if (argv[i + 1]) {
-                    args.append(argv[++i], Arg_Remote);
-                }
-            } else if (str_equal("-target", a)) {
-                args.append(a, Arg_Remote);
-                /* skip next word, being option argument */
-                if (argv[i + 1]) {
-                    args.append(argv[++i], Arg_Remote);
-                }
             } else if (str_equal("-fno-color-diagnostics", a)) {
                 explicit_color_diagnostics = true;
                 args.append(a, Arg_Rest);
@@ -484,6 +563,12 @@ bool analyse_argv(const char * const *argv, CompileJob &job, bool icerun, list<s
                 }
             } else {
                 args.append(a, Arg_Rest);
+
+                if (is_argument_with_space(a)) {
+                    if (argv[i + 1]) {
+                        args.append(argv[++i], Arg_Rest);
+                    }
+                }
             }
         } else if (a[0] == '@') {
             args.append(a, Arg_Local);
@@ -527,7 +612,7 @@ bool analyse_argv(const char * const *argv, CompileJob &job, bool icerun, list<s
 
             // Skip compiler arguments which are followed by another
             // argument not starting with -.
-            if (it->first == "-Xclang" || it->first == "-x") {
+            if (it->first == "-Xclang" || it->first == "-x" || is_argument_with_space(it->first.c_str())) {
                 ++it;
                 ++it;
             } else if (it->second != Arg_Rest || it->first.at(0) == '-'
