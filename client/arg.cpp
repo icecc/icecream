@@ -358,22 +358,35 @@ bool analyse_argv(const char * const *argv, CompileJob &job, bool icerun, list<s
                     args.append(argv[i], Arg_Cpp);
                 }
             } else if (str_equal("-I", a)
+                       || str_equal("-i", a)
+                       || str_equal("--include-directory", a)
                        || str_equal("-L", a)
                        || str_equal("-l", a)
+                       || str_equal("--library-directory", a)
                        || str_equal("-MF", a)
                        || str_equal("-MT", a)
                        || str_equal("-MQ", a)
-                       || str_equal("-imacros", a)
-                       || str_equal("-iprefix", a)
-                       || str_equal("-iwithprefix", a)
-                       || str_equal("-isystem", a)
                        || str_equal("-cxx-isystem", a)
                        || str_equal("-c-isystem", a)
-                       || str_equal("-iquote", a)
+                       || str_equal("-idirafter", a)
+                       || str_equal("--include-directory-after", a)
+                       || str_equal("-iframework", a)
+                       || str_equal("-iframeworkwithsysroot", a)
+                       || str_equal("-imacros", a)
                        || str_equal("-imultilib", a)
+                       || str_equal("-iprefix", a)
+                       || str_equal("--include-prefix", a)
+                       || str_equal("-iquote", a)
                        || str_equal("-isysroot", a)
+                       || str_equal("-isystem", a)
+                       || str_equal("-isystem-after", a)
+                       || str_equal("-ivfsoverlay", a)
+                       || str_equal("-iwithprefix", a)
+                       || str_equal("--include-with-prefix", a)
+                       || str_equal("--include-with-prefix-after", a)
                        || str_equal("-iwithprefixbefore", a)
-                       || str_equal("-idirafter", a)) {
+                       || str_equal("--include-with-prefix-before", a)
+                       || str_equal("-iwithsysroot", a)) {
                 args.append(a, Arg_Local);
 
                 /* skip next word, being option argument */
