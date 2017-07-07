@@ -499,12 +499,20 @@ Some advice on configuration
 Icecream supports many configurations but you need to understand your network to
 choose what is right for you. 
 
+You should ensure that the scheduler up to the latest version. Many new features
+require the client and scheduler work together to use them. Even though clients
+should work with old schedulers new features will not work, and may not be disabled
+correctly.
+
+Version 1.1 gained the ability for multiple schedulers on a single network to
+decide on the best master. However daemons running earlier versions do not understand
+this, and it is random if they will find the correct one. In all other ways it is
+believed that mixing old and new versions of the daemon will work: if you use a new
+feature only new clients will be used.
+
 Recommended is to start the scheduler and daemon on every body's machine. The
 icecream schedulers will choose one to be the master and everyone will connect
-to it. When the scheduler machine goes down a new master will be selected. If
-anyone on your network is running versions earlier than 1.1 they will have
-problems with this configuration. This setup assumes there are enough people on
-each subnet.
+to it. When the scheduler machine goes down a new master will be selected automatically.
 
 If you need to run mixed icecream versions, then it is best to designate one
 machine on each subnet to be a scheduler. Icecream nodes will automatically find
