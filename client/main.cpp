@@ -61,6 +61,7 @@
 
 #include "client.h"
 #include "platform.h"
+#include "util.h"
 
 using namespace std;
 
@@ -238,8 +239,10 @@ static int create_native(char **args)
     }
 
     argv.push_back(NULL);
+    execv(argv[0], argv.data());
+    log_perror("execv failed");
+    return -1;
 
-    return execv(argv[0], argv.data());
 }
 
 int main(int argc, char **argv)
@@ -271,8 +274,8 @@ int main(int argc, char **argv)
     string compiler_name = argv[0];
     dcc_client_catch_signals();
 
-    char cwd[ PATH_MAX ];
-    if( getcwd( cwd, PATH_MAX ) != NULL )
+    std::string cwd = get_cwd();
+    if(!cwd.empty())
         job.setWorkingDirectory( cwd );
 
     if (find_basename(compiler_name) == rs_program_name) {
@@ -488,10 +491,12 @@ int main(int argc, char **argv)
         /* If we can't talk to the daemon anymore we need to fall back
            to lock file locking.  */
         if (!startme || startme->type != M_JOB_LOCAL_BEGIN) {
+            delete startme;
             goto do_local_error;
         }
 
         ret = build_local(job, local_daemon, &ru);
+        delete startme;
     } else {
         try {
             // check if it should be compiled three times

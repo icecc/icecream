@@ -31,6 +31,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <errno.h>
+#include <vector>
 #ifdef HAVE_SIGNAL_H
 #include <signal.h>
 #endif
@@ -242,19 +243,18 @@ int build_local(CompileJob &job, MsgChannel *local_daemon, struct rusage *used)
         arguments.push_back(job.outputFile());
     }
 
-    char **argv = new char*[arguments.size() + 1];
-    int argc = 0;
+    vector<char*> argv; 
 
     for (list<string>::const_iterator it = arguments.begin(); it != arguments.end(); ++it) {
-        argv[argc++] = strdup(it->c_str());
+        argv.push_back(strdup(it->c_str()));
     }
 
-    argv[argc] = 0;
+    argv.push_back(0);
 #if CLIENT_DEBUG
     trace() << "execing ";
 
-    for (int i = 0; argv[i]; i++) {
-        trace() << argv[i] << " ";
+    for (int i = 0; argv.at(i); i++) {
+        trace() << argv.at(i) << " ";
     }
 
     trace() << endl;
@@ -284,32 +284,49 @@ int build_local(CompileJob &job, MsgChannel *local_daemon, struct rusage *used)
         child_pid = fork();
     }
 
+    if (child_pid == -1){
+        log_perror("fork failed");
+    }
+
     if (!child_pid) {
         dcc_increment_safeguard();
 
         if (color_output) {
-            close(pf[0]);
-            close(2);
-            dup2(pf[1], 2);
+            if ((-1 == close(pf[0])) && (errno != EBADF)){
+                log_perror("close failed");
+            }
+            if ((-1 == close(2)) && (errno != EBADF)){
+                log_perror("close failed");
+            }
+            if (-1 == dup2(pf[1], 2)){
+                log_perror("dup2 failed");
+            }
         }
 
-        int ret = execv(argv[0], argv);
+        execv(argv[0], &argv[0]);
+        log_perror("execv failed");
 
         if (lock_fd) {
             dcc_unlock(lock_fd);
         }
 
-        if (ret) {
+        {
             char buf[256];
             snprintf(buf, sizeof(buf), "ICECC[%d]: %s:", getpid(), argv[0]);
             log_perror(buf);
         }
 
-        _exit(ret);
+        _exit(-1);
     }
+    for(vector<char*>::const_iterator i = argv.begin(); i != argv.end(); ++i){
+        free(*i);
+    }
+    argv.clear();
 
     if (color_output) {
-        close(pf[1]);
+        if ((-1 == close(pf[1])) && (errno != EBADF)){
+            log_perror("close failed");
+        }
     }
 
     // setup interrupt signals, so that the JobLocalBeginMsg will

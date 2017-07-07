@@ -51,6 +51,7 @@
 #include "client.h"
 #include "tempfile.h"
 #include "md5.h"
+#include "util.h"
 #include "services/util.h"
 
 #ifndef O_LARGEFILE
@@ -191,13 +192,7 @@ get_absfilename(const string &_file)
     }
 
     if (_file.at(0) != '/') {
-        static std::vector<char> buffer(1024);
-
-        while (getcwd(&buffer[0], buffer.size() - 1) == 0 && errno == ERANGE) {
-            buffer.resize(buffer.size() + 1024);
-        }
-
-        file = string(&buffer[0]) + '/' + _file;
+        file = get_cwd() + '/' + _file;
     } else {
         file = _file;
     }
@@ -310,7 +305,9 @@ static void write_server_cpp(int cpp_fd, MsgChannel *cserver)
         trace() << "sent " << compressed << " bytes (" << (compressed * 100 / uncompressed) <<
                 "%)" << endl;
 
-    close(cpp_fd);
+    if ((-1 == close(cpp_fd)) && (errno != EBADF)){
+        log_perror("close failed");
+    }
 }
 
 static void receive_file(const string& output_file, MsgChannel* cserver)
@@ -409,7 +406,7 @@ static int build_remote_int(CompileJob &job, UseCSMsg *usecs, MsgChannel *local_
             struct stat buf;
 
             if (stat(version_file.c_str(), &buf)) {
-                log_perror("error stat'ing version file");
+                log_perror("error stat'ing file") << "\t" << version_file << endl;
                 throw client_error(4, "Error 4 - unable to stat version file");
             }
 
@@ -451,12 +448,15 @@ static int build_remote_int(CompileJob &job, UseCSMsg *usecs, MsgChannel *local_
                         BlacklistHostEnvMsg blacklist(job.targetPlatform(),
                                                       job.environmentVersion(), hostname);
                         local_daemon->send_msg(blacklist);
+                        delete verify_msg;
                         throw client_error(24, "Error 24 - remote " + hostname + " unable to handle environment");
                     } else
                         trace() << "Verified host " << hostname << " for environment "
                                 << job.environmentVersion() << " (" << job.targetPlatform() << ")"
                                 << endl;
+                    delete verify_msg;
                 } else {
+                    delete verify_msg;
                     throw client_error(25, "Error 25 - other error verifying environment on remote");
                 }
             }
@@ -478,6 +478,23 @@ static int build_remote_int(CompileJob &job, UseCSMsg *usecs, MsgChannel *local_
         }
 
         if (!preproc_file) {
+            local_daemon->send_msg(JobLocalBeginMsg(0, get_absfilename(job.inputFile())));
+            /* Now wait until the daemon gives us the start signal.  40 minutes
+               should be enough for all normal compile or link jobs.  */
+            Msg *startme = 0L;
+            startme = local_daemon->get_msg(40 * 60);
+            if (!startme) {
+                throw client_error(32, "Error 32 - did not receive job_local_begin reply, before timeout ");
+            }
+            else if(startme->type != M_JOB_LOCAL_BEGIN)
+            {
+                ostringstream unexpected_msg;
+                unexpected_msg <<  "Error 33 - expected job_local_begin reply, but got " << startme->type << " instead";
+                delete startme;
+                throw client_error(33, unexpected_msg.str());
+            }
+            delete startme;
+
             int sockets[2];
 
             if (pipe(sockets)) {
@@ -799,6 +816,24 @@ int build_remote(CompileJob &job, MsgChannel *local_daemon, const Environments &
         char *preproc = 0;
         dcc_make_tmpnam("icecc", ".ix", &preproc, 0);
         const CharBufferDeleter preproc_holder(preproc);
+
+        local_daemon->send_msg(JobLocalBeginMsg(0, get_absfilename(job.inputFile())));
+        /* Now wait until the daemon gives us the start signal.  40 minutes
+           should be enough for all normal compile or link jobs.  */
+        Msg *startme = 0L;
+        startme = local_daemon->get_msg(40 * 60);
+        if (!startme) {
+            throw client_error(32, "Error 32 - did not receive job_local_begin reply, before timeout ");
+        }
+        else if(startme->type != M_JOB_LOCAL_BEGIN)
+        {
+            ostringstream unexpected_msg;
+            unexpected_msg <<  "Error 33 - expected job_local_begin reply, but got " << startme->type << " instead";
+            delete startme;
+            throw client_error(33, unexpected_msg.str());
+        }
+        delete startme;
+
         int cpp_fd = open(preproc, O_WRONLY);
         /* When call_cpp returns normally (for the parent) it will have closed
            the write fd, i.e. cpp_fd.  */
@@ -867,6 +902,11 @@ int build_remote(CompileJob &job, MsgChannel *local_daemon, const Environments &
 
             pid_t pid = fork();
 
+            if (pid == -1) {
+                log_perror("failure of fork");
+                status = -1;
+            }
+
             if (!pid) {
                 int ret = 42;
 
@@ -920,10 +960,14 @@ int build_remote(CompileJob &job, MsgChannel *local_daemon, const Environments &
                         log_error() << umsgs[i]->hostname << " compiled with exit code " << exit_codes[i]
                                     << " and " << umsgs[0]->hostname << " compiled with exit code "
                                     << exit_codes[0] << " - aborting!\n";
-                        ::unlink(jobs[0].outputFile().c_str());
+                        if (-1 == ::unlink(jobs[0].outputFile().c_str())){
+                            log_perror("unlink outputFile failed") << "\t" << jobs[0].outputFile() << endl;
+                        }
                         if (has_split_dwarf) {
                             string dwo_file = jobs[0].outputFile().substr(0, jobs[0].outputFile().find_last_of('.')) + ".dwo";
-                            ::unlink(dwo_file.c_str());
+                            if (-1 == ::unlink(dwo_file.c_str())){
+                                log_perror("unlink failed") << "\t" << dwo_file << endl;
+                            }
                         }
                         exit_codes[0] = -1; // overwrite
                         break;
@@ -949,25 +993,37 @@ int build_remote(CompileJob &job, MsgChannel *local_daemon, const Environments &
                     }
                 }
 
-                ::unlink(jobs[i].outputFile().c_str());
+                if (-1 == ::unlink(jobs[i].outputFile().c_str())){
+                    log_perror("unlink failed") << "\t" << jobs[i].outputFile() << endl;
+                }
                 if (has_split_dwarf) {
                     string dwo_file = jobs[i].outputFile().substr(0, jobs[i].outputFile().find_last_of('.')) + ".dwo";
-                    ::unlink(dwo_file.c_str());
+                    if (-1 == ::unlink(dwo_file.c_str())){
+                        log_perror("unlink failed") << "\t" << dwo_file << endl;
+                    }
                 }
                 delete umsgs[i];
             }
         } else {
-            ::unlink(jobs[0].outputFile().c_str());
+            if (-1 == ::unlink(jobs[0].outputFile().c_str())){
+                log_perror("unlink failed") << "\t" << jobs[0].outputFile() << endl;
+            }
             if (has_split_dwarf) {
                 string dwo_file = jobs[0].outputFile().substr(0, jobs[0].outputFile().find_last_of('.')) + ".dwo";
-                ::unlink(dwo_file.c_str());
+                if (-1 == ::unlink(dwo_file.c_str())){
+                    log_perror("unlink failed") << "\t" << dwo_file << endl;
+                }
             }
 
             for (int i = 1; i < torepeat; i++) {
-                ::unlink(jobs[i].outputFile().c_str());
+                if (-1 == ::unlink(jobs[i].outputFile().c_str())){
+                    log_perror("unlink failed") << "\t" << jobs[i].outputFile() << endl;
+                }
                 if (has_split_dwarf) {
                     string dwo_file = jobs[i].outputFile().substr(0, jobs[i].outputFile().find_last_of('.')) + ".dwo";
-                    ::unlink(dwo_file.c_str());
+                    if (-1 == ::unlink(dwo_file.c_str())){
+                        log_perror("unlink failed") << "\t" << dwo_file << endl;
+                    }
                 }
                 delete umsgs[i];
             }
@@ -975,7 +1031,9 @@ int build_remote(CompileJob &job, MsgChannel *local_daemon, const Environments &
 
         delete umsgs[0];
 
-        ::unlink(preproc);
+        if (-1 == ::unlink(preproc)){
+            log_perror("unlink failed") << "\t" << preproc << endl;
+        }
 
         int ret = exit_codes[0];
 

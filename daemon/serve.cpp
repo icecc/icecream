@@ -124,7 +124,9 @@ static void write_output_file( const string& file, MsgChannel* client )
 
     } catch(...) {
         if( obj_fd != -1 )
-            close( obj_fd );
+            if ((-1 == close( obj_fd )) && (errno != EBADF)){
+                log_perror("close failed");
+            }
         throw;
     }
 }
@@ -139,6 +141,7 @@ int handle_connection(const string &basedir, CompileJob *job,
     int socket[2];
 
     if (pipe(socket) == -1) {
+        log_perror("pipe failed");
         return -1;
     }
 
@@ -147,23 +150,25 @@ int handle_connection(const string &basedir, CompileJob *job,
     assert(pid >= 0);
 
     if (pid > 0) {  // parent
-        close(socket[1]);
+        if ((-1 == close(socket[1])) && (errno != EBADF)){
+            log_perror("close failure");
+        }
         out_fd = socket[0];
         fcntl(out_fd, F_SETFD, FD_CLOEXEC);
         return pid;
     }
 
     reset_debug(0);
-    close(socket[0]);
+    if ((-1 == close(socket[0])) && (errno != EBADF)){
+        log_perror("close failed");
+    }
     out_fd = socket[1];
 
     /* internal communication channel, don't inherit to gcc */
     fcntl(out_fd, F_SETFD, FD_CLOEXEC);
 
-    errno = 0;
     int niceval = nice(nice_level);
-    (void) niceval;
-    if (errno != 0) {
+    if (niceval == -1) {
         log_warning() << "failed to set nice value: " << strerror(errno)
                       << endl;
     }
@@ -293,7 +298,9 @@ int handle_connection(const string &basedir, CompileJob *job,
         /* wake up parent and tell him that compile finished */
         /* if the write failed, well, doesn't matter */
         ignore_result(write(out_fd, job_stat, sizeof(job_stat)));
-        close(out_fd);
+        if ((-1 == close(out_fd)) && (errno != EBADF)){
+            log_perror("close failed");
+        }
 
         if (rmsg.status == 0) {
             write_output_file(obj_file, client);
@@ -309,10 +316,14 @@ int handle_connection(const string &basedir, CompileJob *job,
         client = 0;
 
         if (!obj_file.empty()) {
-            unlink(obj_file.c_str());
+            if (-1 == unlink(obj_file.c_str())){
+                log_perror("unlink failure") << "\t" << obj_file << endl;
+            }
         }
         if (!dwo_file.empty()) {
-            unlink(dwo_file.c_str());
+            if (-1 == unlink(dwo_file.c_str())){
+                log_perror("unlink failure") << "\t" << dwo_file << endl;
+            }
         }
         if (!tmp_path.empty()) {
             rmpath(tmp_path.c_str());

@@ -588,13 +588,17 @@ static int prepare_connect(const string &hostname, unsigned short p,
 
     if (!host) {
         log_perror("Unknown host");
-        close(remote_fd);
+        if ((-1 == close(remote_fd)) && (errno != EBADF)){
+            log_perror("close failed");
+        }
         return -1;
     }
 
     if (host->h_length != 4) {
         log_error() << "Invalid address length" << endl;
-        close(remote_fd);
+        if ((-1 == close(remote_fd)) && (errno != EBADF)){
+            log_perror("close failed");
+        }
         return -1;
     }
 
@@ -656,7 +660,9 @@ static bool connect_async(int remote_fd, struct sockaddr *remote_addr, size_t re
         **  The connect attempt failed or was interrupted,
         **  so close up the socket.
         */
-        close(remote_fd);
+        if ((-1 == close(remote_fd)) && (errno != EBADF)){
+            log_perror("close failed");
+        }
         return false;
     } else {
         /*
@@ -686,7 +692,9 @@ MsgChannel *Service::createChannel(const string &hostname, unsigned short p, int
         setsockopt(remote_fd, SOL_SOCKET, SO_SNDBUF, &i, sizeof(i));
 
         if (connect(remote_fd, (struct sockaddr *) &remote_addr, sizeof(remote_addr)) < 0) {
-            close(remote_fd);
+            if (-1 == close(remote_fd) && (errno != EBADF)){
+                log_perror("close failed");
+            }
             trace() << "connect failed on " << hostname << endl;
             return 0;
         }
@@ -708,9 +716,15 @@ MsgChannel *Service::createChannel(const string &socket_path)
 
     remote_addr.sun_family = AF_UNIX;
     strncpy(remote_addr.sun_path, socket_path.c_str(), sizeof(remote_addr.sun_path) - 1);
+    remote_addr.sun_path[sizeof(remote_addr.sun_path) - 1] = '\0';
+    if(socket_path.length() > sizeof(remote_addr.sun_path) - 1) {
+        log_error() << "socket_path path too long for sun_path" << endl;		
+    }
 
     if (connect(remote_fd, (struct sockaddr *) &remote_addr, sizeof(remote_addr)) < 0) {
-        close(remote_fd);
+        if ((-1 == close(remote_fd)) && (errno != EBADF)){
+            log_perror("close failed");
+        }
         trace() << "connect failed on " << socket_path << endl;
         return 0;
     }
@@ -756,16 +770,16 @@ MsgChannel *Service::createChannel(int fd, struct sockaddr *_a, socklen_t _l)
 MsgChannel::MsgChannel(int _fd, struct sockaddr *_a, socklen_t _l, bool text)
     : fd(_fd)
 {
-    addr_len = _l;
-
+    addr_len = (sizeof(struct sockaddr) > _l) ? sizeof(struct sockaddr) : _l;
+ 
     if (addr_len && _a) {
         addr = (struct sockaddr *)malloc(addr_len);
-        memcpy(addr, _a, addr_len);
-        char buf[16384] = "";
-        if(addr->sa_family == AF_UNIX)
-            name = reinterpret_cast<sockaddr_un*>(addr)->sun_path;
-        else {
-            if(int error = getnameinfo(addr, addr_len, buf, sizeof(buf), NULL, 0, NI_NUMERICHOST))
+        memcpy(addr, _a, _l);
+        if(addr->sa_family == AF_UNIX) {
+            name = "local unix domain socket";
+        } else {
+            char buf[16384] = "";
+            if(int error = getnameinfo(addr, _l, buf, sizeof(buf), NULL, 0, NI_NUMERICHOST))
                 log_error() << "getnameinfo(): " << error << endl;
             name = buf;
         }
@@ -843,7 +857,9 @@ MsgChannel::MsgChannel(int _fd, struct sockaddr *_a, socklen_t _l, bool text)
 MsgChannel::~MsgChannel()
 {
     if (fd >= 0) {
-        close(fd);
+        if ((-1 == close(fd)) && (errno != EBADF)){
+            log_perror("close failed");
+        }
     }
 
     fd = -1;
@@ -1015,6 +1031,9 @@ Msg *MsgChannel::get_msg(int timeout)
     case M_USE_CS:
         m = new UseCSMsg;
         break;
+    case M_NO_CS:
+        m = new NoCSMsg;
+        break;
     case M_COMPILE_FILE:
         m = new CompileFileMsg(new CompileJob, true);
         break;
@@ -1148,7 +1167,9 @@ static int open_send_broadcast(int port, const char* buf, int size)
 
     if (fcntl(ask_fd, F_SETFD, FD_CLOEXEC) < 0) {
         log_perror("open_send_broadcast fcntl");
-        close(ask_fd);
+        if (-1 == close(ask_fd)){
+            log_perror("close failed");
+        }
         return -1;
     }
 
@@ -1156,7 +1177,9 @@ static int open_send_broadcast(int port, const char* buf, int size)
 
     if (setsockopt(ask_fd, SOL_SOCKET, SO_BROADCAST, &optval, sizeof(optval)) < 0) {
         log_perror("open_send_broadcast setsockopt");
-        close(ask_fd);
+        if (-1 == close(ask_fd)){
+            log_perror("close failed");
+        }
         return -1;
     }
 
@@ -1327,7 +1350,9 @@ DiscoverSched::DiscoverSched(const std::string &_netname, int _timeout,
 DiscoverSched::~DiscoverSched()
 {
     if (ask_fd >= 0) {
-        close(ask_fd);
+        if ((-1 == close(ask_fd)) && (errno != EBADF)){
+            log_perror("close failed");
+        }
     }
 }
 
@@ -1399,7 +1424,9 @@ MsgChannel *DiscoverSched::try_get_scheduler()
             if (multiple)
                 log_info() << "Selecting scheduler at " << schedname << ":" << sport << endl;
 
-            close(ask_fd);
+            if (-1 == close(ask_fd)){
+                log_perror("close failed");
+            }
             ask_fd = -1;
             attempt_scheduler_connect();
 
@@ -1433,7 +1460,9 @@ bool DiscoverSched::broadcastData(int port, const char* buf, int len)
 {
     int fd = open_send_broadcast(port, buf, len);
     if (fd >= 0) {
-        close(fd);
+        if ((-1 == close(fd)) && (errno != EBADF)){
+            log_perror("close failed");
+        }
         return true;
     }
     return false;
@@ -1468,7 +1497,9 @@ list<string> get_netnames(int timeout, int port)
         }
     } while (time(0) - time0 < (timeout / 1000));
 
-    close(ask_fd);
+    if ((-1 == close(ask_fd)) && (errno != EBADF)){
+        log_perror("close failed");
+    }
     return l;
 }
 
@@ -1573,6 +1604,21 @@ void UseCSMsg::send_to_channel(MsgChannel *c) const
         *c << matched_job_id;
     }
 }
+
+void NoCSMsg::fill_from_channel(MsgChannel *c)
+{
+    Msg::fill_from_channel(c);
+    *c >> job_id;
+    *c >> client_id;
+}
+
+void NoCSMsg::send_to_channel(MsgChannel *c) const
+{
+    Msg::send_to_channel(c);
+    *c << job_id;
+    *c << client_id;
+}
+
 
 void CompileFileMsg::fill_from_channel(MsgChannel *c)
 {

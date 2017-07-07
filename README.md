@@ -22,6 +22,7 @@ Table of Contents
     -   [some compilation node aren't
         used](#some-compilation-node-arent-used)
     -   [build with -Werror fails when using icecream ](#build-with--werror-fails-when-using-icecream)
+    -   [clang 4.0 tries to read /proc/cpuinfo and fails](#clang-tries-to-read-proccpuinfo-and-fails)
 
 -   [Supported platforms](#supported-platforms)
 -   [Using icecream in heterogeneous
@@ -51,18 +52,15 @@ Table of Contents
 Installation
 -------------------------------------------------------------------------
 
-To install icecream, issue
+We recomend that you use packages maintained by your distribution if possible.
+Your distribution should provide customized startup scripts that make icecream
+fit better into the way your system is configured.
 
-     yast -i icecream icecream-monitor
+We highly recomend you install [icemon](https://github.com/icecc/icemon) with
+icecream.
 
-In case this should not work, here are some links to download Icecream:
-
--   [Binaries from
-    opensuse.org](http://software.opensuse.org/download.html?project=devel%3Atools%3Abuilding&package=icecream)
--   [Sources from
-    ftp.suse.com](ftp://ftp.suse.com/pub/projects/icecream)
--   [openSUSE Icecream node
-    LiveCD](http://forgeftp.novell.com/kiwi-ltsp/icecream/)
+If you want to install from source see the instructions in the README file 
+provided in the source package.
 
 How to use icecream
 ---------------------------------------------------------------------------------------
@@ -106,15 +104,14 @@ funny stats, you might want to run "icemon" (from a separate repository/package)
 ### make it persistent
 
 If you restart a computer, you still want it to be in the icecream
-cluster after reboot. With the SUSE packages, this is easy to
-accomplish, just set the service to be started on boot:
+cluster after reboot. Consult your distribution's documentation on this. If you
+uses packages provided by your distribution this should be automatic (or a 
+simple configuration change)
 
-     chkconfig icecream on
+### make scheduler persistent:
 
-You can verify if the icecream service is running like this:
-
-     /etc/init.d/icecream status
-     Checking for Distributed Compiler Daemon:                             running
+By adding an option --scheduler-host for daemon and --persistent-client-connection for scheduler
+,the client connections are not disconnected from the scheduler even there is an availability of better scheduler.
 
 TroubleShooting
 -------------------------------------------------------------------------------
@@ -201,6 +198,24 @@ preprocessing (done locally) and compilation (done remotely), which makes gcc tr
 a warning message and compilation fails (because of `-Werror`).
    
 There is no known workaround, either disable `-Werror` or fix the code.
+
+### clang tries to read /proc/cpuinfo and fails
+
+This is a bug in clang 4.0. https://bugs.llvm.org/show_bug.cgi?id=33008 
+It should be fixed in the future, but if you have a broken release you can work around this by
+creating a custom environment and adding /proc/cpuinfo to it.
+
+```
+/usr/lib/icecc/icecc-create-env --clang /usr/bin/clang /usr/lib/icecc/compilerwrapper --addfile /proc/cpuinfo
+```
+
+Do not apply this work around if you do not need it. /proc/cpuinfo is machine specific so and this work 
+around will place wrong infomation in it. In the case of the bug in clang 4.0 this file is checked for 
+existance but the contents are not actually used, but it is possible future versions of clang/gcc will use
+this file if it exists for something else.
+
+see [Using icecream in heterogeneous environments](#using-icecream-in-heterogeneous-environments) 
+for more information on using icecc-create-env.
 
 Supported platforms
 ---------------------------------------------------------------------------------------

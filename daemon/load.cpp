@@ -167,7 +167,10 @@ static void updateCPULoad(CPULoadInfo *load)
         fcntl(fd, F_SETFD, FD_CLOEXEC);
     }
 
-    lseek(fd, 0, SEEK_SET);
+    if (lseek(fd, 0, SEEK_SET) == -1){
+        log_perror("lseek failed");
+        return;
+    }
     ssize_t n;
 
     while ((n = read(fd, buf, sizeof(buf) - 1)) < 0 && errno == EINTR) {}
@@ -292,7 +295,10 @@ static unsigned int calculateMemLoad(unsigned long int &NetMemFree)
         fcntl(fd, F_SETFD, FD_CLOEXEC);
     }
 
-    lseek(fd, 0, SEEK_SET);
+    if (lseek(fd, 0, SEEK_SET) == -1){
+        log_perror("lseek failed");
+        return 0;
+    }
     ssize_t n;
 
     while ((n = read(fd, buf, sizeof(buf) - 1)) < 0 && errno == EINTR) {}

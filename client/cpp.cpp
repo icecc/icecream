@@ -81,7 +81,9 @@ pid_t call_cpp(CompileJob &job, int fdwrite, int fdread)
     if (pid != 0) {
         /* Parent.  Close the write fd.  */
         if (fdwrite > -1) {
-            close(fdwrite);
+            if ((-1 == close(fdwrite)) && (errno != EBADF)){
+                log_perror("close() failed");
+            }
         }
 
         return pid;
@@ -89,7 +91,9 @@ pid_t call_cpp(CompileJob &job, int fdwrite, int fdread)
 
     /* Child.  Close the read fd, in case we have one.  */
     if (fdread > -1) {
-        close(fdread);
+        if ((-1 == close(fdread)) && (errno != EBADF)){
+            log_perror("close failed");
+        }
     }
 
     int ret = dcc_ignore_sigpipe(0);
@@ -173,6 +177,7 @@ pid_t call_cpp(CompileJob &job, int fdwrite, int fdread)
     }
 
     dcc_increment_safeguard();
-
-    _exit(execv(argv[0], argv));
+    execv(argv[0], argv);
+    log_perror("execv failed");
+    _exit(-1);
 }

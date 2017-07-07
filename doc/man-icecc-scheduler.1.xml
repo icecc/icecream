@@ -33,6 +33,7 @@
 <cmdsynopsis>
 <command>icecc-scheduler</command>
 <arg>-d</arg>
+<arg>-r</arg>
 <arg>-l <replaceable>log-file</replaceable></arg>
 <arg>-n <replaceable>net-name</replaceable></arg>
 <arg>-p <replaceable>port</replaceable></arg>
@@ -56,6 +57,11 @@ monitors.</para>
 <varlistentry>
 <term><option>-d</option>, <option>--daemonize</option></term>
 <listitem><para>Detach daemon from shell.</para></listitem>
+</varlistentry>
+
+<varlistentry>
+<term><option>-r</option>, <option>--persistent-client-connection</option></term>
+<listitem><para>Client connections are not disconnected from the scheduler even if there is a better scheduler available.</para></listitem>
 </varlistentry>
 
 <varlistentry>

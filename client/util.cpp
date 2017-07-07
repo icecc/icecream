@@ -38,6 +38,8 @@
 #include <sys/stat.h>
 #include <sys/file.h>
 
+#include <vector>
+
 #include "client.h"
 #include "exitcode.h"
 #include "job.h"
@@ -198,7 +200,7 @@ bool dcc_lock_host(int &lock_fd)
     }
 
     if (mkdir(fname.c_str(), 0700) && errno != EEXIST) {
-        log_perror("mkdir");
+        log_perror("mkdir") << "\t" << fname << endl;
         return false;
     }
 
@@ -227,7 +229,9 @@ bool dcc_lock_host(int &lock_fd)
         break;
     }
 
-    ::close(lock_fd);
+    if ((-1 == ::close(lock_fd)) && (errno != EBADF)){
+        log_perror("close failed");
+    }
     return false;
 }
 
@@ -348,4 +352,19 @@ int resolve_link(const std::string &file, std::string &resolved)
     buf[ret] = 0;
     resolved = std::string(buf);
     return 0;
+}
+
+std::string get_cwd()
+{
+    static std::vector<char> buffer(1024);
+
+    errno = 0;
+    while (getcwd(&buffer[0], buffer.size() - 1) == 0 && errno == ERANGE) {
+        buffer.resize(buffer.size() + 1024);
+        errno = 0;
+    }
+    if (errno != 0)
+        return std::string();
+
+    return string(&buffer[0]);
 }

@@ -186,7 +186,9 @@ public:
         job = 0;
 
         if (pipe_to_child >= 0) {
-            close(pipe_to_child);
+            if (-1 == close(pipe_to_child) && (errno != EBADF)){
+                log_perror("close failed");
+            }
         }
 
     }
@@ -328,7 +330,14 @@ static int set_new_pgrp(void)
 
     /* Does everyone have getpgrp()?  It's in POSIX.1.  We used to call
      * getpgid(0), but that is not available on BSD/OS. */
-    if (getpgrp() == getpid()) {
+    int pgrp_id = getpgrp();
+
+    if (-1 == pgrp_id){
+        log_perror("getpgrp() failed");
+        return EXIT_DISTCC_FAILED;
+    }
+
+    if (pgrp_id == getpid()) {
         trace() << "already a process group leader\n";
         return 0;
     }
@@ -501,6 +510,10 @@ struct Daemon {
         current_kids = 0;
     }
 
+    ~Daemon() {
+        delete discover;
+    }
+
     bool reannounce_environments() __attribute_warn_unused_result__;
     int answer_client_requests();
     bool handle_transfer_env(Client *client, Msg *msg) __attribute_warn_unused_result__;
@@ -515,6 +528,7 @@ struct Daemon {
     int scheduler_get_internals() __attribute_warn_unused_result__;
     void clear_children();
     int scheduler_use_cs(UseCSMsg *msg) __attribute_warn_unused_result__;
+    int scheduler_no_cs(NoCSMsg *msg) __attribute_warn_unused_result__;
     bool handle_get_cs(Client *client, Msg *msg) __attribute_warn_unused_result__;
     bool handle_local_job(Client *client, Msg *msg) __attribute_warn_unused_result__;
     bool handle_job_done(Client *cl, JobDoneMsg *m) __attribute_warn_unused_result__;
@@ -603,22 +617,43 @@ bool Daemon::setup_listen_fds()
 #else
         if (getuid() == 0) {
 #endif
-            strncpy(myaddr.sun_path, "/var/run/icecc/iceccd.socket", sizeof(myaddr.sun_path) - 1);
-            unlink(myaddr.sun_path);
+            string default_socket = "/var/run/icecc/iceccd.socket";
+            strncpy(myaddr.sun_path, default_socket.c_str() , sizeof(myaddr.sun_path) - 1);
+            myaddr.sun_path[sizeof(myaddr.sun_path) - 1] = '\0';
+            if(default_socket.length() > sizeof(myaddr.sun_path) - 1) {
+                log_error() << "default socket path too long for sun_path" << endl;	
+            }
+            if (-1 == unlink(myaddr.sun_path)){
+                log_perror("unlink failed") << "\t" << myaddr.sun_path << endl;
+            }
             old_umask = umask(0);
         } else { // Started by user.
             if( getenv( "HOME" )) {
-                strncpy(myaddr.sun_path, getenv("HOME"), sizeof(myaddr.sun_path) - 1);
-                strncat(myaddr.sun_path, "/.iceccd.socket", sizeof(myaddr.sun_path) - 1 - strlen(myaddr.sun_path));
-                unlink(myaddr.sun_path);
+                string socket_path = getenv("HOME");
+                socket_path.append("/.iceccd.socket");
+                strncpy(myaddr.sun_path, socket_path.c_str(), sizeof(myaddr.sun_path) - 1);
+                myaddr.sun_path[sizeof(myaddr.sun_path) - 1] = '\0';
+                if(socket_path.length() > sizeof(myaddr.sun_path) - 1) {
+                    log_error() << "$HOME/.iceccd.socket path too long for sun_path" << endl;
+                }
+                if (-1 == unlink(myaddr.sun_path)){
+                    log_perror("unlink failed") << "\t" << myaddr.sun_path << endl;
+                }
             } else {
                 log_error() << "launched by user, but $HOME not set" << endl;
                 return false;
             }
         }
     } else {
-        strncpy(myaddr.sun_path, getenv("ICECC_TEST_SOCKET"), sizeof(myaddr.sun_path) - 1);
-        unlink(myaddr.sun_path);
+        string test_socket = getenv("ICECC_TEST_SOCKET");
+        strncpy(myaddr.sun_path, test_socket.c_str(), sizeof(myaddr.sun_path) - 1);
+        myaddr.sun_path[sizeof(myaddr.sun_path) - 1] = '\0';
+        if(test_socket.length() > sizeof(myaddr.sun_path) - 1) {
+            log_error() << "$ICECC_TEST_SOCKET path too long for sun_path" << endl;
+        }
+        if (-1 == unlink(myaddr.sun_path)){
+            log_perror("unlink failed") << "\t" << myaddr.sun_path << endl;
+        }
     }
 
     if (bind(unix_listen_fd, (struct sockaddr*)&myaddr, sizeof(myaddr)) < 0) {
@@ -906,6 +941,29 @@ int Daemon::scheduler_use_cs(UseCSMsg *msg)
     return 0;
 }
 
+int Daemon::scheduler_no_cs(NoCSMsg *msg)
+{
+    Client *c = clients.find_by_client_id(msg->client_id);
+    trace() << "handle_use_cs " << msg->job_id << " " << msg->client_id
+            << " " << c << " " <<  endl;
+
+    if (!c) {
+        if (send_scheduler(JobDoneMsg(msg->job_id, 107, JobDoneMsg::FROM_SUBMITTER))) {
+            return 1;
+        }
+
+        return 1;
+    }
+
+    c->usecsmsg = new UseCSMsg(string(), "127.0.0.1", daemon_port, msg->job_id, true, 1, 0);
+    c->status = Client::PENDING_USE_CS;
+
+    c->job_id = msg->job_id;
+
+    return 0;
+
+}
+
 bool Daemon::handle_transfer_env(Client *client, Msg *_msg)
 {
     log_error() << "handle_transfer_env" << endl;
@@ -926,7 +984,7 @@ bool Daemon::handle_transfer_env(Client *client, Msg *_msg)
     FileChunkMsg *fmsg = 0;
 
     pid_t pid = start_install_environment(envbasedir, target, emsg->name, client->channel,
-                                          sock_to_stdin, fmsg, user_uid, user_gid);
+                                          sock_to_stdin, fmsg, user_uid, user_gid, nice_level);
 
     client->status = Client::TOINSTALL;
     client->outfile = emsg->target + "/" + emsg->name;
@@ -1108,7 +1166,9 @@ bool Daemon::handle_get_native_env(Client *client, GetNativeEnvMsg *msg)
             cache_size -= remove_native_environment(env.name);
             envs_last_use.erase(env.name);
             if (env.create_env_pipe) {
-                close(env.create_env_pipe);
+                if ((-1 == close(env.create_env_pipe)) && (errno != EBADF)){
+                    log_perror("close failed");
+                }
                 // TODO kill the still running icecc-create-env process?
             }
             native_environments.erase(env_key);   // invalidates 'env'
@@ -1210,7 +1270,7 @@ bool Daemon::handle_job_done(Client *cl, JobDoneMsg *m)
 
 void Daemon::handle_old_request()
 {
-    while ((current_kids + clients.active_processes) < max_kids) {
+    while ((current_kids + clients.active_processes) < std::max((unsigned int)1, max_kids)) {
 
         Client *client = clients.get_earliest_client(Client::LINKJOB);
 
@@ -1778,6 +1838,9 @@ int Daemon::answer_client_requests()
                 case M_USE_CS:
                     ret = scheduler_use_cs(static_cast<UseCSMsg *>(msg));
                     break;
+                case M_NO_CS:
+                    ret = scheduler_no_cs(static_cast<NoCSMsg *>(msg));
+                    break;
                 case M_GET_INTERNALS:
                     ret = scheduler_get_internals();
                     break;
@@ -1968,8 +2031,11 @@ int Daemon::working_loop()
             close_scheduler();
         }
 
-        if (exit_main_loop)
+        if (exit_main_loop) {
+            close_scheduler();
+            clear_children();
             break;
+        }
     }
     return 0;
 }

@@ -121,7 +121,7 @@ static list<JobStat> all_job_stats;
 static JobStat cum_job_stats;
 
 static float server_speed(CompileServer *cs, Job *job = 0);
-static void broadcast_scheduler_version();
+static void broadcast_scheduler_version(const char* netname);
 
 /* Searches the queue for JOB and removes it.
    Returns true if something was deleted.  */
@@ -590,6 +590,12 @@ static CompileServer *pick_server(Job *job)
             continue;
         }
 
+        // Ignore ineligible servers
+        if (!cs->is_eligible(job)) {
+            trace() << cs->nodeName() << " not eligible" << endl;
+            continue;
+        }
+
         // incompatible architecture or busy installing
         if (!cs->can_install(job).size()) {
 #if DEBUG_SCHEDULER > 2
@@ -717,6 +723,13 @@ static time_t prune_servers()
     }
 
     for (it = css.begin(); it != css.end();) {
+        (*it)->startInConnectionTest();
+        time_t cs_in_conn_timeout = (*it)->getNextTimeout();
+        if(cs_in_conn_timeout != -1)
+        {
+            min_time = min(min_time, cs_in_conn_timeout);
+        }
+
         if ((*it)->busyInstalling() && ((now - (*it)->busyInstalling()) >= MAX_BUSY_INSTALLING)) {
             trace() << "busy installing for a long time - removing " << (*it)->nodeName() << endl;
             CompileServer *old = *it;
@@ -864,15 +877,26 @@ static bool empty_queue()
             break;
         }
     }
-
-    UseCSMsg m2(host_platform, cs->name, cs->remotePort(), job->id(),
-                gotit, job->localClientId(), matched_job_id);
-
-    if (!job->submitter()->send_msg(m2)) {
-        trace() << "failed to deliver job " << job->id() << endl;
-        handle_end(job->submitter(), 0);   // will care for the rest
-        return true;
+    if(IS_PROTOCOL_37(job->submitter()) && cs == job->submitter())
+    {
+        NoCSMsg m2(job->id(), job->localClientId());
+        if (!job->submitter()->send_msg(m2)) {
+            trace() << "failed to deliver job " << job->id() << endl;
+            handle_end(job->submitter(), 0);   // will care for the rest
+            return true;
+        }
     }
+    else
+    {
+        UseCSMsg m2(host_platform, cs->name, cs->remotePort(), job->id(),
+                gotit, job->localClientId(), matched_job_id);
+        if (!job->submitter()->send_msg(m2)) {
+            trace() << "failed to deliver job " << job->id() << endl;
+            handle_end(job->submitter(), 0);   // will care for the rest
+            return true;
+        }
+    }
+
 
 #if DEBUG_SCHEDULER >= 0
     if (!gotit) {
@@ -1729,7 +1753,7 @@ static int open_tcp_listener(short port)
     return fd;
 }
 
-#define BROAD_BUFLEN 32
+#define BROAD_BUFLEN 268
 #define BROAD_BUFLEN_OLD 16
 static int prepare_broadcast_reply(char* buf, const char* netname)
 {
@@ -1753,17 +1777,22 @@ static int prepare_broadcast_reply(char* buf, const char* netname)
     }
 }
 
-static void broadcast_scheduler_version()
+static void broadcast_scheduler_version(const char* netname)
 {
-    const int schedbuflen = 4 + sizeof(uint64_t);
-    char buf[ schedbuflen ];
+    const char length_netname = strlen(netname);
+    const int schedbuflen = 5 + sizeof(uint64_t) + length_netname;
+    char *buf = new char[ schedbuflen ];
     buf[0] = 'I';
     buf[1] = 'C';
     buf[2] = 'E';
     buf[3] = PROTOCOL_VERSION;
     uint64_t tmp_time = starttime;
     memcpy(buf + 4, &tmp_time, sizeof(uint64_t));
-    DiscoverSched::broadcastData(scheduler_port, buf, sizeof(buf));
+    buf[4 + sizeof(uint64_t)] = length_netname;
+    strncpy(buf + 5 + sizeof(uint64_t), netname, length_netname);
+    DiscoverSched::broadcastData(scheduler_port, buf, schedbuflen);
+    delete[] buf;
+    buf = 0;
 }
 
 static void usage(const char *reason = 0)
@@ -1782,6 +1811,7 @@ static void usage(const char *reason = 0)
          << "  -d, --daemonize\n"
          << "  -u, --user-uid\n"
          << "  -v[v[v]]]\n"
+         << "  -r, --persistent-client-connection\n"
          << endl;
 
     exit(1);
@@ -1802,6 +1832,45 @@ static void trigger_exit(int signum)
     signal(signum, trigger_exit);
 }
 
+static void handle_scheduler_announce(const char* buf, const char* netname, bool persistent_clients, struct sockaddr_in broad_addr)
+{
+    /* Another scheduler is announcing it's running, disconnect daemons if it has a better version
+       or the same version but was started earlier. */
+    if (!persistent_clients){
+        uint64_t tmp_time;
+        memcpy(&tmp_time, buf + 4, sizeof(uint64_t));
+        time_t other_time = tmp_time;
+        const unsigned char other_scheduler_protocol = buf[3];
+        if (other_scheduler_protocol >= 36)
+        {
+            const unsigned char recv_netname_len = buf[4 + sizeof(uint64_t)];
+            string local_netname = netname;
+            string recv_netname = string(buf + 5 + sizeof(uint64_t), recv_netname_len);
+            if (recv_netname == local_netname)
+            {
+                if (other_scheduler_protocol > PROTOCOL_VERSION || (other_scheduler_protocol == PROTOCOL_VERSION && other_time < starttime))
+                {
+                    if (!css.empty() || !monitors.empty())
+                    {
+                        log_info() << "Scheduler from " << inet_ntoa(broad_addr.sin_addr)
+                            << ":" << ntohs(broad_addr.sin_port)
+                            << " (version " << int(other_scheduler_protocol) << ") has announced itself as a preferred"
+                            " scheduler, disconnecting all connections." << endl;
+                        while (!css.empty())
+                        {
+                            handle_end(css.front(), NULL);
+                        }
+                        while (!monitors.empty())
+                        {
+                            handle_end(monitors.front(), NULL);
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
 int main(int argc, char *argv[])
 {
     int listen_fd, remote_fd, broad_fd, text_fd;
@@ -1809,6 +1878,7 @@ int main(int argc, char *argv[])
     socklen_t remote_len;
     char *netname = (char *)"ICECREAM";
     bool detach = false;
+    bool persistent_clients = false;
     int debug_level = Error;
     string logfile;
     uid_t user_uid;
@@ -1836,6 +1906,7 @@ int main(int argc, char *argv[])
         static const struct option long_options[] = {
             { "netname", 1, NULL, 'n' },
             { "help", 0, NULL, 'h' },
+            { "persistent-client-connection", 0, NULL, 'r' },
             { "port", 1, NULL, 'p' },
             { "daemonize", 0, NULL, 'd'},
             { "log-file", 1, NULL, 'l'},
@@ -1843,7 +1914,7 @@ int main(int argc, char *argv[])
             { 0, 0, 0, 0 }
         };
 
-        const int c = getopt_long(argc, argv, "n:p:hl:vdr:u:", long_options, &option_index);
+        const int c = getopt_long(argc, argv, "n:p:hl:vdr:u:r:", long_options, &option_index);
 
         if (c == -1) {
             break;    // eoo
@@ -1855,6 +1926,9 @@ int main(int argc, char *argv[])
             break;
         case 'd':
             detach = true;
+            break;
+        case 'r':
+            persistent_clients= true;
             break;
         case 'l':
             if (optarg && *optarg) {
@@ -1934,8 +2008,13 @@ int main(int argc, char *argv[])
         if (!logfile.size() && detach) {
             if (mkdir("/var/log/icecc", S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH)) {
                 if (errno == EEXIST) {
-                    chmod("/var/log/icecc", S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH);
-                    chown("/var/log/icecc", user_uid, user_gid);
+                    if (-1 == chmod("/var/log/icecc", S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH)){
+                        log_perror("chmod() failure");
+                    }
+
+                    if (-1 == chown("/var/log/icecc", user_uid, user_gid)){
+                        log_perror("chown() failure");
+                    }
                 }
             }
 
@@ -2005,7 +2084,7 @@ int main(int argc, char *argv[])
 
     time_t next_listen = 0;
 
-    broadcast_scheduler_version();
+    broadcast_scheduler_version(netname);
     last_announce = starttime;
 
     while (!exit_main_loop) {
@@ -2021,13 +2100,14 @@ int main(int argc, char *argv[])
            their daemons if we are the preferred scheduler (daemons with version new enough
            should automatically select the best scheduler, but old daemons connect randomly). */
         if (last_announce + 120 < time(NULL)) {
-            broadcast_scheduler_version();
+            broadcast_scheduler_version(netname);
             last_announce = time(NULL);
         }
 
-        fd_set read_set;
+        fd_set read_set, write_set;
         int max_fd = 0;
         FD_ZERO(&read_set);
+        FD_ZERO(&write_set);
 
         if (time(0) >= next_listen) {
             max_fd = listen_fd;
@@ -2069,7 +2149,23 @@ int main(int argc, char *argv[])
             }
         }
 
-        max_fd = select(max_fd + 1, &read_set, NULL, NULL, &tv);
+        list<CompileServer *> cs_in_tsts;
+        for (list<CompileServer *>::iterator it = css.begin(); it != css.end(); ++it)
+        {
+            if ((*it)->getConnectionInProgress())
+            {
+                int csInFd = (*it)->getInFd();
+                cs_in_tsts.push_back(*it);
+                if(csInFd > max_fd)
+                {
+                    max_fd = csInFd;
+                }
+                FD_SET(csInFd, &read_set);
+                FD_SET(csInFd, &write_set);
+            }
+        }
+
+        max_fd = select(max_fd + 1, &read_set, &write_set, NULL, &tv);
 
         if (max_fd < 0 && errno == EINTR) {
             continue;
@@ -2155,57 +2251,61 @@ int main(int argc, char *argv[])
 
         if (max_fd && FD_ISSET(broad_fd, &read_set)) {
             max_fd--;
-            char buf[BROAD_BUFLEN];
+            char buf[BROAD_BUFLEN + 1];
             struct sockaddr_in broad_addr;
             socklen_t broad_len = sizeof(broad_addr);
             /* We can get either a daemon request for a scheduler (1 byte) or another scheduler
                announcing itself (4 bytes + time). */
-            const int schedbuflen = 4 + sizeof(uint64_t);
 
-            int buflen = recvfrom(broad_fd, buf, max( 1, schedbuflen), 0, (struct sockaddr *) &broad_addr,
-                                  &broad_len);
-            if (buflen != 1 && buflen != schedbuflen) {
+            int schedbuflen = 4 + sizeof(uint64_t);
+
+            int buflen = recvfrom(broad_fd, buf, BROAD_BUFLEN, 0, (struct sockaddr *) &broad_addr,
+                    &broad_len);
+            /* Daemon is searching for a scheduler, only answer if daemon would be able to talk to us. */
+            if (buflen < 0 || buflen > BROAD_BUFLEN){
                 int err = errno;
                 log_perror("recvfrom()");
 
                 /* Some linux 2.6 kernels can return from select with
                    data available, and then return from read() with EAGAIN
-                even on a blocking socket (breaking POSIX).  Happens
-                 when the arriving packet has a wrong checksum.  So
-                 we ignore EAGAIN here, but still abort for all other errors. */
+                   even on a blocking socket (breaking POSIX).  Happens
+                   when the arriving packet has a wrong checksum.  So
+                   we ignore EAGAIN here, but still abort for all other errors. */
                 if (err != EAGAIN) {
                     return -1;
                 }
             }
-            /* Daemon is searching for a scheduler, only answer if daemon would be able to talk to us. */
-            else if (buflen == 1 && buf[0] >= MIN_PROTOCOL_VERSION) {
-                log_info() << "broadcast from " << inet_ntoa(broad_addr.sin_addr)
-                           << ":" << ntohs(broad_addr.sin_port)
-                           << " (version " << int(buf[0]) << ")\n";
-                int reply_len = prepare_broadcast_reply(buf, netname);
-                if (sendto(broad_fd, buf, reply_len, 0,
-                           (struct sockaddr *) &broad_addr, broad_len) != reply_len) {
-                    log_perror("sendto()");
-                }
-            }
-            else if (buflen == schedbuflen && buf[0] == 'I' && buf[1] == 'C' && buf[2] == 'E') {
-                /* Another scheduler is announcing it's running, disconnect daemons if it has a better version
-                   or the same version but was started earlier. */
-                uint64_t tmp_time;
-                memcpy(&tmp_time, buf + 4, sizeof(uint64_t));
-                time_t other_time = tmp_time;
-                if (buf[3] > PROTOCOL_VERSION || other_time < starttime) {
-                    if (!css.empty() || !monitors.empty()) {
-                        log_info() << "Scheduler from " << inet_ntoa(broad_addr.sin_addr)
-                               << ":" << ntohs(broad_addr.sin_port)
-                               << " (version " << int(buf[3]) << ") has announced itself as a preferred"
-                            " scheduler, disconnecting all connections." << endl;
-                        while (!css.empty())
-                            handle_end(css.front(), NULL);
-                        while (!monitors.empty())
-                            handle_end(monitors.front(), NULL);
+            if (buflen == 1) {
+                if (buf[0] >= MIN_PROTOCOL_VERSION){
+                    log_info() << "broadcast from " << inet_ntoa(broad_addr.sin_addr)
+                        << ":" << ntohs(broad_addr.sin_port)
+                        << " (version " << int(buf[0]) << ")\n";
+                    int reply_len = prepare_broadcast_reply(buf, netname);
+                    if (sendto(broad_fd, buf, reply_len, 0,
+                                (struct sockaddr *) &broad_addr, broad_len) != reply_len) {
+                        log_perror("sendto()");
                     }
                 }
+            }
+            else if(buflen >= schedbuflen && buf[0] == 'I' && buf[1] == 'C' && buf[2] == 'E') {
+                if(buf[3] > 35)
+                {
+                    schedbuflen += 1 + buf[schedbuflen];
+                }
+                if (buflen != schedbuflen){
+                    int err = errno;
+                    log_perror("recvfrom()");
+
+                    /* Some linux 2.6 kernels can return from select with
+                       data available, and then return from read() with EAGAIN
+                       even on a blocking socket (breaking POSIX).  Happens
+                       when the arriving packet has a wrong checksum.  So
+                       we ignore EAGAIN here, but still abort for all other errors. */
+                    if (err != EAGAIN) {
+                        return -1;
+                    }
+                }
+                handle_scheduler_announce(buf, netname, persistent_clients, broad_addr);
             }
         }
 
@@ -2228,10 +2328,34 @@ int main(int argc, char *argv[])
                 max_fd--;
             }
         }
+
+        for (list<CompileServer *>::const_iterator it = cs_in_tsts.begin();
+                it != cs_in_tsts.end(); ++it) {
+            if((*it)->getConnectionInProgress())
+            {
+                if(max_fd && (FD_ISSET((*it)->getInFd(), &read_set) || FD_ISSET((*it)->getInFd(), &write_set)) && (*it)->isConnected())
+                {
+                    max_fd--;
+                    (*it)->updateInConnectivity(true);
+                }
+                else if((!max_fd || (FD_ISSET((*it)->getInFd(), &read_set) || FD_ISSET((*it)->getInFd(), &write_set))) && !(*it)->isConnected())
+                {
+                    (*it)->updateInConnectivity(false);
+                }
+            }
+        }
     }
 
     shutdown(broad_fd, SHUT_RDWR);
-    close(broad_fd);
-    unlink(pidFilePath.c_str());
+    while (!css.empty())
+        handle_end(css.front(), NULL);
+    while (!monitors.empty())
+        handle_end(monitors.front(), NULL);
+    if ((-1 == close(broad_fd)) && (errno != EBADF)){
+        log_perror("close failed");
+    }
+    if (-1 == unlink(pidFilePath.c_str())){
+        log_perror("unlink failed") << "\t" << pidFilePath << endl;
+    }
     return 0;
 }

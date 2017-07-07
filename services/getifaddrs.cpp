@@ -94,7 +94,9 @@ static inline void __ifreq(struct ifreq **ifreqs, int *num_ifs, int sockfd)
             }
 
             if (fd != sockfd) {
-                close(fd);
+                if ((-1 == close(fd)) && (errno != EBADF)){
+                    log_perror("close failed");
+                }
             }
 
             *num_ifs = 0;
@@ -112,7 +114,9 @@ static inline void __ifreq(struct ifreq **ifreqs, int *num_ifs, int sockfd)
     nifs = ifc.ifc_len / sizeof(struct ifreq);
 
     if (fd != sockfd) {
-        close(fd);
+        if ((-1 == close(fd)) && (errno != EBADF)){
+            log_perror("close failed");
+        }
     }
 
     *num_ifs = nifs;
@@ -147,7 +151,9 @@ int kde_getifaddrs(struct kde_ifaddrs **ifap)
     __ifreq(&ifreqs, &nifs, fd);
 
     if (ifreqs == NULL) {     /* XXX doesn't distinguish error vs none */
-        close(fd);
+        if (-1 == close(fd)){
+            log_perror("close failed");
+        }
         return -1;
     }
 
@@ -167,7 +173,9 @@ int kde_getifaddrs(struct kde_ifaddrs **ifap)
         storage = (Storage *) malloc(nifs * sizeof storage[0]);
 
         if (storage == NULL) {
-            close(fd);
+            if (-1 == close(fd)){
+                log_perror("close failed");
+            }
             __if_freereq(ifreqs, nifs);
             return -1;
         }
@@ -241,7 +249,9 @@ int kde_getifaddrs(struct kde_ifaddrs **ifap)
         } while (++i < nifs);
 
         if (i < nifs) {   /* Broke out early on error.  */
-            close(fd);
+            if (-1 == close(fd)){
+                log_perror("close failed");
+            }
             free(storage);
             __if_freereq(ifreqs, nifs);
             return -1;
@@ -251,7 +261,9 @@ int kde_getifaddrs(struct kde_ifaddrs **ifap)
 
         *ifap = &storage[0].ia;
 
-        close(fd);
+        if (-1 == close(fd)){
+            log_perror("close failed");
+        }
         __if_freereq(ifreqs, nifs);
     }
 

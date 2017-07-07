@@ -9,7 +9,7 @@ builddir=
 
 usage()
 {
-    echo Usage: "$0 <install_prefix> <builddir> [--builddir=dir] [--valgrind[=command]]"
+    echo Usage: "$0 <install_prefix> <testddir> [--builddir=dir] [--valgrind[=command]]"
     exit 3
 }
 
@@ -33,7 +33,16 @@ while test -n "$1"; do
     shift
 done
 
-if test -z "$prefix" -o ! -x "$prefix"/bin/icecc; then
+icecc="${prefix}/bin/icecc"
+iceccd="${prefix}/sbin/iceccd"
+icecc_scheduler="${prefix}/sbin/icecc-scheduler"
+if [[ -n "${builddir}" ]]; then
+    icecc="${builddir}/../client/icecc"
+    iceccd="${builddir}/../daemon/iceccd"
+    icecc_scheduler="${builddir}/../scheduler/icecc-scheduler"
+fi
+
+if test -z "$prefix" -o ! -x "$icecc"; then
     usage
 fi
 
@@ -85,28 +94,71 @@ abort_tests()
     exit 2
 }
 
+start_iceccd()
+{
+    name=$1
+    shift
+    ICECC_TEST_SOCKET="$testdir"/socket-${name} $valgrind "${iceccd}" -s localhost:8767 -b "$testdir"/envs-${name} -l "$testdir"/${name}.log -N ${name}  -v -v -v "$@" 2>>"$testdir"/iceccdstderr_${name}.log &
+    pid=$!
+    wait_for_proc_sleep 10 ${pid}
+    eval ${name}_pid=${pid}
+    echo ${pid} > "$testdir"/${name}.pid
+}
+
+wait_for_proc_sleep()
+{
+    local wait_timeout=$1
+    shift
+    local pid_list="$@"
+    local proc_count=$#
+    local ps_state_field="state"
+    for wait_count in $(seq 1 ${wait_timeout}); do
+        local int_sleep_count=$(ps -ho ${ps_state_field} -p ${pid_list} | grep --count "S")
+        ((${int_sleep_count} == ${proc_count})) && break
+        sleep 1
+    done
+}
+
+kill_daemon()
+{
+    daemon=$1
+
+    pid=${daemon}_pid
+    if test -n "${!pid}"; then
+        kill "${!pid}" 2>/dev/null
+        if test $check_type -eq 1; then
+            wait ${!pid}
+            exitcode=$?
+            if test $exitcode -ne 0; then
+                echo Daemon $daemon exited with code $exitcode.
+                stop_ice 0
+                abort_tests
+            fi
+        fi
+    fi
+    rm -f "$testdir"/$daemon.pid
+    rm -rf "$testdir"/envs-${daemon}
+    rm -f "$testdir"/socket-${daemon}
+    eval ${pid}=
+}
 
 start_ice()
 {
-    $valgrind "$prefix"/sbin/icecc-scheduler -p 8767 -l "$testdir"/scheduler.log -v -v -v &
+    $valgrind "${icecc_scheduler}" -p 8767 -l "$testdir"/scheduler.log -v -v -v &
     scheduler_pid=$!
     echo $scheduler_pid > "$testdir"/scheduler.pid
-    ICECC_TEST_SOCKET="$testdir"/socket-localice $valgrind "$prefix"/sbin/iceccd --no-remote -s localhost:8767 -b "$testdir"/envs-localice -l "$testdir"/localice.log -N localice -m 2 -v -v -v &
-    localice_pid=$!
-    echo $localice_pid > "$testdir"/localice.pid
-    ICECC_TEST_SOCKET="$testdir"/socket-remoteice1 $valgrind "$prefix"/sbin/iceccd -p 10246 -s localhost:8767 -b "$testdir"/envs-remoteice1 -l "$testdir"/remoteice1.log -N remoteice1 -m 2 -v -v -v &
-    remoteice1_pid=$!
-    echo $remoteice1_pid > "$testdir"/remoteice1.pid
-    ICECC_TEST_SOCKET="$testdir"/socket-remoteice2 $valgrind "$prefix"/sbin/iceccd -p 10247 -s localhost:8767 -b "$testdir"/envs-remoteice2 -l "$testdir"/remoteice2.log -N remoteice2 -m 2 -v -v -v &
-    remoteice2_pid=$!
-    echo $remoteice2_pid > "$testdir"/remoteice2.pid
+
+    start_iceccd localice --no-remote -m 2
+    start_iceccd remoteice1 -p 10246 -m 2
+    start_iceccd remoteice2 -p 10247 -m 2
+
     notready=
     if test -n "$valgrind"; then
         sleep 10
     else
         sleep 1
     fi
-    for time in `seq 1 5`; do
+    for time in `seq 1 10`; do
         notready=
         if ! kill -0 $scheduler_pid; then
             echo Scheduler start failure.
@@ -149,7 +201,7 @@ start_ice()
 # start only local daemon, no scheduler
 start_only_daemon()
 {
-    ICECC_TEST_SOCKET="$testdir"/socket-localice $valgrind "$prefix"/sbin/iceccd --no-remote -s localhost:8767 -b "$testdir"/envs-localice -l "$testdir"/localice.log -N localice -m 2 -v -v -v &
+    ICECC_TEST_SOCKET="$testdir"/socket-localice $valgrind "${iceccd}" --no-remote -s localhost:8767 -b "$testdir"/envs-localice -l "$testdir"/localice.log -N localice -m 2 -v -v -v &
     localice_pid=$!
     echo $localice_pid > "$testdir"/localice.pid
     if test -n "$valgrind"; then
@@ -198,23 +250,7 @@ stop_ice()
         done
     fi
     for daemon in localice remoteice1 remoteice2; do
-        pid=${daemon}_pid
-        if test -n "${!pid}"; then
-            kill "${!pid}" 2>/dev/null
-            if test $check_type -eq 1; then
-                wait ${!pid}
-                exitcode=$?
-                if test $exitcode -ne 0; then
-                    echo Daemon $daemon exited with code $exitcode.
-                    stop_ice 0
-                    abort_tests
-                fi
-            fi
-        fi
-        rm -f "$testdir"/$daemon.pid
-        rm -rf "$testdir"/envs-${daemon}
-        rm -f "$testdir"/socket-${daemon}
-        eval ${pid}=
+        kill_daemon $daemon
     done
     if test -n "$scheduler_pid"; then
         kill "$scheduler_pid" 2>/dev/null
@@ -283,7 +319,7 @@ run_ice()
 
     reset_logs local "$@"
     echo Running: "$@"
-    ICECC_TEST_SOCKET="$testdir"/socket-localice ICECC_TEST_REMOTEBUILD=1 ICECC_PREFERRED_HOST=localice ICECC_DEBUG=debug ICECC_LOGFILE="$testdir"/icecc.log $valgrind "$prefix"/bin/icecc "$@" 2>"$testdir"/stderr.localice
+    ICECC_TEST_SOCKET="$testdir"/socket-localice ICECC_TEST_REMOTEBUILD=1 ICECC_PREFERRED_HOST=localice ICECC_DEBUG=debug ICECC_LOGFILE="$testdir"/icecc.log $valgrind "${icecc}" "$@" 2>"$testdir"/stderr.localice
 
     localice_exit=$?
     if test -n "$output"; then
@@ -310,7 +346,7 @@ run_ice()
 
     if test -z "$chroot_disabled"; then
         reset_logs remote "$@"
-        ICECC_TEST_SOCKET="$testdir"/socket-localice ICECC_TEST_REMOTEBUILD=1 ICECC_PREFERRED_HOST=remoteice1 ICECC_DEBUG=debug ICECC_LOGFILE="$testdir"/icecc.log $valgrind "$prefix"/bin/icecc "$@" 2>"$testdir"/stderr.remoteice
+        ICECC_TEST_SOCKET="$testdir"/socket-localice ICECC_TEST_REMOTEBUILD=1 ICECC_PREFERRED_HOST=remoteice1 ICECC_DEBUG=debug ICECC_LOGFILE="$testdir"/icecc.log $valgrind "${icecc}" "$@" 2>"$testdir"/stderr.remoteice
         remoteice_exit=$?
         if test -n "$output"; then
             mv "$output" "$output".remoteice
@@ -375,17 +411,29 @@ run_ice()
         fi
     fi
 
-    remove_debug_info="s/DW_AT_\(GNU_dwo_\(id\|name\)\|comp_dir\|producer\|linkage_name\|name\).*//g"
+    local remove_offset_number="s/<[A-Fa-f0-9]*>/<>/g"
+    local remove_debug_info="s/\(Length\|DW_AT_\(GNU_dwo_\(id\|name\)\|comp_dir\|producer\|linkage_name\|name\)\).*/\1/g"
+    local remove_debug_pubnames="/^\s*Offset\s*Name/,/^\s*$/s/\s*[A-Fa-f0-9]*\s*//"
+    local remove_size_of_area="s/\(Size of area in.*section:\)\s*[0-9]*/\1/g"
     if test -n "$output"; then
-        readelf -wlLiaprmfFoRt "$output" | sed -e $remove_debug_info > "$output".readelf.txt || cp "$output" "$output".readelf.txt
-        readelf -wlLiaprmfFoRt "$output".localice | sed -e $remove_debug_info > "$output".local.readelf.txt || cp "$output" "$output".local.readelf.txt
+        readelf -wlLiaprmfFoRt "$output" | sed -e "$remove_debug_info" \
+            -e "$remove_offset_number" \
+            -e "$remove_debug_pubnames" \
+            -e "$remove_size_of_area" > "$output".readelf.txt || cp "$output" "$output".readelf.txt
+        readelf -wlLiaprmfFoRt "$output".localice | sed -e "$remove_debug_info" \
+            -e "$remove_offset_number" \
+            -e "$remove_debug_pubnames" \
+            -e "$remove_size_of_area" > "$output".local.readelf.txt || cp "$output" "$output".local.readelf.txt
         if ! diff -q "$output".local.readelf.txt "$output".readelf.txt; then
             echo "Output mismatch ($output.localice)"
             stop_ice 0
             abort_tests
         fi
         if test -z "$chroot_disabled"; then
-            readelf -wlLiaprmfFoRt "$output".remoteice | sed -e "$remove_debug_info" > "$output".remote.readelf.txt || cp "$output" "$output".remote.readelf.txt
+            readelf -wlLiaprmfFoRt "$output".remoteice | sed -e "$remove_debug_info" \
+                -e "$remove_offset_number" \
+                -e "$remove_debug_pubnames" \
+                -e "$remove_size_of_area" > "$output".remote.readelf.txt || cp "$output" "$output".remote.readelf.txt
             if ! diff -q "$output".remote.readelf.txt "$output".readelf.txt; then
                 echo "Output mismatch ($output.remoteice)"
                 stop_ice 0
@@ -394,15 +442,18 @@ run_ice()
         fi
     fi
     if test -n "$split_dwarf"; then
-        readelf -wlLiaprmfFoRt "$split_dwarf" | sed -e $remove_debug_info > "$split_dwarf".readelf.txt || cp "$split_dwarf" "$split_dwarf".readelf.txt
-        readelf -wlLiaprmfFoRt "$split_dwarf".localice | sed -e $remove_debug_info > "$split_dwarf".local.readelf.txt || cp "$split_dwarf" "$split_dwarf".local.readelf.txt
+        readelf -wlLiaprmfFoRt "$split_dwarf" | \
+            sed -e "$remove_debug_info" -e "$remove_offset_number" > "$split_dwarf".readelf.txt || cp "$split_dwarf" "$split_dwarf".readelf.txt
+        readelf -wlLiaprmfFoRt "$split_dwarf".localice | \
+            sed -e $remove_debug_info -e "$remove_offset_number" > "$split_dwarf".local.readelf.txt || cp "$split_dwarf" "$split_dwarf".local.readelf.txt
         if ! diff -q "$split_dwarf".local.readelf.txt "$split_dwarf".readelf.txt; then
             echo "Output DWO mismatch ($split_dwarf.localice)"
             stop_ice 0
             abort_tests
         fi
         if test -z "$chroot_disabled"; then
-            readelf -wlLiaprmfFoRt "$split_dwarf".remoteice | sed -e "$remove_debug_info" > "$split_dwarf".remote.readelf.txt || cp "$split_dwarf" "$split_dwarf".remote.readelf.txt
+            readelf -wlLiaprmfFoRt "$split_dwarf".remoteice | \
+                sed -e "$remove_debug_info" -e "$remove_offset_number" > "$split_dwarf".remote.readelf.txt || cp "$split_dwarf" "$split_dwarf".remote.readelf.txt
             if ! diff -q "$split_dwarf".remote.readelf.txt "$split_dwarf".readelf.txt; then
                 echo "Output DWO mismatch ($split_dwarf.remoteice)"
                 stop_ice 0
@@ -573,7 +624,7 @@ recursive_test()
     echo Running recursive check test.
     reset_logs local "recursive check"
 
-    PATH="$prefix"/lib/icecc/bin:"$prefix"/bin:/usr/local/bin:/usr/bin:/bin ICECC_TEST_SOCKET="$testdir"/socket-localice ICECC_TEST_REMOTEBUILD=1 ICECC_DEBUG=debug ICECC_LOGFILE="$testdir"/icecc.log "$prefix"/bin/icecc ./recursive_g++ -Wall -c plain.c -o plain.o 2>>"$testdir"/stderr.log
+    PATH="$prefix"/lib/icecc/bin:"$prefix"/bin:/usr/local/bin:/usr/bin:/bin ICECC_TEST_SOCKET="$testdir"/socket-localice ICECC_TEST_REMOTEBUILD=1 ICECC_DEBUG=debug ICECC_LOGFILE="$testdir"/icecc.log "${icecc}" ./recursive_g++ -Wall -c plain.c -o plain.o 2>>"$testdir"/stderr.log
     if test $? -ne 111; then
         echo Recursive check test failed.
         stop_ice 0
@@ -593,7 +644,7 @@ clangplugintest()
     reset_logs remote "clang plugin"
 
     # TODO This should be able to also handle the clangpluginextra.txt argument without the absolute path.
-    ICECC_TEST_SOCKET="$testdir"/socket-localice ICECC_TEST_REMOTEBUILD=1 ICECC_PREFERRED_HOST=remoteice1 ICECC_DEBUG=debug ICECC_LOGFILE="$testdir"/icecc.log ICECC_EXTRAFILES=clangpluginextra.txt $valgrind "$prefix"/bin/icecc \
+    ICECC_TEST_SOCKET="$testdir"/socket-localice ICECC_TEST_REMOTEBUILD=1 ICECC_PREFERRED_HOST=remoteice1 ICECC_DEBUG=debug ICECC_LOGFILE="$testdir"/icecc.log ICECC_EXTRAFILES=clangpluginextra.txt $valgrind "${icecc}" \
         $CLANGXX -Wall -c -Xclang -load -Xclang "$builddir"/clangplugin.so -Xclang -add-plugin -Xclang icecreamtest -Xclang -plugin-arg-icecreamtest -Xclang `realpath -s clangpluginextra.txt` clangplugintest.cpp -o "$testdir"/clangplugintest.o 2>>"$testdir"/stderr.log
     if test $? -ne 0; then
         echo Clang plugin test failed.
@@ -624,6 +675,14 @@ clangplugintest()
 # 2nd argument is first line of debug at which to start comparing.
 debug_test()
 {
+    # debug tests fail when the daemon is not running in the install directory
+    # Sanitizers will not give good output on error as a result
+    kill_daemon localice
+    ICECC_TEST_SOCKET="$testdir"/socket-localice $valgrind "${prefix}/sbin/iceccd" -s localhost:8767 -b "$testdir"/envs-localice -l "$testdir"/localice.log -N localice  -v -v -v --no-remote -m 2 &
+    localice_pid=$!
+    echo ${localice_pid} > "$testdir"/${localice}.pid
+    wait_for_proc_sleep 10 $localice_pid
+
     compiler="$1"
     args="$2"
     cmd="$1 $2"
@@ -631,13 +690,14 @@ debug_test()
     echo "Running debug test ($cmd)."
     reset_logs remote "debug test ($cmd)"
 
-    ICECC_TEST_SOCKET="$testdir"/socket-localice ICECC_TEST_REMOTEBUILD=1 ICECC_PREFERRED_HOST=remoteice1 ICECC_DEBUG=debug ICECC_LOGFILE="$testdir"/icecc.log $valgrind "$prefix"/bin/icecc \
+    ICECC_TEST_SOCKET="$testdir"/socket-localice ICECC_TEST_REMOTEBUILD=1 ICECC_PREFERRED_HOST=remoteice1 ICECC_DEBUG=debug ICECC_LOGFILE="$testdir"/icecc.log $valgrind "${icecc}" \
         $cmd -o "$testdir"/debug-remote.o 2>>"$testdir"/stderr.log
     if test $? -ne 0; then
         echo Debug test compile failed.
         stop_ice 0
         abort_tests
     fi
+
     flush_logs
     check_logs_for_generic_errors
     check_log_message icecc "Have to use host 127.0.0.1:10246"
@@ -657,10 +717,19 @@ debug_test()
         stop_ice 0
         abort_tests
     fi
+
     # gcc-4.8+ has -grecord-gcc-switches, which makes the .o differ because of the extra flags the daemon adds,
     # this changes DW_AT_producer and also offsets
-    remove_debug_info="s/DW_AT_\(GNU_dwo_\(id\|name\)\|comp_dir\|producer\|linkage_name\|name\).*//g"
-    readelf -wlLiaprmfFoRt "$testdir"/debug-remote.o | sed -e 's/offset: 0x[0-9a-fA-F]*//g' -e 's/[ ]*--param ggc-min-expand.*heapsize\=[0-9]\+//g' -e $remove_debug_info > "$testdir"/readelf-remote.txt
+    local remove_debug_info="s/\(Length\|DW_AT_\(GNU_dwo_\(id\|name\)\|comp_dir\|producer\|linkage_name\|name\)\).*/\1/g"
+    local remove_offset_number="s/<[A-Fa-f0-9]*>/<>/g"
+    local remove_size_of_area="s/\(Size of area in.*section:\)\s*[0-9]*/\1/g"
+    local remove_debug_pubnames="/^\s*Offset\s*Name/,/^\s*$/s/\s*[A-Fa-f0-9]*\s*//"
+    readelf -wlLiaprmfFoRt "$testdir"/debug-remote.o | sed -e 's/offset: 0x[0-9a-fA-F]*//g' \
+        -e 's/[ ]*--param ggc-min-expand.*heapsize\=[0-9]\+//g' \
+        -e "$remove_debug_info" \
+        -e "$remove_offset_number" \
+        -e "$remove_size_of_area" \
+        -e "$remove_debug_pubnames" > "$testdir"/readelf-remote.txt
 
     $cmd -o "$testdir"/debug-local.o 2>>"$testdir"/stderr.log
     if test $? -ne 0; then
@@ -680,7 +749,11 @@ debug_test()
         stop_ice 0
         abort_tests
     fi
-    readelf -wlLiaprmfFoRt "$testdir"/debug-local.o | sed -e 's/offset: 0x[0-9a-fA-F]*//g' -e $remove_debug_info > "$testdir"/readelf-local.txt
+    readelf -wlLiaprmfFoRt "$testdir"/debug-local.o | sed -e 's/offset: 0x[0-9a-fA-F]*//g' \
+        -e "$remove_debug_info" \
+        -e "$remove_offset_number" \
+        -e "$remove_size_of_area" \
+        -e "$remove_debug_pubnames" > "$testdir"/readelf-local.txt
 
     if ! diff -q "$testdir"/debug-output-local.txt "$testdir"/debug-output-remote.txt ; then
         echo Gdb output different.
@@ -695,6 +768,89 @@ debug_test()
     rm "$testdir"/debug-remote.o "$testdir"/debug-local.o "$testdir"/debug-remote "$testdir"/debug-local "$testdir"/debug-*-*.txt "$testdir"/readelf-*.txt
 
     echo Debug test successful.
+    echo
+
+    # restart local daemon to the as built one
+    kill_daemon localice
+    start_iceccd localice --no-remote -m 2
+}
+
+zero_local_jobs_test()
+{
+    echo Running zero_local_jobs test.
+
+    reset_logs local "Running zero_local_jobs test"
+    reset_logs remote  "Running zero_local_jobs test"
+
+    kill_daemon localice
+
+    start_iceccd localice --no-remote -m 0
+
+    libdir="${testdir}/libs"
+    rm -rf  "${libdir}"
+    mkdir "${libdir}"
+
+    reset_logs remote $GXX -Wall -Werror -c testfunc.cpp -o "${testdir}/testfunc.o"
+    echo Running: $GXX -Wall -Werror -c testfunc.cpp -o "${testdir}/testfunc.o"
+    ICECC_TEST_SOCKET="$testdir"/socket-localice ICECC_TEST_REMOTEBUILD=1 ICECC_PREFERRED_HOST=remoteice1 ICECC_DEBUG=debug ICECC_LOGFILE="$testdir"/icecc.log $valgrind "${icecc}" $GXX -Wall -Werror -c testfunc.cpp -o "${testdir}/testfunc.o"
+    if [[ $? -ne 0 ]]; then
+        echo "failed to build testfunc.o"
+        grep -q "AddressSanitizer failed to allocate"  "$testdir"/iceccdstderr_remoteice1.log
+        if [[ $? ]]; then
+            echo "address sanitizer broke, skipping test"
+            skipped_tests="$skipped_tests zero_local_jobs_test"
+            reset_logs local "skipping zero_local_jobs_test"
+            start_iceccd localice --no-remote -m 2
+            return 0
+        fi
+        stop_ice 0
+        abort_tests
+    fi
+
+    reset_logs remote $GXX -Wall -Werror -c testmainfunc.cpp -o "${testdir}/testmainfunc.o"
+    echo Running: $GXX -Wall -Werror -c testmainfunc.cpp -o "${testdir}/testmainfunc.o"
+    ICECC_TEST_SOCKET="$testdir"/socket-localice ICECC_TEST_REMOTEBUILD=1 ICECC_PREFERRED_HOST=remoteice2 ICECC_DEBUG=debug ICECC_LOGFILE="$testdir"/icecc.log $valgrind "${icecc}" $GXX -Wall -Werror -c testmainfunc.cpp -o "${testdir}/testmainfunc.o"
+    if test $? -ne 0; then
+        echo "Error, failed to compile testfunc.cpp"
+        stop_ice 0
+        abort_tests
+    fi
+
+    ar rcs "${libdir}/libtestlib1.a" "${testdir}/testmainfunc.o"
+    if test $? -ne 0; then
+        echo "Error, 'ar' failed to create the ${libdir}/libtestlib1.a static library from object ${testdir}/testmainfunc.o"
+        stop_ice 0
+        abort_tests
+    fi
+    ar rcs "${libdir}/libtestlib2.a" "${testdir}/testfunc.o"
+    if test $? -ne 0; then
+        echo "Error, 'ar' failed to create the ${libdir}/libtestlib2.a static library from object ${testdir}/testfunc.o"
+        stop_ice 0
+        abort_tests
+    fi
+
+    reset_logs local $GXX -Wall -Werror "-L${libdir}" "-ltestlib1" "-ltestlib2" -o "${testdir}/linkedapp"
+    echo Running: $GXX -Wall -Werror "-L${libdir}" "-ltestlib1" "-ltestlib2" -o "${testdir}/linkedapp"
+    ICECC_TEST_SOCKET="$testdir"/socket-localice ICECC_TEST_REMOTEBUILD=1 ICECC_PREFERRED_HOST=localice ICECC_DEBUG=debug ICECC_LOGFILE="$testdir"/icecc.log $valgrind "${icecc}" $GXX -Wall -Werror "-L${libdir}" "-ltestlib1" "-ltestlib2" -o "${testdir}/linkedapp" 2>"$testdir"/stderr.remoteice
+    if test $? -ne 0; then
+        echo "Error, failed to link testlib1 and testlib2 into linkedapp"
+        stop_ice 0
+        abort_tests
+    fi
+
+    "${testdir}/linkedapp" 2>>"$testdir"/stderr.log
+    app_ret=$?
+    if test ${app_ret} -ne 123; then
+        echo "Error, failed to create a test app by building remotely and linking locally"
+        stop_ice 0
+        abort_tests
+    fi
+    rm -rf  "${libdir}"
+
+    kill_daemon localice
+    start_iceccd localice --no-remote -m 2
+
+    echo zero_local_jobs test successful.
     echo
 }
 
@@ -837,8 +993,9 @@ run_ice "$testdir/includes.o" "remote" 0 $GXX -Wall -Werror -c includes.cpp -o "
 run_ice "$testdir/plain.o" "local" 0 $GXX -Wall -Werror -c plain.cpp -mtune=native -o "$testdir"/plain.o
 run_ice "$testdir/plain.o" "remote" 0 $GCC -Wall -Werror -x c++ -c plain -o "$testdir"/plain.o
 if test -z "$debug_fission_disabled"; then
-    run_ice "" "remote" 1 "split_dwarf" $GXX -gsplit-dwarf -c nonexistent.cpp
+    run_ice "" "remote" 300 "split_dwarf" $GXX -gsplit-dwarf -c nonexistent.cpp
 fi
+
 run_ice "" "remote" 300 $GXX -c nonexistent.cpp
 run_ice "" "local" 0 /bin/true
 
@@ -874,6 +1031,12 @@ icerun_test
 
 recursive_test
 
+if test -z "$chroot_disabled"; then
+    zero_local_jobs_test
+else
+    skipped_tests="$skipped_tests zero_local_jobs_test"
+fi
+
 if test -x $CLANGXX; then
     # There's probably not much point in repeating all tests with Clang, but at least
     # try it works (there's a different icecc-create-env run needed, and -frewrite-includes
@@ -887,6 +1050,10 @@ if test -x $CLANGXX; then
     run_ice "" "remote" 0 $CLANGXX -Wall -Werror -c plain.cpp -o "$testdir"/plain.o
     rm "$testdir"/plain.o
     run_ice "" "remote" 0 $CLANGXX -Wall -Werror -c includes.cpp -o "$testdir"/includes.o
+    rm "$testdir"/includes.o
+    run_ice "" "remote" 0 $CLANGXX -Wall -Werror -cxx-isystem ./ -c includes.cpp -o "$testdir"/includes.o
+    rm "$testdir"/includes.o
+    run_ice "" "remote" 0 $CLANGXX -Wall -Werror -target x86_64-linux-gnu -c includes.cpp -o "$testdir"/includes.o
     rm "$testdir"/includes.o
 
     # test -frewrite-includes usage
