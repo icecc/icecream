@@ -52,11 +52,11 @@ Table of Contents
 Installation
 -------------------------------------------------------------------------
 
-We recomend that you use packages maintained by your distribution if possible.
+We recommend that you use packages maintained by your distribution if possible.
 Your distribution should provide customized startup scripts that make icecream
 fit better into the way your system is configured.
 
-We highly recomend you install [icemon](https://github.com/icecc/icemon) with
+We highly recommend you install [icemon](https://github.com/icecc/icemon) with
 icecream.
 
 If you want to install from source see the instructions in the README file 
@@ -210,8 +210,8 @@ creating a custom environment and adding /proc/cpuinfo to it.
 ```
 
 Do not apply this work around if you do not need it. /proc/cpuinfo is machine specific so and this work 
-around will place wrong infomation in it. In the case of the bug in clang 4.0 this file is checked for 
-existance but the contents are not actually used, but it is possible future versions of clang/gcc will use
+around will place wrong information in it. In the case of the bug in clang 4.0 this file is checked for 
+existence but the contents are not actually used, but it is possible future versions of clang/gcc will use
 this file if it exists for something else.
 
 see [Using icecream in heterogeneous environments](#using-icecream-in-heterogeneous-environments) 
@@ -487,41 +487,48 @@ and two quick to compile and one long to compile source file, you're not
 safe from a choice where everyone has to wait on the slow machine. Keep
 that in mind.
 
+Icecream is very sensitive to latency between nodes, and packet loss. While
+icecream has been successfully used by people who are on opposite sides of the
+earth, when those users were isolated to their geographic location the speed
+improved for everyone. In most corporate environments within a single building
+everything works well, but between two buildings often is troublesome.
+
 Some advice on configuration
 -----------------------------------------------------------------------------------------------------------------------------------
 
-Icecream supports many configurations but you need to understand your network
-to choose what is right for you. 
+Icecream supports many configurations but you need to understand your network to
+choose what is right for you. 
 
-The easiest is to designate one machine always on machine to be a server and 
-start the clients. This is the best environment for conferences where users are 
-using mixed versions of icecream and will not be together for long. icecream 
-will automatically find the scheduler. This is also the best setup if you have
-any machine that might run versions of icecream less than 1.1. The downside of
-this setup is the scheduler must be a machine that is always on.
+Recommended is to start the scheduler and daemon on every body's machine. The
+icecream schedulers will choose one to be the master and everyone will connect
+to it. When the scheduler machine goes down a new master will be selected. If
+anyone on your network is running versions earlier than 1.1 they will have
+problems with this configuration. This setup assumes there are enough people on
+each subnet.
 
-If everyone is running 1.1 or latter you may choose to have everyone run
-a scheduler. The icecream schedulers will choose one to be the master and
-everyone will connect to it. If the scheduler machine goes down a new master
-will be selected. This is a new feature that is somewhat experimental, but if
-it works it likely the most reliable. If anyone on your network is running
-versions earlier than 1.1 they will have problems with this configuration.
+If you need to run mixed icecream versions, then it is best to designate one
+machine on each subnet to be a scheduler. Icecream nodes will automatically find
+the scheduler and connect to it. If someone accidentally starts a second
+scheduler this will cause problems with clients that are less than 1.1, but they
+should eventually work. The scheduler should be a reliable machine, but if it
+fails you use any existing machine as a replacement.
 
-You may also designate a scheduler machine, and then for each client specify
-the scheduler to use. You need to ensure that there is no other scheduler on
-the same network as the scheduler if you do this. This is useful if you have
-developers scattered around the office but only a few are on any given network
-sub-net. If you do this check with IT to ensure that icecream traffic won't
-overload routers. It is safe to mix icecream versions less than 1.1 with 1.1
-on this setup.
+You may also designate a scheduler machine, and then for each client specify the
+scheduler to use (this is a variation of the previous case). You need to ensure
+that there is no other schedulers on the same network as this scheduler if you
+do this. The scheduler machine MUST be reliable, any failure will require
+reconfiguring all client machines. This setup allows you to specify one
+scheduler per building which is useful if single developers are scattered
+around. If you do this check with IT to ensure that icecream traffic won't
+overload routers.
 
 You might designate a netname. This is useful if your network is using VPN to
 make it seem like developers who are physically a long distance apart seem like
 they are on the same sub-net. While the VPNs are useful, they are typically do
 not have enough bandwidth for icecream, so by setting a different netname on
-each side of the VPN you can save bandwidth. Netnames can be used to work
-around some limitations above: if a netname is set icecream schedulers and
-daemons will ignore the existence scheudlers and daemons with any other netname.
+each side of the VPN you can save bandwidth. Netnames can be used to work around
+some limitations above: if a netname is set icecream schedulers and daemons will
+ignore the existence of other schedulers and daemons.
 
 
 Network setup for Icecream (firewalls)
