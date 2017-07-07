@@ -1,3 +1,6 @@
+Current
+ - better handle clang arugments with spaces
+ 
 1.1rc3
  - Fix broken pipe race condition
  - Better error handling
