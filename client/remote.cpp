@@ -353,6 +353,7 @@ static void receive_file(const string& output_file, MsgChannel* cserver)
         uncompressed += fcmsg->len;
 
         if (write(obj_fd, fcmsg->buffer, fcmsg->len) != (ssize_t)fcmsg->len) {
+            log_perror("Error writing file: ");
             unlink(tmp_file.c_str());
             delete msg;
             throw client_error(21, "Error 21 - error writing file");
@@ -365,8 +366,21 @@ static void receive_file(const string& output_file, MsgChannel* cserver)
 
     delete msg;
 
-    if (close(obj_fd) != 0 || rename(tmp_file.c_str(), output_file.c_str()) != 0) {
-        unlink(tmp_file.c_str());
+    if (close(obj_fd) != 0) {
+        log_perror("Failed to close temporary file: ");
+        if(unlink(tmp_file.c_str()) != 0)
+        {
+            log_perror("delete temporary file - might be related to close failure above");
+        }
+        throw client_error(30, "Error 30 - error closing temp file");
+
+    }
+    if(rename(tmp_file.c_str(), output_file.c_str()) != 0) {
+        log_perror("Failed to rename temporary file: ");
+        if(unlink(tmp_file.c_str()) != 0)
+        {
+            log_perror("delete temporary file - might be related to rename failure above");
+        }
         throw client_error(30, "Error 30 - error closing temp file");
     }
 }
