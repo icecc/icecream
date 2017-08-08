@@ -1436,8 +1436,6 @@ static bool handle_line(CompileServer *cs, Msg *_m)
                 }
             }
         }
-    } else if (cmd == "crashme") {
-        *(volatile int *)0 = 42;  // ;-)
     } else if (cmd == "internals") {
         for (list<CompileServer *>::iterator it = css.begin(); it != css.end(); ++it) {
             Msg *msg = NULL;
