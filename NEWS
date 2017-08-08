@@ -1,5 +1,8 @@
-Current
+1.1
+ - revert "Add load control for preprocessing"
  - better handle clang arugments with spaces
+ - remove "crashme" command from scheduler
+ - better logging around exception 30
  
 1.1rc3
  - Fix broken pipe race condition
