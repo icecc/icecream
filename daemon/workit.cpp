@@ -94,7 +94,7 @@ error_client(MsgChannel *client, string error)
 
 int work_it(CompileJob &j, unsigned int job_stat[], MsgChannel *client, CompileResultMsg &rmsg,
             const std::string &tmp_root, const std::string &build_path, const std::string &file_name,
-            unsigned long int mem_limit, int client_fd, int /*job_in_fd*/)
+            unsigned long int mem_limit, int client_fd)
 {
     rmsg.out.erase(rmsg.out.begin(), rmsg.out.end());
     rmsg.out.erase(rmsg.out.begin(), rmsg.out.end());
@@ -578,9 +578,6 @@ int work_it(CompileJob &j, unsigned int job_stat[], MsgChannel *client, CompileR
                     sock_in[1] = -1;
                     continue;
                 }
-
-                // The fd is -1 anyway
-                //write(job_in_fd, fcmsg->buffer + off, bytes);
 
                 off += bytes;
 
