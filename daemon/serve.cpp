@@ -262,7 +262,7 @@ int handle_connection(const string &basedir, CompileJob *job,
             obj_file = output_dir + '/' + file_name;
             dwo_file = obj_file.substr(0, obj_file.find_last_of('.')) + ".dwo";
 
-            ret = work_it(*job, job_stat, client, rmsg, tmp_path, job_working_dir, relative_file_path, mem_limit, client->fd, -1);
+            ret = work_it(*job, job_stat, client, rmsg, tmp_path, job_working_dir, relative_file_path, mem_limit, client->fd);
         }
         else if ((ret = dcc_make_tmpnam(prefix_output, ".o", &tmp_output, 0)) == 0) {
             obj_file = tmp_output;
@@ -270,7 +270,7 @@ int handle_connection(const string &basedir, CompileJob *job,
             string build_path = obj_file.substr(0, obj_file.find_last_of('/'));
             string file_name = obj_file.substr(obj_file.find_last_of('/')+1);
 
-            ret = work_it(*job, job_stat, client, rmsg, build_path, "", file_name, mem_limit, client->fd, -1);
+            ret = work_it(*job, job_stat, client, rmsg, build_path, "", file_name, mem_limit, client->fd);
         }
 
         if (ret) {
