@@ -194,7 +194,7 @@ bool dcc_lock_host(int &lock_fd)
     if (pwd) {
         fname += pwd->pw_name;
     } else {
-        char buffer[10];
+        char buffer[12];
         sprintf(buffer, "%ld", (long)getuid());
         fname += buffer;
     }
