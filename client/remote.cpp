@@ -345,7 +345,7 @@ static void receive_file(const string& output_file, MsgChannel* cserver)
         if (msg->type != M_FILE_CHUNK) {
             unlink(tmp_file.c_str());
             delete msg;
-            throw client_error(20, "Error 20 - unexpcted message");
+            throw client_error(20, "Error 20 - unexpected message");
         }
 
         FileChunkMsg *fcmsg = dynamic_cast<FileChunkMsg*>(msg);
