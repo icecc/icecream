@@ -108,7 +108,7 @@ environment. The file will have a random unique name like
 more expressive for your convenience, e.g. <filename>i386-3.3.1.tar.bz2</filename>. Set
 <command>ICECC_VERSION=<replaceable>filename_of_archive_containing_your_environment</replaceable></command>
 in the shell environment where you start the compile jobs and the file will be
-transfered to the daemons where your compile jobs run and installed to a chroot
+transferred to the daemons where your compile jobs run and installed to a chroot
 environment for executing the compile jobs in the environment fitting to the
 environment of the client. This requires that the icecream daemon runs as root.
 </para>
@@ -295,7 +295,7 @@ Numbers of my test case (some STL C++ genetic algorithm)
 
 <para>The icecream overhead is quite huge as you might notice, but the compiler
 cannot interleave preprocessing with compilation and the file needs to be
-read/written once more and in between the file is transfered.</para>
+read/written once more and in between the file is transferred.</para>
 
 <para>But even if the other computer is faster, using <command>g++</command> on my local machine
 is faster. If you are (for whatever reason) alone in your network at some point,

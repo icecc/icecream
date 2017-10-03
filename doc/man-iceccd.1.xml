@@ -143,7 +143,7 @@ reasons, when this is enabled scheduler should use --persistent-client-connectio
 <varlistentry>
 <term><option>-u</option>, <option>--user-uid</option>
 <parameter>user</parameter></term>
-<listitem><para>Specifiy the system user used by the daemon, which must be
+<listitem><para>Specify the system user used by the daemon, which must be
 different than <quote>root</quote>. If not specified, the daemon defaults
 to the <quote>icecc</quote> system user if available, or <quote>nobody</quote>
 if not.</para></listitem>
