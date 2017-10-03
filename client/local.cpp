@@ -32,9 +32,7 @@
 #include <string.h>
 #include <errno.h>
 #include <vector>
-#ifdef HAVE_SIGNAL_H
 #include <signal.h>
-#endif
 
 #include <comm.h>
 #include "client.h"

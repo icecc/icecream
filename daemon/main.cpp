@@ -37,9 +37,7 @@
 #include <netdb.h>
 #include <getopt.h>
 
-#ifdef HAVE_SIGNAL_H
 #include <signal.h>
-#endif
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/wait.h>
@@ -68,10 +66,6 @@
 #  include <resolv.h>
 #endif
 #include <netdb.h>
-
-#ifdef HAVE_SYS_RESOURCE_H
-#  include <sys/resource.h>
-#endif
 
 #ifndef RUSAGE_SELF
 #  define RUSAGE_SELF (0)

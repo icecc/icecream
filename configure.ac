@@ -92,26 +92,15 @@ AM_CONDITIONAL([WITH_ICECREAM_MAN], [test "x$build_man" != "xno"])
 
 # Some of these are needed by popt (or other libraries included in the future).
 
-AC_CHECK_HEADERS([unistd.h stdint.h signal.h sys/types.h sys/signal.h ifaddrs.h kinfo.h sys/param.h devstat.h])
-AC_CHECK_HEADERS([ctype.h sys/resource.h sys/socket.h sys/socketvar.h sys/stat.h sys/select.h sys/vfs.h])
+AC_CHECK_HEADERS([sys/signal.h ifaddrs.h kinfo.h sys/param.h devstat.h])
+AC_CHECK_HEADERS([sys/socketvar.h sys/vfs.h])
 AC_CHECK_HEADERS([mach/host_info.h])
-AC_CHECK_HEADERS([netinet/in.h], [], [],
-[#if HAVE_SYS_TYPES_H
-# include <sys/types.h>
-#endif
-])
 AC_CHECK_HEADERS([arpa/nameser.h], [], [],
-[#if HAVE_SYS_TYPES_H
-# include <sys/types.h>
-#endif
+[#include <sys/types.h>
 ])
 AC_CHECK_HEADERS([resolv.h], [], [],
-[#if HAVE_SYS_TYPES_H
-# include <sys/types.h>
-#endif
-#if HAVE_NETINET_IN_H
-# include <netinet/in.h>
-#endif
+[#include <sys/types.h>
+#include <netinet/in.h>
 #if HAVE_ARPA_NAMESER_H
 # include <arpa/nameser.h>
 #endif
@@ -120,20 +109,13 @@ AC_CHECK_HEADERS([resolv.h], [], [],
 AC_ARG_VAR(TAR, [Specifies tar path])
 AC_PATH_PROG(TAR, [tar])
 AC_DEFINE_UNQUOTED([TAR], ["$TAR"], [Define path to tar])
-AC_CHECK_HEADERS([float.h mcheck.h alloca.h sys/mman.h netinet/tcp.h])
 AC_CHECK_HEADERS([netinet/tcp_var.h], [], [],
-[#if HAVE_SYS_TYPES_H
-# include <sys/types.h>
-#endif
+[#include <sys/types.h>
 #if HAVE_SYS_SOCKETVAR_H
 # include <sys/socketvar.h>
 #endif
-#if HAVE_NETINET_IN_H
-# include <netinet/in.h>
-#endif
-#if HAVE_NETINET_TCP_H
-# include <netinet/tcp.h>
-#endif
+#include <netinet/in.h>
+#include <netinet/tcp.h>
 ])
 
 AC_CHECK_HEADERS([sys/user.h])
@@ -143,15 +125,9 @@ dnl Checks for types
 
 AC_CHECK_TYPES([sa_family_t, socklen_t, in_port_t, in_addr_t], , ,
 	       [
-#if HAVE_SYS_TYPES_H
-# include <sys/types.h>
-#endif
-#if HAVE_SYS_SOCKET_H
-# include <sys/socket.h>
-#endif
-#if HAVE_NETINET_IN_H
-# include <netinet/in.h>
-#endif
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
 #if HAVE_ARPA_NAMESER_H
 # include <arpa/nameser.h>
 #endif
@@ -201,18 +177,9 @@ if test x"$ac_cv_func_connect" = x"no"; then
     fi
 fi
 
-AC_CHECK_LIB(resolv, hstrerror, , , [-lnsl -lsocket])
-AC_CHECK_LIB(resolv, inet_aton, , , [-lnsl -lsocket])
-
-AC_CHECK_FUNCS([setsid flock lockf hstrerror strerror setuid setreuid])
-AC_CHECK_FUNCS([getuid geteuid mcheck wait4 wait3 waitpid setgroups getcwd])
-AC_CHECK_FUNCS([snprintf vsnprintf vasprintf asprintf getcwd getwd])
-AC_CHECK_FUNCS([getrusage strsignal gettimeofday])
-AC_CHECK_FUNCS([getaddrinfo getnameinfo inet_ntop inet_ntoa])
-AC_CHECK_FUNCS([strndup mmap strlcpy])
+AC_CHECK_FUNCS([flock lockf])
+AC_CHECK_FUNCS([strsignal])
 AC_CHECK_FUNCS([getloadavg])
-
-AC_CHECK_DECLS([snprintf, vsnprintf, vasprintf, asprintf, strndup])
 
 AC_CHECK_LIB(lzo2, lzo1x_1_compress, LZO_LDADD=-llzo2,
 	AC_MSG_ERROR([Could not find lzo2 library - please install lzo-devel]))
