@@ -577,7 +577,7 @@ Icecream on gentoo
 -------------------------------------------------------------------------------------
 
 -   It is recommended to remove all processor specific optimizations
-    from the CFLAGS line in /etc/make.conf. On the aKademy cluster it
+    from the CFLAGS line in /etc/portage/make.conf. On the aKademy cluster it
     proved useful to use only "-O2", otherwise there are often internal
     compiler errors, if not all computers have the same processor
     type/version
