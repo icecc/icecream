@@ -10,6 +10,10 @@ is_darwin=0
 if test `uname` = Darwin; then
   is_darwin=1
 fi
+is_linux=0
+if test `uname` = Linux; then
+  is_linux=1
+fi
 
 usage ()
 {
@@ -353,7 +357,7 @@ for i in $target_files; do
   new_target_files="$new_target_files $target"
 done
 
-if test -x /sbin/ldconfig; then
+if test -x /sbin/ldconfig -a "$is_linux" = 1; then
    mkdir -p $tempdir/var/cache/ldconfig
    /sbin/ldconfig -r $tempdir
    new_target_files="$new_target_files etc/ld.so.cache"
