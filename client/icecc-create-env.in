@@ -10,6 +10,10 @@ is_darwin=0
 if test `uname` = Darwin; then
   is_darwin=1
 fi
+is_freebsd=0
+if test `uname` = FreeBSD; then
+  is_freebsd=1
+fi
 is_linux=0
 if test `uname` = Linux; then
   is_linux=1
@@ -316,6 +320,10 @@ if test "$is_darwin" = 1; then
     add_file /usr/bin/g++
     real_file=`/usr/bin/as -micha -- < /dev/null 2>&1 | sed -n 's,^[^/]*\(/[^ :]*\).*,\1,p'`
     add_file $(abs_path "$real_file")
+fi
+
+if test "$is_freebsd" = 1; then
+    add_file /libexec/ld-elf.so.1
 fi
 
 # for ldconfig -r to work, ld.so.conf must not contain relative paths
