@@ -6,10 +6,11 @@
 
 target_files=
 
-is_darwin=0
-if test `uname` = Darwin; then
-  is_darwin=1
-fi
+case `uname` in
+    "Darwin") is_darwin=1;;
+    "FreeBSD") is_freebsd=1;;
+    "Linux") is_linux=1;;
+esac
 
 usage ()
 {
@@ -314,6 +315,10 @@ if test "$is_darwin" = 1; then
     add_file $(abs_path "$real_file")
 fi
 
+if test "$is_freebsd" = 1; then
+    add_file /libexec/ld-elf.so.1
+fi
+
 # for ldconfig -r to work, ld.so.conf must not contain relative paths
 # in include directives. Make them absolute.
 if test -f /etc/ld.so.conf; then
@@ -353,7 +358,7 @@ for i in $target_files; do
   new_target_files="$new_target_files $target"
 done
 
-if test -x /sbin/ldconfig; then
+if test -x /sbin/ldconfig -a "$is_linux" = 1; then
    mkdir -p $tempdir/var/cache/ldconfig
    /sbin/ldconfig -r $tempdir
    new_target_files="$new_target_files etc/ld.so.cache"
