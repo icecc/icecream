@@ -273,6 +273,8 @@ if test -n "$gcc"; then
 
     search_addfile $added_gcc specs
     search_addfile $added_gcc liblto_plugin.so
+
+    objcopy=$($added_gcc -print-prog-name=objcopy)
 fi
 
 if test -n "$clang"; then
@@ -296,14 +298,19 @@ if test -n "$clang"; then
       destfile=$(echo $destfile | sed "s#$clangprefix#/usr#" )
       add_file "$file" "$destfile"
     done
+
+    objcopy=$($added_clang -print-prog-name=objcopy)
 fi
 
 for extrafile in $extrafiles; do
     add_file $extrafile
 done
 
-if [ -e /usr/bin/objcopy ]; then
-    add_file /usr/bin/objcopy
+if test "$objcopy" = "objcopy"; then
+    objcopy=/usr/bin/objcopy
+fi
+if [ -e "$objcopy" ]; then
+    add_file "$objcopy" /usr/bin/objcopy
 fi
 
 if test "$is_darwin" = 1; then
