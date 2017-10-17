@@ -55,7 +55,7 @@ if test "$GCC" = yes; then
 -Wshadow -Wpointer-arith $cast_align -Wwrite-strings \
 -Waggregate-return -Wstrict-prototypes -Wmissing-prototypes \
 -Wnested-externs $CFLAGS"
-    CXXFLAGS=" -g -W -Wall -Wpointer-arith $cast_align $wshadow -Wwrite-strings $CXXFLAGS"
+    CXXFLAGS=" -std=gnu++11 -g -W -Wall -Wpointer-arith $cast_align $wshadow -Wwrite-strings $CXXFLAGS"
     AC_MSG_NOTICE([Adding gcc options: $CFLAGS])
 fi
 

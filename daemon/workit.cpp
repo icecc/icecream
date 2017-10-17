@@ -102,10 +102,6 @@ int work_it(CompileJob &j, unsigned int job_stat[], MsgChannel *client, CompileR
     std::list<string> list = j.remoteFlags();
     appendList(list, j.restFlags());
 
-    if (j.dwarfFissionEnabled()) {
-        list.push_back("-gsplit-dwarf");
-    }
-
     int sock_err[2];
     int sock_out[2];
     int sock_in[2];

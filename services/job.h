@@ -25,6 +25,7 @@
 
 #include <list>
 #include <string>
+#include <map>
 #include <iostream>
 #include <sstream>
 
@@ -46,6 +47,7 @@ public:
 class CompileJob
 {
 public:
+    typedef std::map<uint32_t, std::string>  OutputFiles;
     typedef enum {
         Lang_C,
         Lang_CXX,
@@ -62,9 +64,21 @@ public:
         Flag_Ol2 = 0x10
     } Flag;
 
+    /* extra files are processed in this order */
+    enum ExFileEnum {
+       eExFile_stdOutput     = 0, // unused
+       eExFile_START        = 1,
+       eExFile_dwarfFission = 1,
+       eExFile_coverage     = 2,
+       eExFile_st_i         = 3,
+       eExFile_st_ii        = 4,
+       eExFile_st_s         = 5,
+       eExFile_END          = 5
+    } ;
+    const static std::string ef_ext[];
+
     CompileJob()
         : m_id(0)
-        , m_dwarf_fission(false)
     {
         setTargetPlatform();
     }
@@ -132,22 +146,71 @@ public:
 
     void setOutputFile(const std::string &file)
     {
-        m_output_file = file;
+        m_output_files[0] = file;
     }
 
     std::string outputFile() const
     {
-        return m_output_file;
+        return m_output_files.at(0);
     }
 
-    void setDwarfFissionEnabled(bool flag)
+    const OutputFiles& outputFiles() const
     {
-        m_dwarf_fission = flag;
+        return m_output_files;
+    }
+
+    void setExtraOutputFile(uint32_t index, const std::string &file)
+    {
+        //printf("setExtraOutputFile[%d] = %s\n", index, file.c_str());
+        m_output_files[index] = file;
+    }
+    std::string ExtraOutputFileExt(const std::string &ext)
+    {
+        std::string file = outputFile().substr(0, outputFile().find_last_of('.')) + ext;
+        return file;
+    }
+    void setExtraOutputFileExt(uint32_t index, const std::string &ext)
+    {
+        setExtraOutputFile(index, ExtraOutputFileExt(ext));
+    }
+    void setExtraOutputFileEnum(ExFileEnum index)
+    {
+        setExtraOutputFileExt(index, ef_ext[index]);
+    }
+    void setExtraOutputFileRemote(ExFileEnum index, const std::string &file)
+    {
+        setExtraOutputFile(index, file);
+        m_extra_files |= (1 << index);
+    }
+    std::string ExtraOutputFileEnum(ExFileEnum index)
+    {
+        return ExtraOutputFileExt(ef_ext[index]);
+    }
+    uint32_t ExtraOutputFiles() const
+    {
+        return m_extra_files;
     }
 
     bool dwarfFissionEnabled() const
     {
-        return m_dwarf_fission;
+        return m_output_files.find(eExFile_dwarfFission) != m_output_files.end();
+    }
+    bool extraOutputEnabled() const
+    {
+        uint32_t c(0);
+        for (auto i : m_output_files) {
+            ++c;
+        }
+
+        if (dwarfFissionEnabled()) {
+            if (c >= 3) {
+                return true;
+            }
+        }
+        else if (c >= 2) {
+            return true;
+        }
+        return false;   
     }
 
     void setWorkingDirectory(const std::string& dir)
@@ -195,10 +258,11 @@ private:
     std::string m_compiler_name;
     std::string m_environment_version;
     ArgumentsList m_flags;
-    std::string m_input_file, m_output_file;
+    std::string m_input_file;
+    uint32_t m_extra_files = 0;
+    OutputFiles  m_output_files;
     std::string m_working_directory;
     std::string m_target_platform;
-    bool m_dwarf_fission;
 };
 
 inline void appendList(std::list<std::string> &list, const std::list<std::string> &toadd)

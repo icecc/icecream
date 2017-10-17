@@ -86,6 +86,7 @@ static void write_output_file( const string& file, MsgChannel* client )
     int obj_fd = -1;
     try {
         obj_fd = open(file.c_str(), O_RDONLY | O_LARGEFILE);
+        log_info() << "Write output file " << file << endl;
 
         if (obj_fd == -1) {
             log_error() << "open failed" << endl;
@@ -175,7 +176,7 @@ int handle_connection(const string &basedir, CompileJob *job,
 
     Msg *msg = 0; // The current read message
     unsigned int job_id = 0;
-    string tmp_path, obj_file, dwo_file;
+    string tmp_path, obj_file;
 
     try {
         if (job->environmentVersion().size()) {
@@ -260,7 +261,6 @@ int handle_connection(const string &basedir, CompileJob *job,
             }
 
             obj_file = output_dir + '/' + file_name;
-            dwo_file = obj_file.substr(0, obj_file.find_last_of('.')) + ".dwo";
 
             ret = work_it(*job, job_stat, client, rmsg, tmp_path, job_working_dir, relative_file_path, mem_limit, client->fd);
         }
@@ -272,6 +272,23 @@ int handle_connection(const string &basedir, CompileJob *job,
 
             ret = work_it(*job, job_stat, client, rmsg, build_path, "", file_name, mem_limit, client->fd);
         }
+        // check the extra output files, even if error, seems gcno et can be before the error
+        // so the .o is removed ... but the others remain
+        for (uint32_t i=CompileJob::eExFile_START;i<=CompileJob::eExFile_END; i++)
+        {
+            std::string file;
+            struct stat st;
+            file = obj_file.substr(0, obj_file.find_last_of('.')) + CompileJob::ef_ext[i];
+           /* this way we don't bother parsing any args ...
+            * but any file that exists ... we will send back
+            */
+            //printf("try file ef[%d]= %s\n", i, file.c_str());
+            if (!stat(file.c_str(), &st)) {
+                job_stat[JobStatistics::out_uncompressed] += st.st_size;
+                job->setExtraOutputFileRemote((CompileJob::ExFileEnum)i, file);
+                printf("   exists ef[%d]= %s\n", i, file.c_str());
+            }
+        }
 
         if (ret) {
             if (ret == EXIT_OUT_OF_MEMORY) {   // we catch that as special case
@@ -281,18 +298,20 @@ int handle_connection(const string &basedir, CompileJob *job,
             }
         }
 
-        if (!client->send_msg(rmsg)) {
-            log_info() << "write of result failed" << endl;
-            throw myexception(EXIT_DISTCC_FAILED);
-        }
 
         struct stat st;
 
         if (!stat(obj_file.c_str(), &st)) {
             job_stat[JobStatistics::out_uncompressed] += st.st_size;
         }
-        if (!stat(dwo_file.c_str(), &st)) {
-            job_stat[JobStatistics::out_uncompressed] += st.st_size;
+        // old model
+        rmsg.have_dwo_file = job->dwarfFissionEnabled();
+        // now ensure we set those in the message
+        rmsg.extra_files = job->ExtraOutputFiles();
+        
+        if (!client->send_msg(rmsg)) {
+            log_info() << "write of result failed" << endl;
+            throw myexception(EXIT_DISTCC_FAILED);
         }
 
         /* wake up parent and tell him that compile finished */
@@ -303,10 +322,12 @@ int handle_connection(const string &basedir, CompileJob *job,
         }
 
         if (rmsg.status == 0) {
-            write_output_file(obj_file, client);
-            if (rmsg.have_dwo_file) {
-                write_output_file(dwo_file, client);
+            // reset the orig output file with the right one, then we can loop through them all
+            job->setOutputFile(obj_file);
+            for (auto i : job->outputFiles()) {
+                write_output_file(i.second, client);
             }
+            
         }
 
         throw myexception(rmsg.status);
@@ -315,14 +336,10 @@ int handle_connection(const string &basedir, CompileJob *job,
         delete client;
         client = 0;
 
-        if (!obj_file.empty()) {
-            if (-1 == unlink(obj_file.c_str())){
-                log_perror("unlink failure") << "\t" << obj_file << endl;
-            }
-        }
-        if (!dwo_file.empty()) {
-            if (-1 == unlink(dwo_file.c_str())){
-                log_perror("unlink failure") << "\t" << dwo_file << endl;
+        job->setOutputFile(obj_file);
+        for (auto i : job->outputFiles()) {
+            if (-1 == unlink(i.second.c_str())){
+                log_perror("unlink failure") << "\t" << i.second << endl;
             }
         }
         if (!tmp_path.empty()) {

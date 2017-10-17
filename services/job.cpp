@@ -28,6 +28,15 @@
 
 using namespace std;
 
+const std::string CompileJob::ef_ext[] = {
+    {".xxx"},  // unused, can be .o or other stdout
+    {".dwo"},
+    {".gcno"},
+    {".i"},
+    {".ii"},
+    {".s"}
+};
+
 list<string> CompileJob::flags(Argument_Type argumentType) const
 {
     list<string> args;
