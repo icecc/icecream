@@ -591,6 +591,7 @@ static int build_remote_int(CompileJob &job, UseCSMsg *usecs, MsgChannel *local_
         }
 
         uint32_t extra_files = crmsg->extra_files;
+        //log_info() << "extra_files: " << extra_files << std::endl;
         delete crmsg;
 
         assert(!job.outputFile().empty());
@@ -605,7 +606,7 @@ static int build_remote_int(CompileJob &job, UseCSMsg *usecs, MsgChannel *local_
                 if (extra_files & 0x01)
                 {
                     std::string file(job.ExtraOutputFileEnum((CompileJob::ExFileEnum)i));
-                    //printf("get extra file [%d] = %s\n", i, file.c_str());
+                    log_info() << "get extra file [" << i << "] = " << file << std::endl;
                     receive_file(file, cserver);
                 }
             }
@@ -746,7 +747,7 @@ static int minimalRemoteVersion( const CompileJob& job)
     }
 
     if (job.extraOutputEnabled()) {
-        version = max(version, 37);
+        version = max(version, 38);
     }
 
     return version;

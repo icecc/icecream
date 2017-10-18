@@ -242,21 +242,33 @@ int work_it(CompileJob &j, unsigned int job_stat[], MsgChannel *client, CompileR
         }
 
         bool hasPipe = false;
+        bool hasSaveTemps = false;
 
+        // we could ignore this, except the silly gcc-4.8 thing with tthe caret fails the tests due
+        // to having -pipe and -save-temps=obj
         for (std::list<string>::const_iterator it = list.begin();
                 it != list.end(); ++it) {
+            if (*it == "-save-temps=obj") {
+                hasSaveTemps = true;
+            }
+        }
+        for (std::list<string>::const_iterator it = list.begin();
+                it != list.end(); ++it) {
+            bool ignore = false;
             if (*it == "-pipe") {
                 hasPipe = true;
+                ignore = hasSaveTemps;
             }
-
-            argv[i++] = strdup(it->c_str());
+            if (!ignore) {
+                argv[i++] = strdup(it->c_str());
+            }
         }
 
         if (!clang) {
             argv[i++] = strdup("-fpreprocessed");
         }
 
-        if (!hasPipe) {
+        if (!hasPipe && !hasSaveTemps) {
             argv[i++] = strdup("-pipe");
         }
 

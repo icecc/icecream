@@ -286,7 +286,7 @@ int handle_connection(const string &basedir, CompileJob *job,
             if (!stat(file.c_str(), &st)) {
                 job_stat[JobStatistics::out_uncompressed] += st.st_size;
                 job->setExtraOutputFileRemote((CompileJob::ExFileEnum)i, file);
-                printf("   exists ef[%d]= %s\n", i, file.c_str());
+                log_info() << "   exists ef[" << i << "]= " << file << std::endl;
             }
         }
 

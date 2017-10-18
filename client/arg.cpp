@@ -728,7 +728,7 @@ bool analyse_argv(const char * const *argv, CompileJob &job, bool icerun, list<s
     job.setOutputFile(ofile);
     if (seen_split_dwarf) {
         // need to do after the output file is set */
-        log_info() << "Seen plitDwarf" << std::endl;
+        log_info() << "Seen SplitDwarf" << std::endl;
         job.setExtraOutputFileEnum(CompileJob::eExFile_dwarfFission);
     }
     if (seen_coverage) {
@@ -738,7 +738,7 @@ bool analyse_argv(const char * const *argv, CompileJob &job, bool icerun, list<s
     }
     if (seen_save_temps) {
         // we really only need this to test if the return protocol will work
-        log_info() << "Save save-temps=cwd" << std::endl;
+        log_info() << "Save save-temps=obj" << std::endl;
         job.setExtraOutputFileEnum(CompileJob::eExFile_st_i);
         job.setExtraOutputFileEnum(CompileJob::eExFile_st_ii);
         job.setExtraOutputFileEnum(CompileJob::eExFile_st_s);
