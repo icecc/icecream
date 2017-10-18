@@ -254,12 +254,12 @@ int work_it(CompileJob &j, unsigned int job_stat[], MsgChannel *client, CompileR
         }
         for (std::list<string>::const_iterator it = list.begin();
                 it != list.end(); ++it) {
-            bool ignore = false;
+            bool skip = false;
             if (*it == "-pipe") {
                 hasPipe = true;
-                ignore = hasSaveTemps;
+                skip = hasSaveTemps;
             }
-            if (!ignore) {
+            if (!skip) {
                 argv[i++] = strdup(it->c_str());
             }
         }

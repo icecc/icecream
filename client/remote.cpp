@@ -953,9 +953,9 @@ int build_remote(CompileJob &job, MsgChannel *local_daemon, const Environments &
                         if (-1 == ::unlink(jobs[0].outputFile().c_str())){
                             log_perror("unlink outputFile failed") << "\t" << jobs[0].outputFile() << endl;
                         }
-                        for (auto i : job.outputFiles()) {
-                            if (-1 == ::unlink(i.second.c_str())){
-                                log_perror("unlink failed") << "\t" << i.second << endl;
+                        for (auto it : job.outputFiles()) {
+                            if (-1 == ::unlink(it.second.c_str())){
+                                log_perror("unlink failed") << "\t" << it.second << endl;
                             }
                         }
                         exit_codes[0] = -1; // overwrite
@@ -973,32 +973,32 @@ int build_remote(CompileJob &job, MsgChannel *local_daemon, const Environments &
                         rename(jobs[0].outputFile().c_str(),
                                (jobs[0].outputFile() + ".caught").c_str());
                         rename(preproc, (string(preproc) + ".caught").c_str());
-                        for (auto i : job.outputFiles()) {
-                            rename(i.second.c_str(), (i.second + ".caught").c_str());
+                        for (auto it : job.outputFiles()) {
+                            rename(it.second.c_str(), (it.second + ".caught").c_str());
                         }
                         exit_codes[0] = -1; // overwrite
                         break;
                     }
                 }
 
-                for (auto i : job.outputFiles()) {
-                    if (-1 == ::unlink(i.second.c_str())){
-                        log_perror("unlink failed") << "\t" << i.second << endl;
+                for (auto it : job.outputFiles()) {
+                    if (-1 == ::unlink(it.second.c_str())){
+                        log_perror("unlink failed") << "\t" << it.second << endl;
                     }
                 }
                 delete umsgs[i];
             }
         } else {
-            for (auto i : job.outputFiles()) {
-                if (-1 == ::unlink(i.second.c_str())){
-                    log_perror("unlink failed") << "\t" << i.second << endl;
+            for (auto it : job.outputFiles()) {
+                if (-1 == ::unlink(it.second.c_str())){
+                    log_perror("unlink failed") << "\t" << it.second << endl;
                 }
             }
 
             for (int i = 1; i < torepeat; i++) {
-                for (auto i : job.outputFiles()) {
-                    if (-1 == ::unlink(i.second.c_str())){
-                        log_perror("unlink failed") << "\t" << i.second << endl;
+                for (auto it : job.outputFiles()) {
+                    if (-1 == ::unlink(it.second.c_str())){
+                        log_perror("unlink failed") << "\t" << it.second << endl;
                     }
                 }
                 delete umsgs[i];
