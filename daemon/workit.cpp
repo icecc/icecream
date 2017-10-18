@@ -244,7 +244,7 @@ int work_it(CompileJob &j, unsigned int job_stat[], MsgChannel *client, CompileR
         bool hasPipe = false;
         bool hasSaveTemps = false;
 
-        // we could ignore this, except the silly gcc-4.8 thing with tthe caret fails the tests due
+        // we could ignore this, except the silly gcc-4.8 thing with the caret fails the tests due
         // to having -pipe and -save-temps=obj
         for (std::list<string>::const_iterator it = list.begin();
                 it != list.end(); ++it) {

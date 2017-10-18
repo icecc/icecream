@@ -602,7 +602,7 @@ bool Daemon::setup_listen_fds()
 
     myaddr.sun_family = AF_UNIX;
 
-    mode_t old_umask = (mode_t)-1U;
+    mode_t old_umask = static_cast<mode_t>(-1U);
 
     if (getenv("ICECC_TEST_SOCKET") == NULL) {
 #ifdef HAVE_LIBCAP_NG
@@ -653,7 +653,7 @@ bool Daemon::setup_listen_fds()
     if (::bind(unix_listen_fd, (struct sockaddr*)&myaddr, sizeof(myaddr)) < 0) {
         log_perror("bind()");
 
-        if (old_umask != (mode_t)-1U) {
+        if (old_umask != static_cast<mode_t>(-1U)) {
             umask(old_umask);
         }
 
