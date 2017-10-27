@@ -63,7 +63,7 @@ namespace
 
 struct CharBufferDeleter {
     char *buf;
-    CharBufferDeleter(char *b) : buf(b) {}
+    explicit CharBufferDeleter(char *b) : buf(b) {}
     ~CharBufferDeleter() {
         free(buf);
     }
@@ -748,16 +748,11 @@ int build_remote(CompileJob &job, MsgChannel *local_daemon, const Environments &
     int torepeat = 1;
     bool has_split_dwarf = job.dwarfFissionEnabled();
 
-    // older compilers do not support the options we need to make it reproducible
-#if defined(__GNUC__) && ( ( (__GNUC__ == 3) && (__GNUC_MINOR__ >= 3) ) || (__GNUC__ >=4) )
-
     if (!compiler_is_clang(job)) {
         if (rand() % 1000 < permill) {
             torepeat = 3;
         }
     }
-
-#endif
 
     trace() << job.inputFile() << " compiled " << torepeat << " times on "
             << job.targetPlatform() << "\n";

@@ -174,7 +174,6 @@ int handle_connection(const string &basedir, CompileJob *job,
     }
 
     Msg *msg = 0; // The current read message
-    unsigned int job_id = 0;
     string tmp_path, obj_file, dwo_file;
 
     try {
@@ -203,7 +202,7 @@ int handle_connection(const string &basedir, CompileJob *job,
         int ret;
         unsigned int job_stat[8];
         CompileResultMsg rmsg;
-        job_id = job->jobID();
+        unsigned int job_id = job->jobID();
 
         memset(job_stat, 0, sizeof(job_stat));
 
