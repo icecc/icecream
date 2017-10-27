@@ -6,6 +6,8 @@ form of process accounting in there.
 How to install icecream
 =======================
 
+You must have a compiler that supports at least C++11.
+
 cd icecream
 ./autogen.sh
 ./configure --prefix=/opt/icecream

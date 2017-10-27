@@ -337,9 +337,9 @@ int build_local(CompileJob &job, MsgChannel *local_daemon, struct rusage *used)
     if (color_output) {
         string s_ccout;
         char buf[250];
-        int r;
 
         for (;;) {
+	    int r;
             while ((r = read(pf[0], buf, sizeof(buf) - 1)) > 0) {
                 buf[r] = '\0';
                 s_ccout.append(buf);
