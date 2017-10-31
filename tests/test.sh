@@ -84,6 +84,19 @@ if test -n "$debug_fission_disabled"; then
     skipped_tests="$skipped_tests split-dwarf(g++)"
 fi
 
+coverage_disabled=
+$GXX -E -fprofile-arcs -ftest-coverage messages.cpp 2>/dev/null >/dev/null || coverage_disabled=1
+if test -n "$coverage_disabled"; then
+    skipped_tests="$skipped_tests coverage(g++)"
+fi
+
+save_temps_disabled=
+$GXX -E -save-temps=obj messages.cpp 2>/dev/null >/dev/null || save_temps_disabled=1
+if test -n "$save_temps_disabled"; then
+    skipped_tests="$skipped_tests save_temps(g++)"
+fi
+
+
 abort_tests()
 {
     for logfile in "$testdir"/*.log*; do
@@ -311,6 +324,20 @@ run_ice()
         split_dwarf=$(echo $output | sed 's/\.[^.]*//g').dwo
         shift
     fi
+    coverage=
+    if test "$1" = "coverage"; then
+        coverage=$(echo $output | sed 's/\.[^.]*//g').gcno
+        shift
+    fi
+    save_temps_s=
+    save_temps_i=
+    save_temps_ii=
+    if test "$1" = "save_temps"; then
+        save_temps_i=$(echo $output | sed 's/\.[^.]*//g').i
+        save_temps_ii=$(echo $output | sed 's/\.[^.]*//g').ii
+        save_temps_s=$(echo $output | sed 's/\.[^.]*//g').s
+        shift
+    fi
 
     if [[ $expected_exit -gt 128 ]]; then
         $@
@@ -327,6 +354,14 @@ run_ice()
     fi
     if test -n "$split_dwarf"; then
         mv "$split_dwarf" "$split_dwarf".localice
+    fi
+    if test -n "$coverage"; then
+        mv "$coverage" "$coverage".localice
+    fi
+    if test -n "$save_temps_s"; then
+        mv "$save_temps_s" "$save_temps_s".localice
+        mv "$save_temps_i" "$save_temps_i".localice 2>/dev/null
+        mv "$save_temps_ii" "$save_temps_ii".localice 2>/dev/null
     fi
     cat "$testdir"/stderr.localice >> "$testdir"/stderr.log
     flush_logs
@@ -354,6 +389,14 @@ run_ice()
         if test -n "$split_dwarf"; then
             mv "$split_dwarf" "$split_dwarf".remoteice
         fi
+	if test -n "$coverage"; then
+	    mv "$coverage" "$coverage".remoteice
+	fi
+	if test -n "$save_temps_s"; then
+	    mv "$save_temps_s" "$save_temps_s".remoteice
+	    mv "$save_temps_i" "$save_temps_i".remoteice 2>/dev/null
+	    mv "$save_temps_ii" "$save_temps_ii".remoteice 2>/dev/null
+	fi
         cat "$testdir"/stderr.remoteice >> "$testdir"/stderr.log
         flush_logs
         check_logs_for_generic_errors
@@ -461,6 +504,38 @@ run_ice()
             fi
         fi
     fi
+    # not sure how these differ? seems some prefix, so just test they exist
+    if test -n "$coverage"; then
+	if test -s "$coverage".localice; then
+            if test -z "$chroot_disabled"; then
+		if ! test -s "$coverage".remoteice; then
+		    echo "No coverage gcno file ($coverage.remoteice)"
+		    stop_ice 0
+		    abort_tests
+		fi
+	    fi
+	else
+	    echo "No coverage gcno file ($coverage.localice)"
+	    stop_ice 0
+	    abort_tests
+	fi
+    fi
+    # note thiese differ a bit based on the args passed to compiler
+    if test -n "$save_temps_s"; then
+	if test -s "$save_temps_s".localice; then
+            if test -z "$chroot_disabled"; then
+		if ! test -s "$save_temps_s".remoteice; then
+		    echo "No assembler file file ($save_temps_s.remoteice)"
+		    stop_ice 0
+		    abort_tests
+		fi
+	    fi
+	else
+	    echo "No assembler file file ($save_temps_s.localice)"
+	    stop_ice 0
+	    abort_tests
+	fi
+    fi
     if test $localice_exit -ne 0; then
         echo "Command failed as expected."
         echo
@@ -473,6 +548,14 @@ run_ice()
     fi
     if test -n "$split_dwarf"; then
         rm -f "$split_dwarf" "$split_dwarf".localice "$split_dwarf".remoteice "$split_dwarf".readelf.txt "$split_dwarf".local.readelf.txt "$split_dwarf".remote.readelf.txt
+    fi
+    if test -n "$coverage"; then
+        rm -f "$coverage" "$coverage".localice "$coverage".remoteice
+    fi
+    if test -n "$save_temps_s"; then
+        rm -f "$save_temps_s" "$save_temps_s".localice "$save_temps_s".remoteice
+        rm -f "$save_temps_i" "$save_temps_i".localice "$save_temps_i".remoteice 2</dev/null
+        rm -f "$save_temps_ii" "$save_temps_ii".localice "$save_temps_ii".remoteice 2</dev/null
     fi
     rm -f "$testdir"/stderr "$testdir"/stderr.localice "$testdir"/stderr.remoteice
 }
@@ -980,6 +1063,29 @@ fi
 if test -z "$debug_fission_disabled"; then
     run_ice "$testdir/plain.o" "remote" 0 "split_dwarf" $GXX -Wall -Werror -gsplit-dwarf -g -c plain.cpp -o "$testdir/"plain.o
 fi
+if test -z "$coverage_disabled"; then
+    run_ice "$testdir/plain.o" "remote" 0 "coverage" $GXX -Wall -Werror -fprofile-arcs -ftest-coverage -g -c plain.cpp -o "$testdir/"plain.o
+    run_ice "$testdir/plain.o" "remote" 0 "coverage" $GCC -Wall -Werror -fprofile-arcs -ftest-coverage -c plain.c -o "$testdir/"plain.o
+    run_ice "$testdir/plain.o" "remote" 0 "coverage" $GCC -Wall -Werror -fprofile-arcs -ftest-coverage -c plain.c -o "../../../../../../../..$testdir/plain.o"
+    if test -z "$debug_fission_disabled"; then
+	run_ice "$testdir/plain.o" "remote" 0 "split_dwarf" "coverage" $GXX -Wall -Werror -gsplit-dwarf -fprofile-arcs -ftest-coverage -g -c plain.cpp -o "$testdir/"plain.o
+    fi
+fi
+if test -z "$save_temps_disabled"; then
+    run_ice "$testdir/plain.o" "remote" 0 "save_temps" $GXX -Wall -Werror -save-temps=obj -g -c plain.cpp -o "$testdir/"plain.o
+    run_ice "$testdir/plain.o" "remote" 0 "save_temps" $GCC -Wall -Werror -save-temps=obj -c plain.c -o "$testdir/"plain.o
+    run_ice "$testdir/plain.o" "remote" 0 "save_temps" $GCC -Wall -Werror -save-temps=obj -c plain.c -o "../../../../../../../..$testdir/plain.o"
+    if test -z "$debug_fission_disabled"; then
+	run_ice "$testdir/plain.o" "remote" 0 "split_dwarf" "coverage" $GXX -Wall -Werror -gsplit-dwarf -fprofile-arcs -ftest-coverage -g -c plain.cpp -o "$testdir/"plain.o
+    fi
+    if test -z "$coverage_disabled"; then
+	run_ice "$testdir/plain.o" "remote" 0 "coverage" "save_temps" $GXX -Wall -Werror -fprofile-arcs -ftest-coverage -save-temps=obj -g -c plain.cpp -o "$testdir/"plain.o
+    fi
+fi
+if test -z "$debug_fission_disabled" &&  test -z "$coverage_disabled" && test -z "$save_temps_disabled"; then
+    run_ice "$testdir/plain.o" "remote" 0 "split_dwarf" "coverage" "save_temps" $GXX -Wall -Werror -gsplit-dwarf -fprofile-arcs -ftest-coverage -save-temps=obj -g -c plain.cpp -o "$testdir/"plain.o
+fi
+
 run_ice "$testdir/plain.o" "remote" 0 $GXX -Wall -Werror -c plain.cpp -o "$testdir/"plain.o
 
 if test -z "$debug_fission_disabled"; then

@@ -176,7 +176,6 @@ bool analyse_argv(const char * const *argv, CompileJob &job, bool icerun, list<s
 {
     ArgumentsList args;
     string ofile;
-    string dwofile;
 
 #if CLIENT_DEBUG > 1
     trace() << "scanning arguments" << endl;
@@ -195,6 +194,8 @@ bool analyse_argv(const char * const *argv, CompileJob &job, bool icerun, list<s
     bool seen_mf = false;
     bool seen_md = false;
     bool seen_split_dwarf = false;
+    bool seen_coverage = false;
+    bool seen_save_temps = false;
     // if rewriting includes and precompiling on remote machine, then cpp args are not local
     Argument_Type Arg_Cpp = compiler_only_rewrite_includes(job) ? Arg_Rest : Arg_Local;
 
@@ -328,12 +329,11 @@ bool analyse_argv(const char * const *argv, CompileJob &job, bool icerun, list<s
                 }
             } else if (!strcmp(a, "-S")) {
                 seen_s = true;
-            } else if (!strcmp(a, "-fprofile-arcs")
-                       || !strcmp(a, "-ftest-coverage")
-                       || !strcmp(a, "-frepo")
+            } else if (!strcmp(a, "-frepo")
                        || !strcmp(a, "-fprofile-generate")
                        || !strcmp(a, "-fprofile-use")
                        || !strcmp(a, "-save-temps")
+                       || !strcmp(a, "-save-temps=cwd")
                        || !strcmp(a, "--save-temps")
                        || !strcmp(a, "-fbranch-probabilities")) {
                 log_info() << "compiler will emit profile info (argument " << a << "); building locally" << endl;
@@ -341,6 +341,15 @@ bool analyse_argv(const char * const *argv, CompileJob &job, bool icerun, list<s
                 args.append(a, Arg_Local);
             } else if (!strcmp(a, "-gsplit-dwarf")) {
                 seen_split_dwarf = true;
+                args.append(a, Arg_Rest);
+            } else if (!strcmp(a, "-fprofile-arcs")
+                    || !strcmp(a, "-ftest-coverage")
+                    || !strcmp(a, "--coverage")) {
+                seen_coverage = true;
+                args.append(a, Arg_Rest);
+            } else if (!strcmp(a, "-save-temps=obj")) {
+                seen_save_temps = true;
+                args.append(a, Arg_Rest);
             } else if (str_equal(a, "-x")) {
                 args.append(a, Arg_Rest);
                 bool unsupported = true;
@@ -590,9 +599,6 @@ bool analyse_argv(const char * const *argv, CompileJob &job, bool icerun, list<s
         args.append("-S", Arg_Remote);
     } else {
         args.append("-c", Arg_Remote);
-        if (seen_split_dwarf) {
-            job.setDwarfFissionEnabled(true);
-        }
     }
 
     if (!always_local) {
@@ -720,6 +726,23 @@ bool analyse_argv(const char * const *argv, CompileJob &job, bool icerun, list<s
 
     job.setFlags(args);
     job.setOutputFile(ofile);
+    if (seen_split_dwarf) {
+        // need to do after the output file is set */
+        log_info() << "Seen SplitDwarf" << std::endl;
+        job.setExtraOutputFileEnum(CompileJob::eExFile_dwarfFission);
+    }
+    if (seen_coverage) {
+        // we really only need this to test if the return protocol will work
+        log_info() << "Seen Coverage" << std::endl;
+        job.setExtraOutputFileEnum(CompileJob::eExFile_coverage);
+    }
+    if (seen_save_temps) {
+        // we really only need this to test if the return protocol will work
+        log_info() << "Save save-temps=obj" << std::endl;
+        job.setExtraOutputFileEnum(CompileJob::eExFile_st_i);
+        job.setExtraOutputFileEnum(CompileJob::eExFile_st_ii);
+        job.setExtraOutputFileEnum(CompileJob::eExFile_st_s);
+    }
 
 #if CLIENT_DEBUG
     trace() << "scanned result: local args=" << concat_args(job.localFlags())

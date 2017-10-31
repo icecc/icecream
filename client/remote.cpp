@@ -590,16 +590,25 @@ static int build_remote_int(CompileJob &job, UseCSMsg *usecs, MsgChannel *local_
             }
         }
 
-        bool have_dwo_file = crmsg->have_dwo_file;
+        uint32_t extra_files = crmsg->extra_files;
+        //log_info() << "extra_files: " << extra_files << std::endl;
         delete crmsg;
 
         assert(!job.outputFile().empty());
 
         if (status == 0) {
             receive_file(job.outputFile(), cserver);
-            if (have_dwo_file) {
-                string dwo_output = job.outputFile().substr(0, job.outputFile().find_last_of('.')) + ".dwo";
-                receive_file(dwo_output, cserver);
+            uint32_t i(0);
+            while (extra_files)
+            {
+                ++i;
+                extra_files >>= 1;
+                if (extra_files & 0x01)
+                {
+                    std::string file(job.ExtraOutputFileEnum((CompileJob::ExFileEnum)i));
+                    log_info() << "get extra file [" << i << "] = " << file << std::endl;
+                    receive_file(file, cserver);
+                }
             }
         }
 
@@ -704,11 +713,10 @@ maybe_build_local(MsgChannel *local_daemon, UseCSMsg *usecs, CompileJob &job,
         struct stat st;
 
         msg.out_uncompressed = 0;
-        if (!stat(job.outputFile().c_str(), &st)) {
-            msg.out_uncompressed += st.st_size;
-        }
-        if (!stat((job.outputFile().substr(0, job.outputFile().find_last_of('.')) + ".dwo").c_str(), &st)) {
-            msg.out_uncompressed += st.st_size;
+        for (auto i : job.outputFiles()) {
+            if (stat(i.second.c_str(), &st)) {
+                msg.out_uncompressed += st.st_size;
+            }
         }
 
         msg.user_msec = ru.ru_utime.tv_sec * 1000 + ru.ru_utime.tv_usec / 1000;
@@ -738,6 +746,10 @@ static int minimalRemoteVersion( const CompileJob& job)
         version = max(version, 35);
     }
 
+    if (job.extraOutputEnabled()) {
+        version = max(version, 38);
+    }
+
     return version;
 }
 
@@ -746,7 +758,6 @@ int build_remote(CompileJob &job, MsgChannel *local_daemon, const Environments &
     srand(time(0) + getpid());
 
     int torepeat = 1;
-    bool has_split_dwarf = job.dwarfFissionEnabled();
 
     if (!compiler_is_clang(job)) {
         if (rand() % 1000 < permill) {
@@ -937,10 +948,9 @@ int build_remote(CompileJob &job, MsgChannel *local_daemon, const Environments &
                         if (-1 == ::unlink(jobs[0].outputFile().c_str())){
                             log_perror("unlink outputFile failed") << "\t" << jobs[0].outputFile() << endl;
                         }
-                        if (has_split_dwarf) {
-                            string dwo_file = jobs[0].outputFile().substr(0, jobs[0].outputFile().find_last_of('.')) + ".dwo";
-                            if (-1 == ::unlink(dwo_file.c_str())){
-                                log_perror("unlink failed") << "\t" << dwo_file << endl;
+                        for (auto it : job.outputFiles()) {
+                            if (-1 == ::unlink(it.second.c_str())){
+                                log_perror("unlink failed") << "\t" << it.second << endl;
                             }
                         }
                         exit_codes[0] = -1; // overwrite
@@ -958,45 +968,32 @@ int build_remote(CompileJob &job, MsgChannel *local_daemon, const Environments &
                         rename(jobs[0].outputFile().c_str(),
                                (jobs[0].outputFile() + ".caught").c_str());
                         rename(preproc, (string(preproc) + ".caught").c_str());
-                        if (has_split_dwarf) {
-                            string dwo_file = jobs[0].outputFile().substr(0, jobs[0].outputFile().find_last_of('.')) + ".dwo";
-                            rename(dwo_file.c_str(), (dwo_file + ".caught").c_str());
+                        for (auto it : job.outputFiles()) {
+                            rename(it.second.c_str(), (it.second + ".caught").c_str());
                         }
                         exit_codes[0] = -1; // overwrite
                         break;
                     }
                 }
 
-                if (-1 == ::unlink(jobs[i].outputFile().c_str())){
-                    log_perror("unlink failed") << "\t" << jobs[i].outputFile() << endl;
-                }
-                if (has_split_dwarf) {
-                    string dwo_file = jobs[i].outputFile().substr(0, jobs[i].outputFile().find_last_of('.')) + ".dwo";
-                    if (-1 == ::unlink(dwo_file.c_str())){
-                        log_perror("unlink failed") << "\t" << dwo_file << endl;
+                for (auto it : job.outputFiles()) {
+                    if (-1 == ::unlink(it.second.c_str())){
+                        log_perror("unlink failed") << "\t" << it.second << endl;
                     }
                 }
                 delete umsgs[i];
             }
         } else {
-            if (-1 == ::unlink(jobs[0].outputFile().c_str())){
-                log_perror("unlink failed") << "\t" << jobs[0].outputFile() << endl;
-            }
-            if (has_split_dwarf) {
-                string dwo_file = jobs[0].outputFile().substr(0, jobs[0].outputFile().find_last_of('.')) + ".dwo";
-                if (-1 == ::unlink(dwo_file.c_str())){
-                    log_perror("unlink failed") << "\t" << dwo_file << endl;
+            for (auto it : job.outputFiles()) {
+                if (-1 == ::unlink(it.second.c_str())){
+                    log_perror("unlink failed") << "\t" << it.second << endl;
                 }
             }
 
             for (int i = 1; i < torepeat; i++) {
-                if (-1 == ::unlink(jobs[i].outputFile().c_str())){
-                    log_perror("unlink failed") << "\t" << jobs[i].outputFile() << endl;
-                }
-                if (has_split_dwarf) {
-                    string dwo_file = jobs[i].outputFile().substr(0, jobs[i].outputFile().find_last_of('.')) + ".dwo";
-                    if (-1 == ::unlink(dwo_file.c_str())){
-                        log_perror("unlink failed") << "\t" << dwo_file << endl;
+                for (auto it : job.outputFiles()) {
+                    if (-1 == ::unlink(it.second.c_str())){
+                        log_perror("unlink failed") << "\t" << it.second << endl;
                     }
                 }
                 delete umsgs[i];

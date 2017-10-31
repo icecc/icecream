@@ -36,7 +36,7 @@
 #include "job.h"
 
 // if you increase the PROTOCOL_VERSION, add a macro below and use that
-#define PROTOCOL_VERSION 37
+#define PROTOCOL_VERSION 38
 // if you increase the MIN_PROTOCOL_VERSION, comment out macros below and clean up the code
 #define MIN_PROTOCOL_VERSION 21
 
@@ -62,6 +62,7 @@
 #define IS_PROTOCOL_35(c) ((c)->protocol >= 35)
 #define IS_PROTOCOL_36(c) ((c)->protocol >= 36)
 #define IS_PROTOCOL_37(c) ((c)->protocol >= 37)
+#define IS_PROTOCOL_38(c) ((c)->protocol >= 38)
 
 enum MsgType {
     // so far unknown
@@ -533,7 +534,8 @@ public:
         : Msg(M_COMPILE_RESULT)
         , status(0)
         , was_out_of_memory(false)
-        , have_dwo_file(false) {}
+        , have_dwo_file(false)
+        , extra_files(0) {}
 
     virtual void fill_from_channel(MsgChannel *c);
     virtual void send_to_channel(MsgChannel *c) const;
@@ -543,6 +545,7 @@ public:
     std::string err;
     bool was_out_of_memory;
     bool have_dwo_file;
+    uint32_t extra_files;
 };
 
 class JobBeginMsg : public Msg

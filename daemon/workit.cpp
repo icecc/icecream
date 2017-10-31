@@ -102,10 +102,6 @@ int work_it(CompileJob &j, unsigned int job_stat[], MsgChannel *client, CompileR
     std::list<string> list = j.remoteFlags();
     appendList(list, j.restFlags());
 
-    if (j.dwarfFissionEnabled()) {
-        list.push_back("-gsplit-dwarf");
-    }
-
     int sock_err[2];
     int sock_out[2];
     int sock_in[2];
@@ -246,21 +242,33 @@ int work_it(CompileJob &j, unsigned int job_stat[], MsgChannel *client, CompileR
         }
 
         bool hasPipe = false;
+        bool hasSaveTemps = false;
 
+        // we could ignore this, except the silly gcc-4.8 thing with the caret fails the tests due
+        // to having -pipe and -save-temps=obj
         for (std::list<string>::const_iterator it = list.begin();
                 it != list.end(); ++it) {
+            if (*it == "-save-temps=obj") {
+                hasSaveTemps = true;
+            }
+        }
+        for (std::list<string>::const_iterator it = list.begin();
+                it != list.end(); ++it) {
+            bool skip = false;
             if (*it == "-pipe") {
                 hasPipe = true;
+                skip = hasSaveTemps;
             }
-
-            argv[i++] = strdup(it->c_str());
+            if (!skip) {
+                argv[i++] = strdup(it->c_str());
+            }
         }
 
         if (!clang) {
             argv[i++] = strdup("-fpreprocessed");
         }
 
-        if (!hasPipe) {
+        if (!hasPipe && !hasSaveTemps) {
             argv[i++] = strdup("-pipe");
         }
 
