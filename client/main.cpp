@@ -173,7 +173,7 @@ static int create_native(char **args)
     char **extrafiles = args;
     string machine_name = determine_platform();
 
-    if (machine_name.find("Darwin") == 0)
+    if (machine_name.compare(0, 6, "Darwin") == 0)
         is_clang = true;
     // Args[0] may be a compiler or the first extra file.
     if (args[0] && ((!strcmp(args[0], "clang") && (is_clang = true))

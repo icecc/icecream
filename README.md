@@ -1,5 +1,6 @@
 [![Stories in Ready](https://badge.waffle.io/icecc/icecream.png?label=ready&title=Ready)](https://waffle.io/icecc/icecream)
 [![Build Status](https://travis-ci.org/icecc/icecream.svg?branch=master)](https://travis-ci.org/icecc/icecream)
+[![Codacy Badge](https://api.codacy.com/project/badge/Grade/d0fd9ba53b424b37964340970392eec2)](https://www.codacy.com/app/icecc/icecream?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=icecc/icecream&amp;utm_campaign=Badge_Grade)
 
 [Icecream](Icecream) was created by SUSE based on distcc. Like distcc,
 [Icecream](Icecream) takes compile jobs from a build and
@@ -577,7 +578,7 @@ Icecream on gentoo
 -------------------------------------------------------------------------------------
 
 -   It is recommended to remove all processor specific optimizations
-    from the CFLAGS line in /etc/make.conf. On the aKademy cluster it
+    from the CFLAGS line in /etc/portage/make.conf. On the aKademy cluster it
     proved useful to use only "-O2", otherwise there are often internal
     compiler errors, if not all computers have the same processor
     type/version

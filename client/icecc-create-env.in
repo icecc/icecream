@@ -6,10 +6,11 @@
 
 target_files=
 
-is_darwin=0
-if test `uname` = Darwin; then
-  is_darwin=1
-fi
+case `uname` in
+    "Darwin") is_darwin=1;;
+    "FreeBSD") is_freebsd=1;;
+    "Linux") is_linux=1;;
+esac
 
 usage ()
 {
@@ -272,6 +273,8 @@ if test -n "$gcc"; then
 
     search_addfile $added_gcc specs
     search_addfile $added_gcc liblto_plugin.so
+
+    objcopy=$($added_gcc -print-prog-name=objcopy)
 fi
 
 if test -n "$clang"; then
@@ -295,14 +298,19 @@ if test -n "$clang"; then
       destfile=$(echo $destfile | sed "s#$clangprefix#/usr#" )
       add_file "$file" "$destfile"
     done
+
+    objcopy=$($added_clang -print-prog-name=objcopy)
 fi
 
 for extrafile in $extrafiles; do
     add_file $extrafile
 done
 
-if [ -e /usr/bin/objcopy ]; then
-    add_file /usr/bin/objcopy
+if test "$objcopy" = "objcopy"; then
+    objcopy=/usr/bin/objcopy
+fi
+if [ -e "$objcopy" ]; then
+    add_file "$objcopy" /usr/bin/objcopy
 fi
 
 if test "$is_darwin" = 1; then
@@ -312,6 +320,10 @@ if test "$is_darwin" = 1; then
     add_file /usr/bin/g++
     real_file=`/usr/bin/as -micha -- < /dev/null 2>&1 | sed -n 's,^[^/]*\(/[^ :]*\).*,\1,p'`
     add_file $(abs_path "$real_file")
+fi
+
+if test "$is_freebsd" = 1; then
+    add_file /libexec/ld-elf.so.1
 fi
 
 # for ldconfig -r to work, ld.so.conf must not contain relative paths
@@ -353,7 +365,7 @@ for i in $target_files; do
   new_target_files="$new_target_files $target"
 done
 
-if test -x /sbin/ldconfig; then
+if test -x /sbin/ldconfig -a "$is_linux" = 1; then
    mkdir -p $tempdir/var/cache/ldconfig
    /sbin/ldconfig -r $tempdir
    new_target_files="$new_target_files etc/ld.so.cache"

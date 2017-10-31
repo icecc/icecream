@@ -405,7 +405,7 @@ void usage(const char *reason = 0)
         cerr << reason << endl;
     }
 
-    cerr << "usage: iceccd [-n <netname>] [-m <max_processes>] [--no-remote] [-w] [-d|--daemonize] [-l logfile] [-s <schedulerhost[:port]>]"
+    cerr << "usage: iceccd [-n <netname>] [-m <max_processes>] [--no-remote] [-d|--daemonize] [-l logfile] [-s <schedulerhost[:port]>]"
         " [-v[v[v]]] [-u|--user-uid <user_uid>] [-b <env-basedir>] [--cache-limit <MB>] [-N <node_name>]" << endl;
     exit(1);
 }
@@ -2065,7 +2065,7 @@ int main(int argc, char **argv)
             { 0, 0, 0, 0 }
         };
 
-        const int c = getopt_long(argc, argv, "N:n:m:l:s:whvdrb:u:p:", long_options, &option_index);
+        const int c = getopt_long(argc, argv, "N:n:m:l:s:hvdb:u:p:", long_options, &option_index);
 
         if (c == -1) {
             break;    // eoo

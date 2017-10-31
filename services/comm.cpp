@@ -989,7 +989,6 @@ Msg *MsgChannel::get_msg(int timeout)
 {
     Msg *m = 0;
     enum MsgType type;
-    uint32_t t;
 
     if (!wait_for_msg(timeout)) {
         trace() << "!wait_for_msg()\n";
@@ -1012,6 +1011,7 @@ Msg *MsgChannel::get_msg(int timeout)
     if (text_based) {
         type = M_TEXT;
     } else {
+        uint32_t t;
         *this >> t;
         type = (enum MsgType) t;
     }
