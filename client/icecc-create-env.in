@@ -15,7 +15,7 @@ esac
 usage ()
 {
     echo "usage: $0 --gcc <gcc_path> <g++_path>"
-    echo "usage: $0 --clang <clang_path>"
+    echo "usage: $0 --clang <clang_path> [compiler_wrapper]"
     echo "usage: Use --addfile <file> to add extra files."
 }
 
@@ -39,6 +39,7 @@ add_file ()
   # ls -H isn't really the same as readlink, but
   # readlink is not portable enough.
   path=`ls -H $path`
+  name="$(echo "$name" | sed -e 's|[^/]*/\.\./||g')" # attempt to resolve foo/../bar
   toadd="$name=$path"
   if test "$name" = "$path"; then
     toadd=$path
@@ -289,7 +290,7 @@ if test -n "$clang"; then
 
     # clang always uses its internal .h files
     clangincludes=$(dirname $($added_clang -print-file-name=include/limits.h))
-    clangprefix=$(dirname $(dirname $added_clang))
+    clangprefix=$(dirname $(dirname $(abs_path $added_clang)))
     for file in $(find $clangincludes -type f); do
       # get path without ..
       # readlink is not portable enough.
@@ -336,8 +337,23 @@ if test -f /etc/ld.so.conf; then
     fi
     echo "$directive $path"
   done </etc/ld.so.conf >$tmp_ld_so_conf
+
+  # Work around new directory layout for clang in ubuntu >= 16.10
+  if [ -n "$clangprefix" ]; then
+      echo "$clangprefix/lib" >> $tmp_ld_so_conf
+  fi
+
   add_file $tmp_ld_so_conf /etc/ld.so.conf
 fi
+
+for file in /etc/ld.so.conf.d/*.conf; do
+    if [ -e "$file" ]; then
+        add_file "$file"
+    else
+        # This can happen with a dangling symlink
+        echo "skipping non-existent file $file"
+    fi
+done
 
 # special case for weird multilib setups
 for dir in /lib /lib64 /usr/lib /usr/lib64; do
