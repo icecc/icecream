@@ -46,8 +46,8 @@
 #include <algorithm>
 #include <cassert>
 #include <fstream>
-#include <string>
 #include <stdio.h>
+#include <stdlib.h>
 #include <pwd.h>
 #include "../services/comm.h"
 #include "../services/logging.h"
@@ -99,6 +99,7 @@ static volatile sig_atomic_t exit_main_loop = false;
 time_t starttime;
 time_t last_announce;
 static unsigned int scheduler_port = 8765;
+static unsigned int min_protocol_ver = MIN_PROTOCOL_VERSION;
 
 // A subset of connected_hosts representing the compiler servers
 static list<CompileServer *> css;
@@ -1808,6 +1809,7 @@ static void usage(const char *reason = 0)
          << "  -l, --log-file <file>\n"
          << "  -d, --daemonize\n"
          << "  -u, --user-uid\n"
+         << "  -m, --min-protocol-ver <version>\n"
          << "  -v[v[v]]]\n"
          << "  -r, --persistent-client-connection\n"
          << endl;
@@ -1909,10 +1911,11 @@ int main(int argc, char *argv[])
             { "daemonize", 0, NULL, 'd'},
             { "log-file", 1, NULL, 'l'},
             { "user-uid", 1, NULL, 'u'},
+            { "min-protocol-ver", 1, NULL, 'm'},
             { 0, 0, 0, 0 }
         };
 
-        const int c = getopt_long(argc, argv, "n:p:hl:vdr:u:r:", long_options, &option_index);
+        const int c = getopt_long(argc, argv, "n:m:p:hl:vdr:u:r:", long_options, &option_index);
 
         if (c == -1) {
             break;    // eoo
@@ -1992,6 +1995,32 @@ int main(int argc, char *argv[])
             }
 
             break;
+        case 'm': {
+
+            short valid_protocol_ver = 0;
+
+            if (optarg && *optarg) {
+                min_protocol_ver = atoi(optarg);
+
+                if (min_protocol_ver >= MIN_PROTOCOL_VERSION &&
+                        min_protocol_ver <= PROTOCOL_VERSION) {
+                    valid_protocol_ver = 1;
+                }
+            }
+
+            if (!valid_protocol_ver) {
+                std::ostringstream protocol_errmsg;
+                protocol_errmsg <<
+                    "Error: -m requires a protocol version number between "
+                    << MIN_PROTOCOL_VERSION << " and " << PROTOCOL_VERSION;
+                usage(protocol_errmsg.str().c_str());
+            }
+
+            log_info() << "Setting minimum protocol version to "
+                       << min_protocol_ver << endl;
+
+            break;
+        }
 
         default:
             usage();
@@ -2274,7 +2303,7 @@ int main(int argc, char *argv[])
                 }
             }
             if (buflen == 1) {
-                if (buf[0] >= MIN_PROTOCOL_VERSION){
+                if (buf[0] >= min_protocol_ver) {
                     log_info() << "broadcast from " << inet_ntoa(broad_addr.sin_addr)
                         << ":" << ntohs(broad_addr.sin_port)
                         << " (version " << int(buf[0]) << ")\n";
@@ -2283,6 +2312,11 @@ int main(int argc, char *argv[])
                                 (struct sockaddr *) &broad_addr, broad_len) != reply_len) {
                         log_perror("sendto()");
                     }
+                } else {
+                    log_info() << "ignoring daemon using an old protocol version "
+                               << inet_ntoa(broad_addr.sin_addr)
+                               << ":" << ntohs(broad_addr.sin_port)
+                               << " (version " << int(buf[0]) << ")" << endl;
                 }
             }
             else if(buflen >= schedbuflen && buf[0] == 'I' && buf[1] == 'C' && buf[2] == 'E') {
