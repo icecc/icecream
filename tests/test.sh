@@ -977,27 +977,24 @@ if test -z "$chroot_disabled"; then
     make_test 2
 fi
 
-if test -z "$debug_fission_disabled"; then
-    run_ice "$testdir/plain.o" "remote" 0 "split_dwarf" $GXX -Wall -Werror -gsplit-dwarf -g -c plain.cpp -o "$testdir/"plain.o
-fi
 run_ice "$testdir/plain.o" "remote" 0 $GXX -Wall -Werror -c plain.cpp -o "$testdir/"plain.o
 
-if test -z "$debug_fission_disabled"; then
-    run_ice "$testdir/plain.o" "remote" 0 "split_dwarf" $GCC -Wall -Werror -gsplit-dwarf -c plain.c -o "$testdir/"plain.o
-    run_ice "$testdir/plain.o" "remote" 0 "split_dwarf" $GCC -Wall -Werror -gsplit-dwarf -c plain.c -o "../../../../../../../..$testdir/plain.o"
-fi
 run_ice "$testdir/plain.o" "remote" 0 $GCC -Wall -Werror -c plain.c -o "$testdir/"plain.o
 run_ice "$testdir/plain.o" "remote" 0 $GXX -Wall -Werror -c plain.cpp -O2 -o "$testdir/"plain.o
 run_ice "$testdir/plain.ii" "local" 0 $GXX -Wall -Werror -E plain.cpp -o "$testdir/"plain.ii
 run_ice "$testdir/includes.o" "remote" 0 $GXX -Wall -Werror -c includes.cpp -o "$testdir"/includes.o
 run_ice "$testdir/plain.o" "local" 0 $GXX -Wall -Werror -c plain.cpp -mtune=native -o "$testdir"/plain.o
 run_ice "$testdir/plain.o" "remote" 0 $GCC -Wall -Werror -x c++ -c plain -o "$testdir"/plain.o
-if test -z "$debug_fission_disabled"; then
-    run_ice "" "remote" 300 "split_dwarf" $GXX -gsplit-dwarf -c nonexistent.cpp
-fi
 
 run_ice "" "remote" 300 $GXX -c nonexistent.cpp
 run_ice "" "local" 0 /bin/true
+
+if test -z "$debug_fission_disabled"; then
+    run_ice "$testdir/plain.o" "remote" 0 "split_dwarf" $GXX -Wall -Werror -gsplit-dwarf -g -c plain.cpp -o "$testdir/"plain.o
+    run_ice "$testdir/plain.o" "remote" 0 "split_dwarf" $GCC -Wall -Werror -gsplit-dwarf -c plain.c -o "$testdir/"plain.o
+    run_ice "$testdir/plain.o" "remote" 0 "split_dwarf" $GCC -Wall -Werror -gsplit-dwarf -c plain.c -o "../../../../../../../..$testdir/plain.o"
+    run_ice "" "remote" 300 "split_dwarf" $GXX -gsplit-dwarf -c nonexistent.cpp
+fi
 
 if $GXX -E -fdiagnostics-show-caret messages.cpp >/dev/null 2>/dev/null; then
     # gcc stderr workaround, icecream will force a local recompile
