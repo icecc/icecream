@@ -86,7 +86,10 @@ fi
 
 abort_tests()
 {
-    for logfile in "$testdir"/*.log*; do
+    for logfile in "$testdir"/*.log; do
+        if [[ $logfile == *_all.log ]]; then
+            continue
+        fi
         echo "Log file: ${logfile}"
         cat ${logfile}
     done
