@@ -313,7 +313,7 @@ run_ice()
     fi
 
     if [[ $expected_exit -gt 128 ]]; then
-        $@
+        $@ 2>/dev/null
         expected_exit=$?
     fi
 
