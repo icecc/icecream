@@ -617,7 +617,7 @@ bool Daemon::setup_listen_fds()
             if(default_socket.length() > sizeof(myaddr.sun_path) - 1) {
                 log_error() << "default socket path too long for sun_path" << endl;	
             }
-            if (-1 == unlink(myaddr.sun_path)){
+            if (-1 == unlink(myaddr.sun_path) && errno != ENOENT){
                 log_perror("unlink failed") << "\t" << myaddr.sun_path << endl;
             }
             old_umask = umask(0);
@@ -630,7 +630,7 @@ bool Daemon::setup_listen_fds()
                 if(socket_path.length() > sizeof(myaddr.sun_path) - 1) {
                     log_error() << "$HOME/.iceccd.socket path too long for sun_path" << endl;
                 }
-                if (-1 == unlink(myaddr.sun_path)){
+                if (-1 == unlink(myaddr.sun_path) && errno != ENOENT){
                     log_perror("unlink failed") << "\t" << myaddr.sun_path << endl;
                 }
             } else {
@@ -645,7 +645,7 @@ bool Daemon::setup_listen_fds()
         if(test_socket.length() > sizeof(myaddr.sun_path) - 1) {
             log_error() << "$ICECC_TEST_SOCKET path too long for sun_path" << endl;
         }
-        if (-1 == unlink(myaddr.sun_path)){
+        if (-1 == unlink(myaddr.sun_path) && errno != ENOENT){
             log_perror("unlink failed") << "\t" << myaddr.sun_path << endl;
         }
     }
