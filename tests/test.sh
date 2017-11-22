@@ -860,7 +860,7 @@ reset_logs()
     shift
     # in case icecc.log or stderr.log don't exit, avoid error message
     touch "$testdir"/icecc.log "$testdir"/stderr.log
-    for log in scheduler localice remoteice1 remoteice2 icecc stderr; do
+    for log in scheduler localice remoteice1 remoteice2 icecc stderr iceccdstderr_localice iceccdstderr_remoteice1 iceccdstderr_remoteice2; do
         # save (append) previous log
         cat "$testdir"/${log}.log >> "$testdir"/${log}_all.log
         # and start a new one
@@ -957,12 +957,18 @@ rm -f "$testdir"/remoteice1_all.log
 rm -f "$testdir"/remoteice2_all.log
 rm -f "$testdir"/icecc_all.log
 rm -f "$testdir"/stderr_all.log
+rm -f "$testdir"/iceccdstderr_localice_all.log
+rm -f "$testdir"/iceccdstderr_remoteice1_all.log
+rm -f "$testdir"/iceccdstderr_remoteice2_all.log
 echo -n >"$testdir"/scheduler.log
 echo -n >"$testdir"/localice.log
 echo -n >"$testdir"/remoteice1.log
 echo -n >"$testdir"/remoteice2.log
 echo -n >"$testdir"/icecc.log
 echo -n >"$testdir"/stderr.log
+echo -n >"$testdir"/iceccdstderr_localice.log
+echo -n >"$testdir"/iceccdstderr_remoteice1.log
+echo -n >"$testdir"/iceccdstderr_remoteice2.log
 
 echo Starting icecream.
 stop_ice 2
