@@ -192,7 +192,7 @@ bool MsgChannel::update_state(void)
         if (instate != NEED_LEN) {
             break;
         }
-
+        // fallthrough
     case NEED_LEN:
 
         if (text_based) {
