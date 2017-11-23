@@ -1139,6 +1139,8 @@ if test -x $CLANGXX; then
         check_log_message stderr "warning: unused variable 'unused'"
         rm "$testdir"/messages.o
     else
+        echo Clang does not provide functional -frewrite-includes, skipping test.
+        echo
         skipped_tests="$skipped_tests clang_rewrite_includes"
     fi
 
