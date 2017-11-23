@@ -13,7 +13,7 @@ test-prepare:
 test-full: test-prepare
 	$(MAKE) test-run
 
-test-run:
+test-run: test-setup.sh
 	results=`realpath -s ${builddir}/results` && builddir2=`realpath -s ${builddir}` && cd ${srcdir} && ./test.sh ${prefix} $$results --builddir=$$builddir2
 
 # Automake's conditionals are dumb and adding 'test-run: clangplugin' would make it warn about
@@ -40,3 +40,5 @@ testargs_LDADD = ../client/libclient.a ../services/libicecc.la $(LIBRSYNC)
 
 check_PROGRAMS = testargs
 testargs_SOURCES = args.cpp
+
+check_SCRIPTS = test.sh test-setup.sh

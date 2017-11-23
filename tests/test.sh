@@ -5,7 +5,7 @@ testdir="$2"
 shift
 shift
 valgrind=
-builddir=
+builddir=.
 
 usage()
 {
@@ -32,6 +32,12 @@ while test -n "$1"; do
     esac
     shift
 done
+
+. $builddir/test-setup.sh
+if test $? -ne 0; then
+    echo Error sourcing test-setup.sh file, aborting.
+    exit 4
+fi
 
 icecc="${prefix}/bin/icecc"
 iceccd="${prefix}/sbin/iceccd"
@@ -508,8 +514,14 @@ make_test()
 
     echo Running make test $run_number.
     reset_logs remote "make test $run_number"
+    wrappers_path=$pkglibexecdir/bin
+    if ! test -x "$wrappers_path"/g++; then
+            echo "Cannot find $prefix/lib/icecc/bin/g++ , incorrect installation."
+            stop_ice 0
+            abort_tests
+    fi
     make -f Makefile.test OUTDIR="$testdir" clean -s
-    PATH="$prefix"/libexec/icecc/bin:/usr/local/bin:/usr/bin:/bin ICECC_TEST_SOCKET="$testdir"/socket-localice ICECC_TEST_REMOTEBUILD=1 ICECC_DEBUG=debug ICECC_LOGFILE="$testdir"/icecc.log make -f Makefile.test OUTDIR="$testdir" -j10 -s 2>>"$testdir"/stderr.log
+    PATH="$wrappers_path":/usr/local/bin:/usr/bin:/bin ICECC_TEST_SOCKET="$testdir"/socket-localice ICECC_TEST_REMOTEBUILD=1 ICECC_DEBUG=debug ICECC_LOGFILE="$testdir"/icecc.log make -f Makefile.test OUTDIR="$testdir" -j10 -s 2>>"$testdir"/stderr.log
     if test $? -ne 0 -o ! -x "$testdir"/maketest; then
         echo Make test $run_number failed.
         stop_ice 0
