@@ -414,13 +414,19 @@ run_ice()
         abort_tests
     fi
     if ! diff -q "$testdir"/stderr.localice "$testdir"/stderr; then
-        echo "Stderr mismatch ($"testdir"/stderr.localice)"
+        echo "Stderr mismatch ($testdir/stderr.localice)"
+        echo ================
+        diff -u "$testdir"/stderr "$testdir"/stderr.localice
+        echo ================
         stop_ice 0
         abort_tests
     fi
     if test -z "$chroot_disabled"; then
         if ! diff -q "$testdir"/stderr.remoteice "$testdir"/stderr; then
-            echo "Stderr mismatch ($"testdir"/stderr.remoteice)"
+            echo "Stderr mismatch ($testdir/stderr.remoteice)"
+            echo ================
+            diff -u "$testdir"/stderr "$testdir"/stderr.remoteice
+            echo ================
             stop_ice 0
             abort_tests
         fi
@@ -442,6 +448,9 @@ run_ice()
                 -e "$remove_size_of_area" > "$output".local.readelf.txt || cp "$output" "$output".local.readelf.txt
             if ! diff -q "$output".local.readelf.txt "$output".readelf.txt; then
                 echo "Output mismatch ($output.localice)"
+                echo ================
+                diff -u "$output".readelf.txt "$output".local.readelf.txt
+                echo ================
                 stop_ice 0
                 abort_tests
             fi
@@ -452,6 +461,9 @@ run_ice()
                     -e "$remove_size_of_area" > "$output".remote.readelf.txt || cp "$output" "$output".remote.readelf.txt
                 if ! diff -q "$output".remote.readelf.txt "$output".readelf.txt; then
                     echo "Output mismatch ($output.remoteice)"
+                    echo ================
+                    diff -u "$output".readelf.txt "$output".remote.readelf.txt
+                    echo ================
                     stop_ice 0
                     abort_tests
                 fi
@@ -459,12 +471,18 @@ run_ice()
         else
             if ! diff -q "$output".localice "$output"; then
                 echo "Output mismatch ($output.localice)"
+                echo ================
+                diff -u "$output" "$output".localice
+                echo ================
                 stop_ice 0
                 abort_tests
             fi
             if test -z "$chroot_disabled"; then
                 if ! diff -q "$output".remoteice "$output"; then
                     echo "Output mismatch ($output.remoteice)"
+                    echo ================
+                    diff -u "$output" "$output".remoteice
+                    echo ================
                     stop_ice 0
                     abort_tests
                 fi
@@ -478,6 +496,9 @@ run_ice()
             sed -e $remove_debug_info -e "$remove_offset_number" > "$split_dwarf".local.readelf.txt || cp "$split_dwarf" "$split_dwarf".local.readelf.txt
         if ! diff -q "$split_dwarf".local.readelf.txt "$split_dwarf".readelf.txt; then
             echo "Output DWO mismatch ($split_dwarf.localice)"
+            echo ====================
+            diff -u "$split_dwarf".readelf.txt "$split_dwarf".local.readelf.txt
+            echo ====================
             stop_ice 0
             abort_tests
         fi
@@ -486,6 +507,9 @@ run_ice()
                 sed -e "$remove_debug_info" -e "$remove_offset_number" > "$split_dwarf".remote.readelf.txt || cp "$split_dwarf" "$split_dwarf".remote.readelf.txt
             if ! diff -q "$split_dwarf".remote.readelf.txt "$split_dwarf".readelf.txt; then
                 echo "Output DWO mismatch ($split_dwarf.remoteice)"
+                echo ====================
+                diff -u "$split_dwarf".readelf.txt "$split_dwarf".remote.readelf.txt
+                echo ====================
                 stop_ice 0
                 abort_tests
             fi
@@ -791,11 +815,17 @@ debug_test()
 
     if ! diff -q "$testdir"/debug-output-local.txt "$testdir"/debug-output-remote.txt ; then
         echo Gdb output different.
+        echo =====================
+        diff -u "$testdir"/debug-output-local.txt "$testdir"/debug-output-remote.txt
+        echo =====================
         stop_ice 0
         abort_tests
     fi
     if ! diff -q "$testdir"/readelf-local.txt "$testdir"/readelf-remote.txt ; then
         echo Readelf output different.
+        echo =====================
+        diff -u "$testdir"/readelf-local.txt "$testdir"/readelf-remote.txt
+        echo =====================
         stop_ice 0
         abort_tests
     fi
