@@ -36,7 +36,7 @@ clangplugin: ${builddir}/clangplugin.so
 # in configure (and it is, as icecream uses static libs). So just do it manually. If this matters
 # for anybody, feel free to do this in a better way.
 ${builddir}/clangplugin.so: clangplugin.cpp
-	$(CXX) -shared -fPIC -o $@ $^ -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -D__STDC_LIMIT_MACROS -fno-rtti
+	$(CLANGXX) -shared -fPIC -o $@ $^ $(LLVM_CXXFLAGS)
 
 clean: clean-clangplugin
 

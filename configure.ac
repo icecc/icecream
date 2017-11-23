@@ -226,15 +226,35 @@ else
 fi
 
 HAVE_CLANG_DEVEL_DEP=
-AC_CHECK_PROG(CLANG,clang,clang)
-AC_LANG_PUSH([C++])
-save_CPPFLAGS=$CPPFLAGS
-CPPFLAGS="$CPPFLAGS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -D__STDC_LIMIT_MACROS"
-AC_CHECK_HEADER(clang/AST/RecursiveASTVisitor.h,
-    [ HAVE_CLANG_DEVEL_DEP=clangplugin ] )
-CPPFLAGS="$save_CPPFLAGS"
-AC_LANG_POP([C++])
+CLANGXX=
+LLVM_CXXFLAGS=
+AC_CHECK_PROG(CLANGXX,clang++,clang++)
+if test -n "$CLANGXX"; then
+    AC_MSG_CHECKING([Clang version])
+    clang_version=`$CLANGXX --version`
+    AC_MSG_RESULT([$clang_version])
+    AC_CHECK_PROG(LLVM_CONFIG,llvm-config,llvm-config)
+    LLVM_CXXFLAGS="-D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -D__STDC_LIMIT_MACROS"
+    if test -n "$LLVM_CONFIG"; then
+        LLVM_CXXFLAGS=`$LLVM_CONFIG --cxxflags`
+    fi
+    AC_LANG_PUSH([C++])
+    save_CPPFLAGS=$CPPFLAGS
+    save_CXXCPP=$CXXCPP
+    save_CXX=$CXX
+    CPPFLAGS="$CPPFLAGS $LLVM_CXXFLAGS"
+    CXXCPP="$CLANGXX -E"
+    CXX=$CLANGXX
+    AC_CHECK_HEADER(clang/AST/RecursiveASTVisitor.h,
+        [ HAVE_CLANG_DEVEL_DEP=clangplugin ] )
+    CPPFLAGS="$save_CPPFLAGS"
+    CXXCPP="$save_CXXCPP"
+    CXX="$save_CXX"
+    AC_LANG_POP([C++])
+fi
 AC_SUBST(HAVE_CLANG_DEVEL_DEP)
+AC_SUBST(CLANGXX)
+AC_SUBST(LLVM_CXXFLAGS)
 
 AC_ARG_ENABLE(clang-wrappers,
     AS_HELP_STRING([--enable-clang-wrappers],
