@@ -73,3 +73,4 @@ addons:
     - liblzo2-dev
     - docbook2x
     - realpath
+    - gdb
