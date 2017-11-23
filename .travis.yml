@@ -1,6 +1,9 @@
 language: cpp
 
 script:
+# Only the clang(-3.4) package provide /usr/bin/clang, but this path is hardcoded in icecream.
+# So for now make icecream use this newer version.
+  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then sudo ln -s /usr/bin/clang-3.9 /usr/bin/clang; sudo ln -s /usr/bin/clang++-3.9 /usr/bin/clang++; export LLVM_CONFIG=/usr/bin/llvm-config-3.9; fi
   - ./autogen.sh
   - ./configure --prefix=$PWD/_inst
   - make
@@ -67,7 +70,9 @@ before_script:
 addons:
   apt:
     packages:
-    - clang
+    - clang-3.9
+    - libclang-3.9-dev
+    - llvm-3.9-dev
     - libcap-ng-dev
     - libcap-ng-utils
     - liblzo2-dev
