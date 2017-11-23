@@ -2,3 +2,7 @@
 
 # Needed for locating our compiler wrapper symlinks.
 pkglibexecdir=@PKGLIBEXECDIR@
+
+# Hardcoded paths to the actual compilers.
+CLANG=@CLANG@
+CLANGXX=@CLANGXX@
