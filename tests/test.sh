@@ -416,28 +416,43 @@ run_ice()
     local remove_debug_pubnames="/^\s*Offset\s*Name/,/^\s*$/s/\s*[A-Fa-f0-9]*\s*//"
     local remove_size_of_area="s/\(Size of area in.*section:\)\s*[0-9]*/\1/g"
     if test -n "$output"; then
-        readelf -wlLiaprmfFoRt "$output" | sed -e "$remove_debug_info" \
-            -e "$remove_offset_number" \
-            -e "$remove_debug_pubnames" \
-            -e "$remove_size_of_area" > "$output".readelf.txt || cp "$output" "$output".readelf.txt
-        readelf -wlLiaprmfFoRt "$output".localice | sed -e "$remove_debug_info" \
-            -e "$remove_offset_number" \
-            -e "$remove_debug_pubnames" \
-            -e "$remove_size_of_area" > "$output".local.readelf.txt || cp "$output" "$output".local.readelf.txt
-        if ! diff -q "$output".local.readelf.txt "$output".readelf.txt; then
-            echo "Output mismatch ($output.localice)"
-            stop_ice 0
-            abort_tests
-        fi
-        if test -z "$chroot_disabled"; then
-            readelf -wlLiaprmfFoRt "$output".remoteice | sed -e "$remove_debug_info" \
+        if grep -q ELF "$output"; then
+            readelf -wlLiaprmfFoRt "$output" | sed -e "$remove_debug_info" \
                 -e "$remove_offset_number" \
                 -e "$remove_debug_pubnames" \
-                -e "$remove_size_of_area" > "$output".remote.readelf.txt || cp "$output" "$output".remote.readelf.txt
-            if ! diff -q "$output".remote.readelf.txt "$output".readelf.txt; then
-                echo "Output mismatch ($output.remoteice)"
+                -e "$remove_size_of_area" > "$output".readelf.txt || cp "$output" "$output".readelf.txt
+            readelf -wlLiaprmfFoRt "$output".localice | sed -e "$remove_debug_info" \
+                -e "$remove_offset_number" \
+                -e "$remove_debug_pubnames" \
+                -e "$remove_size_of_area" > "$output".local.readelf.txt || cp "$output" "$output".local.readelf.txt
+            if ! diff -q "$output".local.readelf.txt "$output".readelf.txt; then
+                echo "Output mismatch ($output.localice)"
                 stop_ice 0
                 abort_tests
+            fi
+            if test -z "$chroot_disabled"; then
+                readelf -wlLiaprmfFoRt "$output".remoteice | sed -e "$remove_debug_info" \
+                    -e "$remove_offset_number" \
+                    -e "$remove_debug_pubnames" \
+                    -e "$remove_size_of_area" > "$output".remote.readelf.txt || cp "$output" "$output".remote.readelf.txt
+                if ! diff -q "$output".remote.readelf.txt "$output".readelf.txt; then
+                    echo "Output mismatch ($output.remoteice)"
+                    stop_ice 0
+                    abort_tests
+                fi
+            fi
+        else
+            if ! diff -q "$output".localice "$output"; then
+                echo "Output mismatch ($output.localice)"
+                stop_ice 0
+                abort_tests
+            fi
+            if test -z "$chroot_disabled"; then
+                if ! diff -q "$output".remoteice "$output"; then
+                    echo "Output mismatch ($output.remoteice)"
+                    stop_ice 0
+                    abort_tests
+                fi
             fi
         fi
     fi
