@@ -6,9 +6,8 @@ test-strict: test-full-strict
 
 test-prepare:
 	if test -x /sbin/setcap; then \
-	    sudo /sbin/setcap cap_sys_chroot+ep ${builddir}/../daemon/iceccd cap_sys_chroot+ep ${sbindir}/iceccd ; \
+	    sudo /sbin/setcap cap_sys_chroot+ep ${sbindir}/iceccd ; \
 	elif which filecap >/dev/null 2>/dev/null; then \
-	    sudo filecap ${builddir}/../daemon/iceccd sys_chroot ; \
 	    sudo filecap ${sbindir}/iceccd sys_chroot ; \
 	else \
 	    exit 1 ; \

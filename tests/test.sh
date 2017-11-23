@@ -46,11 +46,6 @@ fi
 icecc="${prefix}/bin/icecc"
 iceccd="${prefix}/sbin/iceccd"
 icecc_scheduler="${prefix}/sbin/icecc-scheduler"
-if [[ -n "${builddir}" ]]; then
-    icecc="${builddir}/../client/icecc"
-    iceccd="${builddir}/../daemon/iceccd"
-    icecc_scheduler="${builddir}/../scheduler/icecc-scheduler"
-fi
 
 if test -z "$prefix" -o ! -x "$icecc"; then
     usage
@@ -732,14 +727,6 @@ clangplugintest()
 # 2nd argument is first line of debug at which to start comparing.
 debug_test()
 {
-    # debug tests fail when the daemon is not running in the install directory
-    # Sanitizers will not give good output on error as a result
-    kill_daemon localice
-    ICECC_TEST_SOCKET="$testdir"/socket-localice $valgrind "${prefix}/sbin/iceccd" -s localhost:8767 -b "$testdir"/envs-localice -l "$testdir"/localice.log -N localice  -v -v -v --no-remote -m 2 &
-    localice_pid=$!
-    echo ${localice_pid} > "$testdir"/${localice}.pid
-    wait_for_proc_sleep 10 $localice_pid
-
     compiler="$1"
     args="$2"
     cmd="$1 $2"
@@ -832,10 +819,6 @@ debug_test()
 
     echo Debug test successful.
     echo
-
-    # restart local daemon to the as built one
-    kill_daemon localice
-    start_iceccd localice --no-remote -m 2
 }
 
 zero_local_jobs_test()
