@@ -308,7 +308,9 @@ run_ice()
     fi
     split_dwarf=
     if test "$1" = "split_dwarf"; then
-        split_dwarf=$(echo $output | sed 's/\.[^.]*//g').dwo
+        if test -n "$output"; then
+            split_dwarf=$(echo $output | sed 's/\.[^.]*//g').dwo
+        fi
         shift
     fi
 
