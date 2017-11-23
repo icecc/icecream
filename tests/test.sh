@@ -499,10 +499,8 @@ make_test()
     # make test - actually try something somewhat realistic. Since each node is set up to serve
     # only 2 jobs max, at least some of the 10 jobs should be built remotely.
 
-    # All the test compiles are small, and should produce small .o files, which will make the scheduler
-    # stats for those jobs, so it will not actually have any statistics about nodes (make_test is intentionally
-    # run early to ensure this). So run the test once, first time without stats, second time with stats
-    # (make.h has large data to ensure the first make_test run will finally produce statistics).
+    # The test is run twice to select different code paths in the scheduler (first time there are no
+    # job statistics about nodes, but they will be created for the second run).
     run_number=$1
 
     echo Running make test $run_number.
@@ -995,11 +993,6 @@ check_logs_for_generic_errors
 echo Starting icecream successful.
 echo
 
-if test -z "$chroot_disabled"; then
-    make_test 1
-    make_test 2
-fi
-
 run_ice "$testdir/plain.o" "remote" 0 $GXX -Wall -Werror -c plain.cpp -o "$testdir/"plain.o
 
 run_ice "$testdir/plain.o" "remote" 0 $GCC -Wall -Werror -c plain.c -o "$testdir/"plain.o
@@ -1050,6 +1043,20 @@ fi
 icerun_test
 
 recursive_test
+
+if test -z "$chroot_disabled"; then
+    # stop the scheduler, to ensure the first make run has no job statistics
+    echo Restarting icecream.
+    reset_logs local "Restarting"
+    stop_ice 1
+    start_ice
+    check_logs_for_generic_errors
+    echo Restarting icecream successful.
+    make_test 1
+    make_test 2
+else
+    skipped_tests="$skipped_tests make_test"
+fi
 
 if test -z "$chroot_disabled"; then
     zero_local_jobs_test
