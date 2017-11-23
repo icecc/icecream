@@ -6,10 +6,11 @@ shift
 shift
 valgrind=
 builddir=.
+strict=
 
 usage()
 {
-    echo Usage: "$0 <install_prefix> <testddir> [--builddir=dir] [--valgrind[=command]]"
+    echo Usage: "$0 <install_prefix> <testddir> [--builddir=dir] [--valgrind[=command]] [--strict]"
     exit 3
 }
 
@@ -25,6 +26,9 @@ while test -n "$1"; do
             ;;
         --builddir=*)
             builddir=`echo $1 | sed 's/^--builddir=//'`
+            ;;
+        --strict)
+            strict=1
             ;;
         *)
             usage
@@ -1154,8 +1158,15 @@ if test -n "$valgrind"; then
 fi
 
 if test -n "$skipped_tests"; then
-    echo "All tests OK, some were skipped:$skipped_tests"
-    echo =============
+    if test -n "$strict"; then
+        echo "All executed tests passed, but some were skipped:$skipped_tests"
+        echo "Strict mode enabled, failing."
+        echo ==================================================
+        exit 1
+    else
+        echo "All tests OK, some were skipped:$skipped_tests"
+        echo =================================
+    fi
 else
     echo All tests OK.
     echo =============
