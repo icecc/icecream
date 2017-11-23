@@ -30,6 +30,7 @@ test-run-strict: test-setup.sh
 test-run: @HAVE_CLANG_DEVEL_DEP@
 test-run-strict: @HAVE_CLANG_DEVEL_DEP@
 
+.PHONY: clangplugin
 clangplugin: ${builddir}/clangplugin.so
 
 # It appears there's no way to force libtool to create a shared library if AC_DISABLE_SHARED is used
