@@ -202,21 +202,8 @@ There is no known workaround, either disable `-Werror` or fix the code.
 
 ### clang tries to read /proc/cpuinfo and fails
 
-This is a bug in clang 4.0. https://bugs.llvm.org/show_bug.cgi?id=33008 
-It should be fixed in the future, but if you have a broken release you can work around this by
-creating a custom environment and adding /proc/cpuinfo to it.
-
-```
-/usr/lib/icecc/icecc-create-env --clang /usr/bin/clang /usr/lib/icecc/compilerwrapper --addfile /proc/cpuinfo
-```
-
-Do not apply this work around if you do not need it. /proc/cpuinfo is machine specific so and this work 
-around will place wrong information in it. In the case of the bug in clang 4.0 this file is checked for 
-existence but the contents are not actually used, but it is possible future versions of clang/gcc will use
-this file if it exists for something else.
-
-see [Using icecream in heterogeneous environments](#using-icecream-in-heterogeneous-environments) 
-for more information on using icecc-create-env.
+This is a problem of clang 4.0 and newer: https://bugs.llvm.org/show_bug.cgi?id=33008 
+The most recent Icecream version works around this problem.
 
 Supported platforms
 ---------------------------------------------------------------------------------------

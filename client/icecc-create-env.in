@@ -299,6 +299,14 @@ if test -n "$clang"; then
 
     add_file $($added_clang -print-prog-name=as) /usr/bin/as
 
+    # HACK: Clang4.0 and later access /proc/cpuinfo and report an error when they fail
+    # to find it, even if they use a fallback mechanism, making the error useless
+    # (at least in this case). Since the file is not really needed, create a fake one.
+    mkdir $tempdir/fakeproc
+    mkdir $tempdir/fakeproc/proc
+    touch $tempdir/fakeproc/proc/cpuinfo
+    add_file $tempdir/fakeproc/proc/cpuinfo /proc/cpuinfo
+
     # clang always uses its internal .h files
     clangincludes=$(dirname $($added_clang -print-file-name=include/limits.h))
     clangprefix=$(dirname $(dirname $added_clang))
