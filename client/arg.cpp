@@ -495,6 +495,8 @@ bool analyse_argv(const char * const *argv, CompileJob &job, bool icerun, list<s
                        || str_equal("-MG", a)
                        || str_equal("-MP", a)) {
                 args.append(a, Arg_Local);
+            } else if (str_equal("-Wmissing-include-dirs", a)) {
+                args.append(a, Arg_Local);
             } else if (str_equal("-fno-color-diagnostics", a)) {
                 explicit_color_diagnostics = true;
                 args.append(a, Arg_Rest);
