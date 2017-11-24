@@ -17,3 +17,5 @@ dist-hook:
 
 test: install
 	$(MAKE) -C tests $@
+test-strict: install
+	$(MAKE) -C tests $@

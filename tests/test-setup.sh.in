@@ -1,0 +1,4 @@
+# Sourced by test.sh , not to be used directly.
+
+# Needed for locating our compiler wrapper symlinks.
+pkglibexecdir=@PKGLIBEXECDIR@

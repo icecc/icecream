@@ -28,6 +28,16 @@ is_contained ()
   esac
 }
 
+# Avoid /../ components in paths such as /usr/X11/../lib64 .
+# This could use realpath, but that's reportedly not that widely available.
+convert_path_cdup ()
+{
+  local filename="$1"
+  local directory=`dirname $filename`
+  local fixed_directory=`cd "$directory" >/dev/null && pwd -P`
+  echo ${fixed_directory}/`basename $filename`
+}
+
 add_file ()
 {
   local name="$1"
@@ -39,6 +49,8 @@ add_file ()
   # ls -H isn't really the same as readlink, but
   # readlink is not portable enough.
   path=`ls -H $path`
+  name=`convert_path_cdup $name`
+  path=`convert_path_cdup $path`
   toadd="$name=$path"
   if test "$name" = "$path"; then
     toadd=$path
@@ -286,6 +298,14 @@ if test -n "$clang"; then
     add_file $added_compilerwrapper /usr/bin/g++
 
     add_file $($added_clang -print-prog-name=as) /usr/bin/as
+
+    # HACK: Clang4.0 and later access /proc/cpuinfo and report an error when they fail
+    # to find it, even if they use a fallback mechanism, making the error useless
+    # (at least in this case). Since the file is not really needed, create a fake one.
+    mkdir $tempdir/fakeproc
+    mkdir $tempdir/fakeproc/proc
+    touch $tempdir/fakeproc/proc/cpuinfo
+    add_file $tempdir/fakeproc/proc/cpuinfo /proc/cpuinfo
 
     # clang always uses its internal .h files
     clangincludes=$(dirname $($added_clang -print-file-name=include/limits.h))

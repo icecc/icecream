@@ -2352,7 +2352,7 @@ int main(int argc, char *argv[])
     if ((-1 == close(broad_fd)) && (errno != EBADF)){
         log_perror("close failed");
     }
-    if (-1 == unlink(pidFilePath.c_str())){
+    if (-1 == unlink(pidFilePath.c_str()) && errno != ENOENT){
         log_perror("unlink failed") << "\t" << pidFilePath << endl;
     }
     return 0;

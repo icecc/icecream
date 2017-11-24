@@ -5,11 +5,12 @@ testdir="$2"
 shift
 shift
 valgrind=
-builddir=
+builddir=.
+strict=
 
 usage()
 {
-    echo Usage: "$0 <install_prefix> <testddir> [--builddir=dir] [--valgrind[=command]]"
+    echo Usage: "$0 <install_prefix> <testddir> [--builddir=dir] [--valgrind[=command]] [--strict]"
     exit 3
 }
 
@@ -26,12 +27,21 @@ while test -n "$1"; do
         --builddir=*)
             builddir=`echo $1 | sed 's/^--builddir=//'`
             ;;
+        --strict)
+            strict=1
+            ;;
         *)
             usage
             ;;
     esac
     shift
 done
+
+. $builddir/test-setup.sh
+if test $? -ne 0; then
+    echo Error sourcing test-setup.sh file, aborting.
+    exit 4
+fi
 
 icecc="${prefix}/bin/icecc"
 iceccd="${prefix}/sbin/iceccd"
@@ -86,7 +96,10 @@ fi
 
 abort_tests()
 {
-    for logfile in "$testdir"/*.log*; do
+    for logfile in "$testdir"/*.log; do
+        if [[ $logfile == *_all.log ]]; then
+            continue
+        fi
         echo "Log file: ${logfile}"
         cat ${logfile}
     done
@@ -308,12 +321,14 @@ run_ice()
     fi
     split_dwarf=
     if test "$1" = "split_dwarf"; then
-        split_dwarf=$(echo $output | sed 's/\.[^.]*//g').dwo
+        if test -n "$output"; then
+            split_dwarf=$(echo $output | sed 's/\.[^.]*//g').dwo
+        fi
         shift
     fi
 
     if [[ $expected_exit -gt 128 ]]; then
-        $@
+        $@ 2>/dev/null
         expected_exit=$?
     fi
 
@@ -399,13 +414,19 @@ run_ice()
         abort_tests
     fi
     if ! diff -q "$testdir"/stderr.localice "$testdir"/stderr; then
-        echo "Stderr mismatch ($"testdir"/stderr.localice)"
+        echo "Stderr mismatch ($testdir/stderr.localice)"
+        echo ================
+        diff -u "$testdir"/stderr "$testdir"/stderr.localice
+        echo ================
         stop_ice 0
         abort_tests
     fi
     if test -z "$chroot_disabled"; then
         if ! diff -q "$testdir"/stderr.remoteice "$testdir"/stderr; then
-            echo "Stderr mismatch ($"testdir"/stderr.remoteice)"
+            echo "Stderr mismatch ($testdir/stderr.remoteice)"
+            echo ================
+            diff -u "$testdir"/stderr "$testdir"/stderr.remoteice
+            echo ================
             stop_ice 0
             abort_tests
         fi
@@ -416,28 +437,55 @@ run_ice()
     local remove_debug_pubnames="/^\s*Offset\s*Name/,/^\s*$/s/\s*[A-Fa-f0-9]*\s*//"
     local remove_size_of_area="s/\(Size of area in.*section:\)\s*[0-9]*/\1/g"
     if test -n "$output"; then
-        readelf -wlLiaprmfFoRt "$output" | sed -e "$remove_debug_info" \
-            -e "$remove_offset_number" \
-            -e "$remove_debug_pubnames" \
-            -e "$remove_size_of_area" > "$output".readelf.txt || cp "$output" "$output".readelf.txt
-        readelf -wlLiaprmfFoRt "$output".localice | sed -e "$remove_debug_info" \
-            -e "$remove_offset_number" \
-            -e "$remove_debug_pubnames" \
-            -e "$remove_size_of_area" > "$output".local.readelf.txt || cp "$output" "$output".local.readelf.txt
-        if ! diff -q "$output".local.readelf.txt "$output".readelf.txt; then
-            echo "Output mismatch ($output.localice)"
-            stop_ice 0
-            abort_tests
-        fi
-        if test -z "$chroot_disabled"; then
-            readelf -wlLiaprmfFoRt "$output".remoteice | sed -e "$remove_debug_info" \
+        if grep -q ELF "$output"; then
+            readelf -wlLiaprmfFoRt "$output" | sed -e "$remove_debug_info" \
                 -e "$remove_offset_number" \
                 -e "$remove_debug_pubnames" \
-                -e "$remove_size_of_area" > "$output".remote.readelf.txt || cp "$output" "$output".remote.readelf.txt
-            if ! diff -q "$output".remote.readelf.txt "$output".readelf.txt; then
-                echo "Output mismatch ($output.remoteice)"
+                -e "$remove_size_of_area" > "$output".readelf.txt || cp "$output" "$output".readelf.txt
+            readelf -wlLiaprmfFoRt "$output".localice | sed -e "$remove_debug_info" \
+                -e "$remove_offset_number" \
+                -e "$remove_debug_pubnames" \
+                -e "$remove_size_of_area" > "$output".local.readelf.txt || cp "$output" "$output".local.readelf.txt
+            if ! diff -q "$output".local.readelf.txt "$output".readelf.txt; then
+                echo "Output mismatch ($output.localice)"
+                echo ================
+                diff -u "$output".readelf.txt "$output".local.readelf.txt
+                echo ================
                 stop_ice 0
                 abort_tests
+            fi
+            if test -z "$chroot_disabled"; then
+                readelf -wlLiaprmfFoRt "$output".remoteice | sed -e "$remove_debug_info" \
+                    -e "$remove_offset_number" \
+                    -e "$remove_debug_pubnames" \
+                    -e "$remove_size_of_area" > "$output".remote.readelf.txt || cp "$output" "$output".remote.readelf.txt
+                if ! diff -q "$output".remote.readelf.txt "$output".readelf.txt; then
+                    echo "Output mismatch ($output.remoteice)"
+                    echo ================
+                    diff -u "$output".readelf.txt "$output".remote.readelf.txt
+                    echo ================
+                    stop_ice 0
+                    abort_tests
+                fi
+            fi
+        else
+            if ! diff -q "$output".localice "$output"; then
+                echo "Output mismatch ($output.localice)"
+                echo ================
+                diff -u "$output" "$output".localice
+                echo ================
+                stop_ice 0
+                abort_tests
+            fi
+            if test -z "$chroot_disabled"; then
+                if ! diff -q "$output".remoteice "$output"; then
+                    echo "Output mismatch ($output.remoteice)"
+                    echo ================
+                    diff -u "$output" "$output".remoteice
+                    echo ================
+                    stop_ice 0
+                    abort_tests
+                fi
             fi
         fi
     fi
@@ -448,6 +496,9 @@ run_ice()
             sed -e $remove_debug_info -e "$remove_offset_number" > "$split_dwarf".local.readelf.txt || cp "$split_dwarf" "$split_dwarf".local.readelf.txt
         if ! diff -q "$split_dwarf".local.readelf.txt "$split_dwarf".readelf.txt; then
             echo "Output DWO mismatch ($split_dwarf.localice)"
+            echo ====================
+            diff -u "$split_dwarf".readelf.txt "$split_dwarf".local.readelf.txt
+            echo ====================
             stop_ice 0
             abort_tests
         fi
@@ -456,6 +507,9 @@ run_ice()
                 sed -e "$remove_debug_info" -e "$remove_offset_number" > "$split_dwarf".remote.readelf.txt || cp "$split_dwarf" "$split_dwarf".remote.readelf.txt
             if ! diff -q "$split_dwarf".remote.readelf.txt "$split_dwarf".readelf.txt; then
                 echo "Output DWO mismatch ($split_dwarf.remoteice)"
+                echo ====================
+                diff -u "$split_dwarf".readelf.txt "$split_dwarf".remote.readelf.txt
+                echo ====================
                 stop_ice 0
                 abort_tests
             fi
@@ -482,16 +536,20 @@ make_test()
     # make test - actually try something somewhat realistic. Since each node is set up to serve
     # only 2 jobs max, at least some of the 10 jobs should be built remotely.
 
-    # All the test compiles are small, and should produce small .o files, which will make the scheduler
-    # stats for those jobs, so it will not actually have any statistics about nodes (make_test is intentionally
-    # run early to ensure this). So run the test once, first time without stats, second time with stats
-    # (make.h has large data to ensure the first make_test run will finally produce statistics).
+    # The test is run twice to select different code paths in the scheduler (first time there are no
+    # job statistics about nodes, but they will be created for the second run).
     run_number=$1
 
     echo Running make test $run_number.
     reset_logs remote "make test $run_number"
+    wrappers_path=$pkglibexecdir/bin
+    if ! test -x "$wrappers_path"/g++; then
+            echo "Cannot find $prefix/lib/icecc/bin/g++ , incorrect installation."
+            stop_ice 0
+            abort_tests
+    fi
     make -f Makefile.test OUTDIR="$testdir" clean -s
-    PATH="$prefix"/libexec/icecc/bin:/usr/local/bin:/usr/bin:/bin ICECC_TEST_SOCKET="$testdir"/socket-localice ICECC_TEST_REMOTEBUILD=1 ICECC_DEBUG=debug ICECC_LOGFILE="$testdir"/icecc.log make -f Makefile.test OUTDIR="$testdir" -j10 -s 2>>"$testdir"/stderr.log
+    PATH="$wrappers_path":/usr/local/bin:/usr/bin:/bin ICECC_TEST_SOCKET="$testdir"/socket-localice ICECC_TEST_REMOTEBUILD=1 ICECC_DEBUG=debug ICECC_LOGFILE="$testdir"/icecc.log make -f Makefile.test OUTDIR="$testdir" -j10 -s 2>>"$testdir"/stderr.log
     if test $? -ne 0 -o ! -x "$testdir"/maketest; then
         echo Make test $run_number failed.
         stop_ice 0
@@ -757,11 +815,17 @@ debug_test()
 
     if ! diff -q "$testdir"/debug-output-local.txt "$testdir"/debug-output-remote.txt ; then
         echo Gdb output different.
+        echo =====================
+        diff -u "$testdir"/debug-output-local.txt "$testdir"/debug-output-remote.txt
+        echo =====================
         stop_ice 0
         abort_tests
     fi
     if ! diff -q "$testdir"/readelf-local.txt "$testdir"/readelf-remote.txt ; then
         echo Readelf output different.
+        echo =====================
+        diff -u "$testdir"/readelf-local.txt "$testdir"/readelf-remote.txt
+        echo =====================
         stop_ice 0
         abort_tests
     fi
@@ -860,7 +924,7 @@ reset_logs()
     shift
     # in case icecc.log or stderr.log don't exit, avoid error message
     touch "$testdir"/icecc.log "$testdir"/stderr.log
-    for log in scheduler localice remoteice1 remoteice2 icecc stderr; do
+    for log in scheduler localice remoteice1 remoteice2 icecc stderr iceccdstderr_localice iceccdstderr_remoteice1 iceccdstderr_remoteice2; do
         # save (append) previous log
         cat "$testdir"/${log}.log >> "$testdir"/${log}_all.log
         # and start a new one
@@ -957,12 +1021,18 @@ rm -f "$testdir"/remoteice1_all.log
 rm -f "$testdir"/remoteice2_all.log
 rm -f "$testdir"/icecc_all.log
 rm -f "$testdir"/stderr_all.log
+rm -f "$testdir"/iceccdstderr_localice_all.log
+rm -f "$testdir"/iceccdstderr_remoteice1_all.log
+rm -f "$testdir"/iceccdstderr_remoteice2_all.log
 echo -n >"$testdir"/scheduler.log
 echo -n >"$testdir"/localice.log
 echo -n >"$testdir"/remoteice1.log
 echo -n >"$testdir"/remoteice2.log
 echo -n >"$testdir"/icecc.log
 echo -n >"$testdir"/stderr.log
+echo -n >"$testdir"/iceccdstderr_localice.log
+echo -n >"$testdir"/iceccdstderr_remoteice1.log
+echo -n >"$testdir"/iceccdstderr_remoteice2.log
 
 echo Starting icecream.
 stop_ice 2
@@ -972,32 +1042,24 @@ check_logs_for_generic_errors
 echo Starting icecream successful.
 echo
 
-if test -z "$chroot_disabled"; then
-    make_test 1
-    make_test 2
-fi
-
-if test -z "$debug_fission_disabled"; then
-    run_ice "$testdir/plain.o" "remote" 0 "split_dwarf" $GXX -Wall -Werror -gsplit-dwarf -g -c plain.cpp -o "$testdir/"plain.o
-fi
 run_ice "$testdir/plain.o" "remote" 0 $GXX -Wall -Werror -c plain.cpp -o "$testdir/"plain.o
 
-if test -z "$debug_fission_disabled"; then
-    run_ice "$testdir/plain.o" "remote" 0 "split_dwarf" $GCC -Wall -Werror -gsplit-dwarf -c plain.c -o "$testdir/"plain.o
-    run_ice "$testdir/plain.o" "remote" 0 "split_dwarf" $GCC -Wall -Werror -gsplit-dwarf -c plain.c -o "../../../../../../../..$testdir/plain.o"
-fi
 run_ice "$testdir/plain.o" "remote" 0 $GCC -Wall -Werror -c plain.c -o "$testdir/"plain.o
 run_ice "$testdir/plain.o" "remote" 0 $GXX -Wall -Werror -c plain.cpp -O2 -o "$testdir/"plain.o
 run_ice "$testdir/plain.ii" "local" 0 $GXX -Wall -Werror -E plain.cpp -o "$testdir/"plain.ii
 run_ice "$testdir/includes.o" "remote" 0 $GXX -Wall -Werror -c includes.cpp -o "$testdir"/includes.o
 run_ice "$testdir/plain.o" "local" 0 $GXX -Wall -Werror -c plain.cpp -mtune=native -o "$testdir"/plain.o
 run_ice "$testdir/plain.o" "remote" 0 $GCC -Wall -Werror -x c++ -c plain -o "$testdir"/plain.o
-if test -z "$debug_fission_disabled"; then
-    run_ice "" "remote" 300 "split_dwarf" $GXX -gsplit-dwarf -c nonexistent.cpp
-fi
 
 run_ice "" "remote" 300 $GXX -c nonexistent.cpp
 run_ice "" "local" 0 /bin/true
+
+if test -z "$debug_fission_disabled"; then
+    run_ice "$testdir/plain.o" "remote" 0 "split_dwarf" $GXX -Wall -Werror -gsplit-dwarf -g -c plain.cpp -o "$testdir/"plain.o
+    run_ice "$testdir/plain.o" "remote" 0 "split_dwarf" $GCC -Wall -Werror -gsplit-dwarf -c plain.c -o "$testdir/"plain.o
+    run_ice "$testdir/plain.o" "remote" 0 "split_dwarf" $GCC -Wall -Werror -gsplit-dwarf -c plain.c -o "../../../../../../../..$testdir/plain.o"
+    run_ice "" "remote" 300 "split_dwarf" $GXX -gsplit-dwarf -c nonexistent.cpp
+fi
 
 if $GXX -E -fdiagnostics-show-caret messages.cpp >/dev/null 2>/dev/null; then
     # gcc stderr workaround, icecream will force a local recompile
@@ -1017,11 +1079,11 @@ fi
 if command -v gdb >/dev/null; then
     if command -v readelf >/dev/null; then
         debug_test "$GXX" "-c -g debug.cpp" "Temporary breakpoint 1, main () at debug.cpp:8"
+        debug_test "$GXX" "-c -g `pwd`/debug/debug2.cpp" "Temporary breakpoint 1, main () at `pwd`/debug/debug2.cpp:8"
         if test -z "$debug_fission_disabled"; then
             debug_test "$GXX" "-c -g debug.cpp -gsplit-dwarf" "Temporary breakpoint 1, main () at debug.cpp:8"
             debug_test "$GXX" "-c -g `pwd`/debug/debug2.cpp -gsplit-dwarf" "Temporary breakpoint 1, main () at `pwd`/debug/debug2.cpp:8"
         fi
-        debug_test "$GXX" "-c -g `pwd`/debug/debug2.cpp" "Temporary breakpoint 1, main () at `pwd`/debug/debug2.cpp:8"
     fi
 else
     skipped_tests="$skipped_tests debug"
@@ -1030,6 +1092,20 @@ fi
 icerun_test
 
 recursive_test
+
+if test -z "$chroot_disabled"; then
+    # stop the scheduler, to ensure the first make run has no job statistics
+    echo Restarting icecream.
+    reset_logs local "Restarting"
+    stop_ice 1
+    start_ice
+    check_logs_for_generic_errors
+    echo Restarting icecream successful.
+    make_test 1
+    make_test 2
+else
+    skipped_tests="$skipped_tests make_test"
+fi
 
 if test -z "$chroot_disabled"; then
     zero_local_jobs_test
@@ -1063,6 +1139,8 @@ if test -x $CLANGXX; then
         check_log_message stderr "warning: unused variable 'unused'"
         rm "$testdir"/messages.o
     else
+        echo Clang does not provide functional -frewrite-includes, skipping test.
+        echo
         skipped_tests="$skipped_tests clang_rewrite_includes"
     fi
 
@@ -1075,11 +1153,11 @@ if test -x $CLANGXX; then
     if command -v gdb >/dev/null; then
         if command -v readelf >/dev/null; then
             debug_test "$CLANGXX" "-c -g debug.cpp" "Temporary breakpoint 1, main () at debug.cpp:8"
+            debug_test "$CLANGXX" "-c -g `pwd`/debug/debug2.cpp" "Temporary breakpoint 1, main () at `pwd`/debug/debug2.cpp:8"
             if test -z "$clang_debug_fission_disabled"; then
                 debug_test "$CLANGXX" "-c -g debug.cpp -gsplit-dwarf" "Temporary breakpoint 1, main () at debug.cpp:8"
                 debug_test "$CLANGXX" "-c -g `pwd`/debug/debug2.cpp -gsplit-dwarf" "Temporary breakpoint 1, main () at `pwd`/debug/debug2.cpp:8"
             fi
-            debug_test "$CLANGXX" "-c -g `pwd`/debug/debug2.cpp" "Temporary breakpoint 1, main () at `pwd`/debug/debug2.cpp:8"
         fi
     fi
 
@@ -1112,8 +1190,15 @@ if test -n "$valgrind"; then
 fi
 
 if test -n "$skipped_tests"; then
-    echo "All tests OK, some were skipped:$skipped_tests"
-    echo =============
+    if test -n "$strict"; then
+        echo "All executed tests passed, but some were skipped:$skipped_tests"
+        echo "Strict mode enabled, failing."
+        echo ==================================================
+        exit 1
+    else
+        echo "All tests OK, some were skipped:$skipped_tests"
+        echo =================================
+    fi
 else
     echo All tests OK.
     echo =============
