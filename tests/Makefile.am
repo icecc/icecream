@@ -30,13 +30,14 @@ test-run-strict: test-setup.sh
 test-run: @HAVE_CLANG_DEVEL_DEP@
 test-run-strict: @HAVE_CLANG_DEVEL_DEP@
 
+.PHONY: clangplugin
 clangplugin: ${builddir}/clangplugin.so
 
 # It appears there's no way to force libtool to create a shared library if AC_DISABLE_SHARED is used
 # in configure (and it is, as icecream uses static libs). So just do it manually. If this matters
 # for anybody, feel free to do this in a better way.
 ${builddir}/clangplugin.so: clangplugin.cpp
-	$(CXX) -shared -fPIC -o $@ $^ -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -D__STDC_LIMIT_MACROS -fno-rtti
+	$(CLANGXX) -shared -fPIC -o $@ $^ $(LLVM_CXXFLAGS)
 
 clean: clean-clangplugin
 

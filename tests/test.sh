@@ -80,8 +80,7 @@ unset ICECC_CARET_WORKAROUND
 
 GCC=/usr/bin/gcc
 GXX=/usr/bin/g++
-CLANG=/usr/bin/clang
-CLANGXX=/usr/bin/clang++
+# CLANG,CLANGXX set up by test-setup.h
 
 mkdir -p "$testdir"
 

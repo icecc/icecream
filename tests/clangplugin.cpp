@@ -8,6 +8,7 @@
  *
  */
 
+#include <clang/Basic/Version.h>
 #include <clang/AST/ASTConsumer.h>
 #include <clang/AST/ASTContext.h>
 #include <clang/AST/RecursiveASTVisitor.h>
@@ -29,7 +30,11 @@ class Action
     : public PluginASTAction
     {
     public:
+#if (CLANG_VERSION_MAJOR == 3 && CLANG_VERSION_MINOR >= 6) || CLANG_VERSION_MAJOR > 3
+        virtual std::unique_ptr<ASTConsumer> CreateASTConsumer( CompilerInstance& compiler, StringRef infile );
+#else
         virtual ASTConsumer* CreateASTConsumer( CompilerInstance& compiler, StringRef infile );
+#endif
         virtual bool ParseArgs( const CompilerInstance& compiler, const vector< string >& args );
     private:
         vector< string > _args;
@@ -47,12 +52,19 @@ class Consumer
     };
 
 
+#if (CLANG_VERSION_MAJOR == 3 && CLANG_VERSION_MINOR >= 6) || CLANG_VERSION_MAJOR > 3
+std::unique_ptr<ASTConsumer> Action::CreateASTConsumer( CompilerInstance& compiler, StringRef )
+    {
+    return unique_ptr<Consumer>( new Consumer( compiler, _args ));
+    }
+#else
 ASTConsumer* Action::CreateASTConsumer( CompilerInstance& compiler, StringRef )
     {
     return new Consumer( compiler, _args );
     }
+#endif
 
-bool Action::ParseArgs( const CompilerInstance& compiler, const vector< string >& args )
+bool Action::ParseArgs( const CompilerInstance& /*compiler*/, const vector< string >& args )
     {
     _args = args;
     return true;
@@ -106,7 +118,7 @@ bool Consumer::VisitReturnStmt( const ReturnStmt* returnstmt )
 void report( const CompilerInstance& compiler, DiagnosticsEngine::Level level, const char* txt, SourceLocation loc )
     {
     DiagnosticsEngine& engine = compiler.getDiagnostics();
-#if (__clang_major__ == 3 && __clang_minor__ >= 5) || __clang_major__ > 3
+#if (CLANG_VERSION_MAJOR == 3 && CLANG_VERSION_MINOR >= 5) || CLANG_VERSION_MAJOR > 3
     if( loc.isValid())
         engine.Report( loc, engine.getDiagnosticIDs()->getCustomDiagID(
             static_cast< DiagnosticIDs::Level >( level ), txt ));

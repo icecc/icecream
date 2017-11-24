@@ -195,6 +195,24 @@ case $host_os in
 esac
 AC_SUBST(LIB_KINFO)
 
+# Note that icecream currently uses a hardcoded /usr/bin/{gcc|g++|clang} path
+# in some places (creating native environment), so using compilers
+# in a different location is currently tricky.
+if test -z "$CLANG"; then
+    CLANG=/usr/bin/clang
+fi
+if test -z "$CLANGXX"; then
+    CLANGXX=/usr/bin/clang++
+fi
+if test -z "$LLVM_CONFIG"; then
+    LLVM_CONFIG=/usr/bin/llvm-config
+fi
+AC_CHECK_PROG(CLANG,$CLANG,$CLANG)
+AC_CHECK_PROG(CLANGXX,$CLANGXX,$CLANGXX)
+AC_CHECK_PROG(LLVM_CONFIG,$LLVM_CONFIG,$LLVM_CONFIG)
+AC_SUBST(CLANG)
+AC_SUBST(CLANGXX)
+
 AC_ARG_ENABLE(clang-rewrite-includes,
     AS_HELP_STRING([--enable-clang-rewrite-includes],
         [Use by default Clang's -frewrite-includes option.]))
@@ -204,7 +222,6 @@ if test "$enable_clang_rewrite_includes" = "yes"; then
 elif test "$enable_clang_rewrite_includes" = "no"; then
     true  # do not enable
 else
-    AC_CHECK_PROG(CLANG,clang,clang)
     if test -n "$CLANG"; then
         AC_MSG_CHECKING([whether clang -Werror works for unknown options])
         $CLANG -Werror -totallybogusoption -E - >/dev/null 2>/dev/null
@@ -226,15 +243,31 @@ else
 fi
 
 HAVE_CLANG_DEVEL_DEP=
-AC_CHECK_PROG(CLANG,clang,clang)
-AC_LANG_PUSH([C++])
-save_CPPFLAGS=$CPPFLAGS
-CPPFLAGS="$CPPFLAGS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -D__STDC_LIMIT_MACROS"
-AC_CHECK_HEADER(clang/AST/RecursiveASTVisitor.h,
-    [ HAVE_CLANG_DEVEL_DEP=clangplugin ] )
-CPPFLAGS="$save_CPPFLAGS"
-AC_LANG_POP([C++])
+LLVM_CXXFLAGS=
+if test -n "$CLANGXX"; then
+    AC_MSG_CHECKING([Clang version])
+    clang_version=`$CLANGXX --version`
+    AC_MSG_RESULT([$clang_version])
+    LLVM_CXXFLAGS="-D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -D__STDC_LIMIT_MACROS"
+    if test -n "$LLVM_CONFIG"; then
+        LLVM_CXXFLAGS=`$LLVM_CONFIG --cxxflags`
+    fi
+    AC_LANG_PUSH([C++])
+    save_CPPFLAGS=$CPPFLAGS
+    save_CXXCPP=$CXXCPP
+    save_CXX=$CXX
+    CPPFLAGS="$CPPFLAGS $LLVM_CXXFLAGS"
+    CXXCPP="$CLANGXX -E"
+    CXX=$CLANGXX
+    AC_CHECK_HEADER(clang/AST/RecursiveASTVisitor.h,
+        [ HAVE_CLANG_DEVEL_DEP=clangplugin ] )
+    CPPFLAGS="$save_CPPFLAGS"
+    CXXCPP="$save_CXXCPP"
+    CXX="$save_CXX"
+    AC_LANG_POP([C++])
+fi
 AC_SUBST(HAVE_CLANG_DEVEL_DEP)
+AC_SUBST(LLVM_CXXFLAGS)
 
 AC_ARG_ENABLE(clang-wrappers,
     AS_HELP_STRING([--enable-clang-wrappers],
@@ -246,7 +279,6 @@ if test "$enable_clang_wrappers" = "yes"; then
 elif test "$enable_clang_wrappers" = "no"; then
     true # do not enable
 else
-    AC_CHECK_PROG(CLANG,clang,clang)
     if test -n "$CLANG"; then
         CLANG_SYMLINK_WRAPPERS='clang clang++'
     fi
