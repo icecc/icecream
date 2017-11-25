@@ -521,18 +521,28 @@ bool analyse_argv(const char * const *argv, CompileJob &job, bool icerun, list<s
             } else if (str_equal("-flto", a)) {
                 // pointless when preprocessing, and Clang would emit a warning
                 args.append(a, Arg_Remote);
-            } else if (str_startswith("-fplugin=", a)) {
-                string file = a + strlen("-fplugin=");
+            } else if (str_startswith("-fplugin=", a)
+                       || str_startswith("-fsanitize-blacklist=", a)) {
+                const char* prefix = NULL;
+                static const char* const prefixes[] = { "-fplugin=", "-fsanitize-blacklist=" };
+                for( size_t pref = 0; pref < sizeof(prefixes)/sizeof(prefixes[0]); ++pref) {
+                    if( str_startswith(prefixes[pref], a)) {
+                        prefix = prefixes[pref];
+                        break;
+                    }
+                }
+                assert( prefix != NULL );
+                string file = a + strlen(prefix);
 
                 if (access(file.c_str(), R_OK) == 0) {
                     file = get_absfilename(file);
                     extrafiles->push_back(file);
                 } else {
                     always_local = true;
-                    log_info() << "plugin for argument " << a << " missing, building locally" << endl;
+                    log_info() << "file for argument " << a << " missing, building locally" << endl;
                 }
 
-                args.append("-fplugin=" + file, Arg_Rest);
+                args.append(prefix + file, Arg_Rest);
             } else if (str_equal("-Xclang", a)) {
                 if (argv[i + 1]) {
                     ++i;

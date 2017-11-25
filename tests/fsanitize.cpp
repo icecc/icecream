@@ -1,4 +1,4 @@
-void test()
+void test_fsanitize_function()
     {
     int* arr = new int[10];
     delete[] arr;
@@ -8,6 +8,6 @@ void test()
 
 int main()
     {
-    test();
+    test_fsanitize_function();
     return 0;
     }

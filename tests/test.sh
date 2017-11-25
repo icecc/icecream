@@ -1018,6 +1018,16 @@ check_log_error()
     fi
 }
 
+check_section_log_error()
+{
+    log="$1"
+    if grep -q "$2" "$testdir"/${log}.log "$testdir"/${log}_section.log; then
+        echo "Error, $log log contains error: $2"
+        stop_ice 0
+        abort_tests
+    fi
+}
+
 # check the error message ($2) is not present in log ($1),
 # but the exception ($3) is allowed
 check_log_error_except()
@@ -1034,6 +1044,16 @@ check_log_message()
 {
     log="$1"
     if ! grep -q "$2" "$testdir"/${log}.log; then
+        echo "Error, $log log does not contain: $2"
+        stop_ice 0
+        abort_tests
+    fi
+}
+
+check_section_log_message()
+{
+    log="$1"
+    if ! grep -q "$2" "$testdir"/${log}.log "$testdir"/${log}_section.log; then
         echo "Error, $log log does not contain: $2"
         stop_ice 0
         abort_tests
@@ -1134,8 +1154,27 @@ if $GXX -fsanitize=address -c -fsyntax-only -Werror fsanitize.cpp >/dev/null 2>/
     fi
     "$testdir"/fsanitize 2>>"$testdir"/stderr.log
     check_log_message stderr "ERROR: AddressSanitizer: heap-use-after-free"
-    check_log_message stderr "SUMMARY: AddressSanitizer: heap-use-after-free .*/fsanitize.cpp:5 in test()"
+    check_log_message stderr "SUMMARY: AddressSanitizer: heap-use-after-free .*/fsanitize.cpp:5 in test_fsanitize_function()"
     rm "$testdir"/fsanitize.o
+
+    if $GXX -fsanitize=address -fsanitize-blacklist=fsanitize-blacklist.txt -c -fsyntax-only fsanitize.cpp >/dev/null 2>/dev/null; then
+        run_ice "" "local" 300 $GXX -c -fsanitize=address -fsanitize-blacklist=nonexistent -g fsanitize.cpp -o "$testdir"/fsanitize.o
+        check_section_log_message icecc "file for argument -fsanitize-blacklist=nonexistent missing, building locally"
+
+        run_ice "$testdir/fsanitize.o" "remote" 0 keepoutput $GXX -c -fsanitize=address -fsanitize-blacklist=fsanitize-blacklist.txt -g fsanitize.cpp -o "$testdir"/fsanitize.o
+        $GXX -fsanitize=address -fsanitize-blacklist=fsanitize-blacklist.txt  -g "$testdir"/fsanitize.o -o "$testdir"/fsanitize 2>>"$testdir"/stderr.log
+        if test $? -ne 0; then
+            echo "Linking for -fsanitize test failed."
+            stop_ice 0
+            abort_tests
+        fi
+        "$testdir"/fsanitize 2>>"$testdir"/stderr.log
+        check_log_error stderr "ERROR: AddressSanitizer: heap-use-after-free"
+        check_log_error stderr "SUMMARY: AddressSanitizer: heap-use-after-free .*/fsanitize.cpp:5 in test()"
+        rm "$testdir"/fsanitize.o
+    else
+        skipped_tests="$skipped_tests fsanitize-blacklist"
+    fi
 else
     skipped_tests="$skipped_tests fsanitize"
 fi

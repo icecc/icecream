@@ -429,7 +429,7 @@ int main(int argc, char **argv)
                 // we just build locally
             }
         } else if (!extrafiles.empty() && !IS_PROTOCOL_32(local_daemon)) {
-            log_warning() << "Local daemon is too old to handle compiler plugins." << endl;
+            log_warning() << "Local daemon is too old to handle extra files." << endl;
             local = true;
         } else {
             if (!local_daemon->send_msg(GetNativeEnvMsg(compiler_is_clang(job)
