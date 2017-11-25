@@ -692,10 +692,11 @@ MsgChannel *Service::createChannel(const string &hostname, unsigned short p, int
         setsockopt(remote_fd, SOL_SOCKET, SO_SNDBUF, &i, sizeof(i));
 
         if (connect(remote_fd, (struct sockaddr *) &remote_addr, sizeof(remote_addr)) < 0) {
+            log_perror("connect");
+            trace() << "connect failed on " << hostname << endl;
             if (-1 == close(remote_fd) && (errno != EBADF)){
                 log_perror("close failed");
             }
-            trace() << "connect failed on " << hostname << endl;
             return 0;
         }
     }
@@ -722,10 +723,11 @@ MsgChannel *Service::createChannel(const string &socket_path)
     }
 
     if (connect(remote_fd, (struct sockaddr *) &remote_addr, sizeof(remote_addr)) < 0) {
+        log_perror("connect");
+        trace() << "connect failed on " << socket_path << endl;
         if ((-1 == close(remote_fd)) && (errno != EBADF)){
             log_perror("close failed");
         }
-        trace() << "connect failed on " << socket_path << endl;
         return 0;
     }
 
