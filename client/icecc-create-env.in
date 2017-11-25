@@ -378,9 +378,6 @@ for i in $target_files; do
   esac
   mkdir -p $tempdir/`dirname $target`
   cp -p $path $tempdir/$target
-  if test -f $tempdir/$target -a -x $tempdir/$target; then
-    strip -s $tempdir/$target 2>/dev/null
-  fi
   target=`echo $target | cut -b2-`
   new_target_files="$new_target_files $target"
 done
