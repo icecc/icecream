@@ -111,11 +111,11 @@ check_compilers()
         fi
     fi
     using_gcc=
-    if $TESTCXX --version | grep gcc >/dev/null; then
+    if $TESTCC --version | grep gcc >/dev/null; then
         using_gcc=1
     fi
     using_clang=
-    if $TESTCXX --version | grep clang >/dev/null; then
+    if $TESTCC --version | grep clang >/dev/null; then
         using_clang=1
     fi
     echo Using C compiler: $TESTCC
