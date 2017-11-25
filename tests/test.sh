@@ -1349,6 +1349,26 @@ if test -n "$valgrind"; then
     rm -f "$testdir"/valgrind-*.log
 fi
 
+ignore=
+if test -n "$using_gcc"; then
+    # gcc (as of now) doesn't know these options, ignore these tests if they fail
+    ignore="cxx-isystem target fsanitize-blacklist clangplugin clang_rewrite_includes"
+elif test -n "$using_clang"; then
+    # clang seems to handle everything
+    ignore=
+fi
+ignored_tests=
+for item in $ignore; do
+    if echo " $skipped_tests " | grep -q "$item"; then
+        ignored_tests="$ignored_tests $item"
+        skipped_tests=`echo $skipped_tests | sed "s/$item//"`
+    fi
+done
+
+if test -n "$ignored_tests"; then
+    echo Ignored tests: $ignored_tests
+fi
+
 if test -n "$skipped_tests"; then
     if test -n "$strict"; then
         echo "All executed tests passed, but some were skipped:$skipped_tests"
