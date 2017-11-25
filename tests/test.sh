@@ -79,20 +79,59 @@ unset ICECC_EXTRAFILES
 unset ICECC_COLOR_DIAGNOSTICS
 unset ICECC_CARET_WORKAROUND
 
-GCC=/usr/bin/gcc
-GXX=/usr/bin/g++
-# CLANG,CLANGXX set up by test-setup.h
-
 mkdir -p "$testdir"
 
 skipped_tests=
 chroot_disabled=
 
-debug_fission_disabled=
-$GXX -E -gsplit-dwarf messages.cpp 2>/dev/null >/dev/null || debug_fission_disabled=1
-if test -n "$debug_fission_disabled"; then
-    skipped_tests="$skipped_tests split-dwarf(g++)"
-fi
+check_compilers()
+{
+    if test -z "$TESTCC"; then
+        if cc -v >/dev/null 2>/dev/null; then
+            TESTCC=/usr/bin/cc
+        elif gcc -v >/dev/null 2>/dev/null; then
+            TESTCC=/usr/bin/gcc
+        elif clang -v >/dev/null 2>/dev/null; then
+            TESTCC=/usr/bin/clang
+        else
+            echo Cannot find gcc or clang, explicitly set TESTCC.
+            exit 5
+        fi
+    fi
+    if test -z "$TESTCXX"; then
+        if c++ -v >/dev/null 2>/dev/null; then
+            TESTCXX=/usr/bin/c++
+        elif g++ -v >/dev/null 2>/dev/null; then
+            TESTCXX=/usr/bin/g++
+        elif clang -v >/dev/null 2>/dev/null; then
+            TESTCXX=/usr/bin/clang++
+        else
+            echo Cannot find g++ or clang++, explicitly set TESTCXX.
+            exit 5
+        fi
+    fi
+    using_gcc=
+    if $TESTCXX --version | grep gcc >/dev/null; then
+        using_gcc=1
+    fi
+    using_clang=
+    if $TESTCXX --version | grep clang >/dev/null; then
+        using_clang=1
+    fi
+    echo Using C compiler: $TESTCC
+    $TESTCC --version
+    if test $? -ne 0; then
+        echo Compiler $TESTCC failed.
+        exit 5
+    fi
+    echo Using C++ compiler: $TESTCXX
+    $TESTCXX --version
+    if test $? -ne 0; then
+        echo Compiler $TESTCXX failed.
+        exit 5
+    fi
+    echo
+}
 
 abort_tests()
 {
@@ -681,7 +720,13 @@ buildnativetest()
 {
     echo Running icecc --build-native test.
     pushd "$testdir" >/dev/null
-    local tgz=$(PATH="$prefix"/bin:/bin:/usr/bin icecc --build-native 2>&1 | \
+    compilertype=
+    if test -n "$using_clang"; then
+        compilertype=clang
+    elif test -n "$using_gcc"; then
+        compilertype=gcc
+    fi
+    local tgz=$(PATH="$prefix"/bin:/bin:/usr/bin icecc --build-native $compilertype 2>&1 | \
         grep "^creating .*\.tar\.gz$" | sed -e "s/^creating //")
     if test $? -ne 0; then
         echo icecc --build-native test failed.
@@ -715,12 +760,28 @@ recursive_test()
 # Check that transfering Clang plugin(s) works. While at it, also test ICECC_EXTRAFILES.
 clangplugintest()
 {
-    echo Running Clang plugin test.
     reset_logs "" "clang plugin"
+
+    if test -z "$LLVM_CONFIG"; then
+        LLVM_CONFIG=llvm-config
+    fi
+    clangcxxflags=`$LLVM_CONFIG --cxxflags 2>"$testdir"/stderr.log`
+    if test $? -ne 0; then
+        echo Cannot find Clang development headers, clang plugin test skipped.
+        skipped_tests="$skipped_tests clangplugin"
+        return
+    fi
+    $TESTCXX -shared -fPIC -o "$testdir"/clangplugin.so clangplugin.cpp $clangcxxflags 2>>"$testdir"/stderr.log
+    if test $? -ne 0; then
+        echo Failed to compile clang plugin, clang plugin test skipped.
+        skipped_tests="$skipped_tests clangplugin"
+    fi
+
+    echo Running Clang plugin test.
 
     # TODO This should be able to also handle the clangpluginextra.txt argument without the absolute path.
     ICECC_TEST_SOCKET="$testdir"/socket-localice ICECC_TEST_REMOTEBUILD=1 ICECC_PREFERRED_HOST=remoteice1 ICECC_DEBUG=debug ICECC_LOGFILE="$testdir"/icecc.log ICECC_EXTRAFILES=clangpluginextra.txt $valgrind "${icecc}" \
-        $CLANGXX -Wall -c -Xclang -load -Xclang "$builddir"/clangplugin.so -Xclang -add-plugin -Xclang icecreamtest -Xclang -plugin-arg-icecreamtest -Xclang `realpath -s clangpluginextra.txt` clangplugintest.cpp -o "$testdir"/clangplugintest.o 2>>"$testdir"/stderr.log
+        $TESTCXX -Wall -c -Xclang -load -Xclang "$testdir"/clangplugin.so -Xclang -add-plugin -Xclang icecreamtest -Xclang -plugin-arg-icecreamtest -Xclang `realpath -s clangpluginextra.txt` clangplugintest.cpp -o "$testdir"/clangplugintest.o 2>>"$testdir"/stderr.log
     if test $? -ne 0; then
         echo Clang plugin test failed.
         stop_ice 0
@@ -858,9 +919,9 @@ zero_local_jobs_test()
     rm -rf  "${libdir}"
     mkdir "${libdir}"
 
-    mark_logs remote $GXX -Wall -Werror -c testfunc.cpp -o "${testdir}/testfunc.o"
-    echo Running: $GXX -Wall -Werror -c testfunc.cpp -o "${testdir}/testfunc.o"
-    ICECC_TEST_SOCKET="$testdir"/socket-localice ICECC_TEST_REMOTEBUILD=1 ICECC_PREFERRED_HOST=remoteice1 ICECC_DEBUG=debug ICECC_LOGFILE="$testdir"/icecc.log $valgrind "${icecc}" $GXX -Wall -Werror -c testfunc.cpp -o "${testdir}/testfunc.o"
+    mark_logs remote $TESTCXX -Wall -Werror -c testfunc.cpp -o "${testdir}/testfunc.o"
+    echo Running: $TESTCXX -Wall -Werror -c testfunc.cpp -o "${testdir}/testfunc.o"
+    ICECC_TEST_SOCKET="$testdir"/socket-localice ICECC_TEST_REMOTEBUILD=1 ICECC_PREFERRED_HOST=remoteice1 ICECC_DEBUG=debug ICECC_LOGFILE="$testdir"/icecc.log $valgrind "${icecc}" $TESTCXX -Wall -Werror -c testfunc.cpp -o "${testdir}/testfunc.o"
     if [[ $? -ne 0 ]]; then
         echo "failed to build testfunc.o"
         grep -q "AddressSanitizer failed to allocate"  "$testdir"/iceccdstderr_remoteice1.log
@@ -875,9 +936,9 @@ zero_local_jobs_test()
         abort_tests
     fi
 
-    mark_logs remote $GXX -Wall -Werror -c testmainfunc.cpp -o "${testdir}/testmainfunc.o"
-    echo Running: $GXX -Wall -Werror -c testmainfunc.cpp -o "${testdir}/testmainfunc.o"
-    ICECC_TEST_SOCKET="$testdir"/socket-localice ICECC_TEST_REMOTEBUILD=1 ICECC_PREFERRED_HOST=remoteice2 ICECC_DEBUG=debug ICECC_LOGFILE="$testdir"/icecc.log $valgrind "${icecc}" $GXX -Wall -Werror -c testmainfunc.cpp -o "${testdir}/testmainfunc.o"
+    mark_logs remote $TESTCXX -Wall -Werror -c testmainfunc.cpp -o "${testdir}/testmainfunc.o"
+    echo Running: $TESTCXX -Wall -Werror -c testmainfunc.cpp -o "${testdir}/testmainfunc.o"
+    ICECC_TEST_SOCKET="$testdir"/socket-localice ICECC_TEST_REMOTEBUILD=1 ICECC_PREFERRED_HOST=remoteice2 ICECC_DEBUG=debug ICECC_LOGFILE="$testdir"/icecc.log $valgrind "${icecc}" $TESTCXX -Wall -Werror -c testmainfunc.cpp -o "${testdir}/testmainfunc.o"
     if test $? -ne 0; then
         echo "Error, failed to compile testfunc.cpp"
         stop_ice 0
@@ -897,9 +958,9 @@ zero_local_jobs_test()
         abort_tests
     fi
 
-    mark_logs local $GXX -Wall -Werror "-L${libdir}" "-ltestlib1" "-ltestlib2" -o "${testdir}/linkedapp"
-    echo Running: $GXX -Wall -Werror "-L${libdir}" "-ltestlib1" "-ltestlib2" -o "${testdir}/linkedapp"
-    ICECC_TEST_SOCKET="$testdir"/socket-localice ICECC_TEST_REMOTEBUILD=1 ICECC_PREFERRED_HOST=localice ICECC_DEBUG=debug ICECC_LOGFILE="$testdir"/icecc.log $valgrind "${icecc}" $GXX -Wall -Werror "-L${libdir}" "-ltestlib1" "-ltestlib2" -o "${testdir}/linkedapp" 2>"$testdir"/stderr.log
+    mark_logs local $TESTCXX -Wall -Werror "-L${libdir}" "-ltestlib1" "-ltestlib2" -o "${testdir}/linkedapp"
+    echo Running: $TESTCXX -Wall -Werror "-L${libdir}" "-ltestlib1" "-ltestlib2" -o "${testdir}/linkedapp"
+    ICECC_TEST_SOCKET="$testdir"/socket-localice ICECC_TEST_REMOTEBUILD=1 ICECC_PREFERRED_HOST=localice ICECC_DEBUG=debug ICECC_LOGFILE="$testdir"/icecc.log $valgrind "${icecc}" $TESTCXX -Wall -Werror "-L${libdir}" "-ltestlib1" "-ltestlib2" -o "${testdir}/linkedapp" 2>"$testdir"/stderr.log
     if test $? -ne 0; then
         echo "Error, failed to link testlib1 and testlib2 into linkedapp"
         stop_ice 0
@@ -1083,6 +1144,10 @@ check_log_message_count()
 # Main code starts here
 # ==================================================================
 
+echo
+
+check_compilers
+
 for log in $alltestlogs; do
     rm -f "$testdir"/${log}.log
     rm -f "$testdir"/${log}_section.log
@@ -1090,8 +1155,6 @@ for log in $alltestlogs; do
     echo -n >"$testdir"/${log}.log
     echo -n >"$testdir"/${log}_section.log
 done
-
-echo
 
 buildnativetest
 
@@ -1103,56 +1166,75 @@ check_logs_for_generic_errors
 echo Starting icecream successful.
 echo
 
-run_ice "$testdir/plain.o" "remote" 0 $GXX -Wall -Werror -c plain.cpp -o "$testdir/"plain.o
+run_ice "$testdir/plain.o" "remote" 0 $TESTCXX -Wall -Werror -c plain.cpp -o "$testdir/"plain.o
 
-run_ice "$testdir/plain.o" "remote" 0 $GCC -Wall -Werror -c plain.c -o "$testdir/"plain.o
-run_ice "$testdir/plain.o" "remote" 0 $GXX -Wall -Werror -c plain.cpp -O2 -o "$testdir/"plain.o
-run_ice "$testdir/plain.ii" "local" 0 $GXX -Wall -Werror -E plain.cpp -o "$testdir/"plain.ii
-run_ice "$testdir/includes.o" "remote" 0 $GXX -Wall -Werror -c includes.cpp -o "$testdir"/includes.o
-run_ice "$testdir/plain.o" "local" 0 $GXX -Wall -Werror -c plain.cpp -mtune=native -o "$testdir"/plain.o
-run_ice "$testdir/plain.o" "remote" 0 $GCC -Wall -Werror -x c++ -c plain -o "$testdir"/plain.o
+run_ice "$testdir/plain.o" "remote" 0 $TESTCC -Wall -Werror -c plain.c -o "$testdir/"plain.o
+run_ice "$testdir/plain.o" "remote" 0 $TESTCXX -Wall -Werror -c plain.cpp -O2 -o "$testdir/"plain.o
+run_ice "$testdir/plain.ii" "local" 0 $TESTCXX -Wall -Werror -E plain.cpp -o "$testdir/"plain.ii
+run_ice "$testdir/includes.o" "remote" 0 $TESTCXX -Wall -Werror -c includes.cpp -o "$testdir"/includes.o
+run_ice "$testdir/plain.o" "local" 0 $TESTCXX -Wall -Werror -c plain.cpp -mtune=native -o "$testdir"/plain.o
+run_ice "$testdir/plain.o" "remote" 0 $TESTCC -Wall -Werror -x c++ -c plain -o "$testdir"/plain.o
 
-run_ice "" "remote" 300 $GXX -c nonexistent.cpp
+run_ice "" "remote" 300 $TESTCXX -c nonexistent.cpp
 run_ice "" "local" 0 /bin/true
 
-if test -z "$debug_fission_disabled"; then
-    run_ice "$testdir/plain.o" "remote" 0 "split_dwarf" $GXX -Wall -Werror -gsplit-dwarf -g -c plain.cpp -o "$testdir/"plain.o
-    run_ice "$testdir/plain.o" "remote" 0 "split_dwarf" $GCC -Wall -Werror -gsplit-dwarf -c plain.c -o "$testdir/"plain.o
-    run_ice "$testdir/plain.o" "remote" 0 "split_dwarf" $GCC -Wall -Werror -gsplit-dwarf -c plain.c -o "../../../../../../../..$testdir/plain.o"
-    run_ice "" "remote" 300 "split_dwarf" $GXX -gsplit-dwarf -c nonexistent.cpp
+if $TESTCXX -cxx-isystem ./ -fsyntax-only -Werror -c includes.cpp 2>/dev/null; then
+    run_ice "$testdir/includes.o" "remote" 0 $TESTCXX -Wall -Werror -cxx-isystem ./ -c includes.cpp -o "$testdir"/includes.o
+else
+    skipped_tests="$skipped_tests cxx-isystem"
 fi
 
-if $GXX -E -fdiagnostics-show-caret messages.cpp >/dev/null 2>/dev/null; then
-    # gcc stderr workaround, icecream will force a local recompile
-    run_ice "" "remote" 1 "stderrfix" $GXX -c syntaxerror.cpp
-    run_ice "$testdir/messages.o" "remote" 0 "stderrfix" $GXX -Wall -c messages.cpp -o "$testdir"/messages.o
+if $TESTCXX -target x86_64-linux-gnu -fsyntax-only -Werror -c plain.cpp 2>/dev/null; then
+    run_ice "$testdir/plain.o" "remote" 0 $TESTCXX -Wall -Werror -target x86_64-linux-gnu -c plain.cpp -o "$testdir"/plain.o
+else
+    skipped_tests="$skipped_tests target"
+fi
+
+debug_fission_disabled=
+$TESTCXX -E -gsplit-dwarf messages.cpp 2>/dev/null >/dev/null || debug_fission_disabled=1
+if test -n "$debug_fission_disabled"; then
+    skipped_tests="$skipped_tests split-dwarf"
+fi
+if test -z "$debug_fission_disabled"; then
+    run_ice "$testdir/plain.o" "remote" 0 "split_dwarf" $TESTCXX -Wall -Werror -gsplit-dwarf -g -c plain.cpp -o "$testdir/"plain.o
+    run_ice "$testdir/plain.o" "remote" 0 "split_dwarf" $TESTCC -Wall -Werror -gsplit-dwarf -c plain.c -o "$testdir/"plain.o
+    run_ice "$testdir/plain.o" "remote" 0 "split_dwarf" $TESTCC -Wall -Werror -gsplit-dwarf -c plain.c -o "../../../../../../../..$testdir/plain.o"
+    run_ice "" "remote" 300 "split_dwarf" $TESTCXX -gsplit-dwarf -c nonexistent.cpp
+fi
+
+if test -z "$using_gcc"; then
+    run_ice "" "remote" 1 $TESTCXX -c syntaxerror.cpp
+    run_ice "$testdir/messages.o" "remote" 0 $TESTCXX -Wall -c messages.cpp -o "$testdir"/messages.o
+    check_log_message stderr "warning: unused variable 'unused'"
+elif $TESTCXX -E -fdiagnostics-show-caret -Werror messages.cpp >/dev/null 2>/dev/null; then
+    # check gcc stderr workaround, icecream will force a local recompile
+    run_ice "" "remote" 1 "stderrfix" $TESTCXX -c syntaxerror.cpp
+    run_ice "$testdir/messages.o" "remote" 0 "stderrfix" $TESTCXX -Wall -c messages.cpp -o "$testdir"/messages.o
     check_log_message stderr "warning: unused variable 'unused'"
     # try again without the local recompile
-    run_ice "" "remote" 1 $GXX -c -fno-diagnostics-show-caret syntaxerror.cpp
-    run_ice "$testdir/messages.o" "remote" 0 $GXX -Wall -c -fno-diagnostics-show-caret messages.cpp -o "$testdir"/messages.o
+    run_ice "" "remote" 1 $TESTCXX -c -fno-diagnostics-show-caret syntaxerror.cpp
+    run_ice "$testdir/messages.o" "remote" 0 $TESTCXX -Wall -c -fno-diagnostics-show-caret messages.cpp -o "$testdir"/messages.o
     check_log_message stderr "warning: unused variable 'unused'"
 else
-    run_ice "" "remote" 1 $GXX -c syntaxerror.cpp
-    run_ice "$testdir/messages.o" "remote" 0 $GXX -Wall -c messages.cpp -o "$testdir"/messages.o
-    check_log_message stderr "warning: unused variable 'unused'"
+    skipped_tests="$skipped_tests diagnostics-show-caret"
 fi
 
 if command -v gdb >/dev/null; then
     if command -v readelf >/dev/null; then
-        debug_test "$GXX" "-c -g debug.cpp" "Temporary breakpoint 1, main () at debug.cpp:8"
-        debug_test "$GXX" "-c -g `pwd`/debug/debug2.cpp" "Temporary breakpoint 1, main () at `pwd`/debug/debug2.cpp:8"
+        debug_test "$TESTCXX" "-c -g debug.cpp" "Temporary breakpoint 1, main () at debug.cpp:8"
+        debug_test "$TESTCXX" "-c -g `pwd`/debug/debug2.cpp" "Temporary breakpoint 1, main () at `pwd`/debug/debug2.cpp:8"
         if test -z "$debug_fission_disabled"; then
-            debug_test "$GXX" "-c -g debug.cpp -gsplit-dwarf" "Temporary breakpoint 1, main () at debug.cpp:8"
-            debug_test "$GXX" "-c -g `pwd`/debug/debug2.cpp -gsplit-dwarf" "Temporary breakpoint 1, main () at `pwd`/debug/debug2.cpp:8"
+            debug_test "$TESTCXX" "-c -g debug.cpp -gsplit-dwarf" "Temporary breakpoint 1, main () at debug.cpp:8"
+            debug_test "$TESTCXX" "-c -g `pwd`/debug/debug2.cpp -gsplit-dwarf" "Temporary breakpoint 1, main () at `pwd`/debug/debug2.cpp:8"
         fi
     fi
 else
     skipped_tests="$skipped_tests debug"
 fi
 
-if $GXX -fsanitize=address -c -fsyntax-only -Werror fsanitize.cpp >/dev/null 2>/dev/null; then
-    run_ice "$testdir/fsanitize.o" "remote" 0 keepoutput $GXX -c -fsanitize=address -g fsanitize.cpp -o "$testdir"/fsanitize.o
-    $GXX -fsanitize=address -g "$testdir"/fsanitize.o -o "$testdir"/fsanitize 2>>"$testdir"/stderr.log
+if $TESTCXX -fsanitize=address -c -fsyntax-only -Werror fsanitize.cpp >/dev/null 2>/dev/null; then
+    run_ice "$testdir/fsanitize.o" "remote" 0 keepoutput $TESTCXX -c -fsanitize=address -g fsanitize.cpp -o "$testdir"/fsanitize.o
+    $TESTCXX -fsanitize=address -g "$testdir"/fsanitize.o -o "$testdir"/fsanitize 2>>"$testdir"/stderr.log
     if test $? -ne 0; then
         echo "Linking for -fsanitize test failed."
         stop_ice 0
@@ -1160,15 +1242,15 @@ if $GXX -fsanitize=address -c -fsyntax-only -Werror fsanitize.cpp >/dev/null 2>/
     fi
     "$testdir"/fsanitize 2>>"$testdir"/stderr.log
     check_log_message stderr "ERROR: AddressSanitizer: heap-use-after-free"
-    check_log_message stderr "SUMMARY: AddressSanitizer: heap-use-after-free .*/fsanitize.cpp:5 in test_fsanitize_function()"
+    check_log_message stderr "SUMMARY: AddressSanitizer: heap-use-after-free .*/fsanitize.cpp:5.* in test_fsanitize_function()"
     rm "$testdir"/fsanitize.o
 
-    if $GXX -fsanitize=address -fsanitize-blacklist=fsanitize-blacklist.txt -c -fsyntax-only fsanitize.cpp >/dev/null 2>/dev/null; then
-        run_ice "" "local" 300 $GXX -c -fsanitize=address -fsanitize-blacklist=nonexistent -g fsanitize.cpp -o "$testdir"/fsanitize.o
+    if $TESTCXX -fsanitize=address -fsanitize-blacklist=fsanitize-blacklist.txt -c -fsyntax-only fsanitize.cpp >/dev/null 2>/dev/null; then
+        run_ice "" "local" 300 $TESTCXX -c -fsanitize=address -fsanitize-blacklist=nonexistent -g fsanitize.cpp -o "$testdir"/fsanitize.o
         check_section_log_message icecc "file for argument -fsanitize-blacklist=nonexistent missing, building locally"
 
-        run_ice "$testdir/fsanitize.o" "remote" 0 keepoutput $GXX -c -fsanitize=address -fsanitize-blacklist=fsanitize-blacklist.txt -g fsanitize.cpp -o "$testdir"/fsanitize.o
-        $GXX -fsanitize=address -fsanitize-blacklist=fsanitize-blacklist.txt  -g "$testdir"/fsanitize.o -o "$testdir"/fsanitize 2>>"$testdir"/stderr.log
+        run_ice "$testdir/fsanitize.o" "remote" 0 keepoutput $TESTCXX -c -fsanitize=address -fsanitize-blacklist=fsanitize-blacklist.txt -g fsanitize.cpp -o "$testdir"/fsanitize.o
+        $TESTCXX -fsanitize=address -fsanitize-blacklist=fsanitize-blacklist.txt  -g "$testdir"/fsanitize.o -o "$testdir"/fsanitize 2>>"$testdir"/stderr.log
         if test $? -ne 0; then
             echo "Linking for -fsanitize test failed."
             stop_ice 0
@@ -1183,6 +1265,12 @@ if $GXX -fsanitize=address -c -fsyntax-only -Werror fsanitize.cpp >/dev/null 2>/
     fi
 else
     skipped_tests="$skipped_tests fsanitize"
+fi
+
+if test -n "$using_clang"; then
+    clangplugintest
+else
+    skipped_tests="$skipped_tests clangplugin"
 fi
 
 icerun_test
@@ -1209,61 +1297,16 @@ else
     skipped_tests="$skipped_tests zero_local_jobs_test"
 fi
 
-if test -x $CLANGXX; then
-    # There's probably not much point in repeating all tests with Clang, but at least
-    # try it works (there's a different icecc-create-env run needed, and -frewrite-includes
-    # usage needs checking).
-    # Clang writes the input filename in the resulting .o , which means the outputs
-    # cannot match (remote node will use stdin for the input, while icecc always
-    # builds locally if it itself gets data from stdin). It'd be even worse with -g,
-    # since the -frewrite-includes transformation apparently makes the debugginfo
-    # differ too (although the end results work just as well). So just do not compare.
-    # It'd be still nice to check at least somehow that this really works though.
-    run_ice "" "remote" 0 $CLANGXX -Wall -Werror -c plain.cpp -o "$testdir"/plain.o
-    rm "$testdir"/plain.o
-    run_ice "" "remote" 0 $CLANGXX -Wall -Werror -c includes.cpp -o "$testdir"/includes.o
-    rm "$testdir"/includes.o
-    run_ice "" "remote" 0 $CLANGXX -Wall -Werror -cxx-isystem ./ -c includes.cpp -o "$testdir"/includes.o
-    rm "$testdir"/includes.o
-    run_ice "" "remote" 0 $CLANGXX -Wall -Werror -target x86_64-linux-gnu -c includes.cpp -o "$testdir"/includes.o
-    rm "$testdir"/includes.o
-
-    # test -frewrite-includes usage
-    $CLANGXX -E -Werror -frewrite-includes messages.cpp | grep -q '^# 1 "messages.cpp"$' >/dev/null 2>/dev/null
-    if test $? -eq 0; then
-        run_ice "" "remote" 0 $CLANGXX -Wall -c messages.cpp -o "$testdir"/messages.o
-        check_log_message stderr "warning: unused variable 'unused'"
-        rm "$testdir"/messages.o
-    else
-        echo Clang does not provide functional -frewrite-includes, skipping test.
-        echo
-        skipped_tests="$skipped_tests clang_rewrite_includes"
-    fi
-
-    clang_debug_fission_disabled=
-    $CLANGXX -E -gsplit-dwarf messages.cpp 2>/dev/null >/dev/null || clang_debug_fission_disabled=1
-    if test -n "$debug_fission_disabled"; then
-        skipped_tests="$skipped_tests split-dwarf(clang++)"
-    fi
-
-    if command -v gdb >/dev/null; then
-        if command -v readelf >/dev/null; then
-            debug_test "$CLANGXX" "-c -g debug.cpp" "Temporary breakpoint 1, main () at debug.cpp:8"
-            debug_test "$CLANGXX" "-c -g `pwd`/debug/debug2.cpp" "Temporary breakpoint 1, main () at `pwd`/debug/debug2.cpp:8"
-            if test -z "$clang_debug_fission_disabled"; then
-                debug_test "$CLANGXX" "-c -g debug.cpp -gsplit-dwarf" "Temporary breakpoint 1, main () at debug.cpp:8"
-                debug_test "$CLANGXX" "-c -g `pwd`/debug/debug2.cpp -gsplit-dwarf" "Temporary breakpoint 1, main () at `pwd`/debug/debug2.cpp:8"
-            fi
-        fi
-    fi
-
-    if test -n "$builddir" -a -f "$builddir"/clangplugin.so; then
-        clangplugintest
-    else
-        skipped_tests="$skipped_tests clangplugin"
-    fi
+# test -frewrite-includes usage
+$TESTCXX -E -Werror -frewrite-includes messages.cpp 2>/dev/null | grep -q '^# 1 "messages.cpp"$' >/dev/null 2>/dev/null
+if test $? -eq 0; then
+    run_ice "" "remote" 0 $TESTCXX -Wall -c messages.cpp -o "$testdir"/messages.o
+    check_log_message stderr "warning: unused variable 'unused'"
+    rm "$testdir"/messages.o
 else
-    skipped_tests="$skipped_tests clang"
+    echo $TESTCXX does not provide functional -frewrite-includes, skipping test.
+    echo
+    skipped_tests="$skipped_tests clang_rewrite_includes"
 fi
 
 reset_logs local "Closing down"

@@ -20,25 +20,6 @@ test-full: test-prepare
 test-run: test-setup.sh
 	results=`realpath -s ${builddir}/results` && builddir2=`realpath -s ${builddir}` && cd ${srcdir} && ./test.sh ${prefix} $$results --builddir=$$builddir2 --strict=$(STRICT)
 
-# Automake's conditionals are dumb and adding 'test-run: clangplugin' would make it warn about
-# being defined in two contexts, even though in this context it's harmless and intended.
-test-run: @HAVE_CLANG_DEVEL_DEP@
-test-run-strict: @HAVE_CLANG_DEVEL_DEP@
-
-.PHONY: clangplugin
-clangplugin: ${builddir}/clangplugin.so
-
-# It appears there's no way to force libtool to create a shared library if AC_DISABLE_SHARED is used
-# in configure (and it is, as icecream uses static libs). So just do it manually. If this matters
-# for anybody, feel free to do this in a better way.
-${builddir}/clangplugin.so: clangplugin.cpp
-	$(CLANGXX) -shared -fPIC -o $@ $^ $(LLVM_CXXFLAGS)
-
-clean: clean-clangplugin
-
-clean-clangplugin:
-	rm -f ${builddir}/clangplugin.so
-
 TESTS = testargs
 
 AM_CPPFLAGS = -I$(top_srcdir)/client -I$(top_srcdir)/services
