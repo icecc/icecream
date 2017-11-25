@@ -10,7 +10,7 @@ strict=
 
 usage()
 {
-    echo Usage: "$0 <install_prefix> <testddir> [--builddir=dir] [--valgrind[=command]] [--strict]"
+    echo Usage: "$0 <install_prefix> <testddir> [--builddir=dir] [--valgrind[=command]] [--strict[=value]]"
     exit 3
 }
 
@@ -29,6 +29,12 @@ while test -n "$1"; do
             ;;
         --strict)
             strict=1
+            ;;
+        --strict=*)
+            strict=`echo $1 | sed 's/^--strict=//'`
+            if test "$strict" = "0"; then
+                strict=
+            fi
             ;;
         *)
             usage

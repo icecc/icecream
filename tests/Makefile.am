@@ -2,7 +2,8 @@
 # Strict mode will fail in such case.
 
 test: test-full
-test-strict: test-full-strict
+test-strict:
+	$(MAKE) test STRICT=1
 
 test-prepare:
 	if test -x /sbin/setcap; then \
@@ -16,13 +17,8 @@ test-prepare:
 test-full: test-prepare
 	$(MAKE) test-run
 
-test-full-strict: test-prepare
-	$(MAKE) test-run-strict
-
 test-run: test-setup.sh
-	results=`realpath -s ${builddir}/results` && builddir2=`realpath -s ${builddir}` && cd ${srcdir} && ./test.sh ${prefix} $$results --builddir=$$builddir2
-test-run-strict: test-setup.sh
-	results=`realpath -s ${builddir}/results` && builddir2=`realpath -s ${builddir}` && cd ${srcdir} && ./test.sh ${prefix} $$results --builddir=$$builddir2 --strict
+	results=`realpath -s ${builddir}/results` && builddir2=`realpath -s ${builddir}` && cd ${srcdir} && ./test.sh ${prefix} $$results --builddir=$$builddir2 --strict=$(STRICT)
 
 # Automake's conditionals are dumb and adding 'test-run: clangplugin' would make it warn about
 # being defined in two contexts, even though in this context it's harmless and intended.
