@@ -90,14 +90,7 @@ fi
 
 abort_tests()
 {
-    for logfile in "$testdir"/*.log; do
-        if [[ $logfile == *_all.log ]]; then
-            continue
-        fi
-        echo "Log file: ${logfile}"
-        cat ${logfile}
-    done
-
+    dump_logs
     exit 2
 }
 
@@ -300,6 +293,7 @@ stop_only_daemon()
 #   - stderrfix - specifies that the command may result in local recompile because of the gcc stderr workaround.
 #   - keepoutput - will keep the file specified using $output (the remotely compiled version)
 #   - split_dwarf - compilation is done with -gsplit-dwarf
+#   - noresetlogs - will not use reset_logs at the start (needs to be done explicitly before calling run_ice)
 # Rest is the command to pass to icecc.
 # Command will be run both locally and using icecc and results compared.
 run_ice()
@@ -327,13 +321,22 @@ run_ice()
         fi
         shift
     fi
+    noresetlogs=
+    if test "$1" = "noresetlogs"; then
+        noresetlogs=1
+        shift
+    fi
 
     if [[ $expected_exit -gt 128 ]]; then
         $@ 2>/dev/null
         expected_exit=$?
     fi
 
-    reset_logs local "$@"
+    if test -z "$noresetlogs"; then
+        reset_logs local "$@"
+    else
+        mark_logs local "$@"
+    fi
     echo Running: "$@"
     ICECC_TEST_SOCKET="$testdir"/socket-localice ICECC_TEST_REMOTEBUILD=1 ICECC_PREFERRED_HOST=localice ICECC_DEBUG=debug ICECC_LOGFILE="$testdir"/icecc.log $valgrind "${icecc}" "$@" 2>"$testdir"/stderr.localice
 
@@ -344,7 +347,7 @@ run_ice()
     if test -n "$split_dwarf"; then
         mv "$split_dwarf" "$split_dwarf".localice
     fi
-    cat "$testdir"/stderr.localice >> "$testdir"/stderr.log
+    cat "$testdir"/stderr.localice >> "$testdir"/stderr.localice.log
     flush_logs
     check_logs_for_generic_errors
     if test "$remote_type" = "remote"; then
@@ -361,7 +364,7 @@ run_ice()
     fi
 
     if test -z "$chroot_disabled"; then
-        reset_logs remote "$@"
+        mark_logs remote "$@"
         ICECC_TEST_SOCKET="$testdir"/socket-localice ICECC_TEST_REMOTEBUILD=1 ICECC_PREFERRED_HOST=remoteice1 ICECC_DEBUG=debug ICECC_LOGFILE="$testdir"/icecc.log $valgrind "${icecc}" "$@" 2>"$testdir"/stderr.remoteice
         remoteice_exit=$?
         if test -n "$output"; then
@@ -370,7 +373,7 @@ run_ice()
         if test -n "$split_dwarf"; then
             mv "$split_dwarf" "$split_dwarf".remoteice
         fi
-        cat "$testdir"/stderr.remoteice >> "$testdir"/stderr.log
+        cat "$testdir"/stderr.remoteice >> "$testdir"/stderr.remoteice.log
         flush_logs
         check_logs_for_generic_errors
         if test "$remote_type" = "remote"; then
@@ -387,7 +390,7 @@ run_ice()
         fi
     fi
 
-    reset_logs noice "$@"
+    mark_logs noice "$@"
     "$@" 2>"$testdir"/stderr
     normal_exit=$?
     cat "$testdir"/stderr >> "$testdir"/stderr.log
@@ -547,7 +550,7 @@ make_test()
     run_number=$1
 
     echo Running make test $run_number.
-    reset_logs remote "make test $run_number"
+    reset_logs "" "make test $run_number"
     wrappers_path=$pkglibexecdir/bin
     if ! test -x "$wrappers_path"/g++; then
             echo "Cannot find $prefix/lib/icecc/bin/g++ , incorrect installation."
@@ -583,7 +586,7 @@ icerun_test()
     noscheduler=
     test -n "$1" && noscheduler=" (no scheduler)"
     echo "Running icerun${noscheduler} test."
-    reset_logs local "icerun${noscheduler} test"
+    reset_logs "" "icerun${noscheduler} test"
     # remove . from PATH if set
     save_path=$PATH
     export PATH=`echo $PATH | sed 's/:.:/:/' | sed 's/^.://' | sed 's/:.$//'`
@@ -688,7 +691,7 @@ buildnativetest()
 recursive_test()
 {
     echo Running recursive check test.
-    reset_logs local "recursive check"
+    reset_logs "" "recursive check"
 
     PATH="$prefix"/lib/icecc/bin:"$prefix"/bin:/usr/local/bin:/usr/bin:/bin ICECC_TEST_SOCKET="$testdir"/socket-localice ICECC_TEST_REMOTEBUILD=1 ICECC_DEBUG=debug ICECC_LOGFILE="$testdir"/icecc.log "${icecc}" ./recursive_g++ -Wall -c plain.c -o plain.o 2>>"$testdir"/stderr.log
     if test $? -ne 111; then
@@ -707,7 +710,7 @@ recursive_test()
 clangplugintest()
 {
     echo Running Clang plugin test.
-    reset_logs remote "clang plugin"
+    reset_logs "" "clang plugin"
 
     # TODO This should be able to also handle the clangpluginextra.txt argument without the absolute path.
     ICECC_TEST_SOCKET="$testdir"/socket-localice ICECC_TEST_REMOTEBUILD=1 ICECC_PREFERRED_HOST=remoteice1 ICECC_DEBUG=debug ICECC_LOGFILE="$testdir"/icecc.log ICECC_EXTRAFILES=clangpluginextra.txt $valgrind "${icecc}" \
@@ -746,7 +749,7 @@ debug_test()
     cmd="$1 $2"
     debugstart="$3"
     echo "Running debug test ($cmd)."
-    reset_logs remote "debug test ($cmd)"
+    reset_logs "" "debug test ($cmd)"
 
     ICECC_TEST_SOCKET="$testdir"/socket-localice ICECC_TEST_REMOTEBUILD=1 ICECC_PREFERRED_HOST=remoteice1 ICECC_DEBUG=debug ICECC_LOGFILE="$testdir"/icecc.log $valgrind "${icecc}" \
         $cmd -o "$testdir"/debug-remote.o 2>>"$testdir"/stderr.log
@@ -839,8 +842,7 @@ zero_local_jobs_test()
 {
     echo Running zero_local_jobs test.
 
-    reset_logs local "Running zero_local_jobs test"
-    reset_logs remote  "Running zero_local_jobs test"
+    reset_logs "" "Running zero_local_jobs test"
 
     kill_daemon localice
 
@@ -850,7 +852,7 @@ zero_local_jobs_test()
     rm -rf  "${libdir}"
     mkdir "${libdir}"
 
-    reset_logs remote $GXX -Wall -Werror -c testfunc.cpp -o "${testdir}/testfunc.o"
+    mark_logs remote $GXX -Wall -Werror -c testfunc.cpp -o "${testdir}/testfunc.o"
     echo Running: $GXX -Wall -Werror -c testfunc.cpp -o "${testdir}/testfunc.o"
     ICECC_TEST_SOCKET="$testdir"/socket-localice ICECC_TEST_REMOTEBUILD=1 ICECC_PREFERRED_HOST=remoteice1 ICECC_DEBUG=debug ICECC_LOGFILE="$testdir"/icecc.log $valgrind "${icecc}" $GXX -Wall -Werror -c testfunc.cpp -o "${testdir}/testfunc.o"
     if [[ $? -ne 0 ]]; then
@@ -859,7 +861,7 @@ zero_local_jobs_test()
         if [[ $? ]]; then
             echo "address sanitizer broke, skipping test"
             skipped_tests="$skipped_tests zero_local_jobs_test"
-            reset_logs local "skipping zero_local_jobs_test"
+            mark_logs local "skipping zero_local_jobs_test"
             start_iceccd localice --no-remote -m 2
             return 0
         fi
@@ -867,7 +869,7 @@ zero_local_jobs_test()
         abort_tests
     fi
 
-    reset_logs remote $GXX -Wall -Werror -c testmainfunc.cpp -o "${testdir}/testmainfunc.o"
+    mark_logs remote $GXX -Wall -Werror -c testmainfunc.cpp -o "${testdir}/testmainfunc.o"
     echo Running: $GXX -Wall -Werror -c testmainfunc.cpp -o "${testdir}/testmainfunc.o"
     ICECC_TEST_SOCKET="$testdir"/socket-localice ICECC_TEST_REMOTEBUILD=1 ICECC_PREFERRED_HOST=remoteice2 ICECC_DEBUG=debug ICECC_LOGFILE="$testdir"/icecc.log $valgrind "${icecc}" $GXX -Wall -Werror -c testmainfunc.cpp -o "${testdir}/testmainfunc.o"
     if test $? -ne 0; then
@@ -889,9 +891,9 @@ zero_local_jobs_test()
         abort_tests
     fi
 
-    reset_logs local $GXX -Wall -Werror "-L${libdir}" "-ltestlib1" "-ltestlib2" -o "${testdir}/linkedapp"
+    mark_logs local $GXX -Wall -Werror "-L${libdir}" "-ltestlib1" "-ltestlib2" -o "${testdir}/linkedapp"
     echo Running: $GXX -Wall -Werror "-L${libdir}" "-ltestlib1" "-ltestlib2" -o "${testdir}/linkedapp"
-    ICECC_TEST_SOCKET="$testdir"/socket-localice ICECC_TEST_REMOTEBUILD=1 ICECC_PREFERRED_HOST=localice ICECC_DEBUG=debug ICECC_LOGFILE="$testdir"/icecc.log $valgrind "${icecc}" $GXX -Wall -Werror "-L${libdir}" "-ltestlib1" "-ltestlib2" -o "${testdir}/linkedapp" 2>"$testdir"/stderr.remoteice
+    ICECC_TEST_SOCKET="$testdir"/socket-localice ICECC_TEST_REMOTEBUILD=1 ICECC_PREFERRED_HOST=localice ICECC_DEBUG=debug ICECC_LOGFILE="$testdir"/icecc.log $valgrind "${icecc}" $GXX -Wall -Werror "-L${libdir}" "-ltestlib1" "-ltestlib2" -o "${testdir}/linkedapp" 2>"$testdir"/stderr.log
     if test $? -ne 0; then
         echo "Error, failed to link testlib1 and testlib2 into linkedapp"
         stop_ice 0
@@ -914,34 +916,62 @@ zero_local_jobs_test()
     echo
 }
 
+# All log files that are used by tests. Done here to keep the list in just one place.
+alltestlogs="scheduler localice remoteice1 remoteice2 icecc stderr stderr.localice stderr.remoteice iceccdstderr_localice iceccdstderr_remoteice1 iceccdstderr_remoteice2"
+
+# Call this at the start of a complete test (e.g. testing a feature). If a test fails, logs before this point will not be dumped.
 reset_logs()
 {
     type="$1"
     shift
-    # in case icecc.log or stderr.log don't exit, avoid error message
-    touch "$testdir"/icecc.log "$testdir"/stderr.log
-    for log in scheduler localice remoteice1 remoteice2 icecc stderr iceccdstderr_localice iceccdstderr_remoteice1 iceccdstderr_remoteice2; do
+    flush_logs
+    for log in $alltestlogs; do
         # save (append) previous log
+        cat "$testdir"/${log}_section.log >> "$testdir"/${log}_all.log
         cat "$testdir"/${log}.log >> "$testdir"/${log}_all.log
-        # and start a new one
-        echo ============== > "$testdir"/${log}.log
-        echo "Test ($type): $@" >> "$testdir"/${log}.log
-        echo ============== >> "$testdir"/${log}.log
-        if test "$log" != icecc -a "$log" != stderr; then
-            pid=${log}_pid
-            if test -n "${!pid}"; then
-                kill -HUP ${!pid}
-            fi
-        fi
+        rm "$testdir"/${log}_section.log
+        rm "$testdir"/${log}.log
+        echo -n >"$testdir"/${log}.log
+        echo -n >"$testdir"/${log}_section.log
     done
+    mark_logs $type "$@"
+}
+
+# Call this at the start of a test section (e.g. remote vs local build). Functions such as check_log_message will not check before the mark.
+mark_logs()
+{
+    type="$1"
+    shift
+    flush_logs
+    for log in $alltestlogs; do
+        cat "$testdir"/${log}.log >> "$testdir"/${log}_section.log
+        # and start a new one
+        echo ================ > "$testdir"/${log}.log
+        if test -n "$type"; then
+            echo "= Test ($type): $@" >> "$testdir"/${log}.log
+        else
+            echo "= Test : $@" >> "$testdir"/${log}.log
+        fi
+        echo ================ >> "$testdir"/${log}.log
+    done
+    flush_logs
 }
 
 finish_logs()
 {
-    for log in scheduler localice remoteice1 remoteice2 icecc stderr; do
-        cat "$testdir"/${log}.log >> "$testdir"/${log}_all.log
+    for log in $alltestlogs; do
+        cat "$testdir"/${log}_section.log >> "$testdir"/${log}_all.log
+        cat "$testdir"/${log}.log >> "$testdir"/${log}_section.log
+        rm -f "$testdir"/${log}_section.log
         rm -f "$testdir"/${log}.log
     done
+    alllogscount=`ls -1 "$testdir"/*_all.log | wc -l`
+    logscount=`ls -1 "$testdir"/*.log | wc -l`
+    if test $alllogscount -ne $logscount; then
+        echo INTERNAL ERROR, unhandled log files:
+        ls -1 "$testdir"/*.log | grep -v _all.log
+        exit 100
+    fi
 }
 
 flush_logs()
@@ -950,6 +980,19 @@ flush_logs()
         pid=${daemon}_pid
         if test -n "${!pid}"; then
             kill -HUP ${!pid}
+        fi
+    done
+}
+
+dump_logs()
+{
+    for log in $alltestlogs; do
+        # Skip logs that have only headers
+        if grep -q -v "^=" "$testdir"/${log}.log "$testdir"/${log}_section.log; then
+            echo ------------------------------------------------
+            echo "Log: ${log}"
+            cat "$testdir"/${log}_section.log
+            cat "$testdir"/${log}.log
         fi
     done
 }
@@ -1009,26 +1052,22 @@ check_log_message_count()
     fi
 }
 
-buildnativetest
 
-rm -f "$testdir"/scheduler_all.log
-rm -f "$testdir"/localice_all.log
-rm -f "$testdir"/remoteice1_all.log
-rm -f "$testdir"/remoteice2_all.log
-rm -f "$testdir"/icecc_all.log
-rm -f "$testdir"/stderr_all.log
-rm -f "$testdir"/iceccdstderr_localice_all.log
-rm -f "$testdir"/iceccdstderr_remoteice1_all.log
-rm -f "$testdir"/iceccdstderr_remoteice2_all.log
-echo -n >"$testdir"/scheduler.log
-echo -n >"$testdir"/localice.log
-echo -n >"$testdir"/remoteice1.log
-echo -n >"$testdir"/remoteice2.log
-echo -n >"$testdir"/icecc.log
-echo -n >"$testdir"/stderr.log
-echo -n >"$testdir"/iceccdstderr_localice.log
-echo -n >"$testdir"/iceccdstderr_remoteice1.log
-echo -n >"$testdir"/iceccdstderr_remoteice2.log
+# ==================================================================
+# Main code starts here
+# ==================================================================
+
+for log in $alltestlogs; do
+    rm -f "$testdir"/${log}.log
+    rm -f "$testdir"/${log}_section.log
+    rm -f "$testdir"/${log}_all.log
+    echo -n >"$testdir"/${log}.log
+    echo -n >"$testdir"/${log}_section.log
+done
+
+echo
+
+buildnativetest
 
 echo Starting icecream.
 stop_ice 2
