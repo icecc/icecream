@@ -1205,19 +1205,30 @@ fi
 
 if test -z "$using_gcc"; then
     run_ice "" "remote" 1 $TESTCXX -c syntaxerror.cpp
+    check_section_log_error icecc "local build forced by remote exception: Error 102 - command needs stdout/stderr workaround, recompiling locally"
     run_ice "$testdir/messages.o" "remote" 0 $TESTCXX -Wall -c messages.cpp -o "$testdir"/messages.o
     check_log_message stderr "warning: unused variable 'unused'"
-elif $TESTCXX -E -fdiagnostics-show-caret -Werror messages.cpp >/dev/null 2>/dev/null; then
-    # check gcc stderr workaround, icecream will force a local recompile
-    run_ice "" "remote" 1 "stderrfix" $TESTCXX -c syntaxerror.cpp
-    run_ice "$testdir/messages.o" "remote" 0 "stderrfix" $TESTCXX -Wall -c messages.cpp -o "$testdir"/messages.o
-    check_log_message stderr "warning: unused variable 'unused'"
-    # try again without the local recompile
-    run_ice "" "remote" 1 $TESTCXX -c -fno-diagnostics-show-caret syntaxerror.cpp
-    run_ice "$testdir/messages.o" "remote" 0 $TESTCXX -Wall -c -fno-diagnostics-show-caret messages.cpp -o "$testdir"/messages.o
-    check_log_message stderr "warning: unused variable 'unused'"
+    check_section_log_error icecc "local build forced by remote exception: Error 102 - command needs stdout/stderr workaround, recompiling locally"
 else
-    skipped_tests="$skipped_tests diagnostics-show-caret"
+    if $TESTCXX -E -fdiagnostics-show-caret -Werror messages.cpp >/dev/null 2>/dev/null; then
+        # check gcc stderr workaround, icecream will force a local recompile
+        run_ice "" "remote" 1 "stderrfix" $TESTCXX -c -fdiagnostics-show-caret syntaxerror.cpp
+        run_ice "$testdir/messages.o" "remote" 0 "stderrfix" $TESTCXX -Wall -c -fdiagnostics-show-caret messages.cpp -o "$testdir"/messages.o
+        check_log_message stderr "warning: unused variable 'unused'"
+        check_section_log_message icecc "local build forced by remote exception: Error 102 - command needs stdout/stderr workaround, recompiling locally"
+        # try again without the local recompile
+        run_ice "" "remote" 1 $TESTCXX -c -fno-diagnostics-show-caret syntaxerror.cpp
+        run_ice "$testdir/messages.o" "remote" 0 $TESTCXX -Wall -c -fno-diagnostics-show-caret messages.cpp -o "$testdir"/messages.o
+        check_log_message stderr "warning: unused variable 'unused'"
+        check_section_log_error icecc "local build forced by remote exception: Error 102 - command needs stdout/stderr workaround, recompiling locally"
+    else
+        # This gcc is too old to have this problem, but we do not check the gcc version in icecc.
+        run_ice "" "remote" 1 "stderrfix" $TESTCXX -c syntaxerror.cpp
+        check_section_log_message icecc "local build forced by remote exception: Error 102 - command needs stdout/stderr workaround, recompiling locally"
+        run_ice "$testdir/messages.o" "remote" 0 "stderrfix" $TESTCXX -Wall -c messages.cpp -o "$testdir"/messages.o
+        check_log_message stderr "warning: unused variable 'unused'"
+        check_section_log_message icecc "local build forced by remote exception: Error 102 - command needs stdout/stderr workaround, recompiling locally"
+    fi
 fi
 
 if command -v gdb >/dev/null; then
