@@ -4,11 +4,22 @@ script:
   - ./autogen.sh
   - ./configure --prefix=$PWD/_inst
   - make
-# Only the clang(-3.4) package provides /usr/bin/clang, but this path is hardcoded in icecream.
-# So for now make icecream use this newer version.
-  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then sudo ln -s /usr/bin/clang-3.9 /usr/bin/clang; sudo ln -s /usr/bin/clang++-3.9 /usr/bin/clang++; fi
-  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then make test TESTCC=/usr/bin/gcc TESTCXX=/usr/bin/g++; fi
-  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then make test TESTCC=/usr/bin/clang TESTCXX=/usr/bin/clang++ LLVM_CONFIG=/usr/bin/llvm-config-3.9; fi
+  - |
+        if test "$TRAVIS_OS_NAME" = "linux"; then
+            if test -n "$STRICTTESTS"; then
+                strict="-strict"
+            fi
+            make test${strict} TESTCC=/usr/bin/gcc TESTCXX=/usr/bin/g++
+            if test $? -ne 0; then
+                exit 1
+            fi
+            # Only the clang(-3.4) package provides /usr/bin/clang, but this path is hardcoded in icecream.
+            # So for now make icecream use this newer version.
+            version=3.8
+            sudo ln -s /usr/bin/clang-${version} /usr/bin/clang
+            sudo ln -s /usr/bin/clang++-${version} /usr/bin/clang++
+            make test${strict} TESTCC=/usr/bin/clang TESTCXX=/usr/bin/clang++ LLVM_CONFIG=/usr/bin/llvm-config-${version}
+        fi
 
 matrix:
   include:
@@ -34,6 +45,11 @@ matrix:
     sudo: true # for setcap so we can run the tests in chroot.
     compiler: clang
     env: BUILD_TYPE=ubsan
+    dist: trusty
+  - os: linux
+    sudo: true # for setcap so we can run the tests in chroot.
+    compiler: clang
+    env: STRICTTESTS=1
     dist: trusty
   - os: osx
     before_install:
@@ -72,9 +88,9 @@ addons:
   apt:
     packages:
     - gcc
-    - clang-3.9
-    - libclang-3.9-dev
-    - llvm-3.9-dev
+    - clang-3.8
+    - libclang-3.8-dev
+    - llvm-3.8-dev
     - libcap-ng-dev
     - libcap-ng-utils
     - liblzo2-dev
