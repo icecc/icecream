@@ -1184,8 +1184,9 @@ else
     skipped_tests="$skipped_tests cxx-isystem"
 fi
 
-if $TESTCXX -target x86_64-linux-gnu -fsyntax-only -Werror -c plain.cpp 2>/dev/null; then
-    run_ice "$testdir/plain.o" "remote" 0 $TESTCXX -Wall -Werror -target x86_64-linux-gnu -c plain.cpp -o "$testdir"/plain.o
+target=`$TESTCXX -v 2>&1 | grep "^Target:" | sed 's/Target://'`
+if $TESTCXX -target $target -fsyntax-only -Werror -c plain.cpp 2>/dev/null; then
+    run_ice "$testdir/plain.o" "remote" 0 $TESTCXX -Wall -Werror -target $target -c plain.cpp -o "$testdir"/plain.o
 else
     skipped_tests="$skipped_tests target"
 fi
