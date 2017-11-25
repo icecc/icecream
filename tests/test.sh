@@ -760,6 +760,7 @@ recursive_test()
 # Check that transfering Clang plugin(s) works. While at it, also test ICECC_EXTRAFILES.
 clangplugintest()
 {
+    echo Running Clang plugin test.
     reset_logs "" "clang plugin"
 
     if test -z "$LLVM_CONFIG"; then
@@ -771,13 +772,12 @@ clangplugintest()
         skipped_tests="$skipped_tests clangplugin"
         return
     fi
-    $TESTCXX -shared -fPIC -o "$testdir"/clangplugin.so clangplugin.cpp $clangcxxflags 2>>"$testdir"/stderr.log
+    echo Clang plugin compile flags: $clangcxxflags
+    $TESTCXX -shared -fPIC -g -o "$testdir"/clangplugin.so clangplugin.cpp $clangcxxflags 2>>"$testdir"/stderr.log
     if test $? -ne 0; then
         echo Failed to compile clang plugin, clang plugin test skipped.
         skipped_tests="$skipped_tests clangplugin"
     fi
-
-    echo Running Clang plugin test.
 
     # TODO This should be able to also handle the clangpluginextra.txt argument without the absolute path.
     export ICECC_EXTRAFILES=clangpluginextra.txt
