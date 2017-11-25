@@ -7,7 +7,7 @@ script:
   - ./autogen.sh
   - ./configure --prefix=$PWD/_inst
   - make
-  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then make test-strict; fi
+  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then make test; fi
 
 matrix:
   include:
