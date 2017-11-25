@@ -671,6 +671,7 @@ icerun_test()
 buildnativetest()
 {
     echo Running icecc --build-native test.
+    pushd "$testdir" >/dev/null
     local tgz=$(PATH="$prefix"/bin:/bin:/usr/bin icecc --build-native 2>&1 | \
         grep "^creating .*\.tar\.gz$" | sed -e "s/^creating //")
     if test $? -ne 0; then
@@ -678,6 +679,7 @@ buildnativetest()
         abort_tests
     fi
     rm -f $tgz
+    popd >/dev/null
     echo icecc --build-native test successful.
     echo
 }
