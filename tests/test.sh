@@ -296,8 +296,10 @@ stop_only_daemon()
 # First argument is the expected output file, if any (otherwise specify "").
 # Second argument is "remote" (should be compiled on a remote host) or "local" (cannot be compiled remotely).
 # Third argument is expected exit code - if this is greater than 128 the exit code will be determined by invoking the compiler locally
-# Fourth argument is optional, "stderrfix" specifies that the command may result in local recompile because of the gcc
-# stderr workaround.
+# Follow optional arguments, in this order:
+#   - stderrfix - specifies that the command may result in local recompile because of the gcc stderr workaround.
+#   - keepoutput - will keep the file specified using $output (the remotely compiled version)
+#   - split_dwarf - compilation is done with -gsplit-dwarf
 # Rest is the command to pass to icecc.
 # Command will be run both locally and using icecc and results compared.
 run_ice()
@@ -311,6 +313,11 @@ run_ice()
     stderrfix=
     if test "$1" = "stderrfix"; then
         stderrfix=1
+        shift
+    fi
+    keepoutput=
+    if test "$1" = "keepoutput"; then
+        keepoutput=1
         shift
     fi
     split_dwarf=
@@ -517,7 +524,12 @@ run_ice()
         echo
     fi
     if test -n "$output"; then
-        rm -f "$output" "$output".localice "$output".remoteice "$output".readelf.txt "$output".local.readelf.txt "$output".remote.readelf.txt
+        rm -f "$output" "$output".localice "$output".readelf.txt "$output".local.readelf.txt "$output".remote.readelf.txt
+        if test -n "$keepoutput"; then
+            mv "$output".remoteice "$output"
+        else
+            rm "$output".remoteice
+        fi
     fi
     if test -n "$split_dwarf"; then
         rm -f "$split_dwarf" "$split_dwarf".localice "$split_dwarf".remoteice "$split_dwarf".readelf.txt "$split_dwarf".local.readelf.txt "$split_dwarf".remote.readelf.txt
@@ -1069,6 +1081,22 @@ if command -v gdb >/dev/null; then
     fi
 else
     skipped_tests="$skipped_tests debug"
+fi
+
+if $GXX -fsanitize=address -c -fsyntax-only -Werror fsanitize.cpp >/dev/null 2>/dev/null; then
+    run_ice "$testdir/fsanitize.o" "remote" 0 keepoutput $GXX -c -fsanitize=address -g fsanitize.cpp -o "$testdir"/fsanitize.o
+    $GXX -fsanitize=address -g "$testdir"/fsanitize.o -o "$testdir"/fsanitize 2>>"$testdir"/stderr.log
+    if test $? -ne 0; then
+        echo "Linking for -fsanitize test failed."
+        stop_ice 0
+        abort_tests
+    fi
+    "$testdir"/fsanitize 2>>"$testdir"/stderr.log
+    check_log_message stderr "ERROR: AddressSanitizer: heap-use-after-free"
+    check_log_message stderr "SUMMARY: AddressSanitizer: heap-use-after-free .*/fsanitize.cpp:5 in test()"
+    rm "$testdir"/fsanitize.o
+else
+    skipped_tests="$skipped_tests fsanitize"
 fi
 
 icerun_test
