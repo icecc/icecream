@@ -780,28 +780,20 @@ clangplugintest()
     echo Running Clang plugin test.
 
     # TODO This should be able to also handle the clangpluginextra.txt argument without the absolute path.
-    ICECC_TEST_SOCKET="$testdir"/socket-localice ICECC_TEST_REMOTEBUILD=1 ICECC_PREFERRED_HOST=remoteice1 ICECC_DEBUG=debug ICECC_LOGFILE="$testdir"/icecc.log ICECC_EXTRAFILES=clangpluginextra.txt $valgrind "${icecc}" \
-        $TESTCXX -Wall -c -Xclang -load -Xclang "$testdir"/clangplugin.so -Xclang -add-plugin -Xclang icecreamtest -Xclang -plugin-arg-icecreamtest -Xclang `realpath -s clangpluginextra.txt` clangplugintest.cpp -o "$testdir"/clangplugintest.o 2>>"$testdir"/stderr.log
-    if test $? -ne 0; then
-        echo Clang plugin test failed.
-        stop_ice 0
-        abort_tests
-    fi
-    flush_logs
-    check_logs_for_generic_errors
-    check_log_message icecc "Have to use host 127.0.0.1:10246"
-    check_log_error icecc "Have to use host 127.0.0.1:10247"
-    check_log_error icecc "building myself, but telling localhost"
-    check_log_error icecc "local build forced"
-    check_log_error icecc "<building_local>"
-    check_log_message_count stderr 1 "clangplugintest.cpp:3:5: warning: Icecream plugin found return false"
-    check_log_message_count stderr 1 "warning: Extra file check successful"
-    check_log_error stderr "Extra file open error"
-    check_log_error stderr "Incorrect number of arguments"
-    check_log_error stderr "File contents do not match"
+    export ICECC_EXTRAFILES=clangpluginextra.txt
+    run_ice "$testdir/clangplugintest.o" "remote" 0 $TESTCXX -Wall -c -Xclang -load -Xclang "$testdir"/clangplugin.so \
+        -Xclang -add-plugin -Xclang icecreamtest -Xclang -plugin-arg-icecreamtest -Xclang `realpath -s clangpluginextra.txt` \
+        clangplugintest.cpp -o "$testdir"/clangplugintest.o
+    unset ICECC_EXTRAFILES
+    for type in "" ".localice" ".remoteice"; do
+        check_section_log_message_count stderr${type} 1 "clangplugintest.cpp:3:5: warning: Icecream plugin found return false"
+        check_section_log_message_count stderr${type} 1 "warning: Extra file check successful"
+        check_section_log_error stderr${type} "Extra file open error"
+        check_section_log_error stderr${type} "Incorrect number of arguments"
+        check_section_log_error stderr${type} "File contents do not match"
+    done
     echo Clang plugin test successful.
     echo
-    rm "$testdir"/clangplugintest.o
 }
 
 # Both clang and gcc4.8+ produce different debuginfo depending on whether the source file is
@@ -1132,6 +1124,18 @@ check_log_message_count()
     log="$1"
     expected_count="$2"
     count=`grep "$3" "$testdir"/${log}.log | wc -l`
+    if test $count -ne $expected_count; then
+        echo "Error, $log log does not contain expected count (${count} vs ${expected_count}): $3"
+        stop_ice 0
+        abort_tests
+    fi
+}
+
+check_section_log_message_count()
+{
+    log="$1"
+    expected_count="$2"
+    count=`grep "$3" "$testdir"/${log}.log "$testdir"/${log}_section.log | wc -l`
     if test $count -ne $expected_count; then
         echo "Error, $log log does not contain expected count (${count} vs ${expected_count}): $3"
         stop_ice 0
