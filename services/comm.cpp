@@ -227,7 +227,7 @@ bool MsgChannel::update_state(void)
         } else {
             break;
         }
-
+        /* FALLTHROUGH */
     case FILL_BUF:
 
         if (inofs - intogo >= inmsglen) {
