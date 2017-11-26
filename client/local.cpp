@@ -157,9 +157,18 @@ Therefore it is better to only locally merge all #include files into the source
 file and do the actual preprocessing remotely together with compiling.
 There exists a Clang patch to implement option -frewrite-includes that does
 such #include rewritting, and it's been only recently merged upstream.
+
+This is similar with newer gcc versions, and gcc has -fdirectives-only, which
+works similarly to -frewrite-includes (although it's not exactly the same).
 */
 bool compiler_only_rewrite_includes(const CompileJob &job)
 {
+    if (const char *rewrite_includes = getenv("ICECC_REMOTE_CPP")) {
+        return (*rewrite_includes != '\0') && (*rewrite_includes != '0');
+    }
+    if (!compiler_is_clang(job)) {
+        return true; // gcc has had -fdirectives-only for a long time
+    }
     if (compiler_is_clang(job)) {
         if (const char *rewrite_includes = getenv("ICECC_CLANG_REMOTE_CPP")) {
             return (*rewrite_includes != '\0') && (*rewrite_includes != '0');

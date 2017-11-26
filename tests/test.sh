@@ -73,6 +73,7 @@ unset ICECC_REPEAT_RATE
 unset ICECC_PREFERRED_HOST
 unset ICECC_CC
 unset ICECC_CXX
+unset ICECC_REMOTE_CPP
 unset ICECC_CLANG_REMOTE_CPP
 unset ICECC_IGNORE_UNVERIFIED
 unset ICECC_EXTRAFILES
@@ -1206,6 +1207,8 @@ run_ice "$testdir/plain.o" "remote" 0 $TESTCC -Wall -Werror -x c++ -c plain -o "
 
 run_ice "" "remote" 300 "remoteabort" $TESTCXX -c nonexistent.cpp
 run_ice "" "local" 0 /bin/true
+
+run_ice "$testdir/warninginmacro.o" "remote" 0 $TESTCXX -Wall -Wextra -Werror -c warninginmacro.cpp -o "$testdir/"warninginmacro.o
 
 if $TESTCXX -cxx-isystem ./ -fsyntax-only -Werror -c includes.cpp 2>/dev/null; then
     run_ice "$testdir/includes.o" "remote" 0 $TESTCXX -Wall -Werror -cxx-isystem ./ -c includes.cpp -o "$testdir"/includes.o

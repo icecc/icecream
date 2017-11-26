@@ -730,6 +730,11 @@ bool analyse_argv(const char * const *argv, CompileJob &job, bool icerun, list<s
             args.append("-fdiagnostics-color", Arg_Rest); // GCC
     }
 
+    if( !always_local && compiler_only_rewrite_includes(job) && !compiler_is_clang(job)) {
+        // Inject this, so that remote compilation uses -fpreprocessed -fdirectives-only
+        args.append("-fdirectives-only", Arg_Remote);
+    }
+
     job.setFlags(args);
     job.setOutputFile(ofile);
 
