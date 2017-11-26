@@ -274,6 +274,14 @@ else
     fi
 fi
 
+AC_MSG_CHECKING([for -fsanitize= usage])
+if echo "$CXXFLAGS" | grep -q -- -fsanitize; then
+    AC_DEFINE(SANITIZER_USED, 1, [Define to 1 if compiled with -fsanitize option(s)])
+    AC_MSG_RESULT(yes)
+else
+    AC_MSG_RESULT(no)
+fi
+
 AC_CONFIG_FILES([ Makefile ])
 AC_CONFIG_FILES([ client/Makefile ])
 AC_CONFIG_FILES([ daemon/Makefile ])

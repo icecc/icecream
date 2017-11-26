@@ -179,6 +179,23 @@ int work_it(CompileJob &j, unsigned int job_stat[], MsgChannel *client, CompileR
         }
 
 #ifdef RLIMIT_AS
+
+// Sanitizers use huge amounts of virtual memory and the setrlimit() call below
+// may lead to the process getting killed at any moment without any warning
+// or message. Both gcc's and clang's macros are unreliable (no way to detect -fsanitize=leak,
+// for example), but hopefully with the configure check this is good enough.
+#ifndef SANITIZER_USED
+#ifdef __SANITIZE_ADDRESS__
+#define SANITIZER_USED
+#endif
+#if defined(__has_feature)
+#if __has_feature(address_sanitizer)
+#define SANITIZER_USED
+#endif
+#endif
+#endif
+
+#ifndef SANITIZER_USED
         struct rlimit rlim;
 
         if (getrlimit(RLIMIT_AS, &rlim)) {
@@ -193,7 +210,7 @@ int work_it(CompileJob &j, unsigned int job_stat[], MsgChannel *client, CompileR
             error_client(client, "setrlimit failed.");
             log_perror("setrlimit");
         }
-
+#endif
 #endif
 
         int argc = list.size();
