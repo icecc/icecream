@@ -353,8 +353,10 @@ run_ice()
     shift
     stderrfix=
     if test "$1" = "stderrfix"; then
-        stderrfix=1
-        shift
+        if test -n "$using_gcc"; then
+            stderrfix=1
+            shift
+        fi
     fi
     keepoutput=
     if test "$1" = "keepoutput"; then
@@ -452,6 +454,8 @@ run_ice()
         check_log_error icecc "building myself, but telling localhost"
         if test -z "$stderrfix"; then
             check_log_error icecc "local build forced"
+        else
+            check_log_message icecc "local build forced by remote exception: Error 102 - command needs stdout/stderr workaround, recompiling locally"
         fi
     fi
 
@@ -1090,7 +1094,11 @@ check_logs_for_generic_errors()
     # consider all non-fatal errors such as running out of memory on the remote
     # still as problems, except for:
     # 102 - -fdiagnostics-show-caret forced local build (gcc-4.8+)
-    check_log_error_except icecc "local build forced" "local build forced by remote exception: Error 102 - command needs stdout/stderr workaround, recompiling locally"
+    if test -n "$using_gcc"; then
+        check_log_error_except icecc "local build forced" "local build forced by remote exception: Error 102 - command needs stdout/stderr workaround, recompiling locally"
+    else
+        check_log_error icecc "local build forced"
+    fi
 }
 
 check_log_error()
