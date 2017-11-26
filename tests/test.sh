@@ -339,6 +339,7 @@ stop_only_daemon()
 #   - keepoutput - will keep the file specified using $output (the remotely compiled version)
 #   - split_dwarf - compilation is done with -gsplit-dwarf
 #   - noresetlogs - will not use reset_logs at the start (needs to be done explicitly before calling run_ice)
+#   - remoteabort - remote compilation will abort (as a result of local processing failing and remote daemon killing the remote compiler)
 # Rest is the command to pass to icecc.
 # Command will be run both locally and using icecc and results compared.
 run_ice()
@@ -369,6 +370,11 @@ run_ice()
     noresetlogs=
     if test "$1" = "noresetlogs"; then
         noresetlogs=1
+        shift
+    fi
+    remoteabort=
+    if test "$1" = "remoteabort"; then
+        remoteabort=1
         shift
     fi
 
@@ -424,6 +430,19 @@ run_ice()
         if test "$remote_type" = "remote"; then
             check_log_message icecc "Have to use host 127.0.0.1:10246"
             check_log_error icecc "<building_local>"
+            if test -n "$output"; then
+                check_log_message remoteice1 "Remote compilation completed with exit code 0"
+                check_log_error remoteice1 "Remote compilation aborted with exit code"
+                check_log_error remoteice1 "Remote compilation exited with exit code"
+            elif test -n "$remoteabort"; then
+                check_log_message remoteice1 "Remote compilation aborted with exit code"
+                check_log_error remoteice1 "Remote compilation completed with exit code 0"
+                check_log_error remoteice1 "Remote compilation exited with exit code"
+            else
+                check_log_message remoteice1 "Remote compilation exited with exit code $expected_exit"
+                check_log_error remoteice1 "Remote compilation completed with exit code 0"
+                check_log_error remoteice1 "Remote compilation aborted with exit code"
+            fi
         else
             check_log_message icecc "<building_local>"
             check_log_error icecc "Have to use host 127.0.0.1:10246"
@@ -614,6 +633,12 @@ make_test()
     check_log_message icecc "Have to use host 127.0.0.1:10246"
     check_log_message icecc "Have to use host 127.0.0.1:10247"
     check_log_message_count icecc 1 "<building_local>"
+    check_log_message remoteice1 "Remote compilation completed with exit code 0"
+    check_log_error remoteice1 "Remote compilation aborted with exit code"
+    check_log_error remoteice1 "Remote compilation exited with exit code $expected_exit"
+    check_log_message remoteice2 "Remote compilation completed with exit code 0"
+    check_log_error remoteice2 "Remote compilation aborted with exit code"
+    check_log_error remoteice2 "Remote compilation exited with exit code $expected_exit"
     if test $run_number -eq 1; then
         check_log_message scheduler "no job stats - returning randomly selected"
     else
@@ -1179,7 +1204,7 @@ run_ice "$testdir/includes.o" "remote" 0 $TESTCXX -Wall -Werror -c includes.cpp 
 run_ice "$testdir/plain.o" "local" 0 $TESTCXX -Wall -Werror -c plain.cpp -mtune=native -o "$testdir"/plain.o
 run_ice "$testdir/plain.o" "remote" 0 $TESTCC -Wall -Werror -x c++ -c plain -o "$testdir"/plain.o
 
-run_ice "" "remote" 300 $TESTCXX -c nonexistent.cpp
+run_ice "" "remote" 300 "remoteabort" $TESTCXX -c nonexistent.cpp
 run_ice "" "local" 0 /bin/true
 
 if $TESTCXX -cxx-isystem ./ -fsyntax-only -Werror -c includes.cpp 2>/dev/null; then
@@ -1204,7 +1229,7 @@ if test -z "$debug_fission_disabled"; then
     run_ice "$testdir/plain.o" "remote" 0 "split_dwarf" $TESTCXX -Wall -Werror -gsplit-dwarf -g -c plain.cpp -o "$testdir/"plain.o
     run_ice "$testdir/plain.o" "remote" 0 "split_dwarf" $TESTCC -Wall -Werror -gsplit-dwarf -c plain.c -o "$testdir/"plain.o
     run_ice "$testdir/plain.o" "remote" 0 "split_dwarf" $TESTCC -Wall -Werror -gsplit-dwarf -c plain.c -o "../../../../../../../..$testdir/plain.o"
-    run_ice "" "remote" 300 "split_dwarf" $TESTCXX -gsplit-dwarf -c nonexistent.cpp
+    run_ice "" "remote" 300 "split_dwarf" "remoteabort" $TESTCXX -gsplit-dwarf -c nonexistent.cpp
 fi
 
 if test -z "$using_gcc"; then
@@ -1321,9 +1346,8 @@ fi
 # test -frewrite-includes usage
 $TESTCXX -E -Werror -frewrite-includes messages.cpp 2>/dev/null | grep -q '^# 1 "messages.cpp"$' >/dev/null 2>/dev/null
 if test $? -eq 0; then
-    run_ice "" "remote" 0 $TESTCXX -Wall -c messages.cpp -o "$testdir"/messages.o
+    run_ice "$testdir/messages.o" "remote" 0 $TESTCXX -Wall -c messages.cpp -o "$testdir"/messages.o
     check_log_message stderr "warning: unused variable 'unused'"
-    rm "$testdir"/messages.o
 else
     echo $TESTCXX does not provide functional -frewrite-includes, skipping test.
     echo

@@ -668,6 +668,8 @@ int work_it(CompileJob &j, unsigned int job_stat[], MsgChannel *client, CompileR
                             || (rmsg.err.find("terminate called after throwing an instance of 'std::bad_alloc'") != string::npos)
                             || (rmsg.err.find("llvm::MallocSlabAllocator::Allocate") != string::npos)) {
                         // the relation between ulimit and memory used is pretty thin ;(
+                        log_warning() << "Remote compilation failed, presumably because of running out of memory (exit code "
+                            << shell_exit_status(status) << ")" << endl;
                         return EXIT_OUT_OF_MEMORY;
                     }
                 }
@@ -685,6 +687,13 @@ int work_it(CompileJob &j, unsigned int job_stat[], MsgChannel *client, CompileR
                     job_stat[JobStatistics::sys_msec] = (ru.ru_stime.tv_sec * 1000)
                                                         + (ru.ru_stime.tv_usec / 1000);
                     job_stat[JobStatistics::sys_pfaults] = ru.ru_majflt + ru.ru_nswap + ru.ru_minflt;
+                    if(rmsg.status != 0) {
+                        log_warning() << "Remote compilation exited with exit code " << shell_exit_status(status) << endl;
+                    } else {
+                        log_info() << "Remote compilation completed with exit code " << shell_exit_status(status) << endl;
+                    }
+                } else {
+                    log_warning() << "Remote compilation aborted with exit code " << shell_exit_status(status) << endl;
                 }
 
                 return return_value;
