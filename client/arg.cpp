@@ -106,67 +106,105 @@ static bool is_argument_with_space(const char* argument)
     //         -segcreate <arg1> <arg2> <arg3>
     //         -segprot <arg1> <arg2> <arg3>
     //       Move some arguments to Arg_Cpp or Arg_Local
-    if (str_equal("-dyld-prefix", argument)
-        || str_equal("-gcc-toolchain", argument)
-        || str_equal("--param", argument)
-        || str_equal("--sysroot", argument)
-        || str_equal("--system-header-prefix", argument)
-        || str_equal("-target", argument)
-        || str_equal("--assert", argument)
-        || str_equal("--allowable_client", argument)
-        || str_equal("-arch", argument)
-        || str_equal("-arch_only", argument)
-        || str_equal("-arcmt-migrate-report-output", argument)
-        || str_equal("--prefix", argument)
-        || str_equal("-bundle_loader", argument)
-        || str_equal("-dependency-dot", argument)
-        || str_equal("-dependency-file", argument)
-        || str_equal("-dylib_file", argument)
-        || str_equal("-exported_symbols_list", argument)
-        || str_equal("--bootclasspath", argument)
-        || str_equal("--CLASSPATH", argument)
-        || str_equal("--classpath", argument)
-        || str_equal("--resource", argument)
-        || str_equal("--encoding", argument)
-        || str_equal("--extdirs", argument)
-        || str_equal("-filelist", argument)
-        || str_equal("-fmodule-implementation-of", argument)
-        || str_equal("-fmodule-name", argument)
-        || str_equal("-fmodules-user-build-path", argument)
-        || str_equal("-fnew-alignment", argument)
-        || str_equal("-force_load", argument)
-        || str_equal("--output-class-directory", argument)
-        || str_equal("-framework", argument)
-        || str_equal("-frewrite-map-file", argument)
-        || str_equal("-ftrapv-handler", argument)
-        || str_equal("-image_base", argument)
-        || str_equal("-init", argument)
-        || str_equal("-install_name", argument)
-        || str_equal("-lazy_framework", argument)
-        || str_equal("-lazy_library", argument)
-        || str_equal("-meabi", argument)
-        || str_equal("-mhwdiv", argument)
-        || str_equal("-mllvm", argument)
-        || str_equal("-module-dependency-dir", argument)
-        || str_equal("-mthread-model", argument)
-        || str_equal("-multiply_defined", argument)
-        || str_equal("-multiply_defined_unused", argument)
-        || str_equal("-rpath", argument)
-        || str_equal("--rtlib", argument)
-        || str_equal("-seg_addr_table", argument)
-        || str_equal("-seg_addr_table_filename", argument)
-        || str_equal("-segs_read_only_addr", argument)
-        || str_equal("-segs_read_write_addr", argument)
-        || str_equal("-serialize-diagnostics", argument)
-        || str_equal("-std", argument)
-        || str_equal("--stdlib", argument)
-        || str_equal("--force-link", argument)
-        || str_equal("-umbrella", argument)
-        || str_equal("-unexported_symbols_list", argument)
-        || str_equal("-weak_library", argument)
-        || str_equal("-weak_reference_mismatches", argument)) {
+    static const char* const arguments[] = {
+        "-dyld-prefix",
+        "-gcc-toolchain",
+        "--param",
+        "--sysroot",
+        "--system-header-prefix",
+        "-target",
+        "--assert",
+        "--allowable_client",
+        "-arch",
+        "-arch_only",
+        "-arcmt-migrate-report-output",
+        "--prefix",
+        "-bundle_loader",
+        "-dependency-dot",
+        "-dependency-file",
+        "-dylib_file",
+        "-exported_symbols_list",
+        "--bootclasspath",
+        "--CLASSPATH",
+        "--classpath",
+        "--resource",
+        "--encoding",
+        "--extdirs",
+        "-filelist",
+        "-fmodule-implementation-of",
+        "-fmodule-name",
+        "-fmodules-user-build-path",
+        "-fnew-alignment",
+        "-force_load",
+        "--output-class-directory",
+        "-framework",
+        "-frewrite-map-file",
+        "-ftrapv-handler",
+        "-image_base",
+        "-init",
+        "-install_name",
+        "-lazy_framework",
+        "-lazy_library",
+        "-meabi",
+        "-mhwdiv",
+        "-mllvm",
+        "-module-dependency-dir",
+        "-mthread-model",
+        "-multiply_defined",
+        "-multiply_defined_unused",
+        "-rpath",
+        "--rtlib",
+        "-seg_addr_table",
+        "-seg_addr_table_filename",
+        "-segs_read_only_addr",
+        "-segs_read_write_addr",
+        "-serialize-diagnostics",
+        "-std",
+        "--stdlib",
+        "--force-link",
+        "-umbrella",
+        "-unexported_symbols_list",
+        "-weak_library",
+        "-weak_reference_mismatches",
+        "-B",
+        "-D",
+        "-U",
+        "-I",
+        "-i",
+        "--include-directory",
+        "-L",
+        "-l",
+        "--library-directory",
+        "-MF",
+        "-MT",
+        "-MQ",
+        "-cxx-isystem",
+        "-c-isystem",
+        "-idirafter",
+        "--include-directory-after",
+        "-iframework",
+        "-iframeworkwithsysroot",
+        "-imacros",
+        "-imultilib",
+        "-iprefix",
+        "--include-prefix",
+        "-iquote",
+        "-isysroot",
+        "-isystem",
+        "-isystem-after",
+        "-ivfsoverlay",
+        "-iwithprefix",
+        "--include-with-prefix",
+        "--include-with-prefix-after",
+        "-iwithprefixbefore",
+        "--include-with-prefix-before",
+        "-iwithsysroot"
+    };
 
-        return true;
+    for( size_t i = 0; i < sizeof( arguments ) / sizeof( arguments[ 0 ] ); ++i ) {
+        if (str_equal( arguments[ i ], argument)) {
+            return true;
+        }
     }
 
     return false;
@@ -252,6 +290,7 @@ bool analyse_argv(const char * const *argv, CompileJob &job, bool icerun, list<s
             } else if (str_equal("--param", a)) {
                 args.append(a, Arg_Remote);
 
+                assert( is_argument_with_space( a ));
                 /* skip next word, being option argument */
                 if (argv[i + 1]) {
                     args.append(argv[++i], Arg_Remote);
@@ -265,6 +304,7 @@ bool analyse_argv(const char * const *argv, CompileJob &job, bool icerun, list<s
                 log_info() << "argument " << a << ", building locally" << endl;
 
                 if (str_equal(a, "-B")) {
+                    assert( is_argument_with_space( a ));
                     /* skip next word, being option argument */
                     if (argv[i + 1]) {
                         args.append(argv[++i], Arg_Local);
@@ -430,6 +470,7 @@ bool analyse_argv(const char * const *argv, CompileJob &job, bool icerun, list<s
             } else if (str_equal("-D", a) || str_equal("-U", a)) {
                 args.append(a, Arg_Cpp);
 
+                assert( is_argument_with_space( a ));
                 /* skip next word, being option argument */
                 if (argv[i + 1]) {
                     ++i;
@@ -467,6 +508,7 @@ bool analyse_argv(const char * const *argv, CompileJob &job, bool icerun, list<s
                        || str_equal("-iwithsysroot", a)) {
                 args.append(a, Arg_Local);
 
+                assert( is_argument_with_space( a ));
                 /* skip next word, being option argument */
                 if (argv[i + 1]) {
                     ++i;

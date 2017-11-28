@@ -1091,6 +1091,7 @@ check_logs_for_generic_errors()
     check_log_error scheduler "that job isn't handled by"
     check_log_error scheduler "the server isn't the same for job"
     check_log_error icecc "got exception "
+    check_log_error icecc "found another non option on command line. Two input files"
     # consider all non-fatal errors such as running out of memory on the remote
     # still as problems, except for:
     # 102 - -fdiagnostics-show-caret forced local build (gcc-4.8+)
@@ -1212,6 +1213,9 @@ run_ice "$testdir/plain.ii" "local" 0 $TESTCXX -Wall -Werror -E plain.cpp -o "$t
 run_ice "$testdir/includes.o" "remote" 0 $TESTCXX -Wall -Werror -c includes.cpp -o "$testdir"/includes.o
 run_ice "$testdir/plain.o" "local" 0 $TESTCXX -Wall -Werror -c plain.cpp -mtune=native -o "$testdir"/plain.o
 run_ice "$testdir/plain.o" "remote" 0 $TESTCC -Wall -Werror -x c++ -c plain -o "$testdir"/plain.o
+
+run_ice "$testdir/testdefine.o" "remote" 0 $TESTCXX -Wall -Werror -DICECREAM_TEST_DEFINE=test -c testdefine.cpp -o "$testdir/"testdefine.o
+run_ice "$testdir/testdefine.o" "remote" 0 $TESTCXX -Wall -Werror -D ICECREAM_TEST_DEFINE=test -c testdefine.cpp -o "$testdir/"testdefine.o
 
 run_ice "" "remote" 300 "remoteabort" $TESTCXX -c nonexistent.cpp
 run_ice "" "local" 0 /bin/true
