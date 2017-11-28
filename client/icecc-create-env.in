@@ -278,7 +278,7 @@ if test -n "$gcc"; then
 
     gcc_as=$($added_gcc -print-prog-name=as)
     if test "$gcc_as" = "as"; then
-      add_file /usr/bin/as
+      add_file $(command -v as)
     else
       add_file "$gcc_as" /usr/bin/as
     fi
@@ -327,7 +327,7 @@ for extrafile in $extrafiles; do
 done
 
 if test "$objcopy" = "objcopy"; then
-    objcopy=/usr/bin/objcopy
+    objcopy=$(command -v objcopy)
 fi
 if [ -e "$objcopy" ]; then
     add_file "$objcopy" /usr/bin/objcopy
