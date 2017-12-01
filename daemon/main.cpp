@@ -602,7 +602,8 @@ bool Daemon::setup_listen_fds()
 
     myaddr.sun_family = AF_UNIX;
 
-    mode_t old_umask = -1U;
+    bool reset_umask = false;
+    mode_t old_umask = 0;
 
     if (getenv("ICECC_TEST_SOCKET") == NULL) {
 #ifdef HAVE_LIBCAP_NG
@@ -621,6 +622,7 @@ bool Daemon::setup_listen_fds()
                 log_perror("unlink failed") << "\t" << myaddr.sun_path << endl;
             }
             old_umask = umask(0);
+            reset_umask = true;
         } else { // Started by user.
             if( getenv( "HOME" )) {
                 string socket_path = getenv("HOME");
@@ -653,14 +655,14 @@ bool Daemon::setup_listen_fds()
     if (bind(unix_listen_fd, (struct sockaddr*)&myaddr, sizeof(myaddr)) < 0) {
         log_perror("bind()");
 
-        if (old_umask != -1U) {
+        if (reset_umask) {
             umask(old_umask);
         }
 
         return false;
     }
 
-    if (old_umask != -1U) {
+    if (reset_umask) {
         umask(old_umask);
     }
 
