@@ -2259,7 +2259,6 @@ int main(int argc, char *argv[])
 
             int buflen = recvfrom(broad_fd, buf, BROAD_BUFLEN, 0, (struct sockaddr *) &broad_addr,
                     &broad_len);
-            /* Daemon is searching for a scheduler, only answer if daemon would be able to talk to us. */
             if (buflen < 0 || buflen > BROAD_BUFLEN){
                 int err = errno;
                 log_perror("recvfrom()");
@@ -2274,6 +2273,7 @@ int main(int argc, char *argv[])
                 }
             }
             if (buflen == 1) {
+                /* Daemon is searching for a scheduler, only answer if daemon would be able to talk to us. */
                 if (buf[0] >= MIN_PROTOCOL_VERSION){
                     log_info() << "broadcast from " << inet_ntoa(broad_addr.sin_addr)
                         << ":" << ntohs(broad_addr.sin_port)
