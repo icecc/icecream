@@ -1874,7 +1874,7 @@ int main(int argc, char *argv[])
     int listen_fd, remote_fd, broad_fd, text_fd;
     struct sockaddr_in remote_addr;
     socklen_t remote_len;
-    char *netname = (char *)"ICECREAM";
+    const char *netname = "ICECREAM";
     bool detach = false;
     bool persistent_clients = false;
     int debug_level = Error;
