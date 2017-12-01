@@ -216,7 +216,7 @@ static void updateCPULoad(CPULoadInfo *load)
     load->waitTicks = currWaitTicks;
 }
 
-#ifndef USE_SYSCTL
+#if !defined(USE_SYSCTL) && !defined(USE_MACH)
 static unsigned long int scan_one(const char *buff, const char *key)
 {
     const char *b = strstr(buff, key);
