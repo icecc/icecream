@@ -1288,13 +1288,41 @@ static int open_send_broadcast(int port, const char* buf, int size)
 bool Broadcasts::broadcastData(int port, const char* buf, int len)
 {
     int fd = open_send_broadcast(port, buf, len);
+    bool result = false;
     if (fd >= 0) {
         if ((-1 == close(fd)) && (errno != EBADF)){
             log_perror("close failed");
         }
-        return true;
+        result = true;
     }
-    return false;
+    // When running tests, we want to check also interactions between 2 schedulers, but
+    // when they are both local, they cannot bind to the same port. So make sure to
+    // send all broadcasts to both.
+    static bool checkedDebug = false;
+    static int debugPort1 = 0;
+    static int debugPort2 = 0;
+    if( !checkedDebug ) {
+        checkedDebug = true;
+        if( const char* env = getenv( "ICECC_TEST_SCHEDULER_PORTS" )) {
+            debugPort1 = atoi( env );
+            const char* env2 = strchr( env, ':' );
+            if( env2 != NULL )
+                debugPort2 = atoi( env2 + 1 );
+        }
+    }
+    int secondPort = 0;
+    if( port == debugPort1 )
+        secondPort = debugPort2;
+    else if( port == debugPort2 )
+        secondPort = debugPort1;
+    int fd2 = open_send_broadcast(secondPort, buf, len);
+    if (fd2 >= 0) {
+        if ((-1 == close(fd2)) && (errno != EBADF)){
+            log_perror("close failed");
+        }
+        result = true;
+    }
+    return result;
 }
 
 DiscoverSched::DiscoverSched(const std::string &_netname, int _timeout,

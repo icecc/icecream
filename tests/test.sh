@@ -53,6 +53,7 @@ icecc="${prefix}/bin/icecc"
 iceccd="${prefix}/sbin/iceccd"
 icecc_scheduler="${prefix}/sbin/icecc-scheduler"
 netname="icecctestnetname$$"
+protocolversion=$(cat ../services/comm.h | grep '#define PROTOCOL_VERSION ' | sed 's/#define PROTOCOL_VERSION //')
 
 if test -z "$prefix" -o ! -x "$icecc"; then
     usage
@@ -191,7 +192,7 @@ kill_daemon()
 
 start_ice()
 {
-    ICECC_LOCALHOST_TESTS=1 $valgrind "${icecc_scheduler}" -p 8767 -l "$testdir"/scheduler.log -n ${netname} -v -v -v &
+    ICECC_LOCALHOST_TESTS=1 ICECC_TEST_SCHEDULER_PORTS=8767:8769 $valgrind "${icecc_scheduler}" -p 8767 -l "$testdir"/scheduler.log -n ${netname} -v -v -v &
     scheduler_pid=$!
     echo $scheduler_pid > "$testdir"/scheduler.pid
 
@@ -282,10 +283,12 @@ stop_ice()
         remoteice2_pid=`cat "$testdir"/remoteice2.pid 2>/dev/null`
     fi
     if test $check_type -eq 1; then
-        if ! kill -0 $scheduler_pid; then
-            echo Scheduler no longer running.
-            stop_ice 0
-            abort_tests
+        if test -n "$scheduler_pid"; then
+            if ! kill -0 $scheduler_pid; then
+                echo Scheduler no longer running.
+                stop_ice 0
+                abort_tests
+            fi
         fi
         for daemon in localice remoteice1 remoteice2; do
             pid=${daemon}_pid
@@ -313,6 +316,38 @@ stop_ice()
         scheduler_pid=
     fi
     rm -f "$testdir"/scheduler.pid
+    stop_secondary_scheduler $check_type
+}
+
+stop_secondary_scheduler()
+{
+    check_type="$1"
+    if test $check_type -eq 2; then
+        scheduler2_pid=`cat "$testdir"/scheduler2.pid 2>/dev/null`
+    fi
+    if test $check_type -eq 1; then
+        if test -n "$scheduler2_pid"; then
+            if ! kill -0 $scheduler2_pid; then
+                echo Secondary scheduler no longer running.
+                stop_ice 0
+                abort_tests
+            fi
+        fi
+    fi
+    if test -n "$scheduler2_pid"; then
+        kill "$scheduler2_pid" 2>/dev/null
+        if test $check_type -eq 1; then
+            wait $scheduler2_pid
+            exitcode=$?
+            if test $exitcode -ne 0; then
+                echo Secondary scheduler exited with code $exitcode.
+                stop_ice 0
+                abort_tests
+            fi
+        fi
+        scheduler2_pid=
+    fi
+    rm -f "$testdir"/scheduler2.pid
 }
 
 stop_only_daemon()
@@ -1007,7 +1042,7 @@ zero_local_jobs_test()
 }
 
 # All log files that are used by tests. Done here to keep the list in just one place.
-alltestlogs="scheduler localice remoteice1 remoteice2 icecc stderr stderr.localice stderr.remoteice iceccdstderr_localice iceccdstderr_remoteice1 iceccdstderr_remoteice2"
+alltestlogs="scheduler scheduler2 localice remoteice1 remoteice2 icecc stderr stderr.localice stderr.remoteice iceccdstderr_localice iceccdstderr_remoteice1 iceccdstderr_remoteice2"
 
 # Call this at the start of a complete test (e.g. testing a feature). If a test fails, logs before this point will not be dumped.
 reset_logs()
@@ -1368,6 +1403,22 @@ else
     echo $TESTCXX does not provide functional -frewrite-includes, skipping test.
     echo
     skipped_tests="$skipped_tests clang_rewrite_includes"
+fi
+
+if test -z "$chroot_disabled"; then
+    echo Testing multiple schedulers.
+    reset_logs remote "Multiple schedulers"
+    ICECC_LOCALHOST_TESTS=1 ICECC_TEST_SCHEDULER_PORTS=8767:8769 $valgrind "${icecc_scheduler}" -p 8769 -l "$testdir"/scheduler2.log -n ${netname}_secondary -v -v -v &
+    scheduler2_pid=$!
+    echo $scheduler2_pid > "$testdir"/scheduler2.pid
+    wait_for_proc_sleep 10 ${scheduler2_pid}
+    check_log_message scheduler "Received scheduler announcement from .* (version $protocolversion, netname ${netname}_secondary)"
+    check_log_error scheduler "disconnecting all connections"
+    stop_secondary_scheduler 1
+    echo Multiple schedulers test successful.
+    echo
+else
+    skipped_tests="$skipped_tests scheduler_version"
 fi
 
 reset_logs local "Closing down"

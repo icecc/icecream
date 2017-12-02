@@ -1791,17 +1791,20 @@ static void handle_scheduler_announce(const char* buf, const char* netname, bool
 {
     /* Another scheduler is announcing it's running, disconnect daemons if it has a better version
        or the same version but was started earlier. */
-    if (!persistent_clients){
-        time_t other_time;
-        int other_protocol_version;
-        string other_netname;
-        Broadcasts::getSchedulerVersionData(buf, &other_protocol_version, &other_time, &other_netname);
-        if (other_protocol_version >= 36)
+    time_t other_time;
+    int other_protocol_version;
+    string other_netname;
+    Broadcasts::getSchedulerVersionData(buf, &other_protocol_version, &other_time, &other_netname);
+    trace() << "Received scheduler announcement from " << inet_ntoa(broad_addr.sin_addr)
+            << ":" << ntohs(broad_addr.sin_port)
+            << " (version " << int(other_protocol_version) << ", netname " << other_netname << ")" << endl;
+    if (other_protocol_version >= 36)
+    {
+        if (other_netname == netname)
         {
-            if (other_netname == netname)
+            if (other_protocol_version > PROTOCOL_VERSION || (other_protocol_version == PROTOCOL_VERSION && other_time < starttime))
             {
-                if (other_protocol_version > PROTOCOL_VERSION || (other_protocol_version == PROTOCOL_VERSION && other_time < starttime))
-                {
+                if (!persistent_clients){
                     log_info() << "Scheduler from " << inet_ntoa(broad_addr.sin_addr)
                         << ":" << ntohs(broad_addr.sin_port)
                         << " (version " << int(other_protocol_version) << ") has announced itself as a preferred"
