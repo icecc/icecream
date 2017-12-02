@@ -1220,14 +1220,17 @@ static int open_send_broadcast(int port, const char* buf, int size)
             continue;
         }
 
-        if (ntohl(((struct sockaddr_in *) addr->ifa_addr)->sin_addr.s_addr) == 0x7f000001) {
-            trace() << "ignoring localhost " << addr->ifa_name << endl;
-            continue;
-        }
+        static bool allow_localhost = getenv( "ICECC_LOCALHOST_TESTS" ) != NULL;
+        if (!allow_localhost) {
+            if (ntohl(((struct sockaddr_in *) addr->ifa_addr)->sin_addr.s_addr) == 0x7f000001) {
+                trace() << "ignoring localhost " << addr->ifa_name << endl;
+                continue;
+            }
 
-        if ((addr->ifa_flags & IFF_POINTOPOINT) || !(addr->ifa_flags & IFF_BROADCAST)) {
-            log_info() << "ignoring tunnels " << addr->ifa_name << endl;
-            continue;
+            if ((addr->ifa_flags & IFF_POINTOPOINT) || !(addr->ifa_flags & IFF_BROADCAST)) {
+                log_info() << "ignoring tunnels " << addr->ifa_name << endl;
+                continue;
+            }
         }
 
         if (addr->ifa_broadaddr) {
