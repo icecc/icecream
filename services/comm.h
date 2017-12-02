@@ -268,7 +268,12 @@ public:
 class Broadcasts
 {
 public:
+    // Broadcasts a message about this scheduler and its information.
     static void broadcastSchedulerVersion(int scheduler_port, const char* netname, time_t starttime);
+    // Checks if the data received is a scheduler version broadcast.
+    static bool isSchedulerVersion(const char* buf, int buflen);
+    // Reads data from a scheduler version broadcast.
+    static void getSchedulerVersionData( const char* buf, int* protocol, time_t* time, std::string* netname );
     /// Broadcasts the given data on the given port.
     static bool broadcastData(int port, const char* buf, int size);
     static const int BROAD_BUFLEN = 268;

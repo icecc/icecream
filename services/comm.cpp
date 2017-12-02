@@ -1173,6 +1173,37 @@ void Broadcasts::broadcastSchedulerVersion(int scheduler_port, const char* netna
     buf = 0;
 }
 
+bool Broadcasts::isSchedulerVersion(const char* buf, int buflen)
+{
+    int schedbuflen = 4 + sizeof(uint64_t);
+    if( buflen >= schedbuflen && buf[0] == 'I' && buf[1] == 'C' && buf[2] == 'E') {
+        if(buf[3] > 35)
+        {
+            schedbuflen += 1 + buf[schedbuflen];
+        }
+        if (buflen != schedbuflen)
+            return false;
+        return true;
+    }
+    return false;
+}
+
+void Broadcasts::getSchedulerVersionData( const char* buf, int* protocol, time_t* time, string* netname )
+{
+    uint64_t tmp_time;
+    memcpy(&tmp_time, buf + 4, sizeof(uint64_t));
+    time_t other_time = tmp_time;
+    const unsigned char other_scheduler_protocol = buf[3];
+    const unsigned char recv_netname_len = buf[4 + sizeof(uint64_t)];
+    string recv_netname = string(buf + 5 + sizeof(uint64_t), recv_netname_len);
+    if( protocol != NULL )
+        *protocol = other_scheduler_protocol;
+    if( time != NULL )
+        *time = other_time;
+    if( netname != NULL )
+        *netname = recv_netname;
+}
+
 /* Returns a filedesc. or a negative value for errors.  */
 static int open_send_broadcast(int port, const char* buf, int size)
 {
