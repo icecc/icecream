@@ -2120,19 +2120,19 @@ int main(int argc, char *argv[])
             }
         }
 
-        max_fd = select(max_fd + 1, &read_set, &write_set, NULL, &tv);
+        int active_fds = select(max_fd + 1, &read_set, &write_set, NULL, &tv);
 
-        if (max_fd < 0 && errno == EINTR) {
+        if (active_fds < 0 && errno == EINTR) {
             continue;
         }
 
-        if (max_fd < 0) {
+        if (active_fds < 0) {
             log_perror("select()");
             return 1;
         }
 
         if (FD_ISSET(listen_fd, &read_set)) {
-            max_fd--;
+            active_fds--;
             bool pending_connections = true;
 
             while (pending_connections) {
@@ -2175,8 +2175,8 @@ int main(int argc, char *argv[])
             next_listen = time(0) + 1;
         }
 
-        if (max_fd && FD_ISSET(text_fd, &read_set)) {
-            max_fd--;
+        if (active_fds && FD_ISSET(text_fd, &read_set)) {
+            active_fds--;
             remote_len = sizeof(remote_addr);
             remote_fd = accept(text_fd,
                                (struct sockaddr *) &remote_addr,
@@ -2204,8 +2204,8 @@ int main(int argc, char *argv[])
             }
         }
 
-        if (max_fd && FD_ISSET(broad_fd, &read_set)) {
-            max_fd--;
+        if (active_fds && FD_ISSET(broad_fd, &read_set)) {
+            active_fds--;
             char buf[Broadcasts::BROAD_BUFLEN + 1];
             struct sockaddr_in broad_addr;
             socklen_t broad_len = sizeof(broad_addr);
@@ -2266,7 +2266,7 @@ int main(int argc, char *argv[])
         }
 
         for (map<int, CompileServer *>::const_iterator it = fd2cs.begin();
-                max_fd && it != fd2cs.end();) {
+                active_fds > 0 && it != fd2cs.end();) {
             int i = it->first;
             CompileServer *cs = it->second;
             /* handle_activity can delete the channel from the fd2cs list,
@@ -2281,7 +2281,7 @@ int main(int argc, char *argv[])
                     }
                 }
 
-                max_fd--;
+                active_fds--;
             }
         }
 
@@ -2289,12 +2289,12 @@ int main(int argc, char *argv[])
                 it != cs_in_tsts.end(); ++it) {
             if((*it)->getConnectionInProgress())
             {
-                if(max_fd && (FD_ISSET((*it)->getInFd(), &read_set) || FD_ISSET((*it)->getInFd(), &write_set)) && (*it)->isConnected())
+                if(active_fds > 0 && (FD_ISSET((*it)->getInFd(), &read_set) || FD_ISSET((*it)->getInFd(), &write_set)) && (*it)->isConnected())
                 {
-                    max_fd--;
+                    active_fds--;
                     (*it)->updateInConnectivity(true);
                 }
-                else if((!max_fd || (FD_ISSET((*it)->getInFd(), &read_set) || FD_ISSET((*it)->getInFd(), &write_set))) && !(*it)->isConnected())
+                else if((active_fds == 0 || (FD_ISSET((*it)->getInFd(), &read_set) || FD_ISSET((*it)->getInFd(), &write_set))) && !(*it)->isConnected())
                 {
                     (*it)->updateInConnectivity(false);
                 }
