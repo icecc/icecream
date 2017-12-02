@@ -44,7 +44,7 @@ files {daemon}_all.log include complete logs (up to but not including the failed
 Exit status of test.sh is 0 for all tests passing, 1 for all tests passing but some being
 skipped and 2 for errors.
 
-If you want to use icemon for the tests, use 'USE_SCHEDULER=localhost:8767 icemon'. Note that
+If you want to use icemon for the tests, use 'ICECC_SCHEDULER=localhost:8767 icemon'. Note that
 icemon needs to be built with recent (Feb 2014) libicecc library for this to work.
 
 

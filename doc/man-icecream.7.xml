@@ -379,7 +379,7 @@ has to wait on the slow machine. Keep that in mind.</para>
 </para>
 
 <para>If the monitor cannot find the scheduler, use
-<command>USE_SCHEDULER=<replaceable>host</replaceable> icemon</command>.</para>
+<command>ICECC_SCHEDULER=<replaceable>host</replaceable> icemon</command>.</para>
 
 </refsect1>
 

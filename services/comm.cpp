@@ -1277,7 +1277,9 @@ DiscoverSched::DiscoverSched(const std::string &_netname, int _timeout,
     time0 = time(0);
 
     if (schedname.empty()) {
-        const char *get = getenv("USE_SCHEDULER");
+        const char *get = getenv("ICECC_SCHEDULER");
+        if( get == NULL )
+            get = getenv("USE_SCHEDULER");
 
         if (get) {
             string scheduler = get;
