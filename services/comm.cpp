@@ -1558,7 +1558,12 @@ MsgChannel *DiscoverSched::try_get_scheduler()
             const char* name;
             get_broad_data(buf2, &name, &version, &start_time);
             if (strcasecmp(netname.c_str(), name) == 0) {
-                if (version < 33) {
+                if( version >= 128 || version < 1 ) {
+                    log_warning() << "Ignoring bogus version " << version << " from scheduler found at " << inet_ntoa(remote_addr.sin_addr)
+                        << ":" << ntohs(remote_addr.sin_port) << endl;
+                    continue;
+                }
+                else if (version < 33) {
                     log_info() << "Suitable scheduler found at " << inet_ntoa(remote_addr.sin_addr)
                         << ":" << ntohs(remote_addr.sin_port) << " (unknown version)" << endl;
                 } else {

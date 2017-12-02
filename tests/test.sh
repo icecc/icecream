@@ -1128,6 +1128,9 @@ check_logs_for_generic_errors()
     check_log_error scheduler "the server isn't the same for job"
     check_log_error icecc "got exception "
     check_log_error icecc "found another non option on command line. Two input files"
+    check_log_error localice "Ignoring bogus version"
+    check_log_error remoteice1 "Ignoring bogus version"
+    check_log_error remoteice2 "Ignoring bogus version"
     # consider all non-fatal errors such as running out of memory on the remote
     # still as problems, except for:
     # 102 - -fdiagnostics-show-caret forced local build (gcc-4.8+)
