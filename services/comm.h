@@ -329,6 +329,10 @@ public:
        milliseconds for answers.  */
     static std::list<std::string> getNetnames(int waittime = 2000, int port = 8765);
 
+    // Checks if the data is from a scheduler discovery broadcast, returns version of the sending
+    // daemon is yes.
+    static bool isSchedulerDiscovery(const char* buf, int buflen, int* daemon_version);
+    // Prepares data for sending a reply to a scheduler discovery broadcast.
     static int prepareBroadcastReply(char* buf, const char* netname, time_t starttime);
 
 private:
@@ -344,6 +348,7 @@ private:
     bool multiple;
 
     void attempt_scheduler_connect();
+    int sendSchedulerDiscovery( int version );
     static bool get_broad_answer(int ask_fd, int timeout, char *buf2, struct sockaddr_in *remote_addr,
                  socklen_t *remote_len);
     static void get_broad_data(const char* buf, const char** name, int* version, time_t* start_time);

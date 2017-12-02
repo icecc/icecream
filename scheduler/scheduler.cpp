@@ -2229,12 +2229,13 @@ int main(int argc, char *argv[])
                     return -1;
                 }
             }
-            if (buflen == 1) {
+            int daemon_version;
+            if (DiscoverSched::isSchedulerDiscovery(buf, buflen, &daemon_version)) {
                 /* Daemon is searching for a scheduler, only answer if daemon would be able to talk to us. */
-                if (buf[0] >= MIN_PROTOCOL_VERSION){
+                if ( daemon_version >= MIN_PROTOCOL_VERSION){
                     log_info() << "broadcast from " << inet_ntoa(broad_addr.sin_addr)
                         << ":" << ntohs(broad_addr.sin_port)
-                        << " (version " << int(buf[0]) << ")\n";
+                        << " (version " << daemon_version << ")\n";
                     int reply_len = DiscoverSched::prepareBroadcastReply(buf, netname, starttime);
                     if (sendto(broad_fd, buf, reply_len, 0,
                                 (struct sockaddr *) &broad_addr, broad_len) != reply_len) {

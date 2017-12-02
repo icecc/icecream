@@ -1302,8 +1302,7 @@ DiscoverSched::DiscoverSched(const std::string &_netname, int _timeout,
         netname = ""; // take whatever the machine is giving us
         attempt_scheduler_connect();
     } else {
-        char buf = PROTOCOL_VERSION;
-        ask_fd = open_send_broadcast(sport, &buf, 1);
+        ask_fd = sendSchedulerDiscovery( PROTOCOL_VERSION );
     }
 }
 
@@ -1330,6 +1329,23 @@ void DiscoverSched::attempt_scheduler_connect()
     if ((ask_fd = prepare_connect(schedname, sport, remote_addr)) >= 0) {
         fcntl(ask_fd, F_SETFL, O_NONBLOCK);
     }
+}
+
+int DiscoverSched::sendSchedulerDiscovery( int version )
+{
+        assert( version < 128 );
+        char buf = version;
+        return open_send_broadcast(sport, &buf, 1);
+}
+
+bool DiscoverSched::isSchedulerDiscovery(const char* buf, int buflen, int* daemon_version)
+{
+    if( buflen != 1 )
+        return false;
+    if( daemon_version != NULL ) {
+        *daemon_version = buf[ 0 ];
+    }
+    return true;
 }
 
 #define BROAD_BUFLEN 268
