@@ -1380,7 +1380,7 @@ int DiscoverSched::prepareBroadcastReply(char* buf, const char* netname, time_t 
         snprintf(buf + OFFSET, BROAD_BUFLEN_OLD_2 - OFFSET, "%s", netname);
         buf[BROAD_BUFLEN_OLD_2 - 1] = 0;
         return BROAD_BUFLEN_OLD_2;
-    } else { // net client
+    } else if (buf[0] < 38) { // exposes endianess because of not using htonl()
         buf[0] += 2;
         memset(buf + 1, 0, BROAD_BUFLEN - 1);
         uint32_t tmp_version = PROTOCOL_VERSION;
@@ -1388,6 +1388,22 @@ int DiscoverSched::prepareBroadcastReply(char* buf, const char* netname, time_t 
         memcpy(buf + 1, &tmp_version, sizeof(uint32_t));
         memcpy(buf + 1 + sizeof(uint32_t), &tmp_time, sizeof(uint64_t));
         const int OFFSET = 1 + sizeof(uint32_t) + sizeof(uint64_t);
+        snprintf(buf + OFFSET, BROAD_BUFLEN - OFFSET, "%s", netname);
+        buf[BROAD_BUFLEN - 1] = 0;
+        return BROAD_BUFLEN;
+    } else { // latest version
+        buf[0] += 3;
+        memset(buf + 1, 0, BROAD_BUFLEN - 1);
+        uint32_t tmp_version = PROTOCOL_VERSION;
+        uint32_t tmp_time_low = starttime & 0xffffffffUL;
+        uint32_t tmp_time_high = uint64_t(starttime) >> 32;
+        tmp_version = htonl( tmp_version );
+        tmp_time_low = htonl( tmp_time_low );
+        tmp_time_high = htonl( tmp_time_high );
+        memcpy(buf + 1, &tmp_version, sizeof(uint32_t));
+        memcpy(buf + 1 + sizeof(uint32_t), &tmp_time_high, sizeof(uint32_t));
+        memcpy(buf + 1 + 2 * sizeof(uint32_t), &tmp_time_low, sizeof(uint32_t));
+        const int OFFSET = 1 + 3 * sizeof(uint32_t);
         snprintf(buf + OFFSET, BROAD_BUFLEN - OFFSET, "%s", netname);
         buf[BROAD_BUFLEN - 1] = 0;
         return BROAD_BUFLEN;
@@ -1417,6 +1433,22 @@ void DiscoverSched::get_broad_data(const char* buf, const char** name, int* vers
         }
         if (name != NULL)
             *name = buf + 1 + sizeof(uint32_t) + sizeof(uint64_t);
+    } else if(buf[0] == PROTOCOL_VERSION + 3) {
+        if (version != NULL) {
+            uint32_t tmp_version;
+            memcpy(&tmp_version, buf + 1, sizeof(uint32_t));
+            *version = ntohl( tmp_version );
+        }
+        if (start_time != NULL) {
+            uint32_t tmp_time_low, tmp_time_high;
+            memcpy(&tmp_time_high, buf + 1 + sizeof(uint32_t), sizeof(uint32_t));
+            memcpy(&tmp_time_low, buf + 1 + 2 * sizeof(uint32_t), sizeof(uint32_t));
+            tmp_time_low = ntohl( tmp_time_low );
+            tmp_time_high = ntohl( tmp_time_high );
+            *start_time = ( uint64_t( tmp_time_high ) << 32 ) | tmp_time_low;;
+        }
+        if (name != NULL)
+            *name = buf + 1 + 3 * sizeof(uint32_t);
     } else {
         abort();
     }
@@ -1535,9 +1567,10 @@ bool DiscoverSched::get_broad_answer(int ask_fd, int timeout, char *buf2, struct
         return false;
     }
 
-    if ((len == BROAD_BUFLEN_OLD_1 && buf2[0] != buf + 1)    // PROTOCOL <= 32 scheduler
-        || (len == BROAD_BUFLEN_OLD_2 && buf2[0] != buf + 2) // PROTOCOL >= 33 && < 36 scheduler
-        || (len == BROAD_BUFLEN && buf2[0] != buf + 2)) {    // PROTOCOL >= 36 scheduler
+    if (! ((len == BROAD_BUFLEN_OLD_1 && buf2[0] == buf + 1)   // PROTOCOL <= 32 scheduler
+          || (len == BROAD_BUFLEN_OLD_2 && buf2[0] == buf + 2) // PROTOCOL >= 33 && < 36 scheduler
+          || (len == BROAD_BUFLEN && buf2[0] == buf + 2)       // PROTOCOL >= 36 && < 38 scheduler
+          || (len == BROAD_BUFLEN && buf2[0] == buf + 3))) {   // PROTOCOL >= 38 scheduler
         log_error() << "Wrong scheduler discovery answer (size " << len << ", mark " << int(buf2[0]) << ")" << endl;
         return false;
     }
