@@ -50,6 +50,9 @@
 #ifdef HAVE_LIBCAP_NG
 #include <cap-ng.h>
 #endif
+#include "getifaddrs.h"
+#include <net/if.h>
+#include <sys/ioctl.h>
 
 #include "logging.h"
 #include "job.h"
@@ -1152,9 +1155,23 @@ bool MsgChannel::send_msg(const Msg &m, int flags)
     return flush_writebuf((flags & SendBlocking));
 }
 
-#include "getifaddrs.h"
-#include <net/if.h>
-#include <sys/ioctl.h>
+void Broadcasts::broadcastSchedulerVersion(int scheduler_port, const char* netname, time_t starttime)
+{
+    const char length_netname = strlen(netname);
+    const int schedbuflen = 5 + sizeof(uint64_t) + length_netname;
+    char *buf = new char[ schedbuflen ];
+    buf[0] = 'I';
+    buf[1] = 'C';
+    buf[2] = 'E';
+    buf[3] = PROTOCOL_VERSION;
+    uint64_t tmp_time = starttime;
+    memcpy(buf + 4, &tmp_time, sizeof(uint64_t));
+    buf[4 + sizeof(uint64_t)] = length_netname;
+    strncpy(buf + 5 + sizeof(uint64_t), netname, length_netname);
+    broadcastData(scheduler_port, buf, schedbuflen);
+    delete[] buf;
+    buf = 0;
+}
 
 /* Returns a filedesc. or a negative value for errors.  */
 static int open_send_broadcast(int port, const char* buf, int size)
@@ -1234,75 +1251,16 @@ static int open_send_broadcast(int port, const char* buf, int size)
     return ask_fd;
 }
 
-#define BROAD_BUFLEN 32
-#define BROAD_BUFLEN_OLD 16
-
-static bool
-get_broad_answer(int ask_fd, int timeout, char *buf2, struct sockaddr_in *remote_addr,
-                 socklen_t *remote_len)
+bool Broadcasts::broadcastData(int port, const char* buf, int len)
 {
-    char buf = PROTOCOL_VERSION;
-    fd_set read_set;
-    FD_ZERO(&read_set);
-    FD_SET(ask_fd, &read_set);
-    struct timeval tv;
-    tv.tv_sec = timeout / 1000;
-    tv.tv_usec = 1000 * (timeout % 1000);
-    errno = 0;
-
-    if (select(ask_fd + 1, &read_set, NULL, NULL, &tv) <= 0) {
-        /* Normally this is a timeout, i.e. no scheduler there.  */
-        if (errno) {
-            log_perror("waiting for scheduler");
+    int fd = open_send_broadcast(port, buf, len);
+    if (fd >= 0) {
+        if ((-1 == close(fd)) && (errno != EBADF)){
+            log_perror("close failed");
         }
-
-        return false;
+        return true;
     }
-
-    *remote_len = sizeof(struct sockaddr_in);
-
-    int len = recvfrom(ask_fd, buf2, BROAD_BUFLEN, 0, (struct sockaddr *) remote_addr, remote_len);
-    if (len != BROAD_BUFLEN && len != BROAD_BUFLEN_OLD) {
-        log_perror("get_broad_answer recvfrom()");
-        return false;
-    }
-
-    if ((len == BROAD_BUFLEN_OLD && buf2[0] != buf + 1) // PROTOCOL <= 32 scheduler
-        || (len == BROAD_BUFLEN && buf2[0] != buf + 2)) { // PROTOCOL >= 33 scheduler
-        log_error() << "wrong answer" << endl;
-        return false;
-    }
-
-    buf2[len - 1] = 0;
-    return true;
-}
-
-static void get_broad_data(const char* buf, const char** name, int* version, time_t* start_time)
-{
-    if (buf[0] == PROTOCOL_VERSION + 1) {
-        // Scheduler version 32 or older, didn't send us its version, assume it's 32.
-        if (name != NULL)
-            *name = buf + 1;
-        if (version != NULL)
-            *version = 32;
-        if (start_time != NULL)
-            *start_time = 0; // Unknown too.
-    } else if(buf[0] == PROTOCOL_VERSION + 2) {
-        if (version != NULL) {
-            uint32_t tmp_version;
-            memcpy(&tmp_version, buf + 1, sizeof(uint32_t));
-            *version = tmp_version;
-        }
-        if (start_time != NULL) {
-            uint64_t tmp_time;
-            memcpy(&tmp_time, buf + 1 + sizeof(uint32_t), sizeof(uint64_t));
-            *start_time = tmp_time;
-        }
-        if (name != NULL)
-            *name = buf + 1 + sizeof(uint32_t) + sizeof(uint64_t);
-    } else {
-        abort();
-    }
+    return false;
 }
 
 DiscoverSched::DiscoverSched(const std::string &_netname, int _timeout,
@@ -1371,6 +1329,58 @@ void DiscoverSched::attempt_scheduler_connect()
 
     if ((ask_fd = prepare_connect(schedname, sport, remote_addr)) >= 0) {
         fcntl(ask_fd, F_SETFL, O_NONBLOCK);
+    }
+}
+
+#define BROAD_BUFLEN 268
+#define BROAD_BUFLEN_OLD 16
+int DiscoverSched::prepareBroadcastReply(char* buf, const char* netname, time_t starttime)
+{
+    if (buf[0] < 33) { // old client
+        buf[0]++;
+        memset(buf + 1, 0, BROAD_BUFLEN_OLD - 1);
+        snprintf(buf + 1, BROAD_BUFLEN_OLD - 1, "%s", netname);
+        buf[BROAD_BUFLEN_OLD - 1] = 0;
+        return BROAD_BUFLEN_OLD;
+    } else { // net client
+        buf[0] += 2;
+        memset(buf + 1, 0, BROAD_BUFLEN - 1);
+        uint32_t tmp_version = PROTOCOL_VERSION;
+        uint64_t tmp_time = starttime;
+        memcpy(buf + 1, &tmp_version, sizeof(uint32_t));
+        memcpy(buf + 1 + sizeof(uint32_t), &tmp_time, sizeof(uint64_t));
+        const int OFFSET = 1 + sizeof(uint32_t) + sizeof(uint64_t);
+        snprintf(buf + OFFSET, BROAD_BUFLEN - OFFSET, "%s", netname);
+        buf[BROAD_BUFLEN - 1] = 0;
+        return BROAD_BUFLEN;
+    }
+}
+
+void DiscoverSched::get_broad_data(const char* buf, const char** name, int* version, time_t* start_time)
+{
+    if (buf[0] == PROTOCOL_VERSION + 1) {
+        // Scheduler version 32 or older, didn't send us its version, assume it's 32.
+        if (name != NULL)
+            *name = buf + 1;
+        if (version != NULL)
+            *version = 32;
+        if (start_time != NULL)
+            *start_time = 0; // Unknown too.
+    } else if(buf[0] == PROTOCOL_VERSION + 2) {
+        if (version != NULL) {
+            uint32_t tmp_version;
+            memcpy(&tmp_version, buf + 1, sizeof(uint32_t));
+            *version = tmp_version;
+        }
+        if (start_time != NULL) {
+            uint64_t tmp_time;
+            memcpy(&tmp_time, buf + 1 + sizeof(uint32_t), sizeof(uint64_t));
+            *start_time = tmp_time;
+        }
+        if (name != NULL)
+            *name = buf + 1 + sizeof(uint32_t) + sizeof(uint64_t);
+    } else {
+        abort();
     }
 }
 
@@ -1457,20 +1467,52 @@ MsgChannel *DiscoverSched::try_get_scheduler()
 
     return 0;
 }
+// TODO
+#undef BROAD_BUFLEN
+#undef BROAD_BUFLEN_OLD
+#define BROAD_BUFLEN 32
+#define BROAD_BUFLEN_OLD 16
 
-bool DiscoverSched::broadcastData(int port, const char* buf, int len)
+bool DiscoverSched::get_broad_answer(int ask_fd, int timeout, char *buf2, struct sockaddr_in *remote_addr,
+                 socklen_t *remote_len)
 {
-    int fd = open_send_broadcast(port, buf, len);
-    if (fd >= 0) {
-        if ((-1 == close(fd)) && (errno != EBADF)){
-            log_perror("close failed");
+    char buf = PROTOCOL_VERSION;
+    fd_set read_set;
+    FD_ZERO(&read_set);
+    FD_SET(ask_fd, &read_set);
+    struct timeval tv;
+    tv.tv_sec = timeout / 1000;
+    tv.tv_usec = 1000 * (timeout % 1000);
+    errno = 0;
+
+    if (select(ask_fd + 1, &read_set, NULL, NULL, &tv) <= 0) {
+        /* Normally this is a timeout, i.e. no scheduler there.  */
+        if (errno) {
+            log_perror("waiting for scheduler");
         }
-        return true;
+
+        return false;
     }
-    return false;
+
+    *remote_len = sizeof(struct sockaddr_in);
+
+    int len = recvfrom(ask_fd, buf2, BROAD_BUFLEN, 0, (struct sockaddr *) remote_addr, remote_len);
+    if (len != BROAD_BUFLEN && len != BROAD_BUFLEN_OLD) {
+        log_perror("get_broad_answer recvfrom()");
+        return false;
+    }
+
+    if ((len == BROAD_BUFLEN_OLD && buf2[0] != buf + 1) // PROTOCOL <= 32 scheduler
+        || (len == BROAD_BUFLEN && buf2[0] != buf + 2)) { // PROTOCOL >= 33 scheduler
+        log_error() << "wrong answer" << endl;
+        return false;
+    }
+
+    buf2[len - 1] = 0;
+    return true;
 }
 
-list<string> get_netnames(int timeout, int port)
+list<string> DiscoverSched::getNetnames(int timeout, int port)
 {
     list<string> l;
     int ask_fd;
@@ -1503,6 +1545,15 @@ list<string> get_netnames(int timeout, int port)
         log_perror("close failed");
     }
     return l;
+}
+
+// TODO
+#undef BROAD_BUFLEN
+#undef BROAD_BUFLEN_OLD
+
+list<string> get_netnames(int timeout, int port)
+{
+    return DiscoverSched::getNetnames(timeout, port);
 }
 
 void Msg::fill_from_channel(MsgChannel *)

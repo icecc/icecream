@@ -121,7 +121,6 @@ static list<JobStat> all_job_stats;
 static JobStat cum_job_stats;
 
 static float server_speed(CompileServer *cs, Job *job = 0);
-static void broadcast_scheduler_version(const char* netname);
 
 /* Searches the queue for JOB and removes it.
    Returns true if something was deleted.  */
@@ -1751,48 +1750,6 @@ static int open_tcp_listener(short port)
     return fd;
 }
 
-#define BROAD_BUFLEN 268
-#define BROAD_BUFLEN_OLD 16
-static int prepare_broadcast_reply(char* buf, const char* netname)
-{
-    if (buf[0] < 33) { // old client
-        buf[0]++;
-        memset(buf + 1, 0, BROAD_BUFLEN_OLD - 1);
-        snprintf(buf + 1, BROAD_BUFLEN_OLD - 1, "%s", netname);
-        buf[BROAD_BUFLEN_OLD - 1] = 0;
-        return BROAD_BUFLEN_OLD;
-    } else { // net client
-        buf[0] += 2;
-        memset(buf + 1, 0, BROAD_BUFLEN - 1);
-        uint32_t tmp_version = PROTOCOL_VERSION;
-        uint64_t tmp_time = starttime;
-        memcpy(buf + 1, &tmp_version, sizeof(uint32_t));
-        memcpy(buf + 1 + sizeof(uint32_t), &tmp_time, sizeof(uint64_t));
-        const int OFFSET = 1 + sizeof(uint32_t) + sizeof(uint64_t);
-        snprintf(buf + OFFSET, BROAD_BUFLEN - OFFSET, "%s", netname);
-        buf[BROAD_BUFLEN - 1] = 0;
-        return BROAD_BUFLEN;
-    }
-}
-
-static void broadcast_scheduler_version(const char* netname)
-{
-    const char length_netname = strlen(netname);
-    const int schedbuflen = 5 + sizeof(uint64_t) + length_netname;
-    char *buf = new char[ schedbuflen ];
-    buf[0] = 'I';
-    buf[1] = 'C';
-    buf[2] = 'E';
-    buf[3] = PROTOCOL_VERSION;
-    uint64_t tmp_time = starttime;
-    memcpy(buf + 4, &tmp_time, sizeof(uint64_t));
-    buf[4 + sizeof(uint64_t)] = length_netname;
-    strncpy(buf + 5 + sizeof(uint64_t), netname, length_netname);
-    DiscoverSched::broadcastData(scheduler_port, buf, schedbuflen);
-    delete[] buf;
-    buf = 0;
-}
-
 static void usage(const char *reason = 0)
 {
     if (reason) {
@@ -2082,7 +2039,7 @@ int main(int argc, char *argv[])
 
     time_t next_listen = 0;
 
-    broadcast_scheduler_version(netname);
+    Broadcasts::broadcastSchedulerVersion(scheduler_port, netname, starttime);
     last_announce = starttime;
 
     while (!exit_main_loop) {
@@ -2098,7 +2055,7 @@ int main(int argc, char *argv[])
            their daemons if we are the preferred scheduler (daemons with version new enough
            should automatically select the best scheduler, but old daemons connect randomly). */
         if (last_announce + 120 < time(NULL)) {
-            broadcast_scheduler_version(netname);
+            Broadcasts::broadcastSchedulerVersion(scheduler_port, netname, starttime);
             last_announce = time(NULL);
         }
 
@@ -2249,7 +2206,7 @@ int main(int argc, char *argv[])
 
         if (max_fd && FD_ISSET(broad_fd, &read_set)) {
             max_fd--;
-            char buf[BROAD_BUFLEN + 1];
+            char buf[Broadcasts::BROAD_BUFLEN + 1];
             struct sockaddr_in broad_addr;
             socklen_t broad_len = sizeof(broad_addr);
             /* We can get either a daemon request for a scheduler (1 byte) or another scheduler
@@ -2257,9 +2214,9 @@ int main(int argc, char *argv[])
 
             int schedbuflen = 4 + sizeof(uint64_t);
 
-            int buflen = recvfrom(broad_fd, buf, BROAD_BUFLEN, 0, (struct sockaddr *) &broad_addr,
+            int buflen = recvfrom(broad_fd, buf, Broadcasts::BROAD_BUFLEN, 0, (struct sockaddr *) &broad_addr,
                     &broad_len);
-            if (buflen < 0 || buflen > BROAD_BUFLEN){
+            if (buflen < 0 || buflen > Broadcasts::BROAD_BUFLEN){
                 int err = errno;
                 log_perror("recvfrom()");
 
@@ -2278,7 +2235,7 @@ int main(int argc, char *argv[])
                     log_info() << "broadcast from " << inet_ntoa(broad_addr.sin_addr)
                         << ":" << ntohs(broad_addr.sin_port)
                         << " (version " << int(buf[0]) << ")\n";
-                    int reply_len = prepare_broadcast_reply(buf, netname);
+                    int reply_len = DiscoverSched::prepareBroadcastReply(buf, netname, starttime);
                     if (sendto(broad_fd, buf, reply_len, 0,
                                 (struct sockaddr *) &broad_addr, broad_len) != reply_len) {
                         log_perror("sendto()");
