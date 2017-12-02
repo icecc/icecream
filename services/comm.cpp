@@ -1157,6 +1157,8 @@ bool MsgChannel::send_msg(const Msg &m, int flags)
 
 void Broadcasts::broadcastSchedulerVersion(int scheduler_port, const char* netname, time_t starttime)
 {
+    // Code for older schedulers than version 38. Has endianness problems, the message size
+    // is not BROAD_BUFLEN and the netname is possibly not null-terminated.
     const char length_netname = strlen(netname);
     const int schedbuflen = 5 + sizeof(uint64_t) + length_netname;
     char *buf = new char[ schedbuflen ];
@@ -1170,19 +1172,32 @@ void Broadcasts::broadcastSchedulerVersion(int scheduler_port, const char* netna
     strncpy(buf + 5 + sizeof(uint64_t), netname, length_netname);
     broadcastData(scheduler_port, buf, schedbuflen);
     delete[] buf;
-    buf = 0;
+    // Latest version.
+    buf = new char[ BROAD_BUFLEN ];
+    memset(buf, 0, BROAD_BUFLEN );
+    buf[0] = 'I';
+    buf[1] = 'C';
+    buf[2] = 'F'; // one up
+    buf[3] = PROTOCOL_VERSION;
+    uint32_t tmp_time_low = starttime & 0xffffffffUL;
+    uint32_t tmp_time_high = uint64_t(starttime) >> 32;
+    tmp_time_low = htonl( tmp_time_low );
+    tmp_time_high = htonl( tmp_time_high );
+    memcpy(buf + 4, &tmp_time_high, sizeof(uint32_t));
+    memcpy(buf + 4 + sizeof(uint32_t), &tmp_time_low, sizeof(uint32_t));
+    const int OFFSET = 4 + 2 * sizeof(uint32_t);
+    snprintf(buf + OFFSET, BROAD_BUFLEN - OFFSET, "%s", netname);
+    buf[BROAD_BUFLEN - 1] = 0;
+    broadcastData(scheduler_port, buf, BROAD_BUFLEN);
+    delete[] buf;
 }
 
 bool Broadcasts::isSchedulerVersion(const char* buf, int buflen)
 {
-    int schedbuflen = 4 + sizeof(uint64_t);
-    if( buflen >= schedbuflen && buf[0] == 'I' && buf[1] == 'C' && buf[2] == 'E') {
-        if(buf[3] > 35)
-        {
-            schedbuflen += 1 + buf[schedbuflen];
-        }
-        if (buflen != schedbuflen)
-            return false;
+    if( buflen != BROAD_BUFLEN )
+        return false;
+    // Ignore versions older than 38, they are older than us anyway, so not interesting.
+    if( buf[0] == 'I' && buf[1] == 'C' && buf[2] == 'F') {
         return true;
     }
     return false;
@@ -1190,12 +1205,15 @@ bool Broadcasts::isSchedulerVersion(const char* buf, int buflen)
 
 void Broadcasts::getSchedulerVersionData( const char* buf, int* protocol, time_t* time, string* netname )
 {
-    uint64_t tmp_time;
-    memcpy(&tmp_time, buf + 4, sizeof(uint64_t));
-    time_t other_time = tmp_time;
+    assert( isSchedulerVersion( buf, BROAD_BUFLEN ));
     const unsigned char other_scheduler_protocol = buf[3];
-    const unsigned char recv_netname_len = buf[4 + sizeof(uint64_t)];
-    string recv_netname = string(buf + 5 + sizeof(uint64_t), recv_netname_len);
+    uint32_t tmp_time_low, tmp_time_high;
+    memcpy(&tmp_time_high, buf + 4, sizeof(uint32_t));
+    memcpy(&tmp_time_low, buf + 4 + sizeof(uint32_t), sizeof(uint32_t));
+    tmp_time_low = ntohl( tmp_time_low );
+    tmp_time_high = ntohl( tmp_time_high );
+    time_t other_time = ( uint64_t( tmp_time_high ) << 32 ) | tmp_time_low;;
+    string recv_netname = string(buf + 4 + 2 * sizeof(uint32_t));
     if( protocol != NULL )
         *protocol = other_scheduler_protocol;
     if( time != NULL )
