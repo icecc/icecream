@@ -1348,16 +1348,33 @@ bool DiscoverSched::isSchedulerDiscovery(const char* buf, int buflen, int* daemo
     return true;
 }
 
-#define BROAD_BUFLEN 268
-#define BROAD_BUFLEN_OLD 16
+static const int BROAD_BUFLEN = 268;
+static const int BROAD_BUFLEN_OLD_2 = 32;
+static const int BROAD_BUFLEN_OLD_1 = 16;
+
 int DiscoverSched::prepareBroadcastReply(char* buf, const char* netname, time_t starttime)
 {
     if (buf[0] < 33) { // old client
         buf[0]++;
-        memset(buf + 1, 0, BROAD_BUFLEN_OLD - 1);
-        snprintf(buf + 1, BROAD_BUFLEN_OLD - 1, "%s", netname);
-        buf[BROAD_BUFLEN_OLD - 1] = 0;
-        return BROAD_BUFLEN_OLD;
+        memset(buf + 1, 0, BROAD_BUFLEN_OLD_1 - 1);
+        snprintf(buf + 1, BROAD_BUFLEN_OLD_1 - 1, "%s", netname);
+        buf[BROAD_BUFLEN_OLD_1 - 1] = 0;
+        return BROAD_BUFLEN_OLD_1;
+    } else if (buf[0] < 36) {
+        // This is like 36, but 36 silently changed the size of BROAD_BUFLEN from 32 to 268.
+        // Since get_broad_answer() explicitly null-terminates the data, this wouldn't lead
+        // to those receivers reading a shorter string that would not be null-terminated,
+        // but still, this is what versions 33-35 actually worked with.
+        buf[0] += 2;
+        memset(buf + 1, 0, BROAD_BUFLEN_OLD_2 - 1);
+        uint32_t tmp_version = PROTOCOL_VERSION;
+        uint64_t tmp_time = starttime;
+        memcpy(buf + 1, &tmp_version, sizeof(uint32_t));
+        memcpy(buf + 1 + sizeof(uint32_t), &tmp_time, sizeof(uint64_t));
+        const int OFFSET = 1 + sizeof(uint32_t) + sizeof(uint64_t);
+        snprintf(buf + OFFSET, BROAD_BUFLEN_OLD_2 - OFFSET, "%s", netname);
+        buf[BROAD_BUFLEN_OLD_2 - 1] = 0;
+        return BROAD_BUFLEN_OLD_2;
     } else { // net client
         buf[0] += 2;
         memset(buf + 1, 0, BROAD_BUFLEN - 1);
@@ -1483,11 +1500,6 @@ MsgChannel *DiscoverSched::try_get_scheduler()
 
     return 0;
 }
-// TODO
-#undef BROAD_BUFLEN
-#undef BROAD_BUFLEN_OLD
-#define BROAD_BUFLEN 32
-#define BROAD_BUFLEN_OLD 16
 
 bool DiscoverSched::get_broad_answer(int ask_fd, int timeout, char *buf2, struct sockaddr_in *remote_addr,
                  socklen_t *remote_len)
@@ -1513,14 +1525,15 @@ bool DiscoverSched::get_broad_answer(int ask_fd, int timeout, char *buf2, struct
     *remote_len = sizeof(struct sockaddr_in);
 
     int len = recvfrom(ask_fd, buf2, BROAD_BUFLEN, 0, (struct sockaddr *) remote_addr, remote_len);
-    if (len != BROAD_BUFLEN && len != BROAD_BUFLEN_OLD) {
+    if (len != BROAD_BUFLEN && len != BROAD_BUFLEN_OLD_1 && len != BROAD_BUFLEN_OLD_2) {
         log_perror("get_broad_answer recvfrom()");
         return false;
     }
 
-    if ((len == BROAD_BUFLEN_OLD && buf2[0] != buf + 1) // PROTOCOL <= 32 scheduler
-        || (len == BROAD_BUFLEN && buf2[0] != buf + 2)) { // PROTOCOL >= 33 scheduler
-        log_error() << "wrong answer" << endl;
+    if ((len == BROAD_BUFLEN_OLD_1 && buf2[0] != buf + 1)    // PROTOCOL <= 32 scheduler
+        || (len == BROAD_BUFLEN_OLD_2 && buf2[0] != buf + 2) // PROTOCOL >= 33 && < 36 scheduler
+        || (len == BROAD_BUFLEN && buf2[0] != buf + 2)) {    // PROTOCOL >= 36 scheduler
+        log_error() << "Wrong scheduler discovery answer (size " << len << ", mark " << int(buf2[0]) << ")" << endl;
         return false;
     }
 
@@ -1562,10 +1575,6 @@ list<string> DiscoverSched::getNetnames(int timeout, int port)
     }
     return l;
 }
-
-// TODO
-#undef BROAD_BUFLEN
-#undef BROAD_BUFLEN_OLD
 
 list<string> get_netnames(int timeout, int port)
 {
