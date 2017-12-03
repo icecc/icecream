@@ -653,12 +653,16 @@ run_ice()
         echo
     fi
     if test -n "$output"; then
-        rm -f "$output" "$output".localice "$output".readelf.txt "$output".local.readelf.txt "$output".remote.readelf.txt
         if test -n "$keepoutput"; then
-            mv "$output".remoteice "$output"
+            if test -z "$chroot_disabled"; then
+                mv "$output".remoteice "$output"
+            else
+                mv "$output".localice "$output"
+            fi
         else
-            rm "$output".remoteice
+            rm -f "output"
         fi
+        rm -f "$output".localice "$output".remoteice "$output".readelf.txt "$output".local.readelf.txt "$output".remote.readelf.txt
     fi
     if test -n "$split_dwarf"; then
         rm -f "$split_dwarf" "$split_dwarf".localice "$split_dwarf".remoteice "$split_dwarf".readelf.txt "$split_dwarf".local.readelf.txt "$split_dwarf".remote.readelf.txt
