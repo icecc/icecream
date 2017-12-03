@@ -8,10 +8,10 @@ test-strict:
 test-prepare:
 	if test -x /sbin/setcap; then \
 	    sudo /sbin/setcap cap_sys_chroot+ep ${sbindir}/iceccd ; \
-	elif which filecap >/dev/null 2>/dev/null; then \
+	elif command -v filecap >/dev/null 2>/dev/null; then \
 	    sudo filecap ${sbindir}/iceccd sys_chroot ; \
 	else \
-	    exit 1 ; \
+	    true ; \
 	fi
 
 test-full: test-prepare
