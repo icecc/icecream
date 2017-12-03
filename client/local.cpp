@@ -317,6 +317,7 @@ int build_local(CompileJob &job, MsgChannel *local_daemon, struct rusage *used)
         }
 
         execv(argv[0], &argv[0]);
+        int exitcode = ( errno == ENOENT ? 127 : 126 );
         log_perror("execv failed");
 
         if (lock_fd) {
@@ -329,7 +330,7 @@ int build_local(CompileJob &job, MsgChannel *local_daemon, struct rusage *used)
             log_perror(buf);
         }
 
-        _exit(-1);
+        _exit(exitcode);
     }
     for(vector<char*>::const_iterator i = argv.begin(); i != argv.end(); ++i){
         free(*i);

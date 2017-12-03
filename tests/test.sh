@@ -398,6 +398,7 @@ wait_for_all_daemons_connected()
 #   - split_dwarf - compilation is done with -gsplit-dwarf
 #   - noresetlogs - will not use reset_logs at the start (needs to be done explicitly before calling run_ice)
 #   - remoteabort - remote compilation will abort (as a result of local processing failing and remote daemon killing the remote compiler)
+#   - nostderrcheck - will not compare stderr output
 # Rest is the command to pass to icecc.
 # Command will be run both locally and using icecc and results compared.
 run_ice()
@@ -435,6 +436,11 @@ run_ice()
     remoteabort=
     if test "$1" = "remoteabort"; then
         remoteabort=1
+        shift
+    fi
+    nostderrcheck=
+    if test "$1" = "nostderrcheck"; then
+        nostderrcheck=1
         shift
     fi
 
@@ -543,22 +549,24 @@ run_ice()
         stop_ice 0
         abort_tests
     fi
-    if ! diff -q "$testdir"/stderr.localice "$testdir"/stderr; then
-        echo "Stderr mismatch ($testdir/stderr.localice)"
-        echo ================
-        diff -u "$testdir"/stderr "$testdir"/stderr.localice
-        echo ================
-        stop_ice 0
-        abort_tests
-    fi
-    if test -z "$chroot_disabled"; then
-        if ! diff -q "$testdir"/stderr.remoteice "$testdir"/stderr; then
-            echo "Stderr mismatch ($testdir/stderr.remoteice)"
+    if test -z "$nostderrcheck"; then
+        if ! diff -q "$testdir"/stderr.localice "$testdir"/stderr; then
+            echo "Stderr mismatch ($testdir/stderr.localice)"
             echo ================
-            diff -u "$testdir"/stderr "$testdir"/stderr.remoteice
+            diff -u "$testdir"/stderr "$testdir"/stderr.localice
             echo ================
             stop_ice 0
             abort_tests
+        fi
+        if test -z "$chroot_disabled"; then
+            if ! diff -q "$testdir"/stderr.remoteice "$testdir"/stderr; then
+                echo "Stderr mismatch ($testdir/stderr.remoteice)"
+                echo ================
+                diff -u "$testdir"/stderr "$testdir"/stderr.remoteice
+                echo ================
+                stop_ice 0
+                abort_tests
+            fi
         fi
     fi
 
@@ -1312,6 +1320,8 @@ elif test -e /usr/bin/true; then
 else
     skipped_tests="$skipped_tests run-true"
 fi
+
+run_ice "" "local" 300 "nostderrcheck" /bin/nonexistent-at-all-doesnt-exist
 
 run_ice "$testdir/warninginmacro.o" "remote" 0 $TESTCXX -Wall -Wextra -Werror -c warninginmacro.cpp -o "$testdir/"warninginmacro.o
 

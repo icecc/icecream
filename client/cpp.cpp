@@ -182,6 +182,7 @@ pid_t call_cpp(CompileJob &job, int fdwrite, int fdread)
 
     dcc_increment_safeguard();
     execv(argv[0], argv);
+    int exitcode = ( errno == ENOENT ? 127 : 126 );
     log_perror("execv failed");
-    _exit(-1);
+    _exit(exitcode);
 }
