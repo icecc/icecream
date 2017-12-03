@@ -843,7 +843,14 @@ recursive_test()
     echo Running recursive check test.
     reset_logs "" "recursive check"
 
-    PATH="$prefix"/lib/icecc/bin:"$prefix"/bin:/usr/local/bin:/usr/bin:/bin ICECC_TEST_SOCKET="$testdir"/socket-localice ICECC_TEST_REMOTEBUILD=1 ICECC_DEBUG=debug ICECC_LOGFILE="$testdir"/icecc.log "${icecc}" ./recursive_g++ -Wall -c plain.c -o plain.o 2>>"$testdir"/stderr.log
+    recursive_tester=
+    if test -n "$using_clang"; then
+        recursive_tester=./recursive_clang++
+    elif test -n "$using_gcc"; then
+        recursive_tester=./recursive_g++
+    fi
+    PATH="$prefix"/lib/icecc/bin:"$prefix"/bin:/usr/local/bin:/usr/bin:/bin ICECC_TEST_SOCKET="$testdir"/socket-localice \
+        ICECC_TEST_REMOTEBUILD=1 ICECC_DEBUG=debug ICECC_LOGFILE="$testdir"/icecc.log "${icecc}" ./${recursive_tester} -Wall -c plain.c -o plain.o 2>>"$testdir"/stderr.log
     if test $? -ne 111; then
         echo Recursive check test failed.
         stop_ice 0
