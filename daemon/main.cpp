@@ -1227,10 +1227,18 @@ bool Daemon::create_env_finished(string env_key)
     trace() << "cache_size = " << cache_size << endl;
 
     if (!installed_size) {
-        for (Clients::const_iterator it = clients.begin(); it != clients.end(); ++it)  {
-            if (it->second->pending_create_env == env_key) {
-                it->second->channel->send_msg(EndMsg());
-                handle_end(it->second, 121);
+        bool repeat = true;
+        while(repeat) {
+            repeat = false;
+            for (Clients::const_iterator it = clients.begin(); it != clients.end(); ++it)  {
+                if (it->second->pending_create_env == env_key) {
+                    it->second->channel->send_msg(EndMsg());
+                    handle_end(it->second, 121);
+                    // The handle_end call invalidates our iterator, so break out of the loop,
+                    // but try again just in case, until there's no match.
+                    repeat = true;
+                    break;
+                }
             }
         }
         return false;
