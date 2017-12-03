@@ -146,7 +146,7 @@ start_iceccd()
 {
     name=$1
     shift
-    ICECC_TEST_SOCKET="$testdir"/socket-${name} ICECC_SCHEDULER=:8767 ICECC_LOCALHOST_TESTS=1 ICECC_TEST_SCHEDULER_PORTS=8767:8769 \
+    ICECC_TEST_SOCKET="$testdir"/socket-${name} ICECC_SCHEDULER=:8767 ICECC_TESTS=1 ICECC_TEST_SCHEDULER_PORTS=8767:8769 \
         $valgrind "${iceccd}" -b "$testdir"/envs-${name} -l "$testdir"/${name}.log -n ${netname} -N ${name}  -v -v -v "$@" 2>>"$testdir"/iceccdstderr_${name}.log &
     pid=$!
     wait_for_proc_sleep 10 ${pid}
@@ -193,7 +193,7 @@ kill_daemon()
 
 start_ice()
 {
-    ICECC_LOCALHOST_TESTS=1 ICECC_TEST_SCHEDULER_PORTS=8767:8769 $valgrind "${icecc_scheduler}" -p 8767 -l "$testdir"/scheduler.log -n ${netname} -v -v -v &
+    ICECC_TESTS=1 ICECC_TEST_SCHEDULER_PORTS=8767:8769 $valgrind "${icecc_scheduler}" -p 8767 -l "$testdir"/scheduler.log -n ${netname} -v -v -v &
     scheduler_pid=$!
     echo $scheduler_pid > "$testdir"/scheduler.pid
 
@@ -250,7 +250,7 @@ start_ice()
 # start only local daemon, no scheduler
 start_only_daemon()
 {
-    ICECC_TEST_SOCKET="$testdir"/socket-localice ICECC_SCHEDULER=:8767 ICECC_LOCALHOST_TESTS=1 ICECC_TEST_SCHEDULER_PORTS=8767:8769 \
+    ICECC_TEST_SOCKET="$testdir"/socket-localice ICECC_SCHEDULER=:8767 ICECC_TESTS=1 ICECC_TEST_SCHEDULER_PORTS=8767:8769 \
         $valgrind "${iceccd}" --no-remote -b "$testdir"/envs-localice -l "$testdir"/localice.log -n ${netname} -N localice -m 2 -v -v -v &
     localice_pid=$!
     echo $localice_pid > "$testdir"/localice.pid
@@ -1133,6 +1133,9 @@ check_logs_for_generic_errors()
     check_log_error localice "Ignoring bogus version"
     check_log_error remoteice1 "Ignoring bogus version"
     check_log_error remoteice2 "Ignoring bogus version"
+    check_log_error localice "scheduler closed connection"
+    check_log_error remoteice1 "scheduler closed connection"
+    check_log_error remoteice2 "scheduler closed connection"
     # consider all non-fatal errors such as running out of memory on the remote
     # still as problems, except for:
     # 102 - -fdiagnostics-show-caret forced local build (gcc-4.8+)
@@ -1411,22 +1414,56 @@ else
 fi
 
 if test -z "$chroot_disabled"; then
-    echo Testing multiple schedulers.
-    reset_logs remote "Multiple schedulers"
+    echo Testing different netnames.
+    reset_logs remote "Different netnames"
     stop_ice 1
     # Start the secondary scheduler before the primary, so that besides the different netname it would be the preferred scheduler.
-    ICECC_LOCALHOST_TESTS=1 ICECC_TEST_SCHEDULER_PORTS=8767:8769 $valgrind "${icecc_scheduler}" -p 8769 -l "$testdir"/scheduler2.log -n ${netname}_secondary -v -v -v &
+    ICECC_TESTS=1 ICECC_TEST_SCHEDULER_PORTS=8767:8769 $valgrind "${icecc_scheduler}" -p 8769 -l "$testdir"/scheduler2.log -n ${netname}_secondary -v -v -v &
     scheduler2_pid=$!
     echo $scheduler2_pid > "$testdir"/scheduler2.pid
     wait_for_proc_sleep 10 ${scheduler2_pid}
     start_ice
     check_log_message scheduler2 "Received scheduler announcement from .* (version $protocolversion, netname ${netname})"
-    check_log_error scheduler "disconnecting all connections"
+    check_log_error scheduler "has announced itself as a preferred scheduler, disconnecting all connections"
     check_log_message localice "Ignoring scheduler at .*:8769 because of a different netname (${netname}_secondary)"
     check_log_message remoteice1 "Ignoring scheduler at .*:8769 because of a different netname (${netname}_secondary)"
     check_log_message remoteice2 "Ignoring scheduler at .*:8769 because of a different netname (${netname}_secondary)"
     stop_secondary_scheduler 1
-    echo Multiple schedulers test successful.
+    echo Different netnames test successful.
+    echo
+
+    echo Testing newer scheduler.
+    reset_logs remote "Newer scheduler"
+    # Make this scheduler fake its start time, so it should be the preferred scheduler.
+    # We could similarly fake the version to be higher, but this should be safer.
+    ICECC_TESTS=1 ICECC_TEST_SCHEDULER_PORTS=8767:8769 ICECC_FAKE_STARTTIME=1 \
+        $valgrind "${icecc_scheduler}" -p 8769 -l "$testdir"/scheduler2.log -n ${netname} -v -v -v &
+    scheduler2_pid=$!
+    echo $scheduler2_pid > "$testdir"/scheduler2.pid
+    wait_for_proc_sleep 10 ${scheduler2_pid}
+    check_log_message scheduler "Received scheduler announcement from .* (version $protocolversion, netname ${netname})"
+    check_log_message scheduler "has announced itself as a preferred scheduler, disconnecting all connections"
+    check_log_error scheduler2 "has announced itself as a preferred scheduler, disconnecting all connections"
+    check_log_message localice "scheduler closed connection"
+    check_log_message remoteice1 "scheduler closed connection"
+    check_log_message remoteice2 "scheduler closed connection"
+    # Daemons will not connect to the secondary debug scheduler (not implemented).
+    stop_secondary_scheduler 1
+    echo Newer scheduler test successful.
+    echo
+
+    echo Testing reconnect.
+    reset_logs remote "Reconnect"
+    # This should give daemons enough time to reconnect.
+    sleep 6
+    flush_logs
+    check_log_message scheduler "login localice protocol version: ${protocolversion}"
+    check_log_message scheduler "login remoteice1 protocol version: ${protocolversion}"
+    check_log_message scheduler "login remoteice2 protocol version: ${protocolversion}"
+    check_log_message localice "Connected to scheduler"
+    check_log_message remoteice1 "Connected to scheduler"
+    check_log_message remoteice2 "Connected to scheduler"
+    echo Reconnect test successful.
     echo
 else
     skipped_tests="$skipped_tests scheduler_multiple"

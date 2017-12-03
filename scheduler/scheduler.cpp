@@ -2024,6 +2024,8 @@ int main(int argc, char *argv[])
     }
 
     starttime = time(0);
+    if( getenv( "ICECC_FAKE_STARTTIME" ) != NULL )
+        starttime -= 1000;
 
     ofstream pidFile;
     string progName = argv[0];

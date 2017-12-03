@@ -747,6 +747,9 @@ void Daemon::close_scheduler()
     delete discover;
     discover = 0;
     next_scheduler_connect = time(0) + 20 + (rand() & 31);
+    static bool fast_reconnect = getenv( "ICECC_TESTS" ) != NULL;
+    if( fast_reconnect )
+        next_scheduler_connect = time(0) + 1;
 }
 
 bool Daemon::maybe_stats(bool send_ping)
@@ -1973,7 +1976,7 @@ bool Daemon::reconnect()
     }
 
     if (!discover && next_scheduler_connect > time(0)) {
-        trace() << "timeout.." << endl;
+        trace() << "Delaying reconnect." << endl;
         return false;
     }
 
@@ -1987,7 +1990,7 @@ bool Daemon::reconnect()
     }
 
     if (!scheduler) {
-        log_warning() << "scheduler not yet found." << endl;
+        log_warning() << "scheduler not yet found/selected." << endl;
         return false;
     }
 

@@ -1294,7 +1294,7 @@ static int open_send_broadcast(int port, const char* buf, int size)
             continue;
         }
 
-        static bool allow_localhost = getenv( "ICECC_LOCALHOST_TESTS" ) != NULL;
+        static bool allow_localhost = getenv( "ICECC_TESTS" ) != NULL;
         if (!allow_localhost) {
             if (ntohl(((struct sockaddr_in *) addr->ifa_addr)->sin_addr.s_addr) == 0x7f000001) {
                 trace() << "ignoring localhost " << addr->ifa_name << endl;
