@@ -19,6 +19,11 @@ script:
             sudo ln -s /usr/bin/clang-${version} /usr/bin/clang
             sudo ln -s /usr/bin/clang++-${version} /usr/bin/clang++
             make test${strict} TESTCC=/usr/bin/clang TESTCXX=/usr/bin/clang++ LLVM_CONFIG=/usr/bin/llvm-config-${version}
+        elif test "$TRAVIS_OS_NAME" = "osx"; then
+            if test -n "$STRICTTESTS"; then
+                strict="-strict"
+            fi
+            make test${strict} TESTCC=clang TESTCXX=clang++
         fi
 
 matrix:
