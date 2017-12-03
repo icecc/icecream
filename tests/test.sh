@@ -1131,7 +1131,7 @@ finish_logs()
         rm -f "$testdir"/${log}.log
     done
     alllogscount=`ls -1 "$testdir"/*_all.log | wc -l`
-    logscount=`ls -1 "$testdir"/*.log | wc -l`
+    logscount=`ls -1 "$testdir"/*.log | grep -v '/valgrind-' | wc -l`
     if test $alllogscount -ne $logscount; then
         echo INTERNAL ERROR, unhandled log files:
         ls -1 "$testdir"/*.log | grep -v _all.log
