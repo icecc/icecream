@@ -876,7 +876,11 @@ clangplugintest()
         -Xclang -add-plugin -Xclang icecreamtest -Xclang -plugin-arg-icecreamtest -Xclang `realpath -s clangpluginextra.txt` \
         clangplugintest.cpp -o "$testdir"/clangplugintest.o
     unset ICECC_EXTRAFILES
-    for type in "" ".localice" ".remoteice"; do
+    also_remote=
+    if test -z "$chroot_disabled"; then
+        also_remote=".remoteice"
+    fi
+    for type in "" ".localice" $also_remote; do
         check_section_log_message_count stderr${type} 1 "clangplugintest.cpp:3:5: warning: Icecream plugin found return false"
         check_section_log_message_count stderr${type} 1 "warning: Extra file check successful"
         check_section_log_error stderr${type} "Extra file open error"
