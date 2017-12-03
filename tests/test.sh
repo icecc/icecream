@@ -1304,7 +1304,14 @@ run_ice "$testdir/testdefine.o" "remote" 0 $TESTCXX -Wall -Werror -DICECREAM_TES
 run_ice "$testdir/testdefine.o" "remote" 0 $TESTCXX -Wall -Werror -D ICECREAM_TEST_DEFINE=test -c testdefine.cpp -o "$testdir/"testdefine.o
 
 run_ice "" "remote" 300 "remoteabort" $TESTCXX -c nonexistent.cpp
-run_ice "" "local" 0 /bin/true
+
+if test -e /bin/true; then
+    run_ice "" "local" 0 /bin/true
+elif test -e /usr/bin/true; then
+    run_ice "" "local" 0 /usr/bin/true
+else
+    skipped_tests="$skipped_tests run-true"
+fi
 
 run_ice "$testdir/warninginmacro.o" "remote" 0 $TESTCXX -Wall -Wextra -Werror -c warninginmacro.cpp -o "$testdir/"warninginmacro.o
 
