@@ -1407,7 +1407,7 @@ if $TESTCXX -fsanitize=address -c -fsyntax-only -Werror fsanitize.cpp >/dev/null
     check_log_message stderr "ERROR: AddressSanitizer: heap-use-after-free"
     # Only newer versions of ASAN have the SUMMARY line.
     if grep -q "^SUMMARY:" "$testdir"/stderr.log; then
-        check_log_message stderr "SUMMARY: AddressSanitizer: heap-use-after-free .*/fsanitize.cpp:5.* in test_fsanitize_function()"
+        check_log_message stderr "SUMMARY: AddressSanitizer: heap-use-after-free .*fsanitize.cpp:5.* in test_fsanitize_function()"
     fi
     rm "$testdir"/fsanitize.o
 
@@ -1425,7 +1425,7 @@ if $TESTCXX -fsanitize=address -c -fsyntax-only -Werror fsanitize.cpp >/dev/null
         "$testdir"/fsanitize 2>>"$testdir"/stderr.log
         check_log_error stderr "ERROR: AddressSanitizer: heap-use-after-free"
         if grep -q "^SUMMARY:" "$testdir"/stderr.log; then
-            check_log_error stderr "SUMMARY: AddressSanitizer: heap-use-after-free .*/fsanitize.cpp:5 in test()"
+            check_log_error stderr "SUMMARY: AddressSanitizer: heap-use-after-free .*fsanitize.cpp:5 in test()"
         fi
         rm "$testdir"/fsanitize.o
     else
