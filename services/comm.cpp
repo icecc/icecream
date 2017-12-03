@@ -309,7 +309,7 @@ bool MsgChannel::flush_writebuf(bool blocking)
 
             /* If we want to write blocking, but couldn't write anything,
                select on the fd.  */
-            if (blocking && errno == EAGAIN) {
+            if (blocking && ( errno == EAGAIN || errno == ENOTCONN )) {
                 int ready;
 
                 for (;;) {
