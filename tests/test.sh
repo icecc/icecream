@@ -237,7 +237,7 @@ start_ice()
         stop_ice 0
         abort_tests
     fi
-    sleep 5 # Give the scheduler time to get everything set up
+    wait_for_all_daemons_connected
     flush_logs
     grep -q "Cannot use chroot, no remote jobs accepted." "$testdir"/remoteice1.log && chroot_disabled=1
     grep -q "Cannot use chroot, no remote jobs accepted." "$testdir"/remoteice2.log && chroot_disabled=1
@@ -369,6 +369,25 @@ stop_only_daemon()
     localice_pid=
 }
 
+wait_for_all_daemons_connected()
+{
+    for secs in `seq 1 10`; do
+        flush_logs
+        ready=1
+        for daemon in localice remoteice1 remoteice2; do
+            if ! grep -q "Connected to scheduler" "$testdir"/${daemon}.log; then
+                ready=
+            fi
+        done
+        if test -n "$ready"; then
+            return
+        fi
+        sleep 1
+    done
+    echo Daemons failed to connect to the scheduler.
+    stop_ice 0
+    abort_tests
+}
 
 # First argument is the expected output file, if any (otherwise specify "").
 # Second argument is "remote" (should be compiled on a remote host) or "local" (cannot be compiled remotely).
@@ -1454,8 +1473,7 @@ if test -z "$chroot_disabled"; then
 
     echo Testing reconnect.
     reset_logs remote "Reconnect"
-    # This should give daemons enough time to reconnect.
-    sleep 6
+    wait_for_all_daemons_connected
     flush_logs
     check_log_message scheduler "login localice protocol version: ${protocolversion}"
     check_log_message scheduler "login remoteice1 protocol version: ${protocolversion}"
