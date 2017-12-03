@@ -897,7 +897,11 @@ debug_test()
     echo "Running debug test ($cmd)."
     reset_logs "" "debug test ($cmd)"
 
-    ICECC_TEST_SOCKET="$testdir"/socket-localice ICECC_TEST_REMOTEBUILD=1 ICECC_PREFERRED_HOST=remoteice1 ICECC_DEBUG=debug ICECC_LOGFILE="$testdir"/icecc.log $valgrind "${icecc}" \
+    preferred=remoteice1
+    if test -n "$chroot_disabled"; then
+        preferred=localice
+    fi
+    ICECC_TEST_SOCKET="$testdir"/socket-localice ICECC_TEST_REMOTEBUILD=1 ICECC_PREFERRED_HOST=$preferred ICECC_DEBUG=debug ICECC_LOGFILE="$testdir"/icecc.log $valgrind "${icecc}" \
         $cmd -o "$testdir"/debug-remote.o 2>>"$testdir"/stderr.log
     if test $? -ne 0; then
         echo Debug test compile failed.
@@ -907,11 +911,22 @@ debug_test()
 
     flush_logs
     check_logs_for_generic_errors
-    check_log_message icecc "Have to use host 127.0.0.1:10246"
-    check_log_error icecc "Have to use host 127.0.0.1:10247"
-    check_log_error icecc "building myself, but telling localhost"
-    check_log_error icecc "local build forced"
-    check_log_error icecc "<building_local>"
+    if test -z "$chroot_disabled"; then
+        check_log_message icecc "Have to use host 127.0.0.1:10246"
+        check_log_error icecc "Have to use host 127.0.0.1:10247"
+        check_log_error icecc "building myself, but telling localhost"
+        check_log_error icecc "local build forced"
+        check_log_error icecc "<building_local>"
+        check_log_message remoteice1 "Remote compilation completed with exit code 0"
+        check_log_error remoteice1 "Remote compilation aborted with exit code"
+        check_log_error remoteice1 "Remote compilation exited with exit code"
+    else
+        check_log_message icecc "building myself, but telling localhost"
+        check_log_error icecc "Have to use host 127.0.0.1:10246"
+        check_log_error icecc "Have to use host 127.0.0.1:10247"
+        check_log_error icecc "local build forced"
+        check_log_error icecc "<building_local>"
+    fi
     $compiler -o "$testdir"/debug-remote "$testdir"/debug-remote.o
     if test $? -ne 0; then
         echo Linking in debug test failed.
