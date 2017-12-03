@@ -749,7 +749,7 @@ void Daemon::close_scheduler()
     next_scheduler_connect = time(0) + 20 + (rand() & 31);
     static bool fast_reconnect = getenv( "ICECC_TESTS" ) != NULL;
     if( fast_reconnect )
-        next_scheduler_connect = time(0) + 1;
+        next_scheduler_connect = time(0) + 3;
 }
 
 bool Daemon::maybe_stats(bool send_ping)

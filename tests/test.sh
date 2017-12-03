@@ -378,6 +378,9 @@ wait_for_all_daemons_connected()
             if ! grep -q "Connected to scheduler" "$testdir"/${daemon}.log; then
                 ready=
             fi
+            if ! grep -q "login ${daemon} protocol version: ${protocolversion}" "$testdir"/scheduler.log; then
+                ready=
+            fi
         done
         if test -n "$ready"; then
             return
