@@ -274,6 +274,33 @@ else
     fi
 fi
 
+AC_ARG_ENABLE(gcc-fdirectives-only,
+    AS_HELP_STRING([--enable-gcc-fdirectives-only],
+        [Use by default GCC's -fdirectives-only option.]))
+
+if test "$enable_gcc_fdirectives_only" = "yes"; then
+    AC_DEFINE(HAVE_GCC_FDIRECTIVES_ONLY, 1, [Define to 1 if gcc supports -fdirectives-only])
+elif test "$enable_gcc_fdirectives_only" = "no"; then
+    true  # do not enable
+else
+    AC_MSG_CHECKING([whether $CXX -Werror works for unknown options])
+    $CXX -Werror -totallybogusoption -E - >/dev/null 2>/dev/null
+    if test $? -eq 0; then
+        AC_MSG_RESULT(no)
+        # can't detect if the option is supported, but that's too old clang anyway
+    else
+        AC_MSG_RESULT(yes)
+        AC_MSG_CHECKING([for $CXX -E -fdirectives-only])
+        $CXX -Werror -E -fdirectives-only - >/dev/null 2>/dev/null
+        if test $? -eq 0; then
+            AC_MSG_RESULT(yes)
+            AC_DEFINE(HAVE_GCC_FDIRECTIVES_ONLY, 1, [Define to 1 if gcc supports -fdirectives-only])
+        else
+            AC_MSG_RESULT(no)
+        fi
+    fi
+fi
+
 AC_MSG_CHECKING([for -fsanitize= usage])
 if echo "$CXXFLAGS" | grep -q -- -fsanitize; then
     AC_DEFINE(SANITIZER_USED, 1, [Define to 1 if compiled with -fsanitize option(s)])

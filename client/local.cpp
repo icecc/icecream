@@ -167,7 +167,13 @@ bool compiler_only_rewrite_includes(const CompileJob &job)
         return (*rewrite_includes != '\0') && (*rewrite_includes != '0');
     }
     if (!compiler_is_clang(job)) {
-        return true; // gcc has had -fdirectives-only for a long time
+#ifdef HAVE_GCC_FDIRECTIVES_ONLY
+        // gcc has had -fdirectives-only for a long time, but clang on macosx poses as gcc
+        // and fails when given the option. Since we right now detect whether a compiler
+        // is gcc merely by checking the binary name, enable usage only if the configure
+        // check found the option working.
+        return true;
+#endif
     }
     if (compiler_is_clang(job)) {
         if (const char *rewrite_includes = getenv("ICECC_CLANG_REMOTE_CPP")) {
