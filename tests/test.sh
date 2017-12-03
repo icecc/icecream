@@ -146,7 +146,8 @@ start_iceccd()
 {
     name=$1
     shift
-    ICECC_TEST_SOCKET="$testdir"/socket-${name} ICECC_SCHEDULER=:8767 ICECC_LOCALHOST_TESTS=1 $valgrind "${iceccd}" -b "$testdir"/envs-${name} -l "$testdir"/${name}.log -n ${netname} -N ${name}  -v -v -v "$@" 2>>"$testdir"/iceccdstderr_${name}.log &
+    ICECC_TEST_SOCKET="$testdir"/socket-${name} ICECC_SCHEDULER=:8767 ICECC_LOCALHOST_TESTS=1 ICECC_TEST_SCHEDULER_PORTS=8767:8769 \
+        $valgrind "${iceccd}" -b "$testdir"/envs-${name} -l "$testdir"/${name}.log -n ${netname} -N ${name}  -v -v -v "$@" 2>>"$testdir"/iceccdstderr_${name}.log &
     pid=$!
     wait_for_proc_sleep 10 ${pid}
     eval ${name}_pid=${pid}
@@ -249,7 +250,8 @@ start_ice()
 # start only local daemon, no scheduler
 start_only_daemon()
 {
-    ICECC_TEST_SOCKET="$testdir"/socket-localice ICECC_SCHEDULER=:8767 ICECC_LOCALHOST_TESTS=1 $valgrind "${iceccd}" --no-remote -b "$testdir"/envs-localice -l "$testdir"/localice.log -n ${netname} -N localice -m 2 -v -v -v &
+    ICECC_TEST_SOCKET="$testdir"/socket-localice ICECC_SCHEDULER=:8767 ICECC_LOCALHOST_TESTS=1 ICECC_TEST_SCHEDULER_PORTS=8767:8769 \
+        $valgrind "${iceccd}" --no-remote -b "$testdir"/envs-localice -l "$testdir"/localice.log -n ${netname} -N localice -m 2 -v -v -v &
     localice_pid=$!
     echo $localice_pid > "$testdir"/localice.pid
     if test -n "$valgrind"; then
@@ -1411,17 +1413,23 @@ fi
 if test -z "$chroot_disabled"; then
     echo Testing multiple schedulers.
     reset_logs remote "Multiple schedulers"
+    stop_ice 1
+    # Start the secondary scheduler before the primary, so that besides the different netname it would be the preferred scheduler.
     ICECC_LOCALHOST_TESTS=1 ICECC_TEST_SCHEDULER_PORTS=8767:8769 $valgrind "${icecc_scheduler}" -p 8769 -l "$testdir"/scheduler2.log -n ${netname}_secondary -v -v -v &
     scheduler2_pid=$!
     echo $scheduler2_pid > "$testdir"/scheduler2.pid
     wait_for_proc_sleep 10 ${scheduler2_pid}
-    check_log_message scheduler "Received scheduler announcement from .* (version $protocolversion, netname ${netname}_secondary)"
+    start_ice
+    check_log_message scheduler2 "Received scheduler announcement from .* (version $protocolversion, netname ${netname})"
     check_log_error scheduler "disconnecting all connections"
+    check_log_message localice "Ignoring scheduler at .*:8769 because of a different netname (${netname}_secondary)"
+    check_log_message remoteice1 "Ignoring scheduler at .*:8769 because of a different netname (${netname}_secondary)"
+    check_log_message remoteice2 "Ignoring scheduler at .*:8769 because of a different netname (${netname}_secondary)"
     stop_secondary_scheduler 1
     echo Multiple schedulers test successful.
     echo
 else
-    skipped_tests="$skipped_tests scheduler_version"
+    skipped_tests="$skipped_tests scheduler_multiple"
 fi
 
 reset_logs local "Closing down"

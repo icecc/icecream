@@ -275,8 +275,9 @@ public:
     // Reads data from a scheduler version broadcast.
     static void getSchedulerVersionData( const char* buf, int* protocol, time_t* time, std::string* netname );
     /// Broadcasts the given data on the given port.
-    static bool broadcastData(int port, const char* buf, int size);
     static const int BROAD_BUFLEN = 268;
+private:
+    static void broadcastData(int port, const char* buf, int size);
 };
 
 // --------------------------------------------------------------------------
@@ -347,6 +348,7 @@ private:
     std::string schedname;
     int timeout;
     int ask_fd;
+    int ask_second_fd; // for debugging
     time_t time0;
     unsigned int sport;
     int best_version;
@@ -354,7 +356,7 @@ private:
     bool multiple;
 
     void attempt_scheduler_connect();
-    int sendSchedulerDiscovery( int version );
+    void sendSchedulerDiscovery( int version );
     static bool get_broad_answer(int ask_fd, int timeout, char *buf2, struct sockaddr_in *remote_addr,
                  socklen_t *remote_len);
     static void get_broad_data(const char* buf, const char** name, int* version, time_t* start_time);

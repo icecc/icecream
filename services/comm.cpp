@@ -1155,6 +1155,31 @@ bool MsgChannel::send_msg(const Msg &m, int flags)
     return flush_writebuf((flags & SendBlocking));
 }
 
+static int get_second_port_for_debug( int port )
+{
+    // When running tests, we want to check also interactions between 2 schedulers, but
+    // when they are both local, they cannot bind to the same port. So make sure to
+    // send all broadcasts to both.
+    static bool checkedDebug = false;
+    static int debugPort1 = 0;
+    static int debugPort2 = 0;
+    if( !checkedDebug ) {
+        checkedDebug = true;
+        if( const char* env = getenv( "ICECC_TEST_SCHEDULER_PORTS" )) {
+            debugPort1 = atoi( env );
+            const char* env2 = strchr( env, ':' );
+            if( env2 != NULL )
+                debugPort2 = atoi( env2 + 1 );
+        }
+    }
+    int secondPort = 0;
+    if( port == debugPort1 )
+        secondPort = debugPort2;
+    else if( port == debugPort2 )
+        secondPort = debugPort1;
+    return secondPort ? secondPort : -1;
+}
+
 void Broadcasts::broadcastSchedulerVersion(int scheduler_port, const char* netname, time_t starttime)
 {
     // Code for older schedulers than version 38. Has endianness problems, the message size
@@ -1303,44 +1328,23 @@ static int open_send_broadcast(int port, const char* buf, int size)
     return ask_fd;
 }
 
-bool Broadcasts::broadcastData(int port, const char* buf, int len)
+void Broadcasts::broadcastData(int port, const char* buf, int len)
 {
     int fd = open_send_broadcast(port, buf, len);
-    bool result = false;
     if (fd >= 0) {
         if ((-1 == close(fd)) && (errno != EBADF)){
             log_perror("close failed");
         }
-        result = true;
     }
-    // When running tests, we want to check also interactions between 2 schedulers, but
-    // when they are both local, they cannot bind to the same port. So make sure to
-    // send all broadcasts to both.
-    static bool checkedDebug = false;
-    static int debugPort1 = 0;
-    static int debugPort2 = 0;
-    if( !checkedDebug ) {
-        checkedDebug = true;
-        if( const char* env = getenv( "ICECC_TEST_SCHEDULER_PORTS" )) {
-            debugPort1 = atoi( env );
-            const char* env2 = strchr( env, ':' );
-            if( env2 != NULL )
-                debugPort2 = atoi( env2 + 1 );
+    int secondPort = get_second_port_for_debug( port );
+    if( secondPort > 0 ) {
+        int fd2 = open_send_broadcast(secondPort, buf, len);
+        if (fd2 >= 0) {
+            if ((-1 == close(fd2)) && (errno != EBADF)){
+                log_perror("close failed");
+            }
         }
     }
-    int secondPort = 0;
-    if( port == debugPort1 )
-        secondPort = debugPort2;
-    else if( port == debugPort2 )
-        secondPort = debugPort1;
-    int fd2 = open_send_broadcast(secondPort, buf, len);
-    if (fd2 >= 0) {
-        if ((-1 == close(fd2)) && (errno != EBADF)){
-            log_perror("close failed");
-        }
-        result = true;
-    }
-    return result;
 }
 
 DiscoverSched::DiscoverSched(const std::string &_netname, int _timeout,
@@ -1349,6 +1353,7 @@ DiscoverSched::DiscoverSched(const std::string &_netname, int _timeout,
     , schedname(_schedname)
     , timeout(_timeout)
     , ask_fd(-1)
+    , ask_second_fd(-1)
     , sport(port)
     , best_version(0)
     , best_start_time(0)
@@ -1384,7 +1389,7 @@ DiscoverSched::DiscoverSched(const std::string &_netname, int _timeout,
         netname = ""; // take whatever the machine is giving us
         attempt_scheduler_connect();
     } else {
-        ask_fd = sendSchedulerDiscovery( PROTOCOL_VERSION );
+        sendSchedulerDiscovery( PROTOCOL_VERSION );
     }
 }
 
@@ -1392,6 +1397,11 @@ DiscoverSched::~DiscoverSched()
 {
     if (ask_fd >= 0) {
         if ((-1 == close(ask_fd)) && (errno != EBADF)){
+            log_perror("close failed");
+        }
+    }
+    if (ask_second_fd >= 0) {
+        if ((-1 == close(ask_second_fd)) && (errno != EBADF)){
             log_perror("close failed");
         }
     }
@@ -1413,11 +1423,14 @@ void DiscoverSched::attempt_scheduler_connect()
     }
 }
 
-int DiscoverSched::sendSchedulerDiscovery( int version )
+void DiscoverSched::sendSchedulerDiscovery( int version )
 {
         assert( version < 128 );
         char buf = version;
-        return open_send_broadcast(sport, &buf, 1);
+        ask_fd = open_send_broadcast(sport, &buf, 1);
+        int secondPort = get_second_port_for_debug( sport );
+        if( secondPort > 0 )
+            ask_second_fd = open_send_broadcast(secondPort, &buf, 1);
 }
 
 bool DiscoverSched::isSchedulerDiscovery(const char* buf, int buflen, int* daemon_version)
@@ -1551,8 +1564,9 @@ MsgChannel *DiscoverSched::try_get_scheduler()
         */
 
         /* Read/test all packages arrived until now.  */
-        while (get_broad_answer(ask_fd, 0/*timeout*/, buf2,
-                                (struct sockaddr_in *) &remote_addr, &remote_len)) {
+        while (get_broad_answer(ask_fd, 0/*timeout*/, buf2, (struct sockaddr_in *) &remote_addr, &remote_len)
+                || ( ask_second_fd != -1 && get_broad_answer(ask_second_fd, 0/*timeout*/, buf2,
+                                            (struct sockaddr_in *) &remote_addr, &remote_len))) {
             int version;
             time_t start_time;
             const char* name;
@@ -1577,7 +1591,12 @@ MsgChannel *DiscoverSched::try_get_scheduler()
                     sport = ntohs(remote_addr.sin_port);
                     best_version = version;
                     best_start_time = start_time;
+                    assert( ntohs(remote_addr.sin_port) == sport ); // We should never select the secondary debug scheduler.
                 }
+            } else {
+                log_info() << "Ignoring scheduler at " << inet_ntoa(remote_addr.sin_addr)
+                    << ":" << ntohs(remote_addr.sin_port) << " because of a different netname ("
+                    << name << ")" << endl;
             }
         }
 
@@ -1592,6 +1611,14 @@ MsgChannel *DiscoverSched::try_get_scheduler()
                 log_perror("close failed");
             }
             ask_fd = -1;
+            if( get_second_port_for_debug( sport ) > 0 ) {
+                if (-1 == close(ask_second_fd)){
+                    log_perror("close failed");
+                }
+                ask_second_fd = -1;
+            } else {
+                assert( ask_second_fd == -1 );
+            }
             attempt_scheduler_connect();
 
             if (ask_fd >= 0) {
@@ -1607,6 +1634,7 @@ MsgChannel *DiscoverSched::try_get_scheduler()
         }
     }
     else if (ask_fd >= 0) {
+        assert( ask_second_fd == -1 );
         int status = connect(ask_fd, (struct sockaddr *) &remote_addr, sizeof(remote_addr));
 
         if (status == 0 || (status < 0 && errno == EISCONN)) {
