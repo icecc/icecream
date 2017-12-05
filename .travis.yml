@@ -65,7 +65,7 @@ matrix:
 before_script:
   - |
      if [ "$BUILD_TYPE" == "asan" ]; then
-         export SAN_FLAGS="-fsanitize=address -fno-omit-frame-pointer"
+         export SAN_FLAGS="-fsanitize=address -fsanitize-address-use-after-scope -fno-omit-frame-pointer"
      fi
   - |
      if [ "$BUILD_TYPE" == "lsan" ]; then
