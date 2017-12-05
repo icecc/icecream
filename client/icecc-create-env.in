@@ -250,6 +250,11 @@ while test "x$1" = "x--addfile"; do
     shift
 done
 
+if test -n "$1"; then
+    echo "Unknown argument '$1'"
+    exit 1
+fi
+
 tempdir=`mktemp -d /tmp/iceccenvXXXXXX`
 
 # for testing the environment is usable at all
