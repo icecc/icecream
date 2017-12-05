@@ -39,7 +39,7 @@
 </cmdsynopsis>
 <cmdsynopsis>
 <command>icecc-create-env</command>
-<arg choice="plain">--clang <replaceable>clang-path</replaceable> <replaceable>compiler-wrapper</replaceable></arg>
+<arg choice="plain">--clang <replaceable>clang-path</replaceable></arg>
 <arg rep="repeat">--addfile <replaceable>file</replaceable></arg>
 </cmdsynopsis>
 </refsynopsisdiv>
@@ -76,13 +76,10 @@ and <parameter>g++-path</parameter> represent respectively the paths to the
 
 <varlistentry>
 <term><option>--clang</option>
-<parameter>clang-path</parameter> <parameter>compiler-wrapper</parameter></term>
+<parameter>clang-path</parameter></term>
 <listitem><para>&clang; is used in the archive.</para>
 <para><parameter>clang-path</parameter> represents the path to the
-<filename>clang</filename> executable; <parameter>compiler-wrapper</parameter>
-is the path to a compiler wrapper, usually <filename>/usr/lib/icecc/compilerwrapper</filename>,
-used with old Icecream clients which hardcode <filename>/usr/bin/gcc</filename>
-and <filename>/usr/bin/g++</filename> and thus would not use &clang;.</para></listitem>
+<filename>clang</filename> executable.</para></listitem>
 </varlistentry>
 
 <varlistentry>
