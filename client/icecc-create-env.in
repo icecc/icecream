@@ -191,11 +191,12 @@ else
         shift
         added_clang=$1
         shift
-        added_compilerwrapper=$1
-        if test -n "$added_compilerwrapper"; then
+        if test "x$1" != "x--addfile" -a -e "$1"; then
             # accept 2nd argument being the compilerwrapper binary, for backwards compatibility
+            added_compilerwrapper=$1
             shift
-        else
+        fi
+        if test -z "$added_compilerwrapper"; then
             added_compilerwrapper=@PKGLIBEXECDIR@/compilerwrapper
         fi
         clang=1
