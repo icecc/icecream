@@ -206,7 +206,6 @@ static int create_native(char **args)
 
         argv.push_back(strdup("--clang"));
         argv.push_back(strdup(clang.c_str()));
-        argv.push_back(strdup(PLIBDIR "/compilerwrapper"));
     } else { // "gcc" (default)
         string gcc, gpp;
 
