@@ -16,9 +16,12 @@ usage()
 
 while test -n "$1"; do
     case "$1" in
-        --valgrind)
+        --valgrind|--valgrind=1)
             valgrind="valgrind --leak-check=no --error-exitcode=10 --suppressions=valgrind_suppressions --log-file=$testdir/valgrind-%p.log --"
             rm -f "$testdir"/valgrind-*.log
+            ;;
+        --valgrind=)
+            # when invoked from Makefile, no valgrind
             ;;
         --valgrind=*)
             valgrind="`echo $1 | sed 's/^--valgrind=//'` --error-exitcode=10 --suppressions=valgrind_suppressions --log-file=$testdir/valgrind-%p.log --"

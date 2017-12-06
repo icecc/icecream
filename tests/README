@@ -14,7 +14,8 @@ install Icecream for the tests (really install, no $DESTDIR). It is however
 not necessary to do a system install, simply install somewhere. If you want
 to test also remote builds (recommended), it is necessary for the install to have
 the capability to chroot. This is most easily done by giving the CAP_SYS_CHROOT
-Linux capability to the iceccd binary.
+Linux capability to the iceccd binary (which is done is triggered to be done
+automatically by "make test" using sudo).
 
 An example of building Icecream and testing it:
 
@@ -52,6 +53,10 @@ Valgrind:
 =========
 
 It is possible to pass --valgrind to test.sh in order to test (almost) everything with Valgrind.
+Valgrind may be also automatically invoked using:
+
+    make test VALGRIND=1
+
 Note that in order to be able to chroot, it is necessary to give the capability to the actual
 Valgrind binary instead of iceccd (this is because this binary is what actually runs as
 the process):

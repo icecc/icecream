@@ -6,7 +6,9 @@ test-strict:
 	$(MAKE) test STRICT=1
 
 test-prepare:
-	if test -x /sbin/setcap; then \
+	if test -n "$(VALGRIND)"; then \
+	    true; \
+	elif test -x /sbin/setcap; then \
 	    sudo /sbin/setcap cap_sys_chroot+ep ${sbindir}/iceccd ; \
 	elif command -v filecap >/dev/null 2>/dev/null; then \
 	    sudo filecap ${sbindir}/iceccd sys_chroot ; \
@@ -18,7 +20,7 @@ test-full: test-prepare
 	$(MAKE) test-run
 
 test-run: test-setup.sh
-	results=`realpath -s ${builddir}/results` && builddir2=`realpath -s ${builddir}` && cd ${srcdir} && ./test.sh ${prefix} $$results --builddir=$$builddir2 --strict=$(STRICT)
+	results=`realpath -s ${builddir}/results` && builddir2=`realpath -s ${builddir}` && cd ${srcdir} && ./test.sh ${prefix} $$results --builddir=$$builddir2 --strict=$(STRICT) --valgrind=$(VALGRIND)
 
 TESTS = testargs
 
