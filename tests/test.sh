@@ -14,17 +14,30 @@ usage()
     exit 3
 }
 
-default_valgrind_args="--error-markers=ICEERRORBEGIN,ICEERROREND --num-callers=50 --suppressions=valgrind_suppressions --log-file=$testdir/valgrind-%p.log"
+get_default_valgrind_flags()
+{
+    default_valgrind_args="--num-callers=50 --suppressions=valgrind_suppressions --log-file=$testdir/valgrind-%p.log"
+    # Check if valgrind knows --error-markers, which makes it simpler to find out if log contains any error.
+    valgrind_error_markers="--error-marker2s=ICEERRORBEGIN,ICEERROREND"
+    valgrind $valgrind_error_markers true 2>/dev/null
+    if test $? -eq 0; then
+        default_valgrind_args="$default_valgrind_args $valgrind_error_markers"
+    else
+        valgrind_error_markers=
+    fi
+}
 
 while test -n "$1"; do
     case "$1" in
         --valgrind|--valgrind=1)
+            get_default_valgrind_flags
             valgrind="valgrind --leak-check=no $default_valgrind_args --"
             ;;
         --valgrind=)
             # when invoked from Makefile, no valgrind
             ;;
         --valgrind=*)
+            get_default_valgrind_flags
             valgrind="`echo $1 | sed 's/^--valgrind=//'` $default_valgrind_args --"
             ;;
         --builddir=*)
@@ -1188,7 +1201,18 @@ dump_logs()
     done
     valgrind_logs=$(ls "$testdir"/valgrind-*.log 2>/dev/null)
     for log in $valgrind_logs; do
-        if grep -q ERRORBEGIN ${log} ; then
+        has_error=
+        if test -n "$valgrind_error_markers"; then
+            if grep -q ICEERRORBEGIN ${log}; then
+                has_error=1
+            fi
+        else
+            # Let's guess that every error message has this.
+            if grep -q '^==[0-9]*==    at ' ${log}; then
+                has_error=1
+            fi
+        fi
+        if  test -n "$has_error"; then
             echo ------------------------------------------------
             echo "Log: ${log}" | sed "s#${testdir}/##"
             cat ${log} | grep -v ICEERRORBEGIN | grep -v ICEERROREND
@@ -1216,7 +1240,17 @@ check_logs_for_generic_errors()
     else
         check_log_error icecc "local build forced"
     fi
-    if grep -q "ICEERRORBEGIN" "$testdir"/valgrind-*.log 2>/dev/null; then
+    has_valgrind_error=
+    if test -n "$valgrind_error_markers"; then
+        if grep -q "ICEERRORBEGIN" "$testdir"/valgrind-*.log 2>/dev/null; then
+            has_valgrind_error=1
+        fi
+    else
+        if grep -q '^==[0-9]*==    at ' "$testdir"/valgrind-*.log 2>/dev/null; then
+            has_valgrind_error=1
+        fi
+    fi
+    if test -n "$has_valgrind_error"; then
         echo Valgrind detected an error, aborting.
         stop_ice 0
         abort_tests
