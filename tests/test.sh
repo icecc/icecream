@@ -14,18 +14,18 @@ usage()
     exit 3
 }
 
+default_valgrind_args="--error-exitcode=10 --error-markers=ICEERRORBEGIN,ICEERROREND --num-callers=50 --suppressions=valgrind_suppressions --log-file=$testdir/valgrind-%p.log"
+
 while test -n "$1"; do
     case "$1" in
         --valgrind|--valgrind=1)
-            valgrind="valgrind --leak-check=no --error-exitcode=10 --suppressions=valgrind_suppressions --log-file=$testdir/valgrind-%p.log --"
-            rm -f "$testdir"/valgrind-*.log
+            valgrind="valgrind --leak-check=no $default_valgrind_args --"
             ;;
         --valgrind=)
             # when invoked from Makefile, no valgrind
             ;;
         --valgrind=*)
-            valgrind="`echo $1 | sed 's/^--valgrind=//'` --error-exitcode=10 --suppressions=valgrind_suppressions --log-file=$testdir/valgrind-%p.log --"
-            rm -f "$testdir"/valgrind-*.log
+            valgrind="`echo $1 | sed 's/^--valgrind=//'` $default_valgrind_args --"
             ;;
         --builddir=*)
             builddir=`echo $1 | sed 's/^--builddir=//'`
@@ -1186,6 +1186,14 @@ dump_logs()
             cat "$testdir"/${log}.log
         fi
     done
+    valgrind_logs=$(ls "$testdir"/valgrind-*.log 2>/dev/null)
+    for log in $valgrind_logs; do
+        if grep -q ERRORBEGIN ${log} ; then
+            echo ------------------------------------------------
+            echo "Log: ${log}" | sed "s#${testdir}/##"
+            cat ${log} | grep -v ICEERRORBEGIN | grep -v ICEERROREND
+        fi
+    done
 }
 
 check_logs_for_generic_errors()
@@ -1302,6 +1310,7 @@ for log in $alltestlogs; do
     echo -n >"$testdir"/${log}.log
     echo -n >"$testdir"/${log}_section.log
 done
+rm -f "$testdir"/valgrind-*.log 2>/dev/null
 
 buildnativetest
 
