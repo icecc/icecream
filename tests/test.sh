@@ -14,7 +14,7 @@ usage()
     exit 3
 }
 
-default_valgrind_args="--error-exitcode=10 --error-markers=ICEERRORBEGIN,ICEERROREND --num-callers=50 --suppressions=valgrind_suppressions --log-file=$testdir/valgrind-%p.log"
+default_valgrind_args="--error-markers=ICEERRORBEGIN,ICEERROREND --num-callers=50 --suppressions=valgrind_suppressions --log-file=$testdir/valgrind-%p.log"
 
 while test -n "$1"; do
     case "$1" in
@@ -1215,6 +1215,11 @@ check_logs_for_generic_errors()
         check_log_error_except icecc "local build forced" "local build forced by remote exception: Error 102 - command needs stdout/stderr workaround, recompiling locally"
     else
         check_log_error icecc "local build forced"
+    fi
+    if grep -q "ICEERRORBEGIN" "$testdir"/valgrind-*.log 2>/dev/null; then
+        echo Valgrind detected an error, aborting.
+        stop_ice 0
+        abort_tests
     fi
 }
 

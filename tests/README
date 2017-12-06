@@ -67,9 +67,6 @@ Do not forget to reset it back when done:
 
   sudo /sbin/setcap -r /usr/lib/valgrind/memcheck-x86-linux
 
-If anything in the test exits with exit code 10, it is very likely because Valgrind detected
-an error. Check valgrind logs in the log directory.
-
 
 Adding new tests:
 =================
