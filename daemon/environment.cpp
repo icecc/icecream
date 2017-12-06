@@ -803,7 +803,7 @@ bool verify_env(MsgChannel *client, const string &basedir, const string &target,
     }
 
     // child
-    reset_debug(0);
+    reset_debug();
     chdir_to_environment(client, dirname, user_uid, user_gid);
     execl("bin/true", "bin/true", (void*)NULL);
     log_perror("execl failed");

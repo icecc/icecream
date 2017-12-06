@@ -2125,8 +2125,10 @@ int main(int argc, char *argv[])
         int active_fds = select(max_fd + 1, &read_set, &write_set, NULL, &tv);
 
         if (active_fds < 0 && errno == EINTR) {
+            reset_debug_if_needed(); // we possibly got SIGHUP
             continue;
         }
+        reset_debug_if_needed();
 
         if (active_fds < 0) {
             log_perror("select()");

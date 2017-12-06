@@ -38,12 +38,13 @@ ostream *logfile_info = 0;
 ostream *logfile_warning = 0;
 ostream *logfile_error = 0;
 string logfile_prefix;
+volatile sig_atomic_t reset_debug_needed = 0;
 
 static ofstream logfile_null("/dev/null");
 static ofstream logfile_file;
 static string logfile_filename;
 
-void reset_debug(int);
+static void reset_debug_signal_handler(int);
 
 void setup_debug(int level, const string &filename, const string &prefix)
 {
@@ -107,12 +108,25 @@ void setup_debug(int level, const string &filename, const string &prefix)
         logfile_error = &logfile_null;
     }
 
-    signal(SIGHUP, reset_debug);
+    signal(SIGHUP, reset_debug_signal_handler);
 }
 
-void reset_debug(int)
+void reset_debug_signal_handler(int)
 {
+    reset_debug_needed = 1;
+}
+
+void reset_debug()
+{
+    reset_debug_needed = 0;
     setup_debug(debug_level, logfile_filename);
+}
+
+void reset_debug_if_needed()
+{
+    if( reset_debug_needed ) {
+        reset_debug();
+    }
 }
 
 void close_debug()

@@ -1817,6 +1817,7 @@ int Daemon::answer_client_requests()
         log_perror("select");
         return 5;
     }
+    reset_debug_if_needed();
 
     if (ret > 0) {
         bool had_scheduler = scheduler;

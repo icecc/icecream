@@ -46,7 +46,8 @@ extern std::ostream *logfile_trace;
 extern std::string logfile_prefix;
 
 void setup_debug(int level, const std::string &logfile = "", const std::string &prefix = "");
-void reset_debug(int);
+void reset_debug_if_needed(); // if we get SIGHUP, this will handle the reset
+void reset_debug();
 void close_debug();
 void flush_debug();
 

@@ -158,7 +158,7 @@ int handle_connection(const string &basedir, CompileJob *job,
         return pid;
     }
 
-    reset_debug(0);
+    reset_debug();
     if ((-1 == close(socket[0])) && (errno != EBADF)){
         log_perror("close failed");
     }
