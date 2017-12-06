@@ -9,7 +9,11 @@ script:
             if test -n "$STRICTTESTS"; then
                 strict="-strict"
             fi
-            make test${strict} TESTCC=/usr/bin/gcc TESTCXX=/usr/bin/g++
+            if test -n "$VALGRIND"; then
+                # See tests/README.
+                sudo /sbin/setcap cap_sys_chroot+ep /usr/lib/valgrind/memcheck-amd64-linux
+            fi
+            make test${strict} VALGRIND=$VALGRIND TESTCC=/usr/bin/gcc TESTCXX=/usr/bin/g++
             if test $? -ne 0; then
                 exit 1
             fi
@@ -18,7 +22,7 @@ script:
             version=3.8
             sudo ln -s /usr/bin/clang-${version} /usr/bin/clang
             sudo ln -s /usr/bin/clang++-${version} /usr/bin/clang++
-            make test${strict} TESTCC=/usr/bin/clang TESTCXX=/usr/bin/clang++ LLVM_CONFIG=/usr/bin/llvm-config-${version}
+            make test${strict} VALGRIND=$VALGRIND TESTCC=/usr/bin/clang TESTCXX=/usr/bin/clang++ LLVM_CONFIG=/usr/bin/llvm-config-${version}
         elif test "$TRAVIS_OS_NAME" = "osx"; then
             if test -n "$STRICTTESTS"; then
                 strict="-strict"
@@ -39,22 +43,27 @@ matrix:
   - os: linux
     sudo: true # for setcap so we can run the tests in chroot.
     compiler: clang
-    env: BUILD_TYPE=asan
-    dist: trusty
-  - os: linux
-    sudo: true # for setcap so we can run the tests in chroot.
-    compiler: clang
-    env: BUILD_TYPE=lsan
-    dist: trusty
-  - os: linux
-    sudo: true # for setcap so we can run the tests in chroot.
-    compiler: clang
-    env: BUILD_TYPE=ubsan
-    dist: trusty
-  - os: linux
-    sudo: true # for setcap so we can run the tests in chroot.
-    compiler: clang
     env: STRICTTESTS=1
+    dist: trusty
+  - os: linux
+    sudo: true # for setcap so we can run the tests in chroot.
+    compiler: clang
+    env: VALGRIND=1 STRICTTESTS=1
+    dist: trusty
+  - os: linux
+    sudo: true # for setcap so we can run the tests in chroot.
+    compiler: clang
+    env: BUILD_TYPE=asan STRICTTESTS=1
+    dist: trusty
+  - os: linux
+    sudo: true # for setcap so we can run the tests in chroot.
+    compiler: clang
+    env: BUILD_TYPE=lsan STRICTTESTS=1
+    dist: trusty
+  - os: linux
+    sudo: true # for setcap so we can run the tests in chroot.
+    compiler: clang
+    env: BUILD_TYPE=ubsan STRICTTESTS=1
     dist: trusty
   - os: osx
     before_install:
@@ -100,3 +109,4 @@ addons:
     - docbook2x
     - realpath
     - gdb
+    - valgrind
