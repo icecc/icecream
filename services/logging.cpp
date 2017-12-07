@@ -111,21 +111,29 @@ void setup_debug(int level, const string &filename, const string &prefix)
     signal(SIGHUP, reset_debug_signal_handler);
 }
 
+void reset_debug()
+{
+    setup_debug(debug_level, logfile_filename);
+}
+
 void reset_debug_signal_handler(int)
 {
     reset_debug_needed = 1;
 }
 
-void reset_debug()
-{
-    reset_debug_needed = 0;
-    setup_debug(debug_level, logfile_filename);
-}
-
 void reset_debug_if_needed()
 {
     if( reset_debug_needed ) {
+        reset_debug_needed = 0;
         reset_debug();
+        if( const char* env = getenv( "ICECC_TEST_FLUSH_LOG_MARK" )) {
+            ifstream markfile( env );
+            string mark;
+            getline( markfile, mark );
+            if( !mark.empty()) {
+                trace() << "flush log mark: " << mark << endl;
+            }
+        }
     }
 }
 

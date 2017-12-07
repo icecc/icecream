@@ -102,6 +102,7 @@ mkdir -p "$testdir"
 
 skipped_tests=
 chroot_disabled=
+flush_log_mark=1
 
 check_compilers()
 {
@@ -162,7 +163,7 @@ start_iceccd()
 {
     name=$1
     shift
-    ICECC_TEST_SOCKET="$testdir"/socket-${name} ICECC_SCHEDULER=:8767 ICECC_TESTS=1 ICECC_TEST_SCHEDULER_PORTS=8767:8769 \
+    ICECC_TEST_SOCKET="$testdir"/socket-${name} ICECC_SCHEDULER=:8767 ICECC_TESTS=1 ICECC_TEST_FLUSH_LOG_MARK="$testdir"/flush_log_mark.txt ICECC_TEST_SCHEDULER_PORTS=8767:8769 \
         $valgrind "${iceccd}" -b "$testdir"/envs-${name} -l "$testdir"/${name}.log -n ${netname} -N ${name}  -v -v -v "$@" 2>>"$testdir"/iceccdstderr_${name}.log &
     pid=$!
     wait_for_proc_sleep 10 ${pid}
@@ -209,7 +210,8 @@ kill_daemon()
 
 start_ice()
 {
-    ICECC_TESTS=1 ICECC_TEST_SCHEDULER_PORTS=8767:8769 $valgrind "${icecc_scheduler}" -p 8767 -l "$testdir"/scheduler.log -n ${netname} -v -v -v &
+    ICECC_TESTS=1 ICECC_TEST_FLUSH_LOG_MARK="$testdir"/flush_log_mark.txt ICECC_TEST_SCHEDULER_PORTS=8767:8769 \
+        $valgrind "${icecc_scheduler}" -p 8767 -l "$testdir"/scheduler.log -n ${netname} -v -v -v &
     scheduler_pid=$!
     echo $scheduler_pid > "$testdir"/scheduler.pid
 
@@ -266,7 +268,7 @@ start_ice()
 # start only local daemon, no scheduler
 start_only_daemon()
 {
-    ICECC_TEST_SOCKET="$testdir"/socket-localice ICECC_SCHEDULER=:8767 ICECC_TESTS=1 ICECC_TEST_SCHEDULER_PORTS=8767:8769 \
+    ICECC_TEST_SOCKET="$testdir"/socket-localice ICECC_SCHEDULER=:8767 ICECC_TESTS=1 ICECC_TEST_FLUSH_LOG_MARK="$testdir"/flush_log_mark.txt ICECC_TEST_SCHEDULER_PORTS=8767:8769 \
         $valgrind "${iceccd}" --no-remote -b "$testdir"/envs-localice -l "$testdir"/localice.log -n ${netname} -N localice -m 2 -v -v -v &
     localice_pid=$!
     echo $localice_pid > "$testdir"/localice.pid
@@ -1180,23 +1182,43 @@ finish_logs()
 
 flush_logs()
 {
-    for daemon in scheduler localice remoteice1 remoteice2; do
+    echo "=${flush_log_mark}=" > "$testdir"/flush_log_mark.txt
+    wait_for=
+    for daemon in scheduler scheduler2 localice remoteice1 remoteice2; do
         pid=${daemon}_pid
         if test -n "${!pid}"; then
             kill -HUP ${!pid}
+            if test $? -eq 0; then
+                wait_for="$wait_for $daemon"
+            fi
         fi
     done
+    # wait for all daemons to log the mark in their log
+    while test -n "$wait_for"; do
+        ready=1
+        for daemon in $wait_for; do
+            if ! grep -q "flush log mark: =${flush_log_mark}=" "$testdir"/${daemon}.log; then
+                ready=
+            fi
+        done
+        if test -n "$ready"; then
+            rm "$testdir"/flush_log_mark.txt
+            flush_log_mark=$((flush_log_mark + 1))
+            return
+        fi
+    done
+    rm "$testdir"/flush_log_mark.txt
 }
 
 dump_logs()
 {
     for log in $alltestlogs; do
-        # Skip logs that have only headers
-        if grep -q -v "^=" "$testdir"/${log}.log "$testdir"/${log}_section.log; then
+        # Skip logs that have only headers and flush marks
+        if cat "$testdir"/${log}.log "$testdir"/${log}_section.log | grep -q -v -e "^=" -e "flush log mark: "; then
             echo ------------------------------------------------
             echo "Log: ${log}"
-            cat "$testdir"/${log}_section.log
-            cat "$testdir"/${log}.log
+            cat "$testdir"/${log}_section.log | grep -v "flush log mark: "
+            cat "$testdir"/${log}.log | grep -v "flush log mark: "
         fi
     done
     valgrind_logs=$(ls "$testdir"/valgrind-*.log 2>/dev/null)
@@ -1543,7 +1565,8 @@ if test -z "$chroot_disabled"; then
     reset_logs remote "Different netnames"
     stop_ice 1
     # Start the secondary scheduler before the primary, so that besides the different netname it would be the preferred scheduler.
-    ICECC_TESTS=1 ICECC_TEST_SCHEDULER_PORTS=8767:8769 $valgrind "${icecc_scheduler}" -p 8769 -l "$testdir"/scheduler2.log -n ${netname}_secondary -v -v -v &
+    ICECC_TESTS=1 ICECC_TEST_FLUSH_LOG_MARK="$testdir"/flush_log_mark.txt ICECC_TEST_SCHEDULER_PORTS=8767:8769 \
+        $valgrind "${icecc_scheduler}" -p 8769 -l "$testdir"/scheduler2.log -n ${netname}_secondary -v -v -v &
     scheduler2_pid=$!
     echo $scheduler2_pid > "$testdir"/scheduler2.pid
     wait_for_proc_sleep 10 ${scheduler2_pid}
@@ -1561,7 +1584,7 @@ if test -z "$chroot_disabled"; then
     reset_logs remote "Newer scheduler"
     # Make this scheduler fake its start time, so it should be the preferred scheduler.
     # We could similarly fake the version to be higher, but this should be safer.
-    ICECC_TESTS=1 ICECC_TEST_SCHEDULER_PORTS=8767:8769 ICECC_FAKE_STARTTIME=1 \
+    ICECC_TESTS=1 ICECC_TEST_FLUSH_LOG_MARK="$testdir"/flush_log_mark.txt ICECC_TEST_SCHEDULER_PORTS=8767:8769 ICECC_FAKE_STARTTIME=1 \
         $valgrind "${icecc_scheduler}" -p 8769 -l "$testdir"/scheduler2.log -n ${netname} -v -v -v &
     scheduler2_pid=$!
     echo $scheduler2_pid > "$testdir"/scheduler2.pid
