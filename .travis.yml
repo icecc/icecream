@@ -6,9 +6,7 @@ script:
   - make
   - |
         if test "$TRAVIS_OS_NAME" = "linux"; then
-            if test -n "$STRICTTESTS"; then
-                strict="-strict"
-            fi
+            strict="-strict"
             if test -n "$VALGRIND"; then
                 # See tests/README.
                 sudo /sbin/setcap cap_sys_chroot+ep /usr/lib/valgrind/memcheck-amd64-linux
@@ -43,27 +41,22 @@ matrix:
   - os: linux
     sudo: true # for setcap so we can run the tests in chroot.
     compiler: clang
-    env: STRICTTESTS=1
+    env: VALGRIND=1
     dist: trusty
   - os: linux
     sudo: true # for setcap so we can run the tests in chroot.
     compiler: clang
-    env: VALGRIND=1 STRICTTESTS=1
+    env: BUILD_TYPE=asan
     dist: trusty
   - os: linux
     sudo: true # for setcap so we can run the tests in chroot.
     compiler: clang
-    env: BUILD_TYPE=asan STRICTTESTS=1
+    env: BUILD_TYPE=lsan
     dist: trusty
   - os: linux
     sudo: true # for setcap so we can run the tests in chroot.
     compiler: clang
-    env: BUILD_TYPE=lsan STRICTTESTS=1
-    dist: trusty
-  - os: linux
-    sudo: true # for setcap so we can run the tests in chroot.
-    compiler: clang
-    env: BUILD_TYPE=ubsan STRICTTESTS=1
+    env: BUILD_TYPE=ubsan
     dist: trusty
   - os: osx
     before_install:
