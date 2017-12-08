@@ -1817,7 +1817,12 @@ int Daemon::answer_client_requests()
         log_perror("select");
         return 5;
     }
-    reset_debug_if_needed();
+    // Reset debug if needed, but only if we aren't waiting for any child processes to finish,
+    // otherwise their debug output could end up reset in the middle (and flush log marks used
+    // by tests could be written out before debug output from children).
+    if( current_kids == 0 ) {
+        reset_debug_if_needed();
+    }
 
     if (ret > 0) {
         bool had_scheduler = scheduler;
