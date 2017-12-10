@@ -757,6 +757,9 @@ icerun_test()
     export PATH=`echo $PATH | sed 's/:.:/:/' | sed 's/^.://' | sed 's/:.$//'`
     rm -rf "$testdir"/icerun
     mkdir -p "$testdir"/icerun
+    if test -n "$valgrind"; then
+        export ICERUN_TEST_VALGRIND=1
+    fi
     for i in `seq 1 10`; do
         path=$PATH
         if test $i -eq 1; then
@@ -774,6 +777,7 @@ icerun_test()
         fi
         PATH=$path ICECC_TEST_SOCKET="$testdir"/socket-localice ICECC_TEST_REMOTEBUILD=1 ICECC_DEBUG=debug ICECC_LOGFILE="$testdir"/icecc.log $valgrind "$prefix"/bin/icerun $testbin "$testdir"/icerun $i &
     done
+    unset ICERUN_TEST_VALGRIND
     timeout=100
     seen2=
     while true; do
