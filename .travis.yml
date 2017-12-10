@@ -38,6 +38,10 @@ matrix:
     sudo: true # for setcap so we can run the tests in chroot.
     compiler: clang
     dist: trusty
+  - os: osx
+    before_install:
+      - brew update
+      - brew install lzo docbook2x
   - os: linux
     sudo: true # for setcap so we can run the tests in chroot.
     compiler: clang
@@ -58,10 +62,6 @@ matrix:
     compiler: clang
     env: BUILD_TYPE=ubsan
     dist: trusty
-  - os: osx
-    before_install:
-      - brew update
-      - brew install lzo docbook2x
   allow_failures:
 
 before_script:
