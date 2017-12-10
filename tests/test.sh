@@ -1122,6 +1122,27 @@ zero_local_jobs_test()
     echo
 }
 
+ccache_test()
+{
+    if ! command -v ccache >/dev/null; then
+        echo Could not find ccache, ccache tests skipped.
+        skipped_tests="$skipped_tests ccache"
+        return
+    fi
+    reset_logs "" "Testing ccache error redirect"
+    echo Testing ccache error redirect.
+    rm -rf "$testdir/ccache"
+    ICECC_TEST_SOCKET="$testdir"/socket-localice ICECC_TEST_REMOTEBUILD=1 ICECC_PREFERRED_HOST=remoteice1 \
+        CCACHE_PREFIX=${icecc} CCACHE_DIR="$testdir"/ccache ICECC_VERSION=testbrokenenv ccache $TESTCXX -Wall -Werror -c plain.cpp -o "$testdir/"plain.o 2>>"$testdir"/stderr.log
+    check_log_message stderr "ICECC_VERSION has to point to an existing file to be installed testbrokenenv"
+    # second run, will get cached result, so there's no icecc error in ccache's cached stderr
+    ICECC_TEST_SOCKET="$testdir"/socket-localice ICECC_TEST_REMOTEBUILD=1 ICECC_PREFERRED_HOST=remoteice1 \
+        CCACHE_PREFIX=${icecc} CCACHE_DIR="$testdir"/ccache ICECC_VERSION=testbrokenenv ccache $TESTCXX -Wall -Werror -c plain.cpp -o "$testdir/"plain.o 2>>"$testdir"/stderr.log
+    check_log_message_count stderr 1 "ICECC_VERSION has to point to an existing file to be installed testbrokenenv"
+    echo Testing ccache error redirect successful.
+    echo
+}
+
 # All log files that are used by tests. Done here to keep the list in just one place.
 alltestlogs="scheduler scheduler2 localice remoteice1 remoteice2 icecc stderr stderr.localice stderr.remoteice iceccdstderr_localice iceccdstderr_remoteice1 iceccdstderr_remoteice2"
 
@@ -1528,6 +1549,8 @@ fi
 icerun_test
 
 recursive_test
+
+ccache_test
 
 if test -z "$chroot_disabled"; then
     # stop the scheduler, to ensure the first make run has no job statistics

@@ -26,6 +26,7 @@
 #include <fstream>
 #include <signal.h>
 #include <limits.h>
+#include <fcntl.h>
 #ifdef __linux__
 #include <dlfcn.h>
 #endif
@@ -45,6 +46,47 @@ static ofstream logfile_file;
 static string logfile_filename;
 
 static void reset_debug_signal_handler(int);
+
+// Implementation of an iostream helper that allows redirecting output to a given file descriptor.
+// This seems to be the only portable way to do it.
+namespace
+{
+class ofdbuf : public streambuf
+{
+public:
+    ofdbuf( int fd ) : fd( fd ) {}
+    virtual int_type overflow( int_type c );
+    virtual streamsize xsputn( const char* c, streamsize n );
+private:
+    int fd;
+};
+
+ofdbuf::int_type ofdbuf::overflow( int_type c )
+{
+    if( c != EOF ) {
+        char cc = c;
+        if( write( fd, &cc, 1 ) != 1 )
+            return EOF;
+    }
+    return c;
+}
+
+streamsize ofdbuf::xsputn( const char* c, streamsize n )
+{
+    return write( fd, c, n );
+}
+
+ostream* ccache_stream( int fd )
+{
+    int status = fcntl( fd, F_GETFL );
+    if( status < 0 || ( status & ( O_WRONLY | O_RDWR )) == 0 ) {
+        return &cerr; // fd is not valid fd for writting
+    }
+    static ofdbuf buf( fd );
+    static ostream stream( &buf );
+    return &stream;
+}
+} // namespace
 
 void setup_debug(int level, const string &filename, const string &prefix)
 {
@@ -76,6 +118,8 @@ void setup_debug(int level, const string &filename, const string &prefix)
         setenv("SEGFAULT_OUTPUT_NAME", fname.c_str(), false);
 #endif
         output = &logfile_file;
+    } else if( const char* ccache_err_fd = getenv( "UNCACHED_ERR_FD" )) {
+        output = ccache_stream( atoi( ccache_err_fd ));
     } else {
         output = &cerr;
     }
