@@ -178,13 +178,6 @@ being used at all for compilation, check you have the same icecream
 version on all nodes, otherwise, nodes running older icecream version
 might be excluded from available nodes.
 
-The icecream version shipped with openSUSE 12.2 is partially incompatible
-with nodes using other icecream versions. 12.2 nodes will not be used for compilation
-by other nodes, and depending on the scheduler version 12.2 nodes will not compile
-on other nodes either. These incompatible nodes can be identified by having 
-'Linux3_' prefix in the platform). Replace the openSUSE 12.2 package
-with a different one (for example from the devel:tools:build repository).
-
 ### build with -Werror fails only when using icecream
 
 This problem should not exist with a recent icecream version. If it does, try
