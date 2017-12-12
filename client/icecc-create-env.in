@@ -6,6 +6,9 @@
 
 target_files=
 
+# Optional path to strip from all paths if present, e.g. if the compiler is not in /usr.
+stripprefix=
+
 case `uname` in
     "Darwin") is_darwin=1;;
     "FreeBSD") is_freebsd=1;;
@@ -51,6 +54,9 @@ add_file ()
   path=`ls -H $path`
   name=`convert_path_cdup $name`
   path=`convert_path_cdup $path`
+  if test -n "$stripprefix"; then
+    name=$(echo $name | sed "s#$stripprefix#/usr#" )
+  fi
   toadd="$name=$path"
   if test "$name" = "$path"; then
     toadd=$path
@@ -266,6 +272,8 @@ elif test -x /usr/bin/true; then
 fi
 
 if test -n "$gcc"; then
+    # In case gcc is installed elsewhere.
+    stripprefix=$(convert_path_cdup $(dirname $(dirname $(abs_path $added_gcc))))
     # getting compilers abs path
     added_gcc=$(abs_path $added_gcc)
     added_gxx=$(abs_path $added_gxx)
@@ -296,6 +304,8 @@ if test -n "$gcc"; then
 fi
 
 if test -n "$clang"; then
+    # In case clang is installed elsewhere.
+    stripprefix=$(convert_path_cdup $(dirname $(dirname $(abs_path $added_clang))))
     add_file $added_clang /usr/bin/clang
     # HACK: Older icecream remotes have /usr/bin/{gcc|g++} hardcoded and wouldn't
     # call /usr/bin/clang at all. So include a wrapper binary that will call gcc or clang
@@ -317,14 +327,8 @@ if test -n "$clang"; then
 
     # clang always uses its internal .h files
     clangincludes=$(dirname $($added_clang -print-file-name=include/limits.h))
-    clangprefix=$(dirname $(dirname $(abs_path $added_clang)))
     for file in $(find $clangincludes -type f); do
-      # get path without ..
-      # readlink is not portable enough.
-      destfile=$(abs_path $file)
-      # and convert from <prefix> to /usr if needed
-      destfile=$(echo $destfile | sed "s#$clangprefix#/usr#" )
-      add_file "$file" "$destfile"
+      add_file "$file"
     done
 
     objcopy=$($added_clang -print-prog-name=objcopy)
