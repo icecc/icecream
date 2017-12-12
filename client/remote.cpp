@@ -754,8 +754,13 @@ int build_remote(CompileJob &job, MsgChannel *local_daemon, const Environments &
         }
     }
 
-    trace() << job.inputFile() << " compiled " << torepeat << " times on "
-            << job.targetPlatform() << "\n";
+    if( torepeat == 1 ) {
+        trace() << "preparing " << job.inputFile() << " to be compiled for "
+                << job.targetPlatform() << "\n";
+    } else {
+        trace() << "preparing " << job.inputFile() << " to be compiled " << torepeat << " times for "
+                << job.targetPlatform() << "\n";
+    }
 
     map<string, string> versionfile_map, version_map;
     Environments envs = rip_out_paths(_envs, version_map, versionfile_map);
