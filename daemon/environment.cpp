@@ -414,6 +414,7 @@ int start_create_env(const string &basedir, uid_t user_uid, gid_t user_gid,
     int pos = 0;
     argv[pos++] = BINDIR "/icecc";
     argv[pos++] = "--build-native";
+    const int first_to_free = pos;
     argv[pos++] = strdup(compiler.c_str());
 
     for (list<string>::const_iterator it = extrafiles.begin(); it != extrafiles.end(); ++it) {
@@ -426,6 +427,9 @@ int start_create_env(const string &basedir, uid_t user_uid, gid_t user_gid,
         log_error() << BINDIR "/icecc --build-native failed" << endl;
         _exit(1);
     }
+    for( int i = first_to_free; i < pos; ++i )
+        free( (void*) argv[ i ] );
+    delete[] argv;
 
     _exit(0);
 }
