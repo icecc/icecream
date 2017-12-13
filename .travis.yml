@@ -51,11 +51,14 @@ matrix:
     compiler: clang
     env: BUILD_TYPE=asan
     dist: trusty
+    # Sanitizer builds with newer travis fail for unknown reason without giving any message.
+    group: deprecated-2017Q4
   - os: linux
     sudo: true # for setcap so we can run the tests in chroot.
     compiler: clang
     env: BUILD_TYPE=lsan
     dist: trusty
+    group: deprecated-2017Q4
   - os: linux
     sudo: true # for setcap so we can run the tests in chroot.
     compiler: clang
