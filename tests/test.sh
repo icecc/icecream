@@ -1053,9 +1053,9 @@ debug_test()
 
 zero_local_jobs_test()
 {
-    echo Running zero_local_jobs test.
+    echo Running zero local jobs test.
 
-    reset_logs "" "Running zero_local_jobs test"
+    reset_logs "" "Running zero local jobs test"
 
     kill_daemon localice
 
@@ -1125,7 +1125,7 @@ zero_local_jobs_test()
     kill_daemon localice
     start_iceccd localice --no-remote -m 2
 
-    echo zero_local_jobs test successful.
+    echo Zero local jobs test successful.
     echo
 }
 
