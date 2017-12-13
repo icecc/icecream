@@ -779,6 +779,9 @@ icerun_test()
     done
     unset ICERUN_TEST_VALGRIND
     timeout=100
+    if test -n "$valgrind"; then
+        timeout=500
+    fi
     seen2=
     while true; do
         runcount=`ls -1 "$testdir"/icerun/running* 2>/dev/null | wc -l`
