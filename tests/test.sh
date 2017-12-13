@@ -476,7 +476,7 @@ run_ice()
         mark_logs local "$@"
     fi
     echo Running: "$@"
-    ICECC_TEST_SOCKET="$testdir"/socket-localice ICECC_TEST_REMOTEBUILD=1 ICECC_PREFERRED_HOST=localice ICECC_DEBUG=debug ICECC_LOGFILE="$testdir"/icecc.log $valgrind "${icecc}" "$@" 2>>"$testdir"/stderr.localice
+    ICECC_TEST_SOCKET="$testdir"/socket-localice ICECC_TEST_REMOTEBUILD=1 ICECC_PREFERRED_HOST=localice ICECC_DEBUG=debug ICECC_LOGFILE="$testdir"/icecc.log $valgrind "${icecc}" "$@" 2>"$testdir"/stderr.localice
 
     localice_exit=$?
     if test -n "$output"; then
@@ -503,7 +503,7 @@ run_ice()
 
     if test -z "$chroot_disabled"; then
         mark_logs remote "$@"
-        ICECC_TEST_SOCKET="$testdir"/socket-localice ICECC_TEST_REMOTEBUILD=1 ICECC_PREFERRED_HOST=remoteice1 ICECC_DEBUG=debug ICECC_LOGFILE="$testdir"/icecc.log $valgrind "${icecc}" "$@" 2>>"$testdir"/stderr.remoteice
+        ICECC_TEST_SOCKET="$testdir"/socket-localice ICECC_TEST_REMOTEBUILD=1 ICECC_PREFERRED_HOST=remoteice1 ICECC_DEBUG=debug ICECC_LOGFILE="$testdir"/icecc.log $valgrind "${icecc}" "$@" 2>"$testdir"/stderr.remoteice
         remoteice_exit=$?
         if test -n "$output"; then
             mv "$output" "$output".remoteice
@@ -544,7 +544,7 @@ run_ice()
     fi
 
     mark_logs noice "$@"
-    "$@" 2>>"$testdir"/stderr
+    "$@" 2>"$testdir"/stderr
     normal_exit=$?
     cat "$testdir"/stderr >> "$testdir"/stderr.log
     flush_logs
