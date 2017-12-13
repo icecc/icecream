@@ -283,15 +283,16 @@ if test "$enable_gcc_fdirectives_only" = "yes"; then
 elif test "$enable_gcc_fdirectives_only" = "no"; then
     true  # do not enable
 else
-    AC_MSG_CHECKING([whether $CXX -Werror works for unknown options])
-    $CXX -Werror -totallybogusoption -E - >/dev/null 2>/dev/null
+    AC_CHECK_PROG(GCC_BIN,gcc,gcc)
+    AC_MSG_CHECKING([whether $GCC_BIN -Werror works for unknown options])
+    $GCC_BIN -Werror -totallybogusoption -E - >/dev/null 2>/dev/null
     if test $? -eq 0; then
         AC_MSG_RESULT(no)
         # can't detect if the option is supported, but that's too old clang anyway
     else
         AC_MSG_RESULT(yes)
-        AC_MSG_CHECKING([for $CXX -E -fdirectives-only])
-        $CXX -Werror -E -fdirectives-only - >/dev/null 2>/dev/null
+        AC_MSG_CHECKING([for $GCC_BIN -E -fdirectives-only])
+        $GCC_BIN -Werror -E -fdirectives-only - >/dev/null 2>/dev/null
         if test $? -eq 0; then
             AC_MSG_RESULT(yes)
             AC_DEFINE(HAVE_GCC_FDIRECTIVES_ONLY, 1, [Define to 1 if gcc supports -fdirectives-only])
