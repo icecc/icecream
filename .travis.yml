@@ -16,11 +16,10 @@ script:
                 exit 1
             fi
             # Only the clang(-3.4) package provides /usr/bin/clang, but this path is hardcoded in icecream.
-            # So for now make icecream use this newer version.
-            version=3.8
-            sudo ln -s /usr/bin/clang-${version} /usr/bin/clang
-            sudo ln -s /usr/bin/clang++-${version} /usr/bin/clang++
-            make test${strict} VALGRIND=$VALGRIND TESTCC=/usr/bin/clang TESTCXX=/usr/bin/clang++ LLVM_CONFIG=/usr/bin/llvm-config-${version}
+            # So for now make icecream use the newer version provided by Travis.
+            sudo ln -s `which clang` /usr/bin/clang
+            sudo ln -s `which clang++` /usr/bin/clang++
+            make test${strict} VALGRIND=$VALGRIND TESTCC=/usr/bin/clang TESTCXX=/usr/bin/clang++
         elif test "$TRAVIS_OS_NAME" = "osx"; then
             if test -n "$STRICTTESTS"; then
                 strict="-strict"
@@ -93,9 +92,6 @@ addons:
   apt:
     packages:
     - gcc
-    - clang-3.8
-    - libclang-3.8-dev
-    - llvm-3.8-dev
     - libcap-ng-dev
     - libcap-ng-utils
     - liblzo2-dev
