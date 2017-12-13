@@ -192,6 +192,11 @@ bool compiler_only_rewrite_includes(const CompileJob &job)
     return false;
 }
 
+string clang_get_default_target(const CompileJob &job)
+{
+    return read_command_output( job.compilerPathname() + " -dumpmachine" );
+}
+
 static volatile int lock_fd = 0;
 static volatile int user_break_signal = 0;
 static volatile pid_t child_pid;

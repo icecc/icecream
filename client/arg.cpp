@@ -233,6 +233,7 @@ bool analyse_argv(const char * const *argv, CompileJob &job, bool icerun, list<s
     bool seen_mf = false;
     bool seen_md = false;
     bool seen_split_dwarf = false;
+    bool seen_target = false;
     // if rewriting includes and precompiling on remote machine, then cpp args are not local
     Argument_Type Arg_Cpp = compiler_only_rewrite_includes(job) ? Arg_Rest : Arg_Local;
 
@@ -615,6 +616,12 @@ bool analyse_argv(const char * const *argv, CompileJob &job, bool icerun, list<s
                         args.append(p, Arg_Rest);
                     }
                 }
+            } else if (str_equal("-target", a)) {
+                seen_target = true;
+                args.append(a, Arg_Remote);
+                if (argv[i + 1]) {
+                    args.append(argv[++i], Arg_Remote);
+                }
             } else {
                 args.append(a, Arg_Rest);
 
@@ -775,6 +782,22 @@ bool analyse_argv(const char * const *argv, CompileJob &job, bool icerun, list<s
     if( !always_local && compiler_only_rewrite_includes(job) && !compiler_is_clang(job)) {
         // Inject this, so that remote compilation uses -fpreprocessed -fdirectives-only
         args.append("-fdirectives-only", Arg_Remote);
+    }
+
+    if( !always_local && !seen_target && compiler_is_clang(job)) {
+        // With gcc each binary can compile only for one target, so cross-compiling is just
+        // a matter of using the proper cross-compiler remotely and it will automatically
+        // compile for the given platform. However one clang binary can compiler for many
+        // platforms and so when cross-compiling it would by default compile for the remote
+        // host platform. Therefore explicitly ask for our platform.
+        string default_target = clang_get_default_target(job);
+        if( !default_target.empty()) {
+            args.append("-target", Arg_Remote);
+            args.append(default_target, Arg_Remote);
+        } else {
+            always_local = true;
+            log_error() << "failed to read default clang host platform, building locally" << endl;
+        }
     }
 
     job.setFlags(args);

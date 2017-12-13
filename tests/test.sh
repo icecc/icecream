@@ -1435,9 +1435,14 @@ else
     skipped_tests="$skipped_tests cxx-isystem"
 fi
 
-target=`$TESTCXX -v 2>&1 | grep "^Target:" | sed 's/Target://'`
-if $TESTCXX -target $target -fsyntax-only -Werror -c plain.cpp 2>/dev/null; then
+if test -n "$using_clang"; then
+    target=`$TESTCXX -dumpmachine`
     run_ice "$testdir/plain.o" "remote" 0 $TESTCXX -Wall -Werror -target $target -c plain.cpp -o "$testdir"/plain.o
+    if test -z "$chroot_disabled"; then
+        check_section_log_message remoteice1 "remote compile arguments:.*-target $target"
+        run_ice "$testdir/plain.o" "remote" 0 $TESTCXX -Wall -Werror -c plain.cpp -o "$testdir"/plain.o
+        check_section_log_message remoteice1 "remote compile arguments:.*-target $target"
+    fi
 else
     skipped_tests="$skipped_tests target"
 fi

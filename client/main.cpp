@@ -141,29 +141,6 @@ static void dcc_client_catch_signals(void)
     signal(SIGHUP, &dcc_client_signalled);
 }
 
-static string read_output(const char *command)
-{
-    FILE *f = popen(command, "r");
-    string output;
-
-    if (!f) {
-        log_error() << "no pipe " << strerror(errno) << endl;
-        return output;
-    }
-
-    char buffer[1024];
-
-    while (!feof(f)) {
-        size_t bytes = fread(buffer, 1, sizeof(buffer) - 1, f);
-        buffer[bytes] = 0;
-        output += buffer;
-    }
-
-    pclose(f);
-    // get rid of the endline
-    return output.substr(0, output.length() - 1);
-}
-
 /*
  * @param args Are [clang,gcc] [extra files...]
  */
@@ -211,7 +188,7 @@ static int create_native(char **args)
 
         // perhaps we're on gentoo
         if (!lstat("/usr/bin/gcc-config", &st)) {
-            string gccpath = read_output("/usr/bin/gcc-config -B") + "/";
+            string gccpath = read_command_output("/usr/bin/gcc-config -B") + "/";
             gcc = gccpath + "gcc";
             gpp = gccpath + "g++";
         } else {

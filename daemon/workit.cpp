@@ -106,6 +106,14 @@ int work_it(CompileJob &j, unsigned int job_stat[], MsgChannel *client, CompileR
         list.push_back("-gsplit-dwarf");
     }
 
+    string argstxt;
+    for (std::list<string>::const_iterator it = list.begin();
+         it != list.end(); ++it) {
+        argstxt += ' ';
+        argstxt += *it;
+    }
+    trace() << "remote compile arguments:" << argstxt << endl;
+
     int sock_err[2];
     int sock_out[2];
     int sock_in[2];
