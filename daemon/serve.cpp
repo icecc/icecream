@@ -175,6 +175,7 @@ int handle_connection(const string &basedir, CompileJob *job,
 
     Msg *msg = 0; // The current read message
     string tmp_path, obj_file, dwo_file;
+    int exit_code = 0;
 
     try {
         if (job->environmentVersion().size()) {
@@ -310,7 +311,7 @@ int handle_connection(const string &basedir, CompileJob *job,
 
         throw myexception(rmsg.status);
 
-    } catch (myexception e) {
+    } catch (const myexception& e) {
         delete client;
         client = 0;
 
@@ -331,6 +332,7 @@ int handle_connection(const string &basedir, CompileJob *job,
         delete msg;
         delete job;
 
-        _exit(e.exitcode());
+        exit_code = e.exitcode();
     }
+    _exit(exit_code);
 }
