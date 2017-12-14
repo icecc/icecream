@@ -669,7 +669,7 @@ int work_it(CompileJob &j, unsigned int job_stat[], MsgChannel *client, CompileR
 
                     if (((mem_used * 100) > (85 * mem_limit * 1024))
                             || (rmsg.err.find("memory exhausted") != string::npos)
-                            || (rmsg.err.find("out of memory allocating") != string::npos)
+                            || (rmsg.err.find("out of memory") != string::npos)
                             || (rmsg.err.find("annot allocate memory") != string::npos)
                             || (rmsg.err.find("failed to map segment from shared object") != string::npos)
                             || (rmsg.err.find("Assertion `NewElts && \"Out of memory\"' failed") != string::npos)
