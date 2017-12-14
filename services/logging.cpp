@@ -175,7 +175,21 @@ void reset_debug_if_needed()
             string mark;
             getline( markfile, mark );
             if( !mark.empty()) {
-                trace() << "flush log mark: " << mark << endl;
+                assert( logfile_trace != NULL );
+                *logfile_trace << "flush log mark: " << mark << endl;
+            }
+        }
+        if( const char* env = getenv( "ICECC_TEST_LOG_HEADER" )) {
+            ifstream markfile( env );
+            string header1, header2, header3;
+            getline( markfile, header1 );
+            getline( markfile, header2 );
+            getline( markfile, header3 );
+            if( !header1.empty()) {
+                assert( logfile_trace != NULL );
+                *logfile_trace << header1 << endl;
+                *logfile_trace << header2 << endl;
+                *logfile_trace << header3 << endl;
             }
         }
     }

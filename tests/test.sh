@@ -102,7 +102,10 @@ mkdir -p "$testdir"
 
 skipped_tests=
 chroot_disabled=
+
 flush_log_mark=1
+last_reset_log_mark=
+last_section_log_mark=
 
 check_compilers()
 {
@@ -163,7 +166,8 @@ start_iceccd()
 {
     name=$1
     shift
-    ICECC_TEST_SOCKET="$testdir"/socket-${name} ICECC_SCHEDULER=:8767 ICECC_TESTS=1 ICECC_TEST_FLUSH_LOG_MARK="$testdir"/flush_log_mark.txt ICECC_TEST_SCHEDULER_PORTS=8767:8769 \
+    ICECC_TEST_SOCKET="$testdir"/socket-${name} ICECC_SCHEDULER=:8767 ICECC_TESTS=1 ICECC_TEST_SCHEDULER_PORTS=8767:8769 \
+        ICECC_TEST_FLUSH_LOG_MARK="$testdir"/flush_log_mark.txt ICECC_TEST_LOG_HEADER="$testdir"/log_header.txt \
         $valgrind "${iceccd}" -b "$testdir"/envs-${name} -l "$testdir"/${name}.log -n ${netname} -N ${name}  -v -v -v "$@" &
     pid=$!
     wait_for_proc_sleep 10 ${pid}
@@ -210,7 +214,8 @@ kill_daemon()
 
 start_ice()
 {
-    ICECC_TESTS=1 ICECC_TEST_FLUSH_LOG_MARK="$testdir"/flush_log_mark.txt ICECC_TEST_SCHEDULER_PORTS=8767:8769 \
+    ICECC_TESTS=1 ICECC_TEST_SCHEDULER_PORTS=8767:8769 \
+        ICECC_TEST_FLUSH_LOG_MARK="$testdir"/flush_log_mark.txt ICECC_TEST_LOG_HEADER="$testdir"/log_header.txt \
         $valgrind "${icecc_scheduler}" -p 8767 -l "$testdir"/scheduler.log -n ${netname} -v -v -v &
     scheduler_pid=$!
     echo $scheduler_pid > "$testdir"/scheduler.pid
@@ -239,10 +244,10 @@ start_ice()
                 stop_ice 0
                 abort_tests
             fi
-            if ! grep -q "Connected to scheduler" "$testdir"/${daemon}.log; then
+            if ! cat_log_last_mark ${daemon} | grep -q "Connected to scheduler"; then
                 # ensure log file flush
                 kill -HUP ${!pid}
-                grep -q "Connected to scheduler" "$testdir"/${daemon}.log || notready=1
+                cat_log_last_mark ${daemon} | grep -q "Connected to scheduler" || notready=1
             fi
         done
         if test -z "$notready"; then
@@ -257,8 +262,8 @@ start_ice()
     fi
     wait_for_all_daemons_connected
     flush_logs
-    grep -q "Cannot use chroot, no remote jobs accepted." "$testdir"/remoteice1.log && chroot_disabled=1
-    grep -q "Cannot use chroot, no remote jobs accepted." "$testdir"/remoteice2.log && chroot_disabled=1
+    cat_log_last_mark remoteice1 | grep -q "Cannot use chroot, no remote jobs accepted." && chroot_disabled=1
+    cat_log_last_mark remoteice2 | grep -q "Cannot use chroot, no remote jobs accepted." && chroot_disabled=1
     if test -n "$chroot_disabled"; then
         skipped_tests="$skipped_tests CHROOT"
         echo Chroot not available, remote tests will be skipped.
@@ -268,7 +273,8 @@ start_ice()
 # start only local daemon, no scheduler
 start_only_daemon()
 {
-    ICECC_TEST_SOCKET="$testdir"/socket-localice ICECC_SCHEDULER=:8767 ICECC_TESTS=1 ICECC_TEST_FLUSH_LOG_MARK="$testdir"/flush_log_mark.txt ICECC_TEST_SCHEDULER_PORTS=8767:8769 \
+    ICECC_TEST_SOCKET="$testdir"/socket-localice ICECC_SCHEDULER=:8767 ICECC_TESTS=1 ICECC_TEST_SCHEDULER_PORTS=8767:8769 \
+        ICECC_TEST_FLUSH_LOG_MARK="$testdir"/flush_log_mark.txt ICECC_TEST_LOG_HEADER="$testdir"/log_header.txt \
         $valgrind "${iceccd}" --no-remote -b "$testdir"/envs-localice -l "$testdir"/localice.log -n ${netname} -N localice -m 2 -v -v -v &
     localice_pid=$!
     echo $localice_pid > "$testdir"/localice.pid
@@ -283,7 +289,7 @@ start_only_daemon()
         abort_tests
     fi
     flush_logs
-    if ! grep -q "Netnames:" "$testdir"/localice.log; then
+    if ! cat_log_last_mark localice | grep -q "Netnames:"; then
         echo Daemon localice not ready, aborting.
         stop_only_daemon 0
         abort_tests
@@ -393,10 +399,10 @@ wait_for_all_daemons_connected()
         flush_logs
         ready=1
         for daemon in localice remoteice1 remoteice2; do
-            if ! grep -q "Connected to scheduler" "$testdir"/${daemon}.log; then
+            if ! cat_log_last_mark ${daemon} | grep -q "Connected to scheduler"; then
                 ready=
             fi
-            if ! grep -q "login ${daemon} protocol version: ${protocolversion}" "$testdir"/scheduler.log; then
+            if ! cat_log_last_mark scheduler | grep -q "login ${daemon} protocol version: ${protocolversion}"; then
                 ready=
             fi
         done
@@ -1143,23 +1149,16 @@ ccache_test()
 }
 
 # All log files that are used by tests. Done here to keep the list in just one place.
-alltestlogs="scheduler scheduler2 localice remoteice1 remoteice2 icecc stderr stderr.localice stderr.remoteice"
+daemonlogs="scheduler scheduler2 localice remoteice1 remoteice2"
+otherlogs="icecc stderr stderr.localice stderr.remoteice"
+alltestlogs="$daemonlogs $otherlogs"
 
 # Call this at the start of a complete test (e.g. testing a feature). If a test fails, logs before this point will not be dumped.
 reset_logs()
 {
     type="$1"
     shift
-    flush_logs
-    for log in $alltestlogs; do
-        # save (append) previous log
-        cat "$testdir"/${log}_section.log >> "$testdir"/${log}_all.log
-        cat "$testdir"/${log}.log >> "$testdir"/${log}_all.log
-        rm "$testdir"/${log}_section.log
-        rm "$testdir"/${log}.log
-        echo -n >"$testdir"/${log}.log
-        echo -n >"$testdir"/${log}_section.log
-    done
+    last_reset_log_mark=$flush_log_mark
     mark_logs $type "$@"
 }
 
@@ -1168,49 +1167,50 @@ mark_logs()
 {
     type="$1"
     shift
-    flush_logs
-    for log in $alltestlogs; do
-        cat "$testdir"/${log}.log >> "$testdir"/${log}_section.log
-        # and start a new one
-        echo ================ > "$testdir"/${log}.log
-        if test -n "$type"; then
-            echo "= Test ($type): $@" >> "$testdir"/${log}.log
-        else
-            echo "= Test : $@" >> "$testdir"/${log}.log
-        fi
-        echo ================ >> "$testdir"/${log}.log
-    done
-    flush_logs
-}
-
-finish_logs()
-{
-    for log in $alltestlogs; do
-        cat "$testdir"/${log}_section.log >> "$testdir"/${log}_all.log
-        cat "$testdir"/${log}.log >> "$testdir"/${log}_section.log
-        rm -f "$testdir"/${log}_section.log
-        rm -f "$testdir"/${log}.log
-    done
-    alllogscount=`ls -1 "$testdir"/*_all.log | wc -l`
-    logscount=`ls -1 "$testdir"/*.log | grep -v '/valgrind-' | wc -l`
-    if test $alllogscount -ne $logscount; then
-        echo INTERNAL ERROR, unhandled log files:
-        ls -1 "$testdir"/*.log | grep -v _all.log
-        exit 100
+    last_section_log_mark=$flush_log_mark
+    echo ================ > "$testdir"/log_header.txt
+    if test -n "$type"; then
+        echo "= Test ($type): $@" >> "$testdir"/log_header.txt
+    else
+        echo "= Test : $@" >> "$testdir"/log_header.txt
     fi
+    echo ================ >> "$testdir"/log_header.txt
+    # Make daemons write the header.
+    flush_logs
+    manual="$otherlogs"
+    for daemon in $daemonlogs; do
+        pid=${daemon}_pid
+        if test -n "${!pid}"; then
+            kill -0 ${!pid}
+            if test $? -ne 0; then
+                manual="$manual $daemon"
+            fi
+        else
+            manual="$manual $daemon"
+        fi
+    done
+    for log in $manual; do
+        cat "$testdir"/log_header.txt >> "$testdir"/${log}.log
+    done
+    rm "$testdir"/log_header.txt
 }
 
 flush_logs()
 {
     echo "=${flush_log_mark}=" > "$testdir"/flush_log_mark.txt
     wait_for=
-    for daemon in scheduler scheduler2 localice remoteice1 remoteice2; do
+    manual="$otherlogs"
+    for daemon in $daemonlogs; do
         pid=${daemon}_pid
         if test -n "${!pid}"; then
             kill -HUP ${!pid}
             if test $? -eq 0; then
                 wait_for="$wait_for $daemon"
+            else
+                manual="$manual $daemon"
             fi
+        else
+            manual="$manual $daemon"
         fi
     done
     # wait for all daemons to log the mark in their log
@@ -1222,23 +1222,24 @@ flush_logs()
             fi
         done
         if test -n "$ready"; then
-            rm "$testdir"/flush_log_mark.txt
-            flush_log_mark=$((flush_log_mark + 1))
-            return
+            break
         fi
     done
+    for log in $manual; do
+        echo "flush log mark: =${flush_log_mark}=" >> "$testdir"/${log}.log
+    done
     rm "$testdir"/flush_log_mark.txt
+    flush_log_mark=$((flush_log_mark + 1))
 }
 
 dump_logs()
 {
     for log in $alltestlogs; do
         # Skip logs that have only headers and flush marks
-        if cat "$testdir"/${log}.log "$testdir"/${log}_section.log | grep -q -v -e "^=" -e "flush log mark: "; then
+        if cat_log_last_mark ${log} | grep -q -v "^="; then
             echo ------------------------------------------------
             echo "Log: ${log}"
-            cat "$testdir"/${log}_section.log | grep -v "flush log mark: "
-            cat "$testdir"/${log}.log | grep -v "flush log mark: "
+            cat_log_last_mark ${log}
         fi
     done
     valgrind_logs=$(ls "$testdir"/valgrind-*.log 2>/dev/null)
@@ -1260,6 +1261,18 @@ dump_logs()
             cat ${log} | grep -v ICEERRORBEGIN | grep -v ICEERROREND
         fi
     done
+}
+
+cat_log_last_mark()
+{
+    log="$1"
+    cat "$testdir"/${log}.log | grep -A 100000 "flush log mark: =${last_section_log_mark}=" | grep -v "flush log mark: "
+}
+
+cat_log_last_section()
+{
+    log="$1"
+    cat "$testdir"/${log}.log | grep -A 100000 "flush log mark: =${last_reset_log_mark}=" | grep -v "flush log mark: "
 }
 
 check_logs_for_generic_errors()
@@ -1302,7 +1315,7 @@ check_logs_for_generic_errors()
 check_log_error()
 {
     log="$1"
-    if grep -q "$2" "$testdir"/${log}.log; then
+    if cat_log_last_mark ${log} | grep -q "$2"; then
         echo "Error, $log log contains error: $2"
         stop_ice 0
         abort_tests
@@ -1312,7 +1325,7 @@ check_log_error()
 check_section_log_error()
 {
     log="$1"
-    if grep -q "$2" "$testdir"/${log}.log "$testdir"/${log}_section.log; then
+    if cat_log_last_section ${log} | grep -q "$2"; then
         echo "Error, $log log contains error: $2"
         stop_ice 0
         abort_tests
@@ -1324,7 +1337,7 @@ check_section_log_error()
 check_log_error_except()
 {
     log="$1"
-    if cat "$testdir"/${log}.log | grep -v "$3" | grep -q "$2" ; then
+    if cat_log_last_mark ${log} | grep -v "$3" | grep -q "$2" ; then
         echo "Error, $log log contains error: $2"
         stop_ice 0
         abort_tests
@@ -1334,7 +1347,7 @@ check_log_error_except()
 check_log_message()
 {
     log="$1"
-    if ! grep -q "$2" "$testdir"/${log}.log; then
+    if ! cat_log_last_mark ${log} | grep -q "$2"; then
         echo "Error, $log log does not contain: $2"
         stop_ice 0
         abort_tests
@@ -1344,7 +1357,7 @@ check_log_message()
 check_section_log_message()
 {
     log="$1"
-    if ! grep -q "$2" "$testdir"/${log}.log "$testdir"/${log}_section.log; then
+    if ! cat_log_last_section ${log} | grep -q "$2"; then
         echo "Error, $log log does not contain: $2"
         stop_ice 0
         abort_tests
@@ -1355,7 +1368,7 @@ check_log_message_count()
 {
     log="$1"
     expected_count="$2"
-    count=`grep "$3" "$testdir"/${log}.log | wc -l`
+    count=`cat_log_last_mark ${log} | grep "$3" | wc -l`
     if test $count -ne $expected_count; then
         echo "Error, $log log does not contain expected count (${count} vs ${expected_count}): $3"
         stop_ice 0
@@ -1367,7 +1380,7 @@ check_section_log_message_count()
 {
     log="$1"
     expected_count="$2"
-    count=`grep "$3" "$testdir"/${log}.log "$testdir"/${log}_section.log | wc -l`
+    count=`cat_log_last_section ${log} | grep "$3" | wc -l`
     if test $count -ne $expected_count; then
         echo "Error, $log log does not contain expected count (${count} vs ${expected_count}): $3"
         stop_ice 0
@@ -1384,19 +1397,18 @@ echo
 
 check_compilers
 
+stop_ice 2
 for log in $alltestlogs; do
     rm -f "$testdir"/${log}.log
     rm -f "$testdir"/${log}_section.log
     rm -f "$testdir"/${log}_all.log
     echo -n >"$testdir"/${log}.log
-    echo -n >"$testdir"/${log}_section.log
 done
 rm -f "$testdir"/valgrind-*.log 2>/dev/null
 
 buildnativetest
 
 echo Starting icecream.
-stop_ice 2
 reset_logs local "Starting"
 start_ice
 check_logs_for_generic_errors
@@ -1592,7 +1604,8 @@ if test -z "$chroot_disabled"; then
     reset_logs remote "Different netnames"
     stop_ice 1
     # Start the secondary scheduler before the primary, so that besides the different netname it would be the preferred scheduler.
-    ICECC_TESTS=1 ICECC_TEST_FLUSH_LOG_MARK="$testdir"/flush_log_mark.txt ICECC_TEST_SCHEDULER_PORTS=8767:8769 \
+    ICECC_TESTS=1 ICECC_TEST_SCHEDULER_PORTS=8767:8769 \
+        ICECC_TEST_FLUSH_LOG_MARK="$testdir"/flush_log_mark.txt ICECC_TEST_LOG_HEADER="$testdir"/log_header.txt \
         $valgrind "${icecc_scheduler}" -p 8769 -l "$testdir"/scheduler2.log -n ${netname}_secondary -v -v -v &
     scheduler2_pid=$!
     echo $scheduler2_pid > "$testdir"/scheduler2.pid
@@ -1611,7 +1624,8 @@ if test -z "$chroot_disabled"; then
     reset_logs remote "Newer scheduler"
     # Make this scheduler fake its start time, so it should be the preferred scheduler.
     # We could similarly fake the version to be higher, but this should be safer.
-    ICECC_TESTS=1 ICECC_TEST_FLUSH_LOG_MARK="$testdir"/flush_log_mark.txt ICECC_TEST_SCHEDULER_PORTS=8767:8769 ICECC_FAKE_STARTTIME=1 \
+    ICECC_TESTS=1 ICECC_TEST_SCHEDULER_PORTS=8767:8769 ICECC_FAKE_STARTTIME=1 \
+        ICECC_TEST_FLUSH_LOG_MARK="$testdir"/flush_log_mark.txt ICECC_TEST_LOG_HEADER="$testdir"/log_header.txt \
         $valgrind "${icecc_scheduler}" -p 8769 -l "$testdir"/scheduler2.log -n ${netname} -v -v -v &
     scheduler2_pid=$!
     echo $scheduler2_pid > "$testdir"/scheduler2.pid
@@ -1655,8 +1669,6 @@ icerun_test "noscheduler"
 
 reset_logs local "Closing down (only daemon)"
 stop_only_daemon 1
-
-finish_logs
 
 if test -n "$valgrind"; then
     rm -f "$testdir"/valgrind-*.log
