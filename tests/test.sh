@@ -164,7 +164,7 @@ start_iceccd()
     name=$1
     shift
     ICECC_TEST_SOCKET="$testdir"/socket-${name} ICECC_SCHEDULER=:8767 ICECC_TESTS=1 ICECC_TEST_FLUSH_LOG_MARK="$testdir"/flush_log_mark.txt ICECC_TEST_SCHEDULER_PORTS=8767:8769 \
-        $valgrind "${iceccd}" -b "$testdir"/envs-${name} -l "$testdir"/${name}.log -n ${netname} -N ${name}  -v -v -v "$@" 2>>"$testdir"/iceccdstderr_${name}.log &
+        $valgrind "${iceccd}" -b "$testdir"/envs-${name} -l "$testdir"/${name}.log -n ${netname} -N ${name}  -v -v -v "$@" &
     pid=$!
     wait_for_proc_sleep 10 ${pid}
     eval ${name}_pid=${pid}
@@ -1143,7 +1143,7 @@ ccache_test()
 }
 
 # All log files that are used by tests. Done here to keep the list in just one place.
-alltestlogs="scheduler scheduler2 localice remoteice1 remoteice2 icecc stderr stderr.localice stderr.remoteice iceccdstderr_localice iceccdstderr_remoteice1 iceccdstderr_remoteice2"
+alltestlogs="scheduler scheduler2 localice remoteice1 remoteice2 icecc stderr stderr.localice stderr.remoteice"
 
 # Call this at the start of a complete test (e.g. testing a feature). If a test fails, logs before this point will not be dumped.
 reset_logs()
