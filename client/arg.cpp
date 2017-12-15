@@ -633,10 +633,13 @@ bool analyse_argv(const char * const *argv, CompileJob &job, bool icerun, list<s
                 }
             } else if (str_equal("-target", a)) {
                 seen_target = true;
-                args.append(a, Arg_Remote);
+                args.append(a, Arg_Rest);
                 if (argv[i + 1]) {
-                    args.append(argv[++i], Arg_Remote);
+                    args.append(argv[++i], Arg_Rest);
                 }
+            } else if (str_startswith("--target=", a)) {
+                seen_target = true;
+                args.append(a, Arg_Rest);
             } else {
                 args.append(a, Arg_Rest);
 
@@ -803,7 +806,7 @@ bool analyse_argv(const char * const *argv, CompileJob &job, bool icerun, list<s
     if( !always_local && !seen_target && compiler_is_clang(job)) {
         // With gcc each binary can compile only for one target, so cross-compiling is just
         // a matter of using the proper cross-compiler remotely and it will automatically
-        // compile for the given platform. However one clang binary can compiler for many
+        // compile for the given platform. However one clang binary can compile for many
         // platforms and so when cross-compiling it would by default compile for the remote
         // host platform. Therefore explicitly ask for our platform.
         string default_target = clang_get_default_target(job);
