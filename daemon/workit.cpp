@@ -246,7 +246,18 @@ int work_it(CompileJob &j, unsigned int job_stat[], MsgChannel *client, CompileR
         }
 
         argv[i++] = strdup("-x");
-        argv[i++] = strdup((j.language() == CompileJob::Lang_CXX) ? "c++" : "c");
+        if (j.language() == CompileJob::Lang_CXX) {
+          argv[i++] = strdup("c++");
+        } else if (j.language() == CompileJob::Lang_OBJC) {
+          argv[i++] = strdup("objective-c");
+        } else if (j.language() == CompileJob::Lang_OBJCXX) {
+          argv[i++] = strdup("objective-c++");
+        } else if (j.language() == CompileJob::Lang_C) {
+          argv[i++] = strdup("c");
+        } else {
+            error_client(client, "language not supported");
+            log_perror("language not supported");
+        }
 
         if( clang ) {
             // gcc seems to handle setting main file name and working directory fine
@@ -263,6 +274,7 @@ int work_it(CompileJob &j, unsigned int job_stat[], MsgChannel *client, CompileR
                 argv[i++] = strdup("-Xclang");
                 argv[i++] = strdup(j.workingDirectory().c_str());
             }
+            trace() << "Compiling " << j.inputFile().c_str() << endl;
         }
 
         // HACK: If in / , Clang records DW_AT_name with / prepended .
@@ -314,6 +326,11 @@ int work_it(CompileJob &j, unsigned int job_stat[], MsgChannel *client, CompileR
         // before you add new args, check above for argc
         argv[i] = 0;
         assert(i <= argc);
+
+        for (int currArg = 0; currArg < i; currArg++) {
+          trace() << argv[currArg];
+        }
+        trace() << endl;
 
         close_debug();
 
