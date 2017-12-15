@@ -1331,7 +1331,7 @@ void Daemon::handle_old_request()
             int sock = -1;
             pid_t pid = -1;
 
-            trace() << "requests--" << job->jobID() << endl;
+            trace() << "request for job " << job->jobID() << endl;
 
             string envforjob = job->targetPlatform() + "/" + job->environmentVersion();
             envs_last_use[envforjob] = time(NULL);

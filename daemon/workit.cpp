@@ -106,6 +106,8 @@ int work_it(CompileJob &j, unsigned int job_stat[], MsgChannel *client, CompileR
         list.push_back("-gsplit-dwarf");
     }
 
+    trace() << "remote compile for file " << j.inputFile() << endl;
+
     string argstxt;
     for (std::list<string>::const_iterator it = list.begin();
          it != list.end(); ++it) {
@@ -314,6 +316,15 @@ int work_it(CompileJob &j, unsigned int job_stat[], MsgChannel *client, CompileR
         // before you add new args, check above for argc
         argv[i] = 0;
         assert(i <= argc);
+
+        argstxt.clear();
+        for (int j = 1;
+             j < i;
+             ++j ) {
+            argstxt += ' ';
+            argstxt += argv[j];
+        }
+        trace() << "final arguments:" << argstxt << endl;
 
         close_debug();
 
