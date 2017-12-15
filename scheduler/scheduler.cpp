@@ -391,7 +391,26 @@ static bool handle_cs_request(MsgChannel *cs, Msg *_m)
         job->setEnvironments(m->versions);
         job->setTargetPlatform(m->target);
         job->setArgFlags(m->arg_flags);
-        job->setLanguage((m->lang == CompileJob::Lang_C) ? "C" : "C++");
+        switch(m->lang) {
+            case CompileJob::Lang_C:
+                job->setLanguage("C");
+                break;
+            case CompileJob::Lang_CXX:
+                job->setLanguage("C++");
+                break;
+            case CompileJob::Lang_OBJC:
+                job->setLanguage("ObjC");
+                break;
+            case CompileJob::Lang_OBJCXX:
+                job->setLanguage("ObjC++");
+                break;
+            case CompileJob::Lang_Custom:
+                job->setLanguage("<custom>");
+                break;
+            default:
+                job->setLanguage("???"); // presumably newer client?
+                break;
+        }
         job->setFileName(m->filename);
         job->setLocalClientId(m->client_id);
         job->setPreferredHost(m->preferred_host);

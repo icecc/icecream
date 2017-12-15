@@ -389,7 +389,18 @@ bool analyse_argv(const char * const *argv, CompileJob &job, bool icerun, list<s
                     ++i;
                     args.append(opt, Arg_Rest);
                     if (str_equal(opt, "c++") || str_equal(opt, "c")) {
-                        CompileJob::Language lang = str_equal(opt, "c++") ? CompileJob::Lang_CXX : CompileJob::Lang_C;
+                        CompileJob::Language lang = CompileJob::Lang_Custom;
+                        if( str_equal(opt, "c")) {
+                            lang = CompileJob::Lang_C;
+                        } else if( str_equal(opt, "c++")) {
+                            lang = CompileJob::Lang_CXX;
+                        } else if( str_equal(opt, "objective-c")) {
+                            lang = CompileJob::Lang_OBJC;
+                        } else if( str_equal(opt, "objective-c++")) {
+                            lang = CompileJob::Lang_OBJCXX;
+                        } else {
+                            continue;
+                        }
                         job.setLanguage(lang); // will cause -x used remotely twice, but shouldn't be a problem
                         unsupported = false;
                     }
