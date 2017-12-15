@@ -1421,6 +1421,7 @@ run_ice "$testdir/plain.o" "remote" 0 $TESTCC -Wall -Werror -c plain.c -o "$test
 run_ice "$testdir/plain.o" "remote" 0 $TESTCXX -Wall -Werror -c plain.cpp -O2 -o "$testdir/"plain.o
 run_ice "$testdir/plain.ii" "local" 0 $TESTCXX -Wall -Werror -E plain.cpp -o "$testdir/"plain.ii
 run_ice "$testdir/includes.o" "remote" 0 $TESTCXX -Wall -Werror -c includes.cpp -o "$testdir"/includes.o
+run_ice "$testdir/includes.o" "remote" 0 $TESTCXX -Wall -Werror -c includes-without.cpp -include includes.h -o "$testdir"/includes.o
 run_ice "$testdir/plain.o" "local" 0 $TESTCXX -Wall -Werror -c plain.cpp -mtune=native -o "$testdir"/plain.o
 run_ice "$testdir/plain.o" "remote" 0 $TESTCC -Wall -Werror -x c++ -c plain -o "$testdir"/plain.o
 
@@ -1556,6 +1557,24 @@ else
     skipped_tests="$skipped_tests fsanitize"
 fi
 
+# test -frewrite-includes usage
+$TESTCXX -E -Werror -frewrite-includes messages.cpp 2>/dev/null | grep -q '^# 1 "messages.cpp"$' >/dev/null 2>/dev/null
+if test $? -eq 0; then
+    run_ice "$testdir/messages.o" "remote" 0 $TESTCXX -Wall -c messages.cpp -o "$testdir"/messages.o
+    check_log_message stderr "warning: unused variable 'unused'"
+else
+    echo $TESTCXX does not provide functional -frewrite-includes, skipping test.
+    echo
+    skipped_tests="$skipped_tests clang_rewrite_includes"
+fi
+
+run_ice "$testdir/includes.h.gch" "local" 0 "keepoutput" $TESTCXX -x c++-header -Wall -Werror -c includes.h -o "$testdir"/includes.h.gch
+run_ice "$testdir/includes.o" "remote" 0 $TESTCXX -Wall -Werror -c includes.cpp -include "$testdir"/includes.h -o "$testdir"/includes.o
+if test -n "$using_clang"; then
+    run_ice "$testdir/includes.o" "remote" 0 $TESTCXX -Wall -Werror -c includes.cpp -include-pch "$testdir"/includes.h.gch -o "$testdir"/includes.o
+fi
+rm "$testdir"/includes.h.gch
+
 if test -n "$using_clang"; then
     clangplugintest
 else
@@ -1586,17 +1605,6 @@ if test -z "$chroot_disabled"; then
     zero_local_jobs_test
 else
     skipped_tests="$skipped_tests zero_local_jobs_test"
-fi
-
-# test -frewrite-includes usage
-$TESTCXX -E -Werror -frewrite-includes messages.cpp 2>/dev/null | grep -q '^# 1 "messages.cpp"$' >/dev/null 2>/dev/null
-if test $? -eq 0; then
-    run_ice "$testdir/messages.o" "remote" 0 $TESTCXX -Wall -c messages.cpp -o "$testdir"/messages.o
-    check_log_message stderr "warning: unused variable 'unused'"
-else
-    echo $TESTCXX does not provide functional -frewrite-includes, skipping test.
-    echo
-    skipped_tests="$skipped_tests clang_rewrite_includes"
 fi
 
 if test -z "$chroot_disabled"; then

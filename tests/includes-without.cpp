@@ -1,4 +1,4 @@
-#include "includes.h"
+// #include "includes.h" - will be done using -include includes.h
 #include <stdio.h>
 
 void f()

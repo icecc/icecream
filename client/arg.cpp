@@ -437,6 +437,7 @@ bool analyse_argv(const char * const *argv, CompileJob &job, bool icerun, list<s
                 /* This has a duplicate meaning. it can either include a file
                    for preprocessing or a precompiled header. decide which one.  */
 
+                args.append(a, Arg_Local);
                 if (argv[i + 1]) {
                     ++i;
                     std::string p = argv[i];
@@ -457,17 +458,20 @@ bool analyse_argv(const char * const *argv, CompileJob &job, bool icerun, list<s
                         always_local = true;    /* Included file is not header.suffix or header.suffix.gch! */
                     }
 
-                    args.append(a, Arg_Local);
                     args.append(argv[i], Arg_Local);
                 }
             } else if (str_equal("-include-pch", a)) {
                 /* Clang's precompiled header, it's probably not worth it sending the PCH file. */
+                args.append(a, Arg_Local);
                 if (argv[i + 1]) {
                     ++i;
+                    args.append(argv[i], Arg_Local);
+                    if(access(argv[i], R_OK) < 0) {
+                        log_info() << "pch file for argument " << a << " " << argv[i]
+                                   << " missing, building locally" << endl;
+                        always_local = true;
+                    }
                 }
-
-                always_local = true;
-                log_info() << "argument " << a << ", building locally" << endl;
             } else if (str_equal("-D", a) || str_equal("-U", a)) {
                 args.append(a, Arg_Cpp);
 
