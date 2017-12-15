@@ -238,8 +238,6 @@ int build_local(CompileJob &job, MsgChannel *local_daemon, struct rusage *used)
 
     string compiler_name = find_compiler(job);
 
-    trace() << "invoking: " << compiler_name << endl;
-
     if (compiler_name.empty()) {
         log_error() << "could not find " << job.compilerName() << " in PATH." << endl;
         return EXIT_NO_SUCH_FILE;
@@ -262,21 +260,17 @@ int build_local(CompileJob &job, MsgChannel *local_daemon, struct rusage *used)
     }
 
     vector<char*> argv; 
+    string argstxt;
 
     for (list<string>::const_iterator it = arguments.begin(); it != arguments.end(); ++it) {
         argv.push_back(strdup(it->c_str()));
+        argstxt += ' ';
+        argstxt += *it;
     }
 
     argv.push_back(0);
-#if CLIENT_DEBUG
-    trace() << "execing ";
 
-    for (int i = 0; argv.at(i); i++) {
-        trace() << argv.at(i) << " ";
-    }
-
-    trace() << endl;
-#endif
+    trace() << "invoking:" << argstxt << endl;
 
     if (!local_daemon) {
         int fd;
