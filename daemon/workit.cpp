@@ -329,11 +329,11 @@ int work_it(CompileJob &j, unsigned int job_stat[], MsgChannel *client, CompileR
         assert(i <= argc);
 
         argstxt.clear();
-        for (int j = 1;
-             j < i;
-             ++j ) {
+        for (int pos = 1;
+             pos < i;
+             ++pos ) {
             argstxt += ' ';
-            argstxt += argv[j];
+            argstxt += argv[pos];
         }
         trace() << "final arguments:" << argstxt << endl;
 
