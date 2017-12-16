@@ -170,23 +170,8 @@ start_iceccd()
         ICECC_TEST_FLUSH_LOG_MARK="$testdir"/flush_log_mark.txt ICECC_TEST_LOG_HEADER="$testdir"/log_header.txt \
         $valgrind "${iceccd}" -b "$testdir"/envs-${name} -l "$testdir"/${name}.log -n ${netname} -N ${name}  -v -v -v "$@" &
     pid=$!
-    wait_for_proc_sleep 10 ${pid}
     eval ${name}_pid=${pid}
     echo ${pid} > "$testdir"/${name}.pid
-}
-
-wait_for_proc_sleep()
-{
-    local wait_timeout=$1
-    shift
-    local pid_list="$@"
-    local proc_count=$#
-    local ps_state_field="state"
-    for wait_count in $(seq 1 ${wait_timeout}); do
-        local int_sleep_count=$(ps -ho ${ps_state_field} -p ${pid_list} | grep --count "S")
-        ((${int_sleep_count} == ${proc_count})) && break
-        sleep 1
-    done
 }
 
 kill_daemon()
@@ -224,43 +209,7 @@ start_ice()
     start_iceccd remoteice1 -p 10246 -m 2
     start_iceccd remoteice2 -p 10247 -m 2
 
-    notready=
-    if test -n "$valgrind"; then
-        sleep 10
-    else
-        sleep 1
-    fi
-    for time in `seq 1 10`; do
-        notready=
-        if ! kill -0 $scheduler_pid; then
-            echo Scheduler start failure.
-            stop_ice 0
-            abort_tests
-        fi
-        for daemon in localice remoteice1 remoteice2; do
-            pid=${daemon}_pid
-            if ! kill -0 ${!pid}; then
-                echo Daemon $daemon start failure.
-                stop_ice 0
-                abort_tests
-            fi
-            if ! cat_log_last_mark ${daemon} | grep -q "Connected to scheduler"; then
-                # ensure log file flush
-                kill -HUP ${!pid}
-                cat_log_last_mark ${daemon} | grep -q "Connected to scheduler" || notready=1
-            fi
-        done
-        if test -z "$notready"; then
-            break;
-        fi
-        sleep 1
-    done
-    if test -n "$notready"; then
-        echo Icecream not ready, aborting.
-        stop_ice 0
-        abort_tests
-    fi
-    wait_for_all_daemons_connected
+    wait_for_ice_startup_complete scheduler localice remoteice1 remoteice2
     flush_logs
     cat_log_last_mark remoteice1 | grep -q "Cannot use chroot, no remote jobs accepted." && chroot_disabled=1
     cat_log_last_mark remoteice2 | grep -q "Cannot use chroot, no remote jobs accepted." && chroot_disabled=1
@@ -278,22 +227,7 @@ start_only_daemon()
         $valgrind "${iceccd}" --no-remote -b "$testdir"/envs-localice -l "$testdir"/localice.log -n ${netname} -N localice -m 2 -v -v -v &
     localice_pid=$!
     echo $localice_pid > "$testdir"/localice.pid
-    if test -n "$valgrind"; then
-        sleep 10
-    else
-        sleep 1
-    fi
-    if ! kill -0 $localice_pid; then
-        echo Daemon localice start failure.
-        stop_only_daemon 0
-        abort_tests
-    fi
-    flush_logs
-    if ! cat_log_last_mark localice | grep -q "Netnames:"; then
-        echo Daemon localice not ready, aborting.
-        stop_only_daemon 0
-        abort_tests
-    fi
+    wait_for_ice_startup_complete "noscheduler" localice
 }
 
 stop_ice()
@@ -393,27 +327,67 @@ stop_only_daemon()
     localice_pid=
 }
 
-wait_for_all_daemons_connected()
+wait_for_ice_startup_complete()
 {
-    for secs in `seq 1 10`; do
-        flush_logs
-        ready=1
-        for daemon in localice remoteice1 remoteice2; do
-            if ! cat_log_last_mark ${daemon} | grep -q "Connected to scheduler"; then
-                ready=
-            fi
-            if ! cat_log_last_mark scheduler | grep -q "login ${daemon} protocol version: ${protocolversion}"; then
-                ready=
+    noscheduler=
+    if test "$1" == "noscheduler"; then
+        noscheduler=1
+        shift
+    fi
+    processes="$@"
+    timeout=10
+    if test -n "$valgrind"; then
+        # need time to set up SIGHUP handler
+        sleep 5
+        timeout=15
+    fi
+    notready=
+    for time in `seq 1 $timeout`; do
+        notready=
+        for process in $processes; do
+            if echo "$process" | grep -q scheduler; then
+                local extra=
+                test "$process" != "scheduler" && extra="(${process}) "
+                pid=${process}_pid
+                if ! kill -0 ${!pid}; then
+                    echo Scheduler $extra start failure.
+                    stop_ice 0
+                    abort_tests
+                fi
+                cat_log_last_mark ${process} | grep -q "scheduler ready" || notready=1
+            elif echo "$process" | grep -q -e "localice" -e "remoteice"; then
+                pid=${process}_pid
+                if ! kill -0 ${!pid}; then
+                    echo Daemon $process start failure.
+                    stop_ice 0
+                    abort_tests
+                fi
+                if test -z "$noscheduler"; then
+                    cat_log_last_mark ${process} | grep -q "Connected to scheduler" || notready=1
+                else
+                    cat_log_last_mark ${process} | grep -q "Netnames:" || notready=1
+                fi
+            else
+                echo Internal test error, aborting.
+                stop_ice 0
+                abort_tests
             fi
         done
-        if test -n "$ready"; then
-            return
+        if test -z "$notready"; then
+            break;
         fi
         sleep 1
+        # ensure log file flush
+        for process in $processes; do
+            pid=${process}_pid
+            kill -HUP ${!pid}
+        done
     done
-    echo Daemons failed to connect to the scheduler.
-    stop_ice 0
-    abort_tests
+    if test -n "$notready"; then
+        echo Icecream not ready, aborting.
+        stop_ice 0
+        abort_tests
+    fi
 }
 
 # First argument is the expected output file, if any (otherwise specify "").
@@ -1066,6 +1040,7 @@ zero_local_jobs_test()
     kill_daemon localice
 
     start_iceccd localice --no-remote -m 0
+    wait_for_ice_startup_complete localice
 
     libdir="${testdir}/libs"
     rm -rf  "${libdir}"
@@ -1122,6 +1097,7 @@ zero_local_jobs_test()
 
     kill_daemon localice
     start_iceccd localice --no-remote -m 2
+    wait_for_ice_startup_complete localice
 
     echo Zero local jobs test successful.
     echo
@@ -1622,7 +1598,7 @@ if test -z "$chroot_disabled"; then
         $valgrind "${icecc_scheduler}" -p 8769 -l "$testdir"/scheduler2.log -n ${netname}_secondary -v -v -v &
     scheduler2_pid=$!
     echo $scheduler2_pid > "$testdir"/scheduler2.pid
-    wait_for_proc_sleep 10 ${scheduler2_pid}
+    wait_for_ice_startup_complete scheduler2
     start_ice
     check_log_message scheduler2 "Received scheduler announcement from .* (version $protocolversion, netname ${netname})"
     check_log_error scheduler "has announced itself as a preferred scheduler, disconnecting all connections"
@@ -1642,7 +1618,9 @@ if test -z "$chroot_disabled"; then
         $valgrind "${icecc_scheduler}" -p 8769 -l "$testdir"/scheduler2.log -n ${netname} -v -v -v &
     scheduler2_pid=$!
     echo $scheduler2_pid > "$testdir"/scheduler2.pid
-    wait_for_proc_sleep 10 ${scheduler2_pid}
+    wait_for_ice_startup_complete scheduler2
+    # Give the primary scheduler time to disconnect all clients.
+    sleep 1
     check_log_message scheduler "Received scheduler announcement from .* (version $protocolversion, netname ${netname})"
     check_log_message scheduler "has announced itself as a preferred scheduler, disconnecting all connections"
     check_log_error scheduler2 "has announced itself as a preferred scheduler, disconnecting all connections"
@@ -1656,7 +1634,7 @@ if test -z "$chroot_disabled"; then
 
     echo Testing reconnect.
     reset_logs remote "Reconnect"
-    wait_for_all_daemons_connected
+    wait_for_ice_startup_complete localice remoteice1 remoteice2
     flush_logs
     check_log_message scheduler "login localice protocol version: ${protocolversion}"
     check_log_message scheduler "login remoteice1 protocol version: ${protocolversion}"

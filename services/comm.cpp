@@ -1662,7 +1662,7 @@ bool DiscoverSched::get_broad_answer(int ask_fd, int timeout, char *buf2, struct
 
     if (select(ask_fd + 1, &read_set, NULL, NULL, &tv) <= 0) {
         /* Normally this is a timeout, i.e. no scheduler there.  */
-        if (errno) {
+        if (errno && errno != EINTR) {
             log_perror("waiting for scheduler");
         }
 

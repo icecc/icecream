@@ -2058,6 +2058,8 @@ int main(int argc, char *argv[])
     signal(SIGINT, trigger_exit);
     signal(SIGALRM, trigger_exit);
 
+    log_info() << "scheduler ready" << endl;
+
     time_t next_listen = 0;
 
     Broadcasts::broadcastSchedulerVersion(scheduler_port, netname, starttime);
