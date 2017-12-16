@@ -1456,6 +1456,11 @@ if test -n "$using_clang"; then
         run_ice "$testdir/plain.o" "remote" 0 $TESTCXX -Wall -Werror -c plain.cpp -o "$testdir"/plain.o
         check_section_log_message remoteice1 "remote compile arguments:.*-target $target"
     fi
+    run_ice "$testdir/plain.o" "remote" 0 $TESTCXX -Wall -Werror --target=$target -c plain.cpp -o "$testdir"/plain.o
+    if test -z "$chroot_disabled"; then
+        check_section_log_message remoteice1 "remote compile arguments:.*--target=$target"
+        check_section_log_error remoteice1 "remote compile arguments:.*-target $target"
+    fi
 else
     skipped_tests="$skipped_tests target"
 fi
