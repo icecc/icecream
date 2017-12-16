@@ -353,6 +353,8 @@ private:
     unsigned int sport;
     int best_version;
     time_t best_start_time;
+    std::string best_schedname;
+    int best_port;
     bool multiple;
 
     void attempt_scheduler_connect();

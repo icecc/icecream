@@ -1357,6 +1357,7 @@ DiscoverSched::DiscoverSched(const std::string &_netname, int _timeout,
     , sport(port)
     , best_version(0)
     , best_start_time(0)
+    , best_port(0)
     , multiple(false)
 {
     time0 = time(0);
@@ -1414,7 +1415,6 @@ bool DiscoverSched::timed_out()
 
 void DiscoverSched::attempt_scheduler_connect()
 {
-
     time0 = time(0) + MAX_SCHEDULER_PONG;
     log_info() << "scheduler is on " << schedname << ":" << sport << " (net " << netname << ")" << endl;
 
@@ -1546,7 +1546,7 @@ void DiscoverSched::get_broad_data(const char* buf, const char** name, int* vers
 
 MsgChannel *DiscoverSched::try_get_scheduler()
 {
-    if (schedname.empty() || 0 != best_version) {
+    if (schedname.empty()) {
         socklen_t remote_len;
         char buf2[BROAD_BUFLEN];
         /* Try to get the scheduler with the newest version, and if there
@@ -1587,11 +1587,10 @@ MsgChannel *DiscoverSched::try_get_scheduler()
                 if (best_version != 0)
                     multiple = true;
                 if (best_version < version || (best_version == version && best_start_time > start_time)) {
-                    schedname = inet_ntoa(remote_addr.sin_addr);
-                    sport = ntohs(remote_addr.sin_port);
+                    best_schedname = inet_ntoa(remote_addr.sin_addr);
+                    best_port = ntohs(remote_addr.sin_port);
                     best_version = version;
                     best_start_time = start_time;
-                    assert( ntohs(remote_addr.sin_port) == sport ); // We should never select the secondary debug scheduler.
                 }
             } else {
                 log_info() << "Ignoring scheduler at " << inet_ntoa(remote_addr.sin_addr)
@@ -1604,6 +1603,8 @@ MsgChannel *DiscoverSched::try_get_scheduler()
             if (best_version == 0) {
                 return 0;
             }
+            schedname = best_schedname;
+            sport = best_port;
             if (multiple)
                 log_info() << "Selecting scheduler at " << schedname << ":" << sport << endl;
 
