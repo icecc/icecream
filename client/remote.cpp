@@ -481,6 +481,13 @@ static int build_remote_int(CompileJob &job, UseCSMsg *usecs, MsgChannel *local_
             throw client_error(26, "Error 26 - environment on " + hostname + " cannot be verified");
         }
 
+        // Older remotes don't set properly -x argument.
+        if(( job.language() == CompileJob::Lang_OBJC || job.language() == CompileJob::Lang_OBJCXX )
+            && !IS_PROTOCOL_38(cserver)) {
+            job.appendFlag( "-x", Arg_Remote );
+            job.appendFlag( job.language() == CompileJob::Lang_OBJC ? "objective-c" : "objective-c++", Arg_Remote );
+        }
+
         CompileFileMsg compile_file(&job);
         {
             log_block b("send compile_file");
