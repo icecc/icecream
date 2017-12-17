@@ -234,6 +234,7 @@ bool analyse_argv(const char * const *argv, CompileJob &job, bool icerun, list<s
     bool seen_md = false;
     bool seen_split_dwarf = false;
     bool seen_target = false;
+    bool wunused_macros = false;
     // if rewriting includes and precompiling on remote machine, then cpp args are not local
     Argument_Type Arg_Cpp = compiler_only_rewrite_includes(job) ? Arg_Rest : Arg_Local;
 
@@ -637,6 +638,12 @@ bool analyse_argv(const char * const *argv, CompileJob &job, bool icerun, list<s
             } else if (str_startswith("--target=", a)) {
                 seen_target = true;
                 args.append(a, Arg_Remote);
+            } else if (str_equal("-Wunused-macros", a)) {
+                wunused_macros = true;
+                args.append(a, Arg_Rest);
+            } else if (str_equal("-Wno-unused-macros", a)) {
+                wunused_macros = false;
+                args.append(a, Arg_Rest);
             } else {
                 args.append(a, Arg_Rest);
 
@@ -793,6 +800,14 @@ bool analyse_argv(const char * const *argv, CompileJob &job, bool icerun, list<s
             args.append("-fcolor-diagnostics", Arg_Rest);
         else
             args.append("-fdiagnostics-color", Arg_Rest); // GCC
+    }
+
+    // -Wunused-macros is tricky with remote preprocessing. GCC's -fdirectives-only outright
+    // refuses to work is -Wunused-macros is given, and Clang's -frewrite-includes is buggy
+    // if -Wunused-macros is used (https://bugs.llvm.org/show_bug.cgi?id=15614). It's a question
+    // if this could possibly even work, given that macros may be used as filenames for #include directives.
+    if( wunused_macros ) {
+        job.setBlockRewriteIncludes(true);
     }
 
     if( !always_local && compiler_only_rewrite_includes(job) && !compiler_is_clang(job)) {

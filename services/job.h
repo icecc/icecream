@@ -66,6 +66,7 @@ public:
     CompileJob()
         : m_id(0)
         , m_dwarf_fission(false)
+        , m_block_rewrite_includes(false)
     {
         setTargetPlatform();
     }
@@ -90,11 +91,13 @@ public:
         return m_language;
     }
 
+    // Not used remotely.
     void setCompilerPathname(const std::string& pathname)
     {
         m_compiler_pathname = pathname;
     }
 
+    // Not used remotely.
     std::string compilerPathname() const
     {
         return m_compiler_pathname;
@@ -186,6 +189,18 @@ public:
         m_target_platform = _target;
     }
 
+    // Not used remotely.
+    void setBlockRewriteIncludes(bool flag)
+    {
+        m_block_rewrite_includes = flag;
+    }
+
+    // Not used remotely.
+    bool blockRewriteIncludes() const
+    {
+        return m_block_rewrite_includes;
+    }
+
 private:
     std::list<std::string> flags(Argument_Type argumentType) const;
     void setTargetPlatform();
@@ -200,6 +215,7 @@ private:
     std::string m_working_directory;
     std::string m_target_platform;
     bool m_dwarf_fission;
+    bool m_block_rewrite_includes;
 };
 
 inline void appendList(std::list<std::string> &list, const std::list<std::string> &toadd)

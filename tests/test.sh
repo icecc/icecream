@@ -400,6 +400,7 @@ wait_for_ice_startup_complete()
 #   - noresetlogs - will not use reset_logs at the start (needs to be done explicitly before calling run_ice)
 #   - remoteabort - remote compilation will abort (as a result of local processing failing and remote daemon killing the remote compiler)
 #   - nostderrcheck - will not compare stderr output
+#   - unusedmacrohack - hack for Wunused-macros test
 # Rest is the command to pass to icecc.
 # Command will be run both locally and using icecc and results compared.
 run_ice()
@@ -442,6 +443,11 @@ run_ice()
     nostderrcheck=
     if test "$1" = "nostderrcheck"; then
         nostderrcheck=1
+        shift
+    fi
+    unusedmacrohack=
+    if test "$1" = "unusedmacrohack"; then
+        unusedmacrohack=1
         shift
     fi
 
@@ -560,13 +566,27 @@ run_ice()
             abort_tests
         fi
         if test -z "$chroot_disabled"; then
-            if ! diff -q "$testdir"/stderr.remoteice "$testdir"/stderr; then
-                echo "Stderr mismatch ($testdir/stderr.remoteice)"
-                echo ================
-                diff -u "$testdir"/stderr "$testdir"/stderr.remoteice
-                echo ================
-                stop_ice 0
-                abort_tests
+            skipstderrcheck=
+            if test -n "$unusedmacrohack" -a -n "$using_gcc"; then
+                # gcc -Wunused-macro gives different location for the error depending on whether -E is used or not
+                if ! diff -q "$testdir"/stderr.remoteice "$testdir"/stderr; then
+                    if diff -q "$testdir"/stderr.remoteice unusedmacro1.txt; then
+                        skipstderrcheck=1
+                    fi
+                    if diff -q "$testdir"/stderr.remoteice unusedmacro2.txt; then
+                        skipstderrcheck=1
+                    fi
+                fi
+            fi
+            if test -z "$skipstderrcheck"; then
+                if ! diff -q "$testdir"/stderr.remoteice "$testdir"/stderr; then
+                    echo "Stderr mismatch ($testdir/stderr.remoteice)"
+                    echo ================
+                    diff -u "$testdir"/stderr "$testdir"/stderr.remoteice
+                    echo ================
+                    stop_ice 0
+                    abort_tests
+                fi
             fi
         fi
     fi
@@ -1417,6 +1437,7 @@ fi
 run_ice "" "local" 300 "nostderrcheck" /bin/nonexistent-at-all-doesnt-exist
 
 run_ice "$testdir/warninginmacro.o" "remote" 0 $TESTCXX -Wall -Wextra -Werror -c warninginmacro.cpp -o "$testdir/"warninginmacro.o
+run_ice "$testdir/unusedmacro.o" "remote" 0 "unusedmacrohack" $TESTCXX -Wall -Wunused-macros -c unusedmacro.cpp -o "$testdir/unusedmacro.o"
 
 if $TESTCXX -cxx-isystem ./ -fsyntax-only -Werror -c includes.cpp 2>/dev/null; then
     run_ice "$testdir/includes.o" "remote" 0 $TESTCXX -Wall -Werror -cxx-isystem ./ -c includes.cpp -o "$testdir"/includes.o

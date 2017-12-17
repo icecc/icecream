@@ -163,6 +163,9 @@ works similarly to -frewrite-includes (although it's not exactly the same).
 */
 bool compiler_only_rewrite_includes(const CompileJob &job)
 {
+    if( job.blockRewriteIncludes()) {
+        return false;
+    }
     if (const char *rewrite_includes = getenv("ICECC_REMOTE_CPP")) {
         return (*rewrite_includes != '\0') && (*rewrite_includes != '0');
     }
