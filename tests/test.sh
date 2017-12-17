@@ -557,7 +557,7 @@ run_ice()
         abort_tests
     fi
     if test -z "$nostderrcheck"; then
-        if ! diff -q "$testdir"/stderr.localice "$testdir"/stderr; then
+        if ! diff "$testdir"/stderr.localice "$testdir"/stderr >/dev/null; then
             echo "Stderr mismatch ($testdir/stderr.localice)"
             echo ================
             diff -u "$testdir"/stderr "$testdir"/stderr.localice
@@ -569,17 +569,17 @@ run_ice()
             skipstderrcheck=
             if test -n "$unusedmacrohack" -a -n "$using_gcc"; then
                 # gcc -Wunused-macro gives different location for the error depending on whether -E is used or not
-                if ! diff -q "$testdir"/stderr.remoteice "$testdir"/stderr; then
-                    if diff -q "$testdir"/stderr.remoteice unusedmacro1.txt; then
+                if ! diff "$testdir"/stderr.remoteice "$testdir"/stderr >/dev/null; then
+                    if diff "$testdir"/stderr.remoteice unusedmacro1.txt >/dev/null; then
                         skipstderrcheck=1
                     fi
-                    if diff -q "$testdir"/stderr.remoteice unusedmacro2.txt; then
+                    if diff "$testdir"/stderr.remoteice unusedmacro2.txt >/dev/null; then
                         skipstderrcheck=1
                     fi
                 fi
             fi
             if test -z "$skipstderrcheck"; then
-                if ! diff -q "$testdir"/stderr.remoteice "$testdir"/stderr; then
+                if ! diff "$testdir"/stderr.remoteice "$testdir"/stderr >/dev/null; then
                     echo "Stderr mismatch ($testdir/stderr.remoteice)"
                     echo ================
                     diff -u "$testdir"/stderr "$testdir"/stderr.remoteice
@@ -605,7 +605,7 @@ run_ice()
                 -e "$remove_offset_number" \
                 -e "$remove_debug_pubnames" \
                 -e "$remove_size_of_area" > "$output".local.readelf.txt || cp "$output" "$output".local.readelf.txt
-            if ! diff -q "$output".local.readelf.txt "$output".readelf.txt; then
+            if ! diff "$output".local.readelf.txt "$output".readelf.txt >/dev/null; then
                 echo "Output mismatch ($output.localice)"
                 echo ================
                 diff -u "$output".readelf.txt "$output".local.readelf.txt
@@ -618,7 +618,7 @@ run_ice()
                     -e "$remove_offset_number" \
                     -e "$remove_debug_pubnames" \
                     -e "$remove_size_of_area" > "$output".remote.readelf.txt || cp "$output" "$output".remote.readelf.txt
-                if ! diff -q "$output".remote.readelf.txt "$output".readelf.txt; then
+                if ! diff "$output".remote.readelf.txt "$output".readelf.txt >/dev/null; then
                     echo "Output mismatch ($output.remoteice)"
                     echo ================
                     diff -u "$output".readelf.txt "$output".remote.readelf.txt
@@ -628,7 +628,7 @@ run_ice()
                 fi
             fi
         else
-            if ! diff -q "$output".localice "$output"; then
+            if ! diff "$output".localice "$output" >/dev/null; then
                 echo "Output mismatch ($output.localice)"
                 echo ================
                 diff -u "$output" "$output".localice
@@ -637,7 +637,7 @@ run_ice()
                 abort_tests
             fi
             if test -z "$chroot_disabled"; then
-                if ! diff -q "$output".remoteice "$output"; then
+                if ! diff "$output".remoteice "$output" >/dev/null; then
                     echo "Output mismatch ($output.remoteice)"
                     echo ================
                     diff -u "$output" "$output".remoteice
@@ -653,7 +653,7 @@ run_ice()
             sed -e "$remove_debug_info" -e "$remove_offset_number" > "$split_dwarf".readelf.txt || cp "$split_dwarf" "$split_dwarf".readelf.txt
         readelf -wlLiaprmfFoRt "$split_dwarf".localice | \
             sed -e $remove_debug_info -e "$remove_offset_number" > "$split_dwarf".local.readelf.txt || cp "$split_dwarf" "$split_dwarf".local.readelf.txt
-        if ! diff -q "$split_dwarf".local.readelf.txt "$split_dwarf".readelf.txt; then
+        if ! diff "$split_dwarf".local.readelf.txt "$split_dwarf".readelf.txt >/dev/null; then
             echo "Output DWO mismatch ($split_dwarf.localice)"
             echo ====================
             diff -u "$split_dwarf".readelf.txt "$split_dwarf".local.readelf.txt
@@ -664,7 +664,7 @@ run_ice()
         if test -z "$chroot_disabled"; then
             readelf -wlLiaprmfFoRt "$split_dwarf".remoteice | \
                 sed -e "$remove_debug_info" -e "$remove_offset_number" > "$split_dwarf".remote.readelf.txt || cp "$split_dwarf" "$split_dwarf".remote.readelf.txt
-            if ! diff -q "$split_dwarf".remote.readelf.txt "$split_dwarf".readelf.txt; then
+            if ! diff "$split_dwarf".remote.readelf.txt "$split_dwarf".readelf.txt >/dev/null; then
                 echo "Output DWO mismatch ($split_dwarf.remoteice)"
                 echo ====================
                 diff -u "$split_dwarf".readelf.txt "$split_dwarf".remote.readelf.txt
@@ -1029,7 +1029,7 @@ debug_test()
         -e "$remove_size_of_area" \
         -e "$remove_debug_pubnames" > "$testdir"/readelf-local.txt
 
-    if ! diff -q "$testdir"/debug-output-local.txt "$testdir"/debug-output-remote.txt ; then
+    if ! diff "$testdir"/debug-output-local.txt "$testdir"/debug-output-remote.txt >/dev/null; then
         echo Gdb output different.
         echo =====================
         diff -u "$testdir"/debug-output-local.txt "$testdir"/debug-output-remote.txt
@@ -1037,7 +1037,7 @@ debug_test()
         stop_ice 0
         abort_tests
     fi
-    if ! diff -q "$testdir"/readelf-local.txt "$testdir"/readelf-remote.txt ; then
+    if ! diff "$testdir"/readelf-local.txt "$testdir"/readelf-remote.txt >/dev/null; then
         echo Readelf output different.
         echo =====================
         diff -u "$testdir"/readelf-local.txt "$testdir"/readelf-remote.txt
