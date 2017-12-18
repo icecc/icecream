@@ -134,7 +134,7 @@ check_compilers()
         fi
     fi
     using_gcc=
-    if $TESTCC --version | grep gcc >/dev/null; then
+    if $TESTCC -v 2>&1 | grep ^gcc >/dev/null; then
         using_gcc=1
     fi
     using_clang=
