@@ -52,6 +52,7 @@
 #include "../services/comm.h"
 #include "../services/logging.h"
 #include "../services/job.h"
+#include "../services/util.h"
 #include "config.h"
 
 #include "compileserver.h"
@@ -1798,7 +1799,7 @@ static void trigger_exit(int signum)
     } else {
         // hmm, we got killed already. try better
         static const char msg[] = "forced exit.\n";
-        write(STDERR_FILENO, msg, strlen( msg ));
+        ignore_result(write(STDERR_FILENO, msg, strlen( msg )));
         _exit(1);
     }
 
@@ -2016,7 +2017,10 @@ int main(int argc, char *argv[])
     log_info() << "ICECREAM scheduler " VERSION " starting up, port " << scheduler_port << endl;
 
     if (detach) {
-        daemon(0, 0);
+        if (daemon(0, 0) != 0) {
+            log_errno("Error: failed to detach.", errno);
+            exit(1);
+        }
     }
 
     listen_fd = open_tcp_listener(scheduler_port);
