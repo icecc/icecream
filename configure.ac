@@ -5,12 +5,15 @@ AC_PREREQ([2.63])
 # ====================
 # Version informations
 # ====================
+# Stable versions: x.y.z , where z < 50
+# Development versions: x.y.90
+# Pre-release versions: x.y.z, where z = 90 + X in rcX (1.1rc1 = 1.1.91)
 m4_define([icecream_version_major],[1])
 m4_define([icecream_version_minor],[1])
-#m4_define([icecream_version_micro],[98])
+m4_define([icecream_version_micro],[90])
 m4_ifval([icecream_version_micro],
-	m4_define([icecream_version],[icecream_version_major.icecream_version_minor.icecream_version_micro]),
-	m4_define([icecream_version],[icecream_version_major.icecream_version_minor]))
+        m4_define([icecream_version],[icecream_version_major.icecream_version_minor.icecream_version_micro]),
+        m4_define([icecream_version],[icecream_version_major.icecream_version_minor]))
 
 # =============
 # Automake init
