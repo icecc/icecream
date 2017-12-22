@@ -1466,8 +1466,16 @@ else
     skipped_tests="$skipped_tests target"
 fi
 
-debug_fission_disabled=
-$TESTCXX -E -gsplit-dwarf messages.cpp 2>/dev/null >/dev/null || debug_fission_disabled=1
+debug_fission_disabled=1
+$TESTCXX -gsplit-dwarf true.cpp -o "$testdir"/true 2>/dev/null >/dev/null
+if test $? -eq 0; then
+    "$testdir"/true
+    if test $? -eq 0; then
+        debug_fission_disabled=
+    fi
+    rm -f "$testdir"/true "$testdir"/true.dwo true.dwo
+fi
+
 if test -n "$debug_fission_disabled"; then
     skipped_tests="$skipped_tests split-dwarf"
 fi
