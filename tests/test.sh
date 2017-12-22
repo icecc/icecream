@@ -600,7 +600,7 @@ run_ice()
     local remove_debug_pubnames="/^\s*Offset\s*Name/,/^\s*$/s/\s*[A-Fa-f0-9]*\s*//"
     local remove_size_of_area="s/\(Size of area in.*section:\)\s*[0-9]*/\1/g"
     if test -n "$output"; then
-        if grep -q ELF "$output"; then
+        if file "$output" | grep ELF >/dev/null; then
             readelf -wlLiaprmfFoRt "$output" | sed -e "$remove_debug_info" \
                 -e "$remove_offset_number" \
                 -e "$remove_debug_pubnames" \
@@ -631,6 +631,30 @@ run_ice()
                     abort_tests
                 fi
             fi
+        elif echo "$output" | grep -q '\.gch$'; then
+            # PCH file, no idea how to check they are the same if they are not 100% identical
+            # Make silent.
+            true
+        elif file "$output" | grep Mach >/dev/null; then
+            # No idea how to check they are the same if they are not 100% identical
+            if ! diff "$output".localice "$output" >/dev/null; then
+                echo "Output mismatch ($output.localice), Mach object files, not knowing how to verify"
+            fi
+            if test -z "$chroot_disabled"; then
+                if ! diff "$output".remoteice "$output" >/dev/null; then
+                    echo "Output mismatch ($output.remoteice), Mach object files, not knowing how to verify"
+                fi
+            fi
+        elif echo "$output" | grep -q -e '\.o$' -e '\.dwo$'; then
+            # possibly cygwin .o file, no idea how to check they are the same if they are not 100% identical
+            if ! diff "$output".localice "$output" >/dev/null; then
+                echo "Output mismatch ($output.localice), assuming Cygwin object files, not knowing how to verify"
+            fi
+            if test -z "$chroot_disabled"; then
+                if ! diff "$output".remoteice "$output" >/dev/null; then
+                    echo "Output mismatch ($output.remoteice), assuming Cygwin object files, not knowing how to verify"
+                fi
+            fi
         else
             if ! diff "$output".localice "$output" >/dev/null; then
                 echo "Output mismatch ($output.localice)"
@@ -653,28 +677,50 @@ run_ice()
         fi
     fi
     if test -n "$split_dwarf"; then
-        readelf -wlLiaprmfFoRt "$split_dwarf" | \
-            sed -e "$remove_debug_info" -e "$remove_offset_number" > "$split_dwarf".readelf.txt || cp "$split_dwarf" "$split_dwarf".readelf.txt
-        readelf -wlLiaprmfFoRt "$split_dwarf".localice | \
-            sed -e $remove_debug_info -e "$remove_offset_number" > "$split_dwarf".local.readelf.txt || cp "$split_dwarf" "$split_dwarf".local.readelf.txt
-        if ! diff "$split_dwarf".local.readelf.txt "$split_dwarf".readelf.txt >/dev/null; then
-            echo "Output DWO mismatch ($split_dwarf.localice)"
-            echo ====================
-            diff -u "$split_dwarf".readelf.txt "$split_dwarf".local.readelf.txt
-            echo ====================
-            stop_ice 0
-            abort_tests
-        fi
-        if test -z "$chroot_disabled"; then
-            readelf -wlLiaprmfFoRt "$split_dwarf".remoteice | \
-                sed -e "$remove_debug_info" -e "$remove_offset_number" > "$split_dwarf".remote.readelf.txt || cp "$split_dwarf" "$split_dwarf".remote.readelf.txt
-            if ! diff "$split_dwarf".remote.readelf.txt "$split_dwarf".readelf.txt >/dev/null; then
-                echo "Output DWO mismatch ($split_dwarf.remoteice)"
+        if file "$output" | grep ELF >/dev/null; then
+            readelf -wlLiaprmfFoRt "$split_dwarf" | \
+                sed -e "$remove_debug_info" -e "$remove_offset_number" > "$split_dwarf".readelf.txt || cp "$split_dwarf" "$split_dwarf".readelf.txt
+            readelf -wlLiaprmfFoRt "$split_dwarf".localice | \
+                sed -e $remove_debug_info -e "$remove_offset_number" > "$split_dwarf".local.readelf.txt || cp "$split_dwarf" "$split_dwarf".local.readelf.txt
+            if ! diff "$split_dwarf".local.readelf.txt "$split_dwarf".readelf.txt >/dev/null; then
+                echo "Output DWO mismatch ($split_dwarf.localice)"
                 echo ====================
-                diff -u "$split_dwarf".readelf.txt "$split_dwarf".remote.readelf.txt
+                diff -u "$split_dwarf".readelf.txt "$split_dwarf".local.readelf.txt
                 echo ====================
                 stop_ice 0
                 abort_tests
+            fi
+            if test -z "$chroot_disabled"; then
+                readelf -wlLiaprmfFoRt "$split_dwarf".remoteice | \
+                    sed -e "$remove_debug_info" -e "$remove_offset_number" > "$split_dwarf".remote.readelf.txt || cp "$split_dwarf" "$split_dwarf".remote.readelf.txt
+                if ! diff "$split_dwarf".remote.readelf.txt "$split_dwarf".readelf.txt >/dev/null; then
+                    echo "Output DWO mismatch ($split_dwarf.remoteice)"
+                    echo ====================
+                    diff -u "$split_dwarf".readelf.txt "$split_dwarf".remote.readelf.txt
+                    echo ====================
+                    stop_ice 0
+                    abort_tests
+                fi
+            fi
+        elif file "$output" | grep Mach >/dev/null; then
+            # No idea how to check they are the same if they are not 100% identical
+            if ! diff "$split_dwarf".localice "$split_dwarf" >/dev/null; then
+                echo "Output mismatch ($split_dwarf.localice), Mach object files, not knowing how to verify"
+            fi
+            if test -z "$chroot_disabled"; then
+                if ! diff "$split_dwarf".remoteice "$split_dwarf" >/dev/null; then
+                    echo "Output mismatch ($split_dwarf.remoteice), Mach object files, not knowing how to verify"
+                fi
+            fi
+        else
+            # possibly cygwin .o file, no idea how to check they are the same if they are not 100% identical
+            if ! diff "$split_dwarf".localice "$split_dwarf" >/dev/null; then
+                echo "Output mismatch ($split_dwarf.localice), assuming Cygwin object files, not knowing how to verify"
+            fi
+            if test -z "$chroot_disabled"; then
+                if ! diff "$split_dwarf".remoteice "$split_dwarf" >/dev/null; then
+                    echo "Output mismatch ($split_dwarf.remoteice), assuming Cygwin object files, not knowing how to verify"
+                fi
             fi
         fi
     fi
@@ -996,19 +1042,6 @@ debug_test()
         abort_tests
     fi
 
-    # gcc-4.8+ has -grecord-gcc-switches, which makes the .o differ because of the extra flags the daemon adds,
-    # this changes DW_AT_producer and also offsets
-    local remove_debug_info="s/\(Length\|DW_AT_\(GNU_dwo_\(id\|name\)\|comp_dir\|producer\|linkage_name\|name\)\).*/\1/g"
-    local remove_offset_number="s/<[A-Fa-f0-9]*>/<>/g"
-    local remove_size_of_area="s/\(Size of area in.*section:\)\s*[0-9]*/\1/g"
-    local remove_debug_pubnames="/^\s*Offset\s*Name/,/^\s*$/s/\s*[A-Fa-f0-9]*\s*//"
-    readelf -wlLiaprmfFoRt "$testdir"/debug-remote.o | sed -e 's/offset: 0x[0-9a-fA-F]*//g' \
-        -e 's/[ ]*--param ggc-min-expand.*heapsize\=[0-9]\+//g' \
-        -e "$remove_debug_info" \
-        -e "$remove_offset_number" \
-        -e "$remove_size_of_area" \
-        -e "$remove_debug_pubnames" > "$testdir"/readelf-remote.txt
-
     $cmd -o "$testdir"/debug-local.o 2>>"$testdir"/stderr.log
     if test $? -ne 0; then
         echo Debug test compile failed.
@@ -1027,12 +1060,6 @@ debug_test()
         stop_ice 0
         abort_tests
     fi
-    readelf -wlLiaprmfFoRt "$testdir"/debug-local.o | sed -e 's/offset: 0x[0-9a-fA-F]*//g' \
-        -e "$remove_debug_info" \
-        -e "$remove_offset_number" \
-        -e "$remove_size_of_area" \
-        -e "$remove_debug_pubnames" > "$testdir"/readelf-local.txt
-
     if ! diff "$testdir"/debug-output-local.txt "$testdir"/debug-output-remote.txt >/dev/null; then
         echo Gdb output different.
         echo =====================
@@ -1041,15 +1068,45 @@ debug_test()
         stop_ice 0
         abort_tests
     fi
-    if ! diff "$testdir"/readelf-local.txt "$testdir"/readelf-remote.txt >/dev/null; then
-        echo Readelf output different.
-        echo =====================
-        diff -u "$testdir"/readelf-local.txt "$testdir"/readelf-remote.txt
-        echo =====================
-        stop_ice 0
-        abort_tests
+
+    # gcc-4.8+ has -grecord-gcc-switches, which makes the .o differ because of the extra flags the daemon adds,
+    # this changes DW_AT_producer and also offsets
+    local remove_debug_info="s/\(Length\|DW_AT_\(GNU_dwo_\(id\|name\)\|comp_dir\|producer\|linkage_name\|name\)\).*/\1/g"
+    local remove_offset_number="s/<[A-Fa-f0-9]*>/<>/g"
+    local remove_size_of_area="s/\(Size of area in.*section:\)\s*[0-9]*/\1/g"
+    local remove_debug_pubnames="/^\s*Offset\s*Name/,/^\s*$/s/\s*[A-Fa-f0-9]*\s*//"
+    if file "$testdir"/debug-remote.o | grep ELF >/dev/null; then
+        readelf -wlLiaprmfFoRt "$testdir"/debug-remote.o | sed -e 's/offset: 0x[0-9a-fA-F]*//g' \
+            -e 's/[ ]*--param ggc-min-expand.*heapsize\=[0-9]\+//g' \
+            -e "$remove_debug_info" \
+            -e "$remove_offset_number" \
+            -e "$remove_size_of_area" \
+            -e "$remove_debug_pubnames" > "$testdir"/readelf-remote.txt
+        readelf -wlLiaprmfFoRt "$testdir"/debug-local.o | sed -e 's/offset: 0x[0-9a-fA-F]*//g' \
+            -e "$remove_debug_info" \
+            -e "$remove_offset_number" \
+            -e "$remove_size_of_area" \
+            -e "$remove_debug_pubnames" > "$testdir"/readelf-local.txt
+        if ! diff "$testdir"/readelf-local.txt "$testdir"/readelf-remote.txt >/dev/null; then
+            echo Readelf output different.
+            echo =====================
+            diff -u "$testdir"/readelf-local.txt "$testdir"/readelf-remote.txt
+            echo =====================
+            stop_ice 0
+            abort_tests
+        fi
+    elif file "$testdir"/debug-remote.o | grep Mach >/dev/null; then
+        # No idea how to check they are the same if they are not 100% identical
+        if ! diff "$testdir"/debug-local.o "$testdir"/debug-remote.o >/dev/null; then
+            echo "Output mismatch, Mach object files, not knowing how to verify"
+        fi
+    else
+        # possibly cygwin .o file, no idea how to check they are the same if they are not 100% identical
+        if ! diff "$testdir"/debug-local.o "$testdir"/debug-remote.o >/dev/null; then
+            echo "Output mismatch, assuming Cygwin object files, not knowing how to verify"
+        fi
     fi
-    rm "$testdir"/debug-remote.o "$testdir"/debug-local.o "$testdir"/debug-remote "$testdir"/debug-local "$testdir"/debug-*-*.txt "$testdir"/readelf-*.txt
+    rm -f "$testdir"/debug-remote.o "$testdir"/debug-local.o "$testdir"/debug-remote "$testdir"/debug-local "$testdir"/debug-*-*.txt "$testdir"/readelf-*.txt
 
     echo Debug test successful.
     echo
