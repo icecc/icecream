@@ -235,6 +235,7 @@ bool analyse_argv(const char * const *argv, CompileJob &job, bool icerun, list<s
     bool seen_split_dwarf = false;
     bool seen_target = false;
     bool wunused_macros = false;
+    bool seen_arch = false;
     // if rewriting includes and precompiling on remote machine, then cpp args are not local
     Argument_Type Arg_Cpp = compiler_only_rewrite_includes(job) ? Arg_Rest : Arg_Local;
 
@@ -644,6 +645,16 @@ bool analyse_argv(const char * const *argv, CompileJob &job, bool icerun, list<s
             } else if (str_equal("-Wno-unused-macros", a)) {
                 wunused_macros = false;
                 args.append(a, Arg_Rest);
+            } else if (str_equal("-arch", a)) {
+                if( seen_arch ) {
+                    log_info() << "multiple -arch options, building locally" << endl;
+                    always_local = true;
+                }
+                seen_arch = false;
+                args.append(a, Arg_Rest);
+                if (argv[i + 1]) {
+                    args.append(argv[++i], Arg_Rest);
+                }
             } else {
                 args.append(a, Arg_Rest);
 
