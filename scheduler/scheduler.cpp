@@ -2297,6 +2297,9 @@ int main(int argc, char *argv[])
 
         for (list<CompileServer *>::const_iterator it = cs_in_tsts.begin();
                 it != cs_in_tsts.end(); ++it) {
+            if(find(css.begin(), css.end(), *it) == css.end()) {
+                continue; // deleted meanwhile
+            }
             if((*it)->getConnectionInProgress())
             {
                 if(active_fds > 0 && (FD_ISSET((*it)->getInFd(), &read_set) || FD_ISSET((*it)->getInFd(), &write_set)) && (*it)->isConnected())
