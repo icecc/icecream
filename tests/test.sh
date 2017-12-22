@@ -153,6 +153,10 @@ check_compilers()
         echo Compiler $TESTCXX failed.
         exit 5
     fi
+    if test -z "$using_gcc" -a -z "$using_clang"; then
+        echo "Unknown compiler type (neither GCC nor Clang), aborting."
+        exit 5
+    fi
     echo
 }
 
