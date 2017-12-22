@@ -1294,8 +1294,8 @@ static int open_send_broadcast(int port, const char* buf, int size)
             continue;
         }
 
-        static bool allow_localhost = getenv( "ICECC_TESTS" ) != NULL;
-        if (!allow_localhost) {
+        static bool in_tests = getenv( "ICECC_TESTS" ) != NULL;
+        if (!in_tests) {
             if (ntohl(((struct sockaddr_in *) addr->ifa_addr)->sin_addr.s_addr) == 0x7f000001) {
                 trace() << "ignoring localhost " << addr->ifa_name << endl;
                 continue;
@@ -1303,6 +1303,11 @@ static int open_send_broadcast(int port, const char* buf, int size)
 
             if ((addr->ifa_flags & IFF_POINTOPOINT) || !(addr->ifa_flags & IFF_BROADCAST)) {
                 log_info() << "ignoring tunnels " << addr->ifa_name << endl;
+                continue;
+            }
+        } else {
+            if (ntohl(((struct sockaddr_in *) addr->ifa_addr)->sin_addr.s_addr) != 0x7f000001) {
+                trace() << "ignoring non-localhost " << addr->ifa_name << endl;
                 continue;
             }
         }
