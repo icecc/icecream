@@ -203,6 +203,11 @@ tricky parts. Supported are:
 Note that all these platforms can be used both as server and as client -
 meaning you can do full cross compiling between them.
 
+The following platforms are known to work at least as a client, meaning that
+you can run compilation on them that will compile on remote nodes using cross compilation.
+
+      - Cygwin
+
 Using icecream in heterogeneous environments
 -----------------------------------------------------------------------------------------------------------------------------------------
 
