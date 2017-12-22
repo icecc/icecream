@@ -1523,7 +1523,7 @@ else
     skipped_tests="$skipped_tests debug"
 fi
 
-if $TESTCXX -fsanitize=address -c -fsyntax-only -Werror fsanitize.cpp >/dev/null 2>/dev/null; then
+if $TESTCXX -fsanitize=address -Werror fsanitize.cpp -o /dev/null >/dev/null 2>/dev/null; then
     run_ice "$testdir/fsanitize.o" "remote" 0 keepoutput $TESTCXX -c -fsanitize=address -g fsanitize.cpp -o "$testdir"/fsanitize.o
     $TESTCXX -fsanitize=address -g "$testdir"/fsanitize.o -o "$testdir"/fsanitize 2>>"$testdir"/stderr.log
     if test $? -ne 0; then
