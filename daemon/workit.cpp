@@ -208,11 +208,6 @@ int work_it(CompileJob &j, unsigned int job_stat[], MsgChannel *client, CompileR
 #ifndef SANITIZER_USED
         struct rlimit rlim;
 
-        if (getrlimit(RLIMIT_AS, &rlim)) {
-            error_client(client, "getrlimit failed.");
-            log_perror("getrlimit");
-        }
-
         rlim.rlim_cur = mem_limit * 1024 * 1024;
         rlim.rlim_max = mem_limit * 1024 * 1024;
 
