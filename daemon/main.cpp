@@ -411,7 +411,14 @@ void usage(const char *reason = 0)
 }
 
 struct timeval last_stat;
+
+// Initial rlimit for a compile job, measured in megabytes.  Will vary with
+// the amount of available memory.
 int mem_limit = 100;
+
+// Minimum rlimit for a compile job, measured in megabytes.
+const int min_mem_limit = 100;
+
 unsigned int max_kids = 0;
 
 size_t cache_size_limit = 100 * 1024 * 1024;
@@ -825,7 +832,7 @@ bool Daemon::maybe_stats(bool send_ping)
 #endif
 
         // Matz got in the urine that not all CPUs are always feed
-        mem_limit = std::max(int(msg.freeMem / std::min(std::max(max_kids, 1U), 4U)), int(100U));
+        mem_limit = std::max(int(msg.freeMem / std::min(std::max(max_kids, 1U), 4U)), min_mem_limit);
 
         if (abs(int(msg.load) - current_load) >= 100 || send_ping) {
             if (!send_scheduler(msg)) {
