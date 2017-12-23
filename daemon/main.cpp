@@ -765,9 +765,7 @@ bool Daemon::maybe_stats(bool send_ping)
         unsigned long idleLoad = 0;
         unsigned long niceLoad = 0;
 
-        if (!fill_stats(idleLoad, niceLoad, memory_fillgrade, &msg, clients.active_processes)) {
-            return false;
-        }
+        fill_stats(idleLoad, niceLoad, memory_fillgrade, &msg, clients.active_processes);
 
         time_t diff_stat = (now.tv_sec - last_stat.tv_sec) * 1000 + (now.tv_usec - last_stat.tv_usec) / 1000;
         last_stat = now;
@@ -887,14 +885,13 @@ string Daemon::dump_internals() const
     unsigned long idleLoad = 0;
     unsigned long niceLoad = 0;
 
-    if (fill_stats(idleLoad, niceLoad, memory_fillgrade, &msg, clients.active_processes)) {
-        result += "  cpu: " + toString(idleLoad) + " idle, "
-                  + toString(niceLoad) + " nice\n";
-        result += "  load: " + toString(msg.loadAvg1 / 1000.) + ", icecream_load: "
-                  + toString(icecream_load) + "\n";
-        result += "  memory: " + toString(memory_fillgrade)
-                  + " (free: " + toString(msg.freeMem) + ")\n";
-    }
+    fill_stats(idleLoad, niceLoad, memory_fillgrade, &msg, clients.active_processes);
+    result += "  cpu: " + toString(idleLoad) + " idle, "
+              + toString(niceLoad) + " nice\n";
+    result += "  load: " + toString(msg.loadAvg1 / 1000.) + ", icecream_load: "
+              + toString(icecream_load) + "\n";
+    result += "  memory: " + toString(memory_fillgrade)
+              + " (free: " + toString(msg.freeMem) + ")\n";
 
     return result;
 }
