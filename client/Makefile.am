@@ -4,6 +4,7 @@ bin_SCRIPTS = icecc-create-env
 noinst_LIBRARIES = libclient.a
 libclient_a_SOURCES = \
         arg.cpp \
+        argv.c \
         cpp.cpp \
         local.cpp \
         remote.cpp \
