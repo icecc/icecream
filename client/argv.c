@@ -22,12 +22,13 @@ Boston, MA 02110-1301, USA.  */
 /*  Create and destroy argument vectors.  An argument vector is simply an
     array of string pointers, terminated by a NULL pointer. */
 
+#include "argv.h"
+
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
-#include "ansidecl.h"
-#include "libiberty.h"
-#include "safe-ctype.h"
+
+#include <ctype.h>
 
 /*  Routines imported from standard C runtime libraries. */
 
@@ -68,6 +69,7 @@ argument vector.
 
 */
 
+static
 char **
 dupargv (char * const *argv)
 {
@@ -79,11 +81,11 @@ dupargv (char * const *argv)
   
   /* the vector */
   for (argc = 0; argv[argc] != NULL; argc++);
-  copy = (char **) xmalloc ((argc + 1) * sizeof (char *));
+  copy = (char **) malloc ((argc + 1) * sizeof (char *));
 
   /* the strings */
   for (argc = 0; argv[argc] != NULL; argc++)
-    copy[argc] = xstrdup (argv[argc]);
+    copy[argc] = strdup (argv[argc]);
   copy[argc] = NULL;
   return copy;
 }
@@ -118,7 +120,7 @@ void freeargv (char **vector)
 static void
 consume_whitespace (const char **input)
 {
-  while (ISSPACE (**input))
+  while (isspace (**input))
     {
       (*input)++;
     }
@@ -127,7 +129,7 @@ consume_whitespace (const char **input)
 static int
 only_whitespace (const char* input)
 {
-  while (*input != EOS && ISSPACE (*input))
+  while (*input != EOS && isspace (*input))
     input++;
 
   return (*input == EOS);
@@ -145,7 +147,7 @@ remains unchanged.  The last element of the vector is followed by a
 @code{NULL} element.
 
 All of the memory for the pointer array and copies of the string
-is obtained from @code{xmalloc}.  All of the memory can be returned to the
+is obtained from @code{malloc}.  All of the memory can be returned to the
 system with the single function call @code{freeargv}, which takes the
 returned result of @code{buildargv}, as it's argument.
 
@@ -173,7 +175,7 @@ returned, as appropriate.
 
 */
 
-char **buildargv (const char *input)
+static char **buildargv (const char *input)
 {
   char *arg;
   char *copybuf;
@@ -187,7 +189,7 @@ char **buildargv (const char *input)
 
   if (input != NULL)
     {
-      copybuf = (char *) xmalloc (strlen (input) + 1);
+      copybuf = (char *) malloc (strlen (input) + 1);
       /* Is a do{}while to always execute the loop once.  Always return an
 	 argv, even for null strings.  See NOTES above, test case below. */
       do
@@ -201,12 +203,12 @@ char **buildargv (const char *input)
 	      if (argv == NULL)
 		{
 		  maxargc = INITIAL_MAXARGC;
-		  nargv = (char **) xmalloc (maxargc * sizeof (char *));
+		  nargv = (char **) malloc (maxargc * sizeof (char *));
 		}
 	      else
 		{
 		  maxargc *= 2;
-		  nargv = (char **) xrealloc (argv, maxargc * sizeof (char *));
+		  nargv = (char **) realloc (argv, maxargc * sizeof (char *));
 		}
 	      argv = nargv;
 	      argv[argc] = NULL;
@@ -215,7 +217,7 @@ char **buildargv (const char *input)
 	  arg = copybuf;
 	  while (*input != EOS)
 	    {
-	      if (ISSPACE (*input) && !squote && !dquote && !bsquote)
+	      if (isspace (*input) && !squote && !dquote && !bsquote)
 		{
 		  break;
 		}
@@ -271,7 +273,7 @@ char **buildargv (const char *input)
 		}
 	    }
 	  *arg = EOS;
-	  argv[argc] = xstrdup (copybuf);
+	  argv[argc] = strdup (copybuf);
 	  argc++;
 	  argv[argc] = NULL;
 
@@ -282,61 +284,6 @@ char **buildargv (const char *input)
       free (copybuf);
     }
   return (argv);
-}
-
-/*
-
-@deftypefn Extension int writeargv (char * const *@var{argv}, FILE *@var{file})
-
-Write each member of ARGV, handling all necessary quoting, to the file
-named by FILE, separated by whitespace.  Return 0 on success, non-zero
-if an error occurred while writing to FILE.
-
-@end deftypefn
-
-*/
-
-int
-writeargv (char * const *argv, FILE *f)
-{
-  int status = 0;
-
-  if (f == NULL)
-    return 1;
-
-  while (*argv != NULL)
-    {
-      const char *arg = *argv;
-
-      while (*arg != EOS)
-        {
-          char c = *arg;
-
-          if (ISSPACE(c) || c == '\\' || c == '\'' || c == '"')
-            if (EOF == fputc ('\\', f))
-              {
-                status = 1;
-                goto done;
-              }
-
-          if (EOF == fputc (c, f))
-            {
-              status = 1;
-              goto done;
-            }
-          arg++;
-        }
-
-      if (EOF == fputc ('\n', f))
-        {
-          status = 1;
-          goto done;
-        }
-      argv++;
-    }
-
- done:
-  return status;
 }
 
 /*
@@ -405,7 +352,7 @@ expandargv (int *argcp, char ***argvp)
       if (-- iteration_limit == 0)
 	{
 	  fprintf (stderr, "%s: error: too many @-files encountered\n", (*argvp)[0]);
-	  xexit (1);
+	  exit (1);
 	}
 #ifdef S_ISDIR
       if (stat (filename+1, &sb) < 0)
@@ -413,7 +360,7 @@ expandargv (int *argcp, char ***argvp)
       if (S_ISDIR(sb.st_mode))
 	{
 	  fprintf (stderr, "%s: error: @-file refers to a directory\n", (*argvp)[0]);
-	  xexit (1);
+	  exit (1);
 	}
 #endif
       /* Read the contents of the file.  */
@@ -427,7 +374,7 @@ expandargv (int *argcp, char ***argvp)
 	goto error;
       if (fseek (f, 0L, SEEK_SET) == -1)
 	goto error;
-      buffer = (char *) xmalloc (pos * sizeof (char) + 1);
+      buffer = (char *) malloc (pos * sizeof (char) + 1);
       len = fread (buffer, sizeof (char), pos, f);
       if (len != (size_t) pos
 	  /* On Windows, fread may return a value smaller than POS,
@@ -442,7 +389,7 @@ expandargv (int *argcp, char ***argvp)
 	 instead.  */
       if (only_whitespace (buffer))
 	{
-	  file_argv = (char **) xmalloc (sizeof (char *));
+	  file_argv = (char **) malloc (sizeof (char *));
 	  file_argv[0] = NULL;
 	}
       else
@@ -458,7 +405,7 @@ expandargv (int *argcp, char ***argvp)
       /* Now, insert FILE_ARGV into ARGV.  The "+1" below handles the
 	 NULL terminator at the end of ARGV.  */ 
       *argvp = ((char **) 
-		xrealloc (*argvp, 
+		realloc (*argvp, 
 			  (*argcp + file_argc + 1) * sizeof (char *)));
       memmove (*argvp + i + file_argc, *argvp + i + 1, 
 	       (*argcp - i) * sizeof (char *));
@@ -479,77 +426,3 @@ expandargv (int *argcp, char ***argvp)
       fclose (f);
     }
 }
-
-/*
-
-@deftypefn Extension int countargv (char * const *@var{argv})
-
-Return the number of elements in @var{argv}.
-Returns zero if @var{argv} is NULL.
-
-@end deftypefn
-
-*/
-
-int
-countargv (char * const *argv)
-{
-  int argc;
-
-  if (argv == NULL)
-    return 0;
-  for (argc = 0; argv[argc] != NULL; argc++)
-    continue;
-  return argc;
-}
-
-#ifdef MAIN
-
-/* Simple little test driver. */
-
-static const char *const tests[] =
-{
-  "a simple command line",
-  "arg 'foo' is single quoted",
-  "arg \"bar\" is double quoted",
-  "arg \"foo bar\" has embedded whitespace",
-  "arg 'Jack said \\'hi\\'' has single quotes",
-  "arg 'Jack said \\\"hi\\\"' has double quotes",
-  "a b c d e f g h i j k l m n o p q r s t u v w x y z 1 2 3 4 5 6 7 8 9",
-  
-  /* This should be expanded into only one argument.  */
-  "trailing-whitespace ",
-
-  "",
-  NULL
-};
-
-int
-main (void)
-{
-  char **argv;
-  const char *const *test;
-  char **targs;
-
-  for (test = tests; *test != NULL; test++)
-    {
-      printf ("buildargv(\"%s\")\n", *test);
-      if ((argv = buildargv (*test)) == NULL)
-	{
-	  printf ("failed!\n\n");
-	}
-      else
-	{
-	  for (targs = argv; *targs != NULL; targs++)
-	    {
-	      printf ("\t\"%s\"\n", *targs);
-	    }
-	  printf ("\n");
-	}
-      freeargv (argv);
-    }
-
-  return 0;
-}
-
-#endif	/* MAIN */
