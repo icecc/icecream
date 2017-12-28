@@ -1664,6 +1664,7 @@ bool DiscoverSched::get_broad_answer(int ask_fd, int timeout, char *buf2, struct
     char buf = PROTOCOL_VERSION;
     fd_set read_set;
     FD_ZERO(&read_set);
+    assert(ask_fd > 0);
     FD_SET(ask_fd, &read_set);
     struct timeval tv;
     tv.tv_sec = timeout / 1000;
