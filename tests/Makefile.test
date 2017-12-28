@@ -5,10 +5,10 @@ OBJS = $(patsubst %.cpp,$(OUTDIR)/%.o,$(SOURCES))
 maketest: $(OUTDIR)/maketest
 
 $(OUTDIR)/maketest: $(OBJS)
-	g++ -o $@ $^
+	$(CXX) -o $@ $^
 
 $(OUTDIR)/%.o: %.cpp
-	g++ -o $@ -c $^
+	$(CXX) -o $@ -c $^
 
 clean:
 	rm -f $(OBJS) $(OUTDIR)/maketest

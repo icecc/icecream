@@ -758,7 +758,8 @@ make_test()
     echo Running make test.
     reset_logs "" "make test"
     make -f Makefile.test OUTDIR="$testdir" clean -s
-    PATH="$wrappers_path":/usr/local/bin:/usr/bin:/bin ICECC_TEST_SOCKET="$testdir"/socket-localice ICECC_TEST_REMOTEBUILD=1 ICECC_DEBUG=debug ICECC_LOGFILE="$testdir"/icecc.log make -f Makefile.test OUTDIR="$testdir" -j10 -s 2>>"$testdir"/stderr.log
+    ICECC_TEST_SOCKET="$testdir"/socket-localice ICECC_TEST_REMOTEBUILD=1 ICECC_DEBUG=debug ICECC_LOGFILE="$testdir"/icecc.log \
+        make -f Makefile.test OUTDIR="$testdir" CXX="${icecc} $TESTCXX" -j10 -s 2>>"$testdir"/stderr.log
     if test $? -ne 0 -o ! -x "$testdir"/maketest; then
         echo Make test failed.
         stop_ice 0
