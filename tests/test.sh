@@ -755,22 +755,12 @@ make_test()
     # make test - actually try something somewhat realistic. Since each node is set up to serve
     # only 2 jobs max, at least some of the 10 jobs should be built remotely.
 
-    # The test is run twice to select different code paths in the scheduler (first time there are no
-    # job statistics about nodes, but they will be created for the second run).
-    run_number=$1
-
-    echo Running make test $run_number.
-    reset_logs "" "make test $run_number"
-    wrappers_path=$pkglibexecdir/bin
-    if ! test -x "$wrappers_path"/g++; then
-            echo "Cannot find $prefix/lib/icecc/bin/g++ , incorrect installation."
-            stop_ice 0
-            abort_tests
-    fi
+    echo Running make test.
+    reset_logs "" "make test"
     make -f Makefile.test OUTDIR="$testdir" clean -s
     PATH="$wrappers_path":/usr/local/bin:/usr/bin:/bin ICECC_TEST_SOCKET="$testdir"/socket-localice ICECC_TEST_REMOTEBUILD=1 ICECC_DEBUG=debug ICECC_LOGFILE="$testdir"/icecc.log make -f Makefile.test OUTDIR="$testdir" -j10 -s 2>>"$testdir"/stderr.log
     if test $? -ne 0 -o ! -x "$testdir"/maketest; then
-        echo Make test $run_number failed.
+        echo Make test failed.
         stop_ice 0
         abort_tests
     fi
@@ -785,12 +775,7 @@ make_test()
     check_log_message remoteice2 "Remote compilation completed with exit code 0"
     check_log_error remoteice2 "Remote compilation aborted with exit code"
     check_log_error remoteice2 "Remote compilation exited with exit code $expected_exit"
-    if test $run_number -eq 1; then
-        check_log_message scheduler "no job stats - returning randomly selected"
-    else
-        check_log_error scheduler "no job stats - returning randomly selected"
-    fi
-    echo Make test $run_number successful.
+    echo Make test successful.
     echo
     make -f Makefile.test OUTDIR="$testdir" clean -s
 }
@@ -1664,15 +1649,7 @@ recursive_test
 ccache_test
 
 if test -z "$chroot_disabled"; then
-    # stop the scheduler, to ensure the first make run has no job statistics
-    echo Restarting icecream.
-    reset_logs local "Restarting"
-    stop_ice 1
-    start_ice
-    check_logs_for_generic_errors
-    echo Restarting icecream successful.
-    make_test 1
-    make_test 2
+    make_test
 else
     skipped_tests="$skipped_tests make_test"
 fi
