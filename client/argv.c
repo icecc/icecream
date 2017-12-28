@@ -178,7 +178,6 @@ static char **buildargv (const char *input)
   if (input == NULL)
     return NULL;
 
-  char *arg;
   char *copybuf;
   int squote = 0;
   int dquote = 0;
@@ -213,7 +212,7 @@ static char **buildargv (const char *input)
           argv[argc] = NULL;
         }
       /* Begin scanning arg */
-      arg = copybuf;
+      char *arg = copybuf;
       while (*input != EOS)
         {
           if (isspace (*input) && !squote && !dquote && !bsquote)
