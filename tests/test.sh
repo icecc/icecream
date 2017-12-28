@@ -68,6 +68,7 @@ fi
 icecc="${prefix}/bin/icecc"
 iceccd="${prefix}/sbin/iceccd"
 icecc_scheduler="${prefix}/sbin/icecc-scheduler"
+icecc_create_env="${prefix}/bin/icecc-create-env"
 netname="icecctestnetname$$"
 protocolversion=$(cat ../services/comm.h | grep '#define PROTOCOL_VERSION ' | sed 's/#define PROTOCOL_VERSION //')
 
@@ -1754,6 +1755,36 @@ icerun_test "noscheduler"
 
 reset_logs local "Closing down (only daemon)"
 stop_only_daemon 1
+
+reset_logs local "Native environment with symlink"
+echo Testing native environment with a compiler symlink.
+ok=
+if test -n "$using_gcc"; then
+    rm -f "$testdir"/$(basename $TESTCC) "$testdir"/$(basename $TESTCXX)
+    ln -s $(command -v $TESTCC) "$testdir"
+    ln -s $(command -v $TESTCXX) "$testdir"
+    ${icecc_create_env} --gcc "$testdir"/$(basename $TESTCC) "$testdir"/$(basename $TESTCXX) > "$testdir"/icecc-build-native-output
+else
+    rm -f "$testdir"/$(basename $TESTCC)
+    ln -s $(command -v $TESTCC) "$testdir"
+    ${icecc_create_env} --clang "$testdir"/$(basename $TESTCC) > "$testdir"/icecc-build-native-output
+fi
+if test $? -eq 0; then
+    tgz=$(cat "$testdir"/icecc-build-native-output | grep "^creating .*\.tar\.gz$" | sed -e "s/^creating //")
+    if test -n "$tgz"; then
+        ok=1
+        rm -f $tgz "$testdir"/icecc-build-native-output
+        rm -f "$testdir"/$(basename $TESTCC) "$testdir"/$(basename $TESTCXX)
+    fi
+fi
+if test -z "$ok"; then
+    echo Testing native environment with a compiler symlink failed.
+    cat "$testdir"/icecc-build-native-output
+    stop_ice 0
+    abort_tests
+fi
+echo Testing native environment with a compiler symlink successful.
+echo
 
 if test -n "$valgrind"; then
     rm -f "$testdir"/valgrind-*.log

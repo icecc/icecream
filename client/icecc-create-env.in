@@ -31,13 +31,45 @@ is_contained ()
   esac
 }
 
+# returns abs path to filedir
+abs_path()
+{
+    local path=$1
+    if test -f "$path"; then
+        pushd $(dirname $path) > /dev/null 2>&1
+        dir_path=`pwd -P`
+        path=$dir_path/$(basename $path)
+        popd > /dev/null 2>&1
+    elif test -d "$path"; then
+        pushd $path > /dev/null 2>&1
+        path=`pwd -P`
+        popd > /dev/null 2>&1
+    fi
+    echo $path
+}
+
+# return abs path to filedir with symlinks resolved
+resolve_path()
+{
+    local_path=$1
+    pushd / >/dev/null
+    # pwd -P in abs_path will take care of resolving symlinks in the path,
+    # so take care just of the file component itself
+    while test -L "$local_path"; do
+        cd $(dirname $local_path)
+        local_path=$(readlink $local_path)
+    done
+    abs_path $local_path
+    popd >/dev/null
+}
+
 # Avoid /../ components in paths such as /usr/X11/../lib64 .
 # This could use realpath, but that's reportedly not that widely available.
 convert_path_cdup ()
 {
   local filename="$1"
   local directory=`dirname $filename`
-  local fixed_directory=`cd "$directory" >/dev/null && pwd -P`
+  local fixed_directory=`cd "$directory" >/dev/null && pwd`
   echo ${fixed_directory}/`basename $filename`
 }
 
@@ -49,8 +81,8 @@ add_file ()
     name="$2"
   fi
   test -z "$name" && return
-  name=`convert_path_cdup $name`
-  path=`convert_path_cdup $path`
+  path=$(resolve_path $path)
+  name=$(convert_path_cdup $name)
   if test -n "$stripprefix"; then
     name=$(echo $name | sed "s#$stripprefix#/usr#" )
   fi
@@ -108,23 +140,6 @@ add_file ()
   fi
 }
 
-# returns abs path to filedir
-abs_path()
-{
-    local path=$1
-    if test -f "$path"; then
-        pushd $(dirname $path) > /dev/null 2>&1
-        dir_path=`pwd -P`
-        path=$dir_path/$(basename $path)
-        popd > /dev/null 2>&1
-    elif test -d "$path"; then
-        pushd $path > /dev/null 2>&1
-        path=`pwd -P`
-        popd > /dev/null 2>&1
-    fi
-    echo $path
-}
-
 # Search and add file to the tarball file.
 search_addfile()
 {
@@ -145,24 +160,11 @@ search_addfile()
 
     if test -z "$file_installdir"; then
         # The file is going to be added to the tarball
-        # in the same path where the compiler found it.
+        # in the same path where the compiler found it, as an absolute path.
+        # If it's not in the /usr prefix, stripprefix handling will take care of that.
 
         file_installdir=$(dirname $file)
-        abs_installdir=$(abs_path $file_installdir)
-
-        if test "$file_installdir" != "$abs_installdir"; then
-            # The path where the compiler found the file is relative!
-            # If the path where the compiler found the file is relative
-            # to compiler's path, we must change it to be relative to
-            # /usr/bin path where the compiler is going to be installed
-            # in the tarball file.
-            # Replacing relative path by abs path because the tar command
-            # used to create the tarball file doesn't work well with
-            # relative path as installdir.
-
-            compiler_basedir=$(abs_path ${compiler%/*/*})
-            file_installdir=${abs_installdir/$compiler_basedir/"/usr"}
-        fi
+        file_installdir=$(abs_path $file_installdir)
     fi
 
     add_file "$file" "$file_installdir/$file_name"
@@ -269,11 +271,11 @@ elif test -x /usr/bin/true; then
 fi
 
 if test -n "$gcc"; then
+    # getting compilers resolved path
+    added_gcc=$(resolve_path $added_gcc)
+    added_gxx=$(resolve_path $added_gxx)
     # In case gcc is installed elsewhere.
-    stripprefix=$(convert_path_cdup $(dirname $(dirname $(abs_path $added_gcc))))
-    # getting compilers abs path
-    added_gcc=$(abs_path $added_gcc)
-    added_gxx=$(abs_path $added_gxx)
+    stripprefix=$(dirname $(dirname $added_gcc))
 
     if test -z "$clang"; then
         add_file $added_gcc /usr/bin/gcc
@@ -301,8 +303,10 @@ if test -n "$gcc"; then
 fi
 
 if test -n "$clang"; then
+    # getting compilers resolved path
+    added_clang=$(resolve_path $added_clang)
     # In case clang is installed elsewhere.
-    stripprefix=$(convert_path_cdup $(dirname $(dirname $(abs_path $added_clang))))
+    stripprefix=$(dirname $(dirname $added_clang))
     add_file $added_clang /usr/bin/clang
     # HACK: Older icecream remotes have /usr/bin/{gcc|g++} hardcoded and wouldn't
     # call /usr/bin/clang at all. So include a wrapper binary that will call gcc or clang
@@ -323,7 +327,7 @@ if test -n "$clang"; then
     fi
 
     # clang always uses its internal .h files
-    clangincludes=$(dirname $($added_clang -print-file-name=include/limits.h))
+    clangincludes=$(dirname $(abs_path $($added_clang -print-file-name=include/limits.h)))
     for file in $(find $clangincludes -type f); do
       add_file "$file"
     done
