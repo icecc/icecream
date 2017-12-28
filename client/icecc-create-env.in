@@ -9,7 +9,7 @@ target_files=
 # Optional path to strip from all paths if present, e.g. if the compiler is not in /usr.
 stripprefix=
 
-case `uname` in
+case $(uname) in
     "Darwin") is_darwin=1;;
     "FreeBSD") is_freebsd=1;;
     "Linux") is_linux=1;;
@@ -37,12 +37,12 @@ abs_path()
     local path=$1
     if test -f "$path"; then
         pushd $(dirname $path) > /dev/null 2>&1
-        dir_path=`pwd -P`
+        dir_path=$(pwd -P)
         path=$dir_path/$(basename $path)
         popd > /dev/null 2>&1
     elif test -d "$path"; then
         pushd $path > /dev/null 2>&1
-        path=`pwd -P`
+        path=$(pwd -P)
         popd > /dev/null 2>&1
     fi
     echo $path
@@ -68,9 +68,9 @@ resolve_path()
 convert_path_cdup ()
 {
   local filename="$1"
-  local directory=`dirname $filename`
-  local fixed_directory=`cd "$directory" >/dev/null && pwd`
-  echo ${fixed_directory}/`basename $filename`
+  local directory=$(dirname $filename)
+  local fixed_directory=$(cd "$directory" >/dev/null && pwd)
+  echo ${fixed_directory}/$(basename $filename)
 }
 
 add_file ()
@@ -104,11 +104,11 @@ add_file ()
 		#         libc.so.6 => /lib/tls/libc.so.6 (0xb7e81000)
 		#         /lib/ld-linux.so.2 (0xb7fe8000)
 		# covering both situations ( with => and without )
-           for lib in `ldd "$path" | sed -n 's,^[^/]*\(/[^ ]*\).*,\1,p'`; do
+           for lib in $(ldd "$path" | sed -n 's,^[^/]*\(/[^ ]*\).*,\1,p'); do
 	      test -f "$lib" || continue
 	      # Check wether the same library also exists in the parent directory,
 	      # and prefer that on the assumption that it is a more generic one.
-	      local baselib=`echo "$lib" | sed 's,\(/[^/]*\)/.*\(/[^/]*\)$,\1\2,'`
+	      local baselib=$(echo "$lib" | sed 's,\(/[^/]*\)/.*\(/[^/]*\)$,\1\2,')
 	      test -f "$baselib" && lib=$baselib
               add_file "$lib"
            done
@@ -120,11 +120,11 @@ add_file ()
           #         /usr/lib/libiconv.2.dylib
           #         /usr/lib/libSystem.B.dylib
           #         /usr/lib/libstdc++.6.dylib
-          for lib in `otool -L "$path" | sed -n 's,^[^/@]*\([/@][^ ]*\).*,\1,p'`; do
+          for lib in $(otool -L "$path" | sed -n 's,^[^/@]*\([/@][^ ]*\).*,\1,p'); do
             local libinstall=""
             if test "${lib%%/*}" = "@executable_path"; then
               # Installs libs like @executable_path/libllvmgcc.dylib
-              # that contains @executable_path in its path in `dirname ${name}`
+              # that contains @executable_path in its path in $(dirname ${name})
               # (the same install path of the executable program)
               libinstall="${name%/*}${lib#@executable_path}"
               lib="${path%/*}${lib#@executable_path}"
@@ -132,7 +132,7 @@ add_file ()
 	    test -f "$lib" || continue
 	    # Check wether the same library also exists in the parent directory,
 	    # and prefer that on the assumption that it is a more generic one.
-	    local baselib=`echo "$lib" | sed 's,\(/[^/]*\)/.*\(/[^/]*\)$,\1\2,'`
+	    local baselib=$(echo "$lib" | sed 's,\(/[^/]*\)/.*\(/[^/]*\)$,\1\2,')
 	    test -f "$baselib" && lib=$baselib
             add_file "$lib" "$libinstall"
          done
@@ -151,7 +151,7 @@ search_addfile()
     file=$($compiler -print-prog-name=$file_name)
 
     if test -z "$file" || test "$file" = "$file_name" || ! test -e "$file"; then
-        file=`$compiler -print-file-name=$file_name`
+        file=$($compiler -print-file-name=$file_name)
     fi
 
     if ! test -e "$file"; then
@@ -261,7 +261,7 @@ if test -n "$1"; then
     exit 1
 fi
 
-tempdir=`mktemp -d /tmp/iceccenvXXXXXX`
+tempdir=$(mktemp -d /tmp/iceccenvXXXXXX)
 
 # for testing the environment is usable at all
 if test -x /bin/true; then
@@ -286,8 +286,8 @@ if test -n "$gcc"; then
         add_file $added_gcc /usr/bin/gcc.bin
         add_file $added_gxx /usr/bin/g++.bin
     fi
-    add_file `$added_gcc -print-prog-name=cc1` /usr/bin/cc1
-    add_file `$added_gxx -print-prog-name=cc1plus` /usr/bin/cc1plus
+    add_file $($added_gcc -print-prog-name=cc1) /usr/bin/cc1
+    add_file $($added_gxx -print-prog-name=cc1plus) /usr/bin/cc1plus
 
     gcc_as=$($added_gcc -print-prog-name=as)
     if test "$gcc_as" = "as"; then
@@ -351,7 +351,7 @@ if test "$is_darwin" = 1; then
     add_file /usr/lib/dyld
     add_file /usr/bin/gcc
     add_file /usr/bin/g++
-    real_file=`/usr/bin/as -micha -- < /dev/null 2>&1 | sed -n 's,^[^/]*\(/[^ :]*\).*,\1,p'`
+    real_file=$(/usr/bin/as -micha -- < /dev/null 2>&1 | sed -n 's,^[^/]*\(/[^ :]*\).*,\1,p')
     add_file $(abs_path "$real_file")
 fi
 
@@ -362,7 +362,7 @@ fi
 # for ldconfig -r to work, ld.so.conf must not contain relative paths
 # in include directives. Make them absolute.
 if test -f /etc/ld.so.conf; then
-  tmp_ld_so_conf=`mktemp /tmp/icecc_ld_so_confXXXXXX`
+  tmp_ld_so_conf=$(mktemp /tmp/icecc_ld_so_confXXXXXX)
   while read directive path; do
     if [ "$directive" = "include" -a "${path:0:1}" != "/" ]; then
       path="/etc/$path"
@@ -381,17 +381,17 @@ new_target_files=
 for i in $target_files; do
  case $i in
    *=/*)
-    target=`echo $i | cut -d= -f1`
-    path=`echo $i | cut -d= -f2`
+    target=$(echo $i | cut -d= -f1)
+    path=$(echo $i | cut -d= -f2)
     ;;
    *)
     path=$i
     target=$i
     ;;
   esac
-  mkdir -p $tempdir/`dirname $target`
+  mkdir -p $tempdir/$(dirname $target)
   cp -p $path $tempdir/$target
-  target=`echo $target | cut -b2-`
+  target=$(echo $target | cut -b2-)
   new_target_files="$new_target_files $target"
 done
 
@@ -411,13 +411,13 @@ done
 
 # now sort the files in order to make the md5sums independent
 # of ordering
-target_files=`for i in $new_target_files; do echo $i; done | sort`
-md5=`for i in $target_files; do $md5sum $tempdir/$i; done | sed -e 's/ .*$//' | $md5sum | sed -e 's/ .*$//'` || {
+target_files=$(for i in $new_target_files; do echo $i; done | sort)
+md5=$(for i in $target_files; do $md5sum $tempdir/$i; done | sed -e 's/ .*$//' | $md5sum | sed -e 's/ .*$//') || {
   echo "Couldn't compute MD5 sum."
   exit 2
 }
 echo "creating $md5.tar.gz"
-mydir=`pwd`
+mydir=$(pwd)
 cd $tempdir
 tar -czh --numeric-owner -f "$mydir/$md5".tar.gz $target_files || {
   echo "Couldn't create archive"

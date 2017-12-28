@@ -38,16 +38,16 @@ while test -n "$1"; do
             ;;
         --valgrind=*)
             get_default_valgrind_flags
-            valgrind="`echo $1 | sed 's/^--valgrind=//'` $default_valgrind_args --"
+            valgrind="$(echo $1 | sed 's/^--valgrind=//') $default_valgrind_args --"
             ;;
         --builddir=*)
-            builddir=`echo $1 | sed 's/^--builddir=//'`
+            builddir=$(echo $1 | sed 's/^--builddir=//')
             ;;
         --strict)
             strict=1
             ;;
         --strict=*)
-            strict=`echo $1 | sed 's/^--strict=//'`
+            strict=$(echo $1 | sed 's/^--strict=//')
             if test "$strict" = "0"; then
                 strict=
             fi
@@ -242,10 +242,10 @@ stop_ice()
     # 2 - do not check, do not wait (wait would fail, started by previous shell)
     check_type="$1"
     if test $check_type -eq 2; then
-        scheduler_pid=`cat "$testdir"/scheduler.pid 2>/dev/null`
-        localice_pid=`cat "$testdir"/localice.pid 2>/dev/null`
-        remoteice1_pid=`cat "$testdir"/remoteice1.pid 2>/dev/null`
-        remoteice2_pid=`cat "$testdir"/remoteice2.pid 2>/dev/null`
+        scheduler_pid=$(cat "$testdir"/scheduler.pid 2>/dev/null)
+        localice_pid=$(cat "$testdir"/localice.pid 2>/dev/null)
+        remoteice1_pid=$(cat "$testdir"/remoteice1.pid 2>/dev/null)
+        remoteice2_pid=$(cat "$testdir"/remoteice2.pid 2>/dev/null)
     fi
     if test $check_type -eq 1; then
         if test -n "$scheduler_pid"; then
@@ -288,7 +288,7 @@ stop_secondary_scheduler()
 {
     check_type="$1"
     if test $check_type -eq 2; then
-        scheduler2_pid=`cat "$testdir"/scheduler2.pid 2>/dev/null`
+        scheduler2_pid=$(cat "$testdir"/scheduler2.pid 2>/dev/null)
     fi
     if test $check_type -eq 1; then
         if test -n "$scheduler2_pid"; then
@@ -347,7 +347,7 @@ wait_for_ice_startup_complete()
         timeout=15
     fi
     notready=
-    for time in `seq 1 $timeout`; do
+    for time in $(seq 1 $timeout); do
         notready=
         for process in $processes; do
             if echo "$process" | grep -q scheduler; then
@@ -791,24 +791,24 @@ icerun_test()
     reset_logs "" "icerun${noscheduler} test"
     # remove . from PATH if set
     save_path=$PATH
-    export PATH=`echo $PATH | sed 's/:.:/:/' | sed 's/^.://' | sed 's/:.$//'`
+    export PATH=$(echo $PATH | sed 's/:.:/:/' | sed 's/^.://' | sed 's/:.$//')
     rm -rf "$testdir"/icerun
     mkdir -p "$testdir"/icerun
     if test -n "$valgrind"; then
         export ICERUN_TEST_VALGRIND=1
     fi
-    for i in `seq 1 10`; do
+    for i in $(seq 1 10); do
         path=$PATH
         if test $i -eq 1; then
             # check icerun with absolute path
-            testbin=`pwd`/icerun-test.sh
+            testbin=$(pwd)/icerun-test.sh
         elif test $i -eq 2; then
             # check with relative path
             testbin=../tests/icerun-test.sh
         elif test $i -eq 3; then
             # test with PATH
             testbin=icerun-test.sh
-            path=`pwd`:$PATH
+            path=$(pwd):$PATH
         else
             testbin=./icerun-test.sh
         fi
@@ -821,14 +821,14 @@ icerun_test()
     fi
     seen2=
     while true; do
-        runcount=`ls -1 "$testdir"/icerun/running* 2>/dev/null | wc -l`
+        runcount=$(ls -1 "$testdir"/icerun/running* 2>/dev/null | wc -l)
         if test $runcount -gt 2; then
             echo "Icerun${noscheduler} test failed, more than expected 2 processes running."
             stop_ice 0
             abort_tests
         fi
         test $runcount -eq 2 && seen2=1
-        donecount=`ls -1 "$testdir"/icerun/done* 2>/dev/null | wc -l`
+        donecount=$(ls -1 "$testdir"/icerun/done* 2>/dev/null | wc -l)
         if test $donecount -eq 10; then
             break
         fi
@@ -942,7 +942,7 @@ clangplugintest()
     if test -z "$LLVM_CONFIG"; then
         LLVM_CONFIG=llvm-config
     fi
-    clangcxxflags=`$LLVM_CONFIG --cxxflags 2>>"$testdir"/stderr.log`
+    clangcxxflags=$($LLVM_CONFIG --cxxflags 2>>"$testdir"/stderr.log)
     if test $? -ne 0; then
         echo Cannot find Clang development headers, clang plugin test skipped.
         skipped_tests="$skipped_tests clangplugin"
@@ -958,7 +958,7 @@ clangplugintest()
     # TODO This should be able to also handle the clangpluginextra.txt argument without the absolute path.
     export ICECC_EXTRAFILES=clangpluginextra.txt
     run_ice "$testdir/clangplugintest.o" "remote" 0 $TESTCXX -Wall -c -Xclang -load -Xclang "$testdir"/clangplugin.so \
-        -Xclang -add-plugin -Xclang icecreamtest -Xclang -plugin-arg-icecreamtest -Xclang `realpath -s clangpluginextra.txt` \
+        -Xclang -add-plugin -Xclang icecreamtest -Xclang -plugin-arg-icecreamtest -Xclang $(realpath -s clangpluginextra.txt) \
         clangplugintest.cpp -o "$testdir"/clangplugintest.o
     unset ICECC_EXTRAFILES
     also_remote=
@@ -1416,7 +1416,7 @@ check_log_message_count()
 {
     log="$1"
     expected_count="$2"
-    count=`cat_log_last_mark ${log} | grep "$3" | wc -l`
+    count=$(cat_log_last_mark ${log} | grep "$3" | wc -l)
     if test $count -ne $expected_count; then
         echo "Error, $log log does not contain expected count (${count} vs ${expected_count}): $3"
         stop_ice 0
@@ -1428,7 +1428,7 @@ check_section_log_message_count()
 {
     log="$1"
     expected_count="$2"
-    count=`cat_log_last_section ${log} | grep "$3" | wc -l`
+    count=$(cat_log_last_section ${log} | grep "$3" | wc -l)
     if test $count -ne $expected_count; then
         echo "Error, $log log does not contain expected count (${count} vs ${expected_count}): $3"
         stop_ice 0
@@ -1498,7 +1498,7 @@ else
 fi
 
 if test -n "$using_clang"; then
-    target=`$TESTCXX -dumpmachine`
+    target=$($TESTCXX -dumpmachine)
     run_ice "$testdir/plain.o" "remote" 0 $TESTCXX -Wall -Werror -target $target -c plain.cpp -o "$testdir"/plain.o
     if test -z "$chroot_disabled"; then
         check_section_log_message remoteice1 "remote compile arguments:.*-target $target"
@@ -1569,10 +1569,10 @@ fi
 if command -v gdb >/dev/null; then
     if command -v readelf >/dev/null; then
         debug_test "$TESTCXX" "-c -g debug.cpp" "Temporary breakpoint 1, main () at debug.cpp:8"
-        debug_test "$TESTCXX" "-c -g `pwd`/debug/debug2.cpp" "Temporary breakpoint 1, main () at `pwd`/debug/debug2.cpp:8"
+        debug_test "$TESTCXX" "-c -g $(pwd)/debug/debug2.cpp" "Temporary breakpoint 1, main () at $(pwd)/debug/debug2.cpp:8"
         if test -z "$debug_fission_disabled"; then
             debug_test "$TESTCXX" "-c -g debug.cpp -gsplit-dwarf" "Temporary breakpoint 1, main () at debug.cpp:8"
-            debug_test "$TESTCXX" "-c -g `pwd`/debug/debug2.cpp -gsplit-dwarf" "Temporary breakpoint 1, main () at `pwd`/debug/debug2.cpp:8"
+            debug_test "$TESTCXX" "-c -g $(pwd)/debug/debug2.cpp -gsplit-dwarf" "Temporary breakpoint 1, main () at $(pwd)/debug/debug2.cpp:8"
         fi
     fi
 else
@@ -1780,7 +1780,7 @@ ignored_tests=
 for item in $ignore; do
     if echo " $skipped_tests " | grep -q "$item"; then
         ignored_tests="$ignored_tests $item"
-        skipped_tests=`echo $skipped_tests | sed "s/$item//"`
+        skipped_tests=$(echo $skipped_tests | sed "s/$item//")
     fi
 done
 
