@@ -175,6 +175,9 @@ returned, as appropriate.
 
 static char **buildargv (const char *input)
 {
+  if (input == NULL)
+    return NULL;
+
   char *arg;
   char *copybuf;
   int squote = 0;
@@ -185,8 +188,6 @@ static char **buildargv (const char *input)
   char **argv = NULL;
   char **nargv;
 
-  if (input != NULL)
-    {
       copybuf = (char *) malloc (strlen (input) + 1);
       /* Is a do{}while to always execute the loop once.  Always return an
 	 argv, even for null strings.  See NOTES above, test case below. */
@@ -280,7 +281,6 @@ static char **buildargv (const char *input)
       while (*input != EOS);
 
       free (copybuf);
-    }
   return (argv);
 }
 
