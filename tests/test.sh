@@ -904,13 +904,17 @@ buildnativetest()
     elif test -n "$using_gcc"; then
         compilertype=gcc
     fi
-    ICECC_DEBUG=debug ICECC_LOGFILE="$testdir"/icecc.log ${icecc} --build-native $compilertype > icecc-build-native-output
+    ICECC_DEBUG=debug ICECC_LOGFILE="$testdir"/icecc.log ${icecc} --build-native $compilertype > "$testdir"/icecc-build-native-output
     if test $? -ne 0; then
         echo icecc --build-native test failed.
         abort_tests
     fi
-    local tgz=$(cat icecc-build-native-output | grep "^creating .*\.tar\.gz$" | sed -e "s/^creating //")
-    rm -f $tgz icecc-build-native-output
+    local tgz=$(cat "$testdir"/icecc-build-native-output | grep "^creating .*\.tar\.gz$" | sed -e "s/^creating //")
+    if test -z "$tgz"; then
+        echo icecc --build-native test failed.
+        abort_tests
+    fi
+    rm -f $tgz "$testdir"/icecc-build-native-output
     popd >/dev/null
     echo icecc --build-native test successful.
     echo
