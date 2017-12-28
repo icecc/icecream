@@ -49,9 +49,6 @@ add_file ()
     name="$2"
   fi
   test -z "$name" && return
-  # ls -H isn't really the same as readlink, but
-  # readlink is not portable enough.
-  path=`ls -H $path`
   name=`convert_path_cdup $name`
   path=`convert_path_cdup $path`
   if test -n "$stripprefix"; then
