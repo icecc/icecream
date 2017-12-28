@@ -18,7 +18,7 @@ void restore_icecc_color_diagnostics() {
     unsetenv("ICECC_COLOR_DIAGNOSTICS");
 }
 
-void test_run(const string &prefix, const char * const *argv, bool icerun, const string expected) {
+void test_run(const string &prefix, const char * const *argv, bool icerun, const string& expected) {
   list<string> extrafiles;
   CompileJob job;
   bool local = analyse_argv(argv, job, icerun, &extrafiles);

@@ -54,7 +54,7 @@ namespace
 class ofdbuf : public streambuf
 {
 public:
-    ofdbuf( int fd ) : fd( fd ) {}
+    explicit ofdbuf( int fd ) : fd( fd ) {}
     virtual int_type overflow( int_type c );
     virtual streamsize xsputn( const char* c, streamsize n );
 private:
