@@ -208,12 +208,15 @@ int work_it(CompileJob &j, unsigned int job_stat[], MsgChannel *client, CompileR
 #ifndef SANITIZER_USED
         struct rlimit rlim;
 
-        rlim.rlim_cur = mem_limit * 1024 * 1024;
-        rlim.rlim_max = mem_limit * 1024 * 1024;
+        rlim_t lim = mem_limit * 1024 * 1024;
+        rlim.rlim_cur = lim;
+        rlim.rlim_max = lim;
 
         if (setrlimit(RLIMIT_AS, &rlim)) {
             error_client(client, "setrlimit failed.");
             log_perror("setrlimit");
+        } else {
+            log_info() << "Compile job memory limit set to " << mem_limit << " megabytes" << endl;
         }
 #endif
 #endif
