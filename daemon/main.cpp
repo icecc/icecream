@@ -835,7 +835,12 @@ bool Daemon::maybe_stats(bool send_ping)
 
 #endif
 
-        // Matz got in the urine that not all CPUs are always feed
+        // Heuristic for the memory limit on compile jobs:
+        //   1) If we have four or more compile slots, allow each job 25% of the available (physical) memory.
+        //   2) If we have three compile slots, allow each job 1/3 of the available (physical) memory.
+        //   3) If we have two compile slots, allow each job 1/2 of the available (physical) memory.
+        //   4) If we have one compile slot, allow it to use all of the available (physical) memory.
+        //   5) Allow each job at least `min_mem_limit` megabytes.
         mem_limit = std::max(int(msg.freeMem / std::min(std::max(max_kids, 1U), 4U)), min_mem_limit);
 
         if (abs(int(msg.load) - current_load) >= 100 || send_ping) {
