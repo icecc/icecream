@@ -105,16 +105,14 @@ itself.
 
 void freeargv (char **vector)
 {
-  register char **scan;
+  if (vector == NULL)
+    return;
 
-  if (vector != NULL)
-    {
-      for (scan = vector; *scan != NULL; scan++)
-	{
-	  free (*scan);
-	}
-      free (vector);
-    }
+  char **scan;
+  for (scan = vector; *scan != NULL; scan++)
+    free (*scan);
+
+  free (vector);
 }
 
 static void
