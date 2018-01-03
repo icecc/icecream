@@ -111,8 +111,7 @@ simple configuration change)
 
 ### make scheduler persistent:
 
-By adding an option --scheduler-host for daemon and --persistent-client-connection for scheduler
-,the client connections are not disconnected from the scheduler even there is an availability of better scheduler.
+By adding an option --scheduler-host for daemon and --persistent-client-connection for scheduler, the client connections are not disconnected from the scheduler even there is an availability of better scheduler.
 
 TroubleShooting
 -------------------------------------------------------------------------------
