@@ -60,6 +60,7 @@
 #include "client.h"
 #include "platform.h"
 #include "util.h"
+#include "argv.h"
 
 using namespace std;
 
@@ -219,8 +220,34 @@ static int create_native(char **args)
 
 }
 
+class ArgumentExpander
+{
+public:
+    ArgumentExpander(int *argcp, char ***argvp)
+    {
+        char ** oldargv = *argvp;
+        expandargv(argcp, argvp);
+
+        newargv = *argvp;
+        if (newargv == oldargv)
+            newargv = NULL;
+    }
+
+    ~ArgumentExpander()
+    {
+        if (newargv != NULL)
+            freeargv(newargv);
+    }
+
+private:
+    char ** newargv;
+};
+
 int main(int argc, char **argv)
 {
+    // expand @responsefile contents to arguments in argv array
+    ArgumentExpander expand(&argc, &argv);
+
     char *env = getenv("ICECC_DEBUG");
     int debug_level = Error;
 
