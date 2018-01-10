@@ -632,13 +632,13 @@ bool analyse_argv(const char * const *argv, CompileJob &job, bool icerun, list<s
                 }
             } else if (str_equal("-target", a)) {
                 seen_target = true;
-                args.append(a, Arg_Remote);
+                args.append(a, Arg_Rest);
                 if (argv[i + 1]) {
-                    args.append(argv[++i], Arg_Remote);
+                    args.append(argv[++i], Arg_Rest);
                 }
             } else if (str_startswith("--target=", a)) {
                 seen_target = true;
-                args.append(a, Arg_Remote);
+                args.append(a, Arg_Rest);
             } else if (str_equal("-Wunused-macros", a)) {
                 wunused_macros = true;
                 args.append(a, Arg_Rest);
