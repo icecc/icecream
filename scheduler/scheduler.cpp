@@ -576,18 +576,6 @@ static CompileServer *pick_server(Job *job)
         return 0;
     }
 
-    /* Now guess about the job.  First see, if this submitter already
-       had other jobs.  Use them as base.  */
-    JobStat guess;
-
-    if (job->submitter()->lastRequestedJobs().size() > 0) {
-        guess = job->submitter()->cumRequested()
-                / job->submitter()->lastRequestedJobs().size();
-    } else {
-        /* Otherwise simply average over all jobs.  */
-        guess = cum_job_stats / all_job_stats.size();
-    }
-
     CompileServer *best = 0;
     // best uninstalled
     CompileServer *bestui = 0;
