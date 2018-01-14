@@ -953,7 +953,7 @@ int Daemon::scheduler_use_cs(UseCSMsg *msg)
 int Daemon::scheduler_no_cs(NoCSMsg *msg)
 {
     Client *c = clients.find_by_client_id(msg->client_id);
-    trace() << "handle_use_cs " << msg->job_id << " " << msg->client_id
+    trace() << "handle_no_cs " << msg->job_id << " " << msg->client_id
             << " " << c << " " <<  endl;
 
     if (!c) {
