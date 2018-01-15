@@ -70,7 +70,7 @@ iceccd="${prefix}/sbin/iceccd"
 icecc_scheduler="${prefix}/sbin/icecc-scheduler"
 icecc_create_env="${prefix}/bin/icecc-create-env"
 netname="icecctestnetname$$"
-protocolversion=$(cat ../services/comm.h | grep '#define PROTOCOL_VERSION ' | sed 's/#define PROTOCOL_VERSION //')
+protocolversion=$(grep '#define PROTOCOL_VERSION ' ../services/comm.h | sed 's/#define PROTOCOL_VERSION //')
 
 if test -z "$prefix" -o ! -x "$icecc"; then
     usage
@@ -896,7 +896,7 @@ buildnativetest()
         echo icecc --build-native test failed.
         abort_tests
     fi
-    local tgz=$(cat "$testdir"/icecc-build-native-output | grep "^creating .*\.tar\.gz$" | sed -e "s/^creating //")
+    local tgz=$(grep "^creating .*\.tar\.gz$" "$testdir"/icecc-build-native-output | sed -e "s/^creating //")
     if test -z "$tgz"; then
         echo icecc --build-native test failed.
         abort_tests
@@ -1306,7 +1306,7 @@ dump_logs()
         if  test -n "$has_error"; then
             echo ------------------------------------------------
             echo "Log: ${log}" | sed "s#${testdir}/##"
-            cat ${log} | grep -v ICEERRORBEGIN | grep -v ICEERROREND
+            grep -v ICEERRORBEGIN ${log} | grep -v ICEERROREND
         fi
     done
 }
@@ -1314,13 +1314,13 @@ dump_logs()
 cat_log_last_mark()
 {
     log="$1"
-    cat "$testdir"/${log}.log | grep -A 100000 "flush log mark: =${last_section_log_mark}=" | grep -v "flush log mark: "
+    grep -A 100000 "flush log mark: =${last_section_log_mark}=" "$testdir"/${log}.log | grep -v "flush log mark: "
 }
 
 cat_log_last_section()
 {
     log="$1"
-    cat "$testdir"/${log}.log | grep -A 100000 "flush log mark: =${last_reset_log_mark}=" | grep -v "flush log mark: "
+    grep -A 100000 "flush log mark: =${last_reset_log_mark}=" "$testdir"/${log}.log | grep -v "flush log mark: "
 }
 
 check_logs_for_generic_errors()
@@ -1748,7 +1748,7 @@ else
     ${icecc_create_env} --clang "$testdir"/$(basename $TESTCC) > "$testdir"/icecc-build-native-output
 fi
 if test $? -eq 0; then
-    tgz=$(cat "$testdir"/icecc-build-native-output | grep "^creating .*\.tar\.gz$" | sed -e "s/^creating //")
+    tgz=$(grep "^creating .*\.tar\.gz$" "$testdir"/icecc-build-native-output | sed -e "s/^creating //")
     if test -n "$tgz"; then
         ok=1
         rm -f $tgz "$testdir"/icecc-build-native-output
