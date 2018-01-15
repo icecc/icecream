@@ -83,7 +83,7 @@ static void dcc_show_usage(void)
         "                              If set to \"disable\", just exec the real compiler, but without\n"
         "                              notifying the daemon and only run one job at a time.\n"
         "   ICECC_VERSION              use a specific icecc environment, see icecc-create-env\n"
-        "   ICECC_DEBUG                [info | warnings | debug]\n"
+        "   ICECC_DEBUG                [info | warning | debug]\n"
         "                              sets verboseness of icecream client.\n"
         "   ICECC_LOGFILE              if set, additional debug information is logged to the specified file\n"
         "   ICECC_REPEAT_RATE          the number of jobs out of 1000 that should be\n"
@@ -112,7 +112,7 @@ static void icerun_show_usage(void)
         "   --version                  show version and exit\n"
         "Environment Variables:\n"
         "   ICECC                      if set to \"no\", just exec the real command\n"
-        "   ICECC_DEBUG                [info | warnings | debug]\n"
+        "   ICECC_DEBUG                [info | warning | debug]\n"
         "                              sets verboseness of icecream client.\n"
         "   ICECC_LOGFILE              if set, additional debug information is logged to the specified file\n"
         "\n");
@@ -286,7 +286,9 @@ int main(int argc, char **argv)
     if (env) {
         if (!strcasecmp(env, "info"))  {
             debug_level = Info;
-        } else if (!strcasecmp(env, "warnings")) {
+        } else if (!strcasecmp(env, "warning") || !strcasecmp(env, "warnings")) {
+            // "warnings was referred to in the --help output, handle it
+            // backwards compatibility.
             debug_level = Warning;
         } else { // any other value
             debug_level = Debug;
