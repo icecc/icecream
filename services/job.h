@@ -29,10 +29,9 @@
 #include <sstream>
 
 typedef enum {
-    Arg_Unspecified,
-    Arg_Local,
-    Arg_Remote,
-    Arg_Rest
+    Arg_Local,  // Local-only args.
+    Arg_Remote, // Remote-only args.
+    Arg_Rest    // Args to use both locally and remotely.
 } Argument_Type;
 
 class ArgumentsList : public std::list<std::pair<std::string, Argument_Type> >
