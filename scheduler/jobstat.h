@@ -25,7 +25,7 @@
 #define JOBSTAT_H
 
 struct JobStat {
-public:
+  public:
     JobStat();
 
     unsigned long outputSize() const;
@@ -55,9 +55,9 @@ public:
 
     JobStat &operator/=(int d);
 
-private:
-    unsigned long m_outputSize;  // output size (uncompressed)
-    unsigned long m_compileTimeReal;  // in milliseconds
+  private:
+    unsigned long m_outputSize;      // output size (uncompressed)
+    unsigned long m_compileTimeReal; // in milliseconds
     unsigned long m_compileTimeUser;
     unsigned long m_compileTimeSys;
     unsigned int m_jobId;

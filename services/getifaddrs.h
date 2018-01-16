@@ -28,11 +28,11 @@
 
 #include <sys/types.h>
 
-#include <sys/socket.h>
 #include <net/if.h>
+#include <sys/socket.h>
 
 #ifndef IFF_POINTOPOINT
-#   define IFF_POINTOPOINT 0x10
+#define IFF_POINTOPOINT 0x10
 #endif
 
 #ifdef HAVE_IFADDRS_H
@@ -47,7 +47,6 @@
 #ifndef GETIFADDRS_H
 #define GETIFADDRS_H
 
-
 #include <sys/socket.h>
 
 /* The `getifaddrs' function generates a linked list of these structures.
@@ -55,8 +54,8 @@
 struct kde_ifaddrs {
     struct kde_ifaddrs *ifa_next; /* Pointer to the next structure.  */
 
-    char *ifa_name;       /* Name of this network interface.  */
-    unsigned int ifa_flags;   /* Flags as from SIOCGIFFLAGS ioctl.  */
+    char *ifa_name;         /* Name of this network interface.  */
+    unsigned int ifa_flags; /* Flags as from SIOCGIFFLAGS ioctl.  */
 
     struct sockaddr *ifa_addr;    /* Network address of this interface.  */
     struct sockaddr *ifa_netmask; /* Netmask of this interface.  */
@@ -67,21 +66,20 @@ struct kde_ifaddrs {
            IFF_POINTOPOINT bit is set, then `ifa_dstaddr' is valid.
            It is never the case that both these bits are set at once.  */
         struct sockaddr *ifu_broadaddr; /* Broadcast address of this interface. */
-        struct sockaddr *ifu_dstaddr; /* Point-to-point destination address.  */
+        struct sockaddr *ifu_dstaddr;   /* Point-to-point destination address.  */
     } ifa_ifu;
 
     /* These very same macros are defined by <net/if.h> for `struct ifaddr'.
        So if they are defined already, the existing definitions will be fine.  */
-# ifndef ifa_broadaddr
-#  define ifa_broadaddr ifa_ifu.ifu_broadaddr
-# endif
-# ifndef ifa_dstaddr
-#  define ifa_dstaddr ifa_ifu.ifu_dstaddr
-# endif
+#ifndef ifa_broadaddr
+#define ifa_broadaddr ifa_ifu.ifu_broadaddr
+#endif
+#ifndef ifa_dstaddr
+#define ifa_dstaddr ifa_ifu.ifu_dstaddr
+#endif
 
-    void *ifa_data;       /* Address-specific data (may be unused).  */
+    void *ifa_data; /* Address-specific data (may be unused).  */
 };
-
 
 /* Create a linked list of `struct kde_ifaddrs' structures, one for each
    network interface on the host machine.  If successful, store the

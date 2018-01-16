@@ -30,15 +30,15 @@
 #ifndef HAVE_IFADDRS_H
 
 #include "getifaddrs.h"
-#include <net/if.h>
-#include <sys/socket.h>
-#include <sys/ioctl.h>
-#include <unistd.h>
-#include <stdlib.h>
-#include <string.h>
 #include <errno.h>
+#include <net/if.h>
 #include <netinet/in.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/ioctl.h>
+#include <sys/socket.h>
+#include <unistd.h>
 
 #ifndef IF_NAMESIZE
 #define IF_NAMESIZE IFNAMSIZ
@@ -48,13 +48,12 @@
 
 #define old_siocgifconf 0
 
-static inline void __ifreq(struct ifreq **ifreqs, int *num_ifs, int sockfd)
-{
+static inline void __ifreq(struct ifreq **ifreqs, int *num_ifs, int sockfd) {
     int fd = sockfd;
     struct ifconf ifc;
     int rq_len;
     int nifs;
-# define RQ_IFS 4
+#define RQ_IFS 4
 
     if (fd < 0) {
         fd = socket(AF_INET, SOCK_DGRAM, 0);
@@ -70,7 +69,7 @@ static inline void __ifreq(struct ifreq **ifreqs, int *num_ifs, int sockfd)
 
     /* We may be able to get the needed buffer size directly, rather than
        guessing.  */
-    if (! old_siocgifconf) {
+    if (!old_siocgifconf) {
         ifc.ifc_buf = NULL;
         ifc.ifc_len = 0;
 
@@ -86,7 +85,7 @@ static inline void __ifreq(struct ifreq **ifreqs, int *num_ifs, int sockfd)
     /* Read all the interfaces out of the kernel.  */
     while (1) {
         ifc.ifc_len = rq_len;
-        ifc.ifc_buf = (char *) realloc(ifc.ifc_buf, ifc.ifc_len);
+        ifc.ifc_buf = (char *)realloc(ifc.ifc_buf, ifc.ifc_len);
 
         if (ifc.ifc_buf == NULL || ioctl(fd, SIOCGIFCONF, &ifc) < 0) {
             if (ifc.ifc_buf) {
@@ -94,7 +93,7 @@ static inline void __ifreq(struct ifreq **ifreqs, int *num_ifs, int sockfd)
             }
 
             if (fd != sockfd) {
-                if ((-1 == close(fd)) && (errno != EBADF)){
+                if ((-1 == close(fd)) && (errno != EBADF)) {
                     log_perror("close failed");
                 }
             }
@@ -114,7 +113,7 @@ static inline void __ifreq(struct ifreq **ifreqs, int *num_ifs, int sockfd)
     nifs = ifc.ifc_len / sizeof(struct ifreq);
 
     if (fd != sockfd) {
-        if ((-1 == close(fd)) && (errno != EBADF)){
+        if ((-1 == close(fd)) && (errno != EBADF)) {
             log_perror("close failed");
         }
     }
@@ -123,20 +122,14 @@ static inline void __ifreq(struct ifreq **ifreqs, int *num_ifs, int sockfd)
     *ifreqs = (ifreq *)realloc(ifc.ifc_buf, nifs * sizeof(struct ifreq));
 }
 
-static inline struct ifreq *__if_nextreq(struct ifreq *ifr) {
-    return ifr + 1;
-}
+static inline struct ifreq *__if_nextreq(struct ifreq *ifr) { return ifr + 1; }
 
-static inline void __if_freereq(struct ifreq *ifreqs, int num_ifs)
-{
-    free(ifreqs);
-}
+static inline void __if_freereq(struct ifreq *ifreqs, int num_ifs) { free(ifreqs); }
 
 /* Create a linked list of `struct kde_ifaddrs' structures, one for each
    network interface on the host machine.  If successful, store the
    list in *IFAP and return 0.  On errors, return -1 and set `errno'.  */
-int kde_getifaddrs(struct kde_ifaddrs **ifap)
-{
+int kde_getifaddrs(struct kde_ifaddrs **ifap) {
     /* This implementation handles only IPv4 interfaces.
        The various ioctls below will only work on an AF_INET socket.
        Some different mechanism entirely must be used for IPv6.  */
@@ -150,8 +143,8 @@ int kde_getifaddrs(struct kde_ifaddrs **ifap)
 
     __ifreq(&ifreqs, &nifs, fd);
 
-    if (ifreqs == NULL) {     /* XXX doesn't distinguish error vs none */
-        if (-1 == close(fd)){
+    if (ifreqs == NULL) { /* XXX doesn't distinguish error vs none */
+        if (-1 == close(fd)) {
             log_perror("close failed");
         }
         return -1;
@@ -166,14 +159,14 @@ int kde_getifaddrs(struct kde_ifaddrs **ifap)
             struct kde_ifaddrs ia;
             struct sockaddr addr, netmask, broadaddr;
             char name[IF_NAMESIZE];
-        } *storage;
+        } * storage;
         struct ifreq *ifr;
         int i;
 
-        storage = (Storage *) malloc(nifs * sizeof storage[0]);
+        storage = (Storage *)malloc(nifs * sizeof storage[0]);
 
         if (storage == NULL) {
-            if (-1 == close(fd)){
+            if (-1 == close(fd)) {
                 log_perror("close failed");
             }
             __if_freereq(ifreqs, nifs);
@@ -191,8 +184,8 @@ int kde_getifaddrs(struct kde_ifaddrs **ifap)
             storage[i].ia.ifa_broadaddr = &storage[i].broadaddr; /* & dstaddr */
 
             /* Now copy the information we already have from SIOCGIFCONF.  */
-            storage[i].ia.ifa_name = strncpy(storage[i].name, ifr->ifr_name,
-                                             sizeof storage[i].name);
+            storage[i].ia.ifa_name =
+                strncpy(storage[i].name, ifr->ifr_name, sizeof storage[i].name);
             storage[i].addr = ifr->ifr_addr;
 
             /* The SIOCGIFCONF call filled in only the name and address.
@@ -238,7 +231,7 @@ int kde_getifaddrs(struct kde_ifaddrs **ifap)
                 storage[i].broadaddr = ifr->ifr_broadaddr;
 #endif
             } else
-                /* Just 'cause.  */
+            /* Just 'cause.  */
             {
                 memset(&storage[i].broadaddr, 0, sizeof storage[i].broadaddr);
             }
@@ -248,8 +241,8 @@ int kde_getifaddrs(struct kde_ifaddrs **ifap)
             ifr = __if_nextreq(ifr);
         } while (++i < nifs);
 
-        if (i < nifs) {   /* Broke out early on error.  */
-            if (-1 == close(fd)){
+        if (i < nifs) { /* Broke out early on error.  */
+            if (-1 == close(fd)) {
                 log_perror("close failed");
             }
             free(storage);
@@ -261,7 +254,7 @@ int kde_getifaddrs(struct kde_ifaddrs **ifap)
 
         *ifap = &storage[0].ia;
 
-        if (-1 == close(fd)){
+        if (-1 == close(fd)) {
             log_perror("close failed");
         }
         __if_freereq(ifreqs, nifs);
@@ -270,20 +263,13 @@ int kde_getifaddrs(struct kde_ifaddrs **ifap)
     return 0;
 }
 
-void kde_freeifaddrs(struct kde_ifaddrs *ifa)
-{
-    free(ifa);
-}
+void kde_freeifaddrs(struct kde_ifaddrs *ifa) { free(ifa); }
 
 #else
-int kde_getifaddrs(struct kde_ifaddrs **)
-{
-    return 1;
-}
-void kde_freeifaddrs(struct kde_ifaddrs *)
-{
-}
-struct { } kde_ifaddrs;
+int kde_getifaddrs(struct kde_ifaddrs **) { return 1; }
+void kde_freeifaddrs(struct kde_ifaddrs *) {}
+struct {
+} kde_ifaddrs;
 
 #endif
 

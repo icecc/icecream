@@ -1,5 +1,3 @@
 #include "make.h"
 
-void make7()
-    {
-    }
+void make7() {}

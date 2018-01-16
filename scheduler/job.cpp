@@ -26,199 +26,85 @@
 #include "compileserver.h"
 
 Job::Job(const unsigned int _id, CompileServer *subm)
-    : m_id(_id)
-    , m_localClientId(0)
-    , m_state(PENDING)
-    , m_server(0)
-    , m_submitter(subm)
-    , m_startTime(0)
-    , m_startOnScheduler(0)
-    , m_doneTime(0)
-    , m_targetPlatform()
-    , m_fileName()
-    , m_masterJobFor()
-    , m_argFlags(0)
-    , m_language()
-    , m_preferredHost()
-    , m_minimalHostVersion(0)
-{
+    : m_id(_id), m_localClientId(0), m_state(PENDING), m_server(0), m_submitter(subm),
+      m_startTime(0), m_startOnScheduler(0), m_doneTime(0), m_targetPlatform(), m_fileName(),
+      m_masterJobFor(), m_argFlags(0), m_language(), m_preferredHost(), m_minimalHostVersion(0) {
     m_submitter->submittedJobsIncrement();
 }
 
-Job::~Job()
-{
+Job::~Job() {
     // XXX is this really deleted on all other paths?
     /*    fd2chan.erase (channel->fd);
         delete channel;*/
     m_submitter->submittedJobsDecrement();
 }
 
-unsigned int Job::id() const
-{
-    return m_id;
-}
+unsigned int Job::id() const { return m_id; }
 
-void Job::setId(const unsigned int id)
-{
-    m_id = id;
-}
+void Job::setId(const unsigned int id) { m_id = id; }
 
-unsigned int Job::localClientId() const
-{
-    return m_localClientId;
-}
+unsigned int Job::localClientId() const { return m_localClientId; }
 
-void Job::setLocalClientId(const unsigned int id)
-{
-    m_localClientId = id;
-}
+void Job::setLocalClientId(const unsigned int id) { m_localClientId = id; }
 
-Job::State Job::state() const
-{
-    return m_state;
-}
+Job::State Job::state() const { return m_state; }
 
-void Job::setState(const Job::State state)
-{
-    m_state = state;
-}
+void Job::setState(const Job::State state) { m_state = state; }
 
-CompileServer *Job::server() const
-{
-    return m_server;
-}
+CompileServer *Job::server() const { return m_server; }
 
-void Job::setServer(CompileServer *server)
-{
-    m_server = server;
-}
+void Job::setServer(CompileServer *server) { m_server = server; }
 
-CompileServer *Job::submitter() const
-{
-    return m_submitter;
-}
+CompileServer *Job::submitter() const { return m_submitter; }
 
-void Job::setSubmitter(CompileServer *submitter)
-{
-    m_submitter = submitter;
-}
+void Job::setSubmitter(CompileServer *submitter) { m_submitter = submitter; }
 
-Environments Job::environments() const
-{
-    return m_environments;
-}
+Environments Job::environments() const { return m_environments; }
 
-void Job::setEnvironments(const Environments &environments)
-{
-    m_environments = environments;
-}
+void Job::setEnvironments(const Environments &environments) { m_environments = environments; }
 
-void Job::appendEnvironment(const std::pair<std::string, std::string> &env)
-{
+void Job::appendEnvironment(const std::pair<std::string, std::string> &env) {
     m_environments.push_back(env);
 }
 
-void Job::clearEnvironments()
-{
-    m_environments.clear();
-}
+void Job::clearEnvironments() { m_environments.clear(); }
 
-time_t Job::startTime() const
-{
-    return m_startTime;
-}
+time_t Job::startTime() const { return m_startTime; }
 
-void Job::setStartTime(const time_t time)
-{
-    m_startTime = time;
-}
+void Job::setStartTime(const time_t time) { m_startTime = time; }
 
-time_t Job::startOnScheduler() const
-{
-    return m_startOnScheduler;
-}
+time_t Job::startOnScheduler() const { return m_startOnScheduler; }
 
-void Job::setStartOnScheduler(const time_t time)
-{
-    m_startOnScheduler = time;
-}
+void Job::setStartOnScheduler(const time_t time) { m_startOnScheduler = time; }
 
-time_t Job::doneTime() const
-{
-    return m_doneTime;
-}
+time_t Job::doneTime() const { return m_doneTime; }
 
-void Job::setDoneTime(const time_t time)
-{
-    m_doneTime = time;
-}
+void Job::setDoneTime(const time_t time) { m_doneTime = time; }
 
-std::string Job::targetPlatform() const
-{
-    return m_targetPlatform;
-}
+std::string Job::targetPlatform() const { return m_targetPlatform; }
 
-void Job::setTargetPlatform(const std::string &platform)
-{
-    m_targetPlatform = platform;
-}
+void Job::setTargetPlatform(const std::string &platform) { m_targetPlatform = platform; }
 
-std::string Job::fileName() const
-{
-    return m_fileName;
-}
+std::string Job::fileName() const { return m_fileName; }
 
-void Job::setFileName(const std::string &fileName)
-{
-    m_fileName = fileName;
-}
+void Job::setFileName(const std::string &fileName) { m_fileName = fileName; }
 
-std::list<Job *> Job::masterJobFor() const
-{
-    return m_masterJobFor;
-}
+std::list<Job *> Job::masterJobFor() const { return m_masterJobFor; }
 
-void Job::appendJob(Job *job)
-{
-    m_masterJobFor.push_back(job);
-}
+void Job::appendJob(Job *job) { m_masterJobFor.push_back(job); }
 
-unsigned int Job::argFlags() const
-{
-    return m_argFlags;
-}
+unsigned int Job::argFlags() const { return m_argFlags; }
 
-void Job::setArgFlags(const unsigned int argFlags)
-{
-    m_argFlags = argFlags;
-}
+void Job::setArgFlags(const unsigned int argFlags) { m_argFlags = argFlags; }
 
-std::string Job::language() const
-{
-    return m_language;
-}
+std::string Job::language() const { return m_language; }
 
-void Job::setLanguage(const std::string &language)
-{
-    m_language = language;
-}
+void Job::setLanguage(const std::string &language) { m_language = language; }
 
-std::string Job::preferredHost() const
-{
-    return m_preferredHost;
-}
+std::string Job::preferredHost() const { return m_preferredHost; }
 
-void Job::setPreferredHost(const std::string &host)
-{
-    m_preferredHost = host;
-}
+void Job::setPreferredHost(const std::string &host) { m_preferredHost = host; }
 
-int Job::minimalHostVersion() const
-{
-    return m_minimalHostVersion;
-}
+int Job::minimalHostVersion() const { return m_minimalHostVersion; }
 
-void Job::setMinimalHostVersion(int version)
-{
-    m_minimalHostVersion = version;
-}
+void Job::setMinimalHostVersion(int version) { m_minimalHostVersion = version; }

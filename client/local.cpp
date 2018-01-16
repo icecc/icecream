@@ -23,19 +23,19 @@
 
 #include "config.h"
 
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <sys/wait.h>
-#include <unistd.h>
+#include <errno.h>
 #include <limits.h>
+#include <signal.h>
 #include <stdio.h>
 #include <string.h>
-#include <errno.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <unistd.h>
 #include <vector>
-#include <signal.h>
 
-#include <comm.h>
 #include "client.h"
+#include <comm.h>
 
 using namespace std;
 
@@ -44,8 +44,7 @@ const char *rs_program_name = "icecc";
 
 #define CLIENT_DEBUG 0
 
-static string compiler_path_lookup_helper(const string &compiler, const string &compiler_path)
-{
+static string compiler_path_lookup_helper(const string &compiler, const string &compiler_path) {
     if (compiler_path.find_first_of('/') != string::npos) {
         return compiler_path;
     }
@@ -83,10 +82,9 @@ static string compiler_path_lookup_helper(const string &compiler, const string &
 
                 string target = find_basename(buffer);
 
-                if (target == rs_program_name
-                        || (after_selflink
-                            && (target == "tbcompiler" || target == "distcc"
-                                || target == "colorgcc"))) {
+                if (target == rs_program_name ||
+                    (after_selflink &&
+                     (target == "tbcompiler" || target == "distcc" || target == "colorgcc"))) {
                     // this is a link pointing to us, ignore it
                     after_selflink = true;
                     continue;
@@ -112,8 +110,7 @@ static string compiler_path_lookup_helper(const string &compiler, const string &
     return best_match;
 }
 
-string compiler_path_lookup(const string& compiler)
-{
+string compiler_path_lookup(const string &compiler) {
     return compiler_path_lookup_helper(compiler, compiler);
 }
 
@@ -123,8 +120,7 @@ string compiler_path_lookup(const string& compiler)
  * variable set. This is useful for native cross-compilers.
  * (arm-linux-gcc for example)
  */
-string find_compiler(const CompileJob &job)
-{
+string find_compiler(const CompileJob &job) {
     if (job.language() == CompileJob::Lang_C) {
         if (const char *env = getenv("ICECC_CC")) {
             return env;
@@ -140,8 +136,7 @@ string find_compiler(const CompileJob &job)
     return compiler_path_lookup_helper(job.compilerName(), job.compilerPathname());
 }
 
-bool compiler_is_clang(const CompileJob &job)
-{
+bool compiler_is_clang(const CompileJob &job) {
     if (job.language() == CompileJob::Lang_Custom) {
         return false;
     }
@@ -161,9 +156,8 @@ such #include rewritting, and it's been only recently merged upstream.
 This is similar with newer gcc versions, and gcc has -fdirectives-only, which
 works similarly to -frewrite-includes (although it's not exactly the same).
 */
-bool compiler_only_rewrite_includes(const CompileJob &job)
-{
-    if( job.blockRewriteIncludes()) {
+bool compiler_only_rewrite_includes(const CompileJob &job) {
+    if (job.blockRewriteIncludes()) {
         return false;
     }
     if (const char *rewrite_includes = getenv("ICECC_REMOTE_CPP")) {
@@ -195,17 +189,15 @@ bool compiler_only_rewrite_includes(const CompileJob &job)
     return false;
 }
 
-string clang_get_default_target(const CompileJob &job)
-{
-    return read_command_output( job.compilerPathname() + " -dumpmachine" );
+string clang_get_default_target(const CompileJob &job) {
+    return read_command_output(job.compilerPathname() + " -dumpmachine");
 }
 
 static volatile int lock_fd = 0;
 static volatile int user_break_signal = 0;
 static volatile pid_t child_pid;
 
-static void handle_user_break(int sig)
-{
+static void handle_user_break(int sig) {
     if (lock_fd) {
         dcc_unlock(lock_fd);
     }
@@ -235,8 +227,7 @@ static void handle_user_break(int sig)
  * log our resource usage.
  *
  **/
-int build_local(CompileJob &job, MsgChannel *local_daemon, struct rusage *used)
-{
+int build_local(CompileJob &job, MsgChannel *local_daemon, struct rusage *used) {
     list<string> arguments;
 
     string compiler_name = find_compiler(job);
@@ -262,7 +253,7 @@ int build_local(CompileJob &job, MsgChannel *local_daemon, struct rusage *used)
         arguments.push_back(job.outputFile());
     }
 
-    vector<char*> argv; 
+    vector<char *> argv;
     string argstxt;
 
     for (list<string>::const_iterator it = arguments.begin(); it != arguments.end(); ++it) {
@@ -286,8 +277,7 @@ int build_local(CompileJob &job, MsgChannel *local_daemon, struct rusage *used)
         lock_fd = fd;
     }
 
-    bool color_output = job.language() != CompileJob::Lang_Custom
-                        && colorify_wanted(job);
+    bool color_output = job.language() != CompileJob::Lang_Custom && colorify_wanted(job);
     int pf[2];
 
     if (color_output && pipe(pf)) {
@@ -299,7 +289,7 @@ int build_local(CompileJob &job, MsgChannel *local_daemon, struct rusage *used)
         child_pid = fork();
     }
 
-    if (child_pid == -1){
+    if (child_pid == -1) {
         log_perror("fork failed");
     }
 
@@ -307,19 +297,19 @@ int build_local(CompileJob &job, MsgChannel *local_daemon, struct rusage *used)
         dcc_increment_safeguard();
 
         if (color_output) {
-            if ((-1 == close(pf[0])) && (errno != EBADF)){
+            if ((-1 == close(pf[0])) && (errno != EBADF)) {
                 log_perror("close failed");
             }
-            if ((-1 == close(2)) && (errno != EBADF)){
+            if ((-1 == close(2)) && (errno != EBADF)) {
                 log_perror("close failed");
             }
-            if (-1 == dup2(pf[1], 2)){
+            if (-1 == dup2(pf[1], 2)) {
                 log_perror("dup2 failed");
             }
         }
 
         execv(argv[0], &argv[0]);
-        int exitcode = ( errno == ENOENT ? 127 : 126 );
+        int exitcode = (errno == ENOENT ? 127 : 126);
         log_perror("execv failed");
 
         if (lock_fd) {
@@ -334,13 +324,13 @@ int build_local(CompileJob &job, MsgChannel *local_daemon, struct rusage *used)
 
         _exit(exitcode);
     }
-    for(vector<char*>::const_iterator i = argv.begin(); i != argv.end(); ++i){
+    for (vector<char *>::const_iterator i = argv.begin(); i != argv.end(); ++i) {
         free(*i);
     }
     argv.clear();
 
     if (color_output) {
-        if ((-1 == close(pf[1])) && (errno != EBADF)){
+        if ((-1 == close(pf[1])) && (errno != EBADF)) {
             log_perror("close failed");
         }
     }
@@ -357,7 +347,7 @@ int build_local(CompileJob &job, MsgChannel *local_daemon, struct rusage *used)
         char buf[250];
 
         for (;;) {
-	    int r;
+            int r;
             while ((r = read(pf[0], buf, sizeof(buf) - 1)) > 0) {
                 buf[r] = '\0';
                 s_ccout.append(buf);
@@ -377,7 +367,8 @@ int build_local(CompileJob &job, MsgChannel *local_daemon, struct rusage *used)
 
     int status = 1;
 
-    while (wait4(child_pid, &status, 0, used) < 0 && errno == EINTR) {}
+    while (wait4(child_pid, &status, 0, used) < 0 && errno == EINTR) {
+    }
 
     status = shell_exit_status(status);
 

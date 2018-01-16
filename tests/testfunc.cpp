@@ -1,4 +1,1 @@
-int f()
-{
-    return 123;
-}
+int f() { return 123; }

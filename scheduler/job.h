@@ -32,14 +32,9 @@
 
 class CompileServer;
 
-class Job
-{
-public:
-    enum State {
-        PENDING,
-        WAITINGFORCS,
-        COMPILING
-    };
+class Job {
+  public:
+    enum State { PENDING, WAITINGFORCS, COMPILING };
 
     Job(const unsigned int _id, CompileServer *subm);
     ~Job();
@@ -92,17 +87,17 @@ public:
     void setPreferredHost(const std::string &host);
 
     int minimalHostVersion() const;
-    void setMinimalHostVersion( int version );
+    void setMinimalHostVersion(int version);
 
-private:
+  private:
     unsigned int m_id;
     unsigned int m_localClientId;
     State m_state;
-    CompileServer *m_server;  // on which server we build
-    CompileServer *m_submitter;  // who submitted us
+    CompileServer *m_server;    // on which server we build
+    CompileServer *m_submitter; // who submitted us
     Environments m_environments;
-    time_t m_startTime;  // _local_ to the compiler server
-    time_t m_startOnScheduler;  // starttime local to scheduler
+    time_t m_startTime;        // _local_ to the compiler server
+    time_t m_startOnScheduler; // starttime local to scheduler
     /**
      * the end signal from client and daemon is a bit of a race and
      * in 99.9% of all cases it's catched correctly. But for the remaining
@@ -115,9 +110,9 @@ private:
     std::string m_fileName;
     std::list<Job *> m_masterJobFor;
     unsigned int m_argFlags;
-    std::string m_language; // for debugging
+    std::string m_language;      // for debugging
     std::string m_preferredHost; // for debugging daemons
-    int m_minimalHostVersion; // minimal version required for the the remote server
+    int m_minimalHostVersion;    // minimal version required for the the remote server
 };
 
 #endif

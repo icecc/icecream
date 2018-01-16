@@ -24,11 +24,11 @@
 #ifndef _CLIENT_H_
 #define _CLIENT_H_
 
-#include <job.h>
 #include <comm.h>
-#include <sys/types.h>
-#include <sys/time.h>
+#include <job.h>
 #include <sys/resource.h>
+#include <sys/time.h>
+#include <sys/types.h>
 
 #include <stdexcept>
 
@@ -44,7 +44,7 @@ extern std::string remote_daemon;
 extern std::string get_absfilename(const std::string &_file);
 
 /* In arg.cpp.  */
-extern bool analyse_argv(const char * const *argv, CompileJob &job, bool icerun,
+extern bool analyse_argv(const char *const *argv, CompileJob &job, bool icerun,
                          std::list<std::string> *extrafiles);
 
 /* In cpp.cpp.  */
@@ -59,7 +59,8 @@ extern std::string compiler_path_lookup(const std::string &compiler);
 extern std::string clang_get_default_target(const CompileJob &job);
 
 /* In remote.cpp - permill is the probability it will be compiled three times */
-extern int build_remote(CompileJob &job, MsgChannel *scheduler, const Environments &envs, int permill);
+extern int build_remote(CompileJob &job, MsgChannel *scheduler, const Environments &envs,
+                        int permill);
 
 /* safeguard.cpp */
 extern void dcc_increment_safeguard(void);
@@ -67,24 +68,16 @@ extern int dcc_recursion_safeguard(void);
 
 extern Environments parse_icecc_version(const std::string &target, const std::string &prefix);
 
-class client_error :  public std::runtime_error
-{
-    public:
-    client_error(int code, const std::string& what) 
-    : std::runtime_error(what)
-    , errorCode(code)
-    {}
+class client_error : public std::runtime_error {
+  public:
+    client_error(int code, const std::string &what) : std::runtime_error(what), errorCode(code) {}
 
     const int errorCode;
 };
 
-class remote_error : public client_error
-{
-    public:
-    remote_error(int code, const std::string& what) 
-    : client_error(code, what)
-    {}
+class remote_error : public client_error {
+  public:
+    remote_error(int code, const std::string &what) : client_error(code, what) {}
 };
-
 
 #endif

@@ -23,15 +23,12 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-
 /* 4: The noise of a multitude in the
  * mountains, like as of a great people; a
  * tumultuous noise of the kingdoms of nations
  * gathered together: the LORD of hosts
  * mustereth the host of the battle.
  *      -- Isaiah 13 */
-
-
 
 #include "config.h"
 
@@ -41,87 +38,86 @@
 #define _GNU_SOURCE
 #endif
 
+#include <cassert>
+#include <comm.h>
+#include <errno.h>
+#include <fcntl.h>
+#include <limits.h>
+#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <unistd.h>
 #include <string.h>
-#include <fcntl.h>
-#include <errno.h>
-#include <signal.h>
-#include <cassert>
-#include <limits.h>
-#include <sys/time.h>
-#include <comm.h>
-#include <vector>
-#include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/time.h>
+#include <sys/types.h>
 #include <sys/wait.h>
+#include <unistd.h>
+#include <vector>
 
+#include "argv.h"
 #include "client.h"
 #include "platform.h"
 #include "util.h"
-#include "argv.h"
 
 using namespace std;
 
 extern const char *rs_program_name;
 
-static void dcc_show_usage(void)
-{
-    printf(
-        "Usage:\n"
-        "   icecc [compiler] [compile options] -o OBJECT -c SOURCE\n"
-        "   icecc --build-native [compilertype] [file...]\n"
-        "   icecc --help\n"
-        "\n"
-        "Options:\n"
-        "   --help                     explain usage and exit\n"
-        "   --version                  show version and exit\n"
-        "   --build-native             create icecc environment\n"
-        "Environment Variables:\n"
-        "   ICECC                      If set to \"no\", just exec the real compiler.\n"
-        "                              If set to \"disable\", just exec the real compiler, but without\n"
-        "                              notifying the daemon and only run one job at a time.\n"
-        "   ICECC_VERSION              use a specific icecc environment, see icecc-create-env\n"
-        "   ICECC_DEBUG                [info | warnings | debug]\n"
-        "                              sets verboseness of icecream client.\n"
-        "   ICECC_LOGFILE              if set, additional debug information is logged to the specified file\n"
-        "   ICECC_REPEAT_RATE          the number of jobs out of 1000 that should be\n"
-        "                              compiled on multiple hosts to ensure that they're\n"
-        "                              producing the same output.  The default is 0.\n"
-        "   ICECC_PREFERRED_HOST       overrides scheduler decisions if set.\n"
-        "   ICECC_CC                   set C compiler name (default gcc).\n"
-        "   ICECC_CXX                  set C++ compiler name (default g++).\n"
-        "   ICECC_REMOTE_CPP           set to 1 or 0 to override remote preprocessing\n"
-        "   ICECC_IGNORE_UNVERIFIED    if set, hosts where environment cannot be verified are not used.\n"
-        "   ICECC_EXTRAFILES           additional files used in the compilation.\n"
-        "   ICECC_COLOR_DIAGNOSTICS    set to 1 or 0 to override color diagnostics support.\n"
-        "   ICECC_CARET_WORKAROUND     set to 1 or 0 to override gcc show caret workaround.\n"
-        "\n");
+static void dcc_show_usage(void) {
+    printf("Usage:\n"
+           "   icecc [compiler] [compile options] -o OBJECT -c SOURCE\n"
+           "   icecc --build-native [compilertype] [file...]\n"
+           "   icecc --help\n"
+           "\n"
+           "Options:\n"
+           "   --help                     explain usage and exit\n"
+           "   --version                  show version and exit\n"
+           "   --build-native             create icecc environment\n"
+           "Environment Variables:\n"
+           "   ICECC                      If set to \"no\", just exec the real compiler.\n"
+           "                              If set to \"disable\", just exec the real compiler, but "
+           "without\n"
+           "                              notifying the daemon and only run one job at a time.\n"
+           "   ICECC_VERSION              use a specific icecc environment, see icecc-create-env\n"
+           "   ICECC_DEBUG                [info | warnings | debug]\n"
+           "                              sets verboseness of icecream client.\n"
+           "   ICECC_LOGFILE              if set, additional debug information is logged to the "
+           "specified file\n"
+           "   ICECC_REPEAT_RATE          the number of jobs out of 1000 that should be\n"
+           "                              compiled on multiple hosts to ensure that they're\n"
+           "                              producing the same output.  The default is 0.\n"
+           "   ICECC_PREFERRED_HOST       overrides scheduler decisions if set.\n"
+           "   ICECC_CC                   set C compiler name (default gcc).\n"
+           "   ICECC_CXX                  set C++ compiler name (default g++).\n"
+           "   ICECC_REMOTE_CPP           set to 1 or 0 to override remote preprocessing\n"
+           "   ICECC_IGNORE_UNVERIFIED    if set, hosts where environment cannot be verified are "
+           "not used.\n"
+           "   ICECC_EXTRAFILES           additional files used in the compilation.\n"
+           "   ICECC_COLOR_DIAGNOSTICS    set to 1 or 0 to override color diagnostics support.\n"
+           "   ICECC_CARET_WORKAROUND     set to 1 or 0 to override gcc show caret workaround.\n"
+           "\n");
 }
 
-static void icerun_show_usage(void)
-{
-    printf(
-        "Usage:\n"
-        "   icerun [command]\n"
-        "   icerun --help\n"
-        "\n"
-        "Options:\n"
-        "   --help                     explain usage and exit\n"
-        "   --version                  show version and exit\n"
-        "Environment Variables:\n"
-        "   ICECC                      if set to \"no\", just exec the real command\n"
-        "   ICECC_DEBUG                [info | warnings | debug]\n"
-        "                              sets verboseness of icecream client.\n"
-        "   ICECC_LOGFILE              if set, additional debug information is logged to the specified file\n"
-        "\n");
+static void icerun_show_usage(void) {
+    printf("Usage:\n"
+           "   icerun [command]\n"
+           "   icerun --help\n"
+           "\n"
+           "Options:\n"
+           "   --help                     explain usage and exit\n"
+           "   --version                  show version and exit\n"
+           "Environment Variables:\n"
+           "   ICECC                      if set to \"no\", just exec the real command\n"
+           "   ICECC_DEBUG                [info | warnings | debug]\n"
+           "                              sets verboseness of icecream client.\n"
+           "   ICECC_LOGFILE              if set, additional debug information is logged to the "
+           "specified file\n"
+           "\n");
 }
 
 volatile bool local = false;
 
-static void dcc_client_signalled(int whichsig)
-{
+static void dcc_client_signalled(int whichsig) {
     if (!local) {
 #ifdef HAVE_STRSIGNAL
         log_info() << rs_program_name << ": " << strsignal(whichsig) << endl;
@@ -135,8 +131,7 @@ static void dcc_client_signalled(int whichsig)
     raise(whichsig);
 }
 
-static void dcc_client_catch_signals(void)
-{
+static void dcc_client_catch_signals(void) {
     signal(SIGTERM, &dcc_client_signalled);
     signal(SIGINT, &dcc_client_signalled);
     signal(SIGHUP, &dcc_client_signalled);
@@ -145,8 +140,7 @@ static void dcc_client_catch_signals(void)
 /*
  * @param args Are [clang,gcc] [extra files...]
  */
-static int create_native(char **args)
-{
+static int create_native(char **args) {
     bool is_clang = false;
     char **extrafiles = args;
     string machine_name = determine_platform();
@@ -154,12 +148,12 @@ static int create_native(char **args)
     if (machine_name.compare(0, 6, "Darwin") == 0)
         is_clang = true;
     // Args[0] may be a compiler or the first extra file.
-    if (args[0] && ((!strcmp(args[0], "clang") && (is_clang = true))
-                    || (!strcmp(args[0], "gcc") && !(is_clang = false)))) {
+    if (args[0] && ((!strcmp(args[0], "clang") && (is_clang = true)) ||
+                    (!strcmp(args[0], "gcc") && !(is_clang = false)))) {
         extrafiles++;
     }
 
-    vector<char*> argv;
+    vector<char *> argv;
     struct stat st;
 
     if (lstat(BINDIR "/icecc-create-env", &st)) {
@@ -217,15 +211,12 @@ static int create_native(char **args)
     execv(argv[0], argv.data());
     log_perror("execv failed");
     return -1;
-
 }
 
-class ArgumentExpander
-{
-public:
-    ArgumentExpander(int *argcp, char ***argvp)
-    {
-        char ** oldargv = *argvp;
+class ArgumentExpander {
+  public:
+    ArgumentExpander(int *argcp, char ***argvp) {
+        char **oldargv = *argvp;
         expandargv(argcp, argvp);
 
         newargv = *argvp;
@@ -233,18 +224,16 @@ public:
             newargv = NULL;
     }
 
-    ~ArgumentExpander()
-    {
+    ~ArgumentExpander() {
         if (newargv != NULL)
             freeargv(newargv);
     }
 
-private:
-    char ** newargv;
+  private:
+    char **newargv;
 };
 
-int main(int argc, char **argv)
-{
+int main(int argc, char **argv) {
     // expand @responsefile contents to arguments in argv array
     ArgumentExpander expand(&argc, &argv);
 
@@ -252,11 +241,11 @@ int main(int argc, char **argv)
     int debug_level = Error;
 
     if (env) {
-        if (!strcasecmp(env, "info"))  {
+        if (!strcasecmp(env, "info")) {
             debug_level |= Info | Warning;
         } else if (!strcasecmp(env, "warnings")) {
             debug_level |= Warning; // taking out warning
-        } else { // any other value
+        } else {                    // any other value
             debug_level |= Info | Debug | Warning;
         }
     }
@@ -276,8 +265,8 @@ int main(int argc, char **argv)
     dcc_client_catch_signals();
 
     std::string cwd = get_cwd();
-    if(!cwd.empty())
-        job.setWorkingDirectory( cwd );
+    if (!cwd.empty())
+        job.setWorkingDirectory(cwd);
 
     if (find_basename(compiler_name) == rs_program_name) {
         if (argc > 1) {
@@ -407,7 +396,7 @@ int main(int argc, char **argv)
         }
 
         if (!local_daemon) {
-            local_daemon = Service::createChannel("127.0.0.1", 10245, 0/*timeout*/);
+            local_daemon = Service::createChannel("127.0.0.1", 10245, 0 /*timeout*/);
         }
     } else {
         local_daemon = Service::createChannel(getenv("ICECC_TEST_SOCKET"));
@@ -425,7 +414,7 @@ int main(int argc, char **argv)
     Environments envs;
 
     if (!local) {
-        if (getenv("ICECC_VERSION")) {     // if set, use it, otherwise take default
+        if (getenv("ICECC_VERSION")) { // if set, use it, otherwise take default
             try {
                 envs = parse_icecc_version(job.targetPlatform(), find_prefix(job.compilerName()));
             } catch (std::exception) {
@@ -435,8 +424,8 @@ int main(int argc, char **argv)
             log_warning() << "Local daemon is too old to handle extra files." << endl;
             local = true;
         } else {
-            if (!local_daemon->send_msg(GetNativeEnvMsg(compiler_is_clang(job)
-                                        ? "clang" : "gcc", extrafiles))) {
+            if (!local_daemon->send_msg(
+                    GetNativeEnvMsg(compiler_is_clang(job) ? "clang" : "gcc", extrafiles))) {
                 log_warning() << "failed to write get native environment" << endl;
                 goto do_local_error;
             }
@@ -446,12 +435,12 @@ int main(int argc, char **argv)
             string native;
 
             if (umsg && umsg->type == M_NATIVE_ENV) {
-                native = static_cast<UseNativeEnvMsg*>(umsg)->nativeVersion;
+                native = static_cast<UseNativeEnvMsg *>(umsg)->nativeVersion;
             }
 
             if (native.empty() || ::access(native.c_str(), R_OK)) {
                 log_warning() << "daemon can't determine native environment. "
-                              "Set $ICECC_VERSION to an icecc environment.\n";
+                                 "Set $ICECC_VERSION to an icecc environment.\n";
             } else {
                 envs.push_back(make_pair(job.targetPlatform(), native));
                 log_info() << "native " << native << endl;
@@ -513,17 +502,16 @@ int main(int argc, char **argv)
             if (ret == 0) {
                 local_daemon->send_msg(EndMsg());
             }
-        } catch (remote_error& error) {
+        } catch (remote_error &error) {
             log_info() << "local build forced by remote exception: " << error.what() << endl;
             goto do_local_error;
-        }
-        catch (client_error& error) {
+        } catch (client_error &error) {
             if (remote_daemon.size()) {
-                log_error() << "got exception " << error.what()
-                            << " (" << remote_daemon.c_str() << ") " << endl;
+                log_error() << "got exception " << error.what() << " (" << remote_daemon.c_str()
+                            << ") " << endl;
             } else {
-                log_error() << "got exception " << error.what() << " (this should be an exception!)" <<
-                            endl;
+                log_error() << "got exception " << error.what() << " (this should be an exception!)"
+                            << endl;
             }
 
             /* currently debugging a client? throw an error then */

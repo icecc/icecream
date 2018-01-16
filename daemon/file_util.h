@@ -21,14 +21,13 @@
 #ifndef ICECREAM_FILE_UTIL_H
 #define ICECREAM_FILE_UTIL_H
 
-#include <vector>
 #include <string>
+#include <vector>
 
 std::vector<std::string> split(const std::string &s, char delim);
 std::string get_relative_path(const std::string &to, const std::string &from);
 std::string get_canonicalized_path(const std::string &path);
 bool mkpath(const std::string &path);
-bool rmpath(const char* path);
+bool rmpath(const char *path);
 
 #endif
-

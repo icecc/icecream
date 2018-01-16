@@ -23,36 +23,21 @@
 #ifndef ICECREAM_COMPILE_JOB_H
 #define ICECREAM_COMPILE_JOB_H
 
-#include <list>
-#include <string>
 #include <iostream>
+#include <list>
 #include <sstream>
+#include <string>
 
-typedef enum {
-    Arg_Unspecified,
-    Arg_Local,
-    Arg_Remote,
-    Arg_Rest
-} Argument_Type;
+typedef enum { Arg_Unspecified, Arg_Local, Arg_Remote, Arg_Rest } Argument_Type;
 
-class ArgumentsList : public std::list<std::pair<std::string, Argument_Type> >
-{
-public:
-    void append(std::string s, Argument_Type t) {
-        push_back(make_pair(s, t));
-    }
+class ArgumentsList : public std::list<std::pair<std::string, Argument_Type>> {
+  public:
+    void append(std::string s, Argument_Type t) { push_back(make_pair(s, t)); }
 };
 
-class CompileJob
-{
-public:
-    typedef enum {
-        Lang_C,
-        Lang_CXX,
-        Lang_OBJC,
-        Lang_OBJCXX,
-        Lang_Custom
-    } Language;
+class CompileJob {
+  public:
+    typedef enum { Lang_C, Lang_CXX, Lang_OBJC, Lang_OBJCXX, Lang_Custom } Language;
 
     typedef enum {
         Flag_None = 0,
@@ -63,145 +48,71 @@ public:
         Flag_Ol2 = 0x10
     } Flag;
 
-    CompileJob()
-        : m_id(0)
-        , m_dwarf_fission(false)
-        , m_block_rewrite_includes(false)
-    {
+    CompileJob() : m_id(0), m_dwarf_fission(false), m_block_rewrite_includes(false) {
         setTargetPlatform();
     }
 
-    void setCompilerName(const std::string &name)
-    {
-        m_compiler_name = name;
-    }
+    void setCompilerName(const std::string &name) { m_compiler_name = name; }
 
-    std::string compilerName() const
-    {
-        return m_compiler_name;
-    }
+    std::string compilerName() const { return m_compiler_name; }
 
-    void setLanguage(Language lg)
-    {
-        m_language = lg;
-    }
+    void setLanguage(Language lg) { m_language = lg; }
 
-    Language language() const
-    {
-        return m_language;
-    }
+    Language language() const { return m_language; }
 
     // Not used remotely.
-    void setCompilerPathname(const std::string& pathname)
-    {
-        m_compiler_pathname = pathname;
-    }
+    void setCompilerPathname(const std::string &pathname) { m_compiler_pathname = pathname; }
 
     // Not used remotely.
-    std::string compilerPathname() const
-    {
-        return m_compiler_pathname;
-    }
+    std::string compilerPathname() const { return m_compiler_pathname; }
 
-    void setEnvironmentVersion(const std::string &ver)
-    {
-        m_environment_version = ver;
-    }
+    void setEnvironmentVersion(const std::string &ver) { m_environment_version = ver; }
 
-    std::string environmentVersion() const
-    {
-        return m_environment_version;
-    }
+    std::string environmentVersion() const { return m_environment_version; }
 
     unsigned int argumentFlags() const;
 
-    void setFlags(const ArgumentsList &flags)
-    {
-        m_flags = flags;
-    }
+    void setFlags(const ArgumentsList &flags) { m_flags = flags; }
     std::list<std::string> localFlags() const;
     std::list<std::string> remoteFlags() const;
     std::list<std::string> restFlags() const;
     std::list<std::string> allFlags() const;
 
-    void setInputFile(const std::string &file)
-    {
-        m_input_file = file;
-    }
+    void setInputFile(const std::string &file) { m_input_file = file; }
 
-    std::string inputFile() const
-    {
-        return m_input_file;
-    }
+    std::string inputFile() const { return m_input_file; }
 
-    void setOutputFile(const std::string &file)
-    {
-        m_output_file = file;
-    }
+    void setOutputFile(const std::string &file) { m_output_file = file; }
 
-    std::string outputFile() const
-    {
-        return m_output_file;
-    }
+    std::string outputFile() const { return m_output_file; }
 
-    void setDwarfFissionEnabled(bool flag)
-    {
-        m_dwarf_fission = flag;
-    }
+    void setDwarfFissionEnabled(bool flag) { m_dwarf_fission = flag; }
 
-    bool dwarfFissionEnabled() const
-    {
-        return m_dwarf_fission;
-    }
+    bool dwarfFissionEnabled() const { return m_dwarf_fission; }
 
-    void setWorkingDirectory(const std::string& dir)
-    {
-        m_working_directory = dir;
-    }
+    void setWorkingDirectory(const std::string &dir) { m_working_directory = dir; }
 
-    std::string workingDirectory() const
-    {
-        return m_working_directory;
-    }
+    std::string workingDirectory() const { return m_working_directory; }
 
-    void setJobID(unsigned int id)
-    {
-        m_id = id;
-    }
+    void setJobID(unsigned int id) { m_id = id; }
 
-    unsigned int jobID() const
-    {
-        return m_id;
-    }
+    unsigned int jobID() const { return m_id; }
 
-    void appendFlag(std::string arg, Argument_Type argumentType)
-    {
+    void appendFlag(std::string arg, Argument_Type argumentType) {
         m_flags.append(arg, argumentType);
     }
 
-    std::string targetPlatform() const
-    {
-        return m_target_platform;
-    }
+    std::string targetPlatform() const { return m_target_platform; }
 
-    void setTargetPlatform(const std::string &_target)
-    {
-        m_target_platform = _target;
-    }
+    void setTargetPlatform(const std::string &_target) { m_target_platform = _target; }
 
     // Not used remotely.
-    void setBlockRewriteIncludes(bool flag)
-    {
-        m_block_rewrite_includes = flag;
-    }
+    void setBlockRewriteIncludes(bool flag) { m_block_rewrite_includes = flag; }
 
     // Not used remotely.
-    bool blockRewriteIncludes() const
-    {
-        return m_block_rewrite_includes;
-    }
+    bool blockRewriteIncludes() const { return m_block_rewrite_includes; }
 
-private:
+  private:
     std::list<std::string> flags(Argument_Type argumentType) const;
     void setTargetPlatform();
 
@@ -218,15 +129,12 @@ private:
     bool m_block_rewrite_includes;
 };
 
-inline void appendList(std::list<std::string> &list, const std::list<std::string> &toadd)
-{
+inline void appendList(std::list<std::string> &list, const std::list<std::string> &toadd) {
     // Cannot splice since toadd is a reference-to-const
     list.insert(list.end(), toadd.begin(), toadd.end());
 }
 
-inline std::ostream &operator<<( std::ostream &output,
-                                 const CompileJob::Language &l )
-{
+inline std::ostream &operator<<(std::ostream &output, const CompileJob::Language &l) {
     switch (l) {
     case CompileJob::Lang_CXX:
         output << "C++";
@@ -247,14 +155,13 @@ inline std::ostream &operator<<( std::ostream &output,
     return output;
 }
 
-inline std::string concat_args(const std::list<std::string> &args)
-{
+inline std::string concat_args(const std::list<std::string> &args) {
     std::stringstream str;
     str << "'";
 
     for (std::list<std::string>::const_iterator it = args.begin(); it != args.end();) {
         str << *it++;
-	if (it != args.end())
+        if (it != args.end())
             str << ", ";
     }
     return str.str() + "'";

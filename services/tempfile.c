@@ -20,38 +20,33 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-
 /* "More computing sins are committed in the name of
  * efficiency (without necessarily achieving it) than
  * for any other single reason - including blind
  * stupidity."  -- W.A. Wulf
  */
 
-
-
 #include "config.h"
 
 #include <sys/stat.h>
-#include <sys/types.h>
 #include <sys/time.h>
+#include <sys/types.h>
 
-#include <time.h>
+#include <errno.h>
+#include <fcntl.h>
+#include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <unistd.h>
 #include <string.h>
-#include <fcntl.h>
-#include <errno.h>
-#include <limits.h>
+#include <time.h>
+#include <unistd.h>
 
-#include "tempfile.h"
 #include "exitcode.h"
+#include "tempfile.h"
 
 #ifndef _PATH_TMP
 #define _PATH_TMP "/tmp"
 #endif
-
-
 
 /**
  * Create a file inside the temporary directory and register it for
@@ -60,8 +55,7 @@
  * The file will be reopened later, possibly in a child.  But we know
  * that it exists with appropriately tight permissions.
  **/
-int dcc_make_tmpnam(const char *prefix, const char *suffix, char **name_ret, int relative)
-{
+int dcc_make_tmpnam(const char *prefix, const char *suffix, char **name_ret, int relative) {
     unsigned long random_bits;
     unsigned long tries = 0;
     size_t tmpname_length;
@@ -74,7 +68,7 @@ int dcc_make_tmpnam(const char *prefix, const char *suffix, char **name_ret, int
         return EXIT_OUT_OF_MEMORY;
     }
 
-    random_bits = (unsigned long) getpid() << 16;
+    random_bits = (unsigned long)getpid() << 16;
 
     {
         struct timeval tv;
@@ -89,9 +83,7 @@ int dcc_make_tmpnam(const char *prefix, const char *suffix, char **name_ret, int
 
     do {
         if (snprintf(tmpname, tmpname_length, "%s/%s_%08lx%s",
-                     (relative ? _PATH_TMP + 1 : _PATH_TMP),
-                     prefix,
-                     random_bits & 0xffffffffUL,
+                     (relative ? _PATH_TMP + 1 : _PATH_TMP), prefix, random_bits & 0xffffffffUL,
                      suffix) == -1) {
             free(tmpname);
             return EXIT_OUT_OF_MEMORY;
@@ -130,7 +122,7 @@ int dcc_make_tmpnam(const char *prefix, const char *suffix, char **name_ret, int
             return EXIT_IO_ERROR;
         }
 
-        if (close(fd) == -1) {  /* huh? */
+        if (close(fd) == -1) { /* huh? */
             free(tmpname);
             return EXIT_IO_ERROR;
         }

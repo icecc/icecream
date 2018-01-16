@@ -5,7 +5,4 @@
 // this should expand to test()
 void ICECREAM_TEST_DEFINE();
 
-void test2()
-    {
-    test();
-    }
+void test2() { test(); }
