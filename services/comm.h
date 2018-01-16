@@ -21,17 +21,16 @@
     51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 */
 
-
 #ifndef ICECREAM_COMM_H
 #define ICECREAM_COMM_H
 
 #ifdef __linux__
-#  include <stdint.h>
+#include <stdint.h>
 #endif
-#include <sys/types.h>
-#include <sys/socket.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
+#include <sys/socket.h>
+#include <sys/types.h>
 
 #include "job.h"
 
@@ -86,7 +85,7 @@ enum MsgType {
     // C --> S
     M_GET_CS,
     // S --> C
-    M_USE_CS,  // = 'G'
+    M_USE_CS, // = 'G'
     // C --> CS
     M_COMPILE_FILE, // = 'I'
     // generic file transfer
@@ -96,7 +95,7 @@ enum MsgType {
 
     // CS --> S (after the C got the CS from the S, the CS tells the S when the C asks him)
     M_JOB_BEGIN,
-    M_JOB_DONE,     // = 'M'
+    M_JOB_DONE, // = 'M'
 
     // C --> CS, CS --> S (forwarded from C), _and_ CS -> C as start ping
     M_JOB_LOCAL_BEGIN, // = 'N'
@@ -136,13 +135,11 @@ enum MsgType {
 class MsgChannel;
 
 // a list of pairs of host platform, filename
-typedef std::list<std::pair<std::string, std::string> > Environments;
+typedef std::list<std::pair<std::string, std::string>> Environments;
 
-class Msg
-{
-public:
-    Msg(enum MsgType t)
-        : type(t) {}
+class Msg {
+  public:
+    Msg(enum MsgType t) : type(t) {}
     virtual ~Msg() {}
 
     virtual void fill_from_channel(MsgChannel *c);
@@ -151,14 +148,9 @@ public:
     enum MsgType type;
 };
 
-class MsgChannel
-{
-public:
-    enum SendFlags {
-        SendBlocking = 1 << 0,
-        SendNonBlocking = 1 << 1,
-        SendBulkOnly = 1 << 2
-    };
+class MsgChannel {
+  public:
+    enum SendFlags { SendBlocking = 1 << 0, SendNonBlocking = 1 << 1, SendBulkOnly = 1 << 2 };
 
     virtual ~MsgChannel();
 
@@ -171,26 +163,16 @@ public:
     // false <--> error (msg not send)
     bool send_msg(const Msg &, int SendFlags = SendBlocking);
 
-    bool has_msg(void) const
-    {
-        return eof || instate == HAS_MSG;
-    }
+    bool has_msg(void) const { return eof || instate == HAS_MSG; }
 
     bool read_a_bit(void);
 
-    bool at_eof(void) const
-    {
-        return instate != HAS_MSG && eof;
-    }
+    bool at_eof(void) const { return instate != HAS_MSG && eof; }
 
-    bool is_text_based(void) const
-    {
-        return text_based;
-    }
+    bool is_text_based(void) const { return text_based; }
 
     void readcompressed(unsigned char **buf, size_t &_uclen, size_t &_clen);
-    void writecompressed(const unsigned char *in_buf,
-                         size_t _in_len, size_t &_out_len);
+    void writecompressed(const unsigned char *in_buf, size_t _in_len, size_t &_out_len);
     void write_environments(const Environments &envs);
     void read_environments(Environments &envs);
     void read_line(std::string &line);
@@ -215,7 +197,7 @@ public:
     std::string name;
     time_t last_talk;
 
-protected:
+  protected:
     MsgChannel(int _fd, struct sockaddr *, socklen_t, bool text = false);
 
     bool wait_for_protocol();
@@ -237,18 +219,13 @@ protected:
     size_t inofs;
     size_t intogo;
 
-    enum {
-        NEED_PROTO,
-        NEED_LEN,
-        FILL_BUF,
-        HAS_MSG
-    } instate;
+    enum { NEED_PROTO, NEED_LEN, FILL_BUF, HAS_MSG } instate;
 
     uint32_t inmsglen;
     bool eof;
     bool text_based;
 
-private:
+  private:
     friend class Service;
 
     // deep copied
@@ -257,80 +234,63 @@ private:
 };
 
 // just convenient functions to create MsgChannels
-class Service
-{
-public:
+class Service {
+  public:
     static MsgChannel *createChannel(const std::string &host, unsigned short p, int timeout);
     static MsgChannel *createChannel(const std::string &domain_socket);
     static MsgChannel *createChannel(int remote_fd, struct sockaddr *, socklen_t);
 };
 
-class Broadcasts
-{
-public:
+class Broadcasts {
+  public:
     // Broadcasts a message about this scheduler and its information.
-    static void broadcastSchedulerVersion(int scheduler_port, const char* netname, time_t starttime);
+    static void broadcastSchedulerVersion(int scheduler_port, const char *netname,
+                                          time_t starttime);
     // Checks if the data received is a scheduler version broadcast.
-    static bool isSchedulerVersion(const char* buf, int buflen);
+    static bool isSchedulerVersion(const char *buf, int buflen);
     // Reads data from a scheduler version broadcast.
-    static void getSchedulerVersionData( const char* buf, int* protocol, time_t* time, std::string* netname );
+    static void getSchedulerVersionData(const char *buf, int *protocol, time_t *time,
+                                        std::string *netname);
     /// Broadcasts the given data on the given port.
     static const int BROAD_BUFLEN = 268;
-private:
-    static void broadcastData(int port, const char* buf, int size);
+
+  private:
+    static void broadcastData(int port, const char *buf, int size);
 };
 
 // --------------------------------------------------------------------------
 // this class is also used by icecream-monitor
-class DiscoverSched
-{
-public:
+class DiscoverSched {
+  public:
     /* Connect to a scheduler waiting max. TIMEOUT seconds.
        schedname can be the hostname of a box running a scheduler, to avoid
        broadcasting, port can be specified explicitly */
-    DiscoverSched(const std::string &_netname = std::string(),
-                  int _timeout = 2,
-                  const std::string &_schedname = std::string(),
-                  int port = 0);
+    DiscoverSched(const std::string &_netname = std::string(), int _timeout = 2,
+                  const std::string &_schedname = std::string(), int port = 0);
     ~DiscoverSched();
 
     bool timed_out();
 
-    int listen_fd() const
-    {
-        return schedname.empty() ? ask_fd : -1;
-    }
+    int listen_fd() const { return schedname.empty() ? ask_fd : -1; }
 
-    int connect_fd() const
-    {
-        return schedname.empty() ? -1 : ask_fd;
-    }
+    int connect_fd() const { return schedname.empty() ? -1 : ask_fd; }
 
     // compat for icecream monitor
-    int get_fd() const
-    {
-        return listen_fd();
-    }
+    int get_fd() const { return listen_fd(); }
 
     /* Attempt to get a conenction to the scheduler.
-    
-       Continue to call this while it returns NULL and timed_out() 
+
+       Continue to call this while it returns NULL and timed_out()
        returns false. If this returns NULL you should wait for either
-       more data on listen_fd() (use select), or a timeout of your own.  
+       more data on listen_fd() (use select), or a timeout of your own.
        */
     MsgChannel *try_get_scheduler();
 
     // Returns the hostname of the scheduler - set by constructor or by try_get_scheduler
-    std::string schedulerName() const
-    {
-        return schedname;
-    }
+    std::string schedulerName() const { return schedname; }
 
     // Returns the network name of the scheduler - set by constructor or by try_get_scheduler
-    std::string networkName() const
-    {
-        return netname;
-    }
+    std::string networkName() const { return netname; }
 
     /* Return a list of all reachable netnames.  We wait max. WAITTIME
        milliseconds for answers.  */
@@ -338,11 +298,11 @@ public:
 
     // Checks if the data is from a scheduler discovery broadcast, returns version of the sending
     // daemon is yes.
-    static bool isSchedulerDiscovery(const char* buf, int buflen, int* daemon_version);
+    static bool isSchedulerDiscovery(const char *buf, int buflen, int *daemon_version);
     // Prepares data for sending a reply to a scheduler discovery broadcast.
-    static int prepareBroadcastReply(char* buf, const char* netname, time_t starttime);
+    static int prepareBroadcastReply(char *buf, const char *netname, time_t starttime);
 
-private:
+  private:
     struct sockaddr_in remote_addr;
     std::string netname;
     std::string schedname;
@@ -358,10 +318,11 @@ private:
     bool multiple;
 
     void attempt_scheduler_connect();
-    void sendSchedulerDiscovery( int version );
-    static bool get_broad_answer(int ask_fd, int timeout, char *buf2, struct sockaddr_in *remote_addr,
-                 socklen_t *remote_len);
-    static void get_broad_data(const char* buf, const char** name, int* version, time_t* start_time);
+    void sendSchedulerDiscovery(int version);
+    static bool get_broad_answer(int ask_fd, int timeout, char *buf2,
+                                 struct sockaddr_in *remote_addr, socklen_t *remote_len);
+    static void get_broad_data(const char *buf, const char **name, int *version,
+                               time_t *start_time);
 };
 // --------------------------------------------------------------------------
 
@@ -369,43 +330,26 @@ private:
    milliseconds for answers.  */
 std::list<std::string> get_netnames(int waittime = 2000, int port = 8765);
 
-class PingMsg : public Msg
-{
-public:
-    PingMsg()
-        : Msg(M_PING) {}
+class PingMsg : public Msg {
+  public:
+    PingMsg() : Msg(M_PING) {}
 };
 
-class EndMsg : public Msg
-{
-public:
-    EndMsg()
-        : Msg(M_END) {}
+class EndMsg : public Msg {
+  public:
+    EndMsg() : Msg(M_END) {}
 };
 
-class GetCSMsg : public Msg
-{
-public:
-    GetCSMsg()
-        : Msg(M_GET_CS)
-        , count(1)
-        , arg_flags(0)
-        , client_id(0) {}
+class GetCSMsg : public Msg {
+  public:
+    GetCSMsg() : Msg(M_GET_CS), count(1), arg_flags(0), client_id(0) {}
 
-    GetCSMsg(const Environments &envs, const std::string &f,
-             CompileJob::Language _lang, unsigned int _count,
-             std::string _target, unsigned int _arg_flags,
+    GetCSMsg(const Environments &envs, const std::string &f, CompileJob::Language _lang,
+             unsigned int _count, std::string _target, unsigned int _arg_flags,
              const std::string &host, int _minimal_host_version)
-        : Msg(M_GET_CS)
-        , versions(envs)
-        , filename(f)
-        , lang(_lang)
-        , count(_count)
-        , target(_target)
-        , arg_flags(_arg_flags)
-        , client_id(0)
-        , preferred_host(host)
-        , minimal_host_version(_minimal_host_version) {}
+        : Msg(M_GET_CS), versions(envs), filename(f), lang(_lang), count(_count), target(_target),
+          arg_flags(_arg_flags), client_id(0), preferred_host(host),
+          minimal_host_version(_minimal_host_version) {}
 
     virtual void fill_from_channel(MsgChannel *c);
     virtual void send_to_channel(MsgChannel *c) const;
@@ -421,21 +365,13 @@ public:
     int minimal_host_version;
 };
 
-class UseCSMsg : public Msg
-{
-public:
-    UseCSMsg()
-        : Msg(M_USE_CS) {}
+class UseCSMsg : public Msg {
+  public:
+    UseCSMsg() : Msg(M_USE_CS) {}
     UseCSMsg(std::string platform, std::string host, unsigned int p, unsigned int id, bool gotit,
              unsigned int _client_id, unsigned int matched_host_jobs)
-        : Msg(M_USE_CS),
-          job_id(id),
-          hostname(host),
-          port(p),
-          host_platform(platform),
-          got_env(gotit),
-          client_id(_client_id),
-          matched_job_id(matched_host_jobs) {}
+        : Msg(M_USE_CS), job_id(id), hostname(host), port(p), host_platform(platform),
+          got_env(gotit), client_id(_client_id), matched_job_id(matched_host_jobs) {}
 
     virtual void fill_from_channel(MsgChannel *c);
     virtual void send_to_channel(MsgChannel *c) const;
@@ -449,15 +385,11 @@ public:
     uint32_t matched_job_id;
 };
 
-class NoCSMsg : public Msg
-{
-public:
-    NoCSMsg()
-        : Msg(M_NO_CS) {}
+class NoCSMsg : public Msg {
+  public:
+    NoCSMsg() : Msg(M_NO_CS) {}
     NoCSMsg(unsigned int id, unsigned int _client_id)
-        : Msg(M_NO_CS),
-          job_id(id),
-          client_id(_client_id) {}
+        : Msg(M_NO_CS), job_id(id), client_id(_client_id) {}
 
     virtual void fill_from_channel(MsgChannel *c);
     virtual void send_to_channel(MsgChannel *c) const;
@@ -466,16 +398,12 @@ public:
     uint32_t client_id;
 };
 
-class GetNativeEnvMsg : public Msg
-{
-public:
-    GetNativeEnvMsg()
-        : Msg(M_GET_NATIVE_ENV) {}
+class GetNativeEnvMsg : public Msg {
+  public:
+    GetNativeEnvMsg() : Msg(M_GET_NATIVE_ENV) {}
 
     GetNativeEnvMsg(const std::string &c, const std::list<std::string> &e)
-        : Msg(M_GET_NATIVE_ENV)
-        , compiler(c)
-        , extrafiles(e) {}
+        : Msg(M_GET_NATIVE_ENV), compiler(c), extrafiles(e) {}
 
     virtual void fill_from_channel(MsgChannel *c);
     virtual void send_to_channel(MsgChannel *c) const;
@@ -484,15 +412,11 @@ public:
     std::list<std::string> extrafiles;
 };
 
-class UseNativeEnvMsg : public Msg
-{
-public:
-    UseNativeEnvMsg()
-        : Msg(M_NATIVE_ENV) {}
+class UseNativeEnvMsg : public Msg {
+  public:
+    UseNativeEnvMsg() : Msg(M_NATIVE_ENV) {}
 
-    UseNativeEnvMsg(std::string _native)
-        : Msg(M_NATIVE_ENV)
-        , nativeVersion(_native) {}
+    UseNativeEnvMsg(std::string _native) : Msg(M_NATIVE_ENV), nativeVersion(_native) {}
 
     virtual void fill_from_channel(MsgChannel *c);
     virtual void send_to_channel(MsgChannel *c) const;
@@ -500,16 +424,12 @@ public:
     std::string nativeVersion;
 };
 
-class CompileFileMsg : public Msg
-{
-public:
+class CompileFileMsg : public Msg {
+  public:
     CompileFileMsg(CompileJob *j, bool delete_job = false)
-        : Msg(M_COMPILE_FILE)
-        , deleteit(delete_job)
-        , job(j) {}
+        : Msg(M_COMPILE_FILE), deleteit(delete_job), job(j) {}
 
-    ~CompileFileMsg()
-    {
+    ~CompileFileMsg() {
         if (deleteit) {
             delete job;
         }
@@ -519,27 +439,19 @@ public:
     virtual void send_to_channel(MsgChannel *c) const;
     CompileJob *takeJob();
 
-private:
+  private:
     std::string remote_compiler_name() const;
 
     bool deleteit;
     CompileJob *job;
 };
 
-class FileChunkMsg : public Msg
-{
-public:
+class FileChunkMsg : public Msg {
+  public:
     FileChunkMsg(unsigned char *_buffer, size_t _len)
-        : Msg(M_FILE_CHUNK)
-        , buffer(_buffer)
-        , len(_len)
-        , del_buf(false) {}
+        : Msg(M_FILE_CHUNK), buffer(_buffer), len(_len), del_buf(false) {}
 
-    FileChunkMsg()
-        : Msg(M_FILE_CHUNK)
-        , buffer(0)
-        , len(0)
-        , del_buf(true) {}
+    FileChunkMsg() : Msg(M_FILE_CHUNK), buffer(0), len(0), del_buf(true) {}
 
     ~FileChunkMsg();
 
@@ -551,19 +463,15 @@ public:
     mutable size_t compressed;
     bool del_buf;
 
-private:
+  private:
     FileChunkMsg(const FileChunkMsg &);
     FileChunkMsg &operator=(const FileChunkMsg &);
 };
 
-class CompileResultMsg : public Msg
-{
-public:
+class CompileResultMsg : public Msg {
+  public:
     CompileResultMsg()
-        : Msg(M_COMPILE_RESULT)
-        , status(0)
-        , was_out_of_memory(false)
-        , have_dwo_file(false) {}
+        : Msg(M_COMPILE_RESULT), status(0), was_out_of_memory(false), have_dwo_file(false) {}
 
     virtual void fill_from_channel(MsgChannel *c);
     virtual void send_to_channel(MsgChannel *c) const;
@@ -575,16 +483,11 @@ public:
     bool have_dwo_file;
 };
 
-class JobBeginMsg : public Msg
-{
-public:
-    JobBeginMsg()
-        : Msg(M_JOB_BEGIN) {}
+class JobBeginMsg : public Msg {
+  public:
+    JobBeginMsg() : Msg(M_JOB_BEGIN) {}
 
-    JobBeginMsg(unsigned int j)
-        : Msg(M_JOB_BEGIN)
-        , job_id(j)
-        , stime(time(0)) {}
+    JobBeginMsg(unsigned int j) : Msg(M_JOB_BEGIN), job_id(j), stime(time(0)) {}
 
     virtual void fill_from_channel(MsgChannel *c);
     virtual void send_to_channel(MsgChannel *c) const;
@@ -593,41 +496,29 @@ public:
     uint32_t stime;
 };
 
-enum SpecialExits {
-    CLIENT_WAS_WAITING_FOR_CS = 200
-};
+enum SpecialExits { CLIENT_WAS_WAITING_FOR_CS = 200 };
 
-class JobDoneMsg : public Msg
-{
-public:
+class JobDoneMsg : public Msg {
+  public:
     /* FROM_SERVER: this message was generated by the daemon responsible
           for remotely compiling the job (i.e. job->server).
        FROM_SUBMITTER: this message was generated by the daemon connected
           to the submitting client.  */
-    enum from_type {
-        FROM_SERVER = 0,
-        FROM_SUBMITTER = 1
-    };
+    enum from_type { FROM_SERVER = 0, FROM_SUBMITTER = 1 };
 
     JobDoneMsg(int job_id = 0, int exitcode = -1, unsigned int flags = FROM_SERVER);
 
-    void set_from(from_type from)
-    {
-        flags |= (uint32_t)from;
-    }
+    void set_from(from_type from) { flags |= (uint32_t)from; }
 
-    bool is_from_server()
-    {
-        return (flags & FROM_SUBMITTER) == 0;
-    }
+    bool is_from_server() { return (flags & FROM_SUBMITTER) == 0; }
 
     virtual void fill_from_channel(MsgChannel *c);
     virtual void send_to_channel(MsgChannel *c) const;
 
     uint32_t real_msec; /* real time it used */
     uint32_t user_msec; /* user time used */
-    uint32_t sys_msec; /* system time used */
-    uint32_t pfaults; /* page faults */
+    uint32_t sys_msec;  /* system time used */
+    uint32_t pfaults;   /* page faults */
 
     int exitcode; /* exit code */
 
@@ -641,14 +532,10 @@ public:
     uint32_t job_id;
 };
 
-class JobLocalBeginMsg : public Msg
-{
-public:
+class JobLocalBeginMsg : public Msg {
+  public:
     JobLocalBeginMsg(int job_id = 0, const std::string &file = "")
-        : Msg(M_JOB_LOCAL_BEGIN)
-        , outfile(file)
-        , stime(time(0))
-        , id(job_id) {}
+        : Msg(M_JOB_LOCAL_BEGIN), outfile(file), stime(time(0)), id(job_id) {}
 
     virtual void fill_from_channel(MsgChannel *c);
     virtual void send_to_channel(MsgChannel *c) const;
@@ -658,12 +545,9 @@ public:
     uint32_t id;
 };
 
-class JobLocalDoneMsg : public Msg
-{
-public:
-    JobLocalDoneMsg(unsigned int id = 0)
-        : Msg(M_JOB_LOCAL_DONE)
-        , job_id(id) {}
+class JobLocalDoneMsg : public Msg {
+  public:
+    JobLocalDoneMsg(unsigned int id = 0) : Msg(M_JOB_LOCAL_DONE), job_id(id) {}
 
     virtual void fill_from_channel(MsgChannel *c);
     virtual void send_to_channel(MsgChannel *c) const;
@@ -671,13 +555,10 @@ public:
     uint32_t job_id;
 };
 
-class LoginMsg : public Msg
-{
-public:
+class LoginMsg : public Msg {
+  public:
     LoginMsg(unsigned int myport, const std::string &_nodename, const std::string _host_platform);
-    LoginMsg()
-        : Msg(M_LOGIN)
-        , port(0) {}
+    LoginMsg() : Msg(M_LOGIN), port(0) {}
 
     virtual void fill_from_channel(MsgChannel *c);
     virtual void send_to_channel(MsgChannel *c) const;
@@ -691,13 +572,11 @@ public:
     std::string host_platform;
 };
 
-class ConfCSMsg : public Msg
-{
-public:
+class ConfCSMsg : public Msg {
+  public:
     ConfCSMsg()
-        : Msg(M_CS_CONF)
-        , max_scheduler_pong(MAX_SCHEDULER_PONG)
-        , max_scheduler_ping(MAX_SCHEDULER_PING) {}
+        : Msg(M_CS_CONF), max_scheduler_pong(MAX_SCHEDULER_PONG),
+          max_scheduler_ping(MAX_SCHEDULER_PING) {}
 
     virtual void fill_from_channel(MsgChannel *c);
     virtual void send_to_channel(MsgChannel *c) const;
@@ -706,14 +585,9 @@ public:
     uint32_t max_scheduler_ping;
 };
 
-class StatsMsg : public Msg
-{
-public:
-    StatsMsg()
-        : Msg(M_STATS)
-    {
-        load = 0;
-    }
+class StatsMsg : public Msg {
+  public:
+    StatsMsg() : Msg(M_STATS) { load = 0; }
 
     virtual void fill_from_channel(MsgChannel *c);
     virtual void send_to_channel(MsgChannel *c) const;
@@ -735,16 +609,12 @@ public:
     uint32_t freeMem;
 };
 
-class EnvTransferMsg : public Msg
-{
-public:
-    EnvTransferMsg()
-        : Msg(M_TRANFER_ENV) {}
+class EnvTransferMsg : public Msg {
+  public:
+    EnvTransferMsg() : Msg(M_TRANFER_ENV) {}
 
     EnvTransferMsg(const std::string &_target, const std::string &_name)
-        : Msg(M_TRANFER_ENV)
-        , name(_name)
-        , target(_target) {}
+        : Msg(M_TRANFER_ENV), name(_name), target(_target) {}
 
     virtual void fill_from_channel(MsgChannel *c);
     virtual void send_to_channel(MsgChannel *c) const;
@@ -753,38 +623,28 @@ public:
     std::string target;
 };
 
-class GetInternalStatus : public Msg
-{
-public:
-    GetInternalStatus()
-        : Msg(M_GET_INTERNALS) {}
+class GetInternalStatus : public Msg {
+  public:
+    GetInternalStatus() : Msg(M_GET_INTERNALS) {}
 
-    GetInternalStatus(const GetInternalStatus &)
-        : Msg(M_GET_INTERNALS) {}
+    GetInternalStatus(const GetInternalStatus &) : Msg(M_GET_INTERNALS) {}
 };
 
-class MonLoginMsg : public Msg
-{
-public:
-    MonLoginMsg()
-        : Msg(M_MON_LOGIN) {}
+class MonLoginMsg : public Msg {
+  public:
+    MonLoginMsg() : Msg(M_MON_LOGIN) {}
 };
 
-class MonGetCSMsg : public GetCSMsg
-{
-public:
-    MonGetCSMsg()
-        : GetCSMsg()
-    { // overwrite
+class MonGetCSMsg : public GetCSMsg {
+  public:
+    MonGetCSMsg() : GetCSMsg() { // overwrite
         type = M_MON_GET_CS;
         clientid = job_id = 0;
     }
 
     MonGetCSMsg(int jobid, int hostid, GetCSMsg *m)
-        : GetCSMsg(Environments(), m->filename, m->lang, 1, m->target, 0, std::string(), false)
-        , job_id(jobid)
-        , clientid(hostid)
-    {
+        : GetCSMsg(Environments(), m->filename, m->lang, 1, m->target, 0, std::string(), false),
+          job_id(jobid), clientid(hostid) {
         type = M_MON_GET_CS;
     }
 
@@ -795,20 +655,12 @@ public:
     uint32_t clientid;
 };
 
-class MonJobBeginMsg : public Msg
-{
-public:
-    MonJobBeginMsg()
-        : Msg(M_MON_JOB_BEGIN)
-        , job_id(0)
-        , stime(0)
-        , hostid(0) {}
+class MonJobBeginMsg : public Msg {
+  public:
+    MonJobBeginMsg() : Msg(M_MON_JOB_BEGIN), job_id(0), stime(0), hostid(0) {}
 
     MonJobBeginMsg(unsigned int id, unsigned int time, int _hostid)
-        : Msg(M_MON_JOB_BEGIN)
-        , job_id(id)
-        , stime(time)
-        , hostid(_hostid) {}
+        : Msg(M_MON_JOB_BEGIN), job_id(id), stime(time), hostid(_hostid) {}
 
     virtual void fill_from_channel(MsgChannel *c);
     virtual void send_to_channel(MsgChannel *c) const;
@@ -818,34 +670,19 @@ public:
     uint32_t hostid;
 };
 
-class MonJobDoneMsg : public JobDoneMsg
-{
-public:
-    MonJobDoneMsg()
-        : JobDoneMsg()
-    {
-        type = M_MON_JOB_DONE;
-    }
+class MonJobDoneMsg : public JobDoneMsg {
+  public:
+    MonJobDoneMsg() : JobDoneMsg() { type = M_MON_JOB_DONE; }
 
-    MonJobDoneMsg(const JobDoneMsg &o)
-        : JobDoneMsg(o)
-    {
-        type = M_MON_JOB_DONE;
-    }
+    MonJobDoneMsg(const JobDoneMsg &o) : JobDoneMsg(o) { type = M_MON_JOB_DONE; }
 };
 
-class MonLocalJobBeginMsg : public Msg
-{
-public:
-    MonLocalJobBeginMsg()
-        : Msg(M_MON_LOCAL_JOB_BEGIN) {}
+class MonLocalJobBeginMsg : public Msg {
+  public:
+    MonLocalJobBeginMsg() : Msg(M_MON_LOCAL_JOB_BEGIN) {}
 
     MonLocalJobBeginMsg(unsigned int id, const std::string &_file, unsigned int time, int _hostid)
-        : Msg(M_MON_LOCAL_JOB_BEGIN)
-        , job_id(id)
-        , stime(time)
-        , hostid(_hostid)
-        , file(_file) {}
+        : Msg(M_MON_LOCAL_JOB_BEGIN), job_id(id), stime(time), hostid(_hostid), file(_file) {}
 
     virtual void fill_from_channel(MsgChannel *c);
     virtual void send_to_channel(MsgChannel *c) const;
@@ -856,16 +693,12 @@ public:
     std::string file;
 };
 
-class MonStatsMsg : public Msg
-{
-public:
-    MonStatsMsg()
-        : Msg(M_MON_STATS) {}
+class MonStatsMsg : public Msg {
+  public:
+    MonStatsMsg() : Msg(M_MON_STATS) {}
 
     MonStatsMsg(int id, const std::string &_statmsg)
-        : Msg(M_MON_STATS)
-        , hostid(id)
-        , statmsg(_statmsg) {}
+        : Msg(M_MON_STATS), hostid(id), statmsg(_statmsg) {}
 
     virtual void fill_from_channel(MsgChannel *c);
     virtual void send_to_channel(MsgChannel *c) const;
@@ -874,19 +707,13 @@ public:
     std::string statmsg;
 };
 
-class TextMsg : public Msg
-{
-public:
-    TextMsg()
-        : Msg(M_TEXT) {}
+class TextMsg : public Msg {
+  public:
+    TextMsg() : Msg(M_TEXT) {}
 
-    TextMsg(const std::string &_text)
-        : Msg(M_TEXT)
-        , text(_text) {}
+    TextMsg(const std::string &_text) : Msg(M_TEXT), text(_text) {}
 
-    TextMsg(const TextMsg &m)
-        : Msg(M_TEXT)
-        , text(m.text) {}
+    TextMsg(const TextMsg &m) : Msg(M_TEXT), text(m.text) {}
 
     virtual void fill_from_channel(MsgChannel *c);
     virtual void send_to_channel(MsgChannel *c) const;
@@ -894,15 +721,11 @@ public:
     std::string text;
 };
 
-class StatusTextMsg : public Msg
-{
-public:
-    StatusTextMsg()
-        : Msg(M_STATUS_TEXT) {}
+class StatusTextMsg : public Msg {
+  public:
+    StatusTextMsg() : Msg(M_STATUS_TEXT) {}
 
-    StatusTextMsg(const std::string &_text)
-        : Msg(M_STATUS_TEXT)
-        , text(_text) {}
+    StatusTextMsg(const std::string &_text) : Msg(M_STATUS_TEXT), text(_text) {}
 
     virtual void fill_from_channel(MsgChannel *c);
     virtual void send_to_channel(MsgChannel *c) const;
@@ -910,16 +733,12 @@ public:
     std::string text;
 };
 
-class VerifyEnvMsg : public Msg
-{
-public:
-    VerifyEnvMsg()
-        : Msg(M_VERIFY_ENV) {}
+class VerifyEnvMsg : public Msg {
+  public:
+    VerifyEnvMsg() : Msg(M_VERIFY_ENV) {}
 
     VerifyEnvMsg(const std::string &_target, const std::string &_environment)
-        : Msg(M_VERIFY_ENV)
-        , environment(_environment)
-        , target(_target) {}
+        : Msg(M_VERIFY_ENV), environment(_environment), target(_target) {}
 
     virtual void fill_from_channel(MsgChannel *c);
     virtual void send_to_channel(MsgChannel *c) const;
@@ -928,15 +747,11 @@ public:
     std::string target;
 };
 
-class VerifyEnvResultMsg : public Msg
-{
-public:
-    VerifyEnvResultMsg()
-        : Msg(M_VERIFY_ENV_RESULT) {}
+class VerifyEnvResultMsg : public Msg {
+  public:
+    VerifyEnvResultMsg() : Msg(M_VERIFY_ENV_RESULT) {}
 
-    VerifyEnvResultMsg(bool _ok)
-        : Msg(M_VERIFY_ENV_RESULT)
-        , ok(_ok) {}
+    VerifyEnvResultMsg(bool _ok) : Msg(M_VERIFY_ENV_RESULT), ok(_ok) {}
 
     virtual void fill_from_channel(MsgChannel *c);
     virtual void send_to_channel(MsgChannel *c) const;
@@ -944,17 +759,14 @@ public:
     bool ok;
 };
 
-class BlacklistHostEnvMsg : public Msg
-{
-public:
-    BlacklistHostEnvMsg()
-        : Msg(M_BLACKLIST_HOST_ENV) {}
+class BlacklistHostEnvMsg : public Msg {
+  public:
+    BlacklistHostEnvMsg() : Msg(M_BLACKLIST_HOST_ENV) {}
 
-    BlacklistHostEnvMsg(const std::string &_target, const std::string &_environment, const std::string &_hostname)
-        : Msg(M_BLACKLIST_HOST_ENV)
-        , environment(_environment)
-        , target(_target)
-        , hostname(_hostname) {}
+    BlacklistHostEnvMsg(const std::string &_target, const std::string &_environment,
+                        const std::string &_hostname)
+        : Msg(M_BLACKLIST_HOST_ENV), environment(_environment), target(_target),
+          hostname(_hostname) {}
 
     virtual void fill_from_channel(MsgChannel *c);
     virtual void send_to_channel(MsgChannel *c) const;

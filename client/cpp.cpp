@@ -28,19 +28,18 @@
 
 #include "config.h"
 
+#include <assert.h>
+#include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <unistd.h>
 #include <string.h>
-#include <errno.h>
-#include <assert.h>
+#include <unistd.h>
 
 #include "client.h"
 
 using namespace std;
 
-bool dcc_is_preprocessed(const string &sfile)
-{
+bool dcc_is_preprocessed(const string &sfile) {
     if (sfile.size() < 3) {
         return false;
     }
@@ -48,11 +47,11 @@ bool dcc_is_preprocessed(const string &sfile)
     int last = sfile.size() - 1;
 
     if ((sfile[last - 1] == '.') && (sfile[last] == 'i')) {
-        return true;    // .i
+        return true; // .i
     }
 
     if ((sfile[last - 2] == '.') && (sfile[last - 1] == 'i') && (sfile[last] == 'i')) {
-        return true;    // .ii
+        return true; // .ii
     }
 
     return false;
@@ -68,8 +67,7 @@ bool dcc_is_preprocessed(const string &sfile)
  * allows us to overlap opening the TCP socket, which probably doesn't
  * use many cycles, with running the preprocessor.
  **/
-pid_t call_cpp(CompileJob &job, int fdwrite, int fdread)
-{
+pid_t call_cpp(CompileJob &job, int fdwrite, int fdread) {
     flush_debug();
     pid_t pid = fork();
 
@@ -81,7 +79,7 @@ pid_t call_cpp(CompileJob &job, int fdwrite, int fdread)
     if (pid != 0) {
         /* Parent.  Close the write fd.  */
         if (fdwrite > -1) {
-            if ((-1 == close(fdwrite)) && (errno != EBADF)){
+            if ((-1 == close(fdwrite)) && (errno != EBADF)) {
                 log_perror("close() failed");
             }
         }
@@ -91,14 +89,14 @@ pid_t call_cpp(CompileJob &job, int fdwrite, int fdread)
 
     /* Child.  Close the read fd, in case we have one.  */
     if (fdread > -1) {
-        if ((-1 == close(fdread)) && (errno != EBADF)){
+        if ((-1 == close(fdread)) && (errno != EBADF)) {
             log_perror("close failed");
         }
     }
 
     int ret = dcc_ignore_sigpipe(0);
 
-    if (ret) {  /* set handler back to default */
+    if (ret) { /* set handler back to default */
         _exit(ret);
     }
 
@@ -107,7 +105,7 @@ pid_t call_cpp(CompileJob &job, int fdwrite, int fdread)
     if (dcc_is_preprocessed(job.inputFile())) {
         /* already preprocessed, great.
            write the file to the fdwrite (using cat) */
-        argv = new char*[2 + 1];
+        argv = new char *[2 + 1];
         argv[0] = strdup("/bin/cat");
         argv[1] = strdup(job.inputFile().c_str());
         argv[2] = 0;
@@ -138,10 +136,10 @@ pid_t call_cpp(CompileJob &job, int fdwrite, int fdread)
 
         appendList(flags, job.restFlags());
         int argc = flags.size();
-        argc++; // the program
+        argc++;    // the program
         argc += 2; // -E file.i
         argc += 1; // -frewrite-includes / -fdirectives-only
-        argv = new char*[argc + 1];
+        argv = new char *[argc + 1];
         argv[0] = strdup(find_compiler(job).c_str());
         int i = 1;
 
@@ -153,7 +151,7 @@ pid_t call_cpp(CompileJob &job, int fdwrite, int fdread)
         argv[i++] = strdup(job.inputFile().c_str());
 
         if (compiler_only_rewrite_includes(job)) {
-            if( compiler_is_clang(job)) {
+            if (compiler_is_clang(job)) {
                 argv[i++] = strdup("-frewrite-includes");
             } else { // gcc
                 argv[i++] = strdup("-fdirectives-only");
@@ -182,7 +180,7 @@ pid_t call_cpp(CompileJob &job, int fdwrite, int fdread)
 
     dcc_increment_safeguard();
     execv(argv[0], argv);
-    int exitcode = ( errno == ENOENT ? 127 : 126 );
+    int exitcode = (errno == ENOENT ? 127 : 126);
     log_perror("execv failed");
     _exit(exitcode);
 }

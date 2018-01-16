@@ -21,15 +21,14 @@
 */
 
 #include "job.h"
-#include "logging.h"
 #include "exitcode.h"
+#include "logging.h"
 #include "platform.h"
 #include <stdio.h>
 
 using namespace std;
 
-list<string> CompileJob::flags(Argument_Type argumentType) const
-{
+list<string> CompileJob::flags(Argument_Type argumentType) const {
     list<string> args;
 
     for (ArgumentsList::const_iterator it = m_flags.begin(); it != m_flags.end(); ++it) {
@@ -41,23 +40,13 @@ list<string> CompileJob::flags(Argument_Type argumentType) const
     return args;
 }
 
-list<string> CompileJob::localFlags() const
-{
-    return flags(Arg_Local);
-}
+list<string> CompileJob::localFlags() const { return flags(Arg_Local); }
 
-list<string> CompileJob::remoteFlags() const
-{
-    return flags(Arg_Remote);
-}
+list<string> CompileJob::remoteFlags() const { return flags(Arg_Remote); }
 
-list<string> CompileJob::restFlags() const
-{
-    return flags(Arg_Rest);
-}
+list<string> CompileJob::restFlags() const { return flags(Arg_Rest); }
 
-list<string> CompileJob::allFlags() const
-{
+list<string> CompileJob::allFlags() const {
     list<string> args;
 
     for (ArgumentsList::const_iterator it = m_flags.begin(); it != m_flags.end(); ++it) {
@@ -67,13 +56,9 @@ list<string> CompileJob::allFlags() const
     return args;
 }
 
-void CompileJob::setTargetPlatform()
-{
-    m_target_platform = determine_platform();
-}
+void CompileJob::setTargetPlatform() { m_target_platform = determine_platform(); }
 
-unsigned int CompileJob::argumentFlags() const
-{
+unsigned int CompileJob::argumentFlags() const {
     unsigned int result = Flag_None;
 
     for (ArgumentsList::const_iterator it = m_flags.begin(); it != m_flags.end(); ++it) {

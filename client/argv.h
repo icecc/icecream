@@ -24,11 +24,10 @@
  */
 
 #ifdef __cplusplus
-extern "C"
-{
+extern "C" {
 #endif
 
-void expandargv (int *argcp, char ***argvp);
+void expandargv(int *argcp, char ***argvp);
 void freeargv(char **vector);
 
 #ifdef __cplusplus

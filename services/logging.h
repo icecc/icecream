@@ -23,21 +23,16 @@
 #ifndef ICECREAM_LOGGING_H
 #define ICECREAM_LOGGING_H
 
-#include <sys/time.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <errno.h>
-#include <string>
-#include <iostream>
 #include <cassert>
 #include <cstring>
+#include <errno.h>
+#include <iostream>
+#include <stdlib.h>
+#include <string>
+#include <sys/time.h>
+#include <unistd.h>
 
-enum DebugLevels {
-    Info = 1,
-    Warning = 2,
-    Error = 4,
-    Debug = 8
-};
+enum DebugLevels { Info = 1, Warning = 2, Error = 4, Debug = 8 };
 
 extern std::ostream *logfile_info;
 extern std::ostream *logfile_warning;
@@ -51,8 +46,7 @@ void reset_debug();
 void close_debug();
 void flush_debug();
 
-static inline std::ostream &output_date(std::ostream &os)
-{
+static inline std::ostream &output_date(std::ostream &os) {
     time_t t = time(0);
     struct tm *tmp = localtime(&t);
     char buf[64];
@@ -68,8 +62,7 @@ static inline std::ostream &output_date(std::ostream &os)
     return os;
 }
 
-static inline std::ostream &log_info()
-{
+static inline std::ostream &log_info() {
     if (!logfile_info) {
         return std::cerr;
     }
@@ -77,8 +70,7 @@ static inline std::ostream &log_info()
     return output_date(*logfile_info);
 }
 
-static inline std::ostream &log_warning()
-{
+static inline std::ostream &log_warning() {
     if (!logfile_warning) {
         return std::cerr;
     }
@@ -86,9 +78,7 @@ static inline std::ostream &log_warning()
     return output_date(*logfile_warning);
 }
 
-
-static inline std::ostream &log_error()
-{
+static inline std::ostream &log_error() {
     if (!logfile_error) {
         return std::cerr;
     }
@@ -96,8 +86,7 @@ static inline std::ostream &log_error()
     return output_date(*logfile_error);
 }
 
-static inline std::ostream &trace()
-{
+static inline std::ostream &trace() {
     if (!logfile_trace) {
         return std::cerr;
     }
@@ -105,25 +94,19 @@ static inline std::ostream &trace()
     return output_date(*logfile_trace);
 }
 
-static inline std::ostream & log_errno(const char *prefix, int tmp_errno)
-{
+static inline std::ostream &log_errno(const char *prefix, int tmp_errno) {
     return log_error() << prefix << " " << strerror(tmp_errno) << std::endl;
 }
 
-static inline std::ostream & log_perror(const char *prefix)
-{
-    return log_errno(prefix, errno);
-}
+static inline std::ostream &log_perror(const char *prefix) { return log_errno(prefix, errno); }
 
-class log_block
-{
+class log_block {
     static unsigned nesting;
     timeval m_start;
     char *m_label;
 
-public:
-    log_block(const char *label = 0)
-    {
+  public:
+    log_block(const char *label = 0) {
 #ifndef NDEBUG
 
         for (unsigned i = 0; i < nesting; ++i) {
@@ -138,8 +121,7 @@ public:
 #endif
     }
 
-    ~log_block()
-    {
+    ~log_block() {
 #ifndef NDEBUG
         timeval end;
         gettimeofday(&end, 0);
@@ -159,11 +141,10 @@ public:
     }
 };
 
-#include <sstream>
 #include <iostream>
+#include <sstream>
 
-template<class T> std::string toString(const T &val)
-{
+template <class T> std::string toString(const T &val) {
     std::ostringstream os;
     os << val;
     return os.str();

@@ -24,9 +24,9 @@
 #ifndef COMPILESERVER_H
 #define COMPILESERVER_H
 
-#include <string>
 #include <list>
 #include <map>
+#include <string>
 
 #include "../services/comm.h"
 #include "jobstat.h"
@@ -36,22 +36,14 @@ class Job;
 using namespace std;
 
 /* One compile server (receiver, compile daemon)  */
-class CompileServer : public MsgChannel
-{
-public:
-    enum State {
-        CONNECTED,
-        LOGGEDIN
-    };
+class CompileServer : public MsgChannel {
+  public:
+    enum State { CONNECTED, LOGGEDIN };
 
-    enum Type {
-        UNKNOWN,
-        DAEMON,
-        MONITOR,
-        LINE
-    };
+    enum Type { UNKNOWN, DAEMON, MONITOR, LINE };
 
-    CompileServer(const int fd, struct sockaddr *_addr, const socklen_t _len, const bool text_based);
+    CompileServer(const int fd, struct sockaddr *_addr, const socklen_t _len,
+                  const bool text_based);
 
     void pick_new_id();
 
@@ -69,7 +61,7 @@ public:
     string nodeName() const;
     void setNodeName(const string &name);
 
-    bool matches(const string& nm) const;
+    bool matches(const string &nm) const;
 
     time_t busyInstalling() const;
     void setBusyInstalling(const time_t time);
@@ -120,7 +112,6 @@ public:
     JobStat cumRequested() const;
     void setCumRequested(const JobStat &stats);
 
-
     unsigned int hostidCounter() const;
 
     int getClientJobId(const int localJobId);
@@ -140,7 +131,7 @@ public:
     bool isConnected();
     void updateInConnectivity(bool acceptingIn);
 
-private:
+  private:
     bool blacklisted(const Job *job, const pair<string, string> &environment);
 
     /* The listener port, on which it takes compile requests.  */
@@ -160,11 +151,11 @@ private:
     Type m_type;
     bool m_chrootPossible;
 
-    Environments m_compilerVersions;  // Available compilers
+    Environments m_compilerVersions; // Available compilers
 
     list<JobStat> m_lastCompiledJobs;
     list<JobStat> m_lastRequestedJobs;
-    JobStat m_cumCompiled;  // cumulated
+    JobStat m_cumCompiled; // cumulated
     JobStat m_cumRequested;
 
     static unsigned int s_hostIdCounter;

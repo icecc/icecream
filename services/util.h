@@ -21,10 +21,6 @@
 #ifndef UTIL_H
 #define UTIL_H
 
-template<typename T>
-inline T ignore_result(T x __attribute__((unused)))
-{
-    return x;
-}
+template <typename T> inline T ignore_result(T x __attribute__((unused))) { return x; }
 
 #endif

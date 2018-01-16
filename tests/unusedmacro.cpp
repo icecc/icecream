@@ -1,6 +1,3 @@
 #define FOO bar
 #define NUMBER 10
-int f()
-    {
-    return NUMBER;
-    }
+int f() { return NUMBER; }

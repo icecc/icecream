@@ -29,58 +29,34 @@
 #include <time.h>
 #include <unistd.h>
 
-#include "../services/logging.h"
 #include "../services/job.h"
+#include "../services/logging.h"
 
 #include "job.h"
 
-
 unsigned int CompileServer::s_hostIdCounter = 0;
 
-CompileServer::CompileServer(const int fd, struct sockaddr *_addr, const socklen_t _len, const bool text_based)
-    : MsgChannel(fd, _addr, _len, text_based)
-    , m_remotePort(0)
-    , m_hostId(0)
-    , m_nodeName()
-    , m_busyInstalling(0)
-    , m_hostPlatform()
-    , m_load(1000)
-    , m_maxJobs(0)
-    , m_noRemote(false)
-    , m_jobList()
-    , m_submittedJobsCount(0)
-    , m_state(CONNECTED)
-    , m_type(UNKNOWN)
-    , m_chrootPossible(false)
-    , m_compilerVersions()
-    , m_lastCompiledJobs()
-    , m_lastRequestedJobs()
-    , m_cumCompiled()
-    , m_cumRequested()
-    , m_clientMap()
-    , m_blacklist()
-    , m_inFd(-1)
-    , m_inConnAttempt(0)
-    , m_nextConnTime(0)
-    , m_lastConnStartTime(0)
-    , m_acceptingInConnection(true)
-{
+CompileServer::CompileServer(const int fd, struct sockaddr *_addr, const socklen_t _len,
+                             const bool text_based)
+    : MsgChannel(fd, _addr, _len, text_based), m_remotePort(0), m_hostId(0), m_nodeName(),
+      m_busyInstalling(0), m_hostPlatform(), m_load(1000), m_maxJobs(0), m_noRemote(false),
+      m_jobList(), m_submittedJobsCount(0), m_state(CONNECTED), m_type(UNKNOWN),
+      m_chrootPossible(false), m_compilerVersions(), m_lastCompiledJobs(), m_lastRequestedJobs(),
+      m_cumCompiled(), m_cumRequested(), m_clientMap(), m_blacklist(), m_inFd(-1),
+      m_inConnAttempt(0), m_nextConnTime(0), m_lastConnStartTime(0), m_acceptingInConnection(true) {
 }
 
-void CompileServer::pick_new_id()
-{
+void CompileServer::pick_new_id() {
     assert(!m_hostId);
     m_hostId = ++s_hostIdCounter;
 }
 
-bool CompileServer::check_remote(const Job *job) const
-{
+bool CompileServer::check_remote(const Job *job) const {
     bool local = (job->submitter() == this);
     return local || !m_noRemote;
 }
 
-bool CompileServer::platforms_compatible(const string &target) const
-{
+bool CompileServer::platforms_compatible(const string &target) const {
     if (target == hostPlatform()) {
         return true;
     }
@@ -111,9 +87,8 @@ bool CompileServer::platforms_compatible(const string &target) const
 
     multimap<string, string>::const_iterator end = platform_map.upper_bound(target);
 
-    for (multimap<string, string>::const_iterator it = platform_map.lower_bound(target);
-            it != end;
-            ++it) {
+    for (multimap<string, string>::const_iterator it = platform_map.lower_bound(target); it != end;
+         ++it) {
         if (it->second == hostPlatform()) {
             return true;
         }
@@ -128,8 +103,7 @@ bool CompileServer::platforms_compatible(const string &target) const
    environment are compatible.  Return an empty string if none can be
    installed, otherwise return the platform of the first found
    environments which can be installed.  */
-string CompileServer::can_install(const Job *job)
-{
+string CompileServer::can_install(const Job *job) {
     // trace() << "can_install host: '" << cs->host_platform << "' target: '"
     //         << job->target_platform << "'" << endl;
     if (busyInstalling()) {
@@ -141,8 +115,7 @@ string CompileServer::can_install(const Job *job)
     }
 
     Environments environments = job->environments();
-    for (Environments::const_iterator it = environments.begin();
-            it != environments.end(); ++it) {
+    for (Environments::const_iterator it = environments.begin(); it != environments.end(); ++it) {
         if (platforms_compatible(it->first) && !blacklisted(job, *it)) {
             return it->first;
         }
@@ -151,275 +124,129 @@ string CompileServer::can_install(const Job *job)
     return string();
 }
 
-bool CompileServer::is_eligible(const Job *job)
-{
+bool CompileServer::is_eligible(const Job *job) {
     bool jobs_okay = int(m_jobList.size()) < m_maxJobs;
     bool load_okay = m_load < 1000;
     bool version_okay = job->minimalHostVersion() <= protocol;
-    return jobs_okay
-           && (m_chrootPossible || job->submitter() == this)
-           && load_okay
-           && version_okay
-           && m_acceptingInConnection
-           && can_install(job).size()
-           && this->check_remote(job);
+    return jobs_okay && (m_chrootPossible || job->submitter() == this) && load_okay &&
+           version_okay && m_acceptingInConnection && can_install(job).size() &&
+           this->check_remote(job);
 }
 
-unsigned int CompileServer::remotePort() const
-{
-    return m_remotePort;
-}
+unsigned int CompileServer::remotePort() const { return m_remotePort; }
 
-void CompileServer::setRemotePort(unsigned int port)
-{
-    m_remotePort = port;
-}
+void CompileServer::setRemotePort(unsigned int port) { m_remotePort = port; }
 
-unsigned int CompileServer::hostId() const
-{
-    return m_hostId;
-}
+unsigned int CompileServer::hostId() const { return m_hostId; }
 
-void CompileServer::setHostId(unsigned int id)
-{
-    m_hostId = id;
-}
+void CompileServer::setHostId(unsigned int id) { m_hostId = id; }
 
-string CompileServer::nodeName() const
-{
-    return m_nodeName;
-}
+string CompileServer::nodeName() const { return m_nodeName; }
 
-void CompileServer::setNodeName(const string &name)
-{
-    m_nodeName = name;
-}
+void CompileServer::setNodeName(const string &name) { m_nodeName = name; }
 
-bool CompileServer::matches(const string& nm) const
-{
-    return m_nodeName == nm || name == nm;
-}
+bool CompileServer::matches(const string &nm) const { return m_nodeName == nm || name == nm; }
 
-time_t CompileServer::busyInstalling() const
-{
-    return m_busyInstalling;
-}
+time_t CompileServer::busyInstalling() const { return m_busyInstalling; }
 
-void CompileServer::setBusyInstalling(time_t time)
-{
-    m_busyInstalling = time;
-}
+void CompileServer::setBusyInstalling(time_t time) { m_busyInstalling = time; }
 
-string CompileServer::hostPlatform() const
-{
-    return m_hostPlatform;
-}
+string CompileServer::hostPlatform() const { return m_hostPlatform; }
 
-void CompileServer::setHostPlatform(const string &platform)
-{
-    m_hostPlatform = platform;
-}
+void CompileServer::setHostPlatform(const string &platform) { m_hostPlatform = platform; }
 
-unsigned int CompileServer::load() const
-{
-    return m_load;
-}
+unsigned int CompileServer::load() const { return m_load; }
 
-void CompileServer::setLoad(unsigned int load)
-{
-    m_load = load;
-}
+void CompileServer::setLoad(unsigned int load) { m_load = load; }
 
-int CompileServer::maxJobs() const
-{
-    return m_maxJobs;
-}
+int CompileServer::maxJobs() const { return m_maxJobs; }
 
-void CompileServer::setMaxJobs(int jobs)
-{
-    m_maxJobs = jobs;
-}
+void CompileServer::setMaxJobs(int jobs) { m_maxJobs = jobs; }
 
-bool CompileServer::noRemote() const
-{
-    return m_noRemote;
-}
+bool CompileServer::noRemote() const { return m_noRemote; }
 
-void CompileServer::setNoRemote(bool value)
-{
-    m_noRemote = value;
-}
+void CompileServer::setNoRemote(bool value) { m_noRemote = value; }
 
-list<Job *> CompileServer::jobList() const
-{
-    return m_jobList;
-}
+list<Job *> CompileServer::jobList() const { return m_jobList; }
 
-void CompileServer::appendJob(Job *job)
-{
-    m_jobList.push_back(job);
-}
+void CompileServer::appendJob(Job *job) { m_jobList.push_back(job); }
 
-void CompileServer::removeJob(Job *job)
-{
-    m_jobList.remove(job);
-}
+void CompileServer::removeJob(Job *job) { m_jobList.remove(job); }
 
-int CompileServer::submittedJobsCount() const
-{
-    return m_submittedJobsCount;
-}
+int CompileServer::submittedJobsCount() const { return m_submittedJobsCount; }
 
-void CompileServer::submittedJobsIncrement()
-{
-    m_submittedJobsCount++;
-}
+void CompileServer::submittedJobsIncrement() { m_submittedJobsCount++; }
 
-void CompileServer::submittedJobsDecrement()
-{
-    m_submittedJobsCount--;
-}
+void CompileServer::submittedJobsDecrement() { m_submittedJobsCount--; }
 
-CompileServer::State CompileServer::state() const
-{
-    return m_state;
-}
+CompileServer::State CompileServer::state() const { return m_state; }
 
-void CompileServer::setState(const CompileServer::State state)
-{
-    m_state = state;
-}
+void CompileServer::setState(const CompileServer::State state) { m_state = state; }
 
-CompileServer::Type CompileServer::type() const
-{
-    return m_type;
-}
+CompileServer::Type CompileServer::type() const { return m_type; }
 
-void CompileServer::setType(const CompileServer::Type type)
-{
-    m_type = type;
-}
+void CompileServer::setType(const CompileServer::Type type) { m_type = type; }
 
-bool CompileServer::chrootPossible() const
-{
-    return m_chrootPossible;
-}
+bool CompileServer::chrootPossible() const { return m_chrootPossible; }
 
-void CompileServer::setChrootPossible(const bool possible)
-{
-    m_chrootPossible = possible;
-}
+void CompileServer::setChrootPossible(const bool possible) { m_chrootPossible = possible; }
 
-Environments CompileServer::compilerVersions() const
-{
-    return m_compilerVersions;
-}
+Environments CompileServer::compilerVersions() const { return m_compilerVersions; }
 
-void CompileServer::setCompilerVersions(const Environments &environments)
-{
+void CompileServer::setCompilerVersions(const Environments &environments) {
     m_compilerVersions = environments;
 }
 
-list<JobStat> CompileServer::lastCompiledJobs() const
-{
-    return m_lastCompiledJobs;
-}
+list<JobStat> CompileServer::lastCompiledJobs() const { return m_lastCompiledJobs; }
 
-void CompileServer::appendCompiledJob(const JobStat &stats)
-{
-    m_lastCompiledJobs.push_back(stats);
-}
+void CompileServer::appendCompiledJob(const JobStat &stats) { m_lastCompiledJobs.push_back(stats); }
 
-void CompileServer::popCompiledJob()
-{
-    m_lastCompiledJobs.pop_front();
-}
+void CompileServer::popCompiledJob() { m_lastCompiledJobs.pop_front(); }
 
-list<JobStat> CompileServer::lastRequestedJobs() const
-{
-    return m_lastRequestedJobs;
-}
+list<JobStat> CompileServer::lastRequestedJobs() const { return m_lastRequestedJobs; }
 
-void CompileServer::appendRequestedJobs(const JobStat &stats)
-{
+void CompileServer::appendRequestedJobs(const JobStat &stats) {
     m_lastRequestedJobs.push_back(stats);
 }
 
-void CompileServer::popRequestedJobs()
-{
-    m_lastRequestedJobs.pop_front();
-}
+void CompileServer::popRequestedJobs() { m_lastRequestedJobs.pop_front(); }
 
-JobStat CompileServer::cumCompiled() const
-{
-    return m_cumCompiled;
-}
+JobStat CompileServer::cumCompiled() const { return m_cumCompiled; }
 
-void CompileServer::setCumCompiled(const JobStat &stats)
-{
-    m_cumCompiled = stats;
-}
+void CompileServer::setCumCompiled(const JobStat &stats) { m_cumCompiled = stats; }
 
-JobStat CompileServer::cumRequested() const
-{
-    return m_cumRequested;
-}
+JobStat CompileServer::cumRequested() const { return m_cumRequested; }
 
-void CompileServer::setCumRequested(const JobStat &stats)
-{
-    m_cumRequested = stats;
-}
+void CompileServer::setCumRequested(const JobStat &stats) { m_cumRequested = stats; }
 
-int CompileServer::getClientJobId(const int localJobId)
-{
-    return m_clientMap[localJobId];
-}
+int CompileServer::getClientJobId(const int localJobId) { return m_clientMap[localJobId]; }
 
-void CompileServer::insertClientJobId(const int localJobId, const int newJobId)
-{
+void CompileServer::insertClientJobId(const int localJobId, const int newJobId) {
     m_clientMap[localJobId] = newJobId;
 }
 
-void CompileServer::eraseClientJobId(const int localJobId)
-{
-    m_clientMap.erase(localJobId);
-}
+void CompileServer::eraseClientJobId(const int localJobId) { m_clientMap.erase(localJobId); }
 
-map<CompileServer *, Environments> CompileServer::blacklist() const
-{
-    return m_blacklist;
-}
+map<CompileServer *, Environments> CompileServer::blacklist() const { return m_blacklist; }
 
-Environments CompileServer::getEnvsForBlacklistedCS(CompileServer *cs)
-{
-    return m_blacklist[cs];
-}
+Environments CompileServer::getEnvsForBlacklistedCS(CompileServer *cs) { return m_blacklist[cs]; }
 
-void CompileServer::blacklistCompileServer(CompileServer *cs, const std::pair<std::string, std::string> &env)
-{
+void CompileServer::blacklistCompileServer(CompileServer *cs,
+                                           const std::pair<std::string, std::string> &env) {
     m_blacklist[cs].push_back(env);
 }
 
-void CompileServer::eraseCSFromBlacklist(CompileServer *cs)
-{
-    m_blacklist.erase(cs);
-}
+void CompileServer::eraseCSFromBlacklist(CompileServer *cs) { m_blacklist.erase(cs); }
 
-bool CompileServer::blacklisted(const Job *job, const pair<string, string> &environment)
-{
+bool CompileServer::blacklisted(const Job *job, const pair<string, string> &environment) {
     Environments blacklist = job->submitter()->getEnvsForBlacklistedCS(this);
     return find(blacklist.begin(), blacklist.end(), environment) != blacklist.end();
 }
 
-int CompileServer::getInFd() const
-{
-    return m_inFd;
-}
+int CompileServer::getInFd() const { return m_inFd; }
 
-void CompileServer::startInConnectionTest()
-{
-    if (m_noRemote || getConnectionInProgress() || (m_nextConnTime > time(0)))
-    {
+void CompileServer::startInConnectionTest() {
+    if (m_noRemote || getConnectionInProgress() || (m_nextConnTime > time(0))) {
         return;
     }
 
@@ -435,70 +262,51 @@ void CompileServer::startInConnectionTest()
     memset(remote_addr.sin_zero, '\0', sizeof(remote_addr.sin_zero));
 
     int status = connect(m_inFd, (struct sockaddr *)&remote_addr, sizeof(remote_addr));
-    if(status == 0)
-    {
+    if (status == 0) {
         updateInConnectivity(isConnected());
-    }
-    else if (!(errno == EINPROGRESS || errno == EAGAIN))
-    {
+    } else if (!(errno == EINPROGRESS || errno == EAGAIN)) {
         updateInConnectivity(false);
     }
-    m_lastConnStartTime=time(0);
+    m_lastConnStartTime = time(0);
 }
 
-void CompileServer::updateInConnectivity(bool acceptingIn)
-{
-    static const time_t time_offset_table[] = {
-        2,    4,    8,    16,    32,
-        64,  128,  256,   512,  1024,
-        2048, 4096
-    };
+void CompileServer::updateInConnectivity(bool acceptingIn) {
+    static const time_t time_offset_table[] = {2,   4,   8,   16,   32,   64,
+                                               128, 256, 512, 1024, 2048, 4096};
     static const size_t table_size = sizeof(time_offset_table);
 
-    //On a successful connection, we should still check back every 1min
+    // On a successful connection, we should still check back every 1min
     static const time_t check_back_time = 60;
 
-    if(acceptingIn)
-    {
-        if(!m_acceptingInConnection)
-        {
+    if (acceptingIn) {
+        if (!m_acceptingInConnection) {
             m_acceptingInConnection = true;
             m_inConnAttempt = 0;
-            trace() << "Client (" << m_nodeName <<
-                " " << name <<
-                ":" << m_remotePort <<
-                ") is accepting incoming connections." << endl;
+            trace() << "Client (" << m_nodeName << " " << name << ":" << m_remotePort
+                    << ") is accepting incoming connections." << endl;
         }
         m_nextConnTime = time(0) + check_back_time;
         close(m_inFd);
         m_inFd = -1;
-    }
-    else
-    {
-        if(m_acceptingInConnection)
-        {
+    } else {
+        if (m_acceptingInConnection) {
             m_acceptingInConnection = false;
-            trace() << "Client (" << m_nodeName <<
-                " " << name <<
-                ":" << m_remotePort <<
-                ") connected but is not able to accept incoming connections." << endl;
+            trace() << "Client (" << m_nodeName << " " << name << ":" << m_remotePort
+                    << ") connected but is not able to accept incoming connections." << endl;
         }
         m_nextConnTime = time(0) + time_offset_table[m_inConnAttempt];
-        if(m_inConnAttempt < (table_size - 1))
+        if (m_inConnAttempt < (table_size - 1))
             m_inConnAttempt++;
-        trace()  << nodeName() << " failed to accept an incoming connection on "
-            << name << ":" << m_remotePort << " attempting again in "
-            << m_nextConnTime - time(0) << " seconds" << endl;
+        trace() << nodeName() << " failed to accept an incoming connection on " << name << ":"
+                << m_remotePort << " attempting again in " << m_nextConnTime - time(0) << " seconds"
+                << endl;
         close(m_inFd);
         m_inFd = -1;
     }
-
 }
 
-bool CompileServer::isConnected()
-{
-    if (getConnectionTimeout() == 0)
-    {
+bool CompileServer::isConnected() {
+    if (getConnectionTimeout() == 0) {
         return false;
     }
     struct hostent *host = gethostbyname(name.c_str());
@@ -510,32 +318,24 @@ bool CompileServer::isConnected()
     memset(remote_addr.sin_zero, '\0', sizeof(remote_addr.sin_zero));
 
     int error = 0;
-    socklen_t err_len= sizeof(error);
+    socklen_t err_len = sizeof(error);
     return (getsockopt(m_inFd, SOL_SOCKET, SO_ERROR, &error, &err_len) == 0 && error == 0);
-
 }
 
-time_t CompileServer::getConnectionTimeout()
-{
+time_t CompileServer::getConnectionTimeout() {
     time_t now = time(0);
     time_t elapsed_time = now - m_lastConnStartTime;
     time_t max_timeout = 5;
     return (elapsed_time < max_timeout) ? max_timeout - elapsed_time : 0;
 }
 
-bool CompileServer::getConnectionInProgress()
-{
-    return (m_inFd != -1);
-}
+bool CompileServer::getConnectionInProgress() { return (m_inFd != -1); }
 
-time_t CompileServer::getNextTimeout()
-{
-    if (m_noRemote)
-    {
+time_t CompileServer::getNextTimeout() {
+    if (m_noRemote) {
         return -1;
     }
-    if (m_inFd != -1)
-    {
+    if (m_inFd != -1) {
         return getConnectionTimeout();
     }
     time_t until_connect = m_nextConnTime - time(0);

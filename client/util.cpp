@@ -22,21 +22,21 @@
 
 #include "config.h"
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <string.h>
 #include <errno.h>
 #include <fcntl.h>
-#include <signal.h>
-#include <time.h>
 #include <limits.h>
+#include <signal.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <time.h>
+#include <unistd.h>
 
-#include <sys/types.h>
 #include <pwd.h>
+#include <sys/types.h>
 
-#include <sys/stat.h>
 #include <sys/file.h>
+#include <sys/stat.h>
 
 #include <vector>
 
@@ -59,8 +59,7 @@ extern bool explicit_no_show_caret;
  *
  * @returns 0 on success, or -1 on error with `errno' set.
  **/
-int set_cloexec_flag(int desc, int value)
-{
+int set_cloexec_flag(int desc, int value) {
     int oldflags = fcntl(desc, F_GETFD, 0);
 
     /* If reading the flags failed, return error indication now. */
@@ -87,11 +86,10 @@ int set_cloexec_flag(int desc, int value)
  * children it is set back to the default value, because they may not
  * handle the error properly.
  **/
-int dcc_ignore_sigpipe(int val)
-{
+int dcc_ignore_sigpipe(int val) {
     if (signal(SIGPIPE, val ? SIG_IGN : SIG_DFL) == SIG_ERR) {
-        log_warning() << "signal(SIGPIPE, " << (val ? "ignore" : "default") << ") failed: "
-                      << strerror(errno) << endl;
+        log_warning() << "signal(SIGPIPE, " << (val ? "ignore" : "default")
+                      << ") failed: " << strerror(errno) << endl;
         return EXIT_DISTCC_FAILED;
     }
 
@@ -103,8 +101,7 @@ int dcc_ignore_sigpipe(int val)
  * last slash.)  If there is no slash, return the whole filename,
  * which is presumably in the current directory.
  **/
-string find_basename(const string &sfile)
-{
+string find_basename(const string &sfile) {
     size_t index = sfile.find_last_of('/');
 
     if (index == string::npos) {
@@ -114,8 +111,7 @@ string find_basename(const string &sfile)
     return sfile.substr(index + 1);
 }
 
-string find_prefix(const string &basename)
-{
+string find_prefix(const string &basename) {
     size_t index = basename.find_last_of('-');
 
     if (index == string::npos) {
@@ -132,15 +128,14 @@ string find_prefix(const string &basename)
  * @retval 0 if we got the lock
  * @retval -1 with errno set if the file is already locked.
  **/
-static int sys_lock(int fd, bool block)
-{
+static int sys_lock(int fd, bool block) {
 #if defined(F_SETLK)
     struct flock lockparam;
 
     lockparam.l_type = F_WRLCK;
     lockparam.l_whence = SEEK_SET;
     lockparam.l_start = 0;
-    lockparam.l_len = 0;        /* whole file */
+    lockparam.l_len = 0; /* whole file */
 
     return fcntl(fd, block ? F_SETLKW : F_SETLK, &lockparam);
 #elif defined(HAVE_FLOCK)
@@ -148,13 +143,11 @@ static int sys_lock(int fd, bool block)
 #elif defined(HAVE_LOCKF)
     return lockf(fd, block ? F_LOCK : F_TLOCK, 0);
 #else
-#  error "No supported lock method.  Please port this code."
+#error "No supported lock method.  Please port this code."
 #endif
 }
 
-
-bool dcc_unlock(int lock_fd)
-{
+bool dcc_unlock(int lock_fd) {
     /* All our current locks can just be closed */
     if (close(lock_fd)) {
         log_perror("close failed:");
@@ -164,12 +157,10 @@ bool dcc_unlock(int lock_fd)
     return true;
 }
 
-
 /**
  * Open a lockfile, creating if it does not exist.
  **/
-static bool dcc_open_lockfile(const string &fname, int &plockfd)
-{
+static bool dcc_open_lockfile(const string &fname, int &plockfd) {
     /* Create if it doesn't exist.  We don't actually do anything with
      * the file except lock it.
      *
@@ -186,8 +177,7 @@ static bool dcc_open_lockfile(const string &fname, int &plockfd)
     return true;
 }
 
-bool dcc_lock_host(int &lock_fd)
-{
+bool dcc_lock_host(int &lock_fd) {
     string fname = "/tmp/.icecream-";
     struct passwd *pwd = getpwuid(getuid());
 
@@ -229,21 +219,19 @@ bool dcc_lock_host(int &lock_fd)
         break;
     }
 
-    if ((-1 == ::close(lock_fd)) && (errno != EBADF)){
+    if ((-1 == ::close(lock_fd)) && (errno != EBADF)) {
         log_perror("close failed");
     }
     return false;
 }
 
-bool color_output_possible()
-{
-    const char* term_env = getenv("TERM");
+bool color_output_possible() {
+    const char *term_env = getenv("TERM");
 
     return isatty(2) && term_env && strcasecmp(term_env, "DUMB");
 }
 
-bool compiler_has_color_output(const CompileJob &job)
-{
+bool compiler_has_color_output(const CompileJob &job) {
     if (!color_output_possible())
         return false;
 
@@ -251,7 +239,7 @@ bool compiler_has_color_output(const CompileJob &job)
     if (compiler_is_clang(job)) {
         return true;
     }
-    if (const char* icecc_color_diagnostics = getenv("ICECC_COLOR_DIAGNOSTICS")) {
+    if (const char *icecc_color_diagnostics = getenv("ICECC_COLOR_DIAGNOSTICS")) {
         return *icecc_color_diagnostics == '1';
     }
 #ifdef HAVE_GCC_COLOR_DIAGNOSTICS
@@ -268,8 +256,7 @@ bool compiler_has_color_output(const CompileJob &job)
 }
 
 // Whether icecream should add colors to the compiler output.
-bool colorify_wanted(const CompileJob &job)
-{
+bool colorify_wanted(const CompileJob &job) {
     if (compiler_has_color_output(job)) {
         return false; // -fcolor-diagnostics handling lets the compiler do it itself
     }
@@ -286,12 +273,11 @@ bool colorify_wanted(const CompileJob &job)
     return color_output_possible();
 }
 
-void colorify_output(const string &_s_ccout)
-{
+void colorify_output(const string &_s_ccout) {
     string s_ccout(_s_ccout);
     string::size_type end;
 
-    while ((end = s_ccout.find('\n')) !=  string::npos) {
+    while ((end = s_ccout.find('\n')) != string::npos) {
 
         string cline = s_ccout.substr(string::size_type(0), end);
         s_ccout = s_ccout.substr(end + 1);
@@ -308,11 +294,7 @@ void colorify_output(const string &_s_ccout)
     fprintf(stderr, "%s", s_ccout.c_str());
 }
 
-
-bool ignore_unverified()
-{
-    return getenv("ICECC_IGNORE_UNVERIFIED");
-}
+bool ignore_unverified() { return getenv("ICECC_IGNORE_UNVERIFIED"); }
 
 // GCC4.8+ has -fdiagnostics-show-caret, but when it prints the source code,
 // it tries to find the source file on the disk, rather than printing the input
@@ -324,13 +306,12 @@ bool ignore_unverified()
 // host, but this has been already tried in the sendheaders branch (for
 // preprocessing remotely too) and performance-wise it just doesn't seem to
 // be worth it.
-bool output_needs_workaround(const CompileJob &job)
-{
+bool output_needs_workaround(const CompileJob &job) {
     if (compiler_is_clang(job))
         return false;
     if (explicit_no_show_caret)
         return false;
-    if (const char* caret_workaround = getenv("ICECC_CARET_WORKAROUND"))
+    if (const char *caret_workaround = getenv("ICECC_CARET_WORKAROUND"))
         return *caret_workaround == '1';
 #ifdef HAVE_GCC_SHOW_CARET
     return true;
@@ -338,8 +319,7 @@ bool output_needs_workaround(const CompileJob &job)
     return false;
 }
 
-int resolve_link(const std::string &file, std::string &resolved)
-{
+int resolve_link(const std::string &file, std::string &resolved) {
     char buf[PATH_MAX];
     buf[PATH_MAX - 1] = '\0';
     const int ret = readlink(file.c_str(), buf, sizeof(buf) - 1);
@@ -354,8 +334,7 @@ int resolve_link(const std::string &file, std::string &resolved)
     return 0;
 }
 
-std::string get_cwd()
-{
+std::string get_cwd() {
     static std::vector<char> buffer(1024);
 
     errno = 0;
@@ -369,8 +348,7 @@ std::string get_cwd()
     return string(&buffer[0]);
 }
 
-std::string read_command_output(const std::string& command)
-{
+std::string read_command_output(const std::string &command) {
     FILE *f = popen(command.c_str(), "r");
     string output;
 

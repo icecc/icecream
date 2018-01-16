@@ -28,12 +28,11 @@
 /*
  Converts exit status from waitpid() to exit status to be returned by the process.
 */
-int shell_exit_status(int status)
-{
+int shell_exit_status(int status) {
     if (WIFEXITED(status)) {
         return WEXITSTATUS(status);
     } else if (WIFSIGNALED(status)) {
-        return WTERMSIG(status) + 128;    // shell does this
+        return WTERMSIG(status) + 128; // shell does this
     } else {
         return -1;
     }

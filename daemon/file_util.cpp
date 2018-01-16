@@ -1,16 +1,15 @@
-#include <errno.h>
-#include <string.h>
-#include <stdlib.h>
-#include <stdio.h>
-#include <unistd.h>
-#include <string>
-#include <sstream>
-#include <vector>
 #include <dirent.h>
+#include <errno.h>
+#include <sstream>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <string>
 #include <sys/stat.h>
+#include <unistd.h>
+#include <vector>
 
 #include "file_util.h"
-
 
 using namespace std;
 
@@ -41,14 +40,12 @@ string get_relative_path(const string &to, const string &from) {
     string output;
     output.reserve(to.size());
 
-    vector<string>::const_iterator to_it = to_dirs.begin(),
-                                   to_end = to_dirs.end(),
-                                   from_it = from_dirs.begin(),
-                                   from_end = from_dirs.end();
+    vector<string>::const_iterator to_it = to_dirs.begin(), to_end = to_dirs.end(),
+                                   from_it = from_dirs.begin(), from_end = from_dirs.end();
 
     while ((to_it != to_end) && (from_it != from_end) && *to_it == *from_it) {
-         ++to_it;
-         ++from_it;
+        ++to_it;
+        ++from_it;
     }
 
     while (from_it != from_end) {
@@ -83,14 +80,12 @@ string get_canonicalized_path(const string &path) {
     vector<string> parts = split(path, '/');
     vector<string> canonicalized_path;
 
-    vector<string>::const_iterator parts_it = parts.begin(),
-                                   parts_end = parts.end();
+    vector<string>::const_iterator parts_it = parts.begin(), parts_end = parts.end();
 
     while (parts_it != parts_end) {
         if (*parts_it == ".." && !canonicalized_path.empty()) {
             canonicalized_path.pop_back();
-        }
-        else if (*parts_it != "." && *parts_it != "..") {
+        } else if (*parts_it != "." && *parts_it != "..") {
             canonicalized_path.push_back(*parts_it);
         }
 
@@ -122,23 +117,22 @@ string get_canonicalized_path(const string &path) {
 bool mkpath(const string &path) {
     bool success = false;
     int ret = mkdir(path.c_str(), 0775);
-    if(ret == -1) {
-        switch(errno) {
-            case ENOENT:
-                if(mkpath(path.substr(0, path.find_last_of('/'))))
-                    success = 0 == mkdir(path.c_str(), 0775);
-                else
-                    success = false;
-                break;
-            case EEXIST:
-                success = true;
-                break;
-            default:
+    if (ret == -1) {
+        switch (errno) {
+        case ENOENT:
+            if (mkpath(path.substr(0, path.find_last_of('/'))))
+                success = 0 == mkdir(path.c_str(), 0775);
+            else
                 success = false;
-                break;
+            break;
+        case EEXIST:
+            success = true;
+            break;
+        default:
+            success = false;
+            break;
         }
-    }
-    else {
+    } else {
         success = true;
     }
 
@@ -149,7 +143,7 @@ bool mkpath(const string &path) {
  * Adapted from an answer by "asveikau" from this stack overflow question:
  * http://stackoverflow.com/questions/2256945/removing-a-non-empty-directory-programmatically-in-c-or-c
  */
-bool rmpath(const char* path) {
+bool rmpath(const char *path) {
     DIR *d = opendir(path);
     size_t path_len = strlen(path);
     int r = -1;
@@ -159,7 +153,7 @@ bool rmpath(const char* path) {
 
         r = 0;
 
-        while (!r && (p=readdir(d))) {
+        while (!r && (p = readdir(d))) {
             int r2 = -1;
             char *buf;
             size_t len;
@@ -170,7 +164,7 @@ bool rmpath(const char* path) {
             }
 
             len = path_len + strlen(p->d_name) + 2;
-            buf = (char*)malloc(len);
+            buf = (char *)malloc(len);
 
             if (buf) {
                 struct stat statbuf;
@@ -180,8 +174,7 @@ bool rmpath(const char* path) {
                 if (!stat(buf, &statbuf)) {
                     if (S_ISDIR(statbuf.st_mode)) {
                         r2 = rmpath(buf);
-                    }
-                    else {
+                    } else {
                         r2 = unlink(buf);
                     }
                 }

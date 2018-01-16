@@ -27,8 +27,7 @@ extern "C" {
 #include "logging.h"
 #include "platform.h"
 
-std::string determine_platform_once()
-{
+std::string determine_platform_once() {
     using namespace std;
     string platform;
 
@@ -47,7 +46,10 @@ std::string determine_platform_once()
         const string::size_type pos = release.find('.');
 
         if (pos == string::npos) {
-            throw(std::string("determine_platform: Cannot determine Darwin release from release string \"") + release + "\"");
+            throw(
+                std::string(
+                    "determine_platform: Cannot determine Darwin release from release string \"") +
+                release + "\"");
         }
 
         os += release.substr(0, pos);
@@ -72,8 +74,7 @@ std::string determine_platform_once()
     return platform;
 }
 
-const std::string &determine_platform()
-{
+const std::string &determine_platform() {
     const static std::string platform(determine_platform_once());
     return platform;
 }

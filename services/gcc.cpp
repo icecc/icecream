@@ -5,8 +5,7 @@
 #include <algorithm>
 
 /* Heuristic to set a default for GGC_MIN_EXPAND.  */
-int ggc_min_expand_heuristic(unsigned int mem_limit)
-{
+int ggc_min_expand_heuristic(unsigned int mem_limit) {
     double min_expand = mem_limit;
 
     /* The heuristic is a percentage equal to 30% + 70%*(RAM/1GB), yielding
@@ -20,8 +19,7 @@ int ggc_min_expand_heuristic(unsigned int mem_limit)
 }
 
 /* Heuristic to set a default for GGC_MIN_HEAPSIZE.  */
-unsigned int ggc_min_heapsize_heuristic(unsigned int mem_limit)
-{
+unsigned int ggc_min_heapsize_heuristic(unsigned int mem_limit) {
     /* The heuristic is RAM/8, with a lower bound of 4M and an upper
        bound of 128M (when RAM >= 1GB).  */
     mem_limit /= 8;

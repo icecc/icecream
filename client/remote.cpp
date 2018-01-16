@@ -23,61 +23,55 @@
 
 #include "config.h"
 
-#include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
+#include <sys/types.h>
 #include <sys/wait.h>
-
 
 #ifdef __FreeBSD__
 // Grmbl  Why is this needed?  We don't use readv/writev
 #include <sys/uio.h>
 #endif
 
-#include <fcntl.h>
-#include <signal.h>
-#include <limits.h>
-#include <assert.h>
-#include <unistd.h>
-#include <stdio.h>
-#include <errno.h>
-#include <map>
 #include <algorithm>
-#include <netinet/in.h>
 #include <arpa/inet.h>
+#include <assert.h>
+#include <errno.h>
+#include <fcntl.h>
+#include <limits.h>
+#include <map>
+#include <netinet/in.h>
+#include <signal.h>
+#include <stdio.h>
+#include <unistd.h>
 #include <vector>
 
-#include <comm.h>
 #include "client.h"
-#include "tempfile.h"
 #include "md5.h"
-#include "util.h"
 #include "services/util.h"
+#include "tempfile.h"
+#include "util.h"
+#include <comm.h>
 
 #ifndef O_LARGEFILE
 #define O_LARGEFILE 0
 #endif
 
-namespace
-{
+namespace {
 
 struct CharBufferDeleter {
     char *buf;
     explicit CharBufferDeleter(char *b) : buf(b) {}
-    ~CharBufferDeleter() {
-        free(buf);
-    }
+    ~CharBufferDeleter() { free(buf); }
 };
 
-}
+} // namespace
 
 using namespace std;
 
 std::string remote_daemon;
 
-Environments
-parse_icecc_version(const string &target_platform, const string &prefix)
-{
+Environments parse_icecc_version(const string &target_platform, const string &prefix) {
     Environments envs;
 
     string icecc_version = getenv("ICECC_VERSION");
@@ -85,7 +79,7 @@ parse_icecc_version(const string &target_platform, const string &prefix)
 
     // free after the C++-Programming-HOWTO
     string::size_type lastPos = icecc_version.find_first_not_of(',', 0);
-    string::size_type pos     = icecc_version.find_first_of(',', lastPos);
+    string::size_type pos = icecc_version.find_first_of(',', lastPos);
     bool def_targets = icecc_version.find('=') != string::npos;
 
     list<string> platforms;
@@ -121,19 +115,22 @@ parse_icecc_version(const string &target_platform, const string &prefix)
         }
 
         if (find(platforms.begin(), platforms.end(), platform) != platforms.end()) {
-            log_error() << "there are two environments for platform " << platform << " - ignoring " << version << endl;
+            log_error() << "there are two environments for platform " << platform << " - ignoring "
+                        << version << endl;
             continue;
         }
 
         if (::access(version.c_str(), R_OK)) {
-            log_error() << "$ICECC_VERSION has to point to an existing file to be installed " << version << endl;
+            log_error() << "$ICECC_VERSION has to point to an existing file to be installed "
+                        << version << endl;
             continue;
         }
 
         struct stat st;
 
         if (lstat(version.c_str(), &st) || !S_ISREG(st.st_mode) || st.st_size < 500) {
-            log_error() << "$ICECC_VERSION has to point to an existing file to be installed " << version << endl;
+            log_error() << "$ICECC_VERSION has to point to an existing file to be installed "
+                        << version << endl;
             continue;
         }
 
@@ -144,9 +141,7 @@ parse_icecc_version(const string &target_platform, const string &prefix)
     return envs;
 }
 
-static bool
-endswith(const string &orig, const char *suff, string &ret)
-{
+static bool endswith(const string &orig, const char *suff, string &ret) {
     size_t len = strlen(suff);
 
     if (orig.size() > len && orig.substr(orig.size() - len) == suff) {
@@ -157,14 +152,13 @@ endswith(const string &orig, const char *suff, string &ret)
     return false;
 }
 
-static Environments
-rip_out_paths(const Environments &envs, map<string, string> &version_map, map<string, string> &versionfile_map)
-{
+static Environments rip_out_paths(const Environments &envs, map<string, string> &version_map,
+                                  map<string, string> &versionfile_map) {
     version_map.clear();
 
     Environments env2;
 
-    static const char *suffs[] = { ".tar.bz2", ".tar.gz", ".tar", ".tgz", NULL };
+    static const char *suffs[] = {".tar.bz2", ".tar.gz", ".tar", ".tgz", NULL};
 
     string versfile;
 
@@ -181,10 +175,7 @@ rip_out_paths(const Environments &envs, map<string, string> &version_map, map<st
     return env2;
 }
 
-
-string
-get_absfilename(const string &_file)
-{
+string get_absfilename(const string &_file) {
     string file;
 
     if (_file.empty()) {
@@ -221,14 +212,15 @@ get_absfilename(const string &_file)
     return file;
 }
 
-static UseCSMsg *get_server(MsgChannel *local_daemon)
-{
+static UseCSMsg *get_server(MsgChannel *local_daemon) {
     Msg *umsg = local_daemon->get_msg(4 * 60);
 
     if (!umsg || umsg->type != M_USE_CS) {
-        log_warning() << "reply was not expected use_cs " << (umsg ? (char)umsg->type : '0')  << endl;
+        log_warning() << "reply was not expected use_cs " << (umsg ? (char)umsg->type : '0')
+                      << endl;
         ostringstream unexpected_msg;
-        unexpected_msg << "Error 1 - expected use_cs reply, but got " << (umsg ? (char)umsg->type : '0') << " instead";
+        unexpected_msg << "Error 1 - expected use_cs reply, but got "
+                       << (umsg ? (char)umsg->type : '0') << " instead";
         delete umsg;
         throw client_error(1, unexpected_msg.str());
     }
@@ -237,18 +229,16 @@ static UseCSMsg *get_server(MsgChannel *local_daemon)
     return usecs;
 }
 
-static void check_for_failure(Msg *msg, MsgChannel *cserver)
-{
+static void check_for_failure(Msg *msg, MsgChannel *cserver) {
     if (msg && msg->type == M_STATUS_TEXT) {
-        log_error() << "Remote status (compiled on " << cserver->name << "): "
-                    << static_cast<StatusTextMsg*>(msg)->text << endl;
+        log_error() << "Remote status (compiled on " << cserver->name
+                    << "): " << static_cast<StatusTextMsg *>(msg)->text << endl;
         throw client_error(23, "Error 23 - Remote status (compiled on " + cserver->name + ")\n" +
-                                 static_cast<StatusTextMsg*>(msg)->text );
+                                   static_cast<StatusTextMsg *>(msg)->text);
     }
 }
 
-static void write_server_cpp(int cpp_fd, MsgChannel *cserver)
-{
+static void write_server_cpp(int cpp_fd, MsgChannel *cserver) {
     unsigned char buffer[100000]; // some random but huge number
     off_t offset = 0;
     size_t uncompressed = 0;
@@ -283,8 +273,8 @@ static void write_server_cpp(int cpp_fd, MsgChannel *cserver)
                     Msg *m = cserver->get_msg(2);
                     check_for_failure(m, cserver);
 
-                    log_error() << "write of source chunk to host "
-                                << cserver->name.c_str() << endl;
+                    log_error() << "write of source chunk to host " << cserver->name.c_str()
+                                << endl;
                     log_perror("failed ");
                     close(cpp_fd);
                     throw client_error(15, "Error 15 - write to host failed");
@@ -302,16 +292,15 @@ static void write_server_cpp(int cpp_fd, MsgChannel *cserver)
     } while (1);
 
     if (compressed)
-        trace() << "sent " << compressed << " bytes (" << (compressed * 100 / uncompressed) <<
-                "%)" << endl;
+        trace() << "sent " << compressed << " bytes (" << (compressed * 100 / uncompressed) << "%)"
+                << endl;
 
-    if ((-1 == close(cpp_fd)) && (errno != EBADF)){
+    if ((-1 == close(cpp_fd)) && (errno != EBADF)) {
         log_perror("close failed");
     }
 }
 
-static void receive_file(const string& output_file, MsgChannel* cserver)
-{
+static void receive_file(const string &output_file, MsgChannel *cserver) {
     string tmp_file = output_file + "_icetmp";
     int obj_fd = open(tmp_file.c_str(), O_CREAT | O_TRUNC | O_WRONLY | O_LARGEFILE, 0666);
 
@@ -322,7 +311,7 @@ static void receive_file(const string& output_file, MsgChannel* cserver)
         throw client_error(31, "Error 31 - " + errmsg);
     }
 
-    Msg* msg = 0;
+    Msg *msg = 0;
     size_t uncompressed = 0;
     size_t compressed = 0;
 
@@ -331,7 +320,7 @@ static void receive_file(const string& output_file, MsgChannel* cserver)
 
         msg = cserver->get_msg(40);
 
-        if (!msg) {   // the network went down?
+        if (!msg) { // the network went down?
             unlink(tmp_file.c_str());
             throw client_error(19, "Error 19 - (network failure?)");
         }
@@ -348,7 +337,7 @@ static void receive_file(const string& output_file, MsgChannel* cserver)
             throw client_error(20, "Error 20 - unexpected message");
         }
 
-        FileChunkMsg *fcmsg = dynamic_cast<FileChunkMsg*>(msg);
+        FileChunkMsg *fcmsg = dynamic_cast<FileChunkMsg *>(msg);
         compressed += fcmsg->compressed;
         uncompressed += fcmsg->len;
 
@@ -361,24 +350,21 @@ static void receive_file(const string& output_file, MsgChannel* cserver)
     }
 
     if (uncompressed)
-        trace() << "got " << compressed << " bytes ("
-                << (compressed * 100 / uncompressed) << "%)" << endl;
+        trace() << "got " << compressed << " bytes (" << (compressed * 100 / uncompressed) << "%)"
+                << endl;
 
     delete msg;
 
     if (close(obj_fd) != 0) {
         log_perror("Failed to close temporary file: ");
-        if(unlink(tmp_file.c_str()) != 0)
-        {
+        if (unlink(tmp_file.c_str()) != 0) {
             log_perror("delete temporary file - might be related to close failure above");
         }
         throw client_error(30, "Error 30 - error closing temp file");
-
     }
-    if(rename(tmp_file.c_str(), output_file.c_str()) != 0) {
+    if (rename(tmp_file.c_str(), output_file.c_str()) != 0) {
         log_perror("Failed to rename temporary file: ");
-        if(unlink(tmp_file.c_str()) != 0)
-        {
+        if (unlink(tmp_file.c_str()) != 0) {
             log_perror("delete temporary file - might be related to rename failure above");
         }
         throw client_error(30, "Error 30 - error closing temp file");
@@ -387,19 +373,16 @@ static void receive_file(const string& output_file, MsgChannel* cserver)
 
 static int build_remote_int(CompileJob &job, UseCSMsg *usecs, MsgChannel *local_daemon,
                             const string &environment, const string &version_file,
-                            const char *preproc_file, bool output)
-{
+                            const char *preproc_file, bool output) {
     string hostname = usecs->hostname;
     unsigned int port = usecs->port;
     int job_id = usecs->job_id;
     bool got_env = usecs->got_env;
     job.setJobID(job_id);
-    job.setEnvironmentVersion(environment);   // hoping on the scheduler's wisdom
-    trace() << "Have to use host " << hostname << ":" << port << " - Job ID: "
-            << job.jobID() << " - env: " << usecs->host_platform
-            << " - has env: " << (got_env ? "true" : "false")
-            << " - match j: " << usecs->matched_job_id
-            << "\n";
+    job.setEnvironmentVersion(environment); // hoping on the scheduler's wisdom
+    trace() << "Have to use host " << hostname << ":" << port << " - Job ID: " << job.jobID()
+            << " - env: " << usecs->host_platform << " - has env: " << (got_env ? "true" : "false")
+            << " - match j: " << usecs->matched_job_id << "\n";
 
     int status = 255;
 
@@ -409,8 +392,8 @@ static int build_remote_int(CompileJob &job, UseCSMsg *usecs, MsgChannel *local_
         cserver = Service::createChannel(hostname, port, 10);
 
         if (!cserver) {
-            log_error() << "no server found behind given hostname " << hostname << ":"
-                        << port << endl;
+            log_error() << "no server found behind given hostname " << hostname << ":" << port
+                        << endl;
             throw client_error(2, "Error 2 - no server found at " + hostname);
         }
 
@@ -453,17 +436,17 @@ static int build_remote_int(CompileJob &job, UseCSMsg *usecs, MsgChannel *local_
                 Msg *verify_msg = cserver->get_msg(60);
 
                 if (verify_msg && verify_msg->type == M_VERIFY_ENV_RESULT) {
-                    if (!static_cast<VerifyEnvResultMsg*>(verify_msg)->ok) {
+                    if (!static_cast<VerifyEnvResultMsg *>(verify_msg)->ok) {
                         // The remote can't handle the environment at all (e.g. kernel too old),
                         // mark it as never to be used again for this environment.
                         log_info() << "Host " << hostname
-                                   << " did not successfully verify environment."
-                                   << endl;
+                                   << " did not successfully verify environment." << endl;
                         BlacklistHostEnvMsg blacklist(job.targetPlatform(),
                                                       job.environmentVersion(), hostname);
                         local_daemon->send_msg(blacklist);
                         delete verify_msg;
-                        throw client_error(24, "Error 24 - remote " + hostname + " unable to handle environment");
+                        throw client_error(24, "Error 24 - remote " + hostname +
+                                                   " unable to handle environment");
                     } else
                         trace() << "Verified host " << hostname << " for environment "
                                 << job.environmentVersion() << " (" << job.targetPlatform() << ")"
@@ -471,7 +454,8 @@ static int build_remote_int(CompileJob &job, UseCSMsg *usecs, MsgChannel *local_
                     delete verify_msg;
                 } else {
                     delete verify_msg;
-                    throw client_error(25, "Error 25 - other error verifying environment on remote");
+                    throw client_error(25,
+                                       "Error 25 - other error verifying environment on remote");
                 }
             }
         }
@@ -482,10 +466,13 @@ static int build_remote_int(CompileJob &job, UseCSMsg *usecs, MsgChannel *local_
         }
 
         // Older remotes don't set properly -x argument.
-        if(( job.language() == CompileJob::Lang_OBJC || job.language() == CompileJob::Lang_OBJCXX )
-            && !IS_PROTOCOL_38(cserver)) {
-            job.appendFlag( "-x", Arg_Remote );
-            job.appendFlag( job.language() == CompileJob::Lang_OBJC ? "objective-c" : "objective-c++", Arg_Remote );
+        if ((job.language() == CompileJob::Lang_OBJC ||
+             job.language() == CompileJob::Lang_OBJCXX) &&
+            !IS_PROTOCOL_38(cserver)) {
+            job.appendFlag("-x", Arg_Remote);
+            job.appendFlag(job.language() == CompileJob::Lang_OBJC ? "objective-c"
+                                                                   : "objective-c++",
+                           Arg_Remote);
         }
 
         CompileFileMsg compile_file(&job);
@@ -525,9 +512,10 @@ static int build_remote_int(CompileJob &job, UseCSMsg *usecs, MsgChannel *local_
 
             log_block wait_cpp("wait for cpp");
 
-            while (waitpid(cpp_pid, &status, 0) < 0 && errno == EINTR) {}
+            while (waitpid(cpp_pid, &status, 0) < 0 && errno == EINTR) {
+            }
 
-            if (shell_exit_status(status) != 0) {   // failure
+            if (shell_exit_status(status) != 0) { // failure
                 delete cserver;
                 cserver = 0;
                 return shell_exit_status(status);
@@ -566,7 +554,7 @@ static int build_remote_int(CompileJob &job, UseCSMsg *usecs, MsgChannel *local_
             throw client_error(13, "Error 13 - did not get compile response message");
         }
 
-        CompileResultMsg *crmsg = dynamic_cast<CompileResultMsg*>(msg);
+        CompileResultMsg *crmsg = dynamic_cast<CompileResultMsg *>(msg);
         assert(crmsg);
 
         status = crmsg->status;
@@ -574,14 +562,16 @@ static int build_remote_int(CompileJob &job, UseCSMsg *usecs, MsgChannel *local_
         if (status && crmsg->was_out_of_memory) {
             delete crmsg;
             log_info() << "the server ran out of memory, recompiling locally" << endl;
-            throw remote_error(101, "Error 101 - the server ran out of memory, recompiling locally");
+            throw remote_error(101,
+                               "Error 101 - the server ran out of memory, recompiling locally");
         }
 
         if (output) {
             if ((!crmsg->out.empty() || !crmsg->err.empty()) && output_needs_workaround(job)) {
                 delete crmsg;
                 log_info() << "command needs stdout/stderr workaround, recompiling locally" << endl;
-                throw remote_error(102, "Error 102 - command needs stdout/stderr workaround, recompiling locally");
+                throw remote_error(
+                    102, "Error 102 - command needs stdout/stderr workaround, recompiling locally");
             }
 
             ignore_result(write(STDOUT_FILENO, crmsg->out.c_str(), crmsg->out.size()));
@@ -605,18 +595,19 @@ static int build_remote_int(CompileJob &job, UseCSMsg *usecs, MsgChannel *local_
         if (status == 0) {
             receive_file(job.outputFile(), cserver);
             if (have_dwo_file) {
-                string dwo_output = job.outputFile().substr(0, job.outputFile().find_last_of('.')) + ".dwo";
+                string dwo_output =
+                    job.outputFile().substr(0, job.outputFile().find_last_of('.')) + ".dwo";
                 receive_file(dwo_output, cserver);
             }
         }
 
     } catch (...) {
         // Handle pending status messages, if any.
-        if(cserver) {
-            while(Msg* msg = cserver->get_msg(0)) {
-                if(msg->type == M_STATUS_TEXT)
-                    log_error() << "Remote status (compiled on " << cserver->name << "): "
-                                << static_cast<StatusTextMsg*>(msg)->text << endl;
+        if (cserver) {
+            while (Msg *msg = cserver->get_msg(0)) {
+                if (msg->type == M_STATUS_TEXT)
+                    log_error() << "Remote status (compiled on " << cserver->name
+                                << "): " << static_cast<StatusTextMsg *>(msg)->text << endl;
                 delete msg;
             }
             delete cserver;
@@ -630,9 +621,7 @@ static int build_remote_int(CompileJob &job, UseCSMsg *usecs, MsgChannel *local_
     return status;
 }
 
-static string
-md5_for_file(const string & file)
-{
+static string md5_for_file(const string &file) {
     md5_state_t state;
     string result;
 
@@ -671,16 +660,14 @@ md5_for_file(const string & file)
     return result;
 }
 
-static bool
-maybe_build_local(MsgChannel *local_daemon, UseCSMsg *usecs, CompileJob &job,
-                  int &ret)
-{
+static bool maybe_build_local(MsgChannel *local_daemon, UseCSMsg *usecs, CompileJob &job,
+                              int &ret) {
     remote_daemon = usecs->hostname;
 
     if (usecs->hostname == "127.0.0.1") {
         // If this is a test build, do local builds on the local daemon
         // that has --no-remote, use remote building for the remaining ones.
-        if (getenv("ICECC_TEST_REMOTEBUILD") && usecs->port != 0 )
+        if (getenv("ICECC_TEST_REMOTEBUILD") && usecs->port != 0)
             return false;
         trace() << "building myself, but telling localhost\n";
         int job_id = usecs->job_id;
@@ -693,7 +680,7 @@ maybe_build_local(MsgChannel *local_daemon, UseCSMsg *usecs, CompileJob &job,
             throw client_error(29, "Error 29 - write of job failed");
         }
 
-        struct timeval begintv,  endtv;
+        struct timeval begintv, endtv;
 
         struct rusage ru;
 
@@ -706,7 +693,8 @@ maybe_build_local(MsgChannel *local_daemon, UseCSMsg *usecs, CompileJob &job,
         // filling the stats, so the daemon can play proxy for us
         JobDoneMsg msg(job_id, ret, JobDoneMsg::FROM_SUBMITTER);
 
-        msg.real_msec = (endtv.tv_sec - begintv.tv_sec) * 1000 + (endtv.tv_usec - begintv.tv_usec) / 1000;
+        msg.real_msec =
+            (endtv.tv_sec - begintv.tv_sec) * 1000 + (endtv.tv_usec - begintv.tv_usec) / 1000;
 
         struct stat st;
 
@@ -714,7 +702,8 @@ maybe_build_local(MsgChannel *local_daemon, UseCSMsg *usecs, CompileJob &job,
         if (!stat(job.outputFile().c_str(), &st)) {
             msg.out_uncompressed += st.st_size;
         }
-        if (!stat((job.outputFile().substr(0, job.outputFile().find_last_of('.')) + ".dwo").c_str(), &st)) {
+        if (!stat((job.outputFile().substr(0, job.outputFile().find_last_of('.')) + ".dwo").c_str(),
+                  &st)) {
             msg.out_uncompressed += st.st_size;
         }
 
@@ -734,8 +723,7 @@ maybe_build_local(MsgChannel *local_daemon, UseCSMsg *usecs, CompileJob &job,
 }
 
 // Minimal version of remote host that we want to use for the job.
-static int minimalRemoteVersion( const CompileJob& job)
-{
+static int minimalRemoteVersion(const CompileJob &job) {
     int version = MIN_PROTOCOL_VERSION;
     if (ignore_unverified()) {
         version = max(version, 31);
@@ -748,8 +736,8 @@ static int minimalRemoteVersion( const CompileJob& job)
     return version;
 }
 
-int build_remote(CompileJob &job, MsgChannel *local_daemon, const Environments &_envs, int permill)
-{
+int build_remote(CompileJob &job, MsgChannel *local_daemon, const Environments &_envs,
+                 int permill) {
     srand(time(0) + getpid());
 
     int torepeat = 1;
@@ -761,12 +749,12 @@ int build_remote(CompileJob &job, MsgChannel *local_daemon, const Environments &
         }
     }
 
-    if( torepeat == 1 ) {
-        trace() << "preparing " << job.inputFile() << " to be compiled for "
-                << job.targetPlatform() << "\n";
+    if (torepeat == 1) {
+        trace() << "preparing " << job.inputFile() << " to be compiled for " << job.targetPlatform()
+                << "\n";
     } else {
-        trace() << "preparing " << job.inputFile() << " to be compiled " << torepeat << " times for "
-                << job.targetPlatform() << "\n";
+        trace() << "preparing " << job.inputFile() << " to be compiled " << torepeat
+                << " times for " << job.targetPlatform() << "\n";
     }
 
     map<string, string> versionfile_map, version_map;
@@ -795,9 +783,8 @@ int build_remote(CompileJob &job, MsgChannel *local_daemon, const Environments &
 
         fake_filename += get_absfilename(job.inputFile());
 
-        GetCSMsg getcs(envs, fake_filename, job.language(), torepeat,
-                       job.targetPlatform(), job.argumentFlags(),
-                       preferred_host ? preferred_host : string(),
+        GetCSMsg getcs(envs, fake_filename, job.language(), torepeat, job.targetPlatform(),
+                       job.argumentFlags(), preferred_host ? preferred_host : string(),
                        minimalRemoteVersion(job));
 
         if (!local_daemon->send_msg(getcs)) {
@@ -809,10 +796,8 @@ int build_remote(CompileJob &job, MsgChannel *local_daemon, const Environments &
         int ret;
 
         if (!maybe_build_local(local_daemon, usecs, job, ret))
-            ret = build_remote_int(job, usecs, local_daemon,
-                                   version_map[usecs->host_platform],
-                                   versionfile_map[usecs->host_platform],
-                                   0, true);
+            ret = build_remote_int(job, usecs, local_daemon, version_map[usecs->host_platform],
+                                   versionfile_map[usecs->host_platform], 0, true);
 
         delete usecs;
         return ret;
@@ -833,7 +818,7 @@ int build_remote(CompileJob &job, MsgChannel *local_daemon, const Environments &
         int status = 255;
         waitpid(cpp_pid, &status, 0);
 
-        if (shell_exit_status(status)) {   // failure
+        if (shell_exit_status(status)) { // failure
             ::unlink(preproc);
             return shell_exit_status(status);
         }
@@ -844,9 +829,7 @@ int build_remote(CompileJob &job, MsgChannel *local_daemon, const Environments &
 
         GetCSMsg getcs(envs, get_absfilename(job.inputFile()), job.language(), torepeat,
                        job.targetPlatform(), job.argumentFlags(),
-                       preferred_host ? preferred_host : string(),
-                       minimalRemoteVersion(job));
-
+                       preferred_host ? preferred_host : string(), minimalRemoteVersion(job));
 
         if (!local_daemon->send_msg(getcs)) {
             log_warning() << "asked for CS" << endl;
@@ -855,7 +838,7 @@ int build_remote(CompileJob &job, MsgChannel *local_daemon, const Environments &
 
         map<pid_t, int> jobmap;
         CompileJob *jobs = new CompileJob[torepeat];
-        UseCSMsg **umsgs = new UseCSMsg*[torepeat];
+        UseCSMsg **umsgs = new UseCSMsg *[torepeat];
 
         bool misc_error = false;
         int *exit_codes = new int[torepeat];
@@ -863,7 +846,6 @@ int build_remote(CompileJob &job, MsgChannel *local_daemon, const Environments &
         for (int i = 0; i < torepeat; i++) { // init
             exit_codes[i] = 42;
         }
-
 
         for (int i = 0; i < torepeat; i++) {
             jobs[i] = job;
@@ -899,11 +881,9 @@ int build_remote(CompileJob &job, MsgChannel *local_daemon, const Environments &
                 try {
                     if (!maybe_build_local(local_daemon, umsgs[i], jobs[i], ret))
                         ret = build_remote_int(
-                                  jobs[i], umsgs[i], local_daemon,
-                                  version_map[umsgs[i]->host_platform],
-                                  versionfile_map[umsgs[i]->host_platform],
-                                  preproc, i == 0);
-                } catch (std::exception& error) {
+                            jobs[i], umsgs[i], local_daemon, version_map[umsgs[i]->host_platform],
+                            versionfile_map[umsgs[i]->host_platform], preproc, i == 0);
+                } catch (std::exception &error) {
                     log_info() << "build_remote_int failed and has thrown " << error.what() << endl;
                     kill(getpid(), SIGTERM);
                     return 0; // shouldn't matter
@@ -937,21 +917,25 @@ int build_remote(CompileJob &job, MsgChannel *local_daemon, const Environments &
             string first_md5 = md5_for_file(jobs[0].outputFile());
 
             for (int i = 1; i < torepeat; i++) {
-                if (!exit_codes[0]) {   // if the first failed, we fail anyway
+                if (!exit_codes[0]) {          // if the first failed, we fail anyway
                     if (exit_codes[i] == 42) { // they are free to fail for misc reasons
                         continue;
                     }
 
                     if (exit_codes[i]) {
-                        log_error() << umsgs[i]->hostname << " compiled with exit code " << exit_codes[i]
-                                    << " and " << umsgs[0]->hostname << " compiled with exit code "
-                                    << exit_codes[0] << " - aborting!\n";
-                        if (-1 == ::unlink(jobs[0].outputFile().c_str())){
-                            log_perror("unlink outputFile failed") << "\t" << jobs[0].outputFile() << endl;
+                        log_error()
+                            << umsgs[i]->hostname << " compiled with exit code " << exit_codes[i]
+                            << " and " << umsgs[0]->hostname << " compiled with exit code "
+                            << exit_codes[0] << " - aborting!\n";
+                        if (-1 == ::unlink(jobs[0].outputFile().c_str())) {
+                            log_perror("unlink outputFile failed")
+                                << "\t" << jobs[0].outputFile() << endl;
                         }
                         if (has_split_dwarf) {
-                            string dwo_file = jobs[0].outputFile().substr(0, jobs[0].outputFile().find_last_of('.')) + ".dwo";
-                            if (-1 == ::unlink(dwo_file.c_str())){
+                            string dwo_file = jobs[0].outputFile().substr(
+                                                  0, jobs[0].outputFile().find_last_of('.')) +
+                                              ".dwo";
+                            if (-1 == ::unlink(dwo_file.c_str())) {
                                 log_perror("unlink failed") << "\t" << dwo_file << endl;
                             }
                         }
@@ -962,16 +946,18 @@ int build_remote(CompileJob &job, MsgChannel *local_daemon, const Environments &
                     string other_md5 = md5_for_file(jobs[i].outputFile());
 
                     if (other_md5 != first_md5) {
-                        log_error() << umsgs[i]->hostname << " compiled "
-                                    << jobs[0].outputFile() << " with md5 sum " << other_md5
-                                    << "(" << jobs[i].outputFile() << ")" << " and "
-                                    << umsgs[0]->hostname << " compiled with md5 sum "
-                                    << first_md5 << " - aborting!\n";
+                        log_error()
+                            << umsgs[i]->hostname << " compiled " << jobs[0].outputFile()
+                            << " with md5 sum " << other_md5 << "(" << jobs[i].outputFile() << ")"
+                            << " and " << umsgs[0]->hostname << " compiled with md5 sum "
+                            << first_md5 << " - aborting!\n";
                         rename(jobs[0].outputFile().c_str(),
                                (jobs[0].outputFile() + ".caught").c_str());
                         rename(preproc, (string(preproc) + ".caught").c_str());
                         if (has_split_dwarf) {
-                            string dwo_file = jobs[0].outputFile().substr(0, jobs[0].outputFile().find_last_of('.')) + ".dwo";
+                            string dwo_file = jobs[0].outputFile().substr(
+                                                  0, jobs[0].outputFile().find_last_of('.')) +
+                                              ".dwo";
                             rename(dwo_file.c_str(), (dwo_file + ".caught").c_str());
                         }
                         exit_codes[0] = -1; // overwrite
@@ -979,35 +965,40 @@ int build_remote(CompileJob &job, MsgChannel *local_daemon, const Environments &
                     }
                 }
 
-                if (-1 == ::unlink(jobs[i].outputFile().c_str())){
+                if (-1 == ::unlink(jobs[i].outputFile().c_str())) {
                     log_perror("unlink failed") << "\t" << jobs[i].outputFile() << endl;
                 }
                 if (has_split_dwarf) {
-                    string dwo_file = jobs[i].outputFile().substr(0, jobs[i].outputFile().find_last_of('.')) + ".dwo";
-                    if (-1 == ::unlink(dwo_file.c_str())){
+                    string dwo_file =
+                        jobs[i].outputFile().substr(0, jobs[i].outputFile().find_last_of('.')) +
+                        ".dwo";
+                    if (-1 == ::unlink(dwo_file.c_str())) {
                         log_perror("unlink failed") << "\t" << dwo_file << endl;
                     }
                 }
                 delete umsgs[i];
             }
         } else {
-            if (-1 == ::unlink(jobs[0].outputFile().c_str())){
+            if (-1 == ::unlink(jobs[0].outputFile().c_str())) {
                 log_perror("unlink failed") << "\t" << jobs[0].outputFile() << endl;
             }
             if (has_split_dwarf) {
-                string dwo_file = jobs[0].outputFile().substr(0, jobs[0].outputFile().find_last_of('.')) + ".dwo";
-                if (-1 == ::unlink(dwo_file.c_str())){
+                string dwo_file =
+                    jobs[0].outputFile().substr(0, jobs[0].outputFile().find_last_of('.')) + ".dwo";
+                if (-1 == ::unlink(dwo_file.c_str())) {
                     log_perror("unlink failed") << "\t" << dwo_file << endl;
                 }
             }
 
             for (int i = 1; i < torepeat; i++) {
-                if (-1 == ::unlink(jobs[i].outputFile().c_str())){
+                if (-1 == ::unlink(jobs[i].outputFile().c_str())) {
                     log_perror("unlink failed") << "\t" << jobs[i].outputFile() << endl;
                 }
                 if (has_split_dwarf) {
-                    string dwo_file = jobs[i].outputFile().substr(0, jobs[i].outputFile().find_last_of('.')) + ".dwo";
-                    if (-1 == ::unlink(dwo_file.c_str())){
+                    string dwo_file =
+                        jobs[i].outputFile().substr(0, jobs[i].outputFile().find_last_of('.')) +
+                        ".dwo";
+                    if (-1 == ::unlink(dwo_file.c_str())) {
                         log_perror("unlink failed") << "\t" << dwo_file << endl;
                     }
                 }
@@ -1017,15 +1008,15 @@ int build_remote(CompileJob &job, MsgChannel *local_daemon, const Environments &
 
         delete umsgs[0];
 
-        if (-1 == ::unlink(preproc)){
+        if (-1 == ::unlink(preproc)) {
             log_perror("unlink failed") << "\t" << preproc << endl;
         }
 
         int ret = exit_codes[0];
 
-        delete [] umsgs;
-        delete [] jobs;
-        delete [] exit_codes;
+        delete[] umsgs;
+        delete[] jobs;
+        delete[] exit_codes;
 
         if (misc_error) {
             throw client_error(27, "Error 27 - misc error");
@@ -1033,7 +1024,6 @@ int build_remote(CompileJob &job, MsgChannel *local_daemon, const Environments &
 
         return ret;
     }
-
 
     return 0;
 }

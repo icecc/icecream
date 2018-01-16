@@ -21,43 +21,43 @@
     51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 */
 
-#include "config.h"
 #include "workit.h"
-#include "tempfile.h"
 #include "assert.h"
+#include "config.h"
 #include "exitcode.h"
 #include "logging.h"
-#include <sys/select.h>
+#include "tempfile.h"
 #include <algorithm>
+#include <sys/select.h>
 
 #ifdef __FreeBSD__
 #include <sys/param.h>
 #endif
 
 /* According to earlier standards */
+#include <signal.h>
+#include <sys/fcntl.h>
+#include <sys/resource.h>
 #include <sys/time.h>
 #include <sys/types.h>
-#include <unistd.h>
-#include <sys/fcntl.h>
 #include <sys/wait.h>
-#include <signal.h>
-#include <sys/resource.h>
+#include <unistd.h>
 #if HAVE_SYS_USER_H && !defined(__DragonFly__)
-#  include <sys/user.h>
+#include <sys/user.h>
 #endif
 #include <sys/socket.h>
 
 #if defined(__FreeBSD__) || defined(__DragonFly__) || defined(__APPLE__)
 #ifndef RUSAGE_SELF
-#define   RUSAGE_SELF     (0)
+#define RUSAGE_SELF (0)
 #endif
 #ifndef RUSAGE_CHILDREN
-#define   RUSAGE_CHILDREN     (-1)
+#define RUSAGE_CHILDREN (-1)
 #endif
 #endif
 
-#include <stdio.h>
 #include <errno.h>
+#include <stdio.h>
 #include <string>
 
 #include "comm.h"
@@ -70,17 +70,13 @@ static int death_pipe[2];
 
 extern "C" {
 
-    static void theSigCHLDHandler(int)
-    {
-        char foo = 0;
-        ignore_result(write(death_pipe[1], &foo, 1));
-    }
-
+static void theSigCHLDHandler(int) {
+    char foo = 0;
+    ignore_result(write(death_pipe[1], &foo, 1));
+}
 }
 
-static void
-error_client(MsgChannel *client, string error)
-{
+static void error_client(MsgChannel *client, string error) {
     if (IS_PROTOCOL_23(client)) {
         client->send_msg(StatusTextMsg(error));
     }
@@ -93,9 +89,8 @@ error_client(MsgChannel *client, string error)
  */
 
 int work_it(CompileJob &j, unsigned int job_stat[], MsgChannel *client, CompileResultMsg &rmsg,
-            const std::string &tmp_root, const std::string &build_path, const std::string &file_name,
-            unsigned long int mem_limit, int client_fd)
-{
+            const std::string &tmp_root, const std::string &build_path,
+            const std::string &file_name, unsigned long int mem_limit, int client_fd) {
     rmsg.out.erase(rmsg.out.begin(), rmsg.out.end());
     rmsg.out.erase(rmsg.out.begin(), rmsg.out.end());
 
@@ -109,8 +104,7 @@ int work_it(CompileJob &j, unsigned int job_stat[], MsgChannel *client, CompileR
     trace() << "remote compile for file " << j.inputFile() << endl;
 
     string argstxt;
-    for (std::list<string>::const_iterator it = list.begin();
-         it != list.end(); ++it) {
+    for (std::list<string>::const_iterator it = list.begin(); it != list.end(); ++it) {
         argstxt += ' ';
         argstxt += *it;
     }
@@ -222,12 +216,12 @@ int work_it(CompileJob &j, unsigned int job_stat[], MsgChannel *client, CompileR
 #endif
 
         int argc = list.size();
-        argc++; // the program
+        argc++;    // the program
         argc += 6; // -x c - -o file.o -fpreprocessed
         argc += 4; // gpc parameters
         argc += 1; // -pipe
         argc += 9; // clang extra flags
-        char **argv = new char*[argc + 1];
+        char **argv = new char *[argc + 1];
         int i = 0;
         bool clang = false;
 
@@ -247,28 +241,28 @@ int work_it(CompileJob &j, unsigned int job_stat[], MsgChannel *client, CompileR
 
         argv[i++] = strdup("-x");
         if (j.language() == CompileJob::Lang_C) {
-          argv[i++] = strdup("c");
+            argv[i++] = strdup("c");
         } else if (j.language() == CompileJob::Lang_CXX) {
-          argv[i++] = strdup("c++");
+            argv[i++] = strdup("c++");
         } else if (j.language() == CompileJob::Lang_OBJC) {
-          argv[i++] = strdup("objective-c");
+            argv[i++] = strdup("objective-c");
         } else if (j.language() == CompileJob::Lang_OBJCXX) {
-          argv[i++] = strdup("objective-c++");
+            argv[i++] = strdup("objective-c++");
         } else {
             error_client(client, "language not supported");
             log_perror("language not supported");
         }
 
-        if( clang ) {
+        if (clang) {
             // gcc seems to handle setting main file name and working directory fine
             // (it gets it from the preprocessed info), but clang needs help
-            if( !j.inputFile().empty()) {
+            if (!j.inputFile().empty()) {
                 argv[i++] = strdup("-Xclang");
                 argv[i++] = strdup("-main-file-name");
                 argv[i++] = strdup("-Xclang");
                 argv[i++] = strdup(j.inputFile().c_str());
             }
-            if( !j.workingDirectory().empty()) {
+            if (!j.workingDirectory().empty()) {
                 argv[i++] = strdup("-Xclang");
                 argv[i++] = strdup("-fdebug-compilation-dir");
                 argv[i++] = strdup("-Xclang");
@@ -283,8 +277,7 @@ int work_it(CompileJob &j, unsigned int job_stat[], MsgChannel *client, CompileR
 
         bool hasPipe = false;
 
-        for (std::list<string>::const_iterator it = list.begin();
-                it != list.end(); ++it) {
+        for (std::list<string>::const_iterator it = list.begin(); it != list.end(); ++it) {
             if (*it == "-pipe") {
                 hasPipe = true;
             }
@@ -314,7 +307,8 @@ int work_it(CompileJob &j, unsigned int job_stat[], MsgChannel *client, CompileR
         }
 
         if (clang) {
-            argv[i++] = strdup("-no-canonical-prefixes");    // otherwise clang tries to access /proc/self/exe
+            argv[i++] =
+                strdup("-no-canonical-prefixes"); // otherwise clang tries to access /proc/self/exe
         }
 
         if (!clang && j.dwarfFissionEnabled()) {
@@ -327,9 +321,7 @@ int work_it(CompileJob &j, unsigned int job_stat[], MsgChannel *client, CompileR
         assert(i <= argc);
 
         argstxt.clear();
-        for (int pos = 1;
-             pos < i;
-             ++pos ) {
+        for (int pos = 1; pos < i; ++pos) {
             argstxt += ' ';
             argstxt += argv[pos];
         }
@@ -337,52 +329,52 @@ int work_it(CompileJob &j, unsigned int job_stat[], MsgChannel *client, CompileR
 
         close_debug();
 
-        if ((-1 == close(sock_out[0])) && (errno != EBADF)){
+        if ((-1 == close(sock_out[0])) && (errno != EBADF)) {
             log_perror("close failed");
         }
 
-        if (-1 == dup2(sock_out[1], STDOUT_FILENO)){
+        if (-1 == dup2(sock_out[1], STDOUT_FILENO)) {
             log_perror("dup2 failed");
         }
 
-        if ((-1 == close(sock_out[1])) && (errno != EBADF)){
+        if ((-1 == close(sock_out[1])) && (errno != EBADF)) {
             log_perror("close failed");
         }
 
-        if ((-1 == close(sock_err[0])) && (errno != EBADF)){
+        if ((-1 == close(sock_err[0])) && (errno != EBADF)) {
             log_perror("close failed");
         }
 
-        if (-1 == dup2(sock_err[1], STDERR_FILENO)){
+        if (-1 == dup2(sock_err[1], STDERR_FILENO)) {
             log_perror("dup2 failed");
         }
 
-        if ((-1 == close(sock_err[1])) && (errno != EBADF)){
+        if ((-1 == close(sock_err[1])) && (errno != EBADF)) {
             log_perror("close failed");
         }
 
-        if ((-1 == close(sock_in[1])) && (errno != EBADF)){
+        if ((-1 == close(sock_in[1])) && (errno != EBADF)) {
             log_perror("close failed");
         }
 
-        if (-1 == dup2(sock_in[0], STDIN_FILENO)){
+        if (-1 == dup2(sock_in[0], STDIN_FILENO)) {
             log_perror("dup2 failed");
         }
 
-        if ((-1 == close(sock_in[0])) && (errno != EBADF)){
+        if ((-1 == close(sock_in[0])) && (errno != EBADF)) {
             log_perror("close failed");
         }
 
-        if ((-1 == close(main_sock[0])) && (errno != EBADF)){
+        if ((-1 == close(main_sock[0])) && (errno != EBADF)) {
             log_perror("close failed");
         }
         fcntl(main_sock[1], F_SETFD, FD_CLOEXEC);
 
-        if ((-1 == close(death_pipe[0])) && (errno != EBADF)){
+        if ((-1 == close(death_pipe[0])) && (errno != EBADF)) {
             log_perror("close failed");
         }
 
-        if ((-1 == close(death_pipe[1])) && (errno != EBADF)){
+        if ((-1 == close(death_pipe[1])) && (errno != EBADF)) {
             log_perror("close failed");
         }
 
@@ -395,7 +387,7 @@ int work_it(CompileJob &j, unsigned int job_stat[], MsgChannel *client, CompileR
 
 #endif
 
-        execv(argv[0], const_cast<char * const*>(argv));    // no return
+        execv(argv[0], const_cast<char *const *>(argv)); // no return
         perror("ICECC: execv");
 
         char resultByte = 1;
@@ -403,21 +395,21 @@ int work_it(CompileJob &j, unsigned int job_stat[], MsgChannel *client, CompileR
         _exit(-1);
     }
 
-    if ((-1 == close(sock_in[0])) && (errno != EBADF)){
+    if ((-1 == close(sock_in[0])) && (errno != EBADF)) {
         log_perror("close failed");
     }
 
-    if ((-1 == close(sock_out[1])) && (errno != EBADF)){
+    if ((-1 == close(sock_out[1])) && (errno != EBADF)) {
         log_perror("close failed");
     }
 
-    if ((-1 == close(sock_err[1])) && (errno != EBADF)){
+    if ((-1 == close(sock_err[1])) && (errno != EBADF)) {
         log_perror("close failed");
     }
 
     // idea borrowed from kprocess.
     // check whether the compiler could be run at all.
-    if ((-1 == close(main_sock[1])) && (errno != EBADF)){
+    if ((-1 == close(main_sock[1])) && (errno != EBADF)) {
         log_perror("close failed");
     }
 
@@ -426,7 +418,7 @@ int work_it(CompileJob &j, unsigned int job_stat[], MsgChannel *client, CompileR
         ssize_t n = ::read(main_sock[0], &resultByte, 1);
 
         if (n == -1 && errno == EINTR) {
-            continue;    // Ignore
+            continue; // Ignore
         }
 
         if (n == 1) {
@@ -439,7 +431,7 @@ int work_it(CompileJob &j, unsigned int job_stat[], MsgChannel *client, CompileR
         break; // != EINTR
     }
 
-    if ((-1 == close(main_sock[0])) && (errno != EBADF)){
+    if ((-1 == close(main_sock[0])) && (errno != EBADF)) {
         log_perror("close failed");
     }
 
@@ -471,7 +463,7 @@ int work_it(CompileJob &j, unsigned int job_stat[], MsgChannel *client, CompileR
                         input_complete = true;
 
                         if (!fcmsg && sock_in[1] != -1) {
-                            if (-1 == close(sock_in[1])){
+                            if (-1 == close(sock_in[1])) {
                                 log_perror("close failed");
                             }
                             sock_in[1] = -1;
@@ -479,7 +471,7 @@ int work_it(CompileJob &j, unsigned int job_stat[], MsgChannel *client, CompileR
 
                         delete msg;
                     } else if (msg->type == M_FILE_CHUNK) {
-                        fcmsg = static_cast<FileChunkMsg*>(msg);
+                        fcmsg = static_cast<FileChunkMsg *>(msg);
                         off = 0;
 
                         job_stat[JobStatistics::in_uncompressed] += fcmsg->len;
@@ -619,7 +611,7 @@ int work_it(CompileJob &j, unsigned int job_stat[], MsgChannel *client, CompileR
                     }
                     delete fcmsg;
                     fcmsg = 0;
-                    if (-1 == close(sock_in[1])){
+                    if (-1 == close(sock_in[1])) {
                         log_perror("close failed");
                     }
                     sock_in[1] = -1;
@@ -633,7 +625,7 @@ int work_it(CompileJob &j, unsigned int job_stat[], MsgChannel *client, CompileR
                     fcmsg = 0;
 
                     if (input_complete) {
-                        if (-1 == close(sock_in[1])){
+                        if (-1 == close(sock_in[1])) {
                             log_perror("close failed");
                         }
                         sock_in[1] = -1;
@@ -648,7 +640,7 @@ int work_it(CompileJob &j, unsigned int job_stat[], MsgChannel *client, CompileR
                     buffer[bytes] = 0;
                     rmsg.out.append(buffer);
                 } else if (bytes == 0) {
-                    if (-1 == close(sock_out[0])){
+                    if (-1 == close(sock_out[0])) {
                         log_perror("close failed");
                     }
                     sock_out[0] = -1;
@@ -662,7 +654,7 @@ int work_it(CompileJob &j, unsigned int job_stat[], MsgChannel *client, CompileR
                     buffer[bytes] = 0;
                     rmsg.err.append(buffer);
                 } else if (bytes == 0) {
-                    if (-1 == close(sock_err[0])){
+                    if (-1 == close(sock_err[0])) {
                         log_perror("close failed");
                     }
                     sock_err[0] = -1;
@@ -684,20 +676,26 @@ int work_it(CompileJob &j, unsigned int job_stat[], MsgChannel *client, CompileR
                 }
 
                 if (shell_exit_status(status) != 0) {
-                    unsigned long int mem_used = ((ru.ru_minflt + ru.ru_majflt) * getpagesize()) / 1024;
+                    unsigned long int mem_used =
+                        ((ru.ru_minflt + ru.ru_majflt) * getpagesize()) / 1024;
                     rmsg.status = EXIT_OUT_OF_MEMORY;
 
-                    if (((mem_used * 100) > (85 * mem_limit * 1024))
-                            || (rmsg.err.find("memory exhausted") != string::npos)
-                            || (rmsg.err.find("out of memory") != string::npos)
-                            || (rmsg.err.find("annot allocate memory") != string::npos)
-                            || (rmsg.err.find("failed to map segment from shared object") != string::npos)
-                            || (rmsg.err.find("Assertion `NewElts && \"Out of memory\"' failed") != string::npos)
-                            || (rmsg.err.find("terminate called after throwing an instance of 'std::bad_alloc'") != string::npos)
-                            || (rmsg.err.find("llvm::MallocSlabAllocator::Allocate") != string::npos)) {
+                    if (((mem_used * 100) > (85 * mem_limit * 1024)) ||
+                        (rmsg.err.find("memory exhausted") != string::npos) ||
+                        (rmsg.err.find("out of memory") != string::npos) ||
+                        (rmsg.err.find("annot allocate memory") != string::npos) ||
+                        (rmsg.err.find("failed to map segment from shared object") !=
+                         string::npos) ||
+                        (rmsg.err.find("Assertion `NewElts && \"Out of memory\"' failed") !=
+                         string::npos) ||
+                        (rmsg.err.find(
+                             "terminate called after throwing an instance of 'std::bad_alloc'") !=
+                         string::npos) ||
+                        (rmsg.err.find("llvm::MallocSlabAllocator::Allocate") != string::npos)) {
                         // the relation between ulimit and memory used is pretty thin ;(
-                        log_warning() << "Remote compilation failed, presumably because of running out of memory (exit code "
-                            << shell_exit_status(status) << ")" << endl;
+                        log_warning() << "Remote compilation failed, presumably because of running "
+                                         "out of memory (exit code "
+                                      << shell_exit_status(status) << ")" << endl;
                         return EXIT_OUT_OF_MEMORY;
                     }
                 }
@@ -708,20 +706,25 @@ int work_it(CompileJob &j, unsigned int job_stat[], MsgChannel *client, CompileR
                     rmsg.status = shell_exit_status(status);
                     rmsg.have_dwo_file = j.dwarfFissionEnabled();
                     job_stat[JobStatistics::exit_code] = shell_exit_status(status);
-                    job_stat[JobStatistics::real_msec] = ((endtv.tv_sec - starttv.tv_sec) * 1000)
-                                                         + ((long(endtv.tv_usec) - long(starttv.tv_usec)) / 1000);
-                    job_stat[JobStatistics::user_msec] = (ru.ru_utime.tv_sec * 1000)
-                                                         + (ru.ru_utime.tv_usec / 1000);
-                    job_stat[JobStatistics::sys_msec] = (ru.ru_stime.tv_sec * 1000)
-                                                        + (ru.ru_stime.tv_usec / 1000);
-                    job_stat[JobStatistics::sys_pfaults] = ru.ru_majflt + ru.ru_nswap + ru.ru_minflt;
-                    if(rmsg.status != 0) {
-                        log_warning() << "Remote compilation exited with exit code " << shell_exit_status(status) << endl;
+                    job_stat[JobStatistics::real_msec] =
+                        ((endtv.tv_sec - starttv.tv_sec) * 1000) +
+                        ((long(endtv.tv_usec) - long(starttv.tv_usec)) / 1000);
+                    job_stat[JobStatistics::user_msec] =
+                        (ru.ru_utime.tv_sec * 1000) + (ru.ru_utime.tv_usec / 1000);
+                    job_stat[JobStatistics::sys_msec] =
+                        (ru.ru_stime.tv_sec * 1000) + (ru.ru_stime.tv_usec / 1000);
+                    job_stat[JobStatistics::sys_pfaults] =
+                        ru.ru_majflt + ru.ru_nswap + ru.ru_minflt;
+                    if (rmsg.status != 0) {
+                        log_warning() << "Remote compilation exited with exit code "
+                                      << shell_exit_status(status) << endl;
                     } else {
-                        log_info() << "Remote compilation completed with exit code " << shell_exit_status(status) << endl;
+                        log_info() << "Remote compilation completed with exit code "
+                                   << shell_exit_status(status) << endl;
                     }
                 } else {
-                    log_warning() << "Remote compilation aborted with exit code " << shell_exit_status(status) << endl;
+                    log_warning() << "Remote compilation aborted with exit code "
+                                  << shell_exit_status(status) << endl;
                 }
 
                 return return_value;

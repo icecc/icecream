@@ -23,36 +23,36 @@
 
 #include "config.h"
 
+#include <cassert>
+#include <errno.h>
+#include <fcntl.h>
+#include <setjmp.h>
+#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <setjmp.h>
-#include <unistd.h>
 #include <string.h>
-#include <fcntl.h>
-#include <errno.h>
-#include <signal.h>
-#include <cassert>
+#include <unistd.h>
 
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 #ifdef HAVE_SYS_SIGNAL_H
-#  include <sys/signal.h>
+#include <sys/signal.h>
 #endif /* HAVE_SYS_SIGNAL_H */
 #include <sys/param.h>
 #include <unistd.h>
 
-#include <job.h>
 #include <comm.h>
+#include <job.h>
 
 #include "environment.h"
 #include "exitcode.h"
-#include "tempfile.h"
-#include "workit.h"
+#include "file_util.h"
 #include "logging.h"
 #include "serve.h"
+#include "tempfile.h"
 #include "util.h"
-#include "file_util.h"
+#include "workit.h"
 
 #include <sys/time.h>
 
@@ -73,16 +73,13 @@ using namespace std;
 
 int nice_level = 5;
 
-static void
-error_client(MsgChannel *client, string error)
-{
+static void error_client(MsgChannel *client, string error) {
     if (IS_PROTOCOL_22(client)) {
         client->send_msg(StatusTextMsg(error));
     }
 }
 
-static void write_output_file( const string& file, MsgChannel* client )
-{
+static void write_output_file(const string &file, MsgChannel *client) {
     int obj_fd = -1;
     try {
         obj_fd = open(file.c_str(), O_RDONLY | O_LARGEFILE);
@@ -107,7 +104,7 @@ static void write_output_file( const string& file, MsgChannel* client )
             }
 
             if (!bytes) {
-                if( !client->send_msg(EndMsg())) {
+                if (!client->send_msg(EndMsg())) {
                     log_info() << "write of obj end failed " << endl;
                     throw myexception(EXIT_DISTCC_FAILED);
                 }
@@ -122,9 +119,9 @@ static void write_output_file( const string& file, MsgChannel* client )
             }
         } while (1);
 
-    } catch(...) {
-        if( obj_fd != -1 )
-            if ((-1 == close( obj_fd )) && (errno != EBADF)){
+    } catch (...) {
+        if (obj_fd != -1)
+            if ((-1 == close(obj_fd)) && (errno != EBADF)) {
                 log_perror("close failed");
             }
         throw;
@@ -134,10 +131,8 @@ static void write_output_file( const string& file, MsgChannel* client )
 /**
  * Read a request, run the compiler, and send a response.
  **/
-int handle_connection(const string &basedir, CompileJob *job,
-                      MsgChannel *client, int &out_fd,
-                      unsigned int mem_limit, uid_t user_uid, gid_t user_gid)
-{
+int handle_connection(const string &basedir, CompileJob *job, MsgChannel *client, int &out_fd,
+                      unsigned int mem_limit, uid_t user_uid, gid_t user_gid) {
     int socket[2];
 
     if (pipe(socket) == -1) {
@@ -149,8 +144,8 @@ int handle_connection(const string &basedir, CompileJob *job,
     pid_t pid = fork();
     assert(pid >= 0);
 
-    if (pid > 0) {  // parent
-        if ((-1 == close(socket[1])) && (errno != EBADF)){
+    if (pid > 0) { // parent
+        if ((-1 == close(socket[1])) && (errno != EBADF)) {
             log_perror("close failure");
         }
         out_fd = socket[0];
@@ -159,7 +154,7 @@ int handle_connection(const string &basedir, CompileJob *job,
     }
 
     reset_debug();
-    if ((-1 == close(socket[0])) && (errno != EBADF)){
+    if ((-1 == close(socket[0])) && (errno != EBADF)) {
         log_perror("close failed");
     }
     out_fd = socket[1];
@@ -169,8 +164,7 @@ int handle_connection(const string &basedir, CompileJob *job,
 
     int niceval = nice(nice_level);
     if (niceval == -1) {
-        log_warning() << "failed to set nice value: " << strerror(errno)
-                      << endl;
+        log_warning() << "failed to set nice value: " << strerror(errno) << endl;
     }
 
     Msg *msg = 0; // The current read message
@@ -179,18 +173,21 @@ int handle_connection(const string &basedir, CompileJob *job,
 
     try {
         if (job->environmentVersion().size()) {
-            string dirname = basedir + "/target=" + job->targetPlatform() + "/" + job->environmentVersion();
+            string dirname =
+                basedir + "/target=" + job->targetPlatform() + "/" + job->environmentVersion();
 
             if (::access(string(dirname + "/usr/bin/as").c_str(), X_OK)) {
                 error_client(client, dirname + "/usr/bin/as is not executable");
-                log_error() << "I don't have environment " << job->environmentVersion() << "(" << job->targetPlatform() << ") " << job->jobID() << endl;
-                throw myexception(EXIT_DISTCC_FAILED);   // the scheduler didn't listen to us!
+                log_error() << "I don't have environment " << job->environmentVersion() << "("
+                            << job->targetPlatform() << ") " << job->jobID() << endl;
+                throw myexception(EXIT_DISTCC_FAILED); // the scheduler didn't listen to us!
             }
 
             chdir_to_environment(client, dirname, user_uid, user_gid);
         } else {
             error_client(client, "empty environment");
-            log_error() << "Empty environment (" << job->targetPlatform() << ") " << job->jobID() << endl;
+            log_error() << "Empty environment (" << job->targetPlatform() << ") " << job->jobID()
+                        << endl;
             throw myexception(EXIT_DISTCC_FAILED);
         }
 
@@ -233,20 +230,21 @@ int handle_connection(const string &basedir, CompileJob *job,
             string file_dir, file_name;
             if (slash_index != string::npos) {
                 file_dir = job_output_file.substr(0, slash_index);
-                file_name = job_output_file.substr(slash_index+1);
-            }
-            else {
+                file_name = job_output_file.substr(slash_index + 1);
+            } else {
                 file_name = job_output_file;
             }
 
             string output_dir, relative_file_path;
-            if (!file_dir.empty() && file_dir[0] == '/') { // output dir is absolute, convert to relative
-                relative_file_path = get_relative_path(get_canonicalized_path(job_output_file), get_canonicalized_path(job_working_dir));
+            if (!file_dir.empty() &&
+                file_dir[0] == '/') { // output dir is absolute, convert to relative
+                relative_file_path = get_relative_path(get_canonicalized_path(job_output_file),
+                                                       get_canonicalized_path(job_working_dir));
                 output_dir = tmp_path + get_canonicalized_path(file_dir);
-            }
-            else { // output file is already relative, canonicalize in relation to working dir
+            } else { // output file is already relative, canonicalize in relation to working dir
                 string canonicalized_dir = get_canonicalized_path(job_working_dir + '/' + file_dir);
-                relative_file_path = get_relative_path(canonicalized_dir + '/' + file_name, get_canonicalized_path(job_working_dir));
+                relative_file_path = get_relative_path(canonicalized_dir + '/' + file_name,
+                                                       get_canonicalized_path(job_working_dir));
                 output_dir = tmp_path + canonicalized_dir;
             }
 
@@ -254,27 +252,29 @@ int handle_connection(const string &basedir, CompileJob *job,
                 error_client(client, "could not create object file location in tmp directory");
                 throw myexception(EXIT_IO_ERROR);
             }
-            if (!mkpath(tmp_path + job_working_dir))  {
-                error_client(client, "could not create compiler working directory in tmp directory");
+            if (!mkpath(tmp_path + job_working_dir)) {
+                error_client(client,
+                             "could not create compiler working directory in tmp directory");
                 throw myexception(EXIT_IO_ERROR);
             }
 
             obj_file = output_dir + '/' + file_name;
             dwo_file = obj_file.substr(0, obj_file.find_last_of('.')) + ".dwo";
 
-            ret = work_it(*job, job_stat, client, rmsg, tmp_path, job_working_dir, relative_file_path, mem_limit, client->fd);
-        }
-        else if ((ret = dcc_make_tmpnam(prefix_output, ".o", &tmp_output, 0)) == 0) {
+            ret = work_it(*job, job_stat, client, rmsg, tmp_path, job_working_dir,
+                          relative_file_path, mem_limit, client->fd);
+        } else if ((ret = dcc_make_tmpnam(prefix_output, ".o", &tmp_output, 0)) == 0) {
             obj_file = tmp_output;
             free(tmp_output);
             string build_path = obj_file.substr(0, obj_file.find_last_of('/'));
-            string file_name = obj_file.substr(obj_file.find_last_of('/')+1);
+            string file_name = obj_file.substr(obj_file.find_last_of('/') + 1);
 
-            ret = work_it(*job, job_stat, client, rmsg, build_path, "", file_name, mem_limit, client->fd);
+            ret = work_it(*job, job_stat, client, rmsg, build_path, "", file_name, mem_limit,
+                          client->fd);
         }
 
         if (ret) {
-            if (ret == EXIT_OUT_OF_MEMORY) {   // we catch that as special case
+            if (ret == EXIT_OUT_OF_MEMORY) { // we catch that as special case
                 rmsg.was_out_of_memory = true;
             } else {
                 throw myexception(ret);
@@ -298,7 +298,7 @@ int handle_connection(const string &basedir, CompileJob *job,
         /* wake up parent and tell him that compile finished */
         /* if the write failed, well, doesn't matter */
         ignore_result(write(out_fd, job_stat, sizeof(job_stat)));
-        if ((-1 == close(out_fd)) && (errno != EBADF)){
+        if ((-1 == close(out_fd)) && (errno != EBADF)) {
             log_perror("close failed");
         }
 
@@ -311,17 +311,17 @@ int handle_connection(const string &basedir, CompileJob *job,
 
         throw myexception(rmsg.status);
 
-    } catch (const myexception& e) {
+    } catch (const myexception &e) {
         delete client;
         client = 0;
 
         if (!obj_file.empty()) {
-            if (-1 == unlink(obj_file.c_str()) && errno != ENOENT){
+            if (-1 == unlink(obj_file.c_str()) && errno != ENOENT) {
                 log_perror("unlink failure") << "\t" << obj_file << endl;
             }
         }
         if (!dwo_file.empty()) {
-            if (-1 == unlink(dwo_file.c_str()) && errno != ENOENT){
+            if (-1 == unlink(dwo_file.c_str()) && errno != ENOENT) {
                 log_perror("unlink failure") << "\t" << dwo_file << endl;
             }
         }
