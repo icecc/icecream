@@ -500,9 +500,11 @@ int main(int argc, char **argv)
         delete startme;
     } else {
         try {
-            // check if it should be compiled three times
+            // How many times out of 1000 should we recompile a job on
+            // multiple hosts to confirm that the results are the same?
             const char *s = getenv("ICECC_REPEAT_RATE");
             int rate = s ? atoi(s) : 0;
+
             ret = build_remote(job, local_daemon, envs, rate);
 
             /* We have to tell the local daemon that everything is fine and
