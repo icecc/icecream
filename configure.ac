@@ -324,6 +324,7 @@ AC_CONFIG_FILES([ compilerwrapper/Makefile ])
 AC_CONFIG_FILES([ scheduler/Makefile ])
 AC_CONFIG_FILES([ tests/Makefile ])
 AC_CONFIG_FILES([ client/icecc-create-env ])
+AC_CONFIG_FILES([ client/icecc-test-env ])
 AC_CONFIG_FILES([ tests/test-setup.sh ])
 AC_OUTPUT([ suse/icecream.spec ])
 if test "$prefix" = NONE; then

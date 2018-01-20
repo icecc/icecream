@@ -1,0 +1,147 @@
+#! /bin/bash
+#
+# A simple script that can be used to see if an environment was built
+# successfully. Note that passing these test doesn't guarantee the environment
+# will work, but failing them means it certainly won't. Note that this script
+# may need to be executed with sudo if the current user doesn't have chroot
+# permissions
+#
+# This program always exits with an error code of 2 so that it can be
+# distinguished from a sudo error (with an exit code of 1)
+#
+# Copyright (C) 2018 Joshua Watt
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+
+# Exit on any unexpected failure
+set -e
+
+TEST_DIR=
+QUIET=false
+REALPATH=$(which realpath 2> /dev/null || true)
+
+# Cleanup the temp directory on exit
+cleanup() {
+    if [ -n "$TEST_DIR" ]; then
+        rm -rf "$TEST_DIR"
+    fi
+}
+trap cleanup EXIT
+
+print_info() {
+    if ! $QUIET; then
+        echo "$@"
+    fi
+}
+
+usage() {
+    echo "Usage: $(basename $0) [-h] TOOLCHAIN"
+    echo "  -h  --help          Show Help"
+    echo "  -q  --quiet         Only print errors"
+    echo "  TOOLCHAIN           Toolchain archive to test"
+    echo ""
+    echo "Tests a toolchain environment to see if it is correctly constructed"
+}
+
+OPTIONS=`getopt -o hqf --long help,quiet -n $(basename $0) -- "$@"`
+eval set -- "$OPTIONS"
+
+while true; do
+    case "$1" in
+        -h|--help)
+            usage
+            exit 0
+            ;;
+        -q|--quiet)
+            QUIET=true
+            shift
+            ;;
+        --)
+            shift
+            break
+            ;;
+        *)
+            echo "Unknown option '$1'"
+            exit 2
+            ;;
+    esac
+done
+
+if [ -z "$1" ]; then
+    echo "Toolchain argument is required"
+    usage
+    exit 2
+fi
+TEST_DIR=$(mktemp -d)
+
+if [ -z "$REALPATH" ]; then
+    echo "WARNING: realpath not found, symlink tests will be disabled"
+fi
+
+# Extract the toolchain
+tar -xf "$1" -C "$TEST_DIR"
+
+# Determine the compiler
+if [ -e $TEST_DIR/usr/bin/clang ]; then
+    print_info "Compiler is clang"
+    IS_CLANG=true
+else
+    print_info "Compiler is gcc"
+    IS_CLANG=false
+fi
+
+check_program() {
+    local prog="$1"
+    shift
+
+    cd $TEST_DIR
+    print_info "Checking $prog..."
+    if [ ! -x "${TEST_DIR}${prog}" ]; then
+        echo "$prog is missing or not executable"
+        exit 2
+    fi
+    if [ -n "$REALPATH" ]; then
+        local target="$($REALPATH "${TEST_DIR}${prog}")"
+        case $target in
+            "$($REALPATH "${TEST_DIR}")"/*)
+                ;;
+            *)
+                echo "$prog is a symbolic link that points to '$target' outside the environment"
+                exit 2
+                ;;
+        esac
+    fi
+    if ! chroot . $prog $@ < /dev/null; then
+        echo "$prog failed to execute"
+        exit 2
+    fi
+    print_info "OK"
+}
+
+check_program /bin/true
+if $IS_CLANG; then
+    check_program /usr/bin/clang -xc -c -o test.o -
+    check_program /usr/bin/as
+    # NOTE: The compilerwrapper programs /usr/bin/gcc and /usr/bin/g++ are not
+    # tested because they interfer with the automated testing when the
+    # address sanitizer is enabled
+else
+    ARGS="-fpreprocessed"
+    check_program /usr/bin/gcc $ARGS -xc -c -o test.o -
+    check_program /usr/bin/g++ $ARGS -xc++ -c -o test.o -
+    check_program /usr/bin/cc1 $ARGS -o test.o -quiet
+    check_program /usr/bin/cc1plus $ARGS -o test.o -quiet
+    check_program /usr/bin/as
+fi
