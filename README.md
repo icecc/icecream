@@ -557,7 +557,7 @@ Icecream on gentoo
     compiler errors, if not all computers have the same processor
     type/version
 
-**Be aware** that you have to change the CFLAGS during ich gcc update
+**Be aware** that you have to change the CFLAGS during each gcc update
 too.
 
 -   To use icecream with emerge/ebuild use PREROOTPATH=/opt/icecream/lib/icecc/bin
