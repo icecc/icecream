@@ -24,9 +24,7 @@ Boston, MA 02110-1301, USA.  */
 
 #include "argv.h"
 
-#ifdef HAVE_CONFIG_H
 #include "config.h"
-#endif
 
 #include <ctype.h>
 
@@ -37,12 +35,8 @@ Boston, MA 02110-1301, USA.  */
 #include <stdlib.h>
 #include <stdio.h>
 #include <sys/types.h>
-#ifdef HAVE_UNISTD_H
 #include <unistd.h>
-#endif
-#if HAVE_SYS_STAT_H
 #include <sys/stat.h>
-#endif
 
 #ifndef NULL
 #define NULL 0
@@ -338,9 +332,7 @@ expandargv (int *argcp, char ***argvp)
       char **file_argv;
       /* The number of options read from the response file, if any.  */
       size_t file_argc;
-#ifdef S_ISDIR
       struct stat sb;
-#endif
       /* We are only interested in options of the form "@file".  */
       filename = (*argvp)[i];
       if (filename[0] != '@')
@@ -351,7 +343,6 @@ expandargv (int *argcp, char ***argvp)
 	  fprintf (stderr, "%s: error: too many @-files encountered\n", (*argvp)[0]);
 	  exit (1);
 	}
-#ifdef S_ISDIR
       if (stat (filename+1, &sb) < 0)
 	continue;
       if (S_ISDIR(sb.st_mode))
@@ -359,7 +350,6 @@ expandargv (int *argcp, char ***argvp)
 	  fprintf (stderr, "%s: error: @-file refers to a directory\n", (*argvp)[0]);
 	  exit (1);
 	}
-#endif
       /* Read the contents of the file.  */
       f = fopen (++filename, "r");
       if (!f)
