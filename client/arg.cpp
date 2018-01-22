@@ -727,7 +727,7 @@ bool analyse_argv(const char * const *argv, CompileJob &job, bool icerun, list<s
     job.setFlags(args);
     job.setOutputFile(ofile);
     if (seen_split_dwarf) {
-        // need to do after the output file is set */
+        // need to do after the output file is set
         log_info() << "Seen SplitDwarf" << std::endl;
         job.setExtraOutputFileEnum(CompileJob::eExFile_dwarfFission);
     }

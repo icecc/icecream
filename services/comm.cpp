@@ -1778,7 +1778,7 @@ void CompileResultMsg::fill_from_channel(MsgChannel *c)
             extra_files = CompileJob::eExFile_dwarfFission;
         }
     }
-    if (IS_PROTOCOL_38(c)) {
+    if (IS_PROTOCOL_39(c)) {
         *c >> extra_files;
     }
 
@@ -1794,7 +1794,7 @@ void CompileResultMsg::send_to_channel(MsgChannel *c) const
     if (IS_PROTOCOL_35(c)) {
         *c << (uint32_t) have_dwo_file;
     }
-    if (IS_PROTOCOL_38(c)) {
+    if (IS_PROTOCOL_39(c)) {
         *c << extra_files;
     }
 

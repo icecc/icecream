@@ -161,7 +161,6 @@ public:
 
     void setExtraOutputFile(uint32_t index, const std::string &file)
     {
-        //printf("setExtraOutputFile[%d] = %s\n", index, file.c_str());
         m_output_files[index] = file;
     }
     std::string ExtraOutputFileExt(const std::string &ext)

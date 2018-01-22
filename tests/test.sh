@@ -520,7 +520,7 @@ run_ice()
 	    abort_tests
 	fi
     fi
-    # note thiese differ a bit based on the args passed to compiler
+    # note these differ a bit based on the args passed to compiler
     if test -n "$save_temps_s"; then
 	if test -s "$save_temps_s".localice; then
             if test -z "$chroot_disabled"; then
