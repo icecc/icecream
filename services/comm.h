@@ -674,7 +674,7 @@ public:
 class LoginMsg : public Msg
 {
 public:
-    LoginMsg(unsigned int myport, const std::string &_nodename, const std::string _host_platform);
+    LoginMsg(unsigned int myport, const std::string &_nodename, const std::string &_host_platform);
     LoginMsg()
         : Msg(M_LOGIN)
         , port(0) {}

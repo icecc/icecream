@@ -2114,7 +2114,7 @@ void JobDoneMsg::send_to_channel(MsgChannel *c) const
     *c << flags;
 }
 
-LoginMsg::LoginMsg(unsigned int myport, const std::string &_nodename, const std::string _host_platform)
+LoginMsg::LoginMsg(unsigned int myport, const std::string &_nodename, const std::string &_host_platform)
     : Msg(M_LOGIN)
     , port(myport)
     , max_kids(0)
