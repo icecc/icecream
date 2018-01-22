@@ -1291,7 +1291,7 @@ static string dump_job(Job *job)
     default:
         jobState = "Huh?";
     }
-    snprintf(buffer, sizeof(buffer), "%d %s sub:%s on:%s ",
+    snprintf(buffer, sizeof(buffer), "%u %s sub:%s on:%s ",
              job->id(),
              jobState.c_str(),
              job->submitter() ? job->submitter()->nodeName().c_str() : "<>",
