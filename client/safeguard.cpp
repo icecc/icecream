@@ -41,7 +41,7 @@ static int dcc_safeguard_level;
 
 int dcc_recursion_safeguard(void)
 {
-    char *env = getenv(dcc_safeguard_name);
+    const char *env = getenv(dcc_safeguard_name);
 
     if (env) {
         //trace() << "safeguard: " << env << endl;
