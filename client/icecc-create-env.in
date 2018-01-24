@@ -327,7 +327,12 @@ if test -n "$clang"; then
     fi
 
     # clang always uses its internal .h files
-    clangincludes=$(dirname $(abs_path $($added_clang -print-file-name=include/limits.h)))
+    clangincludes=$($added_clang -print-file-name=include/limits.h)
+    if test -z "$clangincludes"; then
+        echo $added_clang cannot find its includes
+        exit 1
+    fi
+    clangincludes=$(dirname $(abs_path $clangincludes))
     for file in $(find $clangincludes -type f); do
       add_file "$file"
     done
