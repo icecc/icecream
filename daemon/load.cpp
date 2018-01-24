@@ -78,6 +78,11 @@ struct CPULoadInfo {
     load_t waitTicks;
 
     CPULoadInfo() {
+        userLoad = 0;
+        niceLoad = 0;
+        sysLoad = 0;
+        idleLoad = 0;
+
         userTicks = 0;
         niceTicks = 0;
         sysTicks = 0;
