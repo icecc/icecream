@@ -313,7 +313,6 @@ int handle_connection(const string &basedir, CompileJob *job,
 
     } catch (const myexception& e) {
         delete client;
-        client = 0;
 
         if (!obj_file.empty()) {
             if (-1 == unlink(obj_file.c_str()) && errno != ENOENT){
