@@ -1,4 +1,5 @@
 # out-of-tree build
+compile
 build/
 # autoconf
 m4/libtool.m4
@@ -41,8 +42,9 @@ suse/icecream.spec
 doc/*.1
 doc/*.7
 doc/index.html
+tests/results
 tests/test-suite.log
 tests/testargs
 tests/testargs.log
 tests/testargs.trs
-tests/test-setup.h
+tests/test-setup.sh
