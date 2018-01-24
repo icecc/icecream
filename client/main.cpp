@@ -220,12 +220,27 @@ static int create_native(char **args)
 
 }
 
+static void debug_arguments(int argc, char** argv, bool original)
+{
+    string argstxt = argv[ 0 ];
+    for( int i = 1; i < argc; ++i ) {
+        argstxt += ' ';
+        argstxt += argv[ i ];
+    }
+    if( original ) {
+        trace() << "invoked as: " << argstxt << endl;
+    } else {
+        trace() << "expanded as: " << argstxt << endl;
+    }
+}
+
 class ArgumentExpander
 {
 public:
     ArgumentExpander(int *argcp, char ***argvp)
     {
-        char ** oldargv = *argvp;
+        oldargv = *argvp;
+        oldargc = *argcp;
         expandargv(argcp, argvp);
 
         newargv = *argvp;
@@ -239,8 +254,25 @@ public:
             freeargv(newargv);
     }
 
+    bool changed() const
+    {
+        return newargv != NULL;
+    }
+
+    char** originalArgv() const
+    {
+        return oldargv;
+    }
+
+    int originalArgc() const
+    {
+        return oldargc;
+    }
+
 private:
     char ** newargv;
+    char ** oldargv;
+    int oldargc;
 };
 
 int main(int argc, char **argv)
@@ -268,6 +300,11 @@ int main(int argc, char **argv)
     }
 
     setup_debug(debug_level, logfile, "ICECC");
+
+    debug_arguments(expand.originalArgc(), expand.originalArgv(), true);
+    if( expand.changed()) {
+        debug_arguments(argc, argv, false);
+    }
 
     CompileJob job;
     bool icerun = false;
