@@ -88,10 +88,10 @@ int dcc_make_tmpnam(const char *prefix, const char *suffix, char **name_ret, int
 #endif
 
     do {
-        if (snprintf(tmpname, tmpname_length, "%s/%s_%08lx%s",
+        if (snprintf(tmpname, tmpname_length, "%s/%s_%08lu%s",
                      (relative ? _PATH_TMP + 1 : _PATH_TMP),
                      prefix,
-                     random_bits & 0xffffffffUL,
+                     random_bits & ULONG_MAX,
                      suffix) == -1) {
             free(tmpname);
             return EXIT_OUT_OF_MEMORY;
