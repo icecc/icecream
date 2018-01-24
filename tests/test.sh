@@ -1184,6 +1184,17 @@ ccache_test()
     fi
     reset_logs "" "Testing ccache error redirect"
     echo Testing ccache error redirect.
+    # First check that everything actually works (the test itself doesn't have icecc debug enabled and uses only stderr, because of ccache).
+    rm -rf "$testdir/ccache"
+    ICECC_TEST_SOCKET="$testdir"/socket-localice ICECC_TEST_REMOTEBUILD=1 ICECC_PREFERRED_HOST=remoteice1 ICECC_DEBUG=debug ICECC_LOGFILE="$testdir"/icecc.log \
+        CCACHE_PREFIX=${icecc} CCACHE_DIR="$testdir"/ccache ICECC_VERSION=testbrokenenv ccache $TESTCXX -Wall -Werror -c plain.cpp -o "$testdir/"plain.o 2>>"$testdir"/stderr.log
+    check_log_message icecc "ICECC_VERSION has to point to an existing file to be installed testbrokenenv"
+    # Second run, will get cached result, so there's no icecc error in ccache's cached stderr
+    ICECC_TEST_SOCKET="$testdir"/socket-localice ICECC_TEST_REMOTEBUILD=1 ICECC_PREFERRED_HOST=remoteice1 ICECC_DEBUG=debug ICECC_LOGFILE="$testdir"/icecc.log \
+        CCACHE_PREFIX=${icecc} CCACHE_DIR="$testdir"/ccache ICECC_VERSION=testbrokenenv ccache $TESTCXX -Wall -Werror -c plain.cpp -o "$testdir/"plain.o 2>>"$testdir"/stderr.log
+    check_log_message_count icecc 1 "ICECC_VERSION has to point to an existing file to be installed testbrokenenv"
+
+    # Now run it again, this time without icecc debug enabled or redirected, so that ccache has to handle icecc's stderr.
     rm -rf "$testdir/ccache"
     ICECC_TEST_SOCKET="$testdir"/socket-localice ICECC_TEST_REMOTEBUILD=1 ICECC_PREFERRED_HOST=remoteice1 \
         CCACHE_PREFIX=${icecc} CCACHE_DIR="$testdir"/ccache ICECC_VERSION=testbrokenenv ccache $TESTCXX -Wall -Werror -c plain.cpp -o "$testdir/"plain.o 2>>"$testdir"/stderr.log
