@@ -248,7 +248,7 @@ int main(int argc, char **argv)
     // expand @responsefile contents to arguments in argv array
     ArgumentExpander expand(&argc, &argv);
 
-    char *env = getenv("ICECC_DEBUG");
+    const char *env = getenv("ICECC_DEBUG");
     int debug_level = Error;
 
     if (env) {
@@ -352,7 +352,7 @@ int main(int argc, char **argv)
        If ICECC is set to no, the job is run locally as well, but it is
        serialized using the daemon, so several may be run at once.
      */
-    char *icecc = getenv("ICECC");
+    const char *icecc = getenv("ICECC");
 
     if (icecc && !strcasecmp(icecc, "disable")) {
         return build_local(job, 0);
