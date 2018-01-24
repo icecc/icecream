@@ -32,11 +32,14 @@
 #include <cassert>
 #include <cstring>
 
-enum DebugLevels {
-    Info = 1,
-    Warning = 2,
-    Error = 4,
-    Debug = 8
+// Verbosity level, from least to most.
+enum VerbosityLevel {
+    Error   = 0,
+    Warning = 1,
+    Info    = 2,
+    Debug   = 3,
+
+    MaxVerboseLevel = Debug
 };
 
 extern std::ostream *logfile_info;

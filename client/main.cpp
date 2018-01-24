@@ -253,11 +253,11 @@ int main(int argc, char **argv)
 
     if (env) {
         if (!strcasecmp(env, "info"))  {
-            debug_level |= Info | Warning;
+            debug_level = Info;
         } else if (!strcasecmp(env, "warnings")) {
-            debug_level |= Warning; // taking out warning
+            debug_level = Warning;
         } else { // any other value
-            debug_level |= Info | Debug | Warning;
+            debug_level = Debug;
         }
     }
 
@@ -529,7 +529,7 @@ int main(int argc, char **argv)
             }
 
             /* currently debugging a client? throw an error then */
-            if (debug_level != Error) {
+            if (debug_level > Error) {
                 return error.errorCode;
             }
 

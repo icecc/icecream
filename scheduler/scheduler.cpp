@@ -1903,14 +1903,8 @@ int main(int argc, char *argv[])
             break;
         case 'v':
 
-            if (debug_level & Warning) {
-                if (debug_level & Info) { // for second call
-                    debug_level |= Debug;
-                } else {
-                    debug_level |= Info;
-                }
-            } else {
-                debug_level |= Warning;
+            if (debug_level < MaxVerboseLevel) {
+                debug_level++;
             }
 
             break;
