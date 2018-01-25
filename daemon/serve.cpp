@@ -173,7 +173,6 @@ int handle_connection(const string &basedir, CompileJob *job,
                       << endl;
     }
 
-    Msg *msg = 0; // The current read message
     string tmp_path, obj_file, dwo_file;
     int exit_code = 0;
 
@@ -329,7 +328,6 @@ int handle_connection(const string &basedir, CompileJob *job,
             rmpath(tmp_path.c_str());
         }
 
-        delete msg;
         delete job;
 
         exit_code = e.exitcode();
