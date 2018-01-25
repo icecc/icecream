@@ -1354,7 +1354,6 @@ static bool handle_line(CompileServer *cs, Msg *_m)
         return false;
     }
 
-    char buffer[1000];
     string line;
     list<string> l;
     split_string(m->text, " \t\n", l);
@@ -1372,6 +1371,7 @@ static bool handle_line(CompileServer *cs, Msg *_m)
 
     if (cmd == "listcs") {
         for (list<CompileServer *>::iterator it = css.begin(); it != css.end(); ++it) {
+            char buffer[1000];
             sprintf(buffer, " (%s:%d) ", (*it)->name.c_str(), (*it)->remotePort());
             line = " " + (*it)->nodeName() + buffer;
             line += "[" + (*it)->hostPlatform() + "] speed=";
