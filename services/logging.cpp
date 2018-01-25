@@ -90,7 +90,6 @@ ostream* ccache_stream( int fd )
 
 void setup_debug(int level, const string &filename, const string &prefix)
 {
-    string fname = filename;
     debug_level = level;
     logfile_prefix = prefix;
     logfile_filename = filename;
@@ -106,6 +105,7 @@ void setup_debug(int level, const string &filename, const string &prefix)
         logfile_file.open(filename.c_str(), fstream::out | fstream::app);
 #ifdef __linux__
 
+        string fname = filename;
         if (fname[0] != '/') {
             char buf[PATH_MAX];
 
