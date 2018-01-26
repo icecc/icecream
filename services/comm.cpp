@@ -591,7 +591,7 @@ static int prepare_connect(const string &hostname, unsigned short p,
 
     if (!host) {
         log_perror("Unknown host");
-        if ((-1 == close(remote_fd)) && (errno != EBADF)){
+        if ((-1 == close(remote_fd)) && (errno != EBADF)) {
             log_perror("close failed");
         }
         return -1;
@@ -599,7 +599,7 @@ static int prepare_connect(const string &hostname, unsigned short p,
 
     if (host->h_length != 4) {
         log_error() << "Invalid address length" << endl;
-        if ((-1 == close(remote_fd)) && (errno != EBADF)){
+        if ((-1 == close(remote_fd)) && (errno != EBADF)) {
             log_perror("close failed");
         }
         return -1;
@@ -663,7 +663,7 @@ static bool connect_async(int remote_fd, struct sockaddr *remote_addr, size_t re
         **  The connect attempt failed or was interrupted,
         **  so close up the socket.
         */
-        if ((-1 == close(remote_fd)) && (errno != EBADF)){
+        if ((-1 == close(remote_fd)) && (errno != EBADF)) {
             log_perror("close failed");
         }
         return false;
@@ -697,7 +697,7 @@ MsgChannel *Service::createChannel(const string &hostname, unsigned short p, int
         if (connect(remote_fd, (struct sockaddr *) &remote_addr, sizeof(remote_addr)) < 0) {
             log_perror("connect");
             trace() << "connect failed on " << hostname << endl;
-            if (-1 == close(remote_fd) && (errno != EBADF)){
+            if (-1 == close(remote_fd) && (errno != EBADF)) {
                 log_perror("close failed");
             }
             return 0;
@@ -728,7 +728,7 @@ MsgChannel *Service::createChannel(const string &socket_path)
     if (connect(remote_fd, (struct sockaddr *) &remote_addr, sizeof(remote_addr)) < 0) {
         log_perror("connect");
         trace() << "connect failed on " << socket_path << endl;
-        if ((-1 == close(remote_fd)) && (errno != EBADF)){
+        if ((-1 == close(remote_fd)) && (errno != EBADF)) {
             log_perror("close failed");
         }
         return 0;
@@ -866,7 +866,7 @@ MsgChannel::MsgChannel(int _fd, struct sockaddr *_a, socklen_t _l, bool text)
 MsgChannel::~MsgChannel()
 {
     if (fd >= 0) {
-        if ((-1 == close(fd)) && (errno != EBADF)){
+        if ((-1 == close(fd)) && (errno != EBADF)) {
             log_perror("close failed");
         }
     }
@@ -1264,7 +1264,7 @@ static int open_send_broadcast(int port, const char* buf, int size)
 
     if (fcntl(ask_fd, F_SETFD, FD_CLOEXEC) < 0) {
         log_perror("open_send_broadcast fcntl");
-        if (-1 == close(ask_fd)){
+        if (-1 == close(ask_fd)) {
             log_perror("close failed");
         }
         return -1;
@@ -1274,7 +1274,7 @@ static int open_send_broadcast(int port, const char* buf, int size)
 
     if (setsockopt(ask_fd, SOL_SOCKET, SO_BROADCAST, &optval, sizeof(optval)) < 0) {
         log_perror("open_send_broadcast setsockopt");
-        if (-1 == close(ask_fd)){
+        if (-1 == close(ask_fd)) {
             log_perror("close failed");
         }
         return -1;
@@ -1341,7 +1341,7 @@ void Broadcasts::broadcastData(int port, const char* buf, int len)
 {
     int fd = open_send_broadcast(port, buf, len);
     if (fd >= 0) {
-        if ((-1 == close(fd)) && (errno != EBADF)){
+        if ((-1 == close(fd)) && (errno != EBADF)) {
             log_perror("close failed");
         }
     }
@@ -1349,7 +1349,7 @@ void Broadcasts::broadcastData(int port, const char* buf, int len)
     if( secondPort > 0 ) {
         int fd2 = open_send_broadcast(secondPort, buf, len);
         if (fd2 >= 0) {
-            if ((-1 == close(fd2)) && (errno != EBADF)){
+            if ((-1 == close(fd2)) && (errno != EBADF)) {
                 log_perror("close failed");
             }
         }
@@ -1406,12 +1406,12 @@ DiscoverSched::DiscoverSched(const std::string &_netname, int _timeout,
 DiscoverSched::~DiscoverSched()
 {
     if (ask_fd >= 0) {
-        if ((-1 == close(ask_fd)) && (errno != EBADF)){
+        if ((-1 == close(ask_fd)) && (errno != EBADF)) {
             log_perror("close failed");
         }
     }
     if (ask_second_fd >= 0) {
-        if ((-1 == close(ask_second_fd)) && (errno != EBADF)){
+        if ((-1 == close(ask_second_fd)) && (errno != EBADF)) {
             log_perror("close failed");
         }
     }
@@ -1617,12 +1617,12 @@ MsgChannel *DiscoverSched::try_get_scheduler()
             if (multiple)
                 log_info() << "Selecting scheduler at " << schedname << ":" << sport << endl;
 
-            if (-1 == close(ask_fd)){
+            if (-1 == close(ask_fd)) {
                 log_perror("close failed");
             }
             ask_fd = -1;
             if( get_second_port_for_debug( sport ) > 0 ) {
-                if (-1 == close(ask_second_fd)){
+                if (-1 == close(ask_second_fd)) {
                     log_perror("close failed");
                 }
                 ask_second_fd = -1;
@@ -1729,7 +1729,7 @@ list<string> DiscoverSched::getNetnames(int timeout, int port)
         }
     } while (time(0) - time0 < (timeout / 1000));
 
-    if ((-1 == close(ask_fd)) && (errno != EBADF)){
+    if ((-1 == close(ask_fd)) && (errno != EBADF)) {
         log_perror("close failed");
     }
     return l;

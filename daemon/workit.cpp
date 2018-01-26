@@ -337,52 +337,52 @@ int work_it(CompileJob &j, unsigned int job_stat[], MsgChannel *client, CompileR
 
         close_debug();
 
-        if ((-1 == close(sock_out[0])) && (errno != EBADF)){
+        if ((-1 == close(sock_out[0])) && (errno != EBADF)) {
             log_perror("close failed");
         }
 
-        if (-1 == dup2(sock_out[1], STDOUT_FILENO)){
+        if (-1 == dup2(sock_out[1], STDOUT_FILENO)) {
             log_perror("dup2 failed");
         }
 
-        if ((-1 == close(sock_out[1])) && (errno != EBADF)){
+        if ((-1 == close(sock_out[1])) && (errno != EBADF)) {
             log_perror("close failed");
         }
 
-        if ((-1 == close(sock_err[0])) && (errno != EBADF)){
+        if ((-1 == close(sock_err[0])) && (errno != EBADF)) {
             log_perror("close failed");
         }
 
-        if (-1 == dup2(sock_err[1], STDERR_FILENO)){
+        if (-1 == dup2(sock_err[1], STDERR_FILENO)) {
             log_perror("dup2 failed");
         }
 
-        if ((-1 == close(sock_err[1])) && (errno != EBADF)){
+        if ((-1 == close(sock_err[1])) && (errno != EBADF)) {
             log_perror("close failed");
         }
 
-        if ((-1 == close(sock_in[1])) && (errno != EBADF)){
+        if ((-1 == close(sock_in[1])) && (errno != EBADF)) {
             log_perror("close failed");
         }
 
-        if (-1 == dup2(sock_in[0], STDIN_FILENO)){
+        if (-1 == dup2(sock_in[0], STDIN_FILENO)) {
             log_perror("dup2 failed");
         }
 
-        if ((-1 == close(sock_in[0])) && (errno != EBADF)){
+        if ((-1 == close(sock_in[0])) && (errno != EBADF)) {
             log_perror("close failed");
         }
 
-        if ((-1 == close(main_sock[0])) && (errno != EBADF)){
+        if ((-1 == close(main_sock[0])) && (errno != EBADF)) {
             log_perror("close failed");
         }
         fcntl(main_sock[1], F_SETFD, FD_CLOEXEC);
 
-        if ((-1 == close(death_pipe[0])) && (errno != EBADF)){
+        if ((-1 == close(death_pipe[0])) && (errno != EBADF)) {
             log_perror("close failed");
         }
 
-        if ((-1 == close(death_pipe[1])) && (errno != EBADF)){
+        if ((-1 == close(death_pipe[1])) && (errno != EBADF)) {
             log_perror("close failed");
         }
 
@@ -403,21 +403,21 @@ int work_it(CompileJob &j, unsigned int job_stat[], MsgChannel *client, CompileR
         _exit(-1);
     }
 
-    if ((-1 == close(sock_in[0])) && (errno != EBADF)){
+    if ((-1 == close(sock_in[0])) && (errno != EBADF)) {
         log_perror("close failed");
     }
 
-    if ((-1 == close(sock_out[1])) && (errno != EBADF)){
+    if ((-1 == close(sock_out[1])) && (errno != EBADF)) {
         log_perror("close failed");
     }
 
-    if ((-1 == close(sock_err[1])) && (errno != EBADF)){
+    if ((-1 == close(sock_err[1])) && (errno != EBADF)) {
         log_perror("close failed");
     }
 
     // idea borrowed from kprocess.
     // check whether the compiler could be run at all.
-    if ((-1 == close(main_sock[1])) && (errno != EBADF)){
+    if ((-1 == close(main_sock[1])) && (errno != EBADF)) {
         log_perror("close failed");
     }
 
@@ -439,7 +439,7 @@ int work_it(CompileJob &j, unsigned int job_stat[], MsgChannel *client, CompileR
         break; // != EINTR
     }
 
-    if ((-1 == close(main_sock[0])) && (errno != EBADF)){
+    if ((-1 == close(main_sock[0])) && (errno != EBADF)) {
         log_perror("close failed");
     }
 
@@ -471,7 +471,7 @@ int work_it(CompileJob &j, unsigned int job_stat[], MsgChannel *client, CompileR
                         input_complete = true;
 
                         if (!fcmsg && sock_in[1] != -1) {
-                            if (-1 == close(sock_in[1])){
+                            if (-1 == close(sock_in[1])) {
                                 log_perror("close failed");
                             }
                             sock_in[1] = -1;
@@ -619,7 +619,7 @@ int work_it(CompileJob &j, unsigned int job_stat[], MsgChannel *client, CompileR
                     }
                     delete fcmsg;
                     fcmsg = 0;
-                    if (-1 == close(sock_in[1])){
+                    if (-1 == close(sock_in[1])) {
                         log_perror("close failed");
                     }
                     sock_in[1] = -1;
@@ -633,7 +633,7 @@ int work_it(CompileJob &j, unsigned int job_stat[], MsgChannel *client, CompileR
                     fcmsg = 0;
 
                     if (input_complete) {
-                        if (-1 == close(sock_in[1])){
+                        if (-1 == close(sock_in[1])) {
                             log_perror("close failed");
                         }
                         sock_in[1] = -1;
@@ -648,7 +648,7 @@ int work_it(CompileJob &j, unsigned int job_stat[], MsgChannel *client, CompileR
                     buffer[bytes] = 0;
                     rmsg.out.append(buffer);
                 } else if (bytes == 0) {
-                    if (-1 == close(sock_out[0])){
+                    if (-1 == close(sock_out[0])) {
                         log_perror("close failed");
                     }
                     sock_out[0] = -1;
@@ -662,7 +662,7 @@ int work_it(CompileJob &j, unsigned int job_stat[], MsgChannel *client, CompileR
                     buffer[bytes] = 0;
                     rmsg.err.append(buffer);
                 } else if (bytes == 0) {
-                    if (-1 == close(sock_err[0])){
+                    if (-1 == close(sock_err[0])) {
                         log_perror("close failed");
                     }
                     sock_err[0] = -1;

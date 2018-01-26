@@ -180,7 +180,7 @@ public:
         job = 0;
 
         if (pipe_to_child >= 0) {
-            if (-1 == close(pipe_to_child) && (errno != EBADF)){
+            if (-1 == close(pipe_to_child) && (errno != EBADF)) {
                 log_perror("close failed");
             }
         }
@@ -326,7 +326,7 @@ static int set_new_pgrp(void)
      * getpgid(0), but that is not available on BSD/OS. */
     int pgrp_id = getpgrp();
 
-    if (-1 == pgrp_id){
+    if (-1 == pgrp_id) {
         log_perror("getpgrp() failed");
         return EXIT_DISTCC_FAILED;
     }
@@ -631,7 +631,7 @@ bool Daemon::setup_listen_fds()
             if(default_socket.length() > sizeof(myaddr.sun_path) - 1) {
                 log_error() << "default socket path too long for sun_path" << endl;	
             }
-            if (-1 == unlink(myaddr.sun_path) && errno != ENOENT){
+            if (-1 == unlink(myaddr.sun_path) && errno != ENOENT) {
                 log_perror("unlink failed") << "\t" << myaddr.sun_path << endl;
             }
             old_umask = umask(0);
@@ -645,7 +645,7 @@ bool Daemon::setup_listen_fds()
                 if(socket_path.length() > sizeof(myaddr.sun_path) - 1) {
                     log_error() << "$HOME/.iceccd.socket path too long for sun_path" << endl;
                 }
-                if (-1 == unlink(myaddr.sun_path) && errno != ENOENT){
+                if (-1 == unlink(myaddr.sun_path) && errno != ENOENT) {
                     log_perror("unlink failed") << "\t" << myaddr.sun_path << endl;
                 }
             } else {
@@ -660,7 +660,7 @@ bool Daemon::setup_listen_fds()
         if(test_socket.length() > sizeof(myaddr.sun_path) - 1) {
             log_error() << "$ICECC_TEST_SOCKET path too long for sun_path" << endl;
         }
-        if (-1 == unlink(myaddr.sun_path) && errno != ENOENT){
+        if (-1 == unlink(myaddr.sun_path) && errno != ENOENT) {
             log_perror("unlink failed") << "\t" << myaddr.sun_path << endl;
         }
     }
@@ -1175,7 +1175,7 @@ bool Daemon::handle_get_native_env(Client *client, GetNativeEnvMsg *msg)
             cache_size -= remove_native_environment(env.name);
             envs_last_use.erase(env.name);
             if (env.create_env_pipe) {
-                if ((-1 == close(env.create_env_pipe)) && (errno != EBADF)){
+                if ((-1 == close(env.create_env_pipe)) && (errno != EBADF)) {
                     log_perror("close failed");
                 }
                 // TODO kill the still running icecc-create-env process?

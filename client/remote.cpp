@@ -305,7 +305,7 @@ static void write_server_cpp(int cpp_fd, MsgChannel *cserver)
         trace() << "sent " << compressed << " bytes (" << (compressed * 100 / uncompressed) <<
                 "%)" << endl;
 
-    if ((-1 == close(cpp_fd)) && (errno != EBADF)){
+    if ((-1 == close(cpp_fd)) && (errno != EBADF)) {
         log_perror("close failed");
     }
 }
@@ -949,12 +949,12 @@ int build_remote(CompileJob &job, MsgChannel *local_daemon, const Environments &
                         log_error() << umsgs[i]->hostname << " compiled with exit code " << exit_codes[i]
                                     << " and " << umsgs[0]->hostname << " compiled with exit code "
                                     << exit_codes[0] << " - aborting!\n";
-                        if (-1 == ::unlink(jobs[0].outputFile().c_str())){
+                        if (-1 == ::unlink(jobs[0].outputFile().c_str())) {
                             log_perror("unlink outputFile failed") << "\t" << jobs[0].outputFile() << endl;
                         }
                         if (has_split_dwarf) {
                             string dwo_file = jobs[0].outputFile().substr(0, jobs[0].outputFile().find_last_of('.')) + ".dwo";
-                            if (-1 == ::unlink(dwo_file.c_str())){
+                            if (-1 == ::unlink(dwo_file.c_str())) {
                                 log_perror("unlink failed") << "\t" << dwo_file << endl;
                             }
                         }
@@ -982,35 +982,35 @@ int build_remote(CompileJob &job, MsgChannel *local_daemon, const Environments &
                     }
                 }
 
-                if (-1 == ::unlink(jobs[i].outputFile().c_str())){
+                if (-1 == ::unlink(jobs[i].outputFile().c_str())) {
                     log_perror("unlink failed") << "\t" << jobs[i].outputFile() << endl;
                 }
                 if (has_split_dwarf) {
                     string dwo_file = jobs[i].outputFile().substr(0, jobs[i].outputFile().find_last_of('.')) + ".dwo";
-                    if (-1 == ::unlink(dwo_file.c_str())){
+                    if (-1 == ::unlink(dwo_file.c_str())) {
                         log_perror("unlink failed") << "\t" << dwo_file << endl;
                     }
                 }
                 delete umsgs[i];
             }
         } else {
-            if (-1 == ::unlink(jobs[0].outputFile().c_str())){
+            if (-1 == ::unlink(jobs[0].outputFile().c_str())) {
                 log_perror("unlink failed") << "\t" << jobs[0].outputFile() << endl;
             }
             if (has_split_dwarf) {
                 string dwo_file = jobs[0].outputFile().substr(0, jobs[0].outputFile().find_last_of('.')) + ".dwo";
-                if (-1 == ::unlink(dwo_file.c_str())){
+                if (-1 == ::unlink(dwo_file.c_str())) {
                     log_perror("unlink failed") << "\t" << dwo_file << endl;
                 }
             }
 
             for (int i = 1; i < torepeat; i++) {
-                if (-1 == ::unlink(jobs[i].outputFile().c_str())){
+                if (-1 == ::unlink(jobs[i].outputFile().c_str())) {
                     log_perror("unlink failed") << "\t" << jobs[i].outputFile() << endl;
                 }
                 if (has_split_dwarf) {
                     string dwo_file = jobs[i].outputFile().substr(0, jobs[i].outputFile().find_last_of('.')) + ".dwo";
-                    if (-1 == ::unlink(dwo_file.c_str())){
+                    if (-1 == ::unlink(dwo_file.c_str())) {
                         log_perror("unlink failed") << "\t" << dwo_file << endl;
                     }
                 }
@@ -1020,7 +1020,7 @@ int build_remote(CompileJob &job, MsgChannel *local_daemon, const Environments &
 
         delete umsgs[0];
 
-        if (-1 == ::unlink(preproc)){
+        if (-1 == ::unlink(preproc)) {
             log_perror("unlink failed") << "\t" << preproc << endl;
         }
 

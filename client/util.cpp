@@ -229,7 +229,7 @@ bool dcc_lock_host(int &lock_fd)
         break;
     }
 
-    if ((-1 == ::close(lock_fd)) && (errno != EBADF)){
+    if ((-1 == ::close(lock_fd)) && (errno != EBADF)) {
         log_perror("close failed");
     }
     return false;
