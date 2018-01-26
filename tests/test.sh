@@ -1807,6 +1807,7 @@ for item in $ignore; do
         ignored_tests="$ignored_tests $item"
         skipped_tests=$(echo $skipped_tests | sed "s/$item//")
     fi
+    skipped_tests=$(echo $skipped_tests | sed 's/  / /g' | sed 's/^ //')
 done
 
 if test -n "$ignored_tests"; then
@@ -1815,12 +1816,12 @@ fi
 
 if test -n "$skipped_tests"; then
     if test -n "$strict"; then
-        echo "All executed tests passed, but some were skipped:$skipped_tests"
+        echo "All executed tests passed, but some were skipped: $skipped_tests"
         echo "Strict mode enabled, failing."
         echo ==================================================
         exit 1
     else
-        echo "All tests OK, some were skipped:$skipped_tests"
+        echo "All tests OK, some were skipped: $skipped_tests"
         echo =================================
     fi
 else
