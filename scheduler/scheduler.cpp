@@ -315,7 +315,7 @@ static void handle_monitor_stats(CompileServer *cs, StatsMsg *m = 0)
         sprintf(buffer, "FreeMem:%d\n", m->freeMem);
         msg += buffer;
     } else {
-        sprintf(buffer, "Load:%d\n", cs->load());
+        sprintf(buffer, "Load:%u\n", cs->load());
         msg += buffer;
     }
 
