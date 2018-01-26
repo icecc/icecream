@@ -306,13 +306,13 @@ static void handle_monitor_stats(CompileServer *cs, StatsMsg *m = 0)
     if (m) {
         sprintf(buffer, "Load:%d\n", m->load);
         msg += buffer;
-        sprintf(buffer, "LoadAvg1:%d\n", m->loadAvg1);
+        sprintf(buffer, "LoadAvg1:%u\n", m->loadAvg1);
         msg += buffer;
-        sprintf(buffer, "LoadAvg5:%d\n", m->loadAvg5);
+        sprintf(buffer, "LoadAvg5:%u\n", m->loadAvg5);
         msg += buffer;
-        sprintf(buffer, "LoadAvg10:%d\n", m->loadAvg10);
+        sprintf(buffer, "LoadAvg10:%u\n", m->loadAvg10);
         msg += buffer;
-        sprintf(buffer, "FreeMem:%d\n", m->freeMem);
+        sprintf(buffer, "FreeMem:%u\n", m->freeMem);
         msg += buffer;
     } else {
         sprintf(buffer, "Load:%u\n", cs->load());
