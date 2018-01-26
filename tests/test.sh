@@ -945,6 +945,7 @@ clangplugintest()
     clangcxxflags=$($LLVM_CONFIG --cxxflags 2>>"$testdir"/stderr.log)
     if test $? -ne 0; then
         echo Cannot find Clang development headers, clang plugin test skipped.
+        echo
         skipped_tests="$skipped_tests clangplugin"
         return
     fi
@@ -952,6 +953,7 @@ clangplugintest()
     $TESTCXX -shared -fPIC -g -o "$testdir"/clangplugin.so clangplugin.cpp $clangcxxflags 2>>"$testdir"/stderr.log
     if test $? -ne 0; then
         echo Failed to compile clang plugin, clang plugin test skipped.
+        echo
         skipped_tests="$skipped_tests clangplugin"
     fi
 
@@ -1179,6 +1181,7 @@ ccache_test()
 {
     if ! command -v ccache >/dev/null; then
         echo Could not find ccache, ccache tests skipped.
+        echo
         skipped_tests="$skipped_tests ccache"
         return
     fi
