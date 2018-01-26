@@ -1812,7 +1812,7 @@ static void handle_scheduler_announce(const char* buf, const char* netname, bool
         {
             if (other_protocol_version > PROTOCOL_VERSION || (other_protocol_version == PROTOCOL_VERSION && other_time < starttime))
             {
-                if (!persistent_clients){
+                if (!persistent_clients) {
                     log_info() << "Scheduler from " << inet_ntoa(broad_addr.sin_addr)
                         << ":" << ntohs(broad_addr.sin_port)
                         << " (version " << int(other_protocol_version) << ") has announced itself as a preferred"
@@ -1965,11 +1965,11 @@ int main(int argc, char *argv[])
         if (!logfile.size() && detach) {
             if (mkdir("/var/log/icecc", S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH)) {
                 if (errno == EEXIST) {
-                    if (-1 == chmod("/var/log/icecc", S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH)){
+                    if (-1 == chmod("/var/log/icecc", S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH)) {
                         log_perror("chmod() failure");
                     }
 
-                    if (-1 == chown("/var/log/icecc", user_uid, user_gid)){
+                    if (-1 == chown("/var/log/icecc", user_uid, user_gid)) {
                         log_perror("chown() failure");
                     }
                 }
@@ -2225,7 +2225,7 @@ int main(int argc, char *argv[])
 
             int buflen = recvfrom(broad_fd, buf, Broadcasts::BROAD_BUFLEN, 0, (struct sockaddr *) &broad_addr,
                     &broad_len);
-            if (buflen < 0 || buflen > Broadcasts::BROAD_BUFLEN){
+            if (buflen < 0 || buflen > Broadcasts::BROAD_BUFLEN) {
                 int err = errno;
                 log_perror("recvfrom()");
 
@@ -2241,7 +2241,7 @@ int main(int argc, char *argv[])
             int daemon_version;
             if (DiscoverSched::isSchedulerDiscovery(buf, buflen, &daemon_version)) {
                 /* Daemon is searching for a scheduler, only answer if daemon would be able to talk to us. */
-                if ( daemon_version >= MIN_PROTOCOL_VERSION){
+                if ( daemon_version >= MIN_PROTOCOL_VERSION) {
                     log_info() << "broadcast from " << inet_ntoa(broad_addr.sin_addr)
                         << ":" << ntohs(broad_addr.sin_port)
                         << " (version " << daemon_version << ")\n";
@@ -2302,10 +2302,10 @@ int main(int argc, char *argv[])
         handle_end(css.front(), NULL);
     while (!monitors.empty())
         handle_end(monitors.front(), NULL);
-    if ((-1 == close(broad_fd)) && (errno != EBADF)){
+    if ((-1 == close(broad_fd)) && (errno != EBADF)) {
         log_perror("close failed");
     }
-    if (-1 == unlink(pidFilePath.c_str()) && errno != ENOENT){
+    if (-1 == unlink(pidFilePath.c_str()) && errno != ENOENT) {
         log_perror("unlink failed") << "\t" << pidFilePath << endl;
     }
     return 0;

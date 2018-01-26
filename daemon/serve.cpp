@@ -124,7 +124,7 @@ static void write_output_file( const string& file, MsgChannel* client )
 
     } catch(...) {
         if( obj_fd != -1 )
-            if ((-1 == close( obj_fd )) && (errno != EBADF)){
+            if ((-1 == close( obj_fd )) && (errno != EBADF)) {
                 log_perror("close failed");
             }
         throw;
@@ -150,7 +150,7 @@ int handle_connection(const string &basedir, CompileJob *job,
     assert(pid >= 0);
 
     if (pid > 0) {  // parent
-        if ((-1 == close(socket[1])) && (errno != EBADF)){
+        if ((-1 == close(socket[1])) && (errno != EBADF)) {
             log_perror("close failure");
         }
         out_fd = socket[0];
@@ -159,7 +159,7 @@ int handle_connection(const string &basedir, CompileJob *job,
     }
 
     reset_debug();
-    if ((-1 == close(socket[0])) && (errno != EBADF)){
+    if ((-1 == close(socket[0])) && (errno != EBADF)) {
         log_perror("close failed");
     }
     out_fd = socket[1];
@@ -298,7 +298,7 @@ int handle_connection(const string &basedir, CompileJob *job,
         /* wake up parent and tell him that compile finished */
         /* if the write failed, well, doesn't matter */
         ignore_result(write(out_fd, job_stat, sizeof(job_stat)));
-        if ((-1 == close(out_fd)) && (errno != EBADF)){
+        if ((-1 == close(out_fd)) && (errno != EBADF)) {
             log_perror("close failed");
         }
 
@@ -316,12 +316,12 @@ int handle_connection(const string &basedir, CompileJob *job,
         client = 0;
 
         if (!obj_file.empty()) {
-            if (-1 == unlink(obj_file.c_str()) && errno != ENOENT){
+            if (-1 == unlink(obj_file.c_str()) && errno != ENOENT) {
                 log_perror("unlink failure") << "\t" << obj_file << endl;
             }
         }
         if (!dwo_file.empty()) {
-            if (-1 == unlink(dwo_file.c_str()) && errno != ENOENT){
+            if (-1 == unlink(dwo_file.c_str()) && errno != ENOENT) {
                 log_perror("unlink failure") << "\t" << dwo_file << endl;
             }
         }

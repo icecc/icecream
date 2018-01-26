@@ -340,7 +340,7 @@ int start_create_env(const string &basedir, uid_t user_uid, gid_t user_gid,
     if (chown(nativedir.c_str(), user_uid, user_gid) ||
             chmod(nativedir.c_str(), 0775)) {
         log_perror("chown/chmod failed");
-        if (-1 == rmdir(nativedir.c_str())){
+        if (-1 == rmdir(nativedir.c_str())) {
             log_perror("rmdir failed");
         }
         return 0;
@@ -360,7 +360,7 @@ int start_create_env(const string &basedir, uid_t user_uid, gid_t user_gid,
     }
 
     if (pid) {
-        if ((-1 == close(pipes[1])) && (errno != EBADF)){
+        if ((-1 == close(pipes[1])) && (errno != EBADF)) {
             log_perror("close failed");
         }
         return pipes[0];
@@ -393,19 +393,19 @@ int start_create_env(const string &basedir, uid_t user_uid, gid_t user_gid,
         _exit(1);
     }
 
-    if ((-1 == close(pipes[0])) && (errno != EBADF)){
+    if ((-1 == close(pipes[0])) && (errno != EBADF)) {
         log_perror("close failed");
     }
 
-    if (-1 == dup2(pipes[1], 5)){   // icecc-create-env will write the hash there
+    if (-1 == dup2(pipes[1], 5)) {   // icecc-create-env will write the hash there
         log_perror("dup2 failed");
     }
 
-    if ((-1 == close(pipes[1])) && (errno != EBADF)){
+    if ((-1 == close(pipes[1])) && (errno != EBADF)) {
         log_perror("close failed");
     }
 
-    if ((-1 == close(STDOUT_FILENO)) && (errno != EBADF)){ // hide output from icecc-create-env
+    if ((-1 == close(STDOUT_FILENO)) && (errno != EBADF)) { // hide output from icecc-create-env
         log_perror("close failed");
     }
 
@@ -451,7 +451,7 @@ size_t finish_create_env(int pipe, const string &basedir, string &native_environ
     string nativedir = basedir + "/native/";
     native_environment = nativedir + buf;
 
-    if ((-1 == close(pipe)) && (errno != EBADF)){
+    if ((-1 == close(pipe)) && (errno != EBADF)) {
         log_perror("close failed");
     }
     trace() << "native_environment " << native_environment << endl;
@@ -462,7 +462,7 @@ size_t finish_create_env(int pipe, const string &basedir, string &native_environ
         return st.st_size;
     }
 
-    if (-1 == rmdir(nativedir.c_str())){
+    if (-1 == rmdir(nativedir.c_str())) {
         log_perror("rmdir failed");
     }
     return 0;
@@ -546,7 +546,7 @@ pid_t start_install_environment(const std::string &basename, const std::string &
     if (pid) {
         trace() << "pid " << pid << endl;
 
-        if ((-1 == close(fds[0])) && (errno != EBADF)){
+        if ((-1 == close(fds[0])) && (errno != EBADF)) {
             log_perror("close failed");
         }
         pipe_to_stdin = fds[1];
@@ -579,20 +579,20 @@ pid_t start_install_environment(const std::string &basename, const std::string &
     signal(SIGCHLD, SIG_DFL);
     signal(SIGPIPE, SIG_DFL);
 
-    if ((-1 == close(0)) && (errno != EBADF)){
+    if ((-1 == close(0)) && (errno != EBADF)) {
         log_perror("close failed");
     }
 
-    if ((-1 == close(fds[1])) && (errno != EBADF)){
+    if ((-1 == close(fds[1])) && (errno != EBADF)) {
         log_perror("close failed");
     }
 
-    if (-1 == dup2(fds[0], 0)){
+    if (-1 == dup2(fds[0], 0)) {
         log_perror("dup2 failed");
     }
 
     int niceval = nice(extract_priority);
-    if (-1 == niceval){
+    if (-1 == niceval) {
         log_warning() << "failed to set nice value: " << strerror(errno) << endl;
     }
 
@@ -696,7 +696,7 @@ size_t remove_native_environment(const string &env)
     struct stat st;
 
     if (stat(env.c_str(), &st) == 0) {
-        if (-1 == unlink(env.c_str())){
+        if (-1 == unlink(env.c_str())) {
             log_perror("unlink failed") << "\t" << env << endl;
         }
         return st.st_size;

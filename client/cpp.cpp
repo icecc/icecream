@@ -81,7 +81,7 @@ pid_t call_cpp(CompileJob &job, int fdwrite, int fdread)
     if (pid != 0) {
         /* Parent.  Close the write fd.  */
         if (fdwrite > -1) {
-            if ((-1 == close(fdwrite)) && (errno != EBADF)){
+            if ((-1 == close(fdwrite)) && (errno != EBADF)) {
                 log_perror("close() failed");
             }
         }
@@ -91,7 +91,7 @@ pid_t call_cpp(CompileJob &job, int fdwrite, int fdread)
 
     /* Child.  Close the read fd, in case we have one.  */
     if (fdread > -1) {
-        if ((-1 == close(fdread)) && (errno != EBADF)){
+        if ((-1 == close(fdread)) && (errno != EBADF)) {
             log_perror("close failed");
         }
     }

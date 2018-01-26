@@ -299,7 +299,7 @@ int build_local(CompileJob &job, MsgChannel *local_daemon, struct rusage *used)
         child_pid = fork();
     }
 
-    if (child_pid == -1){
+    if (child_pid == -1) {
         log_perror("fork failed");
     }
 
@@ -307,13 +307,13 @@ int build_local(CompileJob &job, MsgChannel *local_daemon, struct rusage *used)
         dcc_increment_safeguard();
 
         if (color_output) {
-            if ((-1 == close(pf[0])) && (errno != EBADF)){
+            if ((-1 == close(pf[0])) && (errno != EBADF)) {
                 log_perror("close failed");
             }
-            if ((-1 == close(2)) && (errno != EBADF)){
+            if ((-1 == close(2)) && (errno != EBADF)) {
                 log_perror("close failed");
             }
-            if (-1 == dup2(pf[1], 2)){
+            if (-1 == dup2(pf[1], 2)) {
                 log_perror("dup2 failed");
             }
         }
@@ -334,13 +334,13 @@ int build_local(CompileJob &job, MsgChannel *local_daemon, struct rusage *used)
 
         _exit(exitcode);
     }
-    for(vector<char*>::const_iterator i = argv.begin(); i != argv.end(); ++i){
+    for(vector<char*>::const_iterator i = argv.begin(); i != argv.end(); ++i) {
         free(*i);
     }
     argv.clear();
 
     if (color_output) {
-        if ((-1 == close(pf[1])) && (errno != EBADF)){
+        if ((-1 == close(pf[1])) && (errno != EBADF)) {
             log_perror("close failed");
         }
     }
