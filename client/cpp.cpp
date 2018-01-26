@@ -163,15 +163,12 @@ pid_t call_cpp(CompileJob &job, int fdwrite, int fdread)
         argv[i++] = 0;
     }
 
-#if 0
-    printf("forking ");
-
-    for (int index = 0; argv[index]; index++) {
-        printf("%s ", argv[index]);
+    string argstxt = argv[ 0 ];
+    for( int i = 1; argv[ i ] != NULL; ++i ) {
+        argstxt += ' ';
+        argstxt += argv[ i ];
     }
-
-    printf("\n");
-#endif
+    trace() << "preparing source to send: " << argstxt << endl;
 
     if (fdwrite != STDOUT_FILENO) {
         /* Ignore failure */

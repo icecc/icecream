@@ -530,6 +530,7 @@ static int build_remote_int(CompileJob &job, UseCSMsg *usecs, MsgChannel *local_
             if (shell_exit_status(status) != 0) {   // failure
                 delete cserver;
                 cserver = 0;
+                log_warning() << "call_cpp process failed with exit status " << shell_exit_status(status) << endl;
                 return shell_exit_status(status);
             }
         } else {
@@ -835,6 +836,7 @@ int build_remote(CompileJob &job, MsgChannel *local_daemon, const Environments &
         waitpid(cpp_pid, &status, 0);
 
         if (shell_exit_status(status)) {   // failure
+            log_warning() << "call_cpp process failed with exit status " << shell_exit_status(status) << endl;
             ::unlink(preproc);
             return shell_exit_status(status);
         }
