@@ -1,5 +1,5 @@
 bin_PROGRAMS = icecc
-bin_SCRIPTS = icecc-create-env
+bin_SCRIPTS = icecc-create-env icecc-test-env
 
 noinst_LIBRARIES = libclient.a
 libclient_a_SOURCES = \

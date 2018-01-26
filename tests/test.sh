@@ -69,6 +69,7 @@ icecc="${prefix}/bin/icecc"
 iceccd="${prefix}/sbin/iceccd"
 icecc_scheduler="${prefix}/sbin/icecc-scheduler"
 icecc_create_env="${prefix}/bin/icecc-create-env"
+icecc_test_env="${prefix}/bin/icecc-test-env"
 netname="icecctestnetname$$"
 protocolversion=$(grep '#define PROTOCOL_VERSION ' ../services/comm.h | sed 's/#define PROTOCOL_VERSION //')
 
@@ -863,7 +864,7 @@ icerun_test()
             abort_tests
         fi
     done
-    
+
     flush_logs
     check_logs_for_generic_errors
     check_log_error icecc "Have to use host 127.0.0.1:10246"
@@ -899,6 +900,15 @@ buildnativetest()
     local tgz=$(grep "^creating .*\.tar\.gz$" "$testdir"/icecc-build-native-output | sed -e "s/^creating //")
     if test -z "$tgz"; then
         echo icecc --build-native test failed.
+        abort_tests
+    fi
+    sudo -n -- ${icecc_test_env} -q "$tgz"
+    retcode=$?
+    if test $retcode -eq 1; then
+        echo Cannot verify environment, use sudo.
+        skipped_tests="$skipped_tests testenv"
+    elif test $retcode -ne 0; then
+        echo icecc_test_env failed to validate the environment
         abort_tests
     fi
     rm -f $tgz "$testdir"/icecc-build-native-output
@@ -1778,7 +1788,14 @@ fi
 if test $? -eq 0; then
     tgz=$(grep "^creating .*\.tar\.gz$" "$testdir"/icecc-build-native-output | sed -e "s/^creating //")
     if test -n "$tgz"; then
-        ok=1
+        sudo -n -- ${icecc_test_env} -q "$tgz"
+        retcode=$?
+        if test $retcode -eq 1; then
+            echo Cannot verify environment, use sudo.
+            ok=1
+        elif test $retcode -eq 0; then
+            ok=1
+        fi
         rm -f $tgz "$testdir"/icecc-build-native-output
         rm -f "$testdir"/$(basename $TESTCC) "$testdir"/$(basename $TESTCXX)
     fi
