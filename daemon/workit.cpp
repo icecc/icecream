@@ -389,8 +389,8 @@ int work_it(CompileJob &j, unsigned int job_stat[], MsgChannel *client, CompileR
 #ifdef ICECC_DEBUG
 
         for (int f = STDERR_FILENO + 1; f < 4096; ++f) {
-            long flags;
-            assert((flags = fcntl(f, F_GETFD, 0)) < 0 || (flags & FD_CLOEXEC));
+            long flags = fcntl(f, F_GETFD, 0);
+            assert(flags < 0 || (flags & FD_CLOEXEC));
         }
 
 #endif
