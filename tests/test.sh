@@ -1182,7 +1182,7 @@ ccache_test()
         skipped_tests="$skipped_tests ccache"
         return
     fi
-    reset_logs "" "Testing ccache error redirect"
+    reset_logs "verify" "Testing ccache error redirect"
     echo Testing ccache error redirect.
     # First check that everything actually works (the test itself doesn't have icecc debug enabled and uses only stderr, because of ccache).
     rm -rf "$testdir/ccache"
@@ -1194,15 +1194,29 @@ ccache_test()
         CCACHE_PREFIX=${icecc} CCACHE_DIR="$testdir"/ccache ICECC_VERSION=testbrokenenv ccache $TESTCXX -Wall -Werror -c plain.cpp -o "$testdir/"plain.o 2>>"$testdir"/stderr.log
     check_log_message_count icecc 1 "ICECC_VERSION has to point to an existing file to be installed testbrokenenv"
 
-    # Now run it again, this time without icecc debug enabled or redirected, so that ccache has to handle icecc's stderr.
+    # Now run it again, this time without icecc debug redirected, so that ccache has to handle icecc's stderr.
+    reset_logs "cache" "Testing ccache error redirect"
     rm -rf "$testdir/ccache"
-    ICECC_TEST_SOCKET="$testdir"/socket-localice ICECC_TEST_REMOTEBUILD=1 ICECC_PREFERRED_HOST=remoteice1 \
+    ICECC_TEST_SOCKET="$testdir"/socket-localice ICECC_TEST_REMOTEBUILD=1 ICECC_PREFERRED_HOST=remoteice1 ICECC_DEBUG=debug \
         CCACHE_PREFIX=${icecc} CCACHE_DIR="$testdir"/ccache ICECC_VERSION=testbrokenenv ccache $TESTCXX -Wall -Werror -c plain.cpp -o "$testdir/"plain.o 2>>"$testdir"/stderr.log
-    check_log_message stderr "ICECC_VERSION has to point to an existing file to be installed testbrokenenv"
+    if cat_log_last_mark stderr | grep -q "UNCACHED_ERR_FD provides an invalid file descriptor"; then
+        echo UNCACHED_ERR_FD provided by ccache is invalid, skipping test.
+        echo
+        skipped_tests="$skipped_tests ccache"
+        return
+    fi
+    if ! cat_log_last_mark stderr | grep -q "ICECC_VERSION has to point to an existing file to be installed testbrokenenv"; then
+        # If ccache's UNCACHED_ERR_FD handling is broken, the fd number may match an unrelated open fd, in which case the log message just disappears.
+        echo Missing icecc stderr output from ccache, assuming broken ccache, skipping test.
+        echo
+        skipped_tests="$skipped_tests ccache"
+        return
+    fi
     # second run, will get cached result, so there's no icecc error in ccache's cached stderr
+    reset_logs "test" "Testing ccache error redirect"
     ICECC_TEST_SOCKET="$testdir"/socket-localice ICECC_TEST_REMOTEBUILD=1 ICECC_PREFERRED_HOST=remoteice1 \
         CCACHE_PREFIX=${icecc} CCACHE_DIR="$testdir"/ccache ICECC_VERSION=testbrokenenv ccache $TESTCXX -Wall -Werror -c plain.cpp -o "$testdir/"plain.o 2>>"$testdir"/stderr.log
-    check_log_message_count stderr 1 "ICECC_VERSION has to point to an existing file to be installed testbrokenenv"
+    check_section_log_error stderr "ICECC_VERSION has to point to an existing file to be installed testbrokenenv"
     echo Testing ccache error redirect successful.
     echo
 }

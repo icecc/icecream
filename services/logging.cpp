@@ -80,6 +80,8 @@ ostream* ccache_stream( int fd )
 {
     int status = fcntl( fd, F_GETFL );
     if( status < 0 || ( status & ( O_WRONLY | O_RDWR )) == 0 ) {
+        // As logging is not set up yet, this will log to stderr.
+        log_warning() << "UNCACHED_ERR_FD provides an invalid file descriptor, using stderr" << endl;
         return &cerr; // fd is not valid fd for writting
     }
     static ofdbuf buf( fd );
