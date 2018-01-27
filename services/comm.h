@@ -176,6 +176,7 @@ public:
         return eof || instate == HAS_MSG;
     }
 
+    // Returns ture if there were no errors filling inbuf.
     bool read_a_bit(void);
 
     bool at_eof(void) const

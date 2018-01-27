@@ -90,6 +90,7 @@ bool MsgChannel::read_a_bit()
     if (count < 128) {
         inbuflen = (inbuflen + 128 + 127) & ~(size_t) 127;
         inbuf = (char *) realloc(inbuf, inbuflen);
+        assert(inbuf); // Probably unrecoverable if realloc fails anyway.
         count = inbuflen - inofs;
     }
 
@@ -223,6 +224,7 @@ bool MsgChannel::update_state(void)
             if (inbuflen - intogo < inmsglen) {
                 inbuflen = (inmsglen + intogo + 127) & ~(size_t)127;
                 inbuf = (char *) realloc(inbuf, inbuflen);
+                assert(inbuf); // Probably unrecoverable if realloc fails anyway.
             }
 
             instate = FILL_BUF;
@@ -280,6 +282,7 @@ void MsgChannel::writefull(const void *_buf, size_t count)
         /* Realloc to a multiple of 128.  */
         msgbuflen = (msgtogo + count + 127) & ~(size_t)127;
         msgbuf = (char *) realloc(msgbuf, msgbuflen);
+        assert(msgbuf); // Probably unrecoverable if realloc fails anyway.
     }
 
     memcpy(msgbuf + msgtogo, _buf, count);
@@ -531,6 +534,7 @@ void MsgChannel::writecompressed(const unsigned char *in_buf, size_t _in_len, si
         /* Realloc to a multiple of 128.  */
         msgbuflen = (msgtogo + out_len + 127) & ~(size_t)127;
         msgbuf = (char *) realloc(msgbuf, msgbuflen);
+        assert(msgbuf); // Probably unrecoverable if realloc fails anyway.
     }
 
     lzo_byte *out_buf = (lzo_byte *)(msgbuf + msgtogo);
