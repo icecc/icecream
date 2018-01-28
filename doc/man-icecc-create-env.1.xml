@@ -34,12 +34,7 @@
 <refsynopsisdiv>
 <cmdsynopsis>
 <command>icecc-create-env</command>
-<arg choice="plain">--gcc <replaceable>gcc-path</replaceable> <replaceable>g++-path</replaceable></arg>
-<arg rep="repeat">--addfile <replaceable>file</replaceable></arg>
-</cmdsynopsis>
-<cmdsynopsis>
-<command>icecc-create-env</command>
-<arg choice="plain">--clang <replaceable>clang-path</replaceable></arg>
+<arg choice="plain"><replaceable>compiler-binary</replaceable></arg>
 <arg rep="repeat">--addfile <replaceable>file</replaceable></arg>
 </cmdsynopsis>
 </refsynopsisdiv>
@@ -49,8 +44,6 @@
 <para>&icecc-create-env; is an Icecream helper that creates a new <literal role="extension">.tar.gz</literal>
 archive with all the files (compiler, tools and libraries) needed to setup a
 build environment.</para>
-<para>Specifying <option>--gcc</option> or <option>--clang</option> as first
-argument decides which compiler (&gcc; or &clang;) is copied in the archive.</para>
 <para>The resulting archive has a random file name like
 <filename>ddaea39ca1a7c88522b185eca04da2d8.tar.gz</filename>, which can
 then be renamed. See icecream(7) for more information on using the environment
@@ -63,24 +56,6 @@ called automatically for the native compiler used whenever necessary.</para>
 <title>Options</title>
 
 <variablelist>
-
-<varlistentry>
-<term><option>--gcc</option>
-<parameter>gcc-path</parameter> <parameter>g++-path</parameter></term>
-<listitem><para>&gcc; is used in the archive.</para>
-<para><parameter>gcc-path</parameter>
-and <parameter>g++-path</parameter> represent respectively the paths to the
-<filename>gcc</filename> and <filename>g++</filename> executables.
-</para></listitem>
-</varlistentry>
-
-<varlistentry>
-<term><option>--clang</option>
-<parameter>clang-path</parameter></term>
-<listitem><para>&clang; is used in the archive.</para>
-<para><parameter>clang-path</parameter> represents the path to the
-<filename>clang</filename> executable.</para></listitem>
-</varlistentry>
 
 <varlistentry>
 <term><option>--addfile</option>
