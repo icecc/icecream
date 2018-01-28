@@ -71,7 +71,7 @@ static void dcc_show_usage(void)
     printf(
         "Usage:\n"
         "   icecc [compiler] [compile options] -o OBJECT -c SOURCE\n"
-        "   icecc --build-native [compilertype] [file...]\n"
+        "   icecc --build-native [compiler] [file...]\n"
         "   icecc --help\n"
         "\n"
         "Options:\n"
@@ -143,20 +143,32 @@ static void dcc_client_catch_signals(void)
 }
 
 /*
- * @param args Are [clang,gcc] [extra files...]
+ * @param args Are [compiler] [extra files...]
+ * Compiler can be "gcc", "clang" or a binary (possibly including a path).
  */
 static int create_native(char **args)
 {
-    bool is_clang = false;
     char **extrafiles = args;
     string machine_name = determine_platform();
 
-    if (machine_name.compare(0, 6, "Darwin") == 0)
-        is_clang = true;
-    // Args[0] may be a compiler or the first extra file.
-    if (args[0] && ((!strcmp(args[0], "clang") && (is_clang = true))
-                    || (!strcmp(args[0], "gcc") && !(is_clang = false)))) {
-        extrafiles++;
+    string compiler = "gcc";
+    if (machine_name.compare(0, 6, "Darwin") == 0) {
+        compiler = "clang";
+    }
+    if (args[0]) {
+        if( strcmp(args[0], "clang") == 0 || strcmp(args[0], "gcc") == 0 ) {
+            compiler = args[ 0 ];
+            ++extrafiles;
+        } else if( access( args[0], R_OK ) == 0 && access( args[ 0 ], X_OK ) != 0 ) {
+            // backwards compatibility, the first argument is already an extra file
+        } else {
+            compiler = compiler_path_lookup( args[ 0 ] );
+            if (compiler.empty()) {
+                log_error() << "compiler not found" << endl;
+                return 1;
+            }
+            ++extrafiles;
+        }
     }
 
     vector<char*> argv;
@@ -168,45 +180,7 @@ static int create_native(char **args)
     }
 
     argv.push_back(strdup(BINDIR "/icecc-create-env"));
-
-    if (is_clang) {
-        string clang = compiler_path_lookup("clang");
-
-        if (clang.empty()) {
-            log_error() << "clang compiler not found" << endl;
-            return 1;
-        }
-
-        if (lstat(PLIBDIR "/compilerwrapper", &st)) {
-            log_error() << PLIBDIR "/compilerwrapper does not exist" << endl;
-            return 1;
-        }
-
-        argv.push_back(strdup("--clang"));
-        argv.push_back(strdup(clang.c_str()));
-    } else { // "gcc" (default)
-        string gcc, gpp;
-
-        // perhaps we're on gentoo
-        if (!lstat("/usr/bin/gcc-config", &st)) {
-            string gccpath = read_command_output("/usr/bin/gcc-config -B") + "/";
-            gcc = gccpath + "gcc";
-            gpp = gccpath + "g++";
-        } else {
-            gcc = compiler_path_lookup("gcc");
-            gpp = compiler_path_lookup("g++");
-        }
-
-        // both C and C++ compiler are required
-        if (gcc.empty() || gpp.empty()) {
-            log_error() << "gcc compiler not found" << endl;
-            return 1;
-        }
-
-        argv.push_back(strdup("--gcc"));
-        argv.push_back(strdup(gcc.c_str()));
-        argv.push_back(strdup(gpp.c_str()));
-    }
+    argv.push_back(strdup(compiler.c_str()));
 
     for (int extracount = 0; extrafiles[extracount]; extracount++) {
         argv.push_back(strdup("--addfile"));
@@ -217,7 +191,6 @@ static int create_native(char **args)
     execv(argv[0], argv.data());
     log_perror("execv failed");
     return -1;
-
 }
 
 static void debug_arguments(int argc, char** argv, bool original)

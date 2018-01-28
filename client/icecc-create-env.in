@@ -17,9 +17,14 @@ esac
 
 usage ()
 {
-    echo "usage: $0 --gcc <gcc_path> <g++_path>"
-    echo "usage: $0 --clang <clang_path>"
-    echo "usage: Use --addfile <file> to add extra files."
+    echo "Create compiler environment for distributed build."
+    echo "Usage: $0 <compiler_binary>"
+    echo "For GCC, pass the the gcc binary, the matching g++ will be used automatically."
+    echo "For Clang, pass the clang binary."
+    echo "Use --addfile <file> to add extra files."
+    echo "For backwards compatibility, the following is also supported:"
+    echo "$0 --gcc <gcc_path> <g++_path>"
+    echo "$0 --clang <clang_path>"
 }
 
 is_contained ()
@@ -177,37 +182,72 @@ if test "$1" = "--respect-path"; then
   shift
 fi
 
-if test "$1" != "--gcc" -a "$1" != "--clang"; then
-    # backward compat
+if test "$1" = "--gcc"; then
+    shift
     added_gcc=$1
     shift
     added_gxx=$1
     shift
     gcc=1
+elif test "$1" = "--clang"; then
+    shift
+    added_clang=$1
+    shift
+    if test "x$1" != "x--addfile" -a -e "$1"; then
+        # accept 2nd argument being the compilerwrapper binary, for backwards compatibility
+        added_compilerwrapper=$1
+        shift
+    fi
+    if test -z "$added_compilerwrapper"; then
+        added_compilerwrapper=@PKGLIBEXECDIR@/compilerwrapper
+    fi
+    clang=1
 else
-    if test "$1" = "--gcc"; then
-        shift
-        added_gcc=$1
-        shift
-        added_gxx=$1
-        shift
-        gcc=1
-    elif test "$1" = "--clang"; then
-        shift
-        added_clang=$1
-        shift
-        if test "x$1" != "x--addfile" -a -e "$1"; then
-            # accept 2nd argument being the compilerwrapper binary, for backwards compatibility
-            added_compilerwrapper=$1
-            shift
-        fi
-        if test -z "$added_compilerwrapper"; then
-            added_compilerwrapper=@PKGLIBEXECDIR@/compilerwrapper
-        fi
-        clang=1
-    else
+    if test -z "$1"; then
         usage
         exit 1
+    fi
+    # We got just a binary, find out what compiler it is and bypass any possible wrappers.
+    # __clang__ expands to 1 if compiler is Clang
+    # __GNUC__ expands to the main version number (and is valid also with Clang)
+    test_output=$(echo "clang __clang__ gcc __GNUC__" | "$1" -E -)
+    if test $? -ne 0; then
+        echo "$1" is not a compiler.
+        exit 1
+    fi
+    if echo "$test_output" | grep -q '^clang 1 gcc.*'; then
+        clang=1
+        # With clang, -print-prog-name gives the full path to the actual clang binary,
+        # allowing to bypass any possible wrapper script etc. Note we must pass
+        # just the binary name, not full path.
+        added_clang=$($1 -print-prog-name=$(basename $1))
+        added_compilerwrapper=@PKGLIBEXECDIR@/compilerwrapper
+    elif echo "$test_output" | grep -q 'clang __clang__ gcc.*'; then
+        gcc=1
+        # Gcc's -print-prog-name is useless, as it prints simply "gcc", so we have to
+        # get the location of the actual gcc binary from gcc -v output, which prints
+        # (to stderr) gcc's argv[0] as COLLECT_GCC.
+        added_gcc=$($1 -v 2>&1 | grep COLLECT_GCC= | sed 's/^COLLECT_GCC=//')
+        if test -z "$added_gcc"; then
+            echo Failed to find gcc location.
+            exit 1
+        fi
+        if ! test -x "$added_gcc"; then
+            added_gcc=$(command -v $added_gcc)
+        fi
+    else
+        echo "$1" is not a known compiler.
+        exit 1
+    fi
+    shift
+    if test -n "$1" -a "x$1" != "x--addfile"; then
+        # (backwards) compatibility, assume the second argument is the C++ compiler
+        added_gxx=$1
+        shift
+    fi
+    if test -n "$gcc" -a -z "$added_gxx"; then
+        # guess g++ from gcc
+        added_gxx=$(echo $added_gcc | sed 's/\(.*\)gcc/\1g++/')
     fi
 fi
 
