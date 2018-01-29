@@ -70,6 +70,7 @@ iceccd="${prefix}/sbin/iceccd"
 icecc_scheduler="${prefix}/sbin/icecc-scheduler"
 icecc_create_env="${prefix}/bin/icecc-create-env"
 icecc_test_env="${prefix}/bin/icecc-test-env"
+icerun="${prefix}/bin/icerun"
 netname="icecctestnetname$$"
 protocolversion=$(grep '#define PROTOCOL_VERSION ' ../services/comm.h | sed 's/#define PROTOCOL_VERSION //')
 
@@ -813,7 +814,8 @@ icerun_serialize_test()
         else
             testbin=./icerun-test.sh
         fi
-        PATH=$path ICECC_TEST_SOCKET="$testdir"/socket-localice ICECC_TEST_REMOTEBUILD=1 ICECC_DEBUG=debug ICECC_LOGFILE="$testdir"/icecc.log $valgrind "$prefix"/bin/icerun $testbin "$testdir"/icerun $i &
+        PATH=$path ICECC_TEST_SOCKET="$testdir"/socket-localice ICECC_TEST_REMOTEBUILD=1 ICECC_DEBUG=debug ICECC_LOGFILE="$testdir"/icecc.log \
+            $valgrind "${icerun}" $testbin "$testdir"/icerun $i &
     done
     unset ICERUN_TEST_VALGRIND
     timeout=100
@@ -867,7 +869,7 @@ icerun_nopath_test()
     echo "Running icerun nopath test."
     # check that plain 'icerun-test.sh' doesn't work for the current directory (i.e. ./ must be required just like with normal execution)
     ICECC_TEST_SOCKET="$testdir"/socket-localice ICECC_TEST_REMOTEBUILD=1 ICECC_DEBUG=debug ICECC_LOGFILE="$testdir"/icecc.log \
-        $valgrind "$prefix"/bin/icerun icerun-test.sh
+        $valgrind "${icerun}" icerun-test.sh
     check_log_error icecc "invoking:"
     check_log_message icecc "couldn't find any"
     check_log_message icecc "could not find icerun-test.sh in PATH."
