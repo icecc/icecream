@@ -877,6 +877,31 @@ icerun_nopath_test()
     echo
 }
 
+icerun_nocompile_test()
+{
+    # check that 'icerun gcc' still only runs the command without trying a remote compile
+    reset_logs "" "icerun${noscheduler} nocompile test"
+    echo "Running icerun nocompile test."
+    rm -rf -- "$testdir"/fakegcc
+    mkdir -p "$testdir"/fakegcc
+    echo '#! /bin/sh' > "$testdir"/fakegcc/gcc
+    echo 'echo "$@" >' "$testdir"/fakegcc/output >> "$testdir"/fakegcc/gcc
+    echo 'exit 44' >> "$testdir"/fakegcc/gcc
+    chmod +x "$testdir"/fakegcc/gcc
+    args="-Wall a.c b.c -c -s"
+    ICECC_TEST_SOCKET="$testdir"/socket-localice ICECC_TEST_REMOTEBUILD=1 ICECC_DEBUG=debug ICECC_LOGFILE="$testdir"/icecc.log \
+        PATH="$testdir"/fakegcc:$PATH $valgrind "${icerun}" gcc $args
+    if test $? -ne 44; then
+        echo Error, icerun gcc failed.
+        stop_ice 0
+        abort_tests
+    fi
+    check_log_message icecc "invoking: $testdir/fakegcc/gcc $args\$"
+    rm -rf -- "$testdir"/fakegcc
+    echo "Icerun nocompile test successful."
+    echo
+}
+
 # Check that icecc --build-native works.
 buildnativetest()
 {
@@ -1740,6 +1765,7 @@ fi
 
 icerun_serialize_test
 icerun_nopath_test
+icerun_nocompile_test
 
 recursive_test
 

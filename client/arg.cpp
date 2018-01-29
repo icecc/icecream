@@ -246,6 +246,10 @@ bool analyse_argv(const char * const *argv, CompileJob &job, bool icerun, list<s
         always_local = true;
         job.setLanguage(CompileJob::Lang_Custom);
         log_info() << "icerun, running locally." << endl;
+    } else if(always_local) {
+        // By this point this is set only if analyze_program() decided the command is not a compiler,
+        // so this means also running a custom command as if invoked by icerun.
+        icerun = true;
     }
 
     for (int i = had_cc ? 2 : 1; argv[i]; i++) {
@@ -683,6 +687,7 @@ bool analyse_argv(const char * const *argv, CompileJob &job, bool icerun, list<s
 
         args.append("-S", Arg_Remote);
     } else {
+        assert( seen_c );
         args.append("-c", Arg_Remote);
         if (seen_split_dwarf) {
             job.setDwarfFissionEnabled(true);
@@ -791,22 +796,22 @@ bool analyse_argv(const char * const *argv, CompileJob &job, bool icerun, list<s
             }
         }
 
-    } else {
+    } else { // always_local
         job.setInputFile(string());
     }
 
     struct stat st;
 
-    if (ofile.empty() || (!stat(ofile.c_str(), &st) && !S_ISREG(st.st_mode))) {
-        if (!always_local) {
+    if( !always_local ) {
+        if (ofile.empty() || (!stat(ofile.c_str(), &st) && !S_ISREG(st.st_mode))) {
             log_info() << "output file empty or not a regular file, building locally" << endl;
+            always_local = true;
         }
-        always_local = true;
     }
 
     // redirecting compiler's output will turn off its automatic coloring, so force it
     // when it would be used, unless explicitly set
-    if (compiler_has_color_output(job) && !explicit_color_diagnostics) {
+    if (!icerun && compiler_has_color_output(job) && !explicit_color_diagnostics) {
         if (compiler_is_clang(job))
             args.append("-fcolor-diagnostics", Arg_Rest);
         else
