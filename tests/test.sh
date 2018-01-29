@@ -911,6 +911,72 @@ buildnativetest()
     echo
 }
 
+buildnativewithsymlinktest()
+{
+    reset_logs local "Native environment with symlink"
+    echo Testing native environment with a compiler symlink.
+    ok=
+    rm -rf -- "$testdir"/wrappers
+    mkdir -p "$testdir"/wrappers
+    ln -s $(command -v $TESTCC) "$testdir"/wrappers/
+    ln -s $(command -v $TESTCXX) "$testdir"/wrappers/
+    ${icecc_create_env} "$testdir"/wrappers/$(basename $TESTCC) > "$testdir"/icecc-build-native-output
+    if test $? -eq 0; then
+        tgz=$(grep "^creating .*\.tar\.gz$" "$testdir"/icecc-build-native-output | sed -e "s/^creating //")
+        if test -n "$tgz"; then
+            ok=1
+            rm -f $tgz "$testdir"/icecc-build-native-output
+            rm -rf -- "$testdir"/wrappers
+        fi
+    fi
+    if test -z "$ok"; then
+        echo Testing native environment with a compiler symlink failed.
+        cat "$testdir"/icecc-build-native-output
+        stop_ice 0
+        abort_tests
+    fi
+    echo Testing native environment with a compiler symlink successful.
+    echo
+}
+
+buildnativewithwrappertest()
+{
+    reset_logs local "Native environment with a compiler wrapper"
+    echo Testing native environment with a compiler wrapper.
+    ok=
+    rm -rf -- "$testdir"/wrappers
+    mkdir -p "$testdir"/wrappers
+    echo '#! /bin/sh' > "$testdir"/wrappers/$(basename $TESTCC)
+    echo exec $TESTCC '"$@"' >> "$testdir"/wrappers/$(basename $TESTCC)
+    echo '#! /bin/sh' > "$testdir"/wrappers/$(basename $TESTCXX)
+    echo exec $TESTCXX '"$@"' >> "$testdir"/wrappers/$(basename $TESTCXX)
+    chmod +x "$testdir"/wrappers/$(basename $TESTCC) "$testdir"/wrappers/$(basename $TESTCXX)
+    ${icecc_create_env} "$testdir"/wrappers/$(basename $TESTCC) > "$testdir"/icecc-build-native-output
+    if test $? -eq 0; then
+        tgz=$(grep "^creating .*\.tar\.gz$" "$testdir"/icecc-build-native-output | sed -e "s/^creating //")
+        if test -n "$tgz"; then
+            sudo -n -- ${icecc_test_env} -q "$tgz"
+            retcode=$?
+            if test $retcode -eq 1; then
+                echo Cannot verify environment, use sudo.
+                ok=1
+            elif test $retcode -eq 0; then
+                ok=1
+            fi
+            rm -f $tgz "$testdir"/icecc-build-native-output
+            rm -rf -- "$testdir"/wrappers
+        fi
+    fi
+    if test -z "$ok"; then
+        echo Testing native environment with a compiler symlink failed.
+        cat "$testdir"/icecc-build-native-output
+        stop_ice 0
+        abort_tests
+    fi
+    echo Testing native environment with a compiler symlink successful.
+    echo
+}
+
 # Check that icecc recursively invoking itself is detected.
 recursive_test()
 {
@@ -1766,65 +1832,8 @@ icerun_test "noscheduler"
 reset_logs local "Closing down (only daemon)"
 stop_only_daemon 1
 
-reset_logs local "Native environment with symlink"
-echo Testing native environment with a compiler symlink.
-ok=
-rm -rf -- "$testdir"/wrappers
-mkdir -p "$testdir"/wrappers
-ln -s $(command -v $TESTCC) "$testdir"/wrappers/
-ln -s $(command -v $TESTCXX) "$testdir"/wrappers/
-${icecc_create_env} "$testdir"/wrappers/$(basename $TESTCC) > "$testdir"/icecc-build-native-output
-if test $? -eq 0; then
-    tgz=$(grep "^creating .*\.tar\.gz$" "$testdir"/icecc-build-native-output | sed -e "s/^creating //")
-    if test -n "$tgz"; then
-        ok=1
-        rm -f $tgz "$testdir"/icecc-build-native-output
-        rm -rf -- "$testdir"/wrappers
-    fi
-fi
-if test -z "$ok"; then
-    echo Testing native environment with a compiler symlink failed.
-    cat "$testdir"/icecc-build-native-output
-    stop_ice 0
-    abort_tests
-fi
-echo Testing native environment with a compiler symlink successful.
-echo
-
-reset_logs local "Native environment with a compiler wrapper"
-echo Testing native environment with a compiler wrapper.
-ok=
-rm -rf -- "$testdir"/wrappers
-mkdir -p "$testdir"/wrappers
-echo '#! /bin/sh' > "$testdir"/wrappers/$(basename $TESTCC)
-echo exec $TESTCC '"$@"' >> "$testdir"/wrappers/$(basename $TESTCC)
-echo '#! /bin/sh' > "$testdir"/wrappers/$(basename $TESTCXX)
-echo exec $TESTCXX '"$@"' >> "$testdir"/wrappers/$(basename $TESTCXX)
-chmod +x "$testdir"/wrappers/$(basename $TESTCC) "$testdir"/wrappers/$(basename $TESTCXX)
-${icecc_create_env} "$testdir"/wrappers/$(basename $TESTCC) > "$testdir"/icecc-build-native-output
-if test $? -eq 0; then
-    tgz=$(grep "^creating .*\.tar\.gz$" "$testdir"/icecc-build-native-output | sed -e "s/^creating //")
-    if test -n "$tgz"; then
-        sudo -n -- ${icecc_test_env} -q "$tgz"
-        retcode=$?
-        if test $retcode -eq 1; then
-            echo Cannot verify environment, use sudo.
-            ok=1
-        elif test $retcode -eq 0; then
-            ok=1
-        fi
-        rm -f $tgz "$testdir"/icecc-build-native-output
-        rm -rf -- "$testdir"/wrappers
-    fi
-fi
-if test -z "$ok"; then
-    echo Testing native environment with a compiler symlink failed.
-    cat "$testdir"/icecc-build-native-output
-    stop_ice 0
-    abort_tests
-fi
-echo Testing native environment with a compiler symlink successful.
-echo
+buildnativewithsymlinktest
+buildnativewithwrappertest
 
 if test -n "$valgrind"; then
     rm -f "$testdir"/valgrind-*.log
