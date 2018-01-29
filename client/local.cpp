@@ -97,7 +97,9 @@ static string compiler_path_lookup_helper(const string &compiler, const string &
                 continue;
             }
 
-            best_match = part;
+            if( best_match.empty()) {
+                best_match = part;
+            }
 
             if (after_selflink) {
                 return part;
