@@ -1303,7 +1303,7 @@ reset_logs()
     mark_logs $type "$@"
 }
 
-# Call this at the start of a test section (e.g. remote vs local build). Functions such as check_log_message will not check before the mark.
+# Call this at the start of a sub-test (e.g. remote vs local build). Functions such as check_log_message will not check before the mark.
 mark_logs()
 {
     type="$1"
@@ -1377,10 +1377,10 @@ dump_logs()
 {
     for log in $alltestlogs; do
         # Skip logs that have only headers and flush marks
-        if cat_log_last_mark ${log} | grep -q -v "^="; then
+        if cat_log_last_section ${log} | grep -q -v "^="; then
             echo ------------------------------------------------
             echo "Log: ${log}"
-            cat_log_last_mark ${log}
+            cat_log_last_section ${log}
         fi
     done
     valgrind_logs=$(ls "$testdir"/valgrind-*.log 2>/dev/null)
