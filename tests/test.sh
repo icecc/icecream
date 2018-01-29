@@ -783,7 +783,7 @@ make_test()
 }
 
 # 1st argument, if set, means we run without scheduler
-icerun_test()
+icerun_serialize_test()
 {
     # test that icerun really serializes jobs and only up to 2 (max jobs of the local daemon) are run at any time
     noscheduler=
@@ -848,36 +848,31 @@ icerun_test()
         abort_tests
     fi
 
-    # check that plain 'icerun-test.sh' doesn't work for the current directory (i.e. ./ must be required just like with normal execution)
-    ICECC_TEST_SOCKET="$testdir"/socket-localice ICECC_TEST_REMOTEBUILD=1 ICECC_DEBUG=debug ICECC_LOGFILE="$testdir"/icecc.log $valgrind "$prefix"/bin/icerun icerun-test.sh "$testdir"/icerun 0 &
-    icerun_test_pid=$!
-    timeout=20
-    while true; do
-        if ! kill -0 $icerun_test_pid 2>/dev/null; then
-            break
-        fi
-        sleep 0.1
-        timeout=$((timeout-1))
-        if test $timeout -eq 0; then
-            echo "Icerun${noscheduler} test timed out."
-            stop_ice 0
-            abort_tests
-        fi
-    done
-
     flush_logs
     check_logs_for_generic_errors
+    check_log_message_count icecc 10 "<building_local>"
     check_log_error icecc "Have to use host 127.0.0.1:10246"
     check_log_error icecc "Have to use host 127.0.0.1:10247"
     check_log_error icecc "building myself, but telling localhost"
     check_log_error icecc "local build forced"
-    check_log_message_count icecc 11 "<building_local>"
-    check_log_message_count icecc 1 "couldn't find any"
-    check_log_message_count icecc 1 "could not find icerun-test.sh in PATH."
     echo "Icerun${noscheduler} test successful."
     echo
     rm -r "$testdir"/icerun
     export PATH=$save_path
+}
+
+icerun_nopath_test()
+{
+    reset_logs "" "icerun nopath test"
+    echo "Running icerun nopath test."
+    # check that plain 'icerun-test.sh' doesn't work for the current directory (i.e. ./ must be required just like with normal execution)
+    ICECC_TEST_SOCKET="$testdir"/socket-localice ICECC_TEST_REMOTEBUILD=1 ICECC_DEBUG=debug ICECC_LOGFILE="$testdir"/icecc.log \
+        $valgrind "$prefix"/bin/icerun icerun-test.sh
+    check_log_error icecc "invoking:"
+    check_log_message icecc "couldn't find any"
+    check_log_message icecc "could not find icerun-test.sh in PATH."
+    echo "Icerun nopath test successful."
+    echo
 }
 
 # Check that icecc --build-native works.
@@ -1741,7 +1736,8 @@ else
     skipped_tests="$skipped_tests clangplugin"
 fi
 
-icerun_test
+icerun_serialize_test
+icerun_nopath_test
 
 recursive_test
 
@@ -1827,7 +1823,7 @@ reset_logs local "Starting only daemon"
 start_only_daemon
 
 # even without scheduler, icerun should still serialize, but still run up to local number of jobs in parallel
-icerun_test "noscheduler"
+icerun_serialize_test "noscheduler"
 
 reset_logs local "Closing down (only daemon)"
 stop_only_daemon 1
