@@ -907,29 +907,14 @@ buildnativetest()
 {
     echo Running icecc --build-native test.
     reset_logs "local" "Build native"
-    pushd "$testdir" >/dev/null
-    ICECC_DEBUG=debug ICECC_LOGFILE="$testdir"/icecc.log ${icecc} --build-native $TESTCC > "$testdir"/icecc-build-native-output
+    test_build_native_helper $TESTCC 1
     if test $? -ne 0; then
-        echo icecc --build-native test failed.
+        echo Icecc --build-native test failed.
+        cat "$testdir"/icecc-build-native-output
+        stop_ice 0
         abort_tests
     fi
-    local tgz=$(grep "^creating .*\.tar\.gz$" "$testdir"/icecc-build-native-output | sed -e "s/^creating //")
-    if test -z "$tgz"; then
-        echo icecc --build-native test failed.
-        abort_tests
-    fi
-    sudo -n -- ${icecc_test_env} -q "$tgz"
-    retcode=$?
-    if test $retcode -eq 1; then
-        echo Cannot verify environment, use sudo.
-        skipped_tests="$skipped_tests testenv"
-    elif test $retcode -ne 0; then
-        echo icecc_test_env failed to validate the environment
-        abort_tests
-    fi
-    rm -f $tgz "$testdir"/icecc-build-native-output
-    popd >/dev/null
-    echo icecc --build-native test successful.
+    echo Icecc --build-native test successful.
     echo
 }
 
@@ -937,26 +922,18 @@ buildnativewithsymlinktest()
 {
     reset_logs local "Native environment with symlink"
     echo Testing native environment with a compiler symlink.
-    ok=
     rm -rf -- "$testdir"/wrappers
     mkdir -p "$testdir"/wrappers
     ln -s $(command -v $TESTCC) "$testdir"/wrappers/
     ln -s $(command -v $TESTCXX) "$testdir"/wrappers/
-    ${icecc_create_env} "$testdir"/wrappers/$(basename $TESTCC) > "$testdir"/icecc-build-native-output
-    if test $? -eq 0; then
-        tgz=$(grep "^creating .*\.tar\.gz$" "$testdir"/icecc-build-native-output | sed -e "s/^creating //")
-        if test -n "$tgz"; then
-            ok=1
-            rm -f $tgz "$testdir"/icecc-build-native-output
-            rm -rf -- "$testdir"/wrappers
-        fi
-    fi
-    if test -z "$ok"; then
+    test_build_native_helper "$testdir"/wrappers/$(basename $TESTCC) 0
+    if test $? -ne 0; then
         echo Testing native environment with a compiler symlink failed.
         cat "$testdir"/icecc-build-native-output
         stop_ice 0
         abort_tests
     fi
+    rm -rf -- "$testdir"/wrappers
     echo Testing native environment with a compiler symlink successful.
     echo
 }
@@ -965,7 +942,6 @@ buildnativewithwrappertest()
 {
     reset_logs local "Native environment with a compiler wrapper"
     echo Testing native environment with a compiler wrapper.
-    ok=
     rm -rf -- "$testdir"/wrappers
     mkdir -p "$testdir"/wrappers
     echo '#! /bin/sh' > "$testdir"/wrappers/$(basename $TESTCC)
@@ -973,30 +949,45 @@ buildnativewithwrappertest()
     echo '#! /bin/sh' > "$testdir"/wrappers/$(basename $TESTCXX)
     echo exec $TESTCXX '"$@"' >> "$testdir"/wrappers/$(basename $TESTCXX)
     chmod +x "$testdir"/wrappers/$(basename $TESTCC) "$testdir"/wrappers/$(basename $TESTCXX)
-    ${icecc_create_env} "$testdir"/wrappers/$(basename $TESTCC) > "$testdir"/icecc-build-native-output
-    if test $? -eq 0; then
-        tgz=$(grep "^creating .*\.tar\.gz$" "$testdir"/icecc-build-native-output | sed -e "s/^creating //")
-        if test -n "$tgz"; then
-            sudo -n -- ${icecc_test_env} -q "$tgz"
-            retcode=$?
-            if test $retcode -eq 1; then
-                echo Cannot verify environment, use sudo.
-                ok=1
-            elif test $retcode -eq 0; then
-                ok=1
-            fi
-            rm -f $tgz "$testdir"/icecc-build-native-output
-            rm -rf -- "$testdir"/wrappers
-        fi
-    fi
-    if test -z "$ok"; then
+    test_build_native_helper "$testdir"/wrappers/$(basename $TESTCC) 0
+    if test $? -ne 0; then
         echo Testing native environment with a compiler symlink failed.
         cat "$testdir"/icecc-build-native-output
         stop_ice 0
         abort_tests
     fi
+    rm -rf -- "$testdir"/wrappers
     echo Testing native environment with a compiler symlink successful.
     echo
+}
+
+test_build_native_helper()
+{
+    compiler=$1
+    add_skip=$2
+    pushd "$testdir" >/dev/null
+    ICECC_DEBUG=debug ICECC_LOGFILE="$testdir"/icecc.log ${icecc} --build-native $compiler > "$testdir"/icecc-build-native-output
+    if test $? -ne 0; then
+        return 1
+    fi
+    local tgz=$(grep "^creating .*\.tar\.gz$" "$testdir"/icecc-build-native-output | sed -e "s/^creating //")
+    if test -z "$tgz"; then
+        return 2
+    fi
+    sudo -n -- ${icecc_test_env} -q "$tgz"
+    retcode=$?
+    if test $retcode -eq 1; then
+        echo Cannot verify environment, use sudo, skipping test.
+        if test "$add_skip" = "1"; then
+            skipped_tests="$skipped_tests $testtype"
+        fi
+    elif test $retcode -ne 0; then
+        echo icecc_test_env failed to validate the environment
+        return 3
+    fi
+    rm -f $tgz "$testdir"/icecc-build-native-output
+    popd >/dev/null
+    return 0
 }
 
 # Check that icecc recursively invoking itself is detected.
