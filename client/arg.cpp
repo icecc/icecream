@@ -55,7 +55,7 @@ inline int str_startswith(const char *head, const char *worm)
     return !strncmp(head, worm, strlen(head));
 }
 
-static bool analyze_program(const char *name, CompileJob &job)
+static bool analyze_program(const char *name, CompileJob &job, bool& icerun)
 {
     string compiler_name = find_basename(name);
 
@@ -79,7 +79,11 @@ static bool analyze_program(const char *name, CompileJob &job)
     bool vclang = compiler_name.find("clang-") != string::npos;
     bool vclangpp = compiler_name.find("clang++-") != string::npos;
 
-    if ((suffix == "++") || (suffix == "CC") || vgpp || vclangpp) {
+    if( icerun ) {
+        job.setLanguage(CompileJob::Lang_Custom);
+        log_info() << "icerun, running locally." << endl;
+        return true;
+    } else if ((suffix == "++") || (suffix == "CC") || vgpp || vclangpp) {
         job.setLanguage(CompileJob::Lang_CXX);
     } else if ((suffix == "cc") || vgcc || vclang) {
         job.setLanguage(CompileJob::Lang_C);
@@ -88,6 +92,7 @@ static bool analyze_program(const char *name, CompileJob &job)
     } else {
         job.setLanguage(CompileJob::Lang_Custom);
         log_info() << "custom command, running locally." << endl;
+        icerun = true;
         return true;
     }
 
@@ -227,7 +232,7 @@ bool analyse_argv(const char * const *argv, CompileJob &job, bool icerun, list<s
 #endif
 
     bool had_cc = (job.compilerName().size() > 0);
-    bool always_local = analyze_program(had_cc ? job.compilerName().c_str() : argv[0], job);
+    bool always_local = analyze_program(had_cc ? job.compilerName().c_str() : argv[0], job, icerun);
     bool seen_c = false;
     bool seen_s = false;
     bool seen_mf = false;
@@ -241,16 +246,6 @@ bool analyse_argv(const char * const *argv, CompileJob &job, bool icerun, list<s
 
     explicit_color_diagnostics = false;
     explicit_no_show_caret = false;
-
-    if (icerun) {
-        always_local = true;
-        job.setLanguage(CompileJob::Lang_Custom);
-        log_info() << "icerun, running locally." << endl;
-    } else if(always_local) {
-        // By this point this is set only if analyze_program() decided the command is not a compiler,
-        // so this means also running a custom command as if invoked by icerun.
-        icerun = true;
-    }
 
     for (int i = had_cc ? 2 : 1; argv[i]; i++) {
         const char *a = argv[i];
