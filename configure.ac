@@ -25,6 +25,8 @@ AM_INIT_AUTOMAKE([1.11 foreign dist-bzip2])
 AM_SILENT_RULES([yes])
 AC_LANG([C++])
 
+CXXFLAGS="-std=c++11 $CXXFLAGS"
+
 # ===========================
 # Find required base packages
 # ===========================

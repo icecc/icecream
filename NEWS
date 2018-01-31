@@ -1,4 +1,5 @@
 1.2 (in progress)
+ - C++11 is required to build icecc
 
 1.1
  - revert "Add load control for preprocessing"
