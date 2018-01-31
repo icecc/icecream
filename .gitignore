@@ -26,6 +26,7 @@ Makefile
 stamp-h1
 client/icecc
 client/icecc-create-env
+client/icecc-test-env
 client/libclient.a
 compilerwrapper/compilerwrapper
 config.h
