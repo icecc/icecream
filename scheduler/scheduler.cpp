@@ -1958,7 +1958,7 @@ int main(int argc, char *argv[])
     }
 
     if (warn_icecc_user_errno != 0) {
-        log_errno("Error: no icecc user on system. Falling back to nobody.", errno);
+        log_errno("No icecc user on system. Falling back to nobody.", errno);
     }
 
     if (getuid() == 0) {
@@ -2000,7 +2000,7 @@ int main(int argc, char *argv[])
 
     if (detach) {
         if (daemon(0, 0) != 0) {
-            log_errno("Error: failed to detach.", errno);
+            log_errno("Failed to detach.", errno);
             exit(1);
         }
     }

@@ -2250,7 +2250,7 @@ int main(int argc, char **argv)
     }
 
     if (d.warn_icecc_user_errno != 0) {
-        log_errno("Error: no icecc user on system. Falling back to nobody.", d.warn_icecc_user_errno);
+        log_errno("No icecc user on system. Falling back to nobody.", d.warn_icecc_user_errno);
     }
 
     umask(022);
