@@ -40,50 +40,6 @@
 
 using namespace std;
 
-#if 0
-static string read_fromFILE(FILE *f)
-{
-    string output;
-
-    if (!f) {
-        log_error() << "no pipe " << strerror(errno) << endl;
-        return output;
-    }
-
-    char buffer[100];
-
-    while (!feof(f)) {
-        size_t bytes = fread(buffer, 1, 99, f);
-        buffer[bytes] = 0;
-        output += buffer;
-    }
-
-    pclose(f);
-    return output;
-}
-
-static bool extract_version(string &version)
-{
-    string::size_type pos = version.find_last_of('\n');
-
-    if (pos == string::npos) {
-        return false;
-    }
-
-    while (pos + 1 == version.size()) {
-        version.resize(version.size() - 1);
-        pos = version.find_last_of('\n');
-
-        if (pos == string::npos) {
-            return false;
-        }
-    }
-
-    version = version.substr(pos + 1);
-    return true;
-}
-#endif
-
 size_t sumup_dir(const string &dir)
 {
     size_t res = 0;
