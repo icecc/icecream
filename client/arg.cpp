@@ -608,20 +608,8 @@ bool analyse_argv(const char * const *argv, CompileJob &job, bool icerun, list<s
                         if (argv[i + 1] && argv[i + 2] && str_equal(argv[i + 1], "-Xclang")) {
                             args.append(a, Arg_Rest);
                             args.append(p, Arg_Rest);
-                            string file = argv[i + 2];
-
-                            if (access(file.c_str(), R_OK) == 0) {
-                                file = get_absfilename(file);
-                                extrafiles->push_back(file);
-                            } else {
-                                always_local = true;
-                                log_info() << "plugin for argument "
-                                           << a << " " << p << " " << argv[i + 1] << " " << file
-                                           << " missing, building locally" << endl;
-                            }
-
                             args.append(argv[i + 1], Arg_Rest);
-                            args.append(file, Arg_Rest);
+                            args.append(argv[i + 2], Arg_Rest);
                             i += 2;
                         }
                     } else {
