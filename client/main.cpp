@@ -59,6 +59,7 @@
 
 #include "client.h"
 #include "platform.h"
+#include "file_util.h"
 #include "util.h"
 #include "argv.h"
 
@@ -385,7 +386,7 @@ int main(int argc, char **argv)
                 file = string(extrafilesenv, colon - extrafilesenv);
             }
 
-            file = get_absfilename(file);
+            file = get_abs_path(file);
 
             struct stat st;
             if (stat(file.c_str(), &st) == 0) {
@@ -495,7 +496,7 @@ int main(int argc, char **argv)
         Msg *startme = 0L;
 
         /* Inform the daemon that we like to start a job.  */
-        if (local_daemon->send_msg(JobLocalBeginMsg(0, get_absfilename(job.outputFile())))) {
+        if (local_daemon->send_msg(JobLocalBeginMsg(0, get_abs_path(job.outputFile())))) {
             /* Now wait until the daemon gives us the start signal.  40 minutes
                should be enough for all normal compile or link jobs.  */
             startme = local_daemon->get_msg(40 * 60);

@@ -34,14 +34,12 @@
 
 #include "exitcode.h"
 #include "logging.h"
+#include "file_util.h"
 #include "util.h"
 
 class MsgChannel;
 
 extern std::string remote_daemon;
-
-/* in remote.cpp */
-extern std::string get_absfilename(const std::string &_file);
 
 /* In arg.cpp.  */
 extern bool analyse_argv(const char * const *argv, CompileJob &job, bool icerun,

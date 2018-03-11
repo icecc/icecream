@@ -354,21 +354,6 @@ int resolve_link(const std::string &file, std::string &resolved)
     return 0;
 }
 
-std::string get_cwd()
-{
-    static std::vector<char> buffer(1024);
-
-    errno = 0;
-    while (getcwd(&buffer[0], buffer.size() - 1) == 0 && errno == ERANGE) {
-        buffer.resize(buffer.size() + 1024);
-        errno = 0;
-    }
-    if (errno != 0)
-        return std::string();
-
-    return string(&buffer[0]);
-}
-
 std::string read_command_output(const std::string& command)
 {
     FILE *f = popen(command.c_str(), "r");

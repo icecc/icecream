@@ -34,6 +34,7 @@
 #include <sys/stat.h>
 
 #include "client.h"
+#include "file_util.h"
 
 using namespace std;
 
@@ -591,7 +592,7 @@ bool analyse_argv(const char * const *argv, CompileJob &job, bool icerun, list<s
                 string file = a + strlen(prefix);
 
                 if (access(file.c_str(), R_OK) == 0) {
-                    file = get_absfilename(file);
+                    file = get_abs_path(file);
                     extrafiles->push_back(file);
                 } else {
                     always_local = true;
@@ -611,7 +612,7 @@ bool analyse_argv(const char * const *argv, CompileJob &job, bool icerun, list<s
                             string file = argv[i + 2];
 
                             if (access(file.c_str(), R_OK) == 0) {
-                                file = get_absfilename(file);
+                                file = get_abs_path(file);
                                 extrafiles->push_back(file);
                             } else {
                                 always_local = true;

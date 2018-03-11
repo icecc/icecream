@@ -52,6 +52,7 @@
 #include "tempfile.h"
 #include "md5.h"
 #include "util.h"
+#include "services/file_util.h"
 #include "services/util.h"
 
 #ifndef O_LARGEFILE
@@ -179,46 +180,6 @@ rip_out_paths(const Environments &envs, map<string, string> &version_map, map<st
     }
 
     return env2;
-}
-
-
-string
-get_absfilename(const string &_file)
-{
-    string file;
-
-    if (_file.empty()) {
-        return _file;
-    }
-
-    if (_file.at(0) != '/') {
-        file = get_cwd() + '/' + _file;
-    } else {
-        file = _file;
-    }
-
-    string::size_type idx = file.find("/..");
-
-    while (idx != string::npos) {
-        file.replace(idx, 3, "/");
-        idx = file.find("/..");
-    }
-
-    idx = file.find("/./");
-
-    while (idx != string::npos) {
-        file.replace(idx, 3, "/");
-        idx = file.find("/./");
-    }
-
-    idx = file.find("//");
-
-    while (idx != string::npos) {
-        file.replace(idx, 2, "/");
-        idx = file.find("//");
-    }
-
-    return file;
 }
 
 static UseCSMsg *get_server(MsgChannel *local_daemon)
@@ -795,7 +756,7 @@ int build_remote(CompileJob &job, MsgChannel *local_daemon, const Environments &
             fake_filename += "/" + *it;
         }
 
-        fake_filename += get_absfilename(job.inputFile());
+        fake_filename += get_abs_path(job.inputFile());
 
         GetCSMsg getcs(envs, fake_filename, job.language(), torepeat,
                        job.targetPlatform(), job.argumentFlags(),
@@ -845,7 +806,7 @@ int build_remote(CompileJob &job, MsgChannel *local_daemon, const Environments &
         sprintf(rand_seed, "-frandom-seed=%d", rand());
         job.appendFlag(rand_seed, Arg_Remote);
 
-        GetCSMsg getcs(envs, get_absfilename(job.inputFile()), job.language(), torepeat,
+        GetCSMsg getcs(envs, get_abs_path(job.inputFile()), job.language(), torepeat,
                        job.targetPlatform(), job.argumentFlags(),
                        preferred_host ? preferred_host : string(),
                        minimalRemoteVersion(job));

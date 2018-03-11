@@ -69,50 +69,104 @@ string get_relative_path(const string &to, const string &from) {
 }
 
 /**
- * Returns a string without '..' and '.'
+ * Returns a path string with as many '..' and '.' components
+ * resolved as is possible, unambiguously.  This does not include
+ * symlink resolution.  If the input ends in '/', the output will
+ * also.
+ */
+string get_normalized_path(const string &path)
+{
+    if (path.empty()) {
+        return path;
+    }
+
+    vector<string> components = split(path, '/');
+    int up = 0; // Number of ..'s we still have to process.
+
+    // Convert resolved components to "".
+    for (int i=components.size()-1; i>=0; i--) {
+        if (components[i] == ".") {
+            components[i] = "";
+        } else if (components[i] == "..") {
+            components[i] = "";
+            up++;
+        } else if (up > 0 && components[i] != "") {
+            components[i] = "";
+            up--;
+        }
+    }
+
+    string result = "";
+
+    // If we were unable to resolve all '..' components, prepend
+    // the number that were unresolved.
+    if (path[0] != '/' && up > 0) {
+        result += "..";
+        up--;
+        for (; up>0; up--) {
+            result += "/..";
+        }
+    }
+
+    // Add back all components that weren't "resolved-away".
+    for (unsigned int i=0; i<components.size(); i++) {
+        if (components[i] != "") {
+            if (result != "") {
+                result += "/";
+            }
+            result += components[i];
+        }
+    }
+
+    // Ensure that leading and trailing slashes are retained.
+    if (path[0] == '/' && result[0] != '/') {
+        result = "/" + result;
+    }
+    if (path[path.size() - 1] == '/' && result[result.size()-1] != '/') {
+        result += "/";
+    }
+
+    return result;
+}
+
+/**
+ * Return an absolute normalized path with leading and trailing slashes
+ * preserved, unless the input is empty- in which case return the input.
+ * unchanged.
+ */
+string get_abs_path(const string &path)
+{
+   if (path.empty()) {
+        return path;
+    }
+
+    string process_me = path;
+    if (path[0] != '/') {
+        process_me = get_cwd() + '/' + process_me;
+    }
+
+    return get_normalized_path(process_me);
+}
+
+/**
+ * Returns a string without '..' and '.', and without a trailing '/'.
  *
  * Preconditions:  path must be an absolute path
  * Postconditions: if path is empty or not an absolute path, return original
  *                 path, otherwise, return path after resolving '..' and '.'
+ *                 and without a trailing '/'.
  */
 string get_canonicalized_path(const string &path) {
     if (path.empty() || path[0] != '/') {
         return path;
     }
 
-    vector<string> parts = split(path, '/');
-    vector<string> canonicalized_path;
+  string r = get_normalized_path(path);
+  if (r[r.size()-1] == '/') {
+    r = r.substr(0, r.size()-1);
+  }
 
-    vector<string>::const_iterator parts_it = parts.begin(),
-                                   parts_end = parts.end();
-
-    while (parts_it != parts_end) {
-        if (*parts_it == ".." && !canonicalized_path.empty()) {
-            canonicalized_path.pop_back();
-        }
-        else if (*parts_it != "." && *parts_it != "..") {
-            canonicalized_path.push_back(*parts_it);
-        }
-
-        ++parts_it;
-    }
-
-    vector<string>::const_iterator path_it = canonicalized_path.begin(),
-                                   path_end = canonicalized_path.end();
-
-    string output;
-    output.reserve(path.size());
-    output += "/";
-    while (path_it != path_end) {
-        output += *path_it;
-
-        ++path_it;
-        if (path_it != path_end) {
-            output += "/";
-        }
-    }
-
-    return output;
+  return r;
 }
 
 /**
@@ -200,4 +254,19 @@ bool rmpath(const char* path) {
     }
 
     return r;
+}
+
+string get_cwd()
+{
+    static std::vector<char> buffer(1024);
+
+    errno = 0;
+    while (getcwd(&buffer[0], buffer.size() - 1) == 0 && errno == ERANGE) {
+        buffer.resize(buffer.size() + 1024);
+        errno = 0;
+    }
+    if (errno != 0)
+        return std::string();
+
+    return string(&buffer[0]);
 }
