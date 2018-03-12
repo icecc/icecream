@@ -19,7 +19,7 @@ test-prepare:
 test-full: test-prepare
 	$(MAKE) test-run
 
-test-run: test-setup.sh
+test-run: test-setup.sh $(TESTS)
 	results=`realpath -s ${builddir}/results` && builddir2=`realpath -s ${builddir}` && cd ${srcdir} && /bin/bash test.sh ${prefix} $$results --builddir=$$builddir2 --strict=$(STRICT) --valgrind=$(VALGRIND)
 
 TESTS = testargs
@@ -28,6 +28,6 @@ AM_CPPFLAGS = -I$(top_srcdir)/client -I$(top_srcdir)/services
 testargs_LDADD = ../client/libclient.a ../services/libicecc.la $(LIBRSYNC)
 
 check_PROGRAMS = testargs
-testargs_SOURCES = args.cpp
+testargs_SOURCES = args.cpp ../client/util.cpp
 
 check_SCRIPTS = test.sh test-setup.sh

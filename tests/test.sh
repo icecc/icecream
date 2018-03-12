@@ -59,6 +59,11 @@ while test -n "$1"; do
     shift
 done
 
+# Run some unit tests.
+set -e
+./testargs
+set +e
+
 . $builddir/test-setup.sh
 if test $? -ne 0; then
     echo Error sourcing test-setup.sh file, aborting.
