@@ -44,6 +44,7 @@ extern std::string remote_daemon;
 extern std::string get_absfilename(const std::string &_file);
 
 /* In arg.cpp.  */
+extern ArgumentsList apply_plugin_aliases(const ArgumentsList& flags);
 extern bool analyse_argv(const char * const *argv, CompileJob &job, bool icerun,
                          std::list<std::string> *extrafiles);
 

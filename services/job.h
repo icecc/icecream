@@ -116,6 +116,10 @@ public:
 
     unsigned int argumentFlags() const;
 
+    const ArgumentsList& flags() const
+    {
+        return m_flags;
+    }
     void setFlags(const ArgumentsList &flags)
     {
         m_flags = flags;

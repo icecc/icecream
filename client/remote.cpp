@@ -815,11 +815,23 @@ int build_remote(CompileJob &job, MsgChannel *local_daemon, const Environments &
         UseCSMsg *usecs = get_server(local_daemon);
         int ret;
 
-        if (!maybe_build_local(local_daemon, usecs, job, ret))
-            ret = build_remote_int(job, usecs, local_daemon,
-                                   version_map[usecs->host_platform],
-                                   versionfile_map[usecs->host_platform],
-                                   0, true);
+        if (!maybe_build_local(local_daemon, usecs, job, ret)) {
+            // Apply plugin aliases on flags for remote build.
+            // The original flags must be restored if the remote job fails as the
+            // build then will run locally.
+            ArgumentsList saved_flags = job.flags();
+            job.setFlags(apply_plugin_aliases(saved_flags));
+            try {
+                ret = build_remote_int(job, usecs, local_daemon,
+                                       version_map[usecs->host_platform],
+                                       versionfile_map[usecs->host_platform],
+                                       0, true);
+            } catch (...) {
+                job.setFlags(saved_flags);
+                throw;
+            }
+            job.setFlags(saved_flags);
+        }
 
         delete usecs;
         return ret;

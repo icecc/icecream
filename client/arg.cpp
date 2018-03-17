@@ -33,6 +33,8 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 
+#include <map>
+
 #include "client.h"
 
 using namespace std;
@@ -213,6 +215,83 @@ static bool is_argument_with_space(const char* argument)
     }
 
     return false;
+}
+
+static map<string, string> make_plugin_alias_map() {
+    map<string, string> alias_map;
+    const char *aliases = getenv("ICECC_PLUGIN_ALIAS");
+    if (!aliases)
+        return alias_map;
+
+    while(1) {
+        const char* next = strchr(aliases, ',');
+        const char* delim = strchr(aliases, '=');
+        if (!next)
+            next = strchr(aliases, 0);
+        if (aliases < delim && delim + 1 < next)
+            alias_map[string(aliases, delim)] = string(delim + 1, next);
+        if (!next[0])
+            break;
+        aliases = next + 1;
+    }
+    return alias_map;
+}
+
+static const map<string, string> plugin_alias_map = make_plugin_alias_map();
+
+ArgumentsList apply_plugin_aliases(const ArgumentsList& flags) {
+    if (plugin_alias_map.empty())
+        return flags;
+
+    ArgumentsList result;
+    enum { XCLANG_IDLE, XCLANG_PARAM, XCLANG_LOAD, XCLANG_PLUGIN } state = XCLANG_IDLE;
+
+    for (ArgumentsList::const_iterator it = flags.begin(); it != flags.end(); ++it) {
+        if (it->second != Arg_Rest) {
+            result.push_back(*it);
+            continue;
+        }
+
+        switch (state) {
+            case XCLANG_IDLE:
+                if (it->first == "-Xclang") {
+                    state = XCLANG_PARAM;
+                    result.push_back(make_pair(it->first, Arg_Local));
+                    result.push_back(make_pair(it->first, Arg_Remote));
+                } else {
+                    result.push_back(*it);
+                }
+                break;
+
+            case XCLANG_PARAM:
+                state = it->first == "-load" ? XCLANG_LOAD : XCLANG_IDLE;
+                result.push_back(make_pair(it->first, Arg_Local));
+                result.push_back(make_pair(it->first, Arg_Remote));
+                break;
+
+            case XCLANG_LOAD:
+                if (it->first == "-Xclang") {
+                    state = XCLANG_PLUGIN;
+                    result.push_back(make_pair(it->first, Arg_Local));
+                    result.push_back(make_pair(it->first, Arg_Remote));
+                } else {
+                    result.push_back(*it);
+                }
+                break;
+
+            case XCLANG_PLUGIN:
+                state = XCLANG_IDLE;
+                string alias = it->first;
+                map<string, string>::const_iterator jt =
+                        plugin_alias_map.find(it->first);
+                result.push_back(make_pair(it->first, Arg_Local));
+                if (jt != plugin_alias_map.end())
+                    result.push_back(make_pair(jt->second, Arg_Remote));
+                else
+                    result.push_back(make_pair(it->first, Arg_Remote));
+        }
+    }
+    return result;
 }
 
 bool analyse_argv(const char * const *argv, CompileJob &job, bool icerun, list<string> *extrafiles)
@@ -610,7 +689,12 @@ bool analyse_argv(const char * const *argv, CompileJob &job, bool icerun, list<s
                             args.append(p, Arg_Rest);
                             string file = argv[i + 2];
 
-                            if (access(file.c_str(), R_OK) == 0) {
+                            map<string, string>::const_iterator it = plugin_alias_map.find(file);
+                            if (it != plugin_alias_map.end()) {
+                                log_info() << "plugin for argument "
+                                           << a << " " << p << " " << argv[i + 1] << " " << file
+                                           << " is aliased to " << it->second << endl;
+                            } else if (access(file.c_str(), R_OK) == 0) {
                                 file = get_absfilename(file);
                                 extrafiles->push_back(file);
                             } else {

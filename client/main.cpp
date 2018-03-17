@@ -97,6 +97,8 @@ static void dcc_show_usage(void)
         "   ICECC_EXTRAFILES           additional files used in the compilation.\n"
         "   ICECC_COLOR_DIAGNOSTICS    set to 1 or 0 to override color diagnostics support.\n"
         "   ICECC_CARET_WORKAROUND     set to 1 or 0 to override gcc show caret workaround.\n"
+        "   ICECC_PLUGIN_ALIAS         set a comma separeted list of aliases that will be used to rewrite\n"
+        "                              remote plugin names.\n"
         "\n");
 }
 

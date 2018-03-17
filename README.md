@@ -36,6 +36,8 @@ Table of Contents
     icecream](#cross-compiling-for-multiple-targets-in-the-same-environment-using-icecream)
 -   [How to combine icecream with
     ccache](#how-to-combine-icecream-with-ccache)
+-   [Using plugin aliases to rewrite remote plugin
+    paths](#using-plugin-aliases-to-rewrite-remote-plugin-paths)
 -   [Debug output](#debug-output)
 -   [Some Numbers](#some-numbers)
 -   [What is the best environment for
@@ -384,6 +386,36 @@ And then compile with
 Note however that ccache isn't really worth the trouble if you're not
 recompiling your project three times a day from scratch (it adds some
 overhead in comparing the source files and uses quite some disk space).
+
+Using plugin aliases to rewrite remote plugin paths
+-------------------------------------------------------------------------
+
+Plugin aliases can be used to rewrite remote plugin paths so that the
+remote compiler can load them from the unpacked tarball using different
+paths:
+
+      ICECC_PLUGIN_ALIAS=<local_name1>=<remote_name1>,<local_name2>=...
+
+When the variable ICECC_PLUGIN_ALIAS is set to a comma-separated list of
+aliases, the aliases will be used to replace local plugin paths by remote
+plugin paths.
+
+In the following example the compiler loads the plugin libFoo.so from a
+path relative to the current worktree:
+
+      clang -Xclang -load -Xclang ../plugins/libFoo.so -c bar.so
+
+Assume the plugin was added to the tarball with the following path:
+
+      usr/lib/libFoo.so
+
+The following alias definition will rewrite remote parameters so that
+the tarball path is used instead of the local path to load the plugin:
+
+      export ICECC_PLUGIN_ALIAS=../plugins/libFoo.so=usr/lib/libFoo.so
+
+Plugin aliases are only used when compiling with clang and has no effect
+when gcc is used as compiler.
 
 Debug output
 -------------------------------------------------------------------------
