@@ -185,41 +185,46 @@ rip_out_paths(const Environments &envs, map<string, string> &version_map, map<st
 string
 get_absfilename(const string &_file)
 {
-    string file;
-
     if (_file.empty()) {
         return _file;
     }
 
-    if (_file.at(0) != '/') {
-        file = get_cwd() + '/' + _file;
-    } else {
-        file = _file;
+    string file;
+    size_t start = 0;
+
+    if (_file[0] != '/')
+        file = get_cwd();
+    else {
+        file = '/';
+        ++start;
     }
 
-    string::size_type idx = file.find("/..");
+    while (true) {
+        size_t end = _file.find('/', start);
+        string part = end != string::npos ?
+                _file.substr(start, end - start) : _file.substr(start);
 
-    while (idx != string::npos) {
-        file.replace(idx, 3, "/");
-        idx = file.find("/..");
-    }
+        if (part.empty() || part == ".") {
+            // pass
+        } else if (part == "..") {
+            size_t parent = file.rfind("/");
+            if (parent == 0 || parent == string::npos)
+                file = '/';
+            else
+                file.erase(parent);
+        } else {
+            file += '/';
+            file += part;
+        }
 
-    idx = file.find("/./");
-
-    while (idx != string::npos) {
-        file.replace(idx, 3, "/");
-        idx = file.find("/./");
-    }
-
-    idx = file.find("//");
-
-    while (idx != string::npos) {
-        file.replace(idx, 2, "/");
-        idx = file.find("//");
+        if (end == string::npos)
+            break;
+        start = end + 1;
     }
 
     return file;
 }
+
 
 static UseCSMsg *get_server(MsgChannel *local_daemon)
 {
