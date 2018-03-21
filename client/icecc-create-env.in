@@ -159,6 +159,10 @@ search_addfile()
         file=$($compiler -print-file-name=$file_name)
     fi
 
+    if test "$file" = "$file_name"; then
+        file=$(command -v $file_name || echo $file_name)
+    fi
+
     if ! test -e "$file"; then
         return 1
     fi
@@ -326,20 +330,12 @@ if test -n "$gcc"; then
         add_file $added_gcc /usr/bin/gcc.bin
         add_file $added_gxx /usr/bin/g++.bin
     fi
-    add_file $($added_gcc -print-prog-name=cc1) /usr/bin/cc1
-    add_file $($added_gxx -print-prog-name=cc1plus) /usr/bin/cc1plus
-
-    gcc_as=$($added_gcc -print-prog-name=as)
-    if test "$gcc_as" = "as"; then
-      add_file $(command -v as)
-    else
-      add_file "$gcc_as" /usr/bin/as
-    fi
-
+    search_addfile $added_gcc cc1 /usr/bin
+    search_addfile $added_gxx cc1plus /usr/bin
+    search_addfile $added_gcc as /usr/bin
     search_addfile $added_gcc specs
     search_addfile $added_gcc liblto_plugin.so
-
-    objcopy=$($added_gcc -print-prog-name=objcopy)
+    search_addfile $added_gcc objcopy /usr/bin
 fi
 
 if test -n "$clang"; then
@@ -354,7 +350,8 @@ if test -n "$clang"; then
     add_file $added_compilerwrapper /usr/bin/gcc
     add_file $added_compilerwrapper /usr/bin/g++
 
-    add_file $($added_clang -print-prog-name=as) /usr/bin/as
+    search_addfile $added_clang as /usr/bin
+    search_addfile $added_clang objcopy /usr/bin
 
     # HACK: Clang4.0 and later access /proc/cpuinfo and report an error when they fail
     # to find it, even if they use a fallback mechanism, making the error useless
@@ -376,20 +373,11 @@ if test -n "$clang"; then
     for file in $(find $clangincludes -type f); do
       add_file "$file"
     done
-
-    objcopy=$($added_clang -print-prog-name=objcopy)
 fi
 
 for extrafile in $extrafiles; do
     add_file $extrafile
 done
-
-if test "$objcopy" = "objcopy"; then
-    objcopy=$(command -v objcopy)
-fi
-if [ -e "$objcopy" ]; then
-    add_file "$objcopy" /usr/bin/objcopy
-fi
 
 if test "$is_darwin" = 1; then
     # add dynamic linker
