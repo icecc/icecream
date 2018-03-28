@@ -29,8 +29,10 @@
 #include <sstream>
 
 typedef enum {
-    Arg_Local,  // Local-only args.
-    Arg_Remote, // Remote-only args.
+    // Note that "local" here means flags that should be sent to the preprocessor
+    // and "remote" means flags that should be sent to the compiler.
+    Arg_Local,  // Local-only args. E.g. "-I" and other preprocessor flags.
+    Arg_Remote, // Remote-only args. E.g. "-target" and other code generation flags.
     Arg_Rest    // Args to use both locally and remotely.
 } Argument_Type;
 
