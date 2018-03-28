@@ -38,16 +38,16 @@ while test -n "$1"; do
             ;;
         --valgrind=*)
             get_default_valgrind_flags
-            valgrind="$(echo $1 | sed 's/^--valgrind=//') $default_valgrind_args --"
+            valgrind="${1#--valgrind=} $default_valgrind_args --"
             ;;
         --builddir=*)
-            builddir=$(echo $1 | sed 's/^--builddir=//')
+            builddir="${1#--builddir=}"
             ;;
         --strict)
             strict=1
             ;;
         --strict=*)
-            strict=$(echo $1 | sed 's/^--strict=//')
+            strict="${1#--strict=}"
             if test "$strict" = "0"; then
                 strict=
             fi
@@ -349,7 +349,7 @@ wait_for_ice_startup_complete()
         timeout=15
     fi
     notready=
-    for time in $(seq 1 $timeout); do
+    for ((i=0; i<${timeout}; i++)); do
         notready=
         for process in $processes; do
             if echo "$process" | grep -q scheduler; then
@@ -1866,7 +1866,7 @@ ignored_tests=
 for item in $ignore; do
     if echo " $skipped_tests " | grep -q "$item"; then
         ignored_tests="$ignored_tests $item"
-        skipped_tests=$(echo $skipped_tests | sed "s/$item//")
+        skipped_tests="${skipped_tests/$item/}"
     fi
     skipped_tests=$(echo $skipped_tests | sed 's/  / /g' | sed 's/^ //')
 done
