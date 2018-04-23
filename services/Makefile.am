@@ -19,7 +19,8 @@ noinst_HEADERS = \
 	getifaddrs.h \
 	logging.h \
 	tempfile.h \
-	platform.h
+	platform.h \
+	util.h
 
 pkgconfigdir = $(libdir)/pkgconfig
 pkgconfig_DATA = icecc.pc

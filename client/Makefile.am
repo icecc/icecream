@@ -20,6 +20,7 @@ icecc_LDADD = \
 	$(LIBRSYNC)
 
 noinst_HEADERS = \
+	argv.h \
 	client.h \
 	md5.h \
 	util.h
