@@ -414,7 +414,7 @@ the tarball path is used instead of the local path to load the plugin:
 
       export ICECC_PLUGIN_ALIAS=../plugins/libFoo.so=usr/lib/libFoo.so
 
-Plugin aliases are only used when compiling with clang and has no effect
+Plugin aliases are only used when compiling with clang and have no effect
 when gcc is used as compiler.
 
 Debug output
