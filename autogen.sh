@@ -3,10 +3,9 @@ TESTLIBTOOLIZE="glibtoolize libtoolize"
 
 LIBTOOLIZEFOUND="0"
 
-srcdir=`dirname $0`
+srcdir=$(dirname $0)
 test -z "$srcdir" && srcdir=.
 
-olddir=`pwd`
 cd $srcdir
 
 aclocal --version > /dev/null 2> /dev/null || {
