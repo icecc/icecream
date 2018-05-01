@@ -36,6 +36,7 @@ Which one depends on an extra argument added by icecream.
 
 #include <assert.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 
@@ -143,5 +144,5 @@ int main(int argc, char *argv[])
 #endif
     execv(args[0], args);
     fprintf(stderr, "execv failed\n");
-    return 1;
+    exit(1);
 }
