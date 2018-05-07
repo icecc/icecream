@@ -1391,7 +1391,6 @@ bool Daemon::handle_compile_done(Client *client)
         msg->user_msec = job_stat[JobStatistics::user_msec];
         msg->sys_msec = job_stat[JobStatistics::sys_msec];
         msg->pfaults = job_stat[JobStatistics::sys_pfaults];
-        end_status = job_stat[JobStatistics::exit_code];
     }
 
     close(client->pipe_to_child);
