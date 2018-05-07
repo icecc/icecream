@@ -193,11 +193,25 @@ if test "$1" = "--gcc"; then
     added_gxx=$1
     shift
     gcc=1
+    if test "$1" = "--clang"; then
+        shift
+        added_clang=$1
+        shift
+        if test "x$1" != "x--addfile" -a "x$1" != "x--gcc" -a -e "$1"; then
+            # accept 2nd argument being the compilerwrapper binary, for backwards compatibility
+            added_compilerwrapper=$1
+            shift
+        fi
+        if test -z "$added_compilerwrapper"; then
+            added_compilerwrapper=@PKGLIBEXECDIR@/compilerwrapper
+        fi
+        clang=1
+    fi
 elif test "$1" = "--clang"; then
     shift
     added_clang=$1
     shift
-    if test "x$1" != "x--addfile" -a -e "$1"; then
+    if test "x$1" != "x--addfile" -a "x$1" != "x--gcc" -a -e "$1"; then
         # accept 2nd argument being the compilerwrapper binary, for backwards compatibility
         added_compilerwrapper=$1
         shift
@@ -206,6 +220,14 @@ elif test "$1" = "--clang"; then
         added_compilerwrapper=@PKGLIBEXECDIR@/compilerwrapper
     fi
     clang=1
+    if test "$1" = "--gcc"; then
+        shift
+        added_gcc=$1
+        shift
+        added_gxx=$1
+        shift
+        gcc=1
+    fi
 else
     if test -z "$1"; then
         usage
