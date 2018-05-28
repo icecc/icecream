@@ -204,11 +204,7 @@ static void updateCPULoad(CPULoadInfo *load)
         load->userLoad = (1000 * (currUserTicks - load->userTicks)) / totalTicks;
         load->sysLoad = (1000 * (currSysTicks - load->sysTicks)) / totalTicks;
         load->niceLoad = (1000 * (currNiceTicks - load->niceTicks)) / totalTicks;
-        load->idleLoad = (1000 - (load->userLoad + load->sysLoad + load->niceLoad));
-
-        if (load->idleLoad < 0) {
-            load->idleLoad = 0;
-        }
+        load->idleLoad = (1000 * (currIdleTicks - load->idleTicks)) / totalTicks;
     } else {
         load->userLoad = load->sysLoad = load->niceLoad = 0;
         load->idleLoad = 1000;
