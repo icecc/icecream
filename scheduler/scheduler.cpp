@@ -305,6 +305,12 @@ static float server_speed(CompileServer *cs, Job *job, bool blockDebug)
             } else {
                 f *= float(1000 - cs->load()) / 1000;
             }
+
+            /* Gradually throttle with the number of assigned jobs. This
+             * takes care of the fact that not all slots are equally fast on
+             * CPUs with SMT and dynamic clock ramping.
+             */
+            f *= (1.0f - (0.5f * cs->jobList().size() / cs->maxJobs()));
         }
 
         // below we add a pessimism factor - assuming the first job a computer got is not representative
