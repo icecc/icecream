@@ -89,6 +89,7 @@ public:
     list<Job *> jobList() const;
     void appendJob(Job *job);
     void removeJob(Job *job);
+    unsigned int lastPickedId();
 
     State state() const;
     void setState(const State state);
@@ -162,6 +163,7 @@ private:
     bool m_chrootPossible;
     int m_clientCount; // number of client connections the daemon has
     int m_submittedJobsCount;
+    unsigned int m_lastPickId;
 
     Environments m_compilerVersions;  // Available compilers
 

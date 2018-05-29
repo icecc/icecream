@@ -688,6 +688,15 @@ static CompileServer *pick_server(Job *job)
             break;
         }
 
+        /* Distribute 5% of our jobs to servers which haven't been picked in a
+           long time. This gives us a chance to adjust the server speed rating,
+           which may change due to external influences out of our control. */
+        if (!cs->lastPickedId() ||
+            ((job->id() - cs->lastPickedId()) > (20 * css.size()))) {
+            best = cs;
+            break;
+        }
+
         if (!envs_match(cs, job).empty()) {
             if (!best) {
                 best = cs;
@@ -719,12 +728,6 @@ static CompileServer *pick_server(Job *job)
                 }
             }
         }
-    }
-
-    // to make sure we find the fast computers at least after some time, we overwrite
-    // the install rule for every 19th job - if the farm is only filled a bit
-    if (bestui && ((matches < 11) && (matches < (css.size() / 3))) && ((job->id() % 19) != 0)) {
-        best = 0;
     }
 
     if (best) {
