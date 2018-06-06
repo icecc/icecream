@@ -440,8 +440,10 @@ int main(int argc, char **argv)
         if (getenv("ICECC_VERSION")) {     // if set, use it, otherwise take default
             try {
                 envs = parse_icecc_version(job.targetPlatform(), find_prefix(job.compilerName()));
-            } catch (std::exception) {
+            } catch (std::exception& e) {
                 // we just build locally
+                log_error() <<  "An exception was handled parsing the icecc version.   "
+                    "Will build locally.  Exception text was:\n" << e.what() << "\n";
             }
         } else if (!extrafiles.empty() && !IS_PROTOCOL_32(local_daemon)) {
             log_warning() << "Local daemon is too old to handle extra files." << endl;
