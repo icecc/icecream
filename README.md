@@ -57,8 +57,8 @@ We recommend that you use packages maintained by your distribution if possible.
 Your distribution should provide customized startup scripts that make icecream
 fit better into the way your system is configured.
 
-We highly recommend you install [icemon](https://github.com/icecc/icemon) with
-icecream.
+We highly recommend you install [icemon](https://github.com/icecc/icemon) or
+[icecream-sundae](https://github.com/JPEWdev/icecream-sundae) with icecream.
 
 If you want to install from source see the instructions in the README file 
 provided in the source package.
