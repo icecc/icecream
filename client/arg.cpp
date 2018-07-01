@@ -257,7 +257,9 @@ bool analyse_argv(const char * const *argv, CompileJob &job, bool icerun, list<s
                 always_local = true;
                 args.append(a, Arg_Local);
                 log_info() << "preprocessing, building locally" << endl;
-            } else if (!strncmp(a, "-fdump", 6) || !strcmp(a, "-combine")) {
+            } else if (!strncmp(a, "-fdump", 6)
+                       || !strcmp(a, "-combine")
+                       || !strcmp(a, "-fsyntax-only")) {
                 always_local = true;
                 args.append(a, Arg_Local);
                 log_info() << "argument " << a << ", building locally" << endl;
