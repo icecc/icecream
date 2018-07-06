@@ -829,7 +829,8 @@ bool Daemon::maybe_stats(bool send_ping)
         struct statfs buf;
         int ret = statfs(envbasedir.c_str(), &buf);
 
-        if (!ret && long(buf.f_bavail) < ((long(max_kids + 1 - current_kids) * 4 * 1024 * 1024) / buf.f_bsize)) {
+        // Require at least 25MiB of free disk space per build.
+        if (!ret && long(buf.f_bavail) < ((long(max_kids + 1 - current_kids) * 25 * 1024 * 1024) / buf.f_bsize)) {
             msg.load = 1000;
         }
 
