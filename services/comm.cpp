@@ -967,7 +967,7 @@ bool MsgChannel::wait_for_msg(int timeout)
     }
 
     if (timeout <= 0) {
-        trace() << "timeout <= 0\n";
+        // trace() << "timeout <= 0\n";
         return has_msg();
     }
 
@@ -1004,7 +1004,7 @@ Msg *MsgChannel::get_msg(int timeout)
     enum MsgType type;
 
     if (!wait_for_msg(timeout)) {
-        trace() << "!wait_for_msg()\n";
+        // trace() << "!wait_for_msg()\n";
         return 0;
     }
 
