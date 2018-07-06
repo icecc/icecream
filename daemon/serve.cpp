@@ -263,7 +263,7 @@ int handle_connection(const string &basedir, CompileJob *job,
 
             ret = work_it(*job, job_stat, client, rmsg, tmp_path, job_working_dir, relative_file_path, mem_limit, client->fd);
         }
-        else if ((ret = dcc_make_tmpnam(prefix_output, ".o", &tmp_output, 0)) == 0) {
+        else if (!job->dwarfFissionEnabled() && (ret = dcc_make_tmpnam(prefix_output, ".o", &tmp_output, 0)) == 0) {
             obj_file = tmp_output;
             free(tmp_output);
             string build_path = obj_file.substr(0, obj_file.find_last_of('/'));
