@@ -275,6 +275,11 @@ int handle_connection(const string &basedir, CompileJob *job,
         if (ret) {
             if (ret == EXIT_OUT_OF_MEMORY) {   // we catch that as special case
                 rmsg.was_out_of_memory = true;
+            } else if (ret == EXIT_IO_ERROR) {
+                // This was probably running out of disk space.
+                // Fake that as running out of memory, since it's in practice
+                // a very similar problem.
+                rmsg.was_out_of_memory = true;
             } else {
                 throw myexception(ret);
             }

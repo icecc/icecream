@@ -47,6 +47,10 @@
 #endif
 #include <sys/socket.h>
 
+#ifdef HAVE_SYS_VFS_H
+#include <sys/vfs.h>
+#endif
+
 #if defined(__FreeBSD__) || defined(__DragonFly__) || defined(__APPLE__)
 #ifndef RUSAGE_SELF
 #define   RUSAGE_SELF     (0)
@@ -700,6 +704,19 @@ int work_it(CompileJob &j, unsigned int job_stat[], MsgChannel *client, CompileR
                             << shell_exit_status(status) << ")" << endl;
                         return EXIT_OUT_OF_MEMORY;
                     }
+
+#ifdef HAVE_SYS_VFS_H
+                    struct statfs buf;
+                    int ret = statfs( "/", &buf);
+                    // If there's less than 10MiB of disk space free, we're probably running out of disk space.
+                    if ((ret == 0 && long(buf.f_bavail) < ((10 * 1024 * 1024) / buf.f_bsize))
+                            || rmsg.err.find("o space left on device") != string::npos) {
+                        log_warning() << "Remote compilation failed, presumably because of running out of disk space (exit code "
+                            << shell_exit_status(status) << ")" << endl;
+                        return EXIT_IO_ERROR;
+                    }
+#endif
+
                 }
 
                 if (WIFEXITED(status)) {
