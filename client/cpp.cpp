@@ -123,7 +123,7 @@ pid_t call_cpp(CompileJob &job, int fdwrite, int fdread)
                 if (it != flags.end()) {
                     std::string p = (*it);
 
-                    if (access(p.c_str(), R_OK) && !access((p + ".gch").c_str(), R_OK)) {
+                    if (access(p.c_str(), R_OK) < 0 && access((p + ".gch").c_str(), R_OK) == 0) {
                         list<string>::iterator o = --it;
                         it++;
                         flags.erase(o);

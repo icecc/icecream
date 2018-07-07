@@ -87,7 +87,7 @@ static void list_target_dirs(const string &current_target, const string &targetd
     for (struct dirent *ent = readdir(envdir); ent; ent = readdir(envdir)) {
         string dirname = ent->d_name;
 
-        if (!access(string(targetdir + "/" + dirname + "/usr/bin/as").c_str(), X_OK)) {
+        if (access(string(targetdir + "/" + dirname + "/usr/bin/as").c_str(), X_OK) == 0) {
             envs.push_back(make_pair(current_target, dirname));
         }
     }
@@ -741,7 +741,7 @@ bool verify_env(MsgChannel *client, const string &basedir, const string &target,
 
     string dirname = basedir + "/target=" + target + "/" + env;
 
-    if (::access(string(dirname + "/bin/true").c_str(), X_OK)) {
+    if (::access(string(dirname + "/bin/true").c_str(), X_OK) < 0) {
         error_client(client, dirname + "/bin/true is not executable");
         log_error() << "I don't have environment " << env << "(" << target << ") to verify." << endl;
         return false;

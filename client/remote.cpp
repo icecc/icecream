@@ -125,7 +125,7 @@ parse_icecc_version(const string &target_platform, const string &prefix)
             continue;
         }
 
-        if (::access(version.c_str(), R_OK)) {
+        if (::access(version.c_str(), R_OK) < 0) {
             log_error() << "$ICECC_VERSION has to point to an existing file to be installed " << version << endl;
             continue;
         }

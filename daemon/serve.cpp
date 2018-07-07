@@ -180,7 +180,7 @@ int handle_connection(const string &basedir, CompileJob *job,
         if (job->environmentVersion().size()) {
             string dirname = basedir + "/target=" + job->targetPlatform() + "/" + job->environmentVersion();
 
-            if (::access(string(dirname + "/usr/bin/as").c_str(), X_OK)) {
+            if (::access(string(dirname + "/usr/bin/as").c_str(), X_OK) < 0) {
                 error_client(client, dirname + "/usr/bin/as is not executable");
                 log_error() << "I don't have environment " << job->environmentVersion() << "(" << job->targetPlatform() << ") " << job->jobID() << endl;
                 throw myexception(EXIT_DISTCC_FAILED);   // the scheduler didn't listen to us!
@@ -193,7 +193,7 @@ int handle_connection(const string &basedir, CompileJob *job,
             throw myexception(EXIT_DISTCC_FAILED);
         }
 
-        if (::access(_PATH_TMP + 1, W_OK)) {
+        if (::access(_PATH_TMP + 1, W_OK) < 0) {
             error_client(client, "can't write to " _PATH_TMP);
             log_error() << "can't write into " << _PATH_TMP << " " << strerror(errno) << endl;
             throw myexception(-1);

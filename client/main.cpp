@@ -463,7 +463,7 @@ int main(int argc, char **argv)
                 native = static_cast<UseNativeEnvMsg*>(umsg)->nativeVersion;
             }
 
-            if (native.empty() || ::access(native.c_str(), R_OK)) {
+            if (native.empty() || ::access(native.c_str(), R_OK) < 0) {
                 log_warning() << "daemon can't determine native environment. "
                               "Set $ICECC_VERSION to an icecc environment.\n";
             } else {
@@ -482,7 +482,7 @@ int main(int argc, char **argv)
         for (Environments::const_iterator it = envs.begin(); it != envs.end(); ++it) {
             trace() << "env: " << it->first << " '" << it->second << "'" << endl;
 
-            if (::access(it->second.c_str(), R_OK)) {
+            if (::access(it->second.c_str(), R_OK) < 0) {
                 log_error() << "can't read environment " << it->second << endl;
                 local = true;
             }
