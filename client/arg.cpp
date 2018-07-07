@@ -579,9 +579,10 @@ bool analyse_argv(const char * const *argv, CompileJob &job, bool icerun, list<s
                 explicit_no_show_caret = true;
                 args.append(a, Arg_Rest);
             } else if (str_startswith("-fplugin=", a)
-                       || str_startswith("-fsanitize-blacklist=", a)) {
+                       || str_startswith("-fsanitize-blacklist=", a)
+                       || str_startswith("-fprofile-sample-use=", a)) {
                 const char* prefix = NULL;
-                static const char* const prefixes[] = { "-fplugin=", "-fsanitize-blacklist=" };
+                static const char* const prefixes[] = { "-fplugin=", "-fsanitize-blacklist=", "-fprofile-sample-use=" };
                 for( size_t pref = 0; pref < sizeof(prefixes)/sizeof(prefixes[0]); ++pref) {
                     if( str_startswith(prefixes[pref], a)) {
                         prefix = prefixes[pref];
