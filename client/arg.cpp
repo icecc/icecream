@@ -816,7 +816,7 @@ bool analyse_argv(const char * const *argv, CompileJob &job, bool icerun, list<s
     }
 
     // -Wunused-macros is tricky with remote preprocessing. GCC's -fdirectives-only outright
-    // refuses to work is -Wunused-macros is given, and Clang's -frewrite-includes is buggy
+    // refuses to work if -Wunused-macros is given, and Clang's -frewrite-includes is buggy
     // if -Wunused-macros is used (https://bugs.llvm.org/show_bug.cgi?id=15614). It's a question
     // if this could possibly even work, given that macros may be used as filenames for #include directives.
     if( wunused_macros ) {
