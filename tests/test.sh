@@ -483,7 +483,9 @@ run_ice()
     check_logs_for_generic_errors
     if test "$remote_type" = "remote"; then
         check_log_message icecc "building myself, but telling localhost"
-        check_log_error icecc "<building_local>"
+        if test -z "$stderrfix"; then
+            check_log_error icecc "<building_local>"
+        fi
     else
         check_log_message icecc "<building_local>"
         check_log_error icecc "building myself, but telling localhost"
@@ -509,7 +511,9 @@ run_ice()
         check_logs_for_generic_errors
         if test "$remote_type" = "remote"; then
             check_log_message icecc "Have to use host 127.0.0.1:10246"
-            check_log_error icecc "<building_local>"
+            if test -z "$stderrfix"; then
+                check_log_error icecc "<building_local>"
+            fi
             if test -n "$output"; then
                 check_log_message remoteice1 "Remote compilation completed with exit code 0"
                 check_log_error remoteice1 "Remote compilation aborted with exit code"

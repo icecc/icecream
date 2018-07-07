@@ -810,11 +810,16 @@ int build_remote(CompileJob &job, MsgChannel *local_daemon, const Environments &
         UseCSMsg *usecs = get_server(local_daemon);
         int ret;
 
-        if (!maybe_build_local(local_daemon, usecs, job, ret))
-            ret = build_remote_int(job, usecs, local_daemon,
-                                   version_map[usecs->host_platform],
-                                   versionfile_map[usecs->host_platform],
-                                   0, true);
+        try {
+            if (!maybe_build_local(local_daemon, usecs, job, ret))
+                ret = build_remote_int(job, usecs, local_daemon,
+                                       version_map[usecs->host_platform],
+                                       versionfile_map[usecs->host_platform],
+                                       0, true);
+        } catch(...) {
+            delete usecs;
+            throw;
+        }
 
         delete usecs;
         return ret;

@@ -193,6 +193,36 @@ static int create_native(char **args)
     return -1;
 }
 
+static MsgChannel* get_local_daemon()
+{
+    MsgChannel* local_daemon;
+    if (getenv("ICECC_TEST_SOCKET") == NULL) {
+        /* try several options to reach the local daemon - 3 sockets, one TCP */
+        local_daemon = Service::createChannel("/var/run/icecc/iceccd.socket");
+
+        if (!local_daemon) {
+            local_daemon = Service::createChannel("/var/run/iceccd.socket");
+        }
+
+        if (!local_daemon && getenv("HOME")) {
+            string path = getenv("HOME");
+            path += "/.iceccd.socket";
+            local_daemon = Service::createChannel(path);
+        }
+
+        if (!local_daemon) {
+            local_daemon = Service::createChannel("127.0.0.1", 10245, 0/*timeout*/);
+        }
+    } else {
+        local_daemon = Service::createChannel(getenv("ICECC_TEST_SOCKET"));
+        if (!local_daemon) {
+            log_error() << "test socket error" << endl;
+            exit( EXIT_TEST_SOCKET_ERROR );
+        }
+    }
+    return local_daemon;
+}
+
 static void debug_arguments(int argc, char** argv, bool original)
 {
     string argstxt = argv[ 0 ];
@@ -403,31 +433,7 @@ int main(int argc, char **argv)
         }
     }
 
-    MsgChannel *local_daemon;
-    if (getenv("ICECC_TEST_SOCKET") == NULL) {
-        /* try several options to reach the local daemon - 3 sockets, one TCP */
-        local_daemon = Service::createChannel("/var/run/icecc/iceccd.socket");
-
-        if (!local_daemon) {
-            local_daemon = Service::createChannel("/var/run/iceccd.socket");
-        }
-
-        if (!local_daemon && getenv("HOME")) {
-            string path = getenv("HOME");
-            path += "/.iceccd.socket";
-            local_daemon = Service::createChannel(path);
-        }
-
-        if (!local_daemon) {
-            local_daemon = Service::createChannel("127.0.0.1", 10245, 0/*timeout*/);
-        }
-    } else {
-        local_daemon = Service::createChannel(getenv("ICECC_TEST_SOCKET"));
-        if (!local_daemon) {
-            log_error() << "test socket error" << endl;
-            return EXIT_TEST_SOCKET_ERROR;
-        }
-    }
+    MsgChannel *local_daemon = get_local_daemon();
 
     if (!local_daemon) {
         log_warning() << "no local daemon found" << endl;
@@ -449,14 +455,16 @@ int main(int argc, char **argv)
             log_warning() << "Local daemon is too old to handle extra files." << endl;
             local = true;
         } else {
+            Msg *umsg = NULL;
             if (!local_daemon->send_msg(GetNativeEnvMsg(compiler_is_clang(job)
                                         ? "clang" : "gcc", extrafiles))) {
                 log_warning() << "failed to write get native environment" << endl;
-                goto do_local_error;
+                local = true;
+            } else {
+                // the timeout is high because it creates the native version
+                umsg = local_daemon->get_msg(4 * 60);
             }
 
-            // the timeout is high because it creates the native version
-            Msg *umsg = local_daemon->get_msg(4 * 60);
             string native;
 
             if (umsg && umsg->type == M_NATIVE_ENV) {
@@ -491,28 +499,7 @@ int main(int argc, char **argv)
 
     int ret;
 
-    if (local) {
-        log_block b("building_local");
-        struct rusage ru;
-        Msg *startme = 0L;
-
-        /* Inform the daemon that we like to start a job.  */
-        if (local_daemon->send_msg(JobLocalBeginMsg(0, get_absfilename(job.outputFile())))) {
-            /* Now wait until the daemon gives us the start signal.  40 minutes
-               should be enough for all normal compile or link jobs.  */
-            startme = local_daemon->get_msg(40 * 60);
-        }
-
-        /* If we can't talk to the daemon anymore we need to fall back
-           to lock file locking.  */
-        if (!startme || startme->type != M_JOB_LOCAL_BEGIN) {
-            delete startme;
-            goto do_local_error;
-        }
-
-        ret = build_local(job, local_daemon, &ru);
-        delete startme;
-    } else {
+    if (!local) {
         try {
             // How many times out of 1000 should we recompile a job on
             // multiple hosts to confirm that the results are the same?
@@ -531,7 +518,7 @@ int main(int argc, char **argv)
             }
         } catch (remote_error& error) {
             log_info() << "local build forced by remote exception: " << error.what() << endl;
-            goto do_local_error;
+            local = true;
         }
         catch (client_error& error) {
             if (remote_daemon.size()) {
@@ -547,14 +534,45 @@ int main(int argc, char **argv)
                 return error.errorCode;
             }
 
-            goto do_local_error;
+            local = true;
         }
+        if (local) {
+            // TODO It'd be better to reuse the connection, but the daemon
+            // internal state gets confused for some reason, so work that around
+            // for now by using a new connection.
+            delete local_daemon;
+            local_daemon = get_local_daemon();
+            if (!local_daemon) {
+                log_warning() << "no local daemon found" << endl;
+                return build_local(job, 0);
+            }
+        }
+    }
+
+    if (local) {
+        log_block b("building_local");
+        struct rusage ru;
+        Msg *startme = 0L;
+
+        /* Inform the daemon that we like to start a job.  */
+        if (local_daemon->send_msg(JobLocalBeginMsg(0, get_absfilename(job.outputFile())))) {
+            /* Now wait until the daemon gives us the start signal.  40 minutes
+               should be enough for all normal compile or link jobs.  */
+            startme = local_daemon->get_msg(40 * 60);
+        }
+
+        /* If we can't talk to the daemon anymore we need to fall back
+           to lock file locking.  */
+        if (!startme || startme->type != M_JOB_LOCAL_BEGIN) {
+            delete startme;
+            delete local_daemon;
+            return build_local(job, 0);
+        }
+
+        ret = build_local(job, local_daemon, &ru);
+        delete startme;
     }
 
     delete local_daemon;
     return ret;
-
-do_local_error:
-    delete local_daemon;
-    return build_local(job, 0);
 }
