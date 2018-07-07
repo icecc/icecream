@@ -742,7 +742,7 @@ bool verify_env(MsgChannel *client, const string &basedir, const string &target,
     string dirname = basedir + "/target=" + target + "/" + env;
 
     if (::access(string(dirname + "/bin/true").c_str(), X_OK) < 0) {
-        error_client(client, dirname + "/bin/true is not executable");
+        error_client(client, dirname + "/bin/true is not executable, installed environment removed?");
         log_error() << "I don't have environment " << env << "(" << target << ") to verify." << endl;
         return false;
     }

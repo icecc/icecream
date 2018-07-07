@@ -181,9 +181,10 @@ int handle_connection(const string &basedir, CompileJob *job,
             string dirname = basedir + "/target=" + job->targetPlatform() + "/" + job->environmentVersion();
 
             if (::access(string(dirname + "/usr/bin/as").c_str(), X_OK) < 0) {
-                error_client(client, dirname + "/usr/bin/as is not executable");
+                error_client(client, dirname + "/usr/bin/as is not executable, installed environment removed?");
                 log_error() << "I don't have environment " << job->environmentVersion() << "(" << job->targetPlatform() << ") " << job->jobID() << endl;
-                throw myexception(EXIT_DISTCC_FAILED);   // the scheduler didn't listen to us!
+                // The scheduler didn't listen to us, or maybe something has removed the files.
+                throw myexception(EXIT_DISTCC_FAILED);
             }
 
             chdir_to_environment(client, dirname, user_uid, user_gid);

@@ -496,7 +496,7 @@ struct Daemon {
             user_gid = getgid();
         }
 
-        envbasedir = "/tmp/icecc-envs";
+        envbasedir = "/var/tmp/icecc-envs";
         tcp_listen_fd = -1;
         unix_listen_fd = -1;
         new_client_id = 0;
