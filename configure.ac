@@ -12,8 +12,8 @@ m4_define([icecream_version_major],[1])
 m4_define([icecream_version_minor],[1])
 m4_define([icecream_version_micro],[90])
 m4_ifval([icecream_version_micro],
-        m4_define([icecream_version],[icecream_version_major.icecream_version_minor.icecream_version_micro]),
-        m4_define([icecream_version],[icecream_version_major.icecream_version_minor]))
+        [m4_define([icecream_version],[icecream_version_major.icecream_version_minor.icecream_version_micro])],
+        [m4_define([icecream_version],[icecream_version_major.icecream_version_minor])])
 
 # =============
 # Automake init
