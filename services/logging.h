@@ -118,6 +118,16 @@ static inline std::ostream & log_perror(const char *prefix)
     return log_errno(prefix, errno);
 }
 
+static inline std::ostream & log_errno_trace(const char *prefix, int tmp_errno)
+{
+    return trace() << prefix << "(Error: " << strerror(tmp_errno) << ")" << std::endl;
+}
+
+static inline std::ostream & log_perror_trace(const char *prefix)
+{
+    return log_errno_trace(prefix, errno);
+}
+
 class log_block
 {
     static unsigned nesting;
