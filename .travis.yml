@@ -26,6 +26,7 @@ script:
             fi
             make test${strict} TESTCC=clang TESTCXX=clang++
         fi
+        make dist
 
 matrix:
   include:
