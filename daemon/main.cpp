@@ -522,7 +522,7 @@ struct Daemon {
     }
 
     bool reannounce_environments() __attribute_warn_unused_result__;
-    int answer_client_requests();
+    void answer_client_requests();
     bool handle_transfer_env(Client *client, Msg *msg) __attribute_warn_unused_result__;
     bool handle_transfer_env_done(Client *client);
     bool handle_get_native_env(Client *client, GetNativeEnvMsg *msg) __attribute_warn_unused_result__;
@@ -926,7 +926,7 @@ int Daemon::scheduler_use_cs(UseCSMsg *msg)
 
     if (!c) {
         if (send_scheduler(JobDoneMsg(msg->job_id, 107, JobDoneMsg::FROM_SUBMITTER))) {
-            return 1;
+            return 0;
         }
 
         return 1;
@@ -961,7 +961,7 @@ int Daemon::scheduler_no_cs(NoCSMsg *msg)
 
     if (!c) {
         if (send_scheduler(JobDoneMsg(msg->job_id, 107, JobDoneMsg::FROM_SUBMITTER))) {
-            return 1;
+            return 0;
         }
 
         return 1;
@@ -1728,7 +1728,7 @@ bool Daemon::handle_activity(Client *client)
     return ret;
 }
 
-int Daemon::answer_client_requests()
+void Daemon::answer_client_requests()
 {
 #ifdef ICECC_DEBUG
 
@@ -1834,7 +1834,8 @@ int Daemon::answer_client_requests()
 
     if (ret < 0 && errno != EINTR) {
         log_perror("select");
-        return 5;
+        close_scheduler();
+        return;
     }
     // Reset debug if needed, but only if we aren't waiting for any child processes to finish,
     // otherwise their debug output could end up reset in the middle (and flush log marks used
@@ -1854,7 +1855,7 @@ int Daemon::answer_client_requests()
                     log_error() << "scheduler closed connection" << endl;
                     close_scheduler();
                     clear_children();
-                    return 1;
+                    return;
                 }
 
                 ret = 0;
@@ -1887,7 +1888,8 @@ int Daemon::answer_client_requests()
                 delete msg;
 
                 if (ret) {
-                    return ret;
+                    close_scheduler();
+                    return;
                 }
             }
         }
@@ -1913,13 +1915,13 @@ int Daemon::answer_client_requests()
 
             if (acc_fd == -1 && errno != EINTR) {
                 log_perror("accept failed:");
-                return EXIT_CONNECT_FAILED;
+                return;
             }
 
             MsgChannel *c = Service::createChannel(acc_fd, &cli_addr, cli_len);
 
             if (!c) {
-                return 0;
+                return;
             }
 
             trace() << "accepted " << c->fd << " " << c->name << endl;
@@ -1956,7 +1958,7 @@ int Daemon::answer_client_requests()
                     max_fd--;
 
                     if (!handle_compile_done(client)) {
-                        return 1;
+                        return;
                     }
                 }
 
@@ -1994,12 +1996,10 @@ int Daemon::answer_client_requests()
 
         if (had_scheduler && !scheduler) {
             clear_children();
-            return 2;
+            return;
         }
 
     }
-
-    return 0;
 }
 
 bool Daemon::reconnect()
@@ -2055,13 +2055,7 @@ int Daemon::working_loop()
 {
     for (;;) {
         reconnect();
-
-        int ret = answer_client_requests();
-
-        if (ret) {
-            trace() << "answer_client_requests returned " << ret << endl;
-            close_scheduler();
-        }
+        answer_client_requests();
 
         if (exit_main_loop) {
             close_scheduler();
