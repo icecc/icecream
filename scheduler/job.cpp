@@ -58,11 +58,6 @@ unsigned int Job::id() const
     return m_id;
 }
 
-void Job::setId(const unsigned int id)
-{
-    m_id = id;
-}
-
 unsigned int Job::localClientId() const
 {
     return m_localClientId;

@@ -45,7 +45,6 @@ public:
     ~Job();
 
     unsigned int id() const;
-    void setId(const unsigned int id);
 
     unsigned int localClientId() const;
     void setLocalClientId(const unsigned int id);
@@ -95,7 +94,7 @@ public:
     void setMinimalHostVersion( int version );
 
 private:
-    unsigned int m_id;
+    const unsigned int m_id;
     unsigned int m_localClientId;
     State m_state;
     CompileServer *m_server;  // on which server we build
