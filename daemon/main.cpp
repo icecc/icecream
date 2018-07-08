@@ -546,7 +546,7 @@ struct Daemon {
     string dump_internals() const;
     string determine_nodename();
     void determine_system();
-    bool maybe_stats(bool force = false);
+    bool maybe_stats(bool force_check = false);
     bool send_scheduler(const Msg &msg) __attribute_warn_unused_result__;
     void close_scheduler();
     bool reconnect();
@@ -765,14 +765,14 @@ void Daemon::close_scheduler()
         next_scheduler_connect = time(0) + 3;
 }
 
-bool Daemon::maybe_stats(bool send_ping)
+bool Daemon::maybe_stats(bool force_check)
 {
     struct timeval now;
     gettimeofday(&now, 0);
 
     time_t diff_sent = (now.tv_sec - last_stat.tv_sec) * 1000 + (now.tv_usec - last_stat.tv_usec) / 1000;
 
-    if (diff_sent >= max_scheduler_pong * 1000) {
+    if (diff_sent >= max_scheduler_pong * 1000 || force_check) {
         StatsMsg msg;
         unsigned int memory_fillgrade;
         unsigned long idleLoad = 0;
@@ -839,7 +839,9 @@ bool Daemon::maybe_stats(bool send_ping)
         // Matz got in the urine that not all CPUs are always feed
         mem_limit = std::max(int(msg.freeMem / std::min(std::max(max_kids, 1U), 4U)), min_mem_limit);
 
-        if (abs(int(msg.load) - current_load) >= 100 || send_ping) {
+        if (abs(int(msg.load) - current_load) >= 100
+            || (msg.load == 1000 && current_load != 1000)
+            || (msg.load != 1000 && current_load == 1000)) {
             if (!send_scheduler(msg)) {
                 return false;
             }
@@ -1054,8 +1056,7 @@ bool Daemon::handle_transfer_env_done(Client *client)
 
     bool r = reannounce_environments(); // do that before the file compiles
 
-    // we do that here so we're not given out in case of full discs
-    if (!maybe_stats(true)) {
+    if (!maybe_stats(true)) { // update stats in case our disk is too full to accept more jobs
         r = false;
     }
 
