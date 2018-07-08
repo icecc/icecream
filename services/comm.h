@@ -65,6 +65,11 @@
 #define IS_PROTOCOL_38(c) ((c)->protocol >= 38)
 #define IS_PROTOCOL_39(c) ((c)->protocol >= 39)
 
+// Terms used:
+// S  = scheduler
+// C  = client
+// CS = daemon
+
 enum MsgType {
     // so far unknown
     M_UNKNOWN = 'A',
@@ -127,6 +132,7 @@ enum MsgType {
 
     // C --> CS, after installing an environment
     M_VERIFY_ENV,
+    // CS --> C
     M_VERIFY_ENV_RESULT,
     // C --> CS, CS --> S (forwarded from C), to not use given host for given environment
     M_BLACKLIST_HOST_ENV,
