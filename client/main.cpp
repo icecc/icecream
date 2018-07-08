@@ -529,10 +529,12 @@ int main(int argc, char **argv)
                             endl;
             }
 
+#if 0
             /* currently debugging a client? throw an error then */
             if (debug_level > Error) {
                 return error.errorCode;
             }
+#endif
 
             local = true;
         }
