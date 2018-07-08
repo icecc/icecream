@@ -397,9 +397,14 @@ if test -n "$clang"; then
     done
 fi
 
+# Do not do any prefix stripping on extra files, they (e.g. clang plugins) are usually
+# referred to using their original path.
+save_stripprefix="$stripprefix"
+stripprefix=
 for extrafile in $extrafiles; do
     add_file $extrafile
 done
+stripprefix="$save_stripprefix"
 
 if test "$is_darwin" = 1; then
     # add dynamic linker
