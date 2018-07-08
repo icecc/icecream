@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<service>
+  <short>icecream scheduler</short>
+  <description>Icecream distributed compilation scheduler.</description>
+  <port protocol="tcp" port="8765"/>
+  <port protocol="tcp" port="8766"/>
+  <port protocol="udp" port="8765"/>
+</service>

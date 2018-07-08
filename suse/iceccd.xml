@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<service>
+  <short>icecream daemon</short>
+  <description>Icecream distributed compilation scheduler.</description>
+  <port protocol="tcp" port="10245"/>
+</service>
