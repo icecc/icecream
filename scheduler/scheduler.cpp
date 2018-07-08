@@ -1150,11 +1150,6 @@ static bool handle_job_done(CompileServer *cs, Msg *_m)
         return false;
     }
 
-    if (j->state() == Job::PENDING) {
-        trace() << "job ID still pending ?! scheduler recently restarted? " << m->job_id << endl;
-        return false;
-    }
-
     if (m->is_from_server() && (j->server() != cs)) {
         log_info() << "the server isn't the same for job " << m->job_id << endl;
         log_info() << "server: " << j->server()->nodeName() << endl;
