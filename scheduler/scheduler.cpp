@@ -1113,8 +1113,7 @@ static bool handle_job_done(CompileServer *cs, Msg *_m)
                     << " " << job->state() << " " << job->localClientId() << " " << clientId
                     << endl;
 
-            if (job->server() == 0 && job->submitter() == cs && job->state() == Job::PENDING
-                    && job->localClientId() == clientId) {
+            if (job->server() == 0 && job->submitter() == cs && job->localClientId() == clientId) {
                 trace() << "STOP (WAITFORCS) FOR " << mit->first << endl;
                 j = job;
                 m->set_job_id( j->id()); // Now we know the job's id.
