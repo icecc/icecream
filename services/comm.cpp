@@ -218,6 +218,7 @@ bool MsgChannel::update_state(void)
             (*this) >> inmsglen;
 
             if (inmsglen > MAX_MSG_SIZE) {
+                log_error() << "received a too large message (size " << inmsglen << "), ignoring" << endl;
                 return false;
             }
 
@@ -549,6 +550,9 @@ void MsgChannel::writecompressed(const unsigned char *in_buf, size_t _in_len, si
     }
 
     uint32_t _olen = htonl(out_len);
+    if(out_len > MAX_MSG_SIZE) {
+        log_error() << "internal error - size of compressed message to write exceeds max size:" << out_len << endl;
+    }
     memcpy(msgbuf + msgtogo_old, &_olen, 4);
     msgtogo += out_len;
     _out_len = out_len;
@@ -1152,7 +1156,11 @@ bool MsgChannel::send_msg(const Msg &m, int flags)
     } else {
         *this << (uint32_t) 0;
         m.send_to_channel(this);
-        uint32_t len = htonl(msgtogo - msgtogo_old - 4);
+        uint32_t out_len = msgtogo - msgtogo_old - 4;
+        if(out_len > MAX_MSG_SIZE) {
+            log_error() << "internal error - size of message to write exceeds max size:" << out_len << endl;
+        }
+        uint32_t len = htonl(out_len);
         memcpy(msgbuf + msgtogo_old, &len, 4);
     }
 
