@@ -1102,21 +1102,22 @@ static bool handle_job_done(CompileServer *cs, Msg *_m)
 
     Job *j = 0;
 
-    if (m->exitcode == CLIENT_WAS_WAITING_FOR_CS) {
-        // the daemon saw a cancel of what he believes is waiting in the scheduler
+    if (uint32_t clientId = m->unknown_job_client_id()) {
+        // The daemon has sent a done message for a job for which it doesn't know the job id (happens
+        // if the job is cancelled before we send back the job id). Find the job using the client id.
         map<unsigned int, Job *>::iterator mit;
 
         for (mit = jobs.begin(); mit != jobs.end(); ++mit) {
             Job *job = mit->second;
             trace() << "looking for waitcs " << job->server() << " " << job->submitter()  << " " << cs
-                    << " " << job->state() << " " << job->localClientId() << " " << m->job_id
+                    << " " << job->state() << " " << job->localClientId() << " " << clientId
                     << endl;
 
             if (job->server() == 0 && job->submitter() == cs && job->state() == Job::PENDING
-                    && job->localClientId() == m->job_id) {
+                    && job->localClientId() == clientId) {
                 trace() << "STOP (WAITFORCS) FOR " << mit->first << endl;
                 j = job;
-                m->job_id = j->id(); // that's faked
+                m->set_job_id( j->id()); // Now we know the job's id.
 
                 /* Unfortunately the toanswer queues are also tagged based on the daemon,
                 so we need to clean them up also.  */

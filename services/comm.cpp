@@ -2108,13 +2108,22 @@ void JobDoneMsg::fill_from_channel(MsgChannel *c)
     *c >> out_uncompressed;
     *c >> flags;
     exitcode = (int) _exitcode;
+    // Older versions used this special exit code to identify
+    // EndJob messages for jobs with unknown job id.
+    if (!IS_PROTOCOL_39(c) && exitcode == 200) {
+        flags |= UnknownJobId;
+    }
 }
 
 void JobDoneMsg::send_to_channel(MsgChannel *c) const
 {
     Msg::send_to_channel(c);
     *c << job_id;
-    *c << (uint32_t) exitcode;
+    if (!IS_PROTOCOL_39(c) && (flags & UnknownJobId)) {
+        *c << (uint32_t) 200;
+    } else {
+        *c << (uint32_t) exitcode;
+    }
     *c << real_msec;
     *c << user_msec;
     *c << sys_msec;
@@ -2124,6 +2133,26 @@ void JobDoneMsg::send_to_channel(MsgChannel *c) const
     *c << out_compressed;
     *c << out_uncompressed;
     *c << flags;
+}
+
+void JobDoneMsg::set_unknown_job_client_id( uint32_t clientId )
+{
+    flags |= UnknownJobId;
+    job_id = clientId;
+}
+
+uint32_t JobDoneMsg::unknown_job_client_id() const
+{
+    if( flags & UnknownJobId ) {
+        return job_id;
+    }
+    return 0;
+}
+
+void JobDoneMsg::set_job_id( uint32_t jobId )
+{
+    job_id = jobId;
+    flags &= ~ (uint32_t) UnknownJobId;
 }
 
 LoginMsg::LoginMsg(unsigned int myport, const std::string &_nodename, const std::string &_host_platform)

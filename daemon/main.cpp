@@ -1494,17 +1494,21 @@ void Daemon::handle_end(Client *client, int exitcode)
 
     if (scheduler && client->status != Client::WAITFORCHILD) {
         int job_id = client->job_id;
+        bool use_client_id = false;
 
         if (client->status == Client::TOCOMPILE) {
             job_id = client->job->jobID();
         }
 
         if (client->status == Client::WAITFORCS) {
-            job_id = client->client_id; // it's all we have
-            exitcode = CLIENT_WAS_WAITING_FOR_CS; // this is the message
+            // We don't know the job id, because we haven't received a reply
+            // from the scheduler yet. Use client_id to identify the job,
+            // the scheduler will use it for matching.
+            use_client_id = true;
+            assert( client->client_id > 0 );
         }
 
-        if (job_id > 0) {
+        if (job_id > 0 || use_client_id) {
             JobDoneMsg::from_type flag = JobDoneMsg::FROM_SUBMITTER;
 
             switch (client->status) {
@@ -1530,7 +1534,11 @@ void Daemon::handle_end(Client *client, int exitcode)
 
             trace() << "scheduler->send_msg( JobDoneMsg( " << client->dump() << ", " << exitcode << "))\n";
 
-            if (!send_scheduler(JobDoneMsg(job_id, exitcode, flag))) {
+            JobDoneMsg msg(job_id, exitcode, flag);
+            if( use_client_id ) {
+                msg.set_unknown_job_client_id( client->client_id );
+            }
+            if (!send_scheduler(msg)) {
                 trace() << "failed to reach scheduler for remote job done msg!" << endl;
             }
         } else if (client->status == Client::CLIENTWORK) {
