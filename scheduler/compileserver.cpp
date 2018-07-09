@@ -48,10 +48,10 @@ CompileServer::CompileServer(const int fd, struct sockaddr *_addr, const socklen
     , m_maxJobs(0)
     , m_noRemote(false)
     , m_jobList()
-    , m_submittedJobsCount(0)
     , m_state(CONNECTED)
     , m_type(UNKNOWN)
     , m_chrootPossible(false)
+    , m_clientCount(0)
     , m_compilerVersions()
     , m_lastCompiledJobs()
     , m_lastRequestedJobs()
@@ -265,21 +265,6 @@ void CompileServer::removeJob(Job *job)
     m_jobList.remove(job);
 }
 
-int CompileServer::submittedJobsCount() const
-{
-    return m_submittedJobsCount;
-}
-
-void CompileServer::submittedJobsIncrement()
-{
-    m_submittedJobsCount++;
-}
-
-void CompileServer::submittedJobsDecrement()
-{
-    m_submittedJobsCount--;
-}
-
 CompileServer::State CompileServer::state() const
 {
     return m_state;
@@ -308,6 +293,16 @@ bool CompileServer::chrootPossible() const
 void CompileServer::setChrootPossible(const bool possible)
 {
     m_chrootPossible = possible;
+}
+
+int CompileServer::clientCount() const
+{
+    return m_clientCount;
+}
+
+void CompileServer::setClientCount( int clientCount )
+{
+    m_clientCount = clientCount;
 }
 
 Environments CompileServer::compilerVersions() const

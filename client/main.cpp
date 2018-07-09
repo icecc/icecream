@@ -388,6 +388,16 @@ int main(int argc, char **argv)
      * see the EPIPE. */
     dcc_ignore_sigpipe(1);
 
+    // Connect to the daemon as early as possible, so that in parallel builds there
+    // the daemon has as many connections as possible when we start asking for a remote
+    // node to build, allowing the daemon/scheduler to do load balancing based on the number
+    // of expected build jobs.
+    MsgChannel *local_daemon = NULL;
+    const char *icecc = getenv("ICECC");
+    if (icecc == NULL || strcasecmp(icecc, "disable") != 0) {
+        local_daemon = get_local_daemon();
+    }
+
     list<string> extrafiles;
     local |= analyse_argv(argv, job, icerun, &extrafiles);
 
@@ -397,14 +407,18 @@ int main(int argc, char **argv)
        If ICECC is set to no, the job is run locally as well, but it is
        serialized using the daemon, so several may be run at once.
      */
-    const char *icecc = getenv("ICECC");
-
     if (icecc && !strcasecmp(icecc, "disable")) {
+        assert( local_daemon == NULL );
         return build_local(job, 0);
     }
 
     if (icecc && !strcasecmp(icecc, "no")) {
         local = true;
+    }
+
+    if (!local_daemon) {
+        log_warning() << "no local daemon found" << endl;
+        return build_local(job, 0);
     }
 
     if (const char *extrafilesenv = getenv("ICECC_EXTRAFILES")) {
@@ -425,7 +439,8 @@ int main(int argc, char **argv)
                 extrafiles.push_back(file);
             } else {
                 log_warning() << "File in ICECC_EXTRAFILES not found: " << file << endl;
-                return build_local(job, 0);
+                local = true;
+                break;
             }
 
             if (colon == NULL) {
@@ -434,13 +449,6 @@ int main(int argc, char **argv)
 
             extrafilesenv = colon + 1;
         }
-    }
-
-    MsgChannel *local_daemon = get_local_daemon();
-
-    if (!local_daemon) {
-        log_warning() << "no local daemon found" << endl;
-        return build_local(job, 0);
     }
 
     Environments envs;

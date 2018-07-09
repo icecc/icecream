@@ -90,10 +90,6 @@ public:
     void appendJob(Job *job);
     void removeJob(Job *job);
 
-    int submittedJobsCount() const;
-    void submittedJobsIncrement();
-    void submittedJobsDecrement();
-
     State state() const;
     void setState(const State state);
 
@@ -102,6 +98,9 @@ public:
 
     bool chrootPossible() const;
     void setChrootPossible(const bool possible);
+
+    int clientCount() const;
+    void setClientCount( int clientCount );
 
     Environments compilerVersions() const;
     void setCompilerVersions(const Environments &environments);
@@ -155,10 +154,10 @@ private:
     int m_maxJobs;
     bool m_noRemote;
     list<Job *> m_jobList;
-    int m_submittedJobsCount;
     State m_state;
     Type m_type;
     bool m_chrootPossible;
+    int m_clientCount; // number of client connections the daemon has
 
     Environments m_compilerVersions;  // Available compilers
 

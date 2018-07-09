@@ -1797,6 +1797,10 @@ void GetCSMsg::fill_from_channel(MsgChannel *c)
         *c >> version;
         minimal_host_version = max( minimal_host_version, int( version ));
     }
+
+    if (IS_PROTOCOL_39(c)) {
+        *c >> client_count;
+    }
 }
 
 void GetCSMsg::send_to_channel(MsgChannel *c) const
@@ -1819,6 +1823,10 @@ void GetCSMsg::send_to_channel(MsgChannel *c) const
     }
     if (IS_PROTOCOL_34(c)) {
         *c << minimal_host_version;
+    }
+
+    if (IS_PROTOCOL_39(c)) {
+        *c << client_count;
     }
 }
 
@@ -2039,6 +2047,9 @@ void JobBeginMsg::fill_from_channel(MsgChannel *c)
     Msg::fill_from_channel(c);
     *c >> job_id;
     *c >> stime;
+    if (IS_PROTOCOL_39(c)) {
+        *c >> client_count;
+    }
 }
 
 void JobBeginMsg::send_to_channel(MsgChannel *c) const
@@ -2046,6 +2057,9 @@ void JobBeginMsg::send_to_channel(MsgChannel *c) const
     Msg::send_to_channel(c);
     *c << job_id;
     *c << stime;
+    if (IS_PROTOCOL_39(c)) {
+        *c << client_count;
+    }
 }
 
 void JobLocalBeginMsg::fill_from_channel(MsgChannel *c)
@@ -2076,11 +2090,12 @@ void JobLocalDoneMsg::send_to_channel(MsgChannel *c) const
     *c << job_id;
 }
 
-JobDoneMsg::JobDoneMsg(int id, int exit, unsigned int _flags)
+JobDoneMsg::JobDoneMsg(int id, int exit, unsigned int _flags, unsigned int _client_count)
     : Msg(M_JOB_DONE)
     , exitcode(exit)
     , flags(_flags)
     , job_id(id)
+    , client_count(_client_count)
 {
     real_msec = 0;
     user_msec = 0;
@@ -2113,6 +2128,9 @@ void JobDoneMsg::fill_from_channel(MsgChannel *c)
     if (!IS_PROTOCOL_39(c) && exitcode == 200) {
         flags |= UnknownJobId;
     }
+    if (IS_PROTOCOL_39(c)) {
+        *c >> client_count;
+    }
 }
 
 void JobDoneMsg::send_to_channel(MsgChannel *c) const
@@ -2133,6 +2151,9 @@ void JobDoneMsg::send_to_channel(MsgChannel *c) const
     *c << out_compressed;
     *c << out_uncompressed;
     *c << flags;
+    if (IS_PROTOCOL_39(c)) {
+        *c << client_count;
+    }
 }
 
 void JobDoneMsg::set_unknown_job_client_id( uint32_t clientId )

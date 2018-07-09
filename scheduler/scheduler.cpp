@@ -58,6 +58,7 @@
 #include "compileserver.h"
 #include "job.h"
 
+// Values 0 to 3.
 #define DEBUG_SCHEDULER 0
 
 /* TODO:
@@ -121,7 +122,7 @@ static list<UnansweredList *> toanswer;
 static list<JobStat> all_job_stats;
 static JobStat cum_job_stats;
 
-static float server_speed(CompileServer *cs, Job *job = 0);
+static float server_speed(CompileServer *cs, Job *job = 0, bool blockDebug = false);
 
 /* Searches the queue for JOB and removes it.
    Returns true if something was deleted.  */
@@ -220,7 +221,7 @@ static void add_job_stats(Job *job, JobDoneMsg *msg)
                 << " " << st.outputSize() << " " << msg->out_uncompressed << " "
                 << job->server()->nodeName() << " "
                 << float(msg->out_uncompressed) / st.compileTimeUser() << " "
-                << server_speed(job->server()) << endl;
+                << server_speed(job->server(), NULL, true) << endl;
     }
 #endif
 }
@@ -245,8 +246,11 @@ static void notify_monitors(Msg *m)
     delete m;
 }
 
-static float server_speed(CompileServer *cs, Job *job)
+static float server_speed(CompileServer *cs, Job *job, bool blockDebug)
 {
+#if DEBUG_SCHEDULER <= 2
+    (void)blockDebug;
+#endif
     if (cs->lastCompiledJobs().size() == 0 || cs->cumCompiled().compileTimeUser() == 0) {
         return 0;
     } else {
@@ -256,19 +260,42 @@ static float server_speed(CompileServer *cs, Job *job)
         // we only care for the load if we're about to add a job to it
         if (job) {
             if (job->submitter() == cs) {
-                /* The submitter of a job gets more speed if it's capable of handling its requests on its own.
-                   So if he is equally fast to the rest of the farm it will be preferred to chose him
-                   to compile the job.  Then this can be done locally without needing the preprocessor.
-                   However if there are more requests than the number of jobs the submitter can handle,
-                   it is assumed the submitter is doing a massively parallel build, in which case it is
-                   better not to build on the submitter and let it do other work (such as preprocessing
-                   output for other nodes) that can be done only locally.  */
-                if (cs->submittedJobsCount() <= cs->maxJobs()) {
-                    f *= 1.1;
-                } else {
-                    f *= 0.1;    // penalize heavily
+                if (cs->clientCount() > cs->maxJobs()) {
+                    // The submitter would be overloaded by building all its jobs locally,
+                    // so penalize it heavily in order to send jobs preferably to other nodes,
+                    // so that the submitter should preferably do tasks that cannot be distributed,
+                    // such as linking or preparing jobs for remote nodes.
+                    f *= 0.1;
+#if DEBUG_SCHEDULER > 2
+                    if(!blockDebug)
+                        log_info() << "penalizing local build for job " << job->id() << endl;
+#endif
+                } else if (cs->clientCount() == cs->maxJobs()) {
+                    // This means the submitter would be fully loaded by its jobs. It is still
+                    // preferable to distribute the job, unless the submitter is noticeably faster.
+                    f *= 0.8;
+#if DEBUG_SCHEDULER > 2
+                    if(!blockDebug)
+                        log_info() << "slightly penalizing local build for job " << job->id() << endl;
+#endif
                 }
-            } else { // ignoring load for submitter - assuming the load is our own
+                else if (cs->clientCount() <= cs->maxJobs() / 2) {
+                    // The submitter has only few jobs, slightly prefer building the job locally
+                    // in order to save the overhead of distributing.
+                    // Note that this is unreliable, the submitter may be in fact running a large
+                    // parallel build but this is just the first of the jobs and other icecc instances
+                    // haven't been launched yet. There's probably no good way to detect this reliably.
+                    f *= 1.1;
+#if DEBUG_SCHEDULER > 2
+                    if(!blockDebug)
+                        log_info() << "slightly preferring local build for job " << job->id() << endl;
+#endif
+                } else {
+                    // the remaining case, don't adjust
+                    f *= 1;
+                }
+                // ignoring load for submitter - assuming the load is our own
+            } else {
                 f *= float(1000 - cs->load()) / 1000;
             }
         }
@@ -384,6 +411,8 @@ static bool handle_cs_request(MsgChannel *cs, Msg *_m)
     }
 
     CompileServer *submitter = static_cast<CompileServer *>(cs);
+
+    submitter->setClientCount(m->client_count);
 
     Job *master_job = 0;
 
@@ -626,8 +655,9 @@ static CompileServer *pick_server(Job *job)
 
 #if DEBUG_SCHEDULER > 1
         trace() << cs->nodeName() << " compiled " << cs->lastCompiledJobs().size() << " got now: " <<
-                cs->jobList().size() << " speed: " << server_speed(cs, job) << " compile time " <<
-                cs->cumCompiled().compileTimeUser() << " produced code " << cs->cumCompiled().outputSize() << endl;
+                cs->jobList().size() << " speed: " << server_speed(cs, job, true) << " compile time " <<
+                cs->cumCompiled().compileTimeUser() << " produced code " << cs->cumCompiled().outputSize() <<
+                " client count: " << cs->clientCount() << endl;
 #endif
 
         if ((cs->lastCompiledJobs().size() == 0) && (cs->jobList().size() == 0) && cs->maxJobs()) {
@@ -686,21 +716,21 @@ static CompileServer *pick_server(Job *job)
 
     if (best) {
 #if DEBUG_SCHEDULER > 1
-        trace() << "taking best installed " << best->nodeName() << " " <<  server_speed(best, job) << endl;
+        trace() << "taking best installed " << best->nodeName() << " " <<  server_speed(best, job, true) << endl;
 #endif
         return best;
     }
 
     if (bestui) {
 #if DEBUG_SCHEDULER > 1
-        trace() << "taking best uninstalled " << bestui->nodeName() << " " <<  server_speed(bestui, job) << endl;
+        trace() << "taking best uninstalled " << bestui->nodeName() << " " <<  server_speed(bestui, job, true) << endl;
 #endif
         return bestui;
     }
 
     if (bestpre) {
 #if DEBUG_SCHEDULER > 1
-        trace() << "taking best preload " << bestui->nodeName() << " " <<  server_speed(bestui, job) << endl;
+        trace() << "taking best preload " << bestui->nodeName() << " " <<  server_speed(bestui, job, true) << endl;
 #endif
     }
 
@@ -1077,6 +1107,8 @@ static bool handle_job_begin(CompileServer *cs, Msg *_m)
         return false;
     }
 
+    cs->setClientCount(m->client_count);
+
     job->setState(Job::COMPILING);
     job->setStartTime(m->stime);
     job->setStartOnScheduler(time(0));
@@ -1168,6 +1200,8 @@ static bool handle_job_done(CompileServer *cs, Msg *_m)
         return false;
     }
 
+    cs->setClientCount(m->client_count);
+
     if (m->exitcode == 0) {
         std::ostream &dbg = trace();
         dbg << "END " << m->job_id
@@ -1242,6 +1276,7 @@ static bool handle_stats(CompileServer *cs, Msg *_m)
     for (list<CompileServer *>::iterator it = css.begin(); it != css.end(); ++it)
         if (*it == cs) {
             (*it)->setLoad(m->load);
+            (*it)->setClientCount(m->client_count);
             handle_monitor_stats(*it, m);
             return true;
         }

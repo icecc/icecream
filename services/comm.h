@@ -398,12 +398,14 @@ public:
         : Msg(M_GET_CS)
         , count(1)
         , arg_flags(0)
-        , client_id(0) {}
+        , client_id(0)
+        , client_count(0) {}
 
     GetCSMsg(const Environments &envs, const std::string &f,
              CompileJob::Language _lang, unsigned int _count,
              std::string _target, unsigned int _arg_flags,
-             const std::string &host, int _minimal_host_version)
+             const std::string &host, int _minimal_host_version,
+             unsigned int _client_count = 0)
         : Msg(M_GET_CS)
         , versions(envs)
         , filename(f)
@@ -413,7 +415,8 @@ public:
         , arg_flags(_arg_flags)
         , client_id(0)
         , preferred_host(host)
-        , minimal_host_version(_minimal_host_version) {}
+        , minimal_host_version(_minimal_host_version)
+        , client_count(_client_count) {}
 
     virtual void fill_from_channel(MsgChannel *c);
     virtual void send_to_channel(MsgChannel *c) const;
@@ -427,6 +430,7 @@ public:
     uint32_t client_id;
     std::string preferred_host;
     int minimal_host_version;
+    uint32_t client_count; // number of CS -> C connections at the moment
 };
 
 class UseCSMsg : public Msg
@@ -587,18 +591,21 @@ class JobBeginMsg : public Msg
 {
 public:
     JobBeginMsg()
-        : Msg(M_JOB_BEGIN) {}
+        : Msg(M_JOB_BEGIN)
+        , client_count(0) {}
 
-    JobBeginMsg(unsigned int j)
+    JobBeginMsg(unsigned int j, unsigned int _client_count)
         : Msg(M_JOB_BEGIN)
         , job_id(j)
-        , stime(time(0)) {}
+        , stime(time(0))
+        , client_count(_client_count) {}
 
     virtual void fill_from_channel(MsgChannel *c);
     virtual void send_to_channel(MsgChannel *c) const;
 
     uint32_t job_id;
     uint32_t stime;
+    uint32_t client_count; // number of CS -> C connections at the moment
 };
 
 class JobDoneMsg : public Msg
@@ -618,7 +625,8 @@ public:
         UnknownJobId = (1 << 1)
     };
 
-    JobDoneMsg(int job_id = 0, int exitcode = -1, unsigned int flags = FROM_SERVER);
+    JobDoneMsg(int job_id = 0, int exitcode = -1, unsigned int flags = FROM_SERVER,
+               unsigned int _client_count = 0);
 
     void set_from(from_type from)
     {
@@ -652,6 +660,7 @@ public:
     uint32_t out_uncompressed;
 
     uint32_t job_id;
+    uint32_t client_count; // number of CS -> C connections at the moment
 };
 
 class JobLocalBeginMsg : public Msg
@@ -724,8 +733,9 @@ class StatsMsg : public Msg
 public:
     StatsMsg()
         : Msg(M_STATS)
+        , load(0)
+        , client_count(0)
     {
-        load = 0;
     }
 
     virtual void fill_from_channel(MsgChannel *c);
@@ -746,6 +756,8 @@ public:
     uint32_t loadAvg5;
     uint32_t loadAvg10;
     uint32_t freeMem;
+
+    uint32_t client_count; // number of CS -> C connections at the moment
 };
 
 class EnvTransferMsg : public Msg
@@ -794,7 +806,7 @@ public:
     }
 
     MonGetCSMsg(int jobid, int hostid, GetCSMsg *m)
-        : GetCSMsg(Environments(), m->filename, m->lang, 1, m->target, 0, std::string(), false)
+        : GetCSMsg(Environments(), m->filename, m->lang, 1, m->target, 0, std::string(), false, m->client_count)
         , job_id(jobid)
         , clientid(hostid)
     {

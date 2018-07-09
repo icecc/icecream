@@ -42,7 +42,6 @@ Job::Job(const unsigned int _id, CompileServer *subm)
     , m_preferredHost()
     , m_minimalHostVersion(0)
 {
-    m_submitter->submittedJobsIncrement();
 }
 
 Job::~Job()
@@ -50,7 +49,6 @@ Job::~Job()
     // XXX is this really deleted on all other paths?
     /*    fd2chan.erase (channel->fd);
         delete channel;*/
-    m_submitter->submittedJobsDecrement();
 }
 
 unsigned int Job::id() const

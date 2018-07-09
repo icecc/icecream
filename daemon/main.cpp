@@ -925,7 +925,7 @@ int Daemon::scheduler_use_cs(UseCSMsg *msg)
             << " " << c << " " << msg->hostname << " " << remote_name <<  endl;
 
     if (!c) {
-        if (send_scheduler(JobDoneMsg(msg->job_id, 107, JobDoneMsg::FROM_SUBMITTER))) {
+        if (send_scheduler(JobDoneMsg(msg->job_id, 107, JobDoneMsg::FROM_SUBMITTER, clients.size()))) {
             return 0;
         }
 
@@ -960,7 +960,7 @@ int Daemon::scheduler_no_cs(NoCSMsg *msg)
             << " " << c << " " <<  endl;
 
     if (!c) {
-        if (send_scheduler(JobDoneMsg(msg->job_id, 107, JobDoneMsg::FROM_SUBMITTER))) {
+        if (send_scheduler(JobDoneMsg(msg->job_id, 107, JobDoneMsg::FROM_SUBMITTER, clients.size()))) {
             return 0;
         }
 
@@ -1284,6 +1284,9 @@ bool Daemon::handle_job_done(Client *cl, JobDoneMsg *m)
 
     assert(msg->job_id == cl->job_id);
     cl->job_id = 0; // the scheduler doesn't have it anymore
+
+    msg->client_count = clients.size();
+
     return send_scheduler(*msg);
 }
 
@@ -1356,7 +1359,7 @@ void Daemon::handle_old_request()
                 client->pipe_to_child = sock;
                 client->child_pid = pid;
 
-                if (!send_scheduler(JobBeginMsg(job->jobID()))) {
+                if (!send_scheduler(JobBeginMsg(job->jobID(), clients.size()))) {
                     log_info() << "failed sending scheduler about " << job->jobID() << endl;
                 }
             } else {
@@ -1376,7 +1379,7 @@ bool Daemon::handle_compile_done(Client *client)
     assert(client->child_pid > 0);
     assert(client->pipe_to_child >= 0);
 
-    JobDoneMsg *msg = new JobDoneMsg(client->job->jobID(), -1, JobDoneMsg::FROM_SERVER);
+    JobDoneMsg *msg = new JobDoneMsg(client->job->jobID(), -1, JobDoneMsg::FROM_SERVER, clients.size());
     assert(msg);
     assert(current_kids > 0);
     current_kids--;
@@ -1416,7 +1419,7 @@ bool Daemon::handle_compile_file(Client *client, Msg *msg)
     if (client->status == Client::CLIENTWORK) {
         assert(job->environmentVersion() == "__client");
 
-        if (!send_scheduler(JobBeginMsg(job->jobID()))) {
+        if (!send_scheduler(JobBeginMsg(job->jobID(), clients.size()))) {
             trace() << "can't reach scheduler to tell him about compile file job "
                     << job->jobID() << endl;
             return false;
@@ -1534,7 +1537,7 @@ void Daemon::handle_end(Client *client, int exitcode)
 
             trace() << "scheduler->send_msg( JobDoneMsg( " << client->dump() << ", " << exitcode << "))\n";
 
-            JobDoneMsg msg(job_id, exitcode, flag);
+            JobDoneMsg msg(job_id, exitcode, flag, clients.size());
             if( use_client_id ) {
                 msg.set_unknown_job_client_id( client->client_id );
             }
@@ -1596,6 +1599,8 @@ bool Daemon::handle_get_cs(Client *client, Msg *msg)
         client->job_id = umsg->client_id;
         return true;
     }
+
+    umsg->client_count = clients.size();
 
     return send_scheduler(*umsg);
 }
