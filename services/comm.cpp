@@ -127,7 +127,14 @@ bool MsgChannel::read_a_bit()
         error = true;
     }
 
-    return !error;
+    if (error) {
+        // Daemons sometimes successfully do accept() but then the connection
+        // gets ECONNRESET. Probably a spurious result from accept(), so
+        // just be silent about it in this case.
+        set_error( instate == NEED_PROTO );
+        return false;
+    }
+    return true;
 }
 
 bool MsgChannel::update_state(void)
@@ -156,6 +163,7 @@ bool MsgChannel::update_state(void)
 
                 if (remote_prot < MIN_PROTOCOL_VERSION || remote_prot > (1 << 20)) {
                     remote_prot = 0;
+                    set_error();
                     return false;
                 }
 
@@ -170,6 +178,7 @@ bool MsgChannel::update_state(void)
                 writefull(vers, 4);
 
                 if (!flush_writebuf(true)) {
+                    set_error();
                     return false;
                 }
 
@@ -180,6 +189,7 @@ bool MsgChannel::update_state(void)
 
                 if ((int)remote_prot != protocol) {
                     protocol = 0;
+                    set_error();
                     return false;
                 }
 
@@ -188,6 +198,8 @@ bool MsgChannel::update_state(void)
                 break;
             } else {
                 trace() << "NEED_PROTO but protocol > 0" << endl;
+                set_error();
+                return false;
             }
         }
 
@@ -219,6 +231,7 @@ bool MsgChannel::update_state(void)
 
             if (inmsglen > MAX_MSG_SIZE) {
                 log_error() << "received a too large message (size " << inmsglen << "), ignoring" << endl;
+                set_error();
                 return false;
             }
 
@@ -247,6 +260,9 @@ bool MsgChannel::update_state(void)
     case HAS_MSG:
         /* handled elsewere */
         break;
+
+    case ERROR:
+        return false;
     }
 
     return true;
@@ -355,7 +371,11 @@ bool MsgChannel::flush_writebuf(bool blocking)
 
     msgofs = buf - msgbuf;
     chop_output();
-    return !error;
+    if(error) {
+        set_error();
+        return false;
+    }
+    return true;
 }
 
 MsgChannel &MsgChannel::operator>>(uint32_t &buf)
@@ -489,6 +509,7 @@ void MsgChannel::readcompressed(unsigned char **uncompressed_buf, size_t &_uclen
         uncompressed_len = 0;
         _uclen = uncompressed_len;
         _clen = compressed_len;
+        set_error();
         return;
     }
 
@@ -582,6 +603,18 @@ void MsgChannel::write_line(const string &line)
         char c = '\n';
         writefull(&c, 1);
     }
+}
+
+void MsgChannel::set_error(bool silent)
+{
+    if( instate == ERROR ) {
+        return;
+    }
+    if( !silent ) {
+        trace() << "setting error state for channel " << dump() << endl;
+    }
+    instate = ERROR;
+    eof = true;
 }
 
 static int prepare_connect(const string &hostname, unsigned short p,
@@ -865,6 +898,7 @@ MsgChannel::MsgChannel(int _fd, struct sockaddr *_a, socklen_t _l, bool text)
 
         if (!flush_writebuf(true)) {
             protocol = 0;    // unusable
+            set_error();
         }
     }
 
@@ -904,7 +938,7 @@ string MsgChannel::dump() const
 bool MsgChannel::wait_for_protocol()
 {
     /* protocol is 0 if we couldn't send our initial protocol version.  */
-    if (protocol == 0) {
+    if (protocol == 0 || instate == ERROR) {
         return false;
     }
 
@@ -923,11 +957,13 @@ bool MsgChannel::wait_for_protocol()
 
         if (ret == 0) {
             log_error() << "no response from local daemon within timeout." << endl;
+            set_error();
             return false; /* timeout. Consider it a fatal error. */
         }
 
         if (ret < 0) {
             log_perror("select in wait_for_protocol()");
+            set_error();
             return false;
         }
 
@@ -961,12 +997,17 @@ void MsgChannel::setBulkTransfer()
    message to arrive.  Returns false if there was some error.  */
 bool MsgChannel::wait_for_msg(int timeout)
 {
+    if (instate == ERROR) {
+        return false;
+    }
+
     if (has_msg()) {
         return true;
     }
 
     if (!read_a_bit()) {
         trace() << "!read_a_bit\n";
+        set_error();
         return false;
     }
 
@@ -995,6 +1036,7 @@ bool MsgChannel::wait_for_msg(int timeout)
 
         if (!read_a_bit()) {
             trace() << "!read_a_bit 2\n";
+            set_error();
             return false;
         }
     }
@@ -1017,11 +1059,13 @@ Msg *MsgChannel::get_msg(int timeout)
        Don't use has_msg() here, as it returns true for eof.  */
     if (at_eof()) {
         trace() << "saw eof without complete msg! " << instate << endl;
+        set_error();
         return 0;
     }
 
     if (!has_msg()) {
         trace() << "saw eof without msg! " << eof << " " << instate << endl;
+        set_error();
         return 0;
     }
 
@@ -1037,6 +1081,7 @@ Msg *MsgChannel::get_msg(int timeout)
 
     switch (type) {
     case M_UNKNOWN:
+        set_error();
         return 0;
     case M_PING:
         m = new PingMsg;
@@ -1134,6 +1179,7 @@ Msg *MsgChannel::get_msg(int timeout)
 
     if (!m) {
         trace() << "no message type" << endl;
+        set_error();
         return 0;
     }
 
@@ -1144,6 +1190,7 @@ Msg *MsgChannel::get_msg(int timeout)
             log_error() << "internal error - message not read correctly, message size " << inmsglen
                 << " read " << (intogo - intogo_old) << endl;
             delete m;
+            set_error();
             return 0;
         }
     }
@@ -1156,6 +1203,9 @@ Msg *MsgChannel::get_msg(int timeout)
 
 bool MsgChannel::send_msg(const Msg &m, int flags)
 {
+    if (instate == ERROR) {
+        return false;
+    }
     if (instate == NEED_PROTO && !wait_for_protocol()) {
         return false;
     }
@@ -1171,6 +1221,8 @@ bool MsgChannel::send_msg(const Msg &m, int flags)
         uint32_t out_len = msgtogo - msgtogo_old - 4;
         if(out_len > MAX_MSG_SIZE) {
             log_error() << "internal error - size of message to write exceeds max size:" << out_len << endl;
+            set_error();
+            return false;
         }
         uint32_t len = htonl(out_len);
         memcpy(msgbuf + msgtogo_old, &len, 4);

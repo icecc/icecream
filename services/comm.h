@@ -235,6 +235,7 @@ protected:
     void chop_input(void);
     void chop_output(void);
     bool wait_for_msg(int timeout);
+    void set_error(bool silent = false);
 
     char *msgbuf;
     size_t msgbuflen;
@@ -249,7 +250,8 @@ protected:
         NEED_PROTO,
         NEED_LEN,
         FILL_BUF,
-        HAS_MSG
+        HAS_MSG,
+        ERROR
     } instate;
 
     uint32_t inmsglen;
