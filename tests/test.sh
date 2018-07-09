@@ -1469,6 +1469,11 @@ check_logs_for_generic_errors()
     check_log_error localice "scheduler closed connection"
     check_log_error remoteice1 "scheduler closed connection"
     check_log_error remoteice2 "scheduler closed connection"
+    check_log_error scheduler "internal error"
+    check_log_error icecc "internal error"
+    check_log_error localice "internal error"
+    check_log_error remoteice1 "internal error"
+    check_log_error remoteice2 "internal error"
     # consider all non-fatal errors such as running out of memory on the remote
     # still as problems, except for:
     # 102 - -fdiagnostics-show-caret forced local build (gcc-4.8+)
