@@ -584,6 +584,12 @@ static CompileServer *pick_server(Job *job)
 
     uint matches = 0;
 
+    if (job->submitter()->maxJobs() > int(job->submitter()->jobList().size())) {
+        // Prefer running locally if the submitter has capacity to minimize
+        // latency when editing and compiling a small number of files.
+        return job->submitter();
+    }
+
     for (list<CompileServer *>::iterator it = css.begin(); it != css.end(); ++it) {
         CompileServer *cs = *it;
 
