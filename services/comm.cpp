@@ -1025,6 +1025,8 @@ Msg *MsgChannel::get_msg(int timeout)
         return 0;
     }
 
+    size_t intogo_old = intogo;
+
     if (text_based) {
         type = M_TEXT;
     } else {
@@ -1136,6 +1138,16 @@ Msg *MsgChannel::get_msg(int timeout)
     }
 
     m->fill_from_channel(this);
+
+    if (!text_based) {
+        if( intogo - intogo_old != inmsglen ) {
+            log_error() << "internal error - message not read correctly, message size " << inmsglen
+                << " read " << (intogo - intogo_old) << endl;
+            delete m;
+            return 0;
+        }
+    }
+
     instate = NEED_LEN;
     update_state();
 
