@@ -177,7 +177,7 @@ pid_t call_cpp(CompileJob &job, int fdwrite, int fdread)
         close(fdwrite);
     }
 
-    dcc_increment_safeguard();
+    dcc_increment_safeguard(SafeguardStepCompiler);
     execv(argv[0], argv);
     int exitcode = ( errno == ENOENT ? 127 : 126 );
     log_perror("execv failed");

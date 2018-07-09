@@ -1018,6 +1018,25 @@ recursive_test()
     check_log_message icecc "icecream seems to have invoked itself recursively!"
     echo Recursive check test successful.
     echo
+
+    # But a recursive invocations in the style of icerun->icecc is allowed.
+    echo Running recursive icerun check test.
+    reset_logs "" "recursive icerun check"
+
+    PATH="$prefix"/lib/icecc/bin:"$prefix"/bin:/usr/local/bin:/usr/bin:/bin ICECC_TEST_SOCKET="$testdir"/socket-localice \
+        ICECC_TEST_REMOTEBUILD=1 ICECC_DEBUG=debug ICECC_LOGFILE="$testdir"/icecc.log "${icerun}" ${icecc} $TESTCC -Wall -c plain.c -o "$testdir"/plain.o 2>>"$testdir"/stderr.log
+    if test $? -ne 0; then
+        echo Recursive icerun check test failed.
+        stop_ice 0
+        abort_tests
+    fi
+    rm -f "$testdir"/plain.o
+    flush_logs
+    check_logs_for_generic_errors
+    check_log_error icecc "icecream seems to have invoked itself recursively!"
+    check_log_message_count icecc 1 "recursive invocation from icerun"
+    echo Recursive icerun check test successful.
+    echo
 }
 
 # Check that transfering Clang plugin(s) works. While at it, also test ICECC_EXTRAFILES.

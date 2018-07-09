@@ -306,7 +306,7 @@ int build_local(CompileJob &job, MsgChannel *local_daemon, struct rusage *used)
     }
 
     if (!child_pid) {
-        dcc_increment_safeguard();
+        dcc_increment_safeguard(job.language() == CompileJob::Lang_Custom ? SafeguardStepCustom : SafeguardStepCompiler);
 
         if (color_output) {
             if ((-1 == close(pf[0])) && (errno != EBADF)){

@@ -20,6 +20,8 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
+#include "client.h"
+
 #include "logging.h"
 
 using namespace std;
@@ -58,9 +60,9 @@ int dcc_recursion_safeguard(void)
 }
 
 
-void dcc_increment_safeguard(void)
+void dcc_increment_safeguard(SafeguardStep step)
 {
-    char value[2] = { (char)(dcc_safeguard_level + 1 + '0'), '\0' };
+    char value[2] = { (char)(dcc_safeguard_level + step + '0'), '\0' };
     //trace() << "setting safeguard: " << dcc_safeguard_set << endl;
     if (setenv(dcc_safeguard_name, value, 1) == -1) {
         log_error() << "putenv failed" << endl;

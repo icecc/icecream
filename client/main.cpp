@@ -376,9 +376,12 @@ int main(int argc, char **argv)
 
     int sg_level = dcc_recursion_safeguard();
 
-    if (sg_level > 0) {
+    if (sg_level >= SafeguardMaxLevel) {
         log_error() << "icecream seems to have invoked itself recursively!" << endl;
         return EXIT_RECURSION;
+    }
+    if (sg_level > 0) {
+        log_info() << "recursive invocation from icerun" << endl;
     }
 
     /* Ignore SIGPIPE; we consistently check error codes and will

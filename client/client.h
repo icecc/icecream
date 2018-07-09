@@ -62,7 +62,18 @@ extern std::string clang_get_default_target(const CompileJob &job);
 extern int build_remote(CompileJob &job, MsgChannel *scheduler, const Environments &envs, int permill);
 
 /* safeguard.cpp */
-extern void dcc_increment_safeguard(void);
+// We allow several recursions if icerun is involved, just in case icerun is e.g. used to invoke a script
+// that calls make that invokes compilations. In this case, it is allowed to have icerun->icecc->compiler.
+// However, icecc->icecc recursion is a problem, so just one recursion exceeds the limit.
+// Also note that if the total number of such recursive invocations exceedds the number of allowed local
+// jobs, iceccd will not assign another local job and the whole build will get stuck.
+static const int SafeguardMaxLevel = 2;
+enum SafeguardStep
+{
+    SafeguardStepCompiler = SafeguardMaxLevel,
+    SafeguardStepCustom = 1
+};
+extern void dcc_increment_safeguard(SafeguardStep step);
 extern int dcc_recursion_safeguard(void);
 
 extern Environments parse_icecc_version(const std::string &target, const std::string &prefix);
