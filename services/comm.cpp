@@ -956,7 +956,7 @@ bool MsgChannel::wait_for_protocol()
         }
 
         if (ret == 0) {
-            log_error() << "no response from local daemon within timeout." << endl;
+            log_error() << "no response within timeout" << endl;
             set_error();
             return false; /* timeout. Consider it a fatal error. */
         }
