@@ -461,7 +461,7 @@ int work_it(CompileJob &j, unsigned int job_stat[], MsgChannel *client, CompileR
 
     for (;;) {
         if (client_fd >= 0 && !fcmsg) {
-            if (Msg *msg = client->get_msg(0)) {
+            if (Msg *msg = client->get_msg(0, true)) {
                 if (input_complete) {
                     rmsg.err.append("client cancelled\n");
                     return_value = EXIT_CLIENT_KILLED;

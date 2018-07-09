@@ -1674,7 +1674,7 @@ bool Daemon::handle_activity(Client *client)
 {
     assert(client->status != Client::TOCOMPILE);
 
-    Msg *msg = client->channel->get_msg();
+    Msg *msg = client->channel->get_msg(0, true);
 
     if (!msg) {
         handle_end(client, 118);
@@ -1854,7 +1854,7 @@ void Daemon::answer_client_requests()
 
         if (scheduler && FD_ISSET(scheduler->fd, &listen_set)) {
             while (!scheduler->read_a_bit() || scheduler->has_msg()) {
-                Msg *msg = scheduler->get_msg();
+                Msg *msg = scheduler->get_msg(0, true);
 
                 if (!msg) {
                     log_error() << "scheduler closed connection" << endl;

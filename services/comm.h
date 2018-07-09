@@ -173,7 +173,8 @@ public:
 
     std::string dump() const;
     // NULL  <--> channel closed or timeout
-    Msg *get_msg(int timeout = 10);
+    // Will warn in log if EOF and !eofAllowed.
+    Msg *get_msg(int timeout = 10, bool eofAllowed = false);
 
     // false <--> error (msg not send)
     bool send_msg(const Msg &, int SendFlags = SendBlocking);

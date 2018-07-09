@@ -1659,7 +1659,7 @@ static bool handle_activity(CompileServer *cs)
 {
     Msg *m;
     bool ret = true;
-    m = cs->get_msg(0);
+    m = cs->get_msg(0, true);
 
     if (!m) {
         handle_end(cs, m);

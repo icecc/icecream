@@ -1044,7 +1044,7 @@ bool MsgChannel::wait_for_msg(int timeout)
     return true;
 }
 
-Msg *MsgChannel::get_msg(int timeout)
+Msg *MsgChannel::get_msg(int timeout, bool eofAllowed)
 {
     Msg *m = 0;
     enum MsgType type;
@@ -1058,8 +1058,10 @@ Msg *MsgChannel::get_msg(int timeout)
        then we won't see it anymore.  Return that to the caller.
        Don't use has_msg() here, as it returns true for eof.  */
     if (at_eof()) {
-        trace() << "saw eof without complete msg! " << instate << endl;
-        set_error();
+        if (!eofAllowed) {
+            trace() << "saw eof without complete msg! " << instate << endl;
+            set_error();
+        }
         return 0;
     }
 
