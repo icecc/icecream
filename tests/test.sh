@@ -419,9 +419,11 @@ run_ice()
     expected_exit=$1
     shift
     stderrfix=
+    stderrfixforlog=
     if test "$1" = "stderrfix"; then
         if test -n "$using_gcc"; then
             stderrfix=1
+            stderrfixforlog=stderrfix
             shift
         fi
     fi
@@ -480,7 +482,7 @@ run_ice()
     fi
     cat "$testdir"/stderr.localice >> "$testdir"/stderr.localice.log
     flush_logs
-    check_logs_for_generic_errors
+    check_logs_for_generic_errors $stderrfixforlog
     if test "$remote_type" = "remote"; then
         check_log_message icecc "building myself, but telling localhost"
         if test -z "$stderrfix"; then
@@ -508,7 +510,7 @@ run_ice()
         fi
         cat "$testdir"/stderr.remoteice >> "$testdir"/stderr.remoteice.log
         flush_logs
-        check_logs_for_generic_errors
+        check_logs_for_generic_errors $stderrfixforlog
         if test "$remote_type" = "remote"; then
             check_log_message icecc "Have to use host 127.0.0.1:10246"
             if test -z "$stderrfix"; then
@@ -545,7 +547,7 @@ run_ice()
     normal_exit=$?
     cat "$testdir"/stderr >> "$testdir"/stderr.log
     flush_logs
-    check_logs_for_generic_errors
+    check_logs_for_generic_errors $stderrfixforlog
     check_log_error icecc "Have to use host 127.0.0.1:10246"
     check_log_error icecc "Have to use host 127.0.0.1:10247"
     check_log_error icecc "<building_local>"
@@ -1457,8 +1459,17 @@ cat_log_last_section()
     grep -A 100000 "flush log mark: =${last_reset_log_mark}=" "$testdir"/${log}.log | grep -v "flush log mark: "
 }
 
+# Optional arguments, in this order:
+#   - stderrfix - the same as for run_ice
 check_logs_for_generic_errors()
 {
+    stderrfix=
+    if test "$1" = "stderrfix"; then
+        if test -n "$using_gcc"; then
+            stderrfix=1
+            shift
+        fi
+    fi
     check_log_error scheduler "that job isn't handled by"
     check_log_error scheduler "the server isn't the same for job"
     check_log_error icecc "got exception "
@@ -1469,6 +1480,14 @@ check_logs_for_generic_errors()
     done
     for log in scheduler icecc localice remoteice1 remoteice2; do
         check_log_error $log "internal error"
+        if test -n "$stderrfix"; then
+            # If the client finds out it needs to do a local rebuild because of the need to fix
+            # stderr, it will simply close the connection to the remote daemon, so the remote
+            # daemon may get broken pipe when trying to write the object file. That's harmless.
+            if test "$log" != remoteice1 -a "$log" != "remoteice2"; then
+                check_log_error $log "setting error state for channel"
+            fi
+        fi
     done
     # consider all non-fatal errors such as running out of memory on the remote
     # still as problems, except for:
