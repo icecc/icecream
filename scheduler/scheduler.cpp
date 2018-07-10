@@ -260,7 +260,14 @@ static float server_speed(CompileServer *cs, Job *job, bool blockDebug)
         // we only care for the load if we're about to add a job to it
         if (job) {
             if (job->submitter() == cs) {
-                if (cs->clientCount() > cs->maxJobs()) {
+                int clientCount = cs->clientCount();
+                if( clientCount == 0 ) {
+                    // Older client/daemon that doesn't send client count. Use the number of jobs
+                    // that we've already been told about as the fallback value (it will sometimes
+                    // be an underestimate).
+                    clientCount = cs->submittedJobsCount();
+                }
+                if (clientCount > cs->maxJobs()) {
                     // The submitter would be overloaded by building all its jobs locally,
                     // so penalize it heavily in order to send jobs preferably to other nodes,
                     // so that the submitter should preferably do tasks that cannot be distributed,
@@ -270,7 +277,7 @@ static float server_speed(CompileServer *cs, Job *job, bool blockDebug)
                     if(!blockDebug)
                         log_info() << "penalizing local build for job " << job->id() << endl;
 #endif
-                } else if (cs->clientCount() == cs->maxJobs()) {
+                } else if (clientCount == cs->maxJobs()) {
                     // This means the submitter would be fully loaded by its jobs. It is still
                     // preferable to distribute the job, unless the submitter is noticeably faster.
                     f *= 0.8;
@@ -279,7 +286,7 @@ static float server_speed(CompileServer *cs, Job *job, bool blockDebug)
                         log_info() << "slightly penalizing local build for job " << job->id() << endl;
 #endif
                 }
-                else if (cs->clientCount() <= cs->maxJobs() / 2) {
+                else if (clientCount <= cs->maxJobs() / 2) {
                     // The submitter has only few jobs, slightly prefer building the job locally
                     // in order to save the overhead of distributing.
                     // Note that this is unreliable, the submitter may be in fact running a large

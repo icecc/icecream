@@ -101,6 +101,9 @@ public:
 
     int clientCount() const;
     void setClientCount( int clientCount );
+    int submittedJobsCount() const;
+    void submittedJobsIncrement();
+    void submittedJobsDecrement();
 
     Environments compilerVersions() const;
     void setCompilerVersions(const Environments &environments);
@@ -158,6 +161,7 @@ private:
     Type m_type;
     bool m_chrootPossible;
     int m_clientCount; // number of client connections the daemon has
+    int m_submittedJobsCount;
 
     Environments m_compilerVersions;  // Available compilers
 

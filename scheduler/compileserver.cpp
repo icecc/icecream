@@ -52,6 +52,7 @@ CompileServer::CompileServer(const int fd, struct sockaddr *_addr, const socklen
     , m_type(UNKNOWN)
     , m_chrootPossible(false)
     , m_clientCount(0)
+    , m_submittedJobsCount(0)
     , m_compilerVersions()
     , m_lastCompiledJobs()
     , m_lastRequestedJobs()
@@ -303,6 +304,21 @@ int CompileServer::clientCount() const
 void CompileServer::setClientCount( int clientCount )
 {
     m_clientCount = clientCount;
+}
+
+int CompileServer::submittedJobsCount() const
+{
+    return m_submittedJobsCount;
+}
+
+void CompileServer::submittedJobsIncrement()
+{
+    m_submittedJobsCount++;
+}
+
+void CompileServer::submittedJobsDecrement()
+{
+    m_submittedJobsCount--;
 }
 
 Environments CompileServer::compilerVersions() const
