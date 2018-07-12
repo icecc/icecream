@@ -55,6 +55,22 @@ inline int str_startswith(const char *head, const char *worm)
     return !strncmp(head, worm, strlen(head));
 }
 
+/* Some files should always be built locally... */
+static bool
+should_always_build_locally(const string &filename)
+{
+    string p;
+
+    p = find_basename(filename);
+
+    if (str_startswith("conftest.", p.c_str())
+        || str_startswith("tmp.conftest.", p.c_str())) {
+        return true;
+    }
+
+    return false;
+}
+
 static bool analyze_program(const char *name, CompileJob &job, bool& icerun)
 {
     string compiler_name = find_basename(name);
@@ -721,6 +737,11 @@ bool analyse_argv(const char * const *argv, CompileJob &job, bool icerun, list<s
                 job.setInputFile(it->first);
                 ifile = it->first;
                 it = args.erase(it);
+                if (should_always_build_locally(ifile)) {
+                    log_info() << "autoconf tests are run locally: "
+                               << ifile << endl;
+                    always_local = true;
+                }
             } else {
                 log_info() << "found another non option on command line. Two input files? "
                            << it->first << endl;
