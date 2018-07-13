@@ -57,15 +57,34 @@ inline int str_startswith(const char *head, const char *worm)
 
 /* Some files should always be built locally... */
 static bool
-should_always_build_locally(const string &filename)
+should_always_build_locally(const string &filepath)
 {
     string p;
 
-    p = find_basename(filename);
+    p = find_basename(filepath);
+    const char *filename = p.c_str();
 
-    if (str_startswith("conftest.", p.c_str())
-        || str_startswith("tmp.conftest.", p.c_str())) {
+    /* autoconf */
+    if (str_startswith("conftest.", filename)
+        || str_startswith("tmp.conftest.", filename)) {
         return true;
+    }
+
+    static const char* const cmake_checks[] = {
+        "CheckIncludeFile.",
+        "CheckFunctionExists.",
+        "CheckSymbolExists.",
+        "CheckTypeSize.",
+        "CheckPrototypeDefinition.",
+    };
+
+    /* cmake */
+    if (str_startswith("Check", filename)) {
+        for( size_t i = 0; i < sizeof( cmake_checks ) / sizeof( cmake_checks[ 0 ] ); ++i ) {
+            if (str_startswith( cmake_checks[ i ], filename)) {
+                return true;
+            }
+        }
     }
 
     return false;
