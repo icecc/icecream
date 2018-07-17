@@ -197,11 +197,17 @@ get_absfilename(const string &_file)
         file = _file;
     }
 
-    string::size_type idx = file.find("/..");
+    string dots = "/../";
+    string::size_type idx = file.find(dots);
 
     while (idx != string::npos) {
-        file.replace(idx, 3, "/");
-        idx = file.find("/..");
+        if (idx == 0) {
+            file.replace(0, dots.length(), "/");
+        } else {
+          string::size_type slash = file.find_last_of('/', idx - 1);
+          file.replace(slash, idx-slash+dots.length(), "/");
+        }
+        idx = file.find(dots);
     }
 
     idx = file.find("/./");
