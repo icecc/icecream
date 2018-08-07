@@ -69,6 +69,14 @@ using namespace std;
 
 #define MAX_MSG_SIZE 1 * 1024 * 1024
 
+/*
+ * On a slow and congested network it's possible for a send call to get starved.
+ * This will happen especially when trying to send a huge number of bytes over at
+ * once. We can avoid this situation to a large extend by sending smaller
+ * chunks of data over.
+ */
+#define MAX_WRITE_SIZE 10 * 1024
+
 /* TODO
  * buffered in/output per MsgChannel
     + move read* into MsgChannel, create buffer-fill function
@@ -313,12 +321,12 @@ bool MsgChannel::flush_writebuf(bool blocking)
 
     while (msgtogo) {
 #ifdef MSG_NOSIGNAL
-        ssize_t ret = send(fd, buf, msgtogo, MSG_NOSIGNAL);
+        ssize_t ret = send(fd, buf, msgtogo < MAX_WRITE_SIZE ? msgtogo : MAX_WRITE_SIZE, MSG_NOSIGNAL);
 #else
         void (*oldsigpipe)(int);
 
         oldsigpipe = signal(SIGPIPE, SIG_IGN);
-        ssize_t ret = send(fd, buf, msgtogo, 0);
+        ssize_t ret = send(fd, buf, msgtogo < MAX_WRITE_SIZE ? msgtogo : MAX_WRITE_SIZE, 0);
         signal(SIGPIPE, oldsigpipe);
 #endif
 
