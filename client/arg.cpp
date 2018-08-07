@@ -257,6 +257,7 @@ bool analyse_argv(const char * const *argv, CompileJob &job, bool icerun, list<s
     bool seen_target = false;
     bool wunused_macros = false;
     bool seen_arch = false;
+    bool seen_pedantic = false;
     // if rewriting includes and precompiling on remote machine, then cpp args are not local
     Argument_Type Arg_Cpp = compiler_only_rewrite_includes(job) ? Arg_Rest : Arg_Local;
 
@@ -665,6 +666,12 @@ bool analyse_argv(const char * const *argv, CompileJob &job, bool icerun, list<s
             } else if (str_equal("-Wno-unused-macros", a)) {
                 wunused_macros = false;
                 args.append(a, Arg_Rest);
+            } else if (str_equal("-pedantic", a)) {
+                seen_pedantic = true;
+                args.append(a, Arg_Rest);
+            } else if (str_equal("-pedantic-errors", a)) {
+                seen_pedantic = true;
+                args.append(a, Arg_Rest);
             } else if (str_equal("-arch", a)) {
                 if( seen_arch ) {
                     log_info() << "multiple -arch options, building locally" << endl;
@@ -844,6 +851,11 @@ bool analyse_argv(const char * const *argv, CompileJob &job, bool icerun, list<s
     // if -Wunused-macros is used (https://bugs.llvm.org/show_bug.cgi?id=15614). It's a question
     // if this could possibly even work, given that macros may be used as filenames for #include directives.
     if( wunused_macros ) {
+        job.setBlockRewriteIncludes(true);
+    }
+
+    // -pedantic doeesn't work with remote preprocessing
+    if( seen_pedantic ) {
         job.setBlockRewriteIncludes(true);
     }
 
