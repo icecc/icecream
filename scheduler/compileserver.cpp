@@ -53,6 +53,7 @@ CompileServer::CompileServer(const int fd, struct sockaddr *_addr, const socklen
     , m_chrootPossible(false)
     , m_clientCount(0)
     , m_submittedJobsCount(0)
+    , m_lastPickId(0)
     , m_compilerVersions()
     , m_lastCompiledJobs()
     , m_lastRequestedJobs()
@@ -258,12 +259,18 @@ list<Job *> CompileServer::jobList() const
 
 void CompileServer::appendJob(Job *job)
 {
+    m_lastPickId = job->id();
     m_jobList.push_back(job);
 }
 
 void CompileServer::removeJob(Job *job)
 {
     m_jobList.remove(job);
+}
+
+unsigned int CompileServer::lastPickedId()
+{
+    return m_lastPickId;
 }
 
 CompileServer::State CompileServer::state() const

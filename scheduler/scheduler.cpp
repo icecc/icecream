@@ -305,6 +305,12 @@ static float server_speed(CompileServer *cs, Job *job, bool blockDebug)
             } else {
                 f *= float(1000 - cs->load()) / 1000;
             }
+
+            /* Gradually throttle with the number of assigned jobs. This
+             * takes care of the fact that not all slots are equally fast on
+             * CPUs with SMT and dynamic clock ramping.
+             */
+            f *= (1.0f - (0.5f * cs->jobList().size() / cs->maxJobs()));
         }
 
         // below we add a pessimism factor - assuming the first job a computer got is not representative
@@ -682,6 +688,15 @@ static CompileServer *pick_server(Job *job)
             break;
         }
 
+        /* Distribute 5% of our jobs to servers which haven't been picked in a
+           long time. This gives us a chance to adjust the server speed rating,
+           which may change due to external influences out of our control. */
+        if (!cs->lastPickedId() ||
+            ((job->id() - cs->lastPickedId()) > (20 * css.size()))) {
+            best = cs;
+            break;
+        }
+
         if (!envs_match(cs, job).empty()) {
             if (!best) {
                 best = cs;
@@ -713,12 +728,6 @@ static CompileServer *pick_server(Job *job)
                 }
             }
         }
-    }
-
-    // to make sure we find the fast computers at least after some time, we overwrite
-    // the install rule for every 19th job - if the farm is only filled a bit
-    if (bestui && ((matches < 11) && (matches < (css.size() / 3))) && ((job->id() % 19) != 0)) {
-        best = 0;
     }
 
     if (best) {

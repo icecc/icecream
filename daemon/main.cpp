@@ -805,25 +805,16 @@ bool Daemon::maybe_stats(bool force_check)
             icecream_usage.tv_usec = ru.ru_utime.tv_usec;
         }
 
-        int idle_average = icecream_load;
+        unsigned int idle_average = icecream_load;
 
         if (diff_sent) {
             idle_average = icecream_load * 1000 / diff_sent;
         }
 
-        if (idle_average > 1000) {
-            idle_average = 1000;
-        }
+        if (idle_average > 1000)
+           idle_average = 1000;
 
-        msg.load = ((700 * (1000 - idle_average)) + (300 * memory_fillgrade)) / 1000;
-
-        if (memory_fillgrade > 600) {
-            msg.load = 1000;
-        }
-
-        if (idle_average < 100) {
-            msg.load = 1000;
-        }
+        msg.load = std::max((1000 - idle_average), memory_fillgrade);
 
 #ifdef HAVE_SYS_VFS_H
         struct statfs buf;

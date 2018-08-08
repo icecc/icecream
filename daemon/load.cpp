@@ -204,11 +204,7 @@ static void updateCPULoad(CPULoadInfo *load)
         load->userLoad = (1000 * (currUserTicks - load->userTicks)) / totalTicks;
         load->sysLoad = (1000 * (currSysTicks - load->sysTicks)) / totalTicks;
         load->niceLoad = (1000 * (currNiceTicks - load->niceTicks)) / totalTicks;
-        load->idleLoad = (1000 - (load->userLoad + load->sysLoad + load->niceLoad));
-
-        if (load->idleLoad < 0) {
-            load->idleLoad = 0;
-        }
+        load->idleLoad = (1000 * (currIdleTicks - load->idleTicks)) / totalTicks;
     } else {
         load->userLoad = load->sysLoad = load->niceLoad = 0;
         load->idleLoad = 1000;
@@ -242,7 +238,7 @@ static unsigned long int scan_one(const char *buff, const char *key)
 
 static unsigned int calculateMemLoad(unsigned long int &NetMemFree)
 {
-    unsigned long long MemFree = 0, Buffers = 0, Cached = 0;
+    unsigned long long MemTotal = 0, MemFree = 0, Buffers = 0, Cached = 0;
 
 #ifdef USE_MACH
     /* Get VM statistics. */
@@ -267,10 +263,14 @@ static unsigned int calculateMemLoad(unsigned long int &NetMemFree)
 #elif defined( USE_SYSCTL )
     size_t len = sizeof(MemFree);
 
+
+    if ((sysctlbyname("hw.physmem", &MemTotal, &len, NULL, 0) == -1) || !len) {
+        MemTotal = 0;    /* Doesn't work under FreeBSD v2.2.x */
+    }
+
     if ((sysctlbyname("vm.stats.vm.v_free_count", &MemFree, &len, NULL, 0) == -1) || !len) {
         MemFree = 0;    /* Doesn't work under FreeBSD v2.2.x */
     }
-
 
     len = sizeof(Buffers);
 
@@ -313,30 +313,31 @@ static unsigned int calculateMemLoad(unsigned long int &NetMemFree)
     }
 
     buf[n] = '\0';
+    MemTotal = scan_one(buf, "MemTotal");
     MemFree = scan_one(buf, "MemFree");
     Buffers = scan_one(buf, "Buffers");
     Cached = scan_one(buf, "Cached");
 #endif
 
-    if (Buffers > 50 * 1024) {
-        Buffers -= 50 * 1024;
+    /* Can't calculate a memory load if we don't know how much memory we have */
+    if (!MemTotal)
+        return 0;
+
+    if (Buffers > MemTotal / 100) {
+        Buffers -= MemTotal / 100;
     } else {
         Buffers /= 2;
     }
 
-    if (Cached > 50 * 1024) {
-        Cached -= 50 * 1024;
+    if (Cached > MemTotal / 100) {
+        Cached -= MemTotal / 100;
     } else {
         Cached /= 2;
     }
 
     NetMemFree = MemFree + Cached + Buffers;
 
-    if (NetMemFree > 128 * 1024) {
-        return 0;
-    }
-
-    return 1000 - (NetMemFree * 1000 / (128 * 1024));
+    return 1000 - (NetMemFree * 1000 / MemTotal);
 }
 
 // Load average calculation based on CALC_LOAD(), in the 2.6 Linux kernel
