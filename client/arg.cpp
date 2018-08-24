@@ -279,7 +279,9 @@ bool analyse_argv(const char * const *argv, CompileJob &job, bool icerun, list<s
                 always_local = true;
                 args.append(a, Arg_Local);
                 log_info() << "argument " << a << ", building locally" << endl;
-            } else if (!strcmp(a, "-MD") || !strcmp(a, "-MMD")) {
+            } else if (!strcmp(a, "-MD") || !strcmp(a, "-MMD") ||
+                       str_startswith("-Wp,-MD", a) ||
+                       str_startswith("-Wp,-MMD", a)) {
                 seen_md = true;
                 args.append(a, Arg_Local);
                 /* These two generate dependencies as a side effect.  They
