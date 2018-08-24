@@ -558,13 +558,13 @@ pid_t start_install_environment(const std::string &basename, const std::string &
 
     char **argv;
     argv = new char*[5];
-    argv[0] = strdup(TAR);
+    argv[0] = strdup("tar");
     argv[1] = strdup("-xC");
     argv[2] = strdup(dirname.c_str());
     argv[3] = decompressor ? strdup(decompressor) : 0;
     argv[4] = 0;
 
-    execv(argv[0], argv);
+    execvp(argv[0], argv);
     log_perror("execv failed");
     _exit(100);
 }
