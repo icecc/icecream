@@ -71,6 +71,7 @@ icecc_scheduler="${prefix}/sbin/icecc-scheduler"
 icecc_create_env="${prefix}/bin/icecc-create-env"
 icecc_test_env="${prefix}/bin/icecc-test-env"
 icerun="${prefix}/bin/icerun"
+wrapperdir="${pkglibexecdir}/bin"
 netname="icecctestnetname$$"
 protocolversion=$(grep '#define PROTOCOL_VERSION ' ../services/comm.h | sed 's/#define PROTOCOL_VERSION //')
 
@@ -905,6 +906,52 @@ icerun_nocompile_test()
     check_log_message icecc "invoking: $testdir/fakegcc/gcc $args\$"
     rm -rf -- "$testdir"/fakegcc
     echo "Icerun nocompile test successful."
+    echo
+}
+
+symlink_wrapper_test()
+{
+    cxxwrapper="$wrapperdir/$(basename $TESTCXX)"
+    if ! test -e "$cxxwrapper"; then
+        echo Cannot find wrapper symlink for $TESTCXX, symlink wrapper test skipped.
+        echo
+        skipped_tests="$skipped_tests symlink_wrapper"
+        return
+    fi
+    reset_logs "local" "symlink wrapper test"
+    echo "Running symlink wrapper test."
+    ICECC_TEST_SOCKET="$testdir"/socket-localice ICECC_TEST_REMOTEBUILD=1 ICECC_DEBUG=debug ICECC_LOGFILE="$testdir"/icecc.log \
+        PATH=$(dirname $TESTCXX):$PATH ICECC_PREFERRED_HOST=localice $valgrind "$cxxwrapper"  -Wall -c plain.cpp
+    if test $? -ne 0; then
+        echo Error, local symlink wrapper test failed.
+        stop_ice 0
+        abort_tests
+    fi
+    flush_logs
+    check_logs_for_generic_errors
+    check_log_error icecc "<building_local>"
+    check_log_error icecc "Have to use host 127.0.0.1:10246"
+    check_log_error icecc "Have to use host 127.0.0.1:10247"
+    check_log_message icecc "building myself, but telling localhost"
+    check_log_message icecc "invoking: $TESTCXX -Wall"
+
+    mark_logs "remote" "symlink wrapper test"
+    ICECC_TEST_SOCKET="$testdir"/socket-localice ICECC_TEST_REMOTEBUILD=1 ICECC_DEBUG=debug ICECC_LOGFILE="$testdir"/icecc.log \
+        PATH=$(dirname $TESTCXX):$PATH ICECC_PREFERRED_HOST=remoteice1 $valgrind "$cxxwrapper" -Wall -c plain.cpp
+    if test $? -ne 0; then
+        echo Error, remote symlink wrapper test failed.
+        stop_ice 0
+        abort_tests
+    fi
+    flush_logs
+    check_logs_for_generic_errors
+    check_log_error icecc "<building_local>"
+    check_log_message icecc "Have to use host 127.0.0.1:10246"
+    check_log_error icecc "Have to use host 127.0.0.1:10247"
+    check_log_error icecc "building myself, but telling localhost"
+    check_log_message icecc "preparing source to send: $TESTCXX -Wall"
+
+    echo "Symlink wrapper test successful."
     echo
 }
 
@@ -1804,6 +1851,8 @@ icerun_nocompile_test
 recursive_test
 
 ccache_test
+
+symlink_wrapper_test
 
 if test -z "$chroot_disabled"; then
     make_test
