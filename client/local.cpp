@@ -199,7 +199,7 @@ bool compiler_only_rewrite_includes(const CompileJob &job)
 
 string clang_get_default_target(const CompileJob &job)
 {
-    return read_command_output( job.compilerPathname() + " -dumpmachine" );
+    return read_command_output( find_compiler( job ) + " -dumpmachine" );
 }
 
 static volatile int lock_fd = 0;

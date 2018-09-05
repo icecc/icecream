@@ -97,6 +97,7 @@ public:
     }
 
     // Not used remotely.
+    // Use find_compiler(), as this may be empty.
     std::string compilerPathname() const
     {
         return m_compiler_pathname;
