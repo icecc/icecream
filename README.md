@@ -1,6 +1,8 @@
 [![Stories in Ready](https://badge.waffle.io/icecc/icecream.png?label=ready&title=Ready)](https://waffle.io/icecc/icecream)
 [![Build Status](https://travis-ci.org/icecc/icecream.svg?branch=master)](https://travis-ci.org/icecc/icecream)
 [![Codacy Badge](https://api.codacy.com/project/badge/Grade/d0fd9ba53b424b37964340970392eec2)](https://www.codacy.com/app/icecc/icecream?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=icecc/icecream&amp;utm_campaign=Badge_Grade)
+[![Code Quality: Cpp](https://img.shields.io/lgtm/grade/cpp/g/icecc/icecream.svg?logo=lgtm&logoWidth=18)](https://lgtm.com/projects/g/icecc/icecream/context:cpp)
+[![Total Alerts](https://img.shields.io/lgtm/alerts/g/icecc/icecream.svg?logo=lgtm&logoWidth=18)](https://lgtm.com/projects/g/icecc/icecream/alerts)
 
 [Icecream](Icecream) was created by SUSE based on distcc. Like distcc,
 [Icecream](Icecream) takes compile jobs from a build and
