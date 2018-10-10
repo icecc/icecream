@@ -1,5 +1,20 @@
-1.2 (in progress)
-
+1.2
+ - Add more compiler flags to the list that mean build locally
+   * -pedantic (preprocessing only)
+   * -pedantic-errors (preprocessing only)
+   * -fsyntax-only
+ - don't force local compile on -include-pch 
+ - Make load calculation better
+ - Limit amount of data sent at one time for slow networks/remotes
+ - Many updates to the tests
+ - Better logs of some error conditions
+ - Build locally if it is likely that there will not be more compiles
+ - Support adding gcc and clang to the same environment
+ - Better handling of icerun
+ - Cygwin now works as a client
+ - Don't expose Host endianness to network
+ - General code cleanup
+ 
 1.1
  - revert "Add load control for preprocessing"
  - better handle clang arugments with spaces
