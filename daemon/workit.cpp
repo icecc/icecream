@@ -103,10 +103,9 @@ int work_it(CompileJob &j, unsigned int job_stat[], MsgChannel *client, CompileR
     rmsg.out.erase(rmsg.out.begin(), rmsg.out.end());
     rmsg.out.erase(rmsg.out.begin(), rmsg.out.end());
 
-    std::list<string> list = j.remoteFlags();
-    appendList(list, j.restFlags());
+    std::list<string> list = j.remoteAndRestFlags();
 
-    if (j.dwarfFissionEnabled()) {
+    if(!IS_PROTOCOL_40(client) && j.dwarfFissionEnabled()) {
         list.push_back("-gsplit-dwarf");
     }
 

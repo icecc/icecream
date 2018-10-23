@@ -251,10 +251,6 @@ int build_local(CompileJob &job, MsgChannel *local_daemon, struct rusage *used)
     arguments.push_back(compiler_name);
     appendList(arguments, job.allFlags());
 
-    if (job.dwarfFissionEnabled()) {
-        arguments.push_back("-gsplit-dwarf");
-    }
-
     if (!job.inputFile().empty()) {
         arguments.push_back(job.inputFile());
     }
