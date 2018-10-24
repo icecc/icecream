@@ -1769,6 +1769,7 @@ fi
 
 if command -v gdb >/dev/null; then
     if command -v readelf >/dev/null; then
+        debug_test "$TESTCXX" "-c -g0 debug.cpp" "Temporary breakpoint 1, 0x"
         debug_test "$TESTCXX" "-c -g debug.cpp" "Temporary breakpoint 1, main () at debug.cpp:8"
         debug_test "$TESTCXX" "-c -g $(pwd)/debug/debug2.cpp" "Temporary breakpoint 1, main () at $(pwd)/debug/debug2.cpp:8"
         if test -z "$debug_fission_disabled"; then

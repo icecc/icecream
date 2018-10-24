@@ -81,14 +81,21 @@ error_client(MsgChannel *client, string error)
     }
 }
 
-static void write_output_file( const string& file, MsgChannel* client )
+static void write_output_file( const string& file, MsgChannel* client, bool optional = false)
 {
     int obj_fd = -1;
     try {
         obj_fd = open(file.c_str(), O_RDONLY | O_LARGEFILE);
 
         if (obj_fd == -1) {
-            log_error() << "open failed" << endl;
+            if(optional) {
+                if(!client->send_msg(EndMsg())) {
+                    log_info() << "write of obj end failed " << endl;
+                    throw myexception(EXIT_DISTCC_FAILED);
+                }
+                return;
+            }
+            log_error() << "open failed for: " << file << endl;
             error_client(client, "open of object file failed");
             throw myexception(EXIT_DISTCC_FAILED);
         }
@@ -310,7 +317,7 @@ int handle_connection(const string &basedir, CompileJob *job,
         if (rmsg.status == 0) {
             write_output_file(obj_file, client);
             if (rmsg.have_dwo_file) {
-                write_output_file(dwo_file, client);
+                write_output_file(dwo_file, client, true /* optional */);
             }
         }
 
