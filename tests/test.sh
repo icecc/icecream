@@ -1208,6 +1208,12 @@ debug_test()
         stop_ice 0
         abort_tests
     fi
+
+    # for binaries without debug infos we suffer from the same gcc-4.8+ behaviour as the readelf check below
+    # so remove symbol and stack addresses and let the readelf check handle that
+    sed -i -e 's/=0x[0-9a-fA-F]*//g' "$testdir"/debug-output-remote.txt
+    sed -i -e 's/=0x[0-9a-fA-F]*//g' "$testdir"/debug-output-local.txt
+
     if ! diff "$testdir"/debug-output-local.txt "$testdir"/debug-output-remote.txt >/dev/null; then
         echo Gdb output different.
         echo =====================
