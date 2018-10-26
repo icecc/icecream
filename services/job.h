@@ -29,10 +29,10 @@
 #include <sstream>
 
 typedef enum {
-    Arg_Local = 0x1,               // Local-only args.
-    Arg_Remote = 0x2,              // Remote-only args.
-    Arg_RestAndDwarfFission = 0x4, // like Arg_Rest, but only if DwarfFission is enabled.
-    Arg_Rest = 0x8                 // Args to use both locally and remotely.
+    Arg_Local,               // Local-only args.
+    Arg_Remote,              // Remote-only args.
+    Arg_RestAndDwarfFission, // like Arg_Rest, but only if DwarfFission is enabled.
+    Arg_Rest                 // Args to use both locally and remotely.
 } Argument_Type;
 
 class ArgumentsList : public std::list<std::pair<std::string, Argument_Type> >
@@ -204,7 +204,7 @@ public:
     }
 
 private:
-    std::list<std::string> flags(int argumentType) const;
+    std::list<std::string> flags(Argument_Type argumentType) const;
     void setTargetPlatform();
 
     unsigned int m_id;
