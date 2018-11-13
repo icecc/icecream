@@ -36,7 +36,7 @@
 #include "job.h"
 
 // if you increase the PROTOCOL_VERSION, add a macro below and use that
-#define PROTOCOL_VERSION 39
+#define PROTOCOL_VERSION 40
 // if you increase the MIN_PROTOCOL_VERSION, comment out macros below and clean up the code
 #define MIN_PROTOCOL_VERSION 21
 
@@ -64,6 +64,7 @@
 #define IS_PROTOCOL_37(c) ((c)->protocol >= 37)
 #define IS_PROTOCOL_38(c) ((c)->protocol >= 38)
 #define IS_PROTOCOL_39(c) ((c)->protocol >= 39)
+#define IS_PROTOCOL_40(c) ((c)->protocol >= 40)
 
 // Terms used:
 // S  = scheduler
@@ -138,6 +139,11 @@ enum MsgType {
     M_BLACKLIST_HOST_ENV,
     // S --> CS
     M_NO_CS
+};
+
+enum Compression {
+    C_LZO = 0,
+    C_ZSTD = 1
 };
 
 class MsgChannel;
