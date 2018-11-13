@@ -188,6 +188,10 @@ AC_CHECK_LIB(lzo2, lzo1x_1_compress, LZO_LDADD=-llzo2,
 	AC_MSG_ERROR([Could not find lzo2 library - please install lzo-devel]))
 AC_SUBST(LZO_LDADD)
 
+AC_CHECK_LIB(zstd, ZSTD_compress, ZSTD_LDADD=-lzstd,
+        AC_MSG_ERROR([Could not find zstd library - please install libzstd-devel]))
+AC_SUBST(ZSTD_LDADD)
+
 AC_CHECK_LIB([dl], [dlsym], [DL_LDADD=-ldl])
 AC_SUBST([DL_LDADD])
 

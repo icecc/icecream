@@ -97,6 +97,7 @@ static void dcc_show_usage(void)
         "   ICECC_EXTRAFILES           additional files used in the compilation.\n"
         "   ICECC_COLOR_DIAGNOSTICS    set to 1 or 0 to override color diagnostics support.\n"
         "   ICECC_CARET_WORKAROUND     set to 1 or 0 to override gcc show caret workaround.\n"
+        "   ICECC_COMPRESSION          if set, the libzstd compression level (1 to 19, default: 1)"
         "\n");
 }
 
