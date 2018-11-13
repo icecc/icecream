@@ -46,6 +46,7 @@
 #include <iostream>
 #include <assert.h>
 #include <lzo/lzo1x.h>
+#include <zstd.h>
 #include <stdio.h>
 #ifdef HAVE_LIBCAP_NG
 #include <cap-ng.h>
@@ -59,6 +60,30 @@
 #include "comm.h"
 
 using namespace std;
+
+// Prefer least amount of CPU use
+#undef ZSTD_CLEVEL_DEFAULT
+#define ZSTD_CLEVEL_DEFAULT 1
+
+// old libzstd?
+#ifndef ZSTD_COMPRESSBOUND
+#define ZSTD_COMPRESSBOUND(n) ZSTD_compressBound(n)
+#endif
+
+static int zstd_compression()
+{
+    const char *level = getenv("ICECC_COMPRESSION");
+    if (!level || !*level)
+        return ZSTD_CLEVEL_DEFAULT;
+
+    char *endptr;
+    int n = strtol(level, &endptr, 0);
+    if (*endptr)
+        return ZSTD_CLEVEL_DEFAULT;
+    if (n < 0 || n > 19)
+        return ZSTD_CLEVEL_DEFAULT;
+    return n;
+}
 
 /*
  * A generic DoS protection. The biggest messages are of type FileChunk
@@ -505,6 +530,19 @@ void MsgChannel::readcompressed(unsigned char **uncompressed_buf, size_t &_uclen
     *this >> tmp;
     compressed_len = tmp;
 
+    uint32_t proto = C_LZO;
+    if (IS_PROTOCOL_40(this)) {
+        *this >> proto;
+        if (proto != C_LZO && proto != C_ZSTD) {
+            log_error() << "Unknown compression protocol " << proto << endl;
+            *uncompressed_buf = 0;
+            _uclen = 0;
+            _clen = compressed_len;
+            set_error();
+            return;
+        }
+    }
+
     /* If there was some input, but nothing compressed,
        or lengths are bigger than the whole chunk message
        or we don't have everything to uncompress, there was an error.  */
@@ -523,7 +561,18 @@ void MsgChannel::readcompressed(unsigned char **uncompressed_buf, size_t &_uclen
 
     *uncompressed_buf = new unsigned char[uncompressed_len];
 
-    if (uncompressed_len && compressed_len) {
+    if (proto == C_ZSTD && uncompressed_len && compressed_len) {
+        const void *compressed_buf = inbuf + intogo;
+        size_t ret = ZSTD_decompress(*uncompressed_buf, uncompressed_len,
+                                     compressed_buf, compressed_len);
+        if (ZSTD_isError(ret)) {
+            log_error() << "internal error - decompression of data from " << dump().c_str()
+                        << " failed: " << ZSTD_getErrorName(ret) << endl;
+            delete[] *uncompressed_buf;
+            *uncompressed_buf = 0;
+            uncompressed_len = 0;
+        }
+    } else if (proto == C_LZO && uncompressed_len && compressed_len) {
         const lzo_byte *compressed_buf = (lzo_byte *)(inbuf + intogo);
         lzo_voidp wrkmem = (lzo_voidp) malloc(LZO1X_MEM_COMPRESS);
         int ret = lzo1x_decompress(compressed_buf, compressed_len,
@@ -553,12 +602,22 @@ void MsgChannel::readcompressed(unsigned char **uncompressed_buf, size_t &_uclen
 
 void MsgChannel::writecompressed(const unsigned char *in_buf, size_t _in_len, size_t &_out_len)
 {
+    uint32_t proto = C_LZO;
+    if (IS_PROTOCOL_40(this))
+        proto = C_ZSTD;
+
     lzo_uint in_len = _in_len;
     lzo_uint out_len = _out_len;
-    out_len = in_len + in_len / 64 + 16 + 3;
+    if (proto == C_LZO)
+        out_len = in_len + in_len / 64 + 16 + 3;
+    else if (proto == C_ZSTD)
+        out_len = ZSTD_COMPRESSBOUND(in_len);
     *this << in_len;
     size_t msgtogo_old = msgtogo;
     *this << (uint32_t) 0;
+
+    if (IS_PROTOCOL_40(this))
+        *this << proto;
 
     if (msgtogo + out_len >= msgbuflen) {
         /* Realloc to a multiple of 128.  */
@@ -567,15 +626,27 @@ void MsgChannel::writecompressed(const unsigned char *in_buf, size_t _in_len, si
         assert(msgbuf); // Probably unrecoverable if realloc fails anyway.
     }
 
-    lzo_byte *out_buf = (lzo_byte *)(msgbuf + msgtogo);
-    lzo_voidp wrkmem = (lzo_voidp) malloc(LZO1X_MEM_COMPRESS);
-    int ret = lzo1x_1_compress(in_buf, in_len, out_buf, &out_len, wrkmem);
-    free(wrkmem);
+    if (proto == C_LZO) {
+        lzo_byte *out_buf = (lzo_byte *)(msgbuf + msgtogo);
+        lzo_voidp wrkmem = (lzo_voidp) malloc(LZO1X_MEM_COMPRESS);
+        int ret = lzo1x_1_compress(in_buf, in_len, out_buf, &out_len, wrkmem);
+        free(wrkmem);
 
-    if (ret != LZO_E_OK) {
-        /* this should NEVER happen */
-        log_error() << "internal error - compression failed: " << ret << endl;
-        out_len = 0;
+        if (ret != LZO_E_OK) {
+            /* this should NEVER happen */
+            log_error() << "internal error - compression failed: " << ret << endl;
+            out_len = 0;
+        }
+    } else if (proto == C_ZSTD) {
+        void *out_buf = msgbuf + msgtogo;
+        size_t ret = ZSTD_compress(out_buf, out_len, in_buf, in_len, zstd_compression());
+        if (ZSTD_isError(ret)) {
+            /* this should NEVER happen */
+            log_error() << "internal error - compression failed: " << ZSTD_getErrorName(ret) << endl;
+            out_len = 0;
+        }
+
+        out_len = ret;
     }
 
     uint32_t _olen = htonl(out_len);

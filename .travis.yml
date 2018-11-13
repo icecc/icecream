@@ -50,7 +50,7 @@ matrix:
   - os: osx
     before_install:
       - brew update
-      - brew install lzo docbook2x gdb ccache libarchive
+      - brew install lzo zstd docbook2x gdb ccache libarchive
   - os: linux
     sudo: true # for setcap so we can run the tests in chroot.
     compiler: clang
@@ -114,6 +114,7 @@ addons:
     - libcap-ng-dev
     - libcap-ng-utils
     - liblzo2-dev
+    - libzstd1-dev
     - docbook2x
     - realpath
     - gdb
