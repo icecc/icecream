@@ -1019,15 +1019,16 @@ test_build_native_helper()
     compiler=$1
     add_skip=$2
     pushd "$testdir" >/dev/null
+    XZ_OPT=-2 GZIP=-3 \
     ICECC_DEBUG=debug ICECC_LOGFILE="$testdir"/icecc.log ${icecc} --build-native $compiler > "$testdir"/icecc-build-native-output
     if test $? -ne 0; then
         return 1
     fi
-    local tgz=$(grep "^creating .*\.tar\.gz$" "$testdir"/icecc-build-native-output | sed -e "s/^creating //")
-    if test -z "$tgz"; then
+    local tarball=$(sed -En '/^creating (.*\.tar\..*)/s//\1/p' "$testdir"/icecc-build-native-output)
+    if test -z "$tarball"; then
         return 2
     fi
-    sudo -n -- ${icecc_test_env} -q "$tgz"
+    sudo -n -- ${icecc_test_env} -q "$tarball"
     retcode=$?
     if test $retcode -eq 1; then
         echo Cannot verify environment, use sudo, skipping test.
@@ -1038,7 +1039,7 @@ test_build_native_helper()
         echo icecc_test_env failed to validate the environment
         return 3
     fi
-    rm -f $tgz "$testdir"/icecc-build-native-output
+    rm -f $tarball "$testdir"/icecc-build-native-output
     popd >/dev/null
     return 0
 }

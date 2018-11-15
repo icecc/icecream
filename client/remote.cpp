@@ -164,7 +164,7 @@ rip_out_paths(const Environments &envs, map<string, string> &version_map, map<st
 
     Environments env2;
 
-    static const char *suffs[] = { ".tar.bz2", ".tar.gz", ".tar", ".tgz", NULL };
+    static const char *suffs[] = { ".tar.xz", ".tar.zst", ".tar.bz2", ".tar.gz", ".tar", ".tgz", NULL };
 
     string versfile;
 

@@ -453,13 +453,17 @@ pid_t start_install_environment(const std::string &basename, const std::string &
     }
 
     fmsg = dynamic_cast<FileChunkMsg*>(msg);
-    enum { BZip2, Gzip, None} compression = None;
+    const char *decompressor = NULL;
 
     if (fmsg->len > 2) {
         if (fmsg->buffer[0] == 037 && fmsg->buffer[1] == 0213) {
-            compression = Gzip;
+            decompressor = "-z";    // --gzip
         } else if (fmsg->buffer[0] == 'B' && fmsg->buffer[1] == 'Z') {
-            compression = BZip2;
+            decompressor = "-j";    // --bzip2
+        } else if (fmsg->buffer[0] == 0xfd && fmsg->buffer[1] == 0x37) {
+            decompressor = "-J";    // --xz
+        } else if (fmsg->buffer[0] == 0x28 && fmsg->buffer[1] == 0xb5) {
+            decompressor = "-Iunzstd";
         }
     }
 
@@ -553,21 +557,13 @@ pid_t start_install_environment(const std::string &basename, const std::string &
     }
 
     char **argv;
-    argv = new char*[6];
+    argv = new char*[5];
     argv[0] = strdup(TAR);
-    argv[1] = strdup("-C");
+    argv[1] = strdup("-xC");
     argv[2] = strdup(dirname.c_str());
+    argv[3] = decompressor ? strdup(decompressor) : 0;
+    argv[4] = 0;
 
-    if (compression == BZip2) {
-        argv[3] = strdup("-xjf");
-    } else if (compression == Gzip) {
-        argv[3] = strdup("-xzf");
-    } else if (compression == None) {
-        argv[3] = strdup("-xf");
-    }
-
-    argv[4] = strdup("-");
-    argv[5] = 0;
     execv(argv[0], argv);
     log_perror("execv failed");
     _exit(100);
