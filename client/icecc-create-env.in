@@ -109,6 +109,7 @@ add_file ()
 		#         libc.so.6 => /lib/tls/libc.so.6 (0xb7e81000)
 		#         /lib/ld-linux.so.2 (0xb7fe8000)
 		# covering both situations ( with => and without )
+           local lib
            for lib in $(ldd "$path" | sed -n 's,^[^/]*\(/[^ ]*\).*,\1,p'); do
 	      test -f "$lib" || continue
 	      # Check wether the same library also exists in the parent directory,
@@ -116,6 +117,23 @@ add_file ()
 	      local baselib=$(echo "$lib" | sed 's,\(/[^/]*\)/.*\(/[^/]*\)$,\1\2,')
 	      test -f "$baselib" && lib=$baselib
               add_file "$lib"
+
+              # Add the non-haswell and non-avx512_1 libraries too
+              case "$lib" in
+                 */haswell/*|*/avx512_1/*)
+                    ;;
+                 *)
+                    continue
+                    ;;
+              esac
+              local lib_non_avx512=$(echo "$lib" | sed s,/avx512_1/,/,)
+              local lib_non_hsw=$(echo "$lib_non_avx512" | sed s,/haswell/,/,)
+              if [ "$lib" != "$lib_non_avx512" ] && [ -f "$lib_non_avx512" ]; then
+                add_file "$lib_non_avx512"
+              fi
+              if [ "$lib" != "$lib_non_hsw" ] && [ -f "$lib_non_hsw" ]; then
+                add_file "$lib_non_hsw"
+              fi
            done
         fi
     elif test "$is_darwin" = 1; then
