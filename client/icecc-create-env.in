@@ -452,7 +452,7 @@ fi
 
 # special case for weird multilib setups
 for dir in /lib /lib64 /usr/lib /usr/lib64; do
-    test -L $dir && cp -p $dir $tempdir$dir
+    test -L $dir && cp -Pp $dir $tempdir$dir
 done
 
 new_target_files=
