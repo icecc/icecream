@@ -476,7 +476,11 @@ done
 if test -x /sbin/ldconfig -a "$is_linux" = 1; then
    mkdir -p $tempdir/var/cache/ldconfig
    /sbin/ldconfig -r $tempdir
-   new_target_files="$new_target_files etc/ld.so.cache"
+   for candidate in etc var/cache/ldconfig; do
+        test -e $tempdir/$candidate/ld.so.cache || continue;
+        new_target_files="$new_target_files $candidate/ld.so.cache"
+        break
+   done
 fi
 
 md5sum=NONE
