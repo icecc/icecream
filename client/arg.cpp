@@ -260,6 +260,12 @@ static bool analyze_assembler_arg(string &arg)
                str_equal("--defsym", pos)) {
         second_option = true;
         return false;
+    } else if (pos[0] == '@') {
+        /* If a build system passes an @FILE argument we'd need to
+         * parse the file for more arguments. Instead, we'll just
+         * run locally.
+         */
+        return true;
     } else {
         /* Some weird build systems pass directly additional assembler files.
          * Example: -Wa,src/code16gcc.s
