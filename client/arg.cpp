@@ -234,6 +234,12 @@ static bool is_argument_with_space(const char* argument)
 static bool analyze_assembler_arg(string &arg)
 {
     const char *pos = arg.c_str();
+    static bool second_option;
+
+    if (second_option) {
+        second_option = false;
+        return false;
+    }
 
     if (str_startswith("-a", pos)) {
         /* -a[a-z]*=output, which directs the listing to the named file
@@ -249,6 +255,10 @@ static bool analyze_assembler_arg(string &arg)
             return true;
         }
 
+        return false;
+    } else if (str_equal("--debug-prefix-map", pos) ||
+               str_equal("--defsym", pos)) {
+        second_option = true;
         return false;
     } else {
         /* Some weird build systems pass directly additional assembler files.
