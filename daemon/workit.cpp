@@ -229,7 +229,6 @@ int work_it(CompileJob &j, unsigned int job_stat[], MsgChannel *client, CompileR
         argc++; // the program
         argc += 6; // -x c - -o file.o -fpreprocessed
         argc += 4; // gpc parameters
-        argc += 1; // -pipe
         argc += 9; // clang extra flags
         char **argv = new char*[argc + 1];
         int i = 0;
@@ -285,23 +284,13 @@ int work_it(CompileJob &j, unsigned int job_stat[], MsgChannel *client, CompileR
             error_client(client, "/tmp dir missing?");
         }
 
-        bool hasPipe = false;
-
         for (std::list<string>::const_iterator it = list.begin();
                 it != list.end(); ++it) {
-            if (*it == "-pipe") {
-                hasPipe = true;
-            }
-
             argv[i++] = strdup(it->c_str());
         }
 
         if (!clang) {
             argv[i++] = strdup("-fpreprocessed");
-        }
-
-        if (!hasPipe) {
-            argv[i++] = strdup("-pipe");
         }
 
         argv[i++] = strdup("-");
