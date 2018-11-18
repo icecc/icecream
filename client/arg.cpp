@@ -231,6 +231,50 @@ static bool is_argument_with_space(const char* argument)
     return false;
 }
 
+static bool analyze_assembler_arg(string &arg)
+{
+    const char *pos = arg.c_str();
+
+    if (str_startswith("-a", pos)) {
+        /* -a[a-z]*=output, which directs the listing to the named file
+         * and cannot be remote.
+         */
+        pos += 2;
+
+        while ((*pos >= 'a') && (*pos <= 'z')) {
+            pos++;
+        }
+
+        if (*pos == '=') {
+            return true;
+        }
+
+        return false;
+    } else {
+        /* Some weird build systems pass directly additional assembler files.
+         * Example: -Wa,src/code16gcc.s
+         * Thus, if any option doesn't start with a dash we need to handle
+         * it locally.
+         */
+
+        while (*pos) {
+            if ((*pos == ',') || (*pos == ' ')) {
+                pos++;
+                continue;
+            }
+
+            if (*pos == '-') {
+                break;
+            }
+
+            return true;
+        }
+
+        return false;
+    }
+}
+
+
 bool analyse_argv(const char * const *argv, CompileJob &job, bool icerun, list<string> *extrafiles)
 {
     ArgumentsList args;
@@ -334,52 +378,31 @@ bool analyse_argv(const char * const *argv, CompileJob &job, bool icerun, list<s
                     }
                 }
             } else if (str_startswith("-Wa,", a)) {
-                /* Options passed through to the assembler.  The only one we
-                 * need to handle so far is -al=output, which directs the
-                 * listing to the named file and cannot be remote.  There are
-                 * some other options which also refer to local files,
-                 * but most of them make no sense when called via the compiler,
-                 * hence we only look for -a[a-z]*= and localize the job if we
-                 * find it.
+                /* The -Wa option specifies a list of arguments
+                 * that are passed to the assembler.
+                 * We split them into individual arguments and
+                 * call analyze_assembler_arg() for each one.
                  */
-                const char *pos = a;
+                const char *pos = a + 4, *next_comma;
                 bool local = false;
+                string as_arg;
+                string remote_arg = "-Wa";
 
-                while ((pos = strstr(pos + 1, "-a"))) {
-                    pos += 2;
+                while (1) {
+                    next_comma = strchr(pos, ',');
 
-                    while ((*pos >= 'a') && (*pos <= 'z')) {
-                        pos++;
-                    }
+                    if (next_comma)
+                        as_arg.assign(pos, next_comma - pos);
+                    else
+                        as_arg = pos;
 
-                    if (*pos == '=') {
-                        local = true;
+                    local = analyze_assembler_arg(as_arg);
+                    remote_arg += "," + as_arg;
+
+                    if (!next_comma)
                         break;
-                    }
 
-                    if (!*pos) {
-                        break;
-                    }
-                }
-
-                /* Some weird build systems pass directly additional assembler files.
-                 * Example: -Wa,src/code16gcc.s
-                 * Need to handle it locally then. Search if the first part after -Wa, does not start with -
-                 */
-                pos = a + 3;
-
-                while (*pos) {
-                    if ((*pos == ',') || (*pos == ' ')) {
-                        pos++;
-                        continue;
-                    }
-
-                    if (*pos == '-') {
-                        break;
-                    }
-
-                    local = true;
-                    break;
+                    pos = next_comma + 1;
                 }
 
                 if (local) {
@@ -387,7 +410,7 @@ bool analyse_argv(const char * const *argv, CompileJob &job, bool icerun, list<s
                     args.append(a, Arg_Local);
                     log_info() << "argument " << a << ", building locally" << endl;
                 } else {
-                    args.append(a, Arg_Remote);
+                    args.append(remote_arg, Arg_Remote);
                 }
             } else if (!strcmp(a, "-S")) {
                 seen_s = true;
@@ -433,7 +456,7 @@ bool analyse_argv(const char * const *argv, CompileJob &job, bool icerun, list<s
                 }
             } else if (!strcmp(a, "-march=native") || !strcmp(a, "-mcpu=native")
                        || !strcmp(a, "-mtune=native")) {
-                log_info() << "-{march,mpcu,mtune}=native optimizes for local machine, " 
+                log_info() << "-{march,mpcu,mtune}=native optimizes for local machine, "
                            << "building locally"
                            << endl;
                 always_local = true;
