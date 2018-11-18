@@ -231,7 +231,7 @@ static bool is_argument_with_space(const char* argument)
     return false;
 }
 
-static bool analyze_assembler_arg(string &arg)
+static bool analyze_assembler_arg(string &arg, list<string> *extrafiles)
 {
     const char *pos = arg.c_str();
     static bool second_option;
@@ -266,23 +266,22 @@ static bool analyze_assembler_arg(string &arg)
          * run locally.
          */
         return true;
+    } else if (arg[0] == '-') {
+        /* All other option arguments should be safe to run remotely. */
+        return false;
     } else {
-        /* Some weird build systems pass directly additional assembler files.
+        /* Some build systems pass directly additional assembler files.
          * Example: -Wa,src/code16gcc.s
-         * Thus, if any option doesn't start with a dash we need to handle
-         * it locally.
+         * Thus, if any option doesn't start with a dash we need to
+         * add an extra file to the compile step.
          */
 
-        while (*pos) {
-            if ((*pos == ',') || (*pos == ' ')) {
-                pos++;
-                continue;
-            }
-
-            if (*pos == '-') {
-                break;
-            }
-
+        if (access(arg.c_str(), R_OK) == 0) {
+            arg = get_absfilename(arg);
+            extrafiles->push_back(arg);
+            return false;
+        } else {
+            log_info() << "file for argument missing, building locally" << endl;
             return true;
         }
 
@@ -412,7 +411,7 @@ bool analyse_argv(const char * const *argv, CompileJob &job, bool icerun, list<s
                     else
                         as_arg = pos;
 
-                    local = analyze_assembler_arg(as_arg);
+                    local = analyze_assembler_arg(as_arg, extrafiles);
                     remote_arg += "," + as_arg;
 
                     if (!next_comma)
