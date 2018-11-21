@@ -33,11 +33,11 @@ matrix:
   - os: linux
     sudo: true # for setcap so we can run the tests in chroot.
     compiler: gcc
-    dist: trusty
+    dist: xenial
   - os: linux
     sudo: true # for setcap so we can run the tests in chroot.
     compiler: clang
-    dist: trusty
+    dist: xenial
   - os: osx
     before_install:
       - brew update
@@ -46,25 +46,25 @@ matrix:
     sudo: true # for setcap so we can run the tests in chroot.
     compiler: clang
     env: VALGRIND=1
-    dist: trusty
-  - os: linux
-    sudo: true # for setcap so we can run the tests in chroot.
-    compiler: clang
-    env: BUILD_TYPE=asan
-    dist: trusty
-    # Sanitizer builds with newer travis fail for unknown reason without giving any message.
-    group: deprecated-2017Q4
-  - os: linux
-    sudo: true # for setcap so we can run the tests in chroot.
-    compiler: clang
-    env: BUILD_TYPE=lsan
-    dist: trusty
-    group: deprecated-2017Q4
+    dist: xenial
+# - os: linux
+#   sudo: true # for setcap so we can run the tests in chroot.
+#   compiler: clang
+#   env: BUILD_TYPE=asan
+#   dist: xenial
+#   # Sanitizer builds with newer travis fail for unknown reason without giving y message.
+#   group: deprecated-2017Q4
+# - os: linux
+#   sudo: true # for setcap so we can run the tests in chroot.
+#   compiler: clang
+#   env: BUILD_TYPE=lsan
+#   dist: xenial
+#   group: deprecated-2017Q4
   - os: linux
     sudo: true # for setcap so we can run the tests in chroot.
     compiler: clang
     env: BUILD_TYPE=ubsan
-    dist: trusty
+    dist: xenial
   allow_failures:
 
 before_script:
