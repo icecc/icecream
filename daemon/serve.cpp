@@ -317,6 +317,8 @@ int handle_connection(const string &basedir, CompileJob *job,
         if (rmsg.status == 0) {
             write_output_file(obj_file, client);
             if (rmsg.have_dwo_file) {
+                // optional flag required because depending on its arguments, the
+                // compiler might not write a dwo file.
                 write_output_file(dwo_file, client, true /* optional */);
             }
         }
