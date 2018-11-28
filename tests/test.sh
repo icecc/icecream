@@ -1673,6 +1673,10 @@ run_ice "$testdir/includes.o" "remote" 0 $TESTCXX -Wall -Werror -c includes.cpp 
 run_ice "$testdir/includes.o" "remote" 0 $TESTCXX -Wall -Werror -c includes-without.cpp -include includes.h -o "$testdir"/includes.o
 run_ice "$testdir/plain.o" "local" 0 $TESTCXX -Wall -Werror -c plain.cpp -mtune=native -o "$testdir"/plain.o
 run_ice "$testdir/plain.o" "remote" 0 $TESTCC -Wall -Werror -x c++ -c plain -o "$testdir"/plain.o
+run_ice "$testdir/plain.o" "local" 0 $TESTCC -Wa,-al=listing.txt -Wall -Werror -c plain.c -o "$testdir/"plain.o
+run_ice "$testdir/plain.o" "remote" 0 $TESTCC -Wa,macros.s -Wall -Werror -c plain.c -o "$testdir/"plain.o
+run_ice "$testdir/plain.o" "remote" 0 $TESTCC -Wa,--defsym,MYSYM=yes -Wall -Werror -c plain.c -o "$testdir/"plain.o
+run_ice "$testdir/plain.o" "local" 0 $TESTCC -Wa,@assembler.args -Wall -Werror -c plain.c -o "$testdir/"plain.o
 
 run_ice "$testdir/testdefine.o" "remote" 0 $TESTCXX -Wall -Werror -DICECREAM_TEST_DEFINE=test -c testdefine.cpp -o "$testdir/"testdefine.o
 run_ice "$testdir/testdefine.o" "remote" 0 $TESTCXX -Wall -Werror -D ICECREAM_TEST_DEFINE=test -c testdefine.cpp -o "$testdir/"testdefine.o
