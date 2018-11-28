@@ -388,7 +388,7 @@ in your path, as CCACHE_PREFIX is instructing ccache to explicitly delegate
 to icecc rather than finding it in the path. If both ccache and icecc's
 symlinks are in the path it is likely the two wrappers will mistake each
 other for the real compiler and icecc will complain that it has recursively
-invokes itself.
+invoked itself.
 
 Note however that ccache isn't really worth the trouble if you're not
 recompiling your project three times a day from scratch (it adds some
