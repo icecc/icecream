@@ -317,6 +317,7 @@ bool analyse_argv(const char * const *argv, CompileJob &job, bool icerun, list<s
     bool wunused_macros = false;
     bool seen_arch = false;
     bool seen_pedantic = false;
+    const char *standard = NULL;
     // if rewriting includes and precompiling on remote machine, then cpp args are not local
     Argument_Type Arg_Cpp = compiler_only_rewrite_includes(job) ? Arg_Rest : Arg_Local;
 
@@ -894,8 +895,10 @@ bool analyse_argv(const char * const *argv, CompileJob &job, bool icerun, list<s
         job.setBlockRewriteIncludes(true);
     }
 
-    // -pedantic doeesn't work with remote preprocessing
-    if( seen_pedantic ) {
+    // -pedantic doesn't work with remote preprocessing, if extensions to a named standard
+    // are allowed.  GCC allows GNU extensions by default, so let's check if a standard
+    // other than eg gnu11 or gnu++14 was specified.
+    if( seen_pedantic && (!standard || str_startswith("gnu", standard)) ) {
         job.setBlockRewriteIncludes(true);
     }
 
