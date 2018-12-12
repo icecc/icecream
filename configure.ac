@@ -108,6 +108,7 @@ AC_CHECK_HEADERS([resolv.h], [], [],
 # include <arpa/nameser.h>
 #endif
 ])
+AC_CHECK_HEADERS([sched.h], [AC_CHECK_FUNCS([unshare])])
 
 AC_ARG_VAR(TAR, [Specifies tar path])
 AC_PATH_PROG(TAR, [tar])
