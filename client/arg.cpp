@@ -370,12 +370,14 @@ bool analyse_argv(const char * const *argv, CompileJob &job, bool icerun, list<s
                 args.append(a, Arg_Local);
                 /* These just modify the behaviour of other -M* options and do
                  * nothing by themselves. */
-            } else if (!strcmp(a, "-MF")) {
+            } else if (!strcmp(a, "-MF") || str_startswith("-Wp,-MF", a)) {
                 seen_mf = true;
                 args.append(a, Arg_Local);
                 args.append(argv[++i], Arg_Local);
                 /* as above but with extra argument */
-            } else if (!strcmp(a, "-MT") || !strcmp(a, "-MQ")) {
+            } else if (!strcmp(a, "-MT") || !strcmp(a, "-MQ") ||
+                       str_startswith("-Wp,-MT", a) ||
+                       str_startswith("-Wp,-MQ", a)) {
                 args.append(a, Arg_Local);
                 args.append(argv[++i], Arg_Local);
                 /* as above but with extra argument */
