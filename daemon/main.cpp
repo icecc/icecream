@@ -181,7 +181,7 @@ public:
 
         if (pipe_to_child >= 0) {
             if (-1 == close(pipe_to_child) && (errno != EBADF)){
-                log_perror("close failed");
+                log_perror("Failed to close pipe to child process");
             }
         }
 
@@ -201,11 +201,11 @@ public:
 
         switch (status) {
         case LINKJOB:
-            return ret + " CID: " + toString(client_id) + " " + outfile;
+            return ret + " ClientID: " + toString(client_id) + " " + outfile;
         case TOINSTALL:
             return ret + " " + toString(client_id) + " " + outfile;
         case WAITFORCHILD:
-            return ret + " CID: " + toString(client_id) + " PID: " + toString(child_pid) + " PFD: " + toString(pipe_to_child);
+            return ret + " ClientID: " + toString(client_id) + " PID: " + toString(child_pid) + " PFD: " + toString(pipe_to_child);
         case WAITCREATEENV:
             return ret + " " + toString(client_id) + " " + pending_create_env;
         default:
@@ -214,12 +214,12 @@ public:
                 string jobs;
 
                 if (usecsmsg) {
-                    jobs = " CS: " + usecsmsg->hostname;
+                    jobs = " CompileServer: " + usecsmsg->hostname;
                 }
 
-                return ret + " CID: " + toString(client_id) + " ID: " + toString(job_id) + jobs;
+                return ret + " ClientID: " + toString(client_id) + " Job ID: " + toString(job_id) + jobs;
             } else {
-                return ret + " CID: " + toString(client_id);
+                return ret + " ClientID: " + toString(client_id);
             }
         }
 
@@ -327,7 +327,7 @@ static int set_new_pgrp(void)
     int pgrp_id = getpgrp();
 
     if (-1 == pgrp_id){
-        log_perror("getpgrp() failed");
+        log_perror("Failed to get process group ID");
         return EXIT_DISTCC_FAILED;
     }
 
@@ -562,14 +562,14 @@ bool Daemon::setup_listen_fds()
 
     if (!noremote) { // if we only listen to local clients, there is no point in going TCP
         if ((tcp_listen_fd = socket(PF_INET, SOCK_STREAM, 0)) < 0) {
-            log_perror("socket()");
+            log_perror("Failed to create TCP listen socket.");
             return false;
         }
 
         int optval = 1;
 
         if (setsockopt(tcp_listen_fd, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(optval)) < 0) {
-            log_perror("setsockopt()");
+            log_perror("Failed to set 'Reuse Address(SO_REUSEADDR)' option on TCP Listen Socket");
             return false;
         }
 
@@ -583,7 +583,7 @@ bool Daemon::setup_listen_fds()
 
             if (::bind(tcp_listen_fd, (struct sockaddr *)&myaddr,
                      sizeof(myaddr)) < 0) {
-                log_perror("bind()");
+                log_perror("Failed to bind address to TCP listen socket");
                 sleep(2);
 
                 if (!--count) {
@@ -597,7 +597,7 @@ bool Daemon::setup_listen_fds()
         }
 
         if (listen(tcp_listen_fd, 20) < 0) {
-            log_perror("listen()");
+            log_perror("Failed to set TCP socket for listening to incoming connections");
             return false;
         }
 
@@ -605,7 +605,7 @@ bool Daemon::setup_listen_fds()
     }
 
     if ((unix_listen_fd = socket(AF_UNIX, SOCK_STREAM, 0)) < 0) {
-        log_perror("socket()");
+        log_perror("Failed to create a Unix scoket for listening");
         return false;
     }
 
@@ -666,7 +666,7 @@ bool Daemon::setup_listen_fds()
     }
 
     if (::bind(unix_listen_fd, (struct sockaddr*)&myaddr, sizeof(myaddr)) < 0) {
-        log_perror("bind()");
+        log_perror("Failed to bind address to unix listen socket");
 
         if (reset_umask) {
             umask(old_umask);
@@ -680,7 +680,7 @@ bool Daemon::setup_listen_fds()
     }
 
     if (listen(unix_listen_fd, 20) < 0) {
-        log_perror("listen()");
+        log_perror("Failed to set unix socket for listening");
         return false;
     }
 
@@ -694,7 +694,7 @@ void Daemon::determine_system()
     struct utsname uname_buf;
 
     if (uname(&uname_buf)) {
-        log_perror("uname call failed");
+        log_perror("uname call failed. Unable to determine system node name and platform");
         return;
     }
 
@@ -733,7 +733,7 @@ bool Daemon::send_scheduler(const Msg& msg)
     }
 
     if (!scheduler->send_msg(msg)) {
-        log_error() << "sending to scheduler failed.." << endl;
+        log_error() << "sending message to scheduler failed.." << endl;
         close_scheduler();
         return false;
     }
@@ -912,7 +912,7 @@ int Daemon::scheduler_get_internals()
 int Daemon::scheduler_use_cs(UseCSMsg *msg)
 {
     Client *c = clients.find_by_client_id(msg->client_id);
-    trace() << "handle_use_cs " << msg->job_id << " " << msg->client_id
+    trace() << "scheduler_use_cs " << msg->job_id << " " << msg->client_id
             << " " << c << " " << msg->hostname << " " << remote_name <<  endl;
 
     if (!c) {
@@ -947,7 +947,7 @@ int Daemon::scheduler_use_cs(UseCSMsg *msg)
 int Daemon::scheduler_no_cs(NoCSMsg *msg)
 {
     Client *c = clients.find_by_client_id(msg->client_id);
-    trace() << "handle_no_cs " << msg->job_id << " " << msg->client_id
+    trace() << "scheduler_no_cs " << msg->job_id << " " << msg->client_id
             << " " << c << " " <<  endl;
 
     if (!c) {
@@ -969,7 +969,7 @@ int Daemon::scheduler_no_cs(NoCSMsg *msg)
 
 bool Daemon::handle_transfer_env(Client *client, Msg *_msg)
 {
-    log_error() << "handle_transfer_env" << endl;
+    log_error() << "handle_transfer_env while  Client Status" << Client::status_str(client->status) <<  endl;
 
     assert(client->status != Client::TOINSTALL &&
            client->status != Client::TOCOMPILE &&
@@ -994,8 +994,9 @@ bool Daemon::handle_transfer_env(Client *client, Msg *_msg)
     current_kids++;
 
     if (pid > 0) {
-        log_error() << "got pid " << pid << endl;
-        client->pipe_to_child = sock_to_stdin;
+        //in parent thread
+        log_error() << "PID of child thread running untaring environment: " << pid << endl;
+        client->pipe_to_child = sock_to_stdin; //Write end of the pipe obtained from child
         client->child_pid = pid;
 
         if (!handle_file_chunk_env(client, fmsg)) {
@@ -1013,7 +1014,7 @@ bool Daemon::handle_transfer_env(Client *client, Msg *_msg)
 
 bool Daemon::handle_transfer_env_done(Client *client)
 {
-    log_error() << "handle_transfer_env_done" << endl;
+    log_error() << "handle_transfer_env_done PID " << client->child_pid <<" for " << client->outfile << endl;
 
     assert(client->outfile.size());
     assert(client->status == Client::TOINSTALL);
@@ -2308,7 +2309,7 @@ int main(int argc, char **argv)
 
     if (detach)
         if (daemon(0, 0)) {
-            log_perror("daemon()");
+            log_perror("Failed to run as a daemon.");
             exit(EXIT_DISTCC_FAILED);
         }
 

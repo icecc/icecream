@@ -103,3 +103,4 @@ addons:
     - realpath
     - gdb
     - valgrind
+    - libarchive-dev
