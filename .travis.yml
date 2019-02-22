@@ -90,6 +90,7 @@ before_script:
      if [ "TRAVIS_OS_NAME" == "osx" ]; then
          export LDFLAGS="${LDFLAGS} -L/usr/local/opt/libarchive/lib"
          export CPPFLAGS="${CPPFLAGS} -I/usr/local/opt/libarchive/include"
+         export PKG_CONFIG_PATH="/ur/local/opt/libarchive/lib/pkgconfig"
      fi
   - |
       export CFLAGS="${SAN_FLAGS} ${CFLAGS} -Wall -Wextra"
