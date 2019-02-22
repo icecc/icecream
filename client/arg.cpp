@@ -446,10 +446,12 @@ bool analyse_argv(const char * const *argv, CompileJob &job, bool icerun, list<s
             } else if (str_equal(a, "-x")) {
                 args.append(a, Arg_Rest);
                 bool unsupported = true;
+                std::string unsupported_opt = "??";
                 if (const char *opt = argv[i + 1]) {
                     ++i;
                     args.append(opt, Arg_Rest);
-                    if (str_equal(opt, "c++") || str_equal(opt, "c")) {
+                    unsupported_opt = opt;
+                    if (str_equal(opt, "c++") || str_equal(opt, "c") || str_equal(opt, "objective-c") || str_equal(opt, "objective-c++")) {
                         CompileJob::Language lang = CompileJob::Lang_Custom;
                         if( str_equal(opt, "c")) {
                             lang = CompileJob::Lang_C;
@@ -467,7 +469,7 @@ bool analyse_argv(const char * const *argv, CompileJob &job, bool icerun, list<s
                     }
                 }
                 if (unsupported) {
-                    log_info() << "unsupported -x option; running locally" << endl;
+                    log_info() << "unsupported -x option: " << unsupported_opt << "; running locally" << endl;
                     always_local = true;
                 }
             } else if (!strcmp(a, "-march=native") || !strcmp(a, "-mcpu=native")
