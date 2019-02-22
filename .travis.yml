@@ -87,6 +87,11 @@ before_script:
          export UBSAN_OPTIONS=print_stacktrace=1
      fi
   - |
+     if [ "TRAVIS_OS_NAME" == "osx" ]; then
+         export LDFLAGS="${LDFLAGS} -L/usr/local/opt/libarchive/lib"
+         export CPPFLAGS="${CPPFLAGS} -I/usr/local/opt/libarchive/include"
+     fi
+  - |
       export CFLAGS="${SAN_FLAGS} ${CFLAGS} -Wall -Wextra"
       export CXXFLAGS="${SAN_FLAGS} ${CXXFLAGS} -Wall -Wextra"
       export LDFLAGS="${SAN_FLAGS} ${LDFLAGS}"
