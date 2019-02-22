@@ -579,7 +579,6 @@ pid_t start_install_environment(const std::string &basename, const std::string &
     struct archive *ext;
     struct archive_entry *entry;
     int flags;
-    int r;
 
     flags = ARCHIVE_EXTRACT_TIME;
     flags |= ARCHIVE_EXTRACT_PERM;
@@ -599,7 +598,7 @@ pid_t start_install_environment(const std::string &basename, const std::string &
     }
 
     for(;;){
-        r = archive_read_next_header(a, &entry);
+        int r = archive_read_next_header(a, &entry);
         if (r == ARCHIVE_EOF) {
             trace() << "start_install_environment: reached end of archive while recveiving environment "<< endl;
             break;
