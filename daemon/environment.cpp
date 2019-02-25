@@ -592,7 +592,7 @@ pid_t start_install_environment(const std::string &basename, const std::string &
     archive_write_disk_set_options(ext, flags);
     archive_write_disk_set_standard_lookup(ext);
 
-    if((r=archive_read_open_fd(a, 0, fmsg->len))){
+    if(archive_read_open_fd(a, 0, fmsg->len)){
         trace() << "start_install_environment: "<< "archive_read_open_fd faied"<< endl;
         _exit(1);
     }
