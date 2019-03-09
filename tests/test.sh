@@ -933,7 +933,7 @@ symlink_wrapper_test()
     check_log_error icecc "Have to use host 127.0.0.1:10246"
     check_log_error icecc "Have to use host 127.0.0.1:10247"
     check_log_message icecc "building myself, but telling localhost"
-    check_log_message icecc "invoking: $TESTCXX -Wall"
+    check_log_message icecc "invoking: $(command -v $TESTCXX) -Wall"
 
     mark_logs "remote" "symlink wrapper test"
     ICECC_TEST_SOCKET="$testdir"/socket-localice ICECC_TEST_REMOTEBUILD=1 ICECC_DEBUG=debug ICECC_LOGFILE="$testdir"/icecc.log \
@@ -949,7 +949,7 @@ symlink_wrapper_test()
     check_log_message icecc "Have to use host 127.0.0.1:10246"
     check_log_error icecc "Have to use host 127.0.0.1:10247"
     check_log_error icecc "building myself, but telling localhost"
-    check_log_message icecc "preparing source to send: $TESTCXX -Wall"
+    check_log_message icecc "preparing source to send: $(command -v $TESTCXX) -Wall"
 
     echo "Symlink wrapper test successful."
     echo
