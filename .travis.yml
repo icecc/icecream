@@ -20,13 +20,22 @@ script:
             sudo ln -s `which clang` /usr/bin/clang
             sudo ln -s `which clang++` /usr/bin/clang++
             make test${strict} VALGRIND=$VALGRIND TESTCC=/usr/bin/clang TESTCXX=/usr/bin/clang++
+            if test $? -ne 0; then
+                exit 1
+            fi
         elif test "$TRAVIS_OS_NAME" = "osx"; then
             if test -n "$STRICTTESTS"; then
                 strict="-strict"
             fi
             make test${strict} TESTCC=clang TESTCXX=clang++
+            if test $? -ne 0; then
+                exit 1
+            fi
         fi
         make dist
+        if test $? -ne 0; then
+            exit 1
+        fi
 
 matrix:
   include:
