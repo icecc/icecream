@@ -1674,10 +1674,34 @@ run_ice "$testdir/includes.o" "remote" 0 $TESTCXX -Wall -Werror -c includes.cpp 
 run_ice "$testdir/includes.o" "remote" 0 $TESTCXX -Wall -Werror -c includes-without.cpp -include includes.h -o "$testdir"/includes.o
 run_ice "$testdir/plain.o" "local" 0 $TESTCXX -Wall -Werror -c plain.cpp -mtune=native -o "$testdir"/plain.o
 run_ice "$testdir/plain.o" "remote" 0 $TESTCC -Wall -Werror -x c++ -c plain -o "$testdir"/plain.o
-run_ice "$testdir/plain.o" "local" 0 $TESTCC -Wa,-al=listing.txt -Wall -Werror -c plain.c -o "$testdir/"plain.o
-run_ice "$testdir/plain.o" "remote" 0 $TESTCC -Wa,macros.s -Wall -Werror -c plain.c -o "$testdir/"plain.o
-run_ice "$testdir/plain.o" "remote" 0 $TESTCC -Wa,--defsym,MYSYM=yes -Wall -Werror -c plain.c -o "$testdir/"plain.o
-run_ice "$testdir/plain.o" "local" 0 $TESTCC -Wa,@assembler.args -Wall -Werror -c plain.c -o "$testdir/"plain.o
+
+$TESTCC -Wa,-al=listing.txt -Wall -Werror -c plain.c -o "$testdir/"plain.o 2>/dev/null
+if test $? -eq 0; then
+    run_ice "$testdir/plain.o" "local" 0 $TESTCC -Wa,-al=listing.txt -Wall -Werror -c plain.c -o "$testdir/"plain.o
+else
+    skipped_tests="$skipped_tests asm_listing"
+fi
+
+$TESTCC -Wa,macros.s -Wall -Werror -c plain.c -o "$testdir/"plain.o 2>/dev/null
+if test $? -eq 0; then
+    run_ice "$testdir/plain.o" "remote" 0 $TESTCC -Wa,macros.s -Wall -Werror -c plain.c -o "$testdir/"plain.o
+else
+    skipped_tests="$skipped_tests asm_macros"
+fi
+
+$TESTCC -Wa,--defsym,MYSYM=yes -Wall -Werror -c plain.c -o "$testdir/"plain.o 2>/dev/null
+if test $? -eq 0; then
+    run_ice "$testdir/plain.o" "remote" 0 $TESTCC -Wa,--defsym,MYSYM=yes -Wall -Werror -c plain.c -o "$testdir/"plain.o
+else
+    skipped_tests="$skipped_tests asm_defsym"
+fi
+
+$TESTCC -Wa,@assembler.args -Wall -Werror -c plain.c -o "$testdir/"plain.o 2>/dev/null
+if test $? -eq 0; then
+    run_ice "$testdir/plain.o" "local" 0 $TESTCC -Wa,@assembler.args -Wall -Werror -c plain.c -o "$testdir/"plain.o
+else
+    skipped_tests="$skipped_tests asm_defsym"
+fi
 
 run_ice "$testdir/testdefine.o" "remote" 0 $TESTCXX -Wall -Werror -DICECREAM_TEST_DEFINE=test -c testdefine.cpp -o "$testdir/"testdefine.o
 run_ice "$testdir/testdefine.o" "remote" 0 $TESTCXX -Wall -Werror -D ICECREAM_TEST_DEFINE=test -c testdefine.cpp -o "$testdir/"testdefine.o
@@ -1956,8 +1980,8 @@ if test -n "$using_gcc"; then
     # gcc (as of now) doesn't know these options, ignore these tests if they fail
     ignore="cxx-isystem target fsanitize-blacklist clangplugin clang_rewrite_includes"
 elif test -n "$using_clang"; then
-    # clang seems to handle everything
-    ignore=
+    # clang (as of now) doesn't know these
+    ignore="asm_listing asm_macros asm_defsym asm_defsym"
 fi
 ignored_tests=
 for item in $ignore; do
