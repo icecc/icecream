@@ -124,8 +124,21 @@ pid_t call_cpp(CompileJob &job, int fdwrite, int fdread)
                     std::string p = (*it);
 
                     if (access(p.c_str(), R_OK) < 0 && access((p + ".gch").c_str(), R_OK) == 0) {
+                        // PCH is useless for preprocessing, ignore the flag.
                         list<string>::iterator o = --it;
                         it++;
+                        flags.erase(o);
+                        o = it++;
+                        flags.erase(o);
+                    }
+                }
+            } else if ((*it) == "-include-pch") {
+                list<string>::iterator o = it;
+                ++it;
+                if (it != flags.end()) {
+                    std::string p = (*it);
+                    if (access(p.c_str(), R_OK) == 0) {
+                        // PCH is useless for preprocessing (and probably slows things down), ignore the flag.
                         flags.erase(o);
                         o = it++;
                         flags.erase(o);
