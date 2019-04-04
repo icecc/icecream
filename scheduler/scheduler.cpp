@@ -746,7 +746,7 @@ static CompileServer *pick_server(Job *job)
 
     if (bestpre) {
 #if DEBUG_SCHEDULER > 1
-        trace() << "taking best preload " << bestui->nodeName() << " " <<  server_speed(bestui, job, true) << endl;
+        trace() << "taking best preload " << bestpre->nodeName() << " " <<  server_speed(bestpre, job, true) << endl;
 #endif
     }
 
