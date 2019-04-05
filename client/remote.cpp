@@ -586,6 +586,12 @@ static int build_remote_int(CompileJob &job, UseCSMsg *usecs, MsgChannel *local_
                 throw remote_error(102, "Error 102 - command needs stdout/stderr workaround, recompiling locally");
             }
 
+            if (crmsg->err.find("file not found") != string::npos) {
+                delete crmsg;
+                log_info() << "remote is missing file, recompiling locally" << endl;
+                throw remote_error(103, "Error 104 - remote is missing file, recompiling locally");
+            }
+
             ignore_result(write(STDOUT_FILENO, crmsg->out.c_str(), crmsg->out.size()));
 
             if (colorify_wanted(job)) {
