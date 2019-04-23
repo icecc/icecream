@@ -567,7 +567,13 @@ Icecream on gentoo
 **Be aware** that you have to change the CFLAGS during each gcc update
 too.
 
--   To use icecream with emerge/ebuild use PREROOTPATH=/opt/icecream/lib/icecc/bin
+-   Create soft link for CHOST gcc/g++ e.g.
+    ln -s /opt/icecream/bin/icecc
+    /opt/icecream/libexec/icecc/bin/x86_64-pc-linux-gnu-gcc;
+    ln -s /opt/icecream/bin/icecc
+    /opt/icecream/libexec/icecc/bin/x86_64-pc-linux-gnu-g++
+-   To use icecream with emerge/ebuild use
+    PREROOTPATH="/opt/icecream/libexec/icecc/bin" FEATURES="-network-sandbox"
     emerge bla
 -   Be aware, because your gcc/glibc/binutils are normally compiled with
     processor-specific flags, there is a high chance that your compiler
