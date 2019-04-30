@@ -3,7 +3,7 @@ env:
 
 task:
   env:
-    CFLAGS: -I/usr/local/include
+    CFLAGS: -I /usr/local/include
     CXXFLAGS: -I/usr/local/include
     LDFLAGS: -L/usr/local/lib
   freebsd_instance:
