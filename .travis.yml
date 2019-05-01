@@ -41,7 +41,7 @@ matrix:
   - os: osx
     before_install:
       - brew update
-      - brew install lzo docbook2x gdb ccache
+      - brew install lzo docbook2x gdb ccache libarchive
   - os: linux
     sudo: true # for setcap so we can run the tests in chroot.
     compiler: clang
@@ -87,6 +87,12 @@ before_script:
          export UBSAN_OPTIONS=print_stacktrace=1
      fi
   - |
+     if [ "$TRAVIS_OS_NAME" == "osx" ]; then
+         export LDFLAGS="${LDFLAGS} -L/usr/local/opt/libarchive/lib"
+         export CPPFLAGS="${CPPFLAGS} -I/usr/local/opt/libarchive/include"
+         export PKG_CONFIG_PATH="/usr/local/opt/libarchive/lib/pkgconfig"
+     fi
+  - |
       export CFLAGS="${SAN_FLAGS} ${CFLAGS} -Wall -Wextra"
       export CXXFLAGS="${SAN_FLAGS} ${CXXFLAGS} -Wall -Wextra"
       export LDFLAGS="${SAN_FLAGS} ${LDFLAGS}"
@@ -103,3 +109,4 @@ addons:
     - realpath
     - gdb
     - valgrind
+    - libarchive-dev

@@ -122,6 +122,7 @@ AC_CHECK_HEADERS([netinet/tcp_var.h], [], [],
 ])
 
 AC_CHECK_HEADERS([sys/user.h])
+AC_CHECK_HEADERS([archive.h, archive_entry.h])
 
 ######################################################################
 dnl Checks for types
@@ -190,6 +191,10 @@ AC_SUBST(LZO_LDADD)
 
 AC_CHECK_LIB([dl], [dlsym], [DL_LDADD=-ldl])
 AC_SUBST([DL_LDADD])
+
+AC_CHECK_LIB(archive, archive_read_data_block, ARCHIVE_LDADD=-larchive,
+    AC_MSG_ERROR([Could not find libarchive library - please install libarchive-devel]))
+AC_SUBST(ARCHIVE_LDADD)
 
 # In DragonFlyBSD daemon needs to be linked against libkinfo.
 case $host_os in

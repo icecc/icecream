@@ -1,3 +1,6 @@
+1.2.1
+- require libarchive
+
 1.2
  - Add more compiler flags to the list that mean build locally
    * -pedantic (preprocessing only)

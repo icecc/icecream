@@ -38,6 +38,9 @@
 #include "exitcode.h"
 #include "util.h"
 
+#include <archive.h>
+#include <archive_entry.h>
+
 using namespace std;
 
 size_t sumup_dir(const string &dir)
@@ -425,11 +428,37 @@ size_t finish_create_env(int pipe, const string &basedir, string &native_environ
 }
 
 
+
+static int copy_data(struct archive *ar, struct archive *aw)
+{
+    int r;
+    const void *buff;
+    size_t size;
+
+#if ARCHIVE_VERSION_NUMBER >= 3000000
+    int64_t offset;
+#else
+    off_t offset;
+#endif
+    for(;;){
+        r = archive_read_data_block(ar, &buff, &size, &offset);
+        if (r == ARCHIVE_EOF){
+            return (ARCHIVE_OK);
+        }
+        r= archive_write_data_block(aw, buff, size, offset);
+        if(r != ARCHIVE_OK){
+            trace() << "COPY_DATA: Error after write"<< archive_error_string(aw)<<endl;
+            return (r);
+        }
+    }
+}
+
 pid_t start_install_environment(const std::string &basename, const std::string &target,
                                 const std::string &name, MsgChannel *c,
                                 int &pipe_to_stdin, FileChunkMsg *&fmsg,
                                 uid_t user_uid, gid_t user_gid, int extract_priority)
 {
+    log_info() << "start_install_environment: " << basename << " target "<<target << " Name: " << name << endl;
     if (!name.size()) {
         log_error() << "illegal name for environment " << name << endl;
         return 0;
@@ -453,19 +482,6 @@ pid_t start_install_environment(const std::string &basename, const std::string &
     }
 
     fmsg = dynamic_cast<FileChunkMsg*>(msg);
-    const char *decompressor = NULL;
-
-    if (fmsg->len > 2) {
-        if (fmsg->buffer[0] == 037 && fmsg->buffer[1] == 0213) {
-            decompressor = "-z";    // --gzip
-        } else if (fmsg->buffer[0] == 'B' && fmsg->buffer[1] == 'Z') {
-            decompressor = "-j";    // --bzip2
-        } else if (fmsg->buffer[0] == 0xfd && fmsg->buffer[1] == 0x37) {
-            decompressor = "-J";    // --xz
-        } else if (fmsg->buffer[0] == 0x28 && fmsg->buffer[1] == 0xb5) {
-            decompressor = "-Iunzstd";
-        }
-    }
 
     if (mkdir(dirname.c_str(), 0770) && errno != EEXIST) {
         log_perror("mkdir target") << "\t" << dirname << endl;
@@ -489,10 +505,10 @@ pid_t start_install_environment(const std::string &basename, const std::string &
         return 0;
     }
 
-    int fds[2];
+    int fds[2]; //File descriptor for Pipe
 
     if (pipe(fds) == -1) {
-        log_perror("pipe failed");
+        log_perror("start_install_environment: pipe creation failed for recveiving environment");
         return 0;
     }
 
@@ -500,16 +516,17 @@ pid_t start_install_environment(const std::string &basename, const std::string &
     pid_t pid = fork();
 
     if (pid == -1) {
-        log_perror("fork - trying to run tar");
+        log_perror("Failed to fork - trying to run tar");
         return 0;
     }
     if (pid) {
-        trace() << "pid " << pid << endl;
+        //Runs only on parent(PID value is 0 in child and PID id on parent)
+        trace() << "Created fork for recveiving environment on pid " << pid << endl;
 
         if ((-1 == close(fds[0])) && (errno != EBADF)){
-            log_perror("close failed");
+            log_perror("Failed to close read end of pipe");
         }
-        pipe_to_stdin = fds[1];
+        pipe_to_stdin = fds[1]; //Set write end of pipe to pass to parent thread
 
         return pid;
     }
@@ -540,15 +557,16 @@ pid_t start_install_environment(const std::string &basename, const std::string &
     signal(SIGPIPE, SIG_DFL);
 
     if ((-1 == close(0)) && (errno != EBADF)){
-        log_perror("close failed");
+        //https://linux.die.net/man/3/close
+        log_perror("Failed to close standard input");
     }
 
     if ((-1 == close(fds[1])) && (errno != EBADF)){
-        log_perror("close failed");
+        log_perror("Failed to close write end of pipe");
     }
 
     if (-1 == dup2(fds[0], 0)){
-        log_perror("dup2 failed");
+        log_perror("Failed to duplicate file descriptor for read end of pipe with standard input");
     }
 
     int niceval = nice(extract_priority);
@@ -556,16 +574,65 @@ pid_t start_install_environment(const std::string &basename, const std::string &
         log_warning() << "failed to set nice value: " << strerror(errno) << endl;
     }
 
-    char **argv;
-    argv = new char*[5];
-    argv[0] = strdup(TAR);
-    argv[1] = strdup("-xC");
-    argv[2] = strdup(dirname.c_str());
-    argv[3] = decompressor ? strdup(decompressor) : 0;
-    argv[4] = 0;
+    /* libarchive stream reader */
+    struct archive *a;
+    struct archive *ext;
+    struct archive_entry *entry;
+    int flags;
 
-    execv(argv[0], argv);
-    log_perror("execv failed");
+    flags = ARCHIVE_EXTRACT_TIME;
+    flags |= ARCHIVE_EXTRACT_PERM;
+    flags |= ARCHIVE_EXTRACT_ACL;
+    flags |= ARCHIVE_EXTRACT_FFLAGS;
+
+    a=archive_read_new();
+    archive_read_support_format_all(a);
+    archive_read_support_filter_all(a);
+    ext = archive_write_disk_new();
+    archive_write_disk_set_options(ext, flags);
+    archive_write_disk_set_standard_lookup(ext);
+
+    if(archive_read_open_fd(a, 0, fmsg->len)){
+        log_error() << "start_install_environment: "<< "archive_read_open_fd faied"<< endl;
+        _exit(1);
+    }
+
+    for(;;){
+        int r = archive_read_next_header(a, &entry);
+        if (r == ARCHIVE_EOF) {
+            trace() << "start_install_environment: reached end of archive while recveiving environment "<< endl;
+            break;
+        }
+        if (r < ARCHIVE_WARN){
+            log_error() << "start_install_environment: r  < ARCHIVE_WARN " <<archive_error_string(a)<<endl;   
+            _exit(1);
+        }
+
+        /*Extracting archive*/
+        const char* currentFile = archive_entry_pathname(entry);
+        const std::string fullOutputPath = dirname + "/"+currentFile;
+        archive_entry_set_pathname(entry, fullOutputPath.c_str());
+        r = archive_write_header(ext, entry);
+
+        if(archive_entry_size(entry) > 0){
+            r= copy_data(a, ext);
+            if(r < ARCHIVE_WARN){
+                log_error()<< "start_install_environment: " << archive_error_string(ext)<<endl;
+                _exit(1);
+            }
+        }
+        r=archive_write_finish_entry(ext);
+        if(r<ARCHIVE_WARN){
+            log_error() << "start_install_environment: " << archive_error_string(ext)<<endl;
+            _exit(1);
+        }
+    }
+    archive_read_close(a);
+    archive_read_free(a);
+    archive_write_close(ext);
+    archive_write_free(ext);
+    /*libarchive stream reader ends*/
+
     _exit(100);
 }
 
@@ -574,14 +641,12 @@ size_t finalize_install_environment(const std::string &basename, const std::stri
                                     pid_t pid, uid_t user_uid, gid_t user_gid)
 {
     int status = 1;
-
-    while (waitpid(pid, &status, 0) < 0 && errno == EINTR) {}
-
-    if (shell_exit_status(status) != 0) {
-        log_error() << "exit code: " << shell_exit_status(status) << endl;
-        remove_environment(basename, target);
+    if (pid < 1){
+        log_error() << "finalize_install_environment: Invalid pid " << pid << endl;
         return 0;
     }
+    trace() << "finalize_install_environment started for " << basename << " target " << target << " arriving on PID " << pid <<endl;
+    while (waitpid(pid, &status, 0) < 0 && errno == EINTR) {}
 
     string dirname = basename + "/target=" + target;
 
@@ -754,7 +819,7 @@ bool verify_env(MsgChannel *client, const string &basedir, const string &target,
 
         return shell_exit_status(status) == 0;
     } else if (pid < 0) {
-        log_perror("fork failed");
+        log_perror("Failed to fork for verifying environment");
         return false;
     }
 
