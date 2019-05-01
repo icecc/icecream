@@ -112,7 +112,7 @@ static bool exec_and_wait(const char *const argv[])
         // parent
         int status;
 
-        while (waitpid(pid, &status, 0) < 0 && errno == EINTR);
+        while (waitpid(pid, &status, 0) < 0 && errno == EINTR) {}
 
         return shell_exit_status(status) == 0;
     }
@@ -401,7 +401,7 @@ size_t finish_create_env(int pipe, const string &basedir, string &native_environ
     char buf[1024];
     buf[0] = '\0';
 
-    while (read(pipe, buf, 1023) < 0 && errno == EINTR);
+    while (read(pipe, buf, 1023) < 0 && errno == EINTR) {}
 
     if (char *nl = strchr(buf, '\n')) {
         *nl = '\0';
@@ -458,7 +458,7 @@ pid_t start_install_environment(const std::string &basename, const std::string &
                                 int &pipe_to_stdin, FileChunkMsg *&fmsg,
                                 uid_t user_uid, gid_t user_gid, int extract_priority)
 {
-    log_error() << "start_install_environment: " << basename << " target "<<target << " Name: " << name << endl;
+    log_info() << "start_install_environment: " << basename << " target "<<target << " Name: " << name << endl;
     if (!name.size()) {
         log_error() << "illegal name for environment " << name << endl;
         return 0;
@@ -593,7 +593,7 @@ pid_t start_install_environment(const std::string &basename, const std::string &
     archive_write_disk_set_standard_lookup(ext);
 
     if(archive_read_open_fd(a, 0, fmsg->len)){
-        trace() << "start_install_environment: "<< "archive_read_open_fd faied"<< endl;
+        log_error() << "start_install_environment: "<< "archive_read_open_fd faied"<< endl;
         _exit(1);
     }
 
@@ -604,7 +604,7 @@ pid_t start_install_environment(const std::string &basename, const std::string &
             break;
         }
         if (r < ARCHIVE_WARN){
-            trace() << "start_install_environment: r  < ARCHIVE_WARN " <<archive_error_string(a)<<endl;   
+            log_error() << "start_install_environment: r  < ARCHIVE_WARN " <<archive_error_string(a)<<endl;   
             _exit(1);
         }
 
@@ -617,12 +617,13 @@ pid_t start_install_environment(const std::string &basename, const std::string &
         if(archive_entry_size(entry) > 0){
             r= copy_data(a, ext);
             if(r < ARCHIVE_WARN){
-                trace()<< "start_install_environment: " << archive_error_string(ext)<<endl;
+                log_error()<< "start_install_environment: " << archive_error_string(ext)<<endl;
                 _exit(1);
             }
         }
         r=archive_write_finish_entry(ext);
         if(r<ARCHIVE_WARN){
+            log_error() << "start_install_environment: " << archive_error_string(ext)<<endl;
             _exit(1);
         }
     }
@@ -645,7 +646,7 @@ size_t finalize_install_environment(const std::string &basename, const std::stri
         return 0;
     }
     trace() << "finalize_install_environment started for " << basename << " target " << target << " arriving on PID " << pid <<endl;
-    while (waitpid(pid, &status, 0) < 0 && errno == EINTR);
+    while (waitpid(pid, &status, 0) < 0 && errno == EINTR) {}
 
     string dirname = basename + "/target=" + target;
 
@@ -678,7 +679,7 @@ size_t remove_environment(const string &basename, const string &env)
     if (pid) {
         int status = 0;
 
-        while (waitpid(pid, &status, 0) < 0 && errno == EINTR);
+        while (waitpid(pid, &status, 0) < 0 && errno == EINTR) {}
 
         if (WIFEXITED(status)) {
             return res;
@@ -814,7 +815,7 @@ bool verify_env(MsgChannel *client, const string &basedir, const string &target,
     if (pid > 0) {  // parent
         int status;
 
-        while (waitpid(pid, &status, 0) < 0 && errno == EINTR);
+        while (waitpid(pid, &status, 0) < 0 && errno == EINTR) {}
 
         return shell_exit_status(status) == 0;
     } else if (pid < 0) {
