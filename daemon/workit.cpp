@@ -677,6 +677,10 @@ int work_it(CompileJob &j, unsigned int job_stat[], MsgChannel *client, CompileR
                 }
 
                 if (shell_exit_status(status) != 0) {
+                    if( !rmsg.out.empty())
+                        trace() << "compiler produced stdout output:\n" << rmsg.out;
+                    if( !rmsg.err.empty())
+                        trace() << "compiler produced stderr output:\n" << rmsg.err;
                     unsigned long int mem_used = ((ru.ru_minflt + ru.ru_majflt) * getpagesize()) / 1024;
                     rmsg.status = EXIT_OUT_OF_MEMORY;
 
