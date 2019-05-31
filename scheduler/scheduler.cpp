@@ -586,6 +586,9 @@ static CompileServer *pick_server(Job *job)
     if (!job->preferredHost().empty()) {
         for (list<CompileServer *>::iterator it = css.begin(); it != css.end(); ++it) {
             if ((*it)->matches(job->preferredHost()) && (*it)->is_eligible(job)) {
+#if DEBUG_SCHEDULER > 1
+                trace() << "taking preferred " << (*it)->nodeName() << " " <<  server_speed(*it, job, true) << endl;
+#endif
                 return *it;
             }
         }
@@ -639,7 +642,9 @@ static CompileServer *pick_server(Job *job)
 
         // Ignore ineligible servers
         if (!cs->is_eligible(job)) {
+#if DEBUG_SCHEDULER > 1
             trace() << cs->nodeName() << " not eligible" << endl;
+#endif
             continue;
         }
 
