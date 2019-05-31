@@ -938,21 +938,23 @@ symlink_wrapper_test()
     check_log_message icecc "building myself, but telling localhost"
     check_log_message icecc "invoking: $(command -v $TESTCXX) -Wall"
 
-    mark_logs "remote" "symlink wrapper test"
-    ICECC_TEST_SOCKET="$testdir"/socket-localice ICECC_TEST_REMOTEBUILD=1 ICECC_DEBUG=debug ICECC_LOGFILE="$testdir"/icecc.log \
-        PATH=$(dirname $TESTCXX):$PATH ICECC_PREFERRED_HOST=remoteice1 $valgrind "$cxxwrapper" -Wall -c plain.cpp
-    if test $? -ne 0; then
-        echo Error, remote symlink wrapper test failed.
-        stop_ice 0
-        abort_tests
+    if test -z "$chroot_disabled"; then
+        mark_logs "remote" "symlink wrapper test"
+        ICECC_TEST_SOCKET="$testdir"/socket-localice ICECC_TEST_REMOTEBUILD=1 ICECC_DEBUG=debug ICECC_LOGFILE="$testdir"/icecc.log \
+            PATH=$(dirname $TESTCXX):$PATH ICECC_PREFERRED_HOST=remoteice1 $valgrind "$cxxwrapper" -Wall -c plain.cpp
+        if test $? -ne 0; then
+            echo Error, remote symlink wrapper test failed.
+            stop_ice 0
+            abort_tests
+        fi
+        flush_logs
+        check_logs_for_generic_errors
+        check_log_error icecc "<building_local>"
+        check_log_message icecc "Have to use host 127.0.0.1:10246"
+        check_log_error icecc "Have to use host 127.0.0.1:10247"
+        check_log_error icecc "building myself, but telling localhost"
+        check_log_message icecc "preparing source to send: $(command -v $TESTCXX) -Wall"
     fi
-    flush_logs
-    check_logs_for_generic_errors
-    check_log_error icecc "<building_local>"
-    check_log_message icecc "Have to use host 127.0.0.1:10246"
-    check_log_error icecc "Have to use host 127.0.0.1:10247"
-    check_log_error icecc "building myself, but telling localhost"
-    check_log_message icecc "preparing source to send: $(command -v $TESTCXX) -Wall"
 
     echo "Symlink wrapper test successful."
     echo
