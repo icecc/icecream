@@ -10,6 +10,8 @@ test-prepare:
 	    true; \
 	elif test -x /sbin/setcap; then \
 	    sudo /sbin/setcap cap_sys_chroot+ep ${sbindir}/iceccd ; \
+	elif test -x /usr/sbin/setcap; then \
+	    sudo /usr/sbin/setcap cap_sys_chroot+ep ${sbindir}/iceccd ; \
 	elif command -v filecap >/dev/null 2>/dev/null; then \
 	    sudo filecap ${sbindir}/iceccd sys_chroot ; \
 	else \
