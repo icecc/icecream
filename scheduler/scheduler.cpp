@@ -57,9 +57,7 @@
 
 #include "compileserver.h"
 #include "job.h"
-
-// Values 0 to 3.
-#define DEBUG_SCHEDULER 0
+#include "scheduler.h"
 
 /* TODO:
    * leak check

@@ -6,4 +6,5 @@ icecc_scheduler_LDADD = ../services/libicecc.la
 noinst_HEADERS = \
     compileserver.h \
     job.h \
-    jobstat.h
+    jobstat.h \
+    scheduler.h

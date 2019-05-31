@@ -33,7 +33,7 @@
 #include <sys/select.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
-#if HAVE_NETINET_TCP_VAR_H
+#ifdef HAVE_NETINET_TCP_VAR_H
 #include <sys/socketvar.h>
 #include <netinet/tcp_var.h>
 #endif

@@ -33,6 +33,7 @@
 #include "../services/job.h"
 
 #include "job.h"
+#include "scheduler.h"
 
 
 unsigned int CompileServer::s_hostIdCounter = 0;
@@ -136,7 +137,7 @@ string CompileServer::can_install(const Job *job)
     //         << job->target_platform << "'" << endl;
     if (busyInstalling()) {
 #if DEBUG_SCHEDULER > 0
-        trace() << nodeName() << " is busy installing since " << time(0) - cs->busyInstalling()
+        trace() << nodeName() << " is busy installing since " << time(0) - busyInstalling()
                 << " seconds." << endl;
 #endif
         return string();

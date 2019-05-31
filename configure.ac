@@ -57,8 +57,8 @@ if test "$GCC" = yes; then
     CFLAGS="-g -W -Wall \
 -Wshadow -Wpointer-arith $cast_align -Wwrite-strings \
 -Waggregate-return -Wstrict-prototypes -Wmissing-prototypes \
--Wnested-externs $CFLAGS"
-    CXXFLAGS=" -g -W -Wall -Wpointer-arith $cast_align $wshadow -Wwrite-strings $CXXFLAGS"
+-Wnested-externs -Wundef $CFLAGS"
+    CXXFLAGS=" -g -W -Wall -Wpointer-arith $cast_align $wshadow -Wwrite-strings -Wundef $CXXFLAGS"
     AC_MSG_NOTICE([Adding gcc options: $CFLAGS])
 fi
 
