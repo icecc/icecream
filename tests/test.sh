@@ -590,6 +590,9 @@ run_ice()
                     if diff "$testdir"/stderr.remoteice unusedmacro2.txt >/dev/null; then
                         skipstderrcheck=1
                     fi
+                    if diff "$testdir"/stderr.remoteice unusedmacro3.txt >/dev/null; then
+                        skipstderrcheck=1
+                    fi
                 fi
             fi
             if test -z "$skipstderrcheck"; then

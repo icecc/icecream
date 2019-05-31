@@ -1,0 +1,3 @@
+unusedmacro.cpp:1: warning: macro "FOO" is not used [-Wunused-macros]
+    1 | #define FOO bar
+      | 
