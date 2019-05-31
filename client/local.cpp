@@ -268,6 +268,8 @@ int build_local(CompileJob &job, MsgChannel *local_daemon, struct rusage *used)
     string argstxt;
 
     for (list<string>::const_iterator it = arguments.begin(); it != arguments.end(); ++it) {
+        if( *it == "-fdirectives-only" )
+            continue; // pointless locally, and it can break things
         argv.push_back(strdup(it->c_str()));
         argstxt += ' ';
         argstxt += *it;

@@ -1864,7 +1864,7 @@ else
 fi
 
 run_ice "$testdir/includes.h.gch" "local" 0 "keepoutput" $TESTCXX -x c++-header -Wall -Werror -c includes.h -o "$testdir"/includes.h.gch
-run_ice "$testdir/includes.o" "remote" 0 $TESTCXX -Wall -Werror -c includes.cpp -include "$testdir"/includes.h -o "$testdir"/includes.o
+run_ice "$testdir/includes.o" "remote" 0 $TESTCXX -Wall -Werror -c includes.cpp -include "$testdir"/includes.h -Winvalid-pch -o "$testdir"/includes.o
 if test -n "$using_clang"; then
     run_ice "$testdir/includes.o" "remote" 0 $TESTCXX -Wall -Werror -c includes.cpp -include-pch "$testdir"/includes.h.gch -o "$testdir"/includes.o
 fi
