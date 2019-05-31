@@ -110,7 +110,12 @@ bool Consumer::VisitReturnStmt( const ReturnStmt* returnstmt )
     if( const CXXBoolLiteralExpr* boolliteral = dyn_cast< CXXBoolLiteralExpr >( expression ))
         { // It is.
         if( boolliteral->getValue() == false )
-            report( compiler, DiagnosticsEngine::Warning, "Icecream plugin found return false", returnstmt->getLocStart());
+            report( compiler, DiagnosticsEngine::Warning, "Icecream plugin found return false",
+#if CLANG_VERSION_MAJOR >= 8
+                returnstmt->getBeginLoc());
+#else
+                returnstmt->getLocStart());
+#endif
         }
     return true;
     }

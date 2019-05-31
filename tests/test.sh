@@ -1116,6 +1116,7 @@ clangplugintest()
         echo Failed to compile clang plugin, clang plugin test skipped.
         echo
         skipped_tests="$skipped_tests clangplugin"
+        return
     fi
 
     # TODO This should be able to also handle the clangpluginextra.txt argument without the absolute path.
