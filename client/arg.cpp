@@ -336,7 +336,9 @@ bool analyse_argv(const char * const *argv, CompileJob &job, bool icerun, list<s
                 log_info() << "preprocessing, building locally" << endl;
             } else if (!strncmp(a, "-fdump", 6)
                        || !strcmp(a, "-combine")
-                       || !strcmp(a, "-fsyntax-only")) {
+                       || !strcmp(a, "-fsyntax-only")
+                       || !strncmp(a, "-ftime-report", strlen("-ftime-report"))
+                       || !strcmp(a, "-ftime-trace")) {
                 always_local = true;
                 args.append(a, Arg_Local);
                 log_info() << "argument " << a << ", building locally" << endl;
