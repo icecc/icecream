@@ -706,7 +706,8 @@ bool analyse_argv(const char * const *argv, CompileJob &job, bool icerun, list<s
             } else if (str_startswith("--target=", a)) {
                 seen_target = true;
                 args.append(a, Arg_Rest);
-            } else if (str_equal("-Wunused-macros", a)) {
+            } else if (str_equal("-Wunused-macros", a)
+                       || str_equal("-Werror=unused-macros", a)) {
                 wunused_macros = true;
                 args.append(a, Arg_Rest);
             } else if (str_equal("-Wno-unused-macros", a)) {
