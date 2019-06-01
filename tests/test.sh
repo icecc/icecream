@@ -664,6 +664,15 @@ run_ice()
                     echo "Output mismatch ($output.remoteice), assuming Cygwin object files, not knowing how to verify"
                 fi
             fi
+        elif echo "$output" | grep -q '\.s$'; then
+            # Filter out .file directive, which may be '-' for the remote file.
+            grep -v '[[:space:]]\.file[[:space:]]' "$output" > "$output".asm.text
+            grep -v '[[:space:]]\.file[[:space:]]' "$output".localice > "$output".localice.asm.text
+            grep -v '[[:space:]]\.file[[:space:]]' "$output".remoteice > "$output".remoteice.asm.text
+            compare_outputs "$output".localice.asm.text "$output".asm.text "Output mismatch ($output.localice)"
+            if test -z "$chroot_disabled"; then
+                compare_outputs "$output".remoteice.asm.text "$output".asm.text "Output mismatch ($output.remoteice)"
+            fi
         else
             compare_outputs "$output".localice "$output" "Output mismatch ($output.localice)"
             if test -z "$chroot_disabled"; then
@@ -1028,8 +1037,24 @@ recursive_test()
     elif test -n "$using_gcc"; then
         recursive_tester=./recursive_g++
     fi
+
+    # We need to avoid automatic environment creation, which would normally be triggered
+    # since the path of the "compiler" is different. So force ICECC_VERSION.
+    mkdir -p "$testdir"/recursive_env
+    pushd "$testdir"/recursive_env >/dev/null
+    "${icecc}" --build-native $TESTCXX > "$testdir"/icecc-build-native-output
+    if test $? -ne 0; then
+        popd >/dev/null
+        echo Creating environment for recursive check test failed.
+        stop_ice 0
+        abort_tests
+    fi
+    popd >/dev/null
+    local tarball=$(sed -En '/^creating (.*\.tar\..*)/s//\1/p' "$testdir"/icecc-build-native-output)
+    test_env="$testdir"/recursive_env/${tarball}
     PATH="$prefix"/lib/icecc/bin:"$prefix"/bin:/usr/local/bin:/usr/bin:/bin ICECC_TEST_SOCKET="$testdir"/socket-localice \
-        ICECC_TEST_REMOTEBUILD=1 ICECC_DEBUG=debug ICECC_LOGFILE="$testdir"/icecc.log "${icecc}" ./${recursive_tester} -Wall -c plain.c -o plain.o 2>>"$testdir"/stderr.log
+        ICECC_VERSION=$test_env ICECC_TEST_REMOTEBUILD=1 ICECC_DEBUG=debug ICECC_LOGFILE="$testdir"/icecc.log \
+        "${icecc}" ./${recursive_tester} -Wall -c plain.c -o plain.o 2>>"$testdir"/stderr.log
     if test $? -ne 111; then
         echo Recursive check test failed.
         stop_ice 0
@@ -1046,7 +1071,8 @@ recursive_test()
     reset_logs "" "recursive icerun check"
 
     PATH="$prefix"/lib/icecc/bin:"$prefix"/bin:/usr/local/bin:/usr/bin:/bin ICECC_TEST_SOCKET="$testdir"/socket-localice \
-        ICECC_TEST_REMOTEBUILD=1 ICECC_DEBUG=debug ICECC_LOGFILE="$testdir"/icecc.log "${icerun}" ${icecc} $TESTCC -Wall -c plain.c -o "$testdir"/plain.o 2>>"$testdir"/stderr.log
+        ICECC_VERSION=$test_env ICECC_TEST_REMOTEBUILD=1 ICECC_DEBUG=debug ICECC_LOGFILE="$testdir"/icecc.log \
+        "${icerun}" ${icecc} $TESTCC -Wall -c plain.c -o "$testdir"/plain.o 2>>"$testdir"/stderr.log
     if test $? -ne 0; then
         echo Recursive icerun check test failed.
         stop_ice 0
@@ -1059,6 +1085,7 @@ recursive_test()
     check_log_message_count icecc 1 "recursive invocation from icerun"
     echo Recursive icerun check test successful.
     echo
+    rm -rf "$testdir"/recursive_env
 }
 
 # Check that transfering Clang plugin(s) works. While at it, also test ICECC_EXTRAFILES.
@@ -1353,6 +1380,49 @@ ccache_test()
     echo
 }
 
+# Try to find a different version of the used compiler, use both of them and verify the remote compilation
+# uses the matching version (e.g. /usr/bin/gcc -> gcc-8 and there's also /usr/bin/gcc-7).
+differentcompilerversiontest()
+{
+    # First check $TESTCC. Compile to just assembler, which will output .ident "version".
+    # If remote uses a different compiler, the test will find the difference and fail.
+    run_ice "$testdir/plain.s" "remote" 0 "$TESTCC" -Wall -Werror -S plain.c -o "$testdir/"plain.s
+
+    # Try to find a different version of $TESTCC.
+    # Just search /usr/bin/.
+    if test -n "$using_gcc"; then
+        files="$(ls /usr/bin/gcc-[0-9\.-]* 2>/dev/null)"
+    elif test -n "$using_clang"; then
+        files="$(ls /usr/bin/clang-[0-9\.-]* 2>/dev/null)"
+    fi
+    different=
+    if test -n "$files"; then
+        for file in $files; do
+            if test "$($TESTCC --version | head -1)" != "$($files --version | head -1)"; then
+                different="$file"
+                break
+            fi
+        done
+    fi
+    if test -z "$different"; then
+        echo Could not find a different version for $TESTCC, skipping test.
+        echo
+        skipped_tests="$skipped_tests different_compiler"
+        return
+    fi
+
+    echo Different compiler version: "$different" --version
+    echo
+
+    # Run a normal compile test for it first, this one already may find a difference.
+    run_ice "$testdir/plain.o" "remote" 0 "$different" -Wall -Werror -c plain.c -o "$testdir/"plain.o
+
+    # And now again compile to just assembler, which will output .ident "version".
+    # If remote uses a different compiler (e.g. $TESTCC), the test will find the difference and fail.
+    run_ice "$testdir/plain.s" "remote" 0 "$different" -Wall -Werror -S plain.c -o "$testdir/"plain.s
+}
+
+
 # All log files that are used by tests. Done here to keep the list in just one place.
 daemonlogs="scheduler scheduler2 localice remoteice1 remoteice2"
 otherlogs="icecc stderr stderr.localice stderr.remoteice"
@@ -1645,6 +1715,7 @@ run_ice "$testdir/includes.o" "remote" 0 $TESTCXX -Wall -Werror -c includes.cpp 
 run_ice "$testdir/includes.o" "remote" 0 $TESTCXX -Wall -Werror -c includes-without.cpp -include includes.h -o "$testdir"/includes.o
 run_ice "$testdir/plain.o" "local" 0 $TESTCXX -Wall -Werror -c plain.cpp -mtune=native -o "$testdir"/plain.o
 run_ice "$testdir/plain.o" "remote" 0 $TESTCC -Wall -Werror -x c++ -c plain -o "$testdir"/plain.o
+run_ice "$testdir/plain.s" "remote" 0 $TESTCC -Wall -Werror -S plain.c -o "$testdir"/plain.s
 
 $TESTCC -Wa,-al=listing.txt -Wall -Werror -c plain.c -o "$testdir/"plain.o 2>/dev/null
 if test $? -eq 0; then
@@ -1851,6 +1922,8 @@ if test -n "$using_clang"; then
 else
     skipped_tests="$skipped_tests clangplugin"
 fi
+
+differentcompilerversiontest
 
 icerun_serialize_test
 icerun_nopath_test

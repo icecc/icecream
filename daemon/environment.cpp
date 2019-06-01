@@ -215,83 +215,11 @@ Environments available_environmnents(const string &basedir)
     return envs;
 }
 
-void save_compiler_timestamps(time_t &gcc_bin_timestamp, time_t &gpp_bin_timestamp, time_t &clang_bin_timestamp)
-{
-    struct stat st;
-
-    if (stat("/usr/bin/gcc", &st) == 0) {
-        gcc_bin_timestamp = st.st_mtime;
-    } else {
-        gcc_bin_timestamp = 0;
-    }
-
-    if (stat("/usr/bin/g++", &st) == 0) {
-        gpp_bin_timestamp = st.st_mtime;
-    } else {
-        gpp_bin_timestamp = 0;
-    }
-
-    if (stat("/usr/bin/clang", &st) == 0) {
-        clang_bin_timestamp = st.st_mtime;
-    } else {
-        clang_bin_timestamp = 0;
-    }
-}
-
-bool compilers_uptodate(time_t gcc_bin_timestamp, time_t gpp_bin_timestamp, time_t clang_bin_timestamp)
-{
-    struct stat st;
-
-    if (stat("/usr/bin/gcc", &st) == 0) {
-        if (st.st_mtime != gcc_bin_timestamp) {
-            return false;
-        }
-    } else {
-        if (gcc_bin_timestamp != 0) {
-            return false;
-        }
-    }
-
-    if (stat("/usr/bin/g++", &st) == 0) {
-        if (st.st_mtime != gpp_bin_timestamp) {
-            return false;
-        }
-    } else {
-        if (gpp_bin_timestamp != 0) {
-            return false;
-        }
-    }
-
-    if (stat("/usr/bin/clang", &st) == 0) {
-        if (st.st_mtime != clang_bin_timestamp) {
-            return false;
-        }
-    } else {
-        if (clang_bin_timestamp != 0) {
-            return false;
-        }
-    }
-
-    return true;
-}
-
 // Returns fd for icecc-create-env output
 int start_create_env(const string &basedir, uid_t user_uid, gid_t user_gid,
                      const std::string &compiler, const list<string> &extrafiles)
 {
     string nativedir = basedir + "/native/";
-
-    if (compiler == "clang") {
-        if (::access("/usr/bin/clang", X_OK) != 0) {
-            return 0;
-        }
-    } else { // "gcc" (the default)
-        // Both gcc and g++ are needed in the gcc case.
-        if (::access("/usr/bin/gcc", X_OK) != 0 || ::access("/usr/bin/g++", X_OK) != 0) {
-            return 0;
-        }
-    }
-
     if (mkdir(nativedir.c_str(), 0775) && errno != EEXIST) {
         return 0;
     }

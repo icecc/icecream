@@ -25,6 +25,13 @@
 
 extern std::string find_basename(const std::string &sfile);
 extern std::string find_prefix(const std::string &basename);
+// These two detect if the given binary is a C/C++ compiler based on its name(gcc->C,clang++->C++)
+extern bool is_c_compiler(const std::string& compiler);
+extern bool is_cpp_compiler(const std::string& compiler);
+// These two return the given binary for the C or C++ compiler based on a compiler.
+// E.g. get_c_compiler("clang++-8") -> "clang-8".
+extern std::string get_c_compiler(const std::string& compiler);
+extern std::string get_cpp_compiler(const std::string& compiler);
 
 template<typename T>
 inline T ignore_result(T x __attribute__((unused)))

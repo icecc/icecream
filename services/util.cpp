@@ -23,6 +23,9 @@
 
 #include "util.h"
 
+#include <cassert>
+#include <cstring>
+
 using namespace std;
 
 /**
@@ -50,4 +53,73 @@ string find_prefix(const string &basename)
     }
 
     return basename.substr(0, index);
+}
+
+/*
+ We support these compilers:
+ - cc/c++
+    Only in this form, no prefix or suffix. It is usually a symlink to the real compiler,
+    we will always detect it as !clang (FIXME?).
+ - gcc/g++
+    Including a possible prefix or postfix separated by '-' (e.g. aarch64-suse-linux-gcc-6)
+ - clang/clang++
+    Including a possible prefix or postfix separated by '-' (e.g. clang-8).
+*/
+
+bool is_c_compiler(const string& compiler)
+{
+    string name = find_basename(compiler);
+    if( name.find("++") != string::npos )
+        return false;
+    return name.find("gcc") != string::npos || name.find("clang") != string::npos
+        || name == "cc";
+}
+
+bool is_cpp_compiler(const string& compiler)
+{
+    string name = find_basename(compiler);
+    return name.find("g++") != string::npos || name.find("clang++") != string::npos
+        || name == "c++";
+}
+
+string get_c_compiler(const string& compiler)
+{
+    if(compiler.empty())
+        return compiler;
+    size_t slash = compiler.rfind('/');
+    size_t pos = compiler.rfind( "++" );
+    if( pos == string::npos || pos < slash )
+        return compiler;
+    pos = compiler.rfind( "clang++" );
+    if( pos != string::npos && pos >= slash + 1 )
+        return compiler.substr( 0, pos ) + "clang" + compiler.substr( pos + strlen( "clang++" ));
+    pos = compiler.rfind( "g++" ); // g++ must go after clang++, it's a substring
+    if( pos != string::npos && pos >= slash + 1 )
+        return compiler.substr( 0, pos ) + "gcc" + compiler.substr( pos + strlen( "g++" ));
+    pos = compiler.rfind( "c++" );
+    if( pos != string::npos && pos == slash + 1 ) // only exactly "c++"
+        return compiler.substr( 0, pos ) + "cc" + compiler.substr( pos + strlen( "c++" ));
+    assert( false );
+    return string();
+}
+
+string get_cpp_compiler(const string& compiler)
+{
+    if(compiler.empty())
+        return compiler;
+    size_t slash = compiler.rfind('/');
+    size_t pos = compiler.rfind( "++" );
+    if( pos != string::npos && pos >= slash + 1 )
+        return compiler;
+    pos = compiler.rfind( "gcc" );
+    if( pos != string::npos && pos >= slash + 1 )
+        return compiler.substr( 0, pos ) + "g++" + compiler.substr( pos + strlen( "gcc" ));
+    pos = compiler.rfind( "clang" );
+    if( pos != string::npos && pos >= slash + 1 )
+        return compiler.substr( 0, pos ) + "clang++" + compiler.substr( pos + strlen( "clang" ));
+    pos = compiler.rfind( "cc" );
+    if( pos != string::npos && pos == slash + 1 ) // only exactly "cc"
+        return compiler.substr( 0, pos ) + "c++" + compiler.substr( pos + strlen( "cc" ));
+    assert( false );
+    return string();
 }

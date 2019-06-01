@@ -36,7 +36,7 @@
 #include "job.h"
 
 // if you increase the PROTOCOL_VERSION, add a macro below and use that
-#define PROTOCOL_VERSION 40
+#define PROTOCOL_VERSION 41
 // if you increase the MIN_PROTOCOL_VERSION, comment out macros below and clean up the code
 #define MIN_PROTOCOL_VERSION 21
 
@@ -65,6 +65,7 @@
 #define IS_PROTOCOL_38(c) ((c)->protocol >= 38)
 #define IS_PROTOCOL_39(c) ((c)->protocol >= 39)
 #define IS_PROTOCOL_40(c) ((c)->protocol >= 40)
+#define IS_PROTOCOL_41(c) ((c)->protocol >= 41)
 
 // Terms used:
 // S  = scheduler
@@ -501,7 +502,7 @@ public:
     virtual void fill_from_channel(MsgChannel *c);
     virtual void send_to_channel(MsgChannel *c) const;
 
-    std::string compiler; // "gcc" or "clang" right now
+    std::string compiler; // "gcc", "clang" or the actual binary
     std::list<std::string> extrafiles;
 };
 

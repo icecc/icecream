@@ -35,8 +35,6 @@ extern int start_create_env(const std::string &basedir,
                             const std::string &compiler, const std::list<std::string> &extrafiles);
 extern size_t finish_create_env(int pipe, const std::string &basedir, std::string &native_environment);
 Environments available_environmnents(const std::string &basename);
-extern void save_compiler_timestamps(time_t &gcc_bin_timestamp, time_t &gpp_bin_timestamp, time_t &clang_bin_timestamp);
-bool compilers_uptodate(time_t gcc_bin_timestamp, time_t gpp_bin_timestamp, time_t clang_bin_timestamp);
 extern pid_t start_install_environment(const std::string &basename,
                                        const std::string &target,
                                        const std::string &name,

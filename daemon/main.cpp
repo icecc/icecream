@@ -425,17 +425,11 @@ size_t cache_size_limit = 100 * 1024 * 1024;
 
 struct NativeEnvironment {
     string name; // the hash
-    map<string, time_t> extrafilestimes;
-    // Timestamps for compiler binaries, if they have changed since the time
+    // Timestamps for files including compiler binaries, if they have changed since the time
     // the native env was built, it needs to be rebuilt.
-    time_t gcc_bin_timestamp;
-    time_t gpp_bin_timestamp;
-    time_t clang_bin_timestamp;
+    map<string, time_t> filetimes;
     int create_env_pipe; // if in progress of creating the environment
     NativeEnvironment() {
-        gcc_bin_timestamp = 0;
-        gpp_bin_timestamp = 0;
-        clang_bin_timestamp = 0;
         create_env_pipe = 0;
     }
 };
@@ -1140,14 +1134,32 @@ void Daemon::check_cache_size(const string &new_env)
 bool Daemon::handle_get_native_env(Client *client, GetNativeEnvMsg *msg)
 {
     string env_key;
-    map<string, time_t> extrafilestimes;
-    env_key = msg->compiler;
+    map<string, time_t> filetimes;
+    struct stat st;
 
+    string ccompiler = get_c_compiler(msg->compiler);
+    string cppcompiler = get_cpp_compiler(msg->compiler);
+
+    trace() << "get_native_env for " << msg->compiler
+        << " (" << ccompiler << "," << cppcompiler << ")" << endl;
+
+    if (stat(ccompiler.c_str(), &st) != 0) {
+        log_error() << "Compiler binary " << ccompiler << " for environment not found." << endl;
+        client->channel->send_msg(EndMsg());
+        handle_end(client, 122);
+        return false;
+    }
+    filetimes[ccompiler] = st.st_mtime;
+    if (stat(cppcompiler.c_str(), &st) == 0) {
+        // C++ compiler is optional.
+        filetimes[cppcompiler] = st.st_mtime;
+    }
+
+    env_key = ccompiler;
     for (list<string>::const_iterator it = msg->extrafiles.begin();
             it != msg->extrafiles.end(); ++it) {
         env_key += ':';
         env_key += *it;
-        struct stat st;
 
         if (stat(it->c_str(), &st) != 0) {
             log_error() << "Extra file " << *it << " for environment not found." << endl;
@@ -1156,15 +1168,13 @@ bool Daemon::handle_get_native_env(Client *client, GetNativeEnvMsg *msg)
             return false;
         }
 
-        extrafilestimes[*it] = st.st_mtime;
+        filetimes[*it] = st.st_mtime;
     }
 
     if (native_environments[env_key].name.length()) {
         const NativeEnvironment &env = native_environments[env_key];
 
-        if (!compilers_uptodate(env.gcc_bin_timestamp, env.gpp_bin_timestamp, env.clang_bin_timestamp)
-                || env.extrafilestimes != extrafilestimes
-                || access(env.name.c_str(), R_OK) != 0) {
+        if (env.filetimes != filetimes || access(env.name.c_str(), R_OK) != 0) {
             trace() << "native_env needs rebuild" << endl;
             cache_size -= remove_native_environment(env.name);
             envs_last_use.erase(env.name);
@@ -1189,9 +1199,9 @@ bool Daemon::handle_get_native_env(Client *client, GetNativeEnvMsg *msg)
     } else {
         NativeEnvironment &env = native_environments[env_key]; // also inserts it
         if (!env.create_env_pipe) { // start creating it only if not already in progress
-            env.extrafilestimes = extrafilestimes;
+            env.filetimes = filetimes;
             trace() << "start_create_env " << env_key << endl;
-            env.create_env_pipe = start_create_env(envbasedir, user_uid, user_gid, msg->compiler, msg->extrafiles);
+            env.create_env_pipe = start_create_env(envbasedir, user_uid, user_gid, ccompiler, msg->extrafiles);
         } else {
             trace() << "waiting for already running create_env " << env_key << endl;
         }
@@ -1248,7 +1258,6 @@ bool Daemon::create_env_finished(string env_key)
         return false;
     }
 
-    save_compiler_timestamps(env.gcc_bin_timestamp, env.gpp_bin_timestamp, env.clang_bin_timestamp);
     envs_last_use[env.name] = time(NULL);
     check_cache_size(env.name);
 

@@ -163,7 +163,7 @@ static int create_native(char **args)
         } else if( access( args[0], R_OK ) == 0 && access( args[ 0 ], X_OK ) != 0 ) {
             // backwards compatibility, the first argument is already an extra file
         } else {
-            compiler = compiler_path_lookup( args[ 0 ] );
+            compiler = compiler_path_lookup( get_c_compiler( args[ 0 ] ));
             if (compiler.empty()) {
                 log_error() << "compiler not found" << endl;
                 return 1;
@@ -468,8 +468,14 @@ int main(int argc, char **argv)
             local = true;
         } else {
             Msg *umsg = NULL;
-            if (!local_daemon->send_msg(GetNativeEnvMsg(compiler_is_clang(job)
-                                        ? "clang" : "gcc", extrafiles))) {
+            string compiler;
+            if( IS_PROTOCOL_41(local_daemon))
+                compiler = find_compiler( job );
+            else // Older daemons understood only two hardcoded compilers.
+                compiler = compiler_is_clang(job) ? "clang" : "gcc";
+            compiler = get_absfilename( compiler );
+            trace() << "asking for native environment for " << compiler << endl;
+            if (!local_daemon->send_msg(GetNativeEnvMsg(compiler, extrafiles))) {
                 log_warning() << "failed to write get native environment" << endl;
                 local = true;
             } else {

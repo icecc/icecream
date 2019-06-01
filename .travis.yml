@@ -12,20 +12,18 @@ script:
   - make -s -j $(getconf _NPROCESSORS_ONLN)
   - |
         if test "$TRAVIS_OS_NAME" = "linux"; then
-            strict="-strict"
+            if test "$BUILD_TYPE" != "asan"; then # asan uses old version of Ubuntu
+                strict="-strict"
+            fi
             if test -n "$VALGRIND"; then
                 # See tests/README.
                 sudo /sbin/setcap cap_sys_chroot+ep /usr/lib/valgrind/memcheck-amd64-linux
             fi
-            make -s test${strict} VALGRIND=$VALGRIND TESTCC=/usr/bin/gcc TESTCXX=/usr/bin/g++
+            make -s test${strict} VALGRIND=$VALGRIND TESTCC=gcc TESTCXX=g++
             if test $? -ne 0; then
                 exit 1
             fi
-            # Only the clang(-3.4) package provides /usr/bin/clang, but this path is hardcoded in icecream.
-            # So for now make icecream use the newer version provided by Travis.
-            sudo ln -s `which clang` /usr/bin/clang
-            sudo ln -s `which clang++` /usr/bin/clang++
-            make -s test${strict} VALGRIND=$VALGRIND TESTCC=/usr/bin/clang TESTCXX=/usr/bin/clang++
+            make -s test${strict} VALGRIND=$VALGRIND TESTCC=clang TESTCXX=clang++
             if test $? -ne 0; then
                 exit 1
             fi
@@ -74,6 +72,7 @@ matrix:
       apt:
         packages:
         - gcc
+        - clang
         - libcap-ng-dev
         - libcap-ng-utils
         - liblzo2-dev
@@ -125,6 +124,7 @@ addons:
   apt:
     packages:
     - gcc
+    - clang
     - libcap-ng-dev
     - libcap-ng-utils
     - liblzo2-dev
