@@ -17,4 +17,5 @@ task:
   script:
     - ./autogen.sh
     - ./configure --prefix=/usr/local
-    - gmake -j`sysctl -n kern.smp.cpus` dist
+    - gmake -j`sysctl -n kern.smp.cpus`
+    - gmake dist
