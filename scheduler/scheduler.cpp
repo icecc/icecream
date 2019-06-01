@@ -112,7 +112,7 @@ static map<unsigned int, Job *> jobs;
    to delete anything out of them (for clean up).  */
 struct UnansweredList {
     list<Job *> l;
-    CompileServer *server;
+    CompileServer *submitter;
     bool remove_job(Job *);
 };
 static list<UnansweredList *> toanswer;
@@ -372,11 +372,11 @@ static Job *create_new_job(CompileServer *submitter)
 
 static void enqueue_job_request(Job *job)
 {
-    if (!toanswer.empty() && toanswer.back()->server == job->submitter()) {
+    if (!toanswer.empty() && toanswer.back()->submitter == job->submitter()) {
         toanswer.back()->l.push_back(job);
     } else {
         UnansweredList *newone = new UnansweredList();
-        newone->server = job->submitter();
+        newone->submitter = job->submitter();
         newone->l.push_back(job);
         toanswer.push_back(newone);
     }
@@ -1174,7 +1174,7 @@ static bool handle_job_done(CompileServer *cs, Msg *_m)
                 list<UnansweredList *>::iterator it;
 
                 for (it = toanswer.begin(); it != toanswer.end(); ++it)
-                    if ((*it)->server == cs) {
+                    if ((*it)->submitter == cs) {
                         UnansweredList *l = *it;
                         list<Job *>::iterator jit;
 
@@ -1606,7 +1606,7 @@ static bool handle_end(CompileServer *toremove, Msg *m)
            so we need to clean them up also.  */
 
         for (list<UnansweredList *>::iterator it = toanswer.begin(); it != toanswer.end();) {
-            if ((*it)->server == toremove) {
+            if ((*it)->submitter == toremove) {
                 UnansweredList *l = *it;
                 list<Job *>::iterator jit;
 
