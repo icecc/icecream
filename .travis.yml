@@ -1,6 +1,12 @@
 language: cpp
 
 script:
+  - |
+        if test "$BUILD_TYPE" = "asan"; then
+            sudo add-apt-repository ppa:litenstein/backports -y
+            sudo apt-get update -q
+            sudo apt-get install libzstd1-dev -y
+        fi
   - ./autogen.sh
   - ./configure --prefix=$PWD/_inst
   - make -s -j $(getconf _NPROCESSORS_ONLN)
@@ -42,11 +48,11 @@ matrix:
   - os: linux
     sudo: true # for setcap so we can run the tests in chroot.
     compiler: gcc
-    dist: trusty
+    dist: xenial
   - os: linux
     sudo: true # for setcap so we can run the tests in chroot.
     compiler: clang
-    dist: trusty
+    dist: xenial
   - os: osx
     before_install:
       - brew update
@@ -55,7 +61,7 @@ matrix:
     sudo: true # for setcap so we can run the tests in chroot.
     compiler: clang
     env: VALGRIND=1
-    dist: trusty
+    dist: xenial
   - os: linux
     sudo: true # for setcap so we can run the tests in chroot.
     compiler: clang
@@ -63,37 +69,45 @@ matrix:
     dist: trusty
     # Sanitizer builds with newer travis fail for unknown reason without giving any message.
     group: deprecated-2017Q4
-  - os: linux
-    sudo: true # for setcap so we can run the tests in chroot.
-    compiler: clang
-    env: BUILD_TYPE=lsan
-    dist: trusty
-    group: deprecated-2017Q4
+    # And this old version doesn't have zstd, so get it explicitly.
+    addons:
+      apt:
+        packages:
+        - gcc
+        - libcap-ng-dev
+        - libcap-ng-utils
+        - liblzo2-dev
+        - docbook2x
+        - realpath
+        - gdb
+        - valgrind
+        - libarchive-dev
   - os: linux
     sudo: true # for setcap so we can run the tests in chroot.
     compiler: clang
     env: BUILD_TYPE=ubsan
-    dist: trusty
+    dist: xenial
   allow_failures:
 
 before_script:
   - |
      if [ "$BUILD_TYPE" == "asan" ]; then
-         export SAN_FLAGS="-fsanitize=address -fsanitize-address-use-after-scope -fno-omit-frame-pointer"
-     fi
-  - |
-     if [ "$BUILD_TYPE" == "lsan" ]; then
-         export SAN_FLAGS="-fsanitize=leak -fno-omit-frame-pointer"
+         export SAN_FLAGS="-fsanitize=address,leak -fsanitize-address-use-after-scope -fno-omit-frame-pointer"
      fi
   - |
      if [ "$BUILD_TYPE" == "msan" ]; then
-         export SAN_FLAGS="-fsanitize=memory-fno-omit-frame-pointer"
+         export SAN_FLAGS="-fsanitize=memory -fno-omit-frame-pointer"
      fi
   - |
      if [ "$BUILD_TYPE" == "ubsan" ]; then
          export SAN_FLAGS="-fsanitize=undefined -fno-omit-frame-pointer"
          export LDFLAGS="$UBSAN_FLAGS ${LDFLAGS}"
          export UBSAN_OPTIONS=print_stacktrace=1
+     fi
+  - |
+     # Without this, sanitizers don't work at all for whatever reason (BFD ld too old?).
+     if [ "$TRAVIS_OS_NAME" == "linux" -a -n "$SAN_FLAGS" ]; then
+         export LDFLAGS="${LDFLAGS} -fuse-ld=gold"
      fi
   - |
      if [ "$TRAVIS_OS_NAME" == "osx" ]; then
