@@ -59,9 +59,7 @@ inline int str_startswith(const char *head, const char *worm)
 static bool
 should_always_build_locally(const string &filepath)
 {
-    string p;
-
-    p = find_basename(filepath);
+    string p = find_basename(filepath);
     const char *filename = p.c_str();
 
     /* autoconf */
@@ -814,7 +812,7 @@ bool analyse_argv(const char * const *argv, CompileJob &job, bool icerun, list<s
                 ifile = it->first;
                 it = args.erase(it);
                 if (should_always_build_locally(ifile)) {
-                    log_info() << "autoconf tests are run locally: "
+                    log_info() << "configure tests are run locally: "
                                << ifile << endl;
                     always_local = true;
                 }
