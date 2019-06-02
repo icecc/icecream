@@ -3,7 +3,7 @@ language: cpp
 script:
   - ./autogen.sh
   - ./configure --prefix=$PWD/_inst
-  - make
+  - make -s -j $(getconf _NPROCESSORS_ONLN)
   - |
         if test "$TRAVIS_OS_NAME" = "linux"; then
             strict="-strict"
@@ -11,7 +11,7 @@ script:
                 # See tests/README.
                 sudo /sbin/setcap cap_sys_chroot+ep /usr/lib/valgrind/memcheck-amd64-linux
             fi
-            make test${strict} VALGRIND=$VALGRIND TESTCC=/usr/bin/gcc TESTCXX=/usr/bin/g++
+            make -s test${strict} VALGRIND=$VALGRIND TESTCC=/usr/bin/gcc TESTCXX=/usr/bin/g++
             if test $? -ne 0; then
                 exit 1
             fi
@@ -19,7 +19,7 @@ script:
             # So for now make icecream use the newer version provided by Travis.
             sudo ln -s `which clang` /usr/bin/clang
             sudo ln -s `which clang++` /usr/bin/clang++
-            make test${strict} VALGRIND=$VALGRIND TESTCC=/usr/bin/clang TESTCXX=/usr/bin/clang++
+            make -s test${strict} VALGRIND=$VALGRIND TESTCC=/usr/bin/clang TESTCXX=/usr/bin/clang++
             if test $? -ne 0; then
                 exit 1
             fi
@@ -27,12 +27,12 @@ script:
             if test -n "$STRICTTESTS"; then
                 strict="-strict"
             fi
-            make test${strict} TESTCC=clang TESTCXX=clang++
+            make -s test${strict} TESTCC=clang TESTCXX=clang++
             if test $? -ne 0; then
                 exit 1
             fi
         fi
-        make dist
+        make -s dist
         if test $? -ne 0; then
             exit 1
         fi
