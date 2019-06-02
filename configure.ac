@@ -21,7 +21,7 @@ m4_ifval([icecream_version_micro],
 AC_INIT([icecc], [icecream_version])
 AC_CONFIG_MACRO_DIR([m4])
 AC_CONFIG_HEADERS([config.h])
-AM_INIT_AUTOMAKE([1.11 foreign dist-bzip2])
+AM_INIT_AUTOMAKE([1.11 foreign dist-xz])
 AM_SILENT_RULES([yes])
 AC_LANG([C++])
 
