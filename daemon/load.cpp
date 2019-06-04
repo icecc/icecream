@@ -54,6 +54,10 @@
 #include <devstat.h>
 #endif
 
+#ifdef __APPLE__
+#include <sys/sysctl.h>
+#endif
+
 using namespace std;
 
 // what the kernel puts as ticks in /proc/stat
@@ -259,6 +263,15 @@ static unsigned int calculateMemLoad(unsigned long int &NetMemFree)
 
     // blunt lie - but when's sche macht
     Buffers = MemInactive;
+
+#ifdef __APPLE__
+    {
+        size_t len = sizeof(MemTotal);
+        if ((sysctlbyname("hw.memsize", &MemTotal, &len, NULL, 0) == -1) || !len) {
+            MemTotal = 0;
+        }
+    }
+#endif
 
 #elif defined( USE_SYSCTL )
     size_t len = sizeof(MemFree);
