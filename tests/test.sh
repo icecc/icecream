@@ -402,7 +402,7 @@ wait_for_ice_startup_complete()
 # Second argument is "remote" (should be compiled on a remote host) or "local" (cannot be compiled remotely).
 # Third argument is expected exit code - if this is greater than 128 the exit code will be determined by invoking the compiler locally
 # Follow optional arguments, in this order:
-#   - stderrfix - specifies that the command may result in local recompile because of the gcc stderr workaround.
+#   - localrebuild - specifies that the command may result in local recompile
 #   - keepoutput - will keep the file specified using $output (the remotely compiled version)
 #   - split_dwarf - compilation is done with -gsplit-dwarf
 #   - noresetlogs - will not use reset_logs at the start (needs to be done explicitly before calling run_ice)
@@ -419,14 +419,13 @@ run_ice()
     shift
     expected_exit=$1
     shift
-    stderrfix=
-    stderrfixforlog=
-    if test "$1" = "stderrfix"; then
-        if test -n "$using_gcc"; then
-            stderrfix=1
-            stderrfixforlog=stderrfix
-            shift
-        fi
+
+    localrebuild=
+    localrebuildforlog=
+    if test "$1" = "localrebuild"; then
+        localrebuild=1
+        localrebuildforlog=localrebuild
+        shift
     fi
     keepoutput=
     if test "$1" = "keepoutput"; then
@@ -483,10 +482,10 @@ run_ice()
     fi
     cat "$testdir"/stderr.localice >> "$testdir"/stderr.localice.log
     flush_logs
-    check_logs_for_generic_errors $stderrfixforlog
+    check_logs_for_generic_errors $localrebuildforlog
     if test "$remote_type" = "remote"; then
         check_log_message icecc "building myself, but telling localhost"
-        if test -z "$stderrfix"; then
+        if test -z "$localrebuild"; then
             check_log_error icecc "<building_local>"
         fi
     else
@@ -495,7 +494,7 @@ run_ice()
     fi
     check_log_error icecc "Have to use host 127.0.0.1:10246"
     check_log_error icecc "Have to use host 127.0.0.1:10247"
-    if test -z "$stderrfix"; then
+    if test -z "$localrebuild"; then
         check_log_error icecc "local build forced"
     fi
 
@@ -511,10 +510,10 @@ run_ice()
         fi
         cat "$testdir"/stderr.remoteice >> "$testdir"/stderr.remoteice.log
         flush_logs
-        check_logs_for_generic_errors $stderrfixforlog
+        check_logs_for_generic_errors $localrebuildforlog
         if test "$remote_type" = "remote"; then
             check_log_message icecc "Have to use host 127.0.0.1:10246"
-            if test -z "$stderrfix"; then
+            if test -z "$localrebuild"; then
                 check_log_error icecc "<building_local>"
             fi
             if test -n "$output"; then
@@ -536,10 +535,10 @@ run_ice()
         fi
         check_log_error icecc "Have to use host 127.0.0.1:10247"
         check_log_error icecc "building myself, but telling localhost"
-        if test -z "$stderrfix"; then
+        if test -z "$localrebuild"; then
             check_log_error icecc "local build forced"
         else
-            check_log_message icecc "local build forced by remote exception: Error 102 - command needs stdout/stderr workaround, recompiling locally"
+            check_log_message icecc "local build forced by remote exception"
         fi
     fi
 
@@ -548,7 +547,7 @@ run_ice()
     normal_exit=$?
     cat "$testdir"/stderr >> "$testdir"/stderr.log
     flush_logs
-    check_logs_for_generic_errors $stderrfixforlog
+    check_logs_for_generic_errors $localrebuildforlog
     check_log_error icecc "Have to use host 127.0.0.1:10246"
     check_log_error icecc "Have to use host 127.0.0.1:10247"
     check_log_error icecc "<building_local>"
@@ -1514,15 +1513,13 @@ cat_log_last_section()
 }
 
 # Optional arguments, in this order:
-#   - stderrfix - the same as for run_ice
+#   - localrebuild - the same as for run_ice
 check_logs_for_generic_errors()
 {
-    stderrfix=
-    if test "$1" = "stderrfix"; then
-        if test -n "$using_gcc"; then
-            stderrfix=1
-            shift
-        fi
+    localrebuild=
+    if test "$1" = "localrebuild"; then
+        localrebuild=1
+        shift
     fi
     check_log_error scheduler "that job isn't handled by"
     check_log_error scheduler "the server isn't the same for job"
@@ -1534,7 +1531,7 @@ check_logs_for_generic_errors()
     done
     for log in scheduler icecc localice remoteice1 remoteice2; do
         check_log_error $log "internal error"
-        if test -n "$stderrfix"; then
+        if test -n "$localrebuild"; then
             # If the client finds out it needs to do a local rebuild because of the need to fix
             # stderr, it will simply close the connection to the remote daemon, so the remote
             # daemon may get broken pipe when trying to write the object file. That's harmless.
@@ -1546,8 +1543,8 @@ check_logs_for_generic_errors()
     # consider all non-fatal errors such as running out of memory on the remote
     # still as problems, except for:
     # 102 - -fdiagnostics-show-caret forced local build (gcc-4.8+)
-    if test -n "$using_gcc"; then
-        check_log_error_except icecc "local build forced" "local build forced by remote exception: Error 102 - command needs stdout/stderr workaround, recompiling locally"
+    if test -n "$localrebuild"; then
+        check_log_error_except icecc "local build forced" "local build forced by remote exception"
     else
         check_log_error icecc "local build forced"
     fi
@@ -1780,8 +1777,8 @@ if test -z "$chroot_disabled"; then
     else
         if $TESTCXX -E -fdiagnostics-show-caret -Werror messages.cpp >/dev/null 2>/dev/null; then
             # check gcc stderr workaround, icecream will force a local recompile
-            run_ice "" "remote" 1 "stderrfix" $TESTCXX -c -fdiagnostics-show-caret syntaxerror.cpp
-            run_ice "$testdir/messages.o" "remote" 0 "stderrfix" $TESTCXX -Wall -c -fdiagnostics-show-caret messages.cpp -o "$testdir"/messages.o
+            run_ice "" "remote" 1 "localrebuild" $TESTCXX -c -fdiagnostics-show-caret syntaxerror.cpp
+            run_ice "$testdir/messages.o" "remote" 0 "localrebuild" $TESTCXX -Wall -c -fdiagnostics-show-caret messages.cpp -o "$testdir"/messages.o
             check_log_message stderr "warning: unused variable 'unused'"
             check_section_log_message icecc "local build forced by remote exception: Error 102 - command needs stdout/stderr workaround, recompiling locally"
             # try again without the local recompile
@@ -1791,9 +1788,9 @@ if test -z "$chroot_disabled"; then
             check_section_log_error icecc "local build forced by remote exception: Error 102 - command needs stdout/stderr workaround, recompiling locally"
         else
             # This gcc is too old to have this problem, but we do not check the gcc version in icecc.
-            run_ice "" "remote" 1 "stderrfix" $TESTCXX -c syntaxerror.cpp
+            run_ice "" "remote" 1 "localrebuild" $TESTCXX -c syntaxerror.cpp
             check_section_log_message icecc "local build forced by remote exception: Error 102 - command needs stdout/stderr workaround, recompiling locally"
-            run_ice "$testdir/messages.o" "remote" 0 "stderrfix" $TESTCXX -Wall -c messages.cpp -o "$testdir"/messages.o
+            run_ice "$testdir/messages.o" "remote" 0 "localrebuild" $TESTCXX -Wall -c messages.cpp -o "$testdir"/messages.o
             check_log_message stderr "warning: unused variable 'unused'"
             check_section_log_message icecc "local build forced by remote exception: Error 102 - command needs stdout/stderr workaround, recompiling locally"
         fi
