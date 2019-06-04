@@ -1068,7 +1068,7 @@ recursive_test()
         abort_tests
     fi
     flush_logs
-    check_logs_for_generic_errors
+    check_logs_for_generic_errors "localrebuild"
     check_log_message icecc "icecream seems to have invoked itself recursively!"
     echo Recursive check test successful.
     echo
@@ -1086,7 +1086,7 @@ recursive_test()
     fi
     rm -f "$testdir"/plain.o
     flush_logs
-    check_logs_for_generic_errors
+    check_logs_for_generic_errors "localrebuild"
     check_log_error icecc "icecream seems to have invoked itself recursively!"
     check_log_message_count icecc 1 "recursive invocation from icerun"
     echo Recursive icerun check test successful.
@@ -1709,7 +1709,7 @@ fi
 run_ice "$testdir/testdefine.o" "remote" 0 $TESTCXX -Wall -Werror -DICECREAM_TEST_DEFINE=test -c testdefine.cpp -o "$testdir/"testdefine.o
 run_ice "$testdir/testdefine.o" "remote" 0 $TESTCXX -Wall -Werror -D ICECREAM_TEST_DEFINE=test -c testdefine.cpp -o "$testdir/"testdefine.o
 
-run_ice "" "remote" 300 "remoteabort" $TESTCXX -c nonexistent.cpp
+run_ice "" "remote" 300 "localrebuild" "remoteabort" "nostderrcheck" $TESTCXX -c nonexistent.cpp
 
 if test -e /bin/true; then
     run_ice "" "local" 0 /bin/true
@@ -1764,7 +1764,7 @@ if test -z "$debug_fission_disabled"; then
     run_ice "$testdir/plain.o" "remote" 0 "split_dwarf" $TESTCXX -Wall -Werror -gsplit-dwarf -g -c plain.cpp -o "$testdir/"plain.o
     run_ice "$testdir/plain.o" "remote" 0 "split_dwarf" $TESTCC -Wall -Werror -gsplit-dwarf -c plain.c -o "$testdir/"plain.o
     run_ice "$testdir/plain.o" "remote" 0 "split_dwarf" $TESTCC -Wall -Werror -gsplit-dwarf -c plain.c -o "../../../../../../../..$testdir/plain.o"
-    run_ice "" "remote" 300 "split_dwarf" "remoteabort" $TESTCXX -gsplit-dwarf -c nonexistent.cpp
+    run_ice "" "remote" 300 "localrebuild" "split_dwarf" "remoteabort" "nostderrcheck" $TESTCXX -gsplit-dwarf -c nonexistent.cpp
 fi
 
 if test -z "$chroot_disabled"; then

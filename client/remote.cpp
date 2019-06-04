@@ -531,7 +531,7 @@ static int build_remote_int(CompileJob &job, UseCSMsg *usecs, MsgChannel *local_
                 delete cserver;
                 cserver = 0;
                 log_warning() << "call_cpp process failed with exit status " << shell_exit_status(status) << endl;
-                return shell_exit_status(status);
+                throw remote_error(103, "Error 103 - local cpp invocation failed, trying to recompile locally");
             }
         } else {
             int cpp_fd = open(preproc_file, O_RDONLY);
