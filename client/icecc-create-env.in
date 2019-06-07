@@ -380,6 +380,7 @@ fi
 
 if test -n "$clang"; then
     # getting compilers resolved path
+    orig_clang=$added_clang
     added_clang=$(resolve_path $added_clang)
     # In case clang is installed elsewhere.
     stripprefix=$(dirname $(dirname $added_clang))
@@ -390,8 +391,8 @@ if test -n "$clang"; then
     add_file $added_compilerwrapper /usr/bin/gcc
     add_file $added_compilerwrapper /usr/bin/g++
 
-    search_addfile $added_clang as /usr/bin
-    search_addfile $added_clang objcopy /usr/bin
+    search_addfile $orig_clang as /usr/bin
+    search_addfile $orig_clang objcopy /usr/bin
 
     # HACK: Clang4.0 and later access /proc/cpuinfo and report an error when they fail
     # to find it, even if they use a fallback mechanism, making the error useless
@@ -404,9 +405,9 @@ if test -n "$clang"; then
     fi
 
     # clang always uses its internal .h files
-    clangincludes=$($added_clang -print-file-name=include/limits.h)
+    clangincludes=$($orig_clang -print-file-name=include/limits.h)
     if test -z "$clangincludes"; then
-        echo $added_clang cannot find its includes
+        echo $orig_clang cannot find its includes
         exit 1
     fi
     clangincludes=$(dirname $(abs_path $clangincludes))
