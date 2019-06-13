@@ -405,13 +405,13 @@ if test -n "$clang"; then
     fi
 
     # clang always uses its internal .h files
-    clangincludes=$($orig_clang -print-file-name=include/limits.h)
-    if test -z "$clangincludes"; then
-        echo $orig_clang cannot find its includes
+    clang_internal_include_paths=$($orig_clang -isysroot /dev/null -E -v -xc++ - 2>&1 </dev/null >/dev/null \
+        | awk '/#include .*? search starts here:$/{inc=1;next}/End of search list\./{inc=0}inc')
+    if test -z "$clang_internal_include_paths"; then
+        echo $added_clang cannot find internal include paths
         exit 1
     fi
-    clangincludes=$(dirname $(abs_path $clangincludes))
-    for file in $(find $clangincludes -type f); do
+    for file in $(find $clang_internal_include_paths -type f); do
       add_file "$file"
     done
 fi
