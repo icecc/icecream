@@ -227,6 +227,8 @@ static bool is_argument_with_space(const char* argument)
         "-iprefix",
         "--include-prefix",
         "-iquote",
+        "-include",
+        "-include-pch",
         "-isysroot",
         "-isystem",
         "-isystem-after",
@@ -528,44 +530,6 @@ bool analyse_argv(const char * const *argv, CompileJob &job, bool icerun, list<s
                     log_info() << "output to stdout?  running locally" << endl;
                     always_local = true;
                 }
-            } else if (str_equal("-include", a)) {
-                /* This has a duplicate meaning. it can either include a file
-                   for preprocessing or a precompiled header. decide which one.  */
-
-                args.append(a, Arg_Local);
-                if (argv[i + 1]) {
-                    ++i;
-                    std::string p = argv[i];
-                    string::size_type dot_index = p.find_last_of('.');
-
-                    if (dot_index != string::npos) {
-                        string ext = p.substr(dot_index + 1);
-
-                        if (ext[0] != 'h' && ext[0] != 'H' && access(p.c_str(), R_OK) < 0
-                            && access((p + ".gch").c_str(), R_OK) < 0) {
-                            log_info() << "include file or gch file for argument " << a << " " << p
-                                       << " missing, building locally" << endl;
-                            always_local = true;
-                        }
-                    } else {
-                        log_info() << "argument " << a << " " << p << ", building locally" << endl;
-                        always_local = true;    /* Included file is not header.suffix or header.suffix.gch! */
-                    }
-
-                    args.append(argv[i], Arg_Local);
-                }
-            } else if (str_equal("-include-pch", a)) {
-                /* Clang's precompiled header, it's probably not worth it sending the PCH file. */
-                args.append(a, Arg_Local);
-                if (argv[i + 1]) {
-                    ++i;
-                    args.append(argv[i], Arg_Local);
-                    if(access(argv[i], R_OK) < 0) {
-                        log_info() << "pch file for argument " << a << " " << argv[i]
-                                   << " missing, building locally" << endl;
-                        always_local = true;
-                    }
-                }
             } else if (str_equal("-D", a) || str_equal("-U", a)) {
                 args.append(a, Arg_Cpp);
 
@@ -595,6 +559,8 @@ bool analyse_argv(const char * const *argv, CompileJob &job, bool icerun, list<s
                        || str_equal("-iprefix", a)
                        || str_equal("--include-prefix", a)
                        || str_equal("-iquote", a)
+                       || str_equal("-include", a)
+                       || str_equal("-include-pch", a)
                        || str_equal("-isysroot", a)
                        || str_equal("-isystem", a)
                        || str_equal("-isystem-after", a)
