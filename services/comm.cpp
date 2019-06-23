@@ -1355,7 +1355,8 @@ void Broadcasts::broadcastSchedulerVersion(int scheduler_port, const char* netna
     uint64_t tmp_time = starttime;
     memcpy(buf + 4, &tmp_time, sizeof(uint64_t));
     buf[4 + sizeof(uint64_t)] = length_netname;
-    strncpy(buf + 5 + sizeof(uint64_t), netname, length_netname);
+    strncpy(buf + 5 + sizeof(uint64_t), netname, length_netname - 1);
+    buf[ schedbuflen - 1 ] = '\0';
     broadcastData(scheduler_port, buf, schedbuflen);
     delete[] buf;
     // Latest version.
