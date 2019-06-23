@@ -104,6 +104,15 @@ unset ICECC_CARET_WORKAROUND
 
 mkdir -p "$testdir"
 
+export XZ_OPT=-0
+# New gzip complains that $GZIP is deprecated for whatever lame reason,
+# so make a wrapper script that will compress faster.
+mkdir -p "$testdir"/fastgzip
+echo "#! /bin/sh" > "$testdir"/fastgzip/gzip
+echo exec $(command -v gzip) -1 '"$@"' >> "$testdir"/fastgzip/gzip
+chmod +x "$testdir"/fastgzip/gzip
+export PATH="$testdir"/fastgzip/:$PATH
+
 skipped_tests=
 chroot_disabled=
 
@@ -1023,7 +1032,6 @@ test_build_native_helper()
     compiler=$1
     add_skip=$2
     pushd "$testdir" >/dev/null
-    XZ_OPT=-2 GZIP=-3 \
     ICECC_DEBUG=debug ICECC_LOGFILE="$testdir"/icecc.log ${icecc} --build-native $compiler > "$testdir"/icecc-build-native-output
     if test $? -ne 0; then
         return 1
