@@ -25,3 +25,5 @@ noinst_HEADERS = \
 
 pkgconfigdir = $(libdir)/pkgconfig
 pkgconfig_DATA = icecc.pc
+
+AM_LIBTOOLFLAGS = --silent

@@ -31,6 +31,8 @@ AM_CPPFLAGS = \
 
 EXTRA_DIST = icecc-create-env
 
+AM_LIBTOOLFLAGS = --silent
+
 install-exec-local:
 	$(mkinstalldirs) $(DESTDIR)$(bindir)
 	rm -f $(DESTDIR)$(bindir)/icerun

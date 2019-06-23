@@ -18,6 +18,8 @@ iceccd_LDADD = \
 AM_CPPFLAGS = \
 	-I$(top_srcdir)/services
 
+AM_LIBTOOLFLAGS = --silent
+
 noinst_HEADERS = \
 	environment.h \
 	load.h \
