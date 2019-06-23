@@ -80,8 +80,6 @@ static int zstd_compression()
     int n = strtol(level, &endptr, 0);
     if (*endptr)
         return ZSTD_CLEVEL_DEFAULT;
-    if (n < 0 || n > 19)
-        return ZSTD_CLEVEL_DEFAULT;
     return n;
 }
 
