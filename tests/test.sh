@@ -1867,6 +1867,14 @@ run_ice "$testdir/includes.h.gch" "local" 0 "keepoutput" $TESTCXX -x c++-header 
 run_ice "$testdir/includes.o" "remote" 0 $TESTCXX -Wall -Werror -c includes.cpp -include "$testdir"/includes.h -Winvalid-pch -o "$testdir"/includes.o
 if test -n "$using_clang"; then
     run_ice "$testdir/includes.o" "remote" 0 $TESTCXX -Wall -Werror -c includes.cpp -include-pch "$testdir"/includes.h.gch -o "$testdir"/includes.o
+    $TESTCXX -Werror -fsyntax-only -Xclang -building-pch-with-obj -c includes.cpp -include-pch "$testdir"/includes.h.gch 2>/dev/null
+    if test $? -eq 0; then
+        run_ice "$testdir/includes.o" "local" 0 $TESTCXX -Wall -Werror -Xclang -building-pch-with-obj -c includes.cpp -include-pch "$testdir"/includes.h.gch -o "$testdir"/includes.o
+        # local and remote run will leave a message => 2
+        check_section_log_message_count icecc 2 "invoking: $(command -v $TESTCXX) -Wall -Werror -Xclang -building-pch-with-obj"
+    else
+        skipped_tests="$skipped_tests clang_building_pch_with_obj"
+    fi
 fi
 rm "$testdir"/includes.h.gch
 
@@ -1981,10 +1989,12 @@ fi
 ignore=
 if test -n "$using_gcc"; then
     # gcc (as of now) doesn't know these options, ignore these tests if they fail
-    ignore="cxx-isystem target fsanitize-blacklist clangplugin clang_rewrite_includes"
+    ignore="cxx-isystem target fsanitize-blacklist clangplugin clang_rewrite_includes clang_building_pch_with_obj"
 elif test -n "$using_clang"; then
     # clang (as of now) doesn't know these
     ignore="asm_listing asm_macros asm_defsym asm_defsym"
+    # This one is fairly new (clang7?), so do not require it.
+    ignore="$ignore clang_building_pch_with_obj"
 fi
 ignored_tests=
 for item in $ignore; do

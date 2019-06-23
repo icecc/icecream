@@ -677,6 +677,15 @@ bool analyse_argv(const char * const *argv, CompileJob &job, bool icerun, list<s
                             args.append(file, Arg_Rest);
                             i += 2;
                         }
+                    } else if( str_equal( "-building-pch-with-obj", p )) {
+                        // We strip the arguments loading the PCH when building remotely,
+                        // so the object file would not contain anything from the PCH,
+                        // leading to link errors later when other objects would assume
+                        // this object file would provide some symbols from the PCH.
+                        log_info() << "argument " << a << " " << p << ", building locally" << endl;
+                        always_local = true;
+                        args.append(a, Arg_Rest);
+                        args.append(p, Arg_Rest);
                     } else {
                         args.append(a, Arg_Rest);
                         args.append(p, Arg_Rest);
