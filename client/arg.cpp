@@ -92,12 +92,6 @@ static bool analyze_program(const char *name, CompileJob &job, bool& icerun)
 {
     string compiler_name = find_basename(name);
 
-    string::size_type pos = compiler_name.rfind('/');
-
-    if (pos != string::npos) {
-        compiler_name = compiler_name.substr(pos);
-    }
-
     job.setCompilerName(compiler_name);
 
     string suffix = compiler_name;
@@ -845,12 +839,7 @@ bool analyse_argv(const char * const *argv, CompileJob &job, bool icerun, list<s
                 } else {
                     ofile += ".o";
                 }
-
-                string::size_type slash = ofile.find_last_of('/');
-
-                if (slash != string::npos) {
-                    ofile = ofile.substr(slash + 1);
-                }
+                ofile = find_basename(ofile);
             }
 
             if (!always_local && seen_md && !seen_mf) {
