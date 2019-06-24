@@ -32,7 +32,7 @@ using namespace std;
  **/
 string find_basename(const string &sfile)
 {
-    size_t index = sfile.find_last_of('/');
+    size_t index = sfile.rfind('/');
 
     if (index == string::npos) {
         return sfile;
@@ -43,7 +43,7 @@ string find_basename(const string &sfile)
 
 string find_prefix(const string &basename)
 {
-    size_t index = basename.find_last_of('-');
+    size_t index = basename.rfind('-');
 
     if (index == string::npos) {
         return "";

@@ -229,7 +229,7 @@ int handle_connection(const string &basedir, CompileJob *job,
             string job_output_file = job->outputFile();
             string job_working_dir = job->workingDirectory();
 
-            size_t slash_index = job_output_file.find_last_of('/');
+            size_t slash_index = job_output_file.rfind('/');
             string file_dir, file_name;
             if (slash_index != string::npos) {
                 file_dir = job_output_file.substr(0, slash_index);
@@ -260,15 +260,15 @@ int handle_connection(const string &basedir, CompileJob *job,
             }
 
             obj_file = output_dir + '/' + file_name;
-            dwo_file = obj_file.substr(0, obj_file.find_last_of('.')) + ".dwo";
+            dwo_file = obj_file.substr(0, obj_file.rfind('.')) + ".dwo";
 
             ret = work_it(*job, job_stat, client, rmsg, tmp_path, job_working_dir, relative_file_path, mem_limit, client->fd);
         }
         else if (!job->dwarfFissionEnabled() && (ret = dcc_make_tmpnam(prefix_output, ".o", &tmp_output, 0)) == 0) {
             obj_file = tmp_output;
             free(tmp_output);
-            string build_path = obj_file.substr(0, obj_file.find_last_of('/'));
-            string file_name = obj_file.substr(obj_file.find_last_of('/')+1);
+            string build_path = obj_file.substr(0, obj_file.rfind('/'));
+            string file_name = obj_file.substr(obj_file.rfind('/')+1);
 
             ret = work_it(*job, job_stat, client, rmsg, build_path, "", file_name, mem_limit, client->fd);
         }

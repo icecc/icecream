@@ -798,7 +798,7 @@ bool analyse_argv(const char * const *argv, CompileJob &job, bool icerun, list<s
         }
 
         if (ifile.find('.') != string::npos) {
-            string::size_type dot_index = ifile.find_last_of('.');
+            string::size_type dot_index = ifile.rfind('.');
             string ext = ifile.substr(dot_index + 1);
 
             if (ext == "cc"
@@ -843,7 +843,7 @@ bool analyse_argv(const char * const *argv, CompileJob &job, bool icerun, list<s
             }
 
             if (!always_local && seen_md && !seen_mf) {
-                string dfile = ofile.substr(0, ofile.find_last_of('.')) + ".d";
+                string dfile = ofile.substr(0, ofile.rfind('.')) + ".d";
 
 #if CLIENT_DEBUG
                 log_info() << "dep file: " << dfile << endl;

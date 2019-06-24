@@ -613,7 +613,7 @@ static int build_remote_int(CompileJob &job, UseCSMsg *usecs, MsgChannel *local_
         if (status == 0) {
             receive_file(job.outputFile(), cserver);
             if (have_dwo_file) {
-                string dwo_output = job.outputFile().substr(0, job.outputFile().find_last_of('.')) + ".dwo";
+                string dwo_output = job.outputFile().substr(0, job.outputFile().rfind('.')) + ".dwo";
                 receive_file(dwo_output, cserver);
             }
         }
@@ -722,7 +722,7 @@ maybe_build_local(MsgChannel *local_daemon, UseCSMsg *usecs, CompileJob &job,
         if (!stat(job.outputFile().c_str(), &st)) {
             msg.out_uncompressed += st.st_size;
         }
-        if (!stat((job.outputFile().substr(0, job.outputFile().find_last_of('.')) + ".dwo").c_str(), &st)) {
+        if (!stat((job.outputFile().substr(0, job.outputFile().rfind('.')) + ".dwo").c_str(), &st)) {
             msg.out_uncompressed += st.st_size;
         }
 
@@ -964,7 +964,7 @@ int build_remote(CompileJob &job, MsgChannel *local_daemon, const Environments &
                             log_perror("unlink outputFile failed") << "\t" << jobs[0].outputFile() << endl;
                         }
                         if (has_split_dwarf) {
-                            string dwo_file = jobs[0].outputFile().substr(0, jobs[0].outputFile().find_last_of('.')) + ".dwo";
+                            string dwo_file = jobs[0].outputFile().substr(0, jobs[0].outputFile().rfind('.')) + ".dwo";
                             if (-1 == ::unlink(dwo_file.c_str())){
                                 log_perror("unlink failed") << "\t" << dwo_file << endl;
                             }
@@ -985,7 +985,7 @@ int build_remote(CompileJob &job, MsgChannel *local_daemon, const Environments &
                                (jobs[0].outputFile() + ".caught").c_str());
                         rename(preproc, (string(preproc) + ".caught").c_str());
                         if (has_split_dwarf) {
-                            string dwo_file = jobs[0].outputFile().substr(0, jobs[0].outputFile().find_last_of('.')) + ".dwo";
+                            string dwo_file = jobs[0].outputFile().substr(0, jobs[0].outputFile().rfind('.')) + ".dwo";
                             rename(dwo_file.c_str(), (dwo_file + ".caught").c_str());
                         }
                         exit_codes[0] = -1; // overwrite
@@ -997,7 +997,7 @@ int build_remote(CompileJob &job, MsgChannel *local_daemon, const Environments &
                     log_perror("unlink failed") << "\t" << jobs[i].outputFile() << endl;
                 }
                 if (has_split_dwarf) {
-                    string dwo_file = jobs[i].outputFile().substr(0, jobs[i].outputFile().find_last_of('.')) + ".dwo";
+                    string dwo_file = jobs[i].outputFile().substr(0, jobs[i].outputFile().rfind('.')) + ".dwo";
                     if (-1 == ::unlink(dwo_file.c_str())){
                         log_perror("unlink failed") << "\t" << dwo_file << endl;
                     }
@@ -1009,7 +1009,7 @@ int build_remote(CompileJob &job, MsgChannel *local_daemon, const Environments &
                 log_perror("unlink failed") << "\t" << jobs[0].outputFile() << endl;
             }
             if (has_split_dwarf) {
-                string dwo_file = jobs[0].outputFile().substr(0, jobs[0].outputFile().find_last_of('.')) + ".dwo";
+                string dwo_file = jobs[0].outputFile().substr(0, jobs[0].outputFile().rfind('.')) + ".dwo";
                 if (-1 == ::unlink(dwo_file.c_str())){
                     log_perror("unlink failed") << "\t" << dwo_file << endl;
                 }
@@ -1020,7 +1020,7 @@ int build_remote(CompileJob &job, MsgChannel *local_daemon, const Environments &
                     log_perror("unlink failed") << "\t" << jobs[i].outputFile() << endl;
                 }
                 if (has_split_dwarf) {
-                    string dwo_file = jobs[i].outputFile().substr(0, jobs[i].outputFile().find_last_of('.')) + ".dwo";
+                    string dwo_file = jobs[i].outputFile().substr(0, jobs[i].outputFile().rfind('.')) + ".dwo";
                     if (-1 == ::unlink(dwo_file.c_str())){
                         log_perror("unlink failed") << "\t" << dwo_file << endl;
                     }

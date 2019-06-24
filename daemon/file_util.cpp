@@ -125,7 +125,7 @@ bool mkpath(const string &path) {
     if(ret == -1) {
         switch(errno) {
             case ENOENT:
-                if(mkpath(path.substr(0, path.find_last_of('/'))))
+                if(mkpath(path.substr(0, path.rfind('/'))))
                     success = 0 == mkdir(path.c_str(), 0775);
                 else
                     success = false;
