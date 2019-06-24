@@ -2353,7 +2353,7 @@ int main(int argc, char **argv)
 
     ofstream pidFile;
     string progName = argv[0];
-    progName = progName.substr(progName.rfind('/') + 1);
+    progName = find_basename(progName);
     pidFilePath = string(RUNDIR) + string("/") + progName + string(".pid");
     pidFile.open(pidFilePath.c_str());
     pidFile << dcc_master_pid << endl;

@@ -99,33 +99,6 @@ int dcc_ignore_sigpipe(int val)
 }
 
 /**
- * Return a pointer to the basename of the file (everything after the
- * last slash.)  If there is no slash, return the whole filename,
- * which is presumably in the current directory.
- **/
-string find_basename(const string &sfile)
-{
-    size_t index = sfile.find_last_of('/');
-
-    if (index == string::npos) {
-        return sfile;
-    }
-
-    return sfile.substr(index + 1);
-}
-
-string find_prefix(const string &basename)
-{
-    size_t index = basename.find_last_of('-');
-
-    if (index == string::npos) {
-        return "";
-    }
-
-    return basename.substr(0, index);
-}
-
-/**
  * Get an exclusive, non-blocking lock on a file using whatever method
  * is available on this system.
  *

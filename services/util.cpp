@@ -20,24 +20,34 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#include <string>
 
-#include "services/util.h"
+#include "util.h"
 
-class CompileJob;
+using namespace std;
 
-/* util.c */
-extern int set_cloexec_flag(int desc, int value);
-extern int dcc_ignore_sigpipe(int val);
+/**
+ * Return a pointer to the basename of the file (everything after the
+ * last slash.)  If there is no slash, return the whole filename,
+ * which is presumably in the current directory.
+ **/
+string find_basename(const string &sfile)
+{
+    size_t index = sfile.find_last_of('/');
 
-extern void colorify_output(const std::string &s_ccout);
-extern bool colorify_wanted(const CompileJob &job);
-extern bool compiler_has_color_output(const CompileJob &job);
-extern bool output_needs_workaround(const CompileJob &job);
-extern bool ignore_unverified();
-extern int resolve_link(const std::string &file, std::string &resolved);
-extern std::string get_cwd();
-extern std::string read_command_output(const std::string& command);
+    if (index == string::npos) {
+        return sfile;
+    }
 
-extern bool dcc_unlock(int lock_fd);
-extern bool dcc_lock_host(int &lock_fd);
+    return sfile.substr(index + 1);
+}
+
+string find_prefix(const string &basename)
+{
+    size_t index = basename.find_last_of('-');
+
+    if (index == string::npos) {
+        return "";
+    }
+
+    return basename.substr(0, index);
+}

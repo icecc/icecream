@@ -21,6 +21,11 @@
 #ifndef UTIL_H
 #define UTIL_H
 
+#include <string>
+
+extern std::string find_basename(const std::string &sfile);
+extern std::string find_prefix(const std::string &basename);
+
 template<typename T>
 inline T ignore_result(T x __attribute__((unused)))
 {
