@@ -407,6 +407,22 @@ wait_for_ice_startup_complete()
     fi
 }
 
+# Arguments: file1 file2 header
+compare_outputs()
+{
+    file1="$1"
+    file2="$2"
+    header="$3"
+    if ! diff "$file1" "$file2" >/dev/null; then
+        echo "$header"
+        echo ================
+        diff -u "$file1" "$file2"
+        echo ================
+        stop_ice 0
+        abort_tests
+    fi
+}
+
 # First argument is the expected output file, if any (otherwise specify "").
 # Second argument is "remote" (should be compiled on a remote host) or "local" (cannot be compiled remotely).
 # Third argument is expected exit code - if this is greater than 128 the exit code will be determined by invoking the compiler locally
@@ -579,14 +595,7 @@ run_ice()
         abort_tests
     fi
     if test -z "$nostderrcheck"; then
-        if ! diff "$testdir"/stderr.localice "$testdir"/stderr >/dev/null; then
-            echo "Stderr mismatch ($testdir/stderr.localice)"
-            echo ================
-            diff -u "$testdir"/stderr "$testdir"/stderr.localice
-            echo ================
-            stop_ice 0
-            abort_tests
-        fi
+        compare_outputs "$testdir"/stderr.localice "$testdir"/stderr "Stderr mismatch ($testdir/stderr.localice)"
         if test -z "$chroot_disabled"; then
             skipstderrcheck=
             if test -n "$unusedmacrohack" -a -n "$using_gcc"; then
@@ -604,14 +613,7 @@ run_ice()
                 fi
             fi
             if test -z "$skipstderrcheck"; then
-                if ! diff "$testdir"/stderr.remoteice "$testdir"/stderr >/dev/null; then
-                    echo "Stderr mismatch ($testdir/stderr.remoteice)"
-                    echo ================
-                    diff -u "$testdir"/stderr "$testdir"/stderr.remoteice
-                    echo ================
-                    stop_ice 0
-                    abort_tests
-                fi
+                compare_outputs "$testdir"/stderr.remoteice "$testdir"/stderr "Stderr mismatch ($testdir/stderr.remoteice)"
             fi
         fi
     fi
@@ -621,7 +623,7 @@ run_ice()
     local remove_debug_pubnames="/^\s*Offset\s*Name/,/^\s*$/s/\s*[A-Fa-f0-9]*\s*//"
     local remove_size_of_area="s/\(Size of area in.*section:\)\s*[0-9]*/\1/g"
     if test -n "$output"; then
-        if file "$output" | grep ELF >/dev/null; then
+        if file "$output" | grep -q ELF; then
             readelf -wlLiaprmfFoRt "$output" | sed -e "$remove_debug_info" \
                 -e "$remove_offset_number" \
                 -e "$remove_debug_pubnames" \
@@ -630,33 +632,19 @@ run_ice()
                 -e "$remove_offset_number" \
                 -e "$remove_debug_pubnames" \
                 -e "$remove_size_of_area" > "$output".local.readelf.txt || cp "$output" "$output".local.readelf.txt
-            if ! diff "$output".local.readelf.txt "$output".readelf.txt >/dev/null; then
-                echo "Output mismatch ($output.localice)"
-                echo ================
-                diff -u "$output".readelf.txt "$output".local.readelf.txt
-                echo ================
-                stop_ice 0
-                abort_tests
-            fi
+            compare_outputs "$output".local.readelf.txt "$output".readelf.txt "Output mismatch ($output.localice)"
             if test -z "$chroot_disabled"; then
                 readelf -wlLiaprmfFoRt "$output".remoteice | sed -e "$remove_debug_info" \
                     -e "$remove_offset_number" \
                     -e "$remove_debug_pubnames" \
                     -e "$remove_size_of_area" > "$output".remote.readelf.txt || cp "$output" "$output".remote.readelf.txt
-                if ! diff "$output".remote.readelf.txt "$output".readelf.txt >/dev/null; then
-                    echo "Output mismatch ($output.remoteice)"
-                    echo ================
-                    diff -u "$output".readelf.txt "$output".remote.readelf.txt
-                    echo ================
-                    stop_ice 0
-                    abort_tests
-                fi
+                compare_outputs "$output".remote.readelf.txt "$output".readelf.txt "Output mismatch ($output.remoteice)"
             fi
         elif echo "$output" | grep -q '\.gch$'; then
             # PCH file, no idea how to check they are the same if they are not 100% identical
             # Make silent.
             true
-        elif file "$output" | grep Mach >/dev/null; then
+        elif file "$output" | grep -q Mach; then
             # No idea how to check they are the same if they are not 100% identical
             if ! diff "$output".localice "$output" >/dev/null; then
                 echo "Output mismatch ($output.localice), Mach object files, not knowing how to verify"
@@ -677,23 +665,9 @@ run_ice()
                 fi
             fi
         else
-            if ! diff "$output".localice "$output" >/dev/null; then
-                echo "Output mismatch ($output.localice)"
-                echo ================
-                diff -u "$output" "$output".localice
-                echo ================
-                stop_ice 0
-                abort_tests
-            fi
+            compare_outputs "$output".localice "$output" "Output mismatch ($output.localice)"
             if test -z "$chroot_disabled"; then
-                if ! diff "$output".remoteice "$output" >/dev/null; then
-                    echo "Output mismatch ($output.remoteice)"
-                    echo ================
-                    diff -u "$output" "$output".remoteice
-                    echo ================
-                    stop_ice 0
-                    abort_tests
-                fi
+                compare_outputs "$output".remoteice "$output" "Output mismatch ($output.remoteice)"
             fi
         fi
     fi
@@ -703,25 +677,11 @@ run_ice()
                 sed -e "$remove_debug_info" -e "$remove_offset_number" > "$split_dwarf".readelf.txt || cp "$split_dwarf" "$split_dwarf".readelf.txt
             readelf -wlLiaprmfFoRt "$split_dwarf".localice | \
                 sed -e $remove_debug_info -e "$remove_offset_number" > "$split_dwarf".local.readelf.txt || cp "$split_dwarf" "$split_dwarf".local.readelf.txt
-            if ! diff "$split_dwarf".local.readelf.txt "$split_dwarf".readelf.txt >/dev/null; then
-                echo "Output DWO mismatch ($split_dwarf.localice)"
-                echo ====================
-                diff -u "$split_dwarf".readelf.txt "$split_dwarf".local.readelf.txt
-                echo ====================
-                stop_ice 0
-                abort_tests
-            fi
+            compare_outputs "$split_dwarf".local.readelf.txt "$split_dwarf".readelf.txt "Output DWO mismatch ($split_dwarf.localice)"
             if test -z "$chroot_disabled"; then
                 readelf -wlLiaprmfFoRt "$split_dwarf".remoteice | \
                     sed -e "$remove_debug_info" -e "$remove_offset_number" > "$split_dwarf".remote.readelf.txt || cp "$split_dwarf" "$split_dwarf".remote.readelf.txt
-                if ! diff "$split_dwarf".remote.readelf.txt "$split_dwarf".readelf.txt >/dev/null; then
-                    echo "Output DWO mismatch ($split_dwarf.remoteice)"
-                    echo ====================
-                    diff -u "$split_dwarf".readelf.txt "$split_dwarf".remote.readelf.txt
-                    echo ====================
-                    stop_ice 0
-                    abort_tests
-                fi
+                compare_outputs "$split_dwarf".remote.readelf.txt "$split_dwarf".readelf.txt "Output DWO mismatch ($split_dwarf.remoteice)"
             fi
         elif file "$output" | grep Mach >/dev/null; then
             # No idea how to check they are the same if they are not 100% identical
@@ -733,7 +693,7 @@ run_ice()
                     echo "Output mismatch ($split_dwarf.remoteice), Mach object files, not knowing how to verify"
                 fi
             fi
-        else
+        elif echo "$output" | grep -q -e '\.o$' -e '\.dwo$'; then
             # possibly cygwin .o file, no idea how to check they are the same if they are not 100% identical
             if ! diff "$split_dwarf".localice "$split_dwarf" >/dev/null; then
                 echo "Output mismatch ($split_dwarf.localice), assuming Cygwin object files, not knowing how to verify"
