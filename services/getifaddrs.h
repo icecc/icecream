@@ -19,6 +19,9 @@
    Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 */
 
+#ifndef GETIFADDRS_H
+#define GETIFADDRS_H
+
 /**
  * 02-12-26, tim@tjansen.de: added kde_ prefix, fallback-code,
  *                           removed glibs dependencies
@@ -43,10 +46,6 @@
 #define kde_ifaddrs ifaddrs
 
 #else
-
-#ifndef GETIFADDRS_H
-#define GETIFADDRS_H
-
 
 #include <sys/socket.h>
 

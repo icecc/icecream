@@ -20,6 +20,9 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
+#ifndef _CLIENT_UTIL_H_
+#define _CLIENT_UTIL_H_
+
 #include <string>
 
 #include "services/util.h"
@@ -41,3 +44,5 @@ extern std::string read_command_output(const std::string& command);
 
 extern bool dcc_unlock(int lock_fd);
 extern bool dcc_lock_host(int &lock_fd);
+
+#endif

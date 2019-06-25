@@ -20,6 +20,9 @@
     51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 */
 
+#ifndef _ICECREAM_NCPUS_H_
+#define _ICECREAM_NCPUS_H_
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -28,4 +31,6 @@ extern "C" {
 
 #ifdef __cplusplus
 }
+#endif
+
 #endif
