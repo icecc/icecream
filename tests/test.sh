@@ -1875,9 +1875,6 @@ if $TESTCXX -fsanitize=address -Werror fsanitize.cpp -o /dev/null >/dev/null 2>/
     rm "$testdir"/fsanitize.o
 
     if $TESTCXX -fsanitize=address -fsanitize-blacklist=fsanitize-blacklist.txt -c -fsyntax-only fsanitize.cpp >/dev/null 2>/dev/null; then
-        run_ice "" "local" 300 $TESTCXX -c -fsanitize=address -fsanitize-blacklist=nonexistent -g fsanitize.cpp -o "$testdir"/fsanitize.o
-        check_section_log_message icecc "file for argument -fsanitize-blacklist=nonexistent missing, building locally"
-
         run_ice "$testdir/fsanitize.o" "remote" 0 keepoutput $TESTCXX -c -fsanitize=address -fsanitize-blacklist=fsanitize-blacklist.txt -g fsanitize.cpp -o "$testdir"/fsanitize.o
         $TESTCXX -fsanitize=address -fsanitize-blacklist=fsanitize-blacklist.txt  -g "$testdir"/fsanitize.o -o "$testdir"/fsanitize 2>>"$testdir"/stderr.log
         if test $? -ne 0; then
@@ -1891,6 +1888,14 @@ if $TESTCXX -fsanitize=address -Werror fsanitize.cpp -o /dev/null >/dev/null 2>/
             check_log_error stderr "SUMMARY: AddressSanitizer: heap-use-after-free .*fsanitize.cpp:5 in test()"
         fi
         rm "$testdir"/fsanitize.o
+
+        run_ice "" "local" 300 $TESTCXX -c -fsanitize=address -fsanitize-blacklist=nonexistent -g fsanitize.cpp -o "$testdir"/fsanitize.o
+        check_section_log_message icecc "file for argument -fsanitize-blacklist=nonexistent missing, building locally"
+
+        # Check that a path with /../ is resolved properly (use the debug/ subdir of another test).
+        run_ice "$testdir/fsanitize.o" "remote" 0 $TESTCXX -c -fsanitize=address -fsanitize-blacklist=debug/../fsanitize-blacklist.txt -g fsanitize.cpp -o "$testdir"/fsanitize.o
+        check_section_log_error icecc "file for argument -fsanitize-blacklist=.*/fsanitize-blacklist.txt missing, building locally"
+        rm -rf "$testdir"/fsanitize
     else
         skipped_tests="$skipped_tests fsanitize-blacklist"
     fi
