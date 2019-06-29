@@ -421,7 +421,7 @@ const int min_mem_limit = 100;
 
 unsigned int max_kids = 0;
 
-size_t cache_size_limit = 100 * 1024 * 1024;
+size_t cache_size_limit = 256 * 1024 * 1024;
 
 struct NativeEnvironment {
     string name; // the hash
