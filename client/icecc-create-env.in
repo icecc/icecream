@@ -62,7 +62,7 @@ resolve_path()
     # so take care just of the file component itself
     while test -L "$local_path"; do
         cd $(dirname $local_path)
-        local_path=$(readlink $local_path)
+        local_path=$(readlink $(basename $local_path))
     done
     abs_path $local_path
     popd >/dev/null
