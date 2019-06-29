@@ -293,7 +293,6 @@ bool analyse_argv(const char * const *argv, CompileJob &job, bool icerun, list<s
 {
     ArgumentsList args;
     string ofile;
-    string dwofile;
 
 #if CLIENT_DEBUG > 1
     trace() << "scanning arguments" << endl;
@@ -445,6 +444,7 @@ bool analyse_argv(const char * const *argv, CompileJob &job, bool icerun, list<s
                 always_local = true;
                 args.append(a, Arg_Local);
             } else if (!strcmp(a, "-gsplit-dwarf")) {
+                args.append(a, Arg_Rest);
                 seen_split_dwarf = true;
             } else if (str_equal(a, "-x")) {
                 args.append(a, Arg_Rest);

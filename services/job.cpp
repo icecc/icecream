@@ -56,6 +56,19 @@ list<string> CompileJob::restFlags() const
     return flags(Arg_Rest);
 }
 
+list<string> CompileJob::nonLocalFlags() const
+{
+    list<string> args;
+
+    for (ArgumentsList::const_iterator it = m_flags.begin(); it != m_flags.end(); ++it) {
+        if (it->second != Arg_Local) {
+            args.push_back(it->first);
+        }
+    }
+
+    return args;
+}
+
 list<string> CompileJob::allFlags() const
 {
     list<string> args;

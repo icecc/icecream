@@ -122,6 +122,7 @@ public:
     std::list<std::string> localFlags() const;
     std::list<std::string> remoteFlags() const;
     std::list<std::string> restFlags() const;
+    std::list<std::string> nonLocalFlags() const;
     std::list<std::string> allFlags() const;
 
     void setInputFile(const std::string &file)
@@ -144,6 +145,7 @@ public:
         return m_output_file;
     }
 
+    // Since protocol 41 this is just a shortcut saying that allFlags() contains "-gsplit-dwarf".
     void setDwarfFissionEnabled(bool flag)
     {
         m_dwarf_fission = flag;

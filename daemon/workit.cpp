@@ -103,10 +103,9 @@ int work_it(CompileJob &j, unsigned int job_stat[], MsgChannel *client, CompileR
     rmsg.out.erase(rmsg.out.begin(), rmsg.out.end());
     rmsg.out.erase(rmsg.out.begin(), rmsg.out.end());
 
-    std::list<string> list = j.remoteFlags();
-    appendList(list, j.restFlags());
+    std::list<string> list = j.nonLocalFlags();
 
-    if (j.dwarfFissionEnabled()) {
+    if (!IS_PROTOCOL_41(client) && j.dwarfFissionEnabled()) {
         list.push_back("-gsplit-dwarf");
     }
 
@@ -716,7 +715,6 @@ int work_it(CompileJob &j, unsigned int job_stat[], MsgChannel *client, CompileR
                     struct timeval endtv;
                     gettimeofday(&endtv, 0);
                     rmsg.status = shell_exit_status(status);
-                    rmsg.have_dwo_file = j.dwarfFissionEnabled();
                     job_stat[JobStatistics::exit_code] = shell_exit_status(status);
                     job_stat[JobStatistics::real_msec] = ((endtv.tv_sec - starttv.tv_sec) * 1000)
                                                          + ((long(endtv.tv_usec) - long(starttv.tv_usec)) / 1000);

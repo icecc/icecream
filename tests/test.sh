@@ -1209,6 +1209,10 @@ debug_test()
         stop_ice 0
         abort_tests
     fi
+    # Binaries without debug infos use hex addresses for some symbols, which may differ between runs
+    # or builds, but is technically harmless. So remove symbol and stack addresses and let the readelf check handle that.
+    sed -i -e 's/=0x[0-9a-fA-F]*//g' "$testdir"/debug-output-remote.txt
+    sed -i -e 's/=0x[0-9a-fA-F]*//g' "$testdir"/debug-output-local.txt
     if ! diff "$testdir"/debug-output-local.txt "$testdir"/debug-output-remote.txt >/dev/null; then
         echo Gdb output different.
         echo =====================
@@ -1842,9 +1846,11 @@ if command -v gdb >/dev/null; then
     if command -v readelf >/dev/null; then
         debug_test "$TESTCXX" "-c -g debug.cpp" "Temporary breakpoint 1, main () at debug.cpp:8"
         debug_test "$TESTCXX" "-c -g $(pwd)/debug/debug2.cpp" "Temporary breakpoint 1, main () at .*debug/debug2.cpp:8"
+        debug_test "$TESTCXX" "-c -g0 debug.cpp" "Temporary breakpoint 1, 0x"
         if test -z "$debug_fission_disabled"; then
             debug_test "$TESTCXX" "-c -g debug.cpp -gsplit-dwarf" "Temporary breakpoint 1, main () at debug.cpp:8"
             debug_test "$TESTCXX" "-c -g $(pwd)/debug/debug2.cpp -gsplit-dwarf" "Temporary breakpoint 1, main () at .*debug/debug2.cpp:8"
+            debug_test "$TESTCXX" "-c debug.cpp -gsplit-dwarf -g0" "Temporary breakpoint 1, 0x"
         fi
     fi
 else
