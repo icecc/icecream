@@ -85,7 +85,7 @@ parse_icecc_version(const string &target_platform, const string &prefix)
 
     // free after the C++-Programming-HOWTO
     string::size_type lastPos = icecc_version.find_first_not_of(',', 0);
-    string::size_type pos     = icecc_version.find_first_of(',', lastPos);
+    string::size_type pos     = icecc_version.find(',', lastPos);
     bool def_targets = icecc_version.find('=') != string::npos;
 
     list<string> platforms;
@@ -104,7 +104,7 @@ parse_icecc_version(const string &target_platform, const string &prefix)
         // Skip delimiters.  Note the "not_of"
         lastPos = icecc_version.find_first_not_of(',', pos);
         // Find next "non-delimiter"
-        pos = icecc_version.find_first_of(',', lastPos);
+        pos = icecc_version.find(',', lastPos);
 
         if (def_targets) {
             colon = version.find('=');
@@ -204,7 +204,7 @@ get_absfilename(const string &_file)
         if (idx == 0) {
             file.replace(0, dots.length(), "/");
         } else {
-          string::size_type slash = file.find_last_of('/', idx - 1);
+          string::size_type slash = file.rfind('/', idx - 1);
           file.replace(slash, idx-slash+dots.length(), "/");
         }
         idx = file.find(dots);

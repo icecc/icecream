@@ -46,7 +46,7 @@ const char *rs_program_name = "icecc";
 
 static string compiler_path_lookup_helper(const string &compiler, const string &compiler_path)
 {
-    if (compiler_path.find_first_of('/') != string::npos) {
+    if (compiler_path.find('/') != string::npos) {
         return compiler_path;
     }
 
@@ -58,7 +58,7 @@ static string compiler_path_lookup_helper(const string &compiler, const string &
     string best_match;
 
     while (end != string::npos) {
-        end = path.find_first_of(':', begin);
+        end = path.find(':', begin);
         string part;
 
         if (end == string::npos) {
