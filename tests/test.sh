@@ -1415,7 +1415,8 @@ differentcompilerversiontest()
         return
     fi
 
-    echo Different compiler version: "$different" --version
+    echo Different compiler version:
+    "$different" --version
     echo
 
     # Run a normal compile test for it first, this one already may find a difference.
