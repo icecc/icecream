@@ -57,15 +57,14 @@ abs_path()
 resolve_path()
 {
     local_path=$1
-    pushd / >/dev/null
     # pwd -P in abs_path will take care of resolving symlinks in the path,
     # so take care just of the file component itself
     while test -L "$local_path"; do
-        cd $(dirname $local_path)
-        local_path=$(readlink $(basename $local_path))
+        pushd $(dirname $local_path) >/dev/null 2>&1
+        local_path=$(abs_path $(readlink $(basename $local_path)))
+        popd > /dev/null 2>&1
     done
     abs_path $local_path
-    popd >/dev/null
 }
 
 # Avoid /../ components in paths such as /usr/X11/../lib64 .
