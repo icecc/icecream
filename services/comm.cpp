@@ -2025,24 +2025,29 @@ void CompileFileMsg::fill_from_channel(MsgChannel *c)
 {
     Msg::fill_from_channel(c);
     uint32_t id, lang;
-    list<string> _l1, _l2;
     string version;
     *c >> lang;
     *c >> id;
-    *c >> _l1;
-    *c >> _l2;
+    ArgumentsList l;
+    if( IS_PROTOCOL_41(c)) {
+        list<string> largs;
+        *c >> largs;
+        // Whe compiling remotely, we no longer care about the Arg_Remote vs Arg_Rest
+        // difference, so treat them all as Arg_Remote.
+        for (list<string>::const_iterator it = largs.begin(); it != largs.end(); ++it)
+            l.append(*it, Arg_Remote);
+    } else {
+        list<string> _l1, _l2;
+        for (list<string>::const_iterator it = _l1.begin(); it != _l1.end(); ++it)
+            l.append(*it, Arg_Remote);
+        for (list<string>::const_iterator it = _l2.begin(); it != _l2.end(); ++it)
+            l.append(*it, Arg_Rest);
+        *c >> _l1;
+        *c >> _l2;
+    }
     *c >> version;
     job->setLanguage((CompileJob::Language) lang);
     job->setJobID(id);
-    ArgumentsList l;
-
-    for (list<string>::const_iterator it = _l1.begin(); it != _l1.end(); ++it) {
-        l.append(*it, Arg_Remote);
-    }
-
-    for (list<string>::const_iterator it = _l2.begin(); it != _l2.end(); ++it) {
-        l.append(*it, Arg_Rest);
-    }
 
     job->setFlags(l);
     job->setEnvironmentVersion(version);
@@ -2080,20 +2085,27 @@ void CompileFileMsg::send_to_channel(MsgChannel *c) const
     *c << (uint32_t) job->language();
     *c << job->jobID();
 
-    if (IS_PROTOCOL_30(c)) {
-        *c << job->remoteFlags();
+    if (IS_PROTOCOL_41(c)) {
+        // By the time we're compiling, the args are all Arg_Remote or Arg_Rest and
+        // we no longer care about the differences, but we may care about the ordering.
+        // So keep them all in one list.
+        *c << job->nonLocalFlags();
     } else {
-        if (job->compilerName().find("clang") != string::npos) {
-            // Hack for compilerwrapper.
-            std::list<std::string> flags = job->remoteFlags();
-            flags.push_front("clang");
-            *c << flags;
-        } else {
+        if (IS_PROTOCOL_30(c)) {
             *c << job->remoteFlags();
+        } else {
+            if (job->compilerName().find("clang") != string::npos) {
+                // Hack for compilerwrapper.
+                std::list<std::string> flags = job->remoteFlags();
+                flags.push_front("clang");
+                *c << flags;
+            } else {
+                *c << job->remoteFlags();
+            }
         }
+        *c << job->restFlags();
     }
 
-    *c << job->restFlags();
     *c << job->environmentVersion();
     *c << job->targetPlatform();
 

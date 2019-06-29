@@ -286,18 +286,19 @@ int handle_connection(const string &basedir, CompileJob *job,
             }
         }
 
+        struct stat st;
+        if (stat(obj_file.c_str(), &st) == 0) {
+            job_stat[JobStatistics::out_uncompressed] += st.st_size;
+        }
+        if (stat(dwo_file.c_str(), &st) == 0) {
+            job_stat[JobStatistics::out_uncompressed] += st.st_size;
+            rmsg.have_dwo_file = true;
+        } else
+            rmsg.have_dwo_file = false;
+
         if (!client->send_msg(rmsg)) {
             log_info() << "write of result failed" << endl;
             throw myexception(EXIT_DISTCC_FAILED);
-        }
-
-        struct stat st;
-
-        if (!stat(obj_file.c_str(), &st)) {
-            job_stat[JobStatistics::out_uncompressed] += st.st_size;
-        }
-        if (!stat(dwo_file.c_str(), &st)) {
-            job_stat[JobStatistics::out_uncompressed] += st.st_size;
         }
 
         /* wake up parent and tell him that compile finished */
