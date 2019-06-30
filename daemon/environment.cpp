@@ -436,7 +436,7 @@ pid_t start_install_environment(const std::string &basename, const std::string &
     int fds[2]; //File descriptor for Pipe
 
     if (pipe(fds) == -1) {
-        log_perror("start_install_environment: pipe creation failed for recveiving environment");
+        log_perror("start_install_environment: pipe creation failed for receiving environment");
         return 0;
     }
 
@@ -449,7 +449,7 @@ pid_t start_install_environment(const std::string &basename, const std::string &
     }
     if (pid) {
         //Runs only on parent(PID value is 0 in child and PID id on parent)
-        trace() << "Created fork for recveiving environment on pid " << pid << endl;
+        trace() << "Created fork for receiving environment on pid " << pid << endl;
 
         if ((-1 == close(fds[0])) && (errno != EBADF)){
             log_perror("Failed to close read end of pipe");
@@ -528,7 +528,7 @@ pid_t start_install_environment(const std::string &basename, const std::string &
     for(;;){
         int r = archive_read_next_header(a, &entry);
         if (r == ARCHIVE_EOF) {
-            trace() << "start_install_environment: reached end of archive while recveiving environment "<< endl;
+            trace() << "start_install_environment: reached end of archive while receiving environment "<< endl;
             break;
         }
         if (r < ARCHIVE_WARN){
