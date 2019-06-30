@@ -508,6 +508,7 @@ run_ice()
     cat "$testdir"/stderr.localice >> "$testdir"/stderr.localice.log
     flush_logs
     check_logs_for_generic_errors $localrebuildforlog
+    check_everything_is_idle
     if test "$remote_type" = "remote"; then
         check_log_message icecc "building myself, but telling localhost"
         if test -z "$localrebuild"; then
@@ -536,6 +537,7 @@ run_ice()
         cat "$testdir"/stderr.remoteice >> "$testdir"/stderr.remoteice.log
         flush_logs
         check_logs_for_generic_errors $localrebuildforlog
+        check_everything_is_idle
         if test "$remote_type" = "remote"; then
             check_log_message icecc "Have to use host 127.0.0.1:10246"
             if test -z "$localrebuild"; then
@@ -573,6 +575,7 @@ run_ice()
     cat "$testdir"/stderr >> "$testdir"/stderr.log
     flush_logs
     check_logs_for_generic_errors $localrebuildforlog
+    check_everything_is_idle
     check_log_error icecc "Have to use host 127.0.0.1:10246"
     check_log_error icecc "Have to use host 127.0.0.1:10247"
     check_log_error icecc "<building_local>"
@@ -756,6 +759,7 @@ make_test()
     fi
     flush_logs
     check_logs_for_generic_errors
+    check_everything_is_idle
     check_log_message icecc "Have to use host 127.0.0.1:10246"
     check_log_message icecc "Have to use host 127.0.0.1:10247"
     check_log_message_count icecc 1 "<building_local>"
@@ -839,6 +843,9 @@ icerun_serialize_test()
 
     flush_logs
     check_logs_for_generic_errors
+    if test -z "$noscheduler"; then
+        check_everything_is_idle
+    fi
     check_log_message_count icecc 10 "<building_local>"
     check_log_error icecc "Have to use host 127.0.0.1:10246"
     check_log_error icecc "Have to use host 127.0.0.1:10247"
@@ -909,6 +916,7 @@ symlink_wrapper_test()
     fi
     flush_logs
     check_logs_for_generic_errors
+    check_everything_is_idle
     check_log_error icecc "<building_local>"
     check_log_error icecc "Have to use host 127.0.0.1:10246"
     check_log_error icecc "Have to use host 127.0.0.1:10247"
@@ -926,6 +934,7 @@ symlink_wrapper_test()
         fi
         flush_logs
         check_logs_for_generic_errors
+        check_everything_is_idle
         check_log_error icecc "<building_local>"
         check_log_message icecc "Have to use host 127.0.0.1:10246"
         check_log_error icecc "Have to use host 127.0.0.1:10247"
@@ -1062,6 +1071,7 @@ recursive_test()
     fi
     flush_logs
     check_logs_for_generic_errors "localrebuild"
+    check_everything_is_idle
     check_log_message icecc "icecream seems to have invoked itself recursively!"
     echo Recursive check test successful.
     echo
@@ -1081,6 +1091,7 @@ recursive_test()
     rm -f "$testdir"/plain.o
     flush_logs
     check_logs_for_generic_errors "localrebuild"
+    check_everything_is_idle
     check_log_error icecc "icecream seems to have invoked itself recursively!"
     check_log_message_count icecc 1 "recursive invocation from icerun"
     echo Recursive icerun check test successful.
@@ -1162,6 +1173,7 @@ debug_test()
 
     flush_logs
     check_logs_for_generic_errors
+    check_everything_is_idle
     if test -z "$chroot_disabled"; then
         check_log_message icecc "Have to use host 127.0.0.1:10246"
         check_log_error icecc "Have to use host 127.0.0.1:10247"
@@ -1684,6 +1696,48 @@ check_section_log_message_count()
     fi
 }
 
+# Check that there are no pending jobs.
+check_everything_is_idle()
+{
+    # Use expect, using telnet is broken as plain "echo foo | telnet" quits before getting the reply.
+    local output=$(expect << EOF
+    spawn telnet localhost 8768
+    expect "200 Use 'help' for help and 'quit' to quit."
+    send "listcs\r"
+    expect "200 done"
+    send "quit\r"
+    interact
+EOF
+    )
+    echo "$output" | grep -q "200 Use 'help' for help and 'quit' to quit."
+    if test $? -ne 0; then
+        echo "Error, cannot reach scheduler control interface."
+        echo "$output"
+        stop_ice 0
+        abort_tests
+    fi
+    echo "$output" | grep -q " 3 hosts,"
+    if test $? -ne 0; then
+        echo "Error, not all 3 nodes connected to the scheduler."
+        echo "$output"
+        stop_ice 0
+        abort_tests
+    fi
+    echo "$output" | grep -q " 0 jobs in queue"
+    if test $? -ne 0; then
+        echo "Error, there are still pending jobs."
+        echo "$output"
+        stop_ice 0
+        abort_tests
+    fi
+    echo "$output" | grep -E "jobs=[0-9]+/[0-9]+" | sed -E 's#^.*jobs=([0-9]+)/[0-9]+.*$#\1#' | grep -v "0"
+    if test $? -eq 0; then
+        echo "Error, nodes still have pending jobs."
+        echo "$output"
+        stop_ice 0
+        abort_tests
+    fi
+}
 
 # ==================================================================
 # Main code starts here
@@ -1708,6 +1762,7 @@ echo Starting icecream.
 reset_logs local "Starting"
 start_ice
 check_logs_for_generic_errors
+check_everything_is_idle
 echo Starting icecream successful.
 echo
 

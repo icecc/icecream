@@ -54,7 +54,7 @@ matrix:
   - os: osx
     before_install:
       - brew update
-      - brew install lzo zstd docbook2x gdb ccache libarchive
+      - brew install lzo zstd docbook2x gdb ccache libarchive expect telnet
   - os: linux
     sudo: true # for setcap so we can run the tests in chroot.
     compiler: clang
@@ -81,6 +81,8 @@ matrix:
         - gdb
         - valgrind
         - libarchive-dev
+        - expect
+        - telnet
   - os: linux
     sudo: true # for setcap so we can run the tests in chroot.
     compiler: clang
@@ -134,3 +136,5 @@ addons:
     - gdb
     - valgrind
     - libarchive-dev
+    - expect
+    - telnet
