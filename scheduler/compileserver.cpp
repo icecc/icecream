@@ -157,6 +157,8 @@ string CompileServer::can_install(const Job *job)
 bool CompileServer::is_eligible(const Job *job)
 {
     bool jobs_okay = int(m_jobList.size()) < m_maxJobs;
+    if( m_maxJobs > 0 && int(m_jobList.size()) == m_maxJobs )
+        jobs_okay = true; // allow one job for preloading
     bool load_okay = m_load < 1000;
     bool version_okay = job->minimalHostVersion() <= protocol;
     bool eligible = jobs_okay
