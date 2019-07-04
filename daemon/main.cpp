@@ -737,7 +737,7 @@ bool Daemon::send_scheduler(const Msg& msg)
 
 bool Daemon::reannounce_environments()
 {
-    log_error() << "reannounce_environments " << endl;
+    log_info() << "reannounce_environments " << endl;
     LoginMsg lmsg(0, nodename, "");
     lmsg.envs = available_environmnents(envbasedir);
     return send_scheduler(lmsg);
@@ -963,7 +963,7 @@ int Daemon::scheduler_no_cs(NoCSMsg *msg)
 
 bool Daemon::handle_transfer_env(Client *client, Msg *_msg)
 {
-    log_error() << "handle_transfer_env while  Client Status" << Client::status_str(client->status) <<  endl;
+    log_info() << "handle_transfer_env while client status " << Client::status_str(client->status) <<  endl;
 
     assert(client->status != Client::TOINSTALL &&
            client->status != Client::TOCOMPILE &&
@@ -989,7 +989,7 @@ bool Daemon::handle_transfer_env(Client *client, Msg *_msg)
 
     if (pid > 0) {
         //in parent thread
-        log_error() << "PID of child thread running untaring environment: " << pid << endl;
+        trace() << "PID of child thread running untaring environment: " << pid << endl;
         client->pipe_to_child = sock_to_stdin; //Write end of the pipe obtained from child
         client->child_pid = pid;
 
@@ -1008,7 +1008,7 @@ bool Daemon::handle_transfer_env(Client *client, Msg *_msg)
 
 bool Daemon::handle_transfer_env_done(Client *client)
 {
-    log_error() << "handle_transfer_env_done PID " << client->child_pid <<" for " << client->outfile << endl;
+    log_info() << "handle_transfer_env_done PID " << client->child_pid <<" for " << client->outfile << endl;
 
     assert(client->outfile.size());
     assert(client->status == Client::TOINSTALL);
@@ -1029,12 +1029,12 @@ bool Daemon::handle_transfer_env_done(Client *client)
     assert(current_kids > 0);
     current_kids--;
 
-    log_error() << "installed_size: " << installed_size << endl;
+    log_info() << "installed_size: " << installed_size << endl;
 
     if (installed_size) {
         cache_size += installed_size;
         envs_last_use[current] = time(NULL);
-        log_error() << "installed " << current << " size: " << installed_size
+        log_info() << "installed " << current << " size: " << installed_size
                     << " all: " << cache_size << endl;
     }
 
@@ -1858,7 +1858,7 @@ void Daemon::answer_client_requests()
                 Msg *msg = scheduler->get_msg(0, true);
 
                 if (!msg) {
-                    log_error() << "scheduler closed connection" << endl;
+                    log_warning() << "scheduler closed connection" << endl;
                     close_scheduler();
                     clear_children();
                     return;
@@ -2304,7 +2304,7 @@ int main(int argc, char **argv)
     log_info() << "ICECREAM daemon " VERSION " starting up (nice level "
                << nice_level << ") " << endl;
     if (remote_disabled)
-        log_error() << "Cannot use chroot, no remote jobs accepted." << endl;
+        log_warning() << "Cannot use chroot, no remote jobs accepted." << endl;
     if (d.noremote)
         d.daemon_port = 0;
 

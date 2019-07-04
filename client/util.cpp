@@ -152,7 +152,7 @@ static bool dcc_open_lockfile(const string &fname, int &plockfd)
     plockfd = open(fname.c_str(), O_WRONLY | O_CREAT, 0666);
 
     if (plockfd == -1 && errno != EEXIST) {
-        log_error() << "failed to creat " << fname << ": " << strerror(errno) << endl;
+        log_error() << "failed to create " << fname << ": " << strerror(errno) << endl;
         return false;
     }
 

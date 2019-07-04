@@ -488,7 +488,7 @@ int work_it(CompileJob &j, unsigned int job_stat[], MsgChannel *client, CompileR
                     }
                 }
             } else if (client->at_eof()) {
-                log_error() << "unexpected EOF while reading preprocessed file" << endl;
+                log_warning() << "unexpected EOF while reading preprocessed file" << endl;
                 input_complete = true;
                 return_value = EXIT_IO_ERROR;
                 client_fd = -1;
@@ -573,7 +573,7 @@ int work_it(CompileJob &j, unsigned int job_stat[], MsgChannel *client, CompileR
         case 0:
 
             if (!input_complete) {
-                log_error() << "timeout while reading preprocessed file" << endl;
+                log_warning() << "timeout while reading preprocessed file" << endl;
                 kill(pid, SIGTERM); // Won't need it any more ...
                 return_value = EXIT_IO_ERROR;
                 client_fd = -1;

@@ -607,7 +607,7 @@ static int build_remote_int(CompileJob &job, UseCSMsg *usecs, MsgChannel *local_
             }
 
             if (status && (crmsg->err.length() || crmsg->out.length())) {
-                log_error() << "Compiled on " << hostname << endl;
+                log_info() << "Compiled on " << hostname << endl;
             }
         }
 

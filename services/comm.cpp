@@ -840,7 +840,7 @@ MsgChannel *Service::createChannel(const string &socket_path)
     strncpy(remote_addr.sun_path, socket_path.c_str(), sizeof(remote_addr.sun_path) - 1);
     remote_addr.sun_path[sizeof(remote_addr.sun_path) - 1] = '\0';
     if(socket_path.length() > sizeof(remote_addr.sun_path) - 1) {
-        log_error() << "socket_path path too long for sun_path" << endl;		
+        log_error() << "socket_path path too long for sun_path" << endl;
     }
 
     if (connect(remote_fd, (struct sockaddr *) &remote_addr, sizeof(remote_addr)) < 0) {
@@ -1033,7 +1033,7 @@ bool MsgChannel::wait_for_protocol()
         }
 
         if (ret == 0) {
-            log_error() << "no response within timeout" << endl;
+            log_warning() << "no response within timeout" << endl;
             set_error();
             return false; /* timeout. Consider it a fatal error. */
         }
