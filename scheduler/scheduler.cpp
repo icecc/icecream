@@ -2283,7 +2283,7 @@ int main(int argc, char *argv[])
                    even on a blocking socket (breaking POSIX).  Happens
                    when the arriving packet has a wrong checksum.  So
                    we ignore EAGAIN here, but still abort for all other errors. */
-                if (err != EAGAIN) {
+                if (err != EAGAIN && err != EWOULDBLOCK) {
                     return -1;
                 }
             }

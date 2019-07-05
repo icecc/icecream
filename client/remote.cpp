@@ -266,7 +266,7 @@ static void write_server_cpp(int cpp_fd, MsgChannel *cserver)
         do {
             bytes = read(cpp_fd, buffer + offset, sizeof(buffer) - offset);
 
-            if (bytes < 0 && (errno == EINTR || errno == EAGAIN)) {
+            if (bytes < 0 && (errno == EINTR || errno == EAGAIN || errno == EWOULDBLOCK)) {
                 continue;
             }
 

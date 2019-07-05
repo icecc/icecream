@@ -142,7 +142,7 @@ bool MsgChannel::read_a_bit()
             continue;
         } else if (ret < 0) {
             // EOF or some error
-            if (errno != EAGAIN) {
+            if (errno != EAGAIN && errno != EWOULDBLOCK) {
                 error = true;
             }
         } else if (ret == 0) {
@@ -343,24 +343,27 @@ bool MsgChannel::flush_writebuf(bool blocking)
     bool error = false;
 
     while (msgtogo) {
+        int send_errno;
 #ifdef MSG_NOSIGNAL
         ssize_t ret = send(fd, buf, msgtogo < MAX_WRITE_SIZE ? msgtogo : MAX_WRITE_SIZE, MSG_NOSIGNAL);
+        send_errno = errno;
 #else
         void (*oldsigpipe)(int);
 
         oldsigpipe = signal(SIGPIPE, SIG_IGN);
         ssize_t ret = send(fd, buf, msgtogo < MAX_WRITE_SIZE ? msgtogo : MAX_WRITE_SIZE, 0);
+        send_errno = errno;
         signal(SIGPIPE, oldsigpipe);
 #endif
 
         if (ret < 0) {
-            if (errno == EINTR) {
+            if (send_errno == EINTR) {
                 continue;
             }
 
             /* If we want to write blocking, but couldn't write anything,
                select on the fd.  */
-            if (blocking && ( errno == EAGAIN || errno == ENOTCONN )) {
+            if (blocking && ( send_errno == EAGAIN || send_errno == ENOTCONN || send_errno == EWOULDBLOCK )) {
                 int ready;
 
                 for (;;) {
@@ -387,6 +390,7 @@ bool MsgChannel::flush_writebuf(bool blocking)
                 /* Timeout or real error --> error.  */
             }
 
+            errno = send_errno;
             log_perror("flush_writebuf() failed");
             error = true;
             break;
