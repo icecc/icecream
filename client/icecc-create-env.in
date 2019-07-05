@@ -457,7 +457,13 @@ for i in $target_files; do
     ;;
   esac
   mkdir -p $tempdir/$(dirname $target)
-  cp -p $path $tempdir/$target
+  if test -x $path && objcopy -p --strip-unneeded $path $tempdir/$target 2>/dev/null; then
+    true # ok
+  elif test -x $path && objcopy -p -g $path $tempdir/$target 2>/dev/null; then
+    true # ok
+  else
+    cp -p $path $tempdir/$target
+  fi
   target=$(echo $target | cut -b2-)
   new_target_files="$new_target_files $target"
 done
