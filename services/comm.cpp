@@ -1028,7 +1028,7 @@ bool MsgChannel::wait_for_protocol()
         FD_ZERO(&set);
         FD_SET(fd, &set);
         struct timeval tv;
-        tv.tv_sec = 5;
+        tv.tv_sec = 15;
         tv.tv_usec = 0;
         int ret = select(fd + 1, &set, NULL, NULL, &tv);
 
