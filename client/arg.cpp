@@ -873,7 +873,8 @@ bool analyse_argv(const char * const *argv, CompileJob &job, bool icerun, list<s
     // -pedantic doesn't work with remote preprocessing, if extensions to a named standard
     // are allowed.  GCC allows GNU extensions by default, so let's check if a standard
     // other than eg gnu11 or gnu++14 was specified.
-    if( seen_pedantic && (!standard || str_startswith("gnu", standard)) ) {
+    if( seen_pedantic && !compiler_is_clang(job) && (!standard || str_startswith("gnu", standard)) ) {
+        log_info() << "argument -pedantic, forcing local preprocessing" << endl;
         job.setBlockRewriteIncludes(true);
     }
 
