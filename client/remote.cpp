@@ -253,7 +253,7 @@ static void check_for_failure(Msg *msg, MsgChannel *cserver)
     }
 }
 
-static void write_server_cpp(int cpp_fd, MsgChannel *cserver)
+static void write_fd_to_server(int fd, MsgChannel *cserver)
 {
     unsigned char buffer[100000]; // some random but huge number
     off_t offset = 0;
@@ -264,16 +264,16 @@ static void write_server_cpp(int cpp_fd, MsgChannel *cserver)
         ssize_t bytes;
 
         do {
-            bytes = read(cpp_fd, buffer + offset, sizeof(buffer) - offset);
+            bytes = read(fd, buffer + offset, sizeof(buffer) - offset);
 
             if (bytes < 0 && (errno == EINTR || errno == EAGAIN || errno == EWOULDBLOCK)) {
                 continue;
             }
 
             if (bytes < 0) {
-                log_perror("reading from cpp_fd");
-                close(cpp_fd);
-                throw client_error(16, "Error 16 - error reading local cpp file");
+                log_perror("write_fd_to_server() reading from fd");
+                close(fd);
+                throw client_error(16, "Error 16 - error reading local file");
             }
 
             break;
@@ -292,7 +292,7 @@ static void write_server_cpp(int cpp_fd, MsgChannel *cserver)
                     log_error() << "write of source chunk to host "
                                 << cserver->name.c_str() << endl;
                     log_perror("failed ");
-                    close(cpp_fd);
+                    close(fd);
                     throw client_error(15, "Error 15 - write to host failed");
                 }
 
@@ -311,7 +311,7 @@ static void write_server_cpp(int cpp_fd, MsgChannel *cserver)
         trace() << "sent " << compressed << " bytes (" << (compressed * 100 / uncompressed) <<
                 "%)" << endl;
 
-    if ((-1 == close(cpp_fd)) && (errno != EBADF)){
+    if ((-1 == close(fd)) && (errno != EBADF)){
         log_perror("close failed");
     }
 }
@@ -442,7 +442,7 @@ static int build_remote_int(CompileJob &job, UseCSMsg *usecs, MsgChannel *local_
                 throw client_error(5, "Error 5 - unable to open version file:\n\t" + version_file);
             }
 
-            write_server_cpp(env_fd, cserver);
+            write_fd_to_server(env_fd, cserver);
 
             if (!cserver->send_msg(EndMsg())) {
                 log_error() << "write of environment failed" << endl;
@@ -522,8 +522,8 @@ static int build_remote_int(CompileJob &job, UseCSMsg *usecs, MsgChannel *local_
             }
 
             try {
-                log_block bl2("write_server_cpp from cpp");
-                write_server_cpp(sockets[0], cserver);
+                log_block bl2("write_fd_to_server from cpp");
+                write_fd_to_server(sockets[0], cserver);
             } catch (...) {
                 kill(cpp_pid, SIGTERM);
                 throw;
@@ -546,8 +546,8 @@ static int build_remote_int(CompileJob &job, UseCSMsg *usecs, MsgChannel *local_
                 throw client_error(11, "Error 11 - unable to open preprocessed file");
             }
 
-            log_block cpp_block("write_server_cpp");
-            write_server_cpp(cpp_fd, cserver);
+            log_block cpp_block("write_fd_to_server preprocessed");
+            write_fd_to_server(cpp_fd, cserver);
         }
 
         if (!cserver->send_msg(EndMsg())) {
