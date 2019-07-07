@@ -528,7 +528,7 @@ pid_t start_install_environment(const std::string &basename, const std::string &
     for(;;){
         int r = archive_read_next_header(a, &entry);
         if (r == ARCHIVE_EOF) {
-            trace() << "start_install_environment: reached end of archive while receiving environment "<< endl;
+            trace() << "start_install_environment: reached end of archive, done"<< endl;
             break;
         }
         if (r < ARCHIVE_WARN){
