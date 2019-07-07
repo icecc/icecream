@@ -370,7 +370,7 @@ bool MsgChannel::flush_writebuf(bool blocking)
                     pollfd pfd;
                     pfd.fd = fd;
                     pfd.events = POLLOUT;
-                    ready = poll(&pfd, 1, 20 * 1000);
+                    ready = poll(&pfd, 1, 30 * 1000);
 
                     if (ready < 0 && errno == EINTR) {
                         continue;
@@ -382,6 +382,9 @@ bool MsgChannel::flush_writebuf(bool blocking)
                 /* socket ready now for writing ? */
                 if (ready > 0) {
                     continue;
+                }
+                if (ready == 0) {
+                    log_error() << "timed out while trying to send data" << endl;
                 }
 
                 /* Timeout or real error --> error.  */
