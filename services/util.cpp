@@ -124,12 +124,20 @@ string get_cpp_compiler(const string& compiler)
     return string();
 }
 
-bool pollfd_is_set(const vector<pollfd>& pollfds, int fd, int flags)
+bool pollfd_is_set(const vector<pollfd>& pollfds, int fd, int flags, bool check_errors)
 {
     for( size_t i = 0; i < pollfds.size(); ++i )
     {
         if( pollfds[ i ].fd == fd )
-            return pollfds[ i ].revents & flags;
+        {
+            if( pollfds[ i ].revents & flags )
+                return true;
+            // Unlike with select(), where readfds gets set even on EOF, with poll()
+            // POLLIN doesn't imply EOF and we need to check explicitly.
+            if( check_errors && ( pollfds[ i ].revents & ( POLLERR | POLLHUP | POLLNVAL )))
+                return true;
+            return false;
+        }
     }
     return false;
 }

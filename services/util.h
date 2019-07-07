@@ -42,6 +42,7 @@ inline T ignore_result(T x __attribute__((unused)))
 }
 
 // Returns true if _any_ of the given flags are set.
-bool pollfd_is_set(const std::vector<pollfd>& pollfds, int fd, int flags);
+// If check_errors is set, then errors such as POLLHUP are also considered as matching.
+bool pollfd_is_set(const std::vector<pollfd>& pollfds, int fd, int flags, bool check_errors = true);
 
 #endif
