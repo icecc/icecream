@@ -31,7 +31,7 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
-#include <sys/select.h>
+#include <poll.h>
 #include <sys/signal.h>
 #include <unistd.h>
 #include <errno.h>
@@ -1782,8 +1782,8 @@ static int open_tcp_listener(short port)
         return -1;
     }
 
-    /* Although we select() on fd we need O_NONBLOCK, due to
-       possible network errors making accept() block although select() said
+    /* Although we poll() on fd we need O_NONBLOCK, due to
+       possible network errors making accept() block although poll() said
        there was some activity.  */
     if (fcntl(fd, F_SETFL, O_NONBLOCK) < 0) {
         log_perror("fcntl()");
@@ -2101,9 +2101,7 @@ int main(int argc, char *argv[])
     last_announce = starttime;
 
     while (!exit_main_loop) {
-        struct timeval tv;
-        tv.tv_usec = 0;
-        tv.tv_sec = prune_servers();
+        int timeout = prune_servers();
 
         while (empty_queue()) {
             continue;
@@ -2117,27 +2115,23 @@ int main(int argc, char *argv[])
             last_announce = time(NULL);
         }
 
-        fd_set read_set, write_set;
-        int max_fd = 0;
-        FD_ZERO(&read_set);
-        FD_ZERO(&write_set);
+        vector< pollfd > pollfds;
+        pollfds.reserve( fd2cs.size() + css.size() + 5 );
+        pollfd pfd; // tmp variable
 
         if (time(0) >= next_listen) {
-            max_fd = listen_fd;
-            FD_SET(listen_fd, &read_set);
+            pfd.fd = listen_fd;
+            pfd.events = POLLIN;
+            pollfds.push_back( pfd );
 
-            if (text_fd > max_fd) {
-                max_fd = text_fd;
-            }
-
-            FD_SET(text_fd, &read_set);
+            pfd.fd = text_fd;
+            pfd.events = POLLIN;
+            pollfds.push_back( pfd );
         }
 
-        if (broad_fd > max_fd) {
-            max_fd = broad_fd;
-        }
-
-        FD_SET(broad_fd, &read_set);
+        pfd.fd = broad_fd;
+        pfd.events = POLLIN;
+        pollfds.push_back( pfd );
 
         for (map<int, CompileServer *>::const_iterator it = fd2cs.begin(); it != fd2cs.end();) {
             int i = it->first;
@@ -2154,11 +2148,9 @@ int main(int argc, char *argv[])
             }
 
             if (ok) {
-                if (i > max_fd) {
-                    max_fd = i;
-                }
-
-                FD_SET(i, &read_set);
+                pfd.fd = i;
+                pfd.events = POLLIN;
+                pollfds.push_back( pfd );
             }
         }
 
@@ -2169,16 +2161,14 @@ int main(int argc, char *argv[])
             {
                 int csInFd = (*it)->getInFd();
                 cs_in_tsts.push_back(*it);
-                if(csInFd > max_fd)
-                {
-                    max_fd = csInFd;
-                }
-                FD_SET(csInFd, &read_set);
-                FD_SET(csInFd, &write_set);
+                pfd.fd = csInFd;
+                pfd.events = POLLIN | POLLOUT;
+                pollfds.push_back( pfd );
             }
         }
 
-        int active_fds = select(max_fd + 1, &read_set, &write_set, NULL, &tv);
+        int active_fds = poll(pollfds.data(), pollfds.size(), timeout * 1000);
+        int poll_errno = errno;
 
         if (active_fds < 0 && errno == EINTR) {
             reset_debug_if_needed(); // we possibly got SIGHUP
@@ -2187,11 +2177,12 @@ int main(int argc, char *argv[])
         reset_debug_if_needed();
 
         if (active_fds < 0) {
-            log_perror("select()");
+            errno = poll_errno;
+            log_perror("poll()");
             return 1;
         }
 
-        if (FD_ISSET(listen_fd, &read_set)) {
+        if (pollfd_is_set(pollfds, listen_fd, POLLIN)) {
             active_fds--;
             bool pending_connections = true;
 
@@ -2235,7 +2226,7 @@ int main(int argc, char *argv[])
             next_listen = time(0) + 1;
         }
 
-        if (active_fds && FD_ISSET(text_fd, &read_set)) {
+        if (active_fds && pollfd_is_set(pollfds, text_fd, POLLIN)) {
             active_fds--;
             remote_len = sizeof(remote_addr);
             remote_fd = accept(text_fd,
@@ -2264,7 +2255,7 @@ int main(int argc, char *argv[])
             }
         }
 
-        if (active_fds && FD_ISSET(broad_fd, &read_set)) {
+        if (active_fds && pollfd_is_set(pollfds, broad_fd, POLLIN)) {
             active_fds--;
             char buf[Broadcasts::BROAD_BUFLEN + 1];
             struct sockaddr_in broad_addr;
@@ -2315,7 +2306,7 @@ int main(int argc, char *argv[])
                invalid.  */
             ++it;
 
-            if (FD_ISSET(i, &read_set)) {
+            if (pollfd_is_set(pollfds, i, POLLIN)) {
                 while (!cs->read_a_bit() || cs->has_msg()) {
                     if (!handle_activity(cs)) {
                         break;
@@ -2333,12 +2324,12 @@ int main(int argc, char *argv[])
             }
             if((*it)->getConnectionInProgress())
             {
-                if(active_fds > 0 && (FD_ISSET((*it)->getInFd(), &read_set) || FD_ISSET((*it)->getInFd(), &write_set)) && (*it)->isConnected())
+                if(active_fds > 0 && pollfd_is_set(pollfds, (*it)->getInFd(), POLLIN | POLLOUT) && (*it)->isConnected())
                 {
                     active_fds--;
                     (*it)->updateInConnectivity(true);
                 }
-                else if((active_fds == 0 || (FD_ISSET((*it)->getInFd(), &read_set) || FD_ISSET((*it)->getInFd(), &write_set))) && !(*it)->isConnected())
+                else if((active_fds == 0 || pollfd_is_set(pollfds, (*it)->getInFd(), POLLIN | POLLOUT)) && !(*it)->isConnected())
                 {
                     (*it)->updateInConnectivity(false);
                 }

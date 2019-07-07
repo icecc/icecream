@@ -22,6 +22,8 @@
 #define ICECREAM_UTIL_H
 
 #include <string>
+#include <sys/poll.h>
+#include <vector>
 
 extern std::string find_basename(const std::string &sfile);
 extern std::string find_prefix(const std::string &basename);
@@ -38,5 +40,8 @@ inline T ignore_result(T x __attribute__((unused)))
 {
     return x;
 }
+
+// Returns true if _any_ of the given flags are set.
+bool pollfd_is_set(const std::vector<pollfd>& pollfds, int fd, int flags);
 
 #endif

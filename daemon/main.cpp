@@ -1759,22 +1759,19 @@ void Daemon::answer_client_requests()
         maybe_stats();
     }
 
-    fd_set listen_set;
-    struct timeval tv;
-
-    FD_ZERO(&listen_set);
-    int max_fd = 0;
+    vector< pollfd > pollfds;
+    pollfds.reserve( fd2chan.size() + 5 );
+    pollfd pfd; // tmp varible
 
     if (tcp_listen_fd != -1) {
-        FD_SET(tcp_listen_fd, &listen_set);
-        max_fd = tcp_listen_fd;
+        pfd.fd = tcp_listen_fd;
+        pfd.events = POLLIN;
+        pollfds.push_back(pfd);
     }
 
-    FD_SET(unix_listen_fd, &listen_set);
-
-    if (unix_listen_fd > max_fd) { // very likely
-        max_fd = unix_listen_fd;
-    }
+    pfd.fd = unix_listen_fd;
+    pfd.events = POLLIN;
+    pollfds.push_back(pfd);
 
     for (map<int, MsgChannel *>::const_iterator it = fd2chan.begin();
             it != fd2chan.end();) {
@@ -1790,56 +1787,45 @@ void Daemon::answer_client_requests()
                               || current_status == Client::WAITFORCHILD;
 
         if (!ignore_channel && (!c->has_msg() || handle_activity(client))) {
-            if (i > max_fd) {
-                max_fd = i;
-            }
-
-            FD_SET(i, &listen_set);
+            pfd.fd = i;
+            pfd.events = POLLIN;
+            pollfds.push_back(pfd);
         }
 
         if (current_status == Client::WAITFORCHILD
                 && client->pipe_to_child != -1) {
-            if (client->pipe_to_child > max_fd) {
-                max_fd = client->pipe_to_child;
-            }
-
-            FD_SET(client->pipe_to_child, &listen_set);
+            pfd.fd = client->pipe_to_child;
+            pfd.events = POLLIN;
+            pollfds.push_back(pfd);
         }
     }
 
     if (scheduler) {
-        FD_SET(scheduler->fd, &listen_set);
-
-        if (max_fd < scheduler->fd) {
-            max_fd = scheduler->fd;
-        }
+        pfd.fd = scheduler->fd;
+        pfd.events = POLLIN;
+        pollfds.push_back(pfd);
     } else if (discover && discover->listen_fd() >= 0) {
         /* We don't explicitely check for discover->get_fd() being in
         the selected set below.  If it's set, we simply will return
         and our call will make sure we try to get the scheduler.  */
-        FD_SET(discover->listen_fd(), &listen_set);
-
-        if (max_fd < discover->listen_fd()) {
-            max_fd = discover->listen_fd();
-        }
+        pfd.fd = discover->listen_fd();
+        pfd.events = POLLIN;
+        pollfds.push_back(pfd);
     }
 
     for (map<string, NativeEnvironment>::const_iterator it = native_environments.begin();
             it != native_environments.end(); ++it) {
         if (it->second.create_env_pipe) {
-            FD_SET(it->second.create_env_pipe, &listen_set);
-            if (max_fd < it->second.create_env_pipe)
-                max_fd = it->second.create_env_pipe;
+            pfd.fd = it->second.create_env_pipe;
+            pfd.events = POLLIN;
+            pollfds.push_back(pfd);
         }
     }
 
-    tv.tv_sec = max_scheduler_pong;
-    tv.tv_usec = 0;
-
-    int ret = select(max_fd + 1, &listen_set, NULL, NULL, &tv);
+    int ret = poll(pollfds.data(), pollfds.size(), max_scheduler_pong * 1000);
 
     if (ret < 0 && errno != EINTR) {
-        log_perror("select");
+        log_perror("poll");
         close_scheduler();
         return;
     }
@@ -1853,7 +1839,7 @@ void Daemon::answer_client_requests()
     if (ret > 0) {
         bool had_scheduler = scheduler;
 
-        if (scheduler && FD_ISSET(scheduler->fd, &listen_set)) {
+        if (scheduler && pollfd_is_set(pollfds, scheduler->fd, POLLIN)) {
             while (!scheduler->read_a_bit() || scheduler->has_msg()) {
                 Msg *msg = scheduler->get_msg(0, true);
 
@@ -1902,11 +1888,11 @@ void Daemon::answer_client_requests()
 
         int listen_fd = -1;
 
-        if (tcp_listen_fd != -1 && FD_ISSET(tcp_listen_fd, &listen_set)) {
+        if (tcp_listen_fd != -1 && pollfd_is_set(pollfds, tcp_listen_fd, POLLIN)) {
             listen_fd = tcp_listen_fd;
         }
 
-        if (FD_ISSET(unix_listen_fd, &listen_set)) {
+        if (pollfd_is_set(pollfds, unix_listen_fd, POLLIN)) {
             listen_fd = unix_listen_fd;
         }
 
@@ -1951,7 +1937,7 @@ void Daemon::answer_client_requests()
             }
         } else {
             for (map<int, MsgChannel *>::const_iterator it = fd2chan.begin();
-                    max_fd && it != fd2chan.end();)  {
+                    it != fd2chan.end();)  {
                 int i = it->first;
                 MsgChannel *c = it->second;
                 Client *client = clients.find_by_channel(c);
@@ -1960,15 +1946,13 @@ void Daemon::answer_client_requests()
 
                 if (client->status == Client::WAITFORCHILD
                         && client->pipe_to_child >= 0
-                        && FD_ISSET(client->pipe_to_child, &listen_set)) {
-                    max_fd--;
-
+                        && pollfd_is_set(pollfds, client->pipe_to_child, POLLIN)) {
                     if (!handle_compile_done(client)) {
                         return;
                     }
                 }
 
-                if (FD_ISSET(i, &listen_set)) {
+                if (pollfd_is_set(pollfds, i, POLLIN)) {
                     assert(client->status != Client::TOCOMPILE);
 
                     while (!c->read_a_bit() || c->has_msg()) {
@@ -1981,14 +1965,12 @@ void Daemon::answer_client_requests()
                             break;
                         }
                     }
-
-                    max_fd--;
                 }
             }
 
             for (map<string, NativeEnvironment>::iterator it = native_environments.begin();
                  it != native_environments.end(); ) {
-                if (it->second.create_env_pipe && FD_ISSET(it->second.create_env_pipe, &listen_set)) {
+                if (it->second.create_env_pipe && pollfd_is_set(pollfds, it->second.create_env_pipe, POLLIN)) {
                     if(!create_env_finished(it->first))
                     {
                         native_environments.erase(it++);

@@ -30,7 +30,7 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <arpa/inet.h>
-#include <sys/select.h>
+#include <poll.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
 #ifdef HAVE_NETINET_TCP_VAR_H
@@ -103,7 +103,7 @@ static int zstd_compression()
 /* TODO
  * buffered in/output per MsgChannel
     + move read* into MsgChannel, create buffer-fill function
-    + add timeouting select() there, handle it in the different
+    + add timeouting poll() there, handle it in the different
     + read* functions.
     + write* unbuffered / or per message buffer (flush in send_msg)
  * think about error handling
@@ -367,13 +367,10 @@ bool MsgChannel::flush_writebuf(bool blocking)
                 int ready;
 
                 for (;;) {
-                    fd_set write_set;
-                    FD_ZERO(&write_set);
-                    FD_SET(fd, &write_set);
-                    struct timeval tv;
-                    tv.tv_sec = 20;
-                    tv.tv_usec = 0;
-                    ready = select(fd + 1, NULL, &write_set, NULL, &tv);
+                    pollfd pfd;
+                    pfd.fd = fd;
+                    pfd.events = POLLOUT;
+                    ready = poll(&pfd, 1, 20 * 1000);
 
                     if (ready < 0 && errno == EINTR) {
                         continue;
@@ -745,19 +742,15 @@ static bool connect_async(int remote_fd, struct sockaddr *remote_addr, size_t re
     int status = connect(remote_fd, remote_addr, remote_size);
 
     if ((status < 0) && (errno == EINPROGRESS || errno == EAGAIN)) {
-        struct timeval select_timeout;
-        fd_set writefds;
+        pollfd pfd;
+        pfd.fd = remote_fd;
+        pfd.events = POLLOUT;
         int ret;
 
         do {
-            /* we select for a specific time and if that succeeds, we connect one
+            /* we poll for a specific time and if that succeeds, we connect one
                final time. Everything else we ignore */
-
-            select_timeout.tv_sec = timeout;
-            select_timeout.tv_usec = 0;
-            FD_ZERO(&writefds);
-            FD_SET(remote_fd, &writefds);
-            ret = select(remote_fd + 1, NULL, &writefds, NULL, &select_timeout);
+            ret = poll(&pfd, 1, timeout * 1000);
 
             if (ret < 0 && errno == EINTR) {
                 continue;
@@ -1024,13 +1017,10 @@ bool MsgChannel::wait_for_protocol()
     }
 
     while (instate == NEED_PROTO) {
-        fd_set set;
-        FD_ZERO(&set);
-        FD_SET(fd, &set);
-        struct timeval tv;
-        tv.tv_sec = 15;
-        tv.tv_usec = 0;
-        int ret = select(fd + 1, &set, NULL, NULL, &tv);
+        pollfd pfd;
+        pfd.fd = fd;
+        pfd.events = POLLIN;
+        int ret = poll(&pfd, 1, 15 * 1000); // 15s
 
         if (ret < 0 && errno == EINTR) {
             continue;
@@ -1098,14 +1088,11 @@ bool MsgChannel::wait_for_msg(int timeout)
     }
 
     while (!has_msg()) {
-        fd_set read_set;
-        FD_ZERO(&read_set);
-        FD_SET(fd, &read_set);
-        struct timeval tv;
-        tv.tv_sec = timeout;
-        tv.tv_usec = 0;
+        pollfd pfd;
+        pfd.fd = fd;
+        pfd.events = POLLIN;
 
-        if (select(fd + 1, &read_set, NULL, NULL, &tv) <= 0) {
+        if (poll(&pfd, 1, timeout * 1000) <= 0) {
             if (errno == EINTR) {
                 continue;
             }
@@ -1822,16 +1809,13 @@ bool DiscoverSched::get_broad_answer(int ask_fd, int timeout, char *buf2, struct
                  socklen_t *remote_len)
 {
     char buf = PROTOCOL_VERSION;
-    fd_set read_set;
-    FD_ZERO(&read_set);
+    pollfd pfd;
     assert(ask_fd > 0);
-    FD_SET(ask_fd, &read_set);
-    struct timeval tv;
-    tv.tv_sec = timeout / 1000;
-    tv.tv_usec = 1000 * (timeout % 1000);
+    pfd.fd = ask_fd;
+    pfd.events = POLLIN;
     errno = 0;
 
-    if (select(ask_fd + 1, &read_set, NULL, NULL, &tv) <= 0) {
+    if (poll(&pfd, 1, timeout) <= 0 || (pfd.revents & POLLIN) == 0) {
         /* Normally this is a timeout, i.e. no scheduler there.  */
         if (errno && errno != EINTR) {
             log_perror("waiting for scheduler");

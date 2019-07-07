@@ -123,3 +123,13 @@ string get_cpp_compiler(const string& compiler)
     assert( false );
     return string();
 }
+
+bool pollfd_is_set(const vector<pollfd>& pollfds, int fd, int flags)
+{
+    for( size_t i = 0; i < pollfds.size(); ++i )
+    {
+        if( pollfds[ i ].fd == fd )
+            return pollfds[ i ].revents & flags;
+    }
+    return false;
+}
