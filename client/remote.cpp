@@ -433,7 +433,7 @@ static int build_remote_int(CompileJob &job, UseCSMsg *usecs, MsgChannel *local_
             EnvTransferMsg msg(job.targetPlatform(), job.environmentVersion());
 
             if (!cserver->send_msg(msg)) {
-                throw client_error(6, "Error 6 - send environment to remove failed");
+                throw client_error(6, "Error 6 - send environment to remote failed");
             }
 
             int env_fd = open(version_file.c_str(), O_RDONLY);
