@@ -335,6 +335,11 @@ size_t finish_create_env(int pipe, const string &basedir, string &native_environ
         *nl = '\0';
     }
 
+    if( buf[0] == '\0') {
+        trace() << "native_environment creation failed" << endl;
+        return 0;
+    }
+
     string nativedir = basedir + "/native/";
     native_environment = nativedir + buf;
 
