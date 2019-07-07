@@ -5,6 +5,7 @@
 # GPL
 
 target_files=
+add_file_duplicates=
 
 # Optional path to strip from all paths if present, e.g. if the compiler is not in /usr.
 stripprefix=
@@ -32,6 +33,14 @@ is_contained ()
   case " $target_files " in
     *" $1 "* ) return 0 ;;
     *"=$1 "* ) return 0;;
+    * ) return 1 ;;
+  esac
+}
+
+is_add_file_duplicate ()
+{
+  case " $add_file_duplicates " in
+    *" $1 "* ) return 0 ;;
     * ) return 1 ;;
   esac
 }
@@ -85,6 +94,11 @@ add_file ()
     name="$2"
   fi
   test -z "$name" && return
+
+  # it is faster to check as quickly as possible, is_contained checks duplicates too, but this saves time
+  is_add_file_duplicate "$name" && return
+  add_file_duplicates="$add_file_duplicates $name"
+
   path=$(resolve_path $path)
   name=$(convert_path_cdup $name)
   if test -n "$stripprefix"; then
