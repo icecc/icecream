@@ -688,8 +688,17 @@ void MsgChannel::set_error(bool silent)
     if( instate == ERROR ) {
         return;
     }
-    if( !silent ) {
+    if( !silent && !set_error_recursion ) {
         trace() << "setting error state for channel " << dump() << endl;
+        // After the state is set to error, get_msg() will not return anything anymore,
+        // so try to fetch last status from the other side, if available.
+        set_error_recursion = true;
+        Msg* msg = get_msg( 2, true );
+        if (msg && msg->type == M_STATUS_TEXT) {
+            log_error() << "remote status: "
+                << static_cast<StatusTextMsg*>(msg)->text << endl;
+        }
+        set_error_recursion = false;
     }
     instate = ERROR;
     eof = true;
@@ -919,6 +928,7 @@ MsgChannel::MsgChannel(int _fd, struct sockaddr *_a, socklen_t _l, bool text)
     intogo = 0;
     eof = false;
     text_based = text;
+    set_error_recursion = false;
 
     int on = 1;
 
