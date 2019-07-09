@@ -380,7 +380,7 @@ static int copy_data(struct archive *ar, struct archive *aw)
         }
         r= archive_write_data_block(aw, buff, size, offset);
         if(r != ARCHIVE_OK){
-            trace() << "COPY_DATA: Error after write"<< archive_error_string(aw)<<endl;
+            trace() << "copy_data(): Error after write: "<< archive_error_string(aw)<<endl;
             return (r);
         }
     }
@@ -449,7 +449,7 @@ pid_t start_install_environment(const std::string &basename, const std::string &
     pid_t pid = fork();
 
     if (pid == -1) {
-        log_perror("Failed to fork - trying to run tar");
+        log_perror("start_install_environment - fork()");
         return 0;
     }
     if (pid) {
@@ -526,7 +526,7 @@ pid_t start_install_environment(const std::string &basename, const std::string &
     archive_write_disk_set_standard_lookup(ext);
 
     if(archive_read_open_fd(a, 0, fmsg->len)){
-        log_error() << "start_install_environment: "<< "archive_read_open_fd faied"<< endl;
+        log_error() << "start_install_environment: archive_read_open_fd() failed"<< endl;
         _exit(1);
     }
 
@@ -537,7 +537,7 @@ pid_t start_install_environment(const std::string &basename, const std::string &
             break;
         }
         if (r < ARCHIVE_WARN){
-            log_error() << "start_install_environment: r  < ARCHIVE_WARN " <<archive_error_string(a)<<endl;   
+            log_error() << "start_install_environment: r  < ARCHIVE_WARN " <<archive_error_string(a)<<endl;
             _exit(1);
         }
 

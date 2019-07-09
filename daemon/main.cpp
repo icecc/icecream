@@ -963,7 +963,7 @@ int Daemon::scheduler_no_cs(NoCSMsg *msg)
 
 bool Daemon::handle_transfer_env(Client *client, Msg *_msg)
 {
-    log_info() << "handle_transfer_env while client status " << Client::status_str(client->status) <<  endl;
+    log_info() << "handle_transfer_env, client status " << Client::status_str(client->status) <<  endl;
 
     assert(client->status != Client::TOINSTALL &&
            client->status != Client::TOCOMPILE &&
@@ -989,7 +989,7 @@ bool Daemon::handle_transfer_env(Client *client, Msg *_msg)
 
     if (pid > 0) {
         //in parent thread
-        trace() << "PID of child thread running untaring environment: " << pid << endl;
+        trace() << "PID of child thread unpacking environment: " << pid << endl;
         client->pipe_to_child = sock_to_stdin; //Write end of the pipe obtained from child
         client->child_pid = pid;
 
