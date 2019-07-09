@@ -946,6 +946,39 @@ symlink_wrapper_test()
     echo
 }
 
+# Check that remote daemons handle gracefully when they get environment they cannot handle.
+unhandled_environment_test()
+{
+    if test -n "$chroot_disabled"; then
+        skipped_tests="$skipped_tests unhandled_environment"
+        return
+    fi
+    reset_logs "" "unhandled environment test"
+    echo "Running unhandled environment test."
+    # Use a .tar.gz that's not an archive at all, to fake a tarball compressed by something the remote can't uncompress.
+    ICECC_VERSION=brokenenvfile.tar.gz \
+        ICECC_TEST_SOCKET="$testdir"/socket-localice ICECC_TEST_REMOTEBUILD=1 ICECC_DEBUG=debug ICECC_LOGFILE="$testdir"/icecc.log \
+        PATH=$(dirname $TESTCXX):$PATH ICECC_PREFERRED_HOST=remoteice1 $valgrind "${icecc}" $TESTCXX -Wall -c plain.cpp
+    if test $? -ne 0; then
+        echo Error, unhandled environment test failed.
+        stop_ice 0
+        abort_tests
+    fi
+    flush_logs
+    check_logs_for_generic_errors "ignoreexception25"
+    check_everything_is_idle
+    # it will first try to build remotely, but because of the broken environment it'll have to retry locally
+    check_log_message icecc "Have to use host 127.0.0.1:10246"
+    check_log_message icecc "<building_local>"
+    check_log_error icecc "Have to use host 127.0.0.1:10247"
+    check_log_error icecc "building myself, but telling localhost"
+    check_log_message icecc "<Transfer Environment>"
+    check_log_message icecc "got exception Error 25 - other error verifying environment on remote"
+    echo "Unhandled environment test successful."
+    echo
+}
+
+
 # Check that icecc --build-native works.
 buildnativetest()
 {
@@ -1568,17 +1601,27 @@ cat_log_last_section()
 }
 
 # Optional arguments, in this order:
-#   - localrebuild - the same as for run_ice
+#   - localrebuild - specifies that the command might have resulted in local recompile
+#   - ignoreexception25 - ignore expection 25 (cannot verify environment)
 check_logs_for_generic_errors()
 {
     localrebuild=
+    ignoreexception25=
     if test "$1" = "localrebuild"; then
         localrebuild=1
         shift
     fi
+    if test "$1" = "ignoreexception25"; then
+        ignoreexception25=1
+        shift
+    fi
     check_log_error scheduler "that job isn't handled by"
     check_log_error scheduler "the server isn't the same for job"
-    check_log_error icecc "got exception "
+    if test -z "ignoreexception25"; then
+        check_log_error icecc "got exception "
+    else
+        check_log_error_except icecc "got exception " "got exception Error 25"
+    fi
     check_log_error icecc "found another non option on command line. Two input files"
     for log in localice remoteice1 remoteice2; do
         check_log_error $log "Ignoring bogus version"
@@ -1999,6 +2042,8 @@ icerun_nocompile_test
 recursive_test
 
 ccache_test
+
+unhandled_environment_test
 
 symlink_wrapper_test
 

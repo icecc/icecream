@@ -517,8 +517,8 @@ struct Daemon {
 
     bool reannounce_environments() __attribute_warn_unused_result__;
     void answer_client_requests();
-    bool handle_transfer_env(Client *client, Msg *msg) __attribute_warn_unused_result__;
-    bool handle_transfer_env_done(Client *client);
+    bool handle_transfer_env(Client *client, EnvTransferMsg *msg) __attribute_warn_unused_result__;
+    bool handle_transfer_env_done(Client *client, bool cancel = false);
     bool handle_get_native_env(Client *client, GetNativeEnvMsg *msg) __attribute_warn_unused_result__;
     bool finish_get_native_env(Client *client, string env_key);
     void handle_old_request();
@@ -961,7 +961,7 @@ int Daemon::scheduler_no_cs(NoCSMsg *msg)
 
 }
 
-bool Daemon::handle_transfer_env(Client *client, Msg *_msg)
+bool Daemon::handle_transfer_env(Client *client, EnvTransferMsg *emsg)
 {
     log_info() << "handle_transfer_env, client status " << Client::status_str(client->status) <<  endl;
 
@@ -970,7 +970,6 @@ bool Daemon::handle_transfer_env(Client *client, Msg *_msg)
            client->status != Client::WAITCOMPILE);
     assert(client->pipe_to_child < 0);
 
-    EnvTransferMsg *emsg = static_cast<EnvTransferMsg *>(_msg);
     string target = emsg->target;
 
     if (target.empty()) {
@@ -983,44 +982,51 @@ bool Daemon::handle_transfer_env(Client *client, Msg *_msg)
     pid_t pid = start_install_environment(envbasedir, target, emsg->name, client->channel,
                                           sock_to_stdin, fmsg, user_uid, user_gid, nice_level);
 
-    client->status = Client::TOINSTALL;
-    client->outfile = emsg->target + "/" + emsg->name;
-    current_kids++;
-
-    if (pid > 0) {
-        //in parent thread
-        trace() << "PID of child thread unpacking environment: " << pid << endl;
-        client->pipe_to_child = sock_to_stdin; //Write end of the pipe obtained from child
-        client->child_pid = pid;
-
-        if (!handle_file_chunk_env(client, fmsg)) {
-            pid = 0;
-        }
+    if( pid <= 0 ) {
+        delete fmsg;
+        remove_environment(envbasedir, target + "/" + emsg->name);
+        handle_end(client, 144);
+        return false;
     }
 
-    if (pid <= 0) {
-        handle_transfer_env_done(client);
+    client->status = Client::TOINSTALL;
+    client->outfile = target + "/" + emsg->name;
+    current_kids++;
+
+    trace() << "PID of child thread running untaring environment: " << pid << endl;
+    client->pipe_to_child = sock_to_stdin; //Write end of the pipe obtained from child
+    client->child_pid = pid;
+
+    if (!handle_file_chunk_env(client, fmsg)) {
+        delete fmsg;
+        return false;
     }
 
     delete fmsg;
-    return pid > 0;
+    return true;
 }
 
-bool Daemon::handle_transfer_env_done(Client *client)
+bool Daemon::handle_transfer_env_done(Client *client, bool cancel)
 {
-    log_info() << "handle_transfer_env_done PID " << client->child_pid <<" for " << client->outfile << endl;
+    log_info() << "handle_transfer_env_done PID " << client->child_pid <<" for " << client->outfile
+        << ( cancel ? " (cancel)" : "" ) << endl;
 
     assert(client->outfile.size());
     assert(client->status == Client::TOINSTALL);
 
-    size_t installed_size = finalize_install_environment(envbasedir, client->outfile,
-                            client->child_pid, user_uid, user_gid);
-
     if (client->pipe_to_child >= 0) {
-        installed_size = 0;
         close(client->pipe_to_child);
         client->pipe_to_child = -1;
     }
+
+    size_t installed_size = 0;
+    if( !cancel ) {
+        installed_size = finalize_install_environment(envbasedir, client->outfile,
+                            client->child_pid, user_uid, user_gid);
+        log_info() << "installed_size: " << installed_size << endl;
+    }
+    if( installed_size == 0 )
+        remove_environment(envbasedir, client->outfile);
 
     client->status = Client::UNKNOWN;
     string current = client->outfile;
@@ -1028,8 +1034,6 @@ bool Daemon::handle_transfer_env_done(Client *client)
     client->child_pid = -1;
     assert(current_kids > 0);
     current_kids--;
-
-    log_info() << "installed_size: " << installed_size << endl;
 
     if (installed_size) {
         cache_size += installed_size;
@@ -1471,10 +1475,8 @@ void Daemon::handle_end(Client *client, int exitcode)
 #endif
     fd2chan.erase(client->channel->fd);
 
-    if (client->status == Client::TOINSTALL && client->pipe_to_child >= 0) {
-        close(client->pipe_to_child);
-        client->pipe_to_child = -1;
-        handle_transfer_env_done(client);
+    if (client->status == Client::TOINSTALL) {
+        handle_transfer_env_done(client, true);
     }
 
     if (client->status == Client::CLIENTWORK) {
@@ -1629,8 +1631,9 @@ bool Daemon::handle_file_chunk_env(Client *client, Msg *msg)
        data after the M_END msg of the env transfer.  */
 
     assert(client && client->status == Client::TOINSTALL);
+    assert(client->pipe_to_child >= 0);
 
-    if (msg->type == M_FILE_CHUNK && client->pipe_to_child >= 0) {
+    if (msg->type == M_FILE_CHUNK) {
         FileChunkMsg *fcmsg = static_cast<FileChunkMsg *>(msg);
         ssize_t len = fcmsg->len;
         off_t off = 0;
@@ -1644,9 +1647,6 @@ bool Daemon::handle_file_chunk_env(Client *client, Msg *msg)
 
             if (bytes == -1) {
                 log_perror("write to transfer env pipe failed. ");
-
-                delete msg;
-                msg = 0;
                 handle_end(client, 137);
                 return false;
             }
@@ -1659,15 +1659,11 @@ bool Daemon::handle_file_chunk_env(Client *client, Msg *msg)
     }
 
     if (msg->type == M_END) {
-        close(client->pipe_to_child);
-        client->pipe_to_child = -1;
         return handle_transfer_env_done(client);
     }
 
-    if (client->pipe_to_child >= 0) {
-        handle_end(client, 138);
-    }
-
+    // unexpected message type
+    handle_end(client, 138);
     return false;
 }
 
@@ -1684,11 +1680,8 @@ bool Daemon::handle_activity(Client *client)
 
     bool ret = false;
 
-    if (client->status == Client::TOINSTALL && client->pipe_to_child >= 0) {
+    if (client->status == Client::TOINSTALL) {
         ret = handle_file_chunk_env(client, msg);
-    }
-
-    if (ret) {
         delete msg;
         return ret;
     }
@@ -1701,7 +1694,7 @@ bool Daemon::handle_activity(Client *client)
         ret = handle_compile_file(client, msg);
         break;
     case M_TRANFER_ENV:
-        ret = handle_transfer_env(client, msg);
+        ret = handle_transfer_env(client, dynamic_cast<EnvTransferMsg*>(msg));
         break;
     case M_GET_CS:
         ret = handle_get_cs(client, msg);

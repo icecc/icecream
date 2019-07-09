@@ -574,7 +574,7 @@ size_t finalize_install_environment(const std::string &basename, const std::stri
                                     pid_t pid, uid_t user_uid, gid_t user_gid)
 {
     int status = 1;
-    if (pid < 1){
+    if (pid <= 0){
         log_error() << "finalize_install_environment: Invalid pid " << pid << endl;
         return 0;
     }
