@@ -1782,7 +1782,7 @@ EOF
         stop_ice 0
         abort_tests
     fi
-    echo "$output" | grep -E "jobs=[0-9]+/[0-9]+" | sed -E 's#^.*jobs=([0-9]+)/[0-9]+.*$#\1#' | grep -v "0"
+    echo "$output" | grep -E "jobs=[0-9]+/[0-9]+" | sed -E 's#^.*jobs=([0-9]+)/[0-9]+.*$#\1#' | grep -q -v "0"
     if test $? -eq 0; then
         echo "Error, nodes still have pending jobs."
         echo "$output"
