@@ -160,7 +160,10 @@ bool CompileServer::is_eligible(const Job *job)
     if( m_maxJobs > 0 && int(m_jobList.size()) == m_maxJobs )
         jobs_okay = true; // allow one job for preloading
     bool load_okay = m_load < 1000;
-    bool version_okay = job->minimalHostVersion() <= protocol;
+    // We cannot use just 'protocol', because if the scheduler's protocol
+    // is lower than the daemon's then this is set to the minimum.
+    // But here we are asked about the daemon's protocol version, so check that.
+    bool version_okay = job->minimalHostVersion() <= maximum_remote_protocol;
     bool eligible = jobs_okay
                     && (m_chrootPossible || job->submitter() == this)
                     && load_okay

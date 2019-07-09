@@ -198,6 +198,8 @@ bool MsgChannel::update_state(void)
                     return false;
                 }
 
+                maximum_remote_protocol = remote_prot;
+
                 if (remote_prot > PROTOCOL_VERSION) {
                     remote_prot = PROTOCOL_VERSION;    // ours is smaller
                 }
@@ -903,7 +905,7 @@ MsgChannel::MsgChannel(int _fd, struct sockaddr *_a, socklen_t _l, bool text)
     : fd(_fd)
 {
     addr_len = (sizeof(struct sockaddr) > _l) ? sizeof(struct sockaddr) : _l;
- 
+
     if (addr_len && _a) {
         addr = (struct sockaddr *)malloc(addr_len);
         memcpy(addr, _a, _l);
@@ -932,6 +934,7 @@ MsgChannel::MsgChannel(int _fd, struct sockaddr *_a, socklen_t _l, bool text)
     eof = false;
     text_based = text;
     set_error_recursion = false;
+    maximum_remote_protocol = -1;
 
     int on = 1;
 

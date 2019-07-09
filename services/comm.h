@@ -227,6 +227,8 @@ public:
 
     // the minimum protocol version between me and him
     int protocol;
+    // the actual maximum protocol the remote supports
+    int maximum_remote_protocol;
 
     std::string name;
     time_t last_talk;
