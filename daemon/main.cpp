@@ -1646,7 +1646,7 @@ bool Daemon::handle_file_chunk_env(Client *client, Msg *msg)
             }
 
             if (bytes == -1) {
-                log_perror("write to transfer env pipe failed. ");
+                log_perror("write to transfer env pipe failed.");
                 handle_end(client, 137);
                 return false;
             }

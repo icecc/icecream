@@ -489,17 +489,8 @@ pid_t start_install_environment(const std::string &basename, const std::string &
     signal(SIGCHLD, SIG_DFL);
     signal(SIGPIPE, SIG_DFL);
 
-    if ((-1 == close(0)) && (errno != EBADF)){
-        //https://linux.die.net/man/3/close
-        log_perror("Failed to close standard input");
-    }
-
     if ((-1 == close(fds[1])) && (errno != EBADF)){
         log_perror("Failed to close write end of pipe");
-    }
-
-    if (-1 == dup2(fds[0], 0)){
-        log_perror("Failed to duplicate file descriptor for read end of pipe with standard input");
     }
 
     int niceval = nice(extract_priority);
@@ -525,7 +516,7 @@ pid_t start_install_environment(const std::string &basename, const std::string &
     archive_write_disk_set_options(ext, flags);
     archive_write_disk_set_standard_lookup(ext);
 
-    if(archive_read_open_fd(a, 0, fmsg->len)){
+    if(archive_read_open_fd(a, fds[0], fmsg->len) != ARCHIVE_OK){
         log_error() << "start_install_environment: archive_read_open_fd() failed"<< endl;
         _exit(1);
     }
