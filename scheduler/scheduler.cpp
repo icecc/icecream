@@ -585,7 +585,7 @@ static CompileServer *pick_server(Job *job)
     /* if the user wants to test/prefer one specific daemon, we look for that one first */
     if (!job->preferredHost().empty()) {
         for (list<CompileServer *>::iterator it = css.begin(); it != css.end(); ++it) {
-            if ((*it)->matches(job->preferredHost()) && (*it)->is_eligible(job)) {
+            if ((*it)->matches(job->preferredHost()) && (*it)->is_eligible_now(job)) {
 #if DEBUG_SCHEDULER > 1
                 trace() << "taking preferred " << (*it)->nodeName() << " " <<  server_speed(*it, job, true) << endl;
 #endif
@@ -602,7 +602,7 @@ static CompileServer *pick_server(Job *job)
         int eligible_count = 0;
 
         for (list<CompileServer *>::iterator it = css.begin(); it != css.end(); ++it) {
-            if ((*it)->is_eligible( job )) {
+            if ((*it)->is_eligible_now( job )) {
                 ++eligible_count;
                 // Do not select the first one (which could be broken and so we might never get job stats),
                 // but rather select randomly.
@@ -641,7 +641,7 @@ static CompileServer *pick_server(Job *job)
         }
 
         // Ignore ineligible servers
-        if (!cs->is_eligible(job)) {
+        if (!cs->is_eligible_now(job)) {
 #if DEBUG_SCHEDULER > 1
             trace() << cs->nodeName() << " not eligible" << endl;
 #endif
@@ -887,8 +887,20 @@ static bool empty_queue()
             job = delay_current_job();
 
             if ((job == first_job) || !job) { // no job found in the whole toanswer list
-                trace() << "No suitable host found, delaying" << endl;
-                return false;
+                job = first_job;
+                for (list<CompileServer *>::iterator it = css.begin(); it != css.end(); ++it) {
+                    if(!job->preferredHost().empty() && !(*it)->matches(job->preferredHost()))
+                        continue;
+                    if((*it)->is_eligible_ever(job)) {
+                        trace() << "No suitable host found, delaying" << endl;
+                        return false;
+                    }
+                }
+                // This means that there's nobody who could possibly handle the job,
+                // so there's no point in delaying.
+                log_info() << "No suitable host found, assigning submitter" << endl;
+                cs = job->submitter();
+                break;
             }
         } else {
             break;

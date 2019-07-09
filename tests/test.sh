@@ -1603,16 +1603,22 @@ cat_log_last_section()
 # Optional arguments, in this order:
 #   - localrebuild - specifies that the command might have resulted in local recompile
 #   - ignoreexception25 - ignore expection 25 (cannot verify environment)
+#   - ignorenosuitablehost - ignore scheduler's "No suitable host found, assigning submitter"
 check_logs_for_generic_errors()
 {
     localrebuild=
     ignoreexception25=
+    ignorenosuitablehost=
     if test "$1" = "localrebuild"; then
         localrebuild=1
         shift
     fi
     if test "$1" = "ignoreexception25"; then
         ignoreexception25=1
+        shift
+    fi
+    if test "$1" = "ignorenosuitablehost"; then
+        ignorenosuitablehost=1
         shift
     fi
     check_log_error scheduler "that job isn't handled by"
@@ -1645,6 +1651,9 @@ check_logs_for_generic_errors()
         check_log_error_except icecc "local build forced" "local build forced by remote exception"
     else
         check_log_error icecc "local build forced"
+    fi
+    if test -z "$ignorenosuitablehost"; then
+        check_log_error scheduler "No suitable host found, assigning submitter"
     fi
     has_valgrind_error=
     if test -n "$valgrind_error_markers"; then

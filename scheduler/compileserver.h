@@ -57,8 +57,9 @@ public:
 
     bool check_remote(const Job *job) const;
     bool platforms_compatible(const string &target) const;
-    string can_install(const Job *job);
-    bool is_eligible(const Job *job);
+    string can_install(const Job *job, bool ignore_installing = false) const;
+    bool is_eligible_ever(const Job *job) const;
+    bool is_eligible_now(const Job *job) const;
 
     unsigned int remotePort() const;
     void setRemotePort(const unsigned int port);
@@ -130,8 +131,8 @@ public:
     void insertClientJobId(const int localJobId, const int newJobId);
     void eraseClientJobId(const int localJobId);
 
-    map<CompileServer *, Environments> blacklist() const;
-    Environments getEnvsForBlacklistedCS(CompileServer *cs);
+    map<const CompileServer *, Environments> blacklist() const;
+    Environments getEnvsForBlacklistedCS(const CompileServer *cs);
     void blacklistCompileServer(CompileServer *cs, const std::pair<std::string, std::string> &env);
     void eraseCSFromBlacklist(CompileServer *cs);
 
@@ -144,7 +145,7 @@ public:
     void updateInConnectivity(bool acceptingIn);
 
 private:
-    bool blacklisted(const Job *job, const pair<string, string> &environment);
+    bool blacklisted(const Job *job, const pair<string, string> &environment) const;
 
     /* The listener port, on which it takes compile requests.  */
     unsigned int m_remotePort;
@@ -174,7 +175,7 @@ private:
 
     static unsigned int s_hostIdCounter;
     map<int, int> m_clientMap; // map client ID for daemon to our IDs
-    map<CompileServer *, Environments> m_blacklist;
+    map<const CompileServer *, Environments> m_blacklist;
 
     int m_inFd;
     unsigned int m_inConnAttempt;
