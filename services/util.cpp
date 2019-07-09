@@ -144,9 +144,13 @@ bool pollfd_is_set(const vector<pollfd>& pollfds, int fd, int flags, bool check_
     return false;
 }
 
-string supported_features_to_string(unsigned int)
+string supported_features_to_string(unsigned int features)
 {
     string ret;
+    if( features & NODE_FEATURE_ENV_XZ )
+        ret += " env_xz";
+    if( features & NODE_FEATURE_ENV_ZSTD )
+        ret += " env_zstd";
     if( ret.empty())
         ret = "--";
     else

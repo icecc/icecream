@@ -102,16 +102,10 @@ unset ICECC_EXTRAFILES
 unset ICECC_COLOR_DIAGNOSTICS
 unset ICECC_CARET_WORKAROUND
 
-mkdir -p "$testdir"
+# Make the tests faster.
+export ICECC_ENV_COMPRESSION=none
 
-export XZ_OPT=-0
-# New gzip complains that $GZIP is deprecated for whatever lame reason,
-# so make a wrapper script that will compress faster.
-mkdir -p "$testdir"/fastgzip
-echo "#! /bin/sh" > "$testdir"/fastgzip/gzip
-echo exec $(command -v gzip) -1 '"$@"' >> "$testdir"/fastgzip/gzip
-chmod +x "$testdir"/fastgzip/gzip
-export PATH="$testdir"/fastgzip/:$PATH
+mkdir -p "$testdir"
 
 skipped_tests=
 chroot_disabled=
@@ -953,7 +947,7 @@ unhandled_environment_test()
         skipped_tests="$skipped_tests unhandled_environment"
         return
     fi
-    reset_logs "" "unhandled environment test"
+    reset_logs "broken" "unhandled environment test"
     echo "Running unhandled environment test."
     # Use a .tar.gz that's not an archive at all, to fake a tarball compressed by something the remote can't uncompress.
     ICECC_VERSION=brokenenvfile.tar.gz \
@@ -974,6 +968,57 @@ unhandled_environment_test()
     check_log_error icecc "building myself, but telling localhost"
     check_log_message icecc "<Transfer Environment>"
     check_log_message icecc "got exception Error 25 - other error verifying environment on remote"
+
+    local compression=
+    if grep -q "supported features:.* env_zstd" "$testdir"/remoteice1.log && command -v zstd >/dev/null; then
+        compression=zstd
+    elif grep -q "supported features:.* env_xz" "$testdir"/remoteice1.log && command -v xz >/dev/null; then
+        compression=xz
+    fi
+    if test -n "$compression"; then
+        # remoteice1 supports xz/zstd, but remoteice2 not (set in sources)
+        mark_logs "supported" "unhandled environment test"
+        # use ICECC_EXTRAFILES to force creating a new environment, otherwise the remote might already have it
+        local extrafile="$testdir"/uhandled_env_extrafile.txt
+        touch "$extrafile"
+        ICECC_ENV_COMPRESSION="$compression" ICECC_EXTRAFILES="$extrafile" \
+            ICECC_TEST_SOCKET="$testdir"/socket-localice ICECC_TEST_REMOTEBUILD=1 ICECC_DEBUG=debug ICECC_LOGFILE="$testdir"/icecc.log \
+            PATH=$(dirname $TESTCXX):$PATH ICECC_PREFERRED_HOST=remoteice1 $valgrind "${icecc}" $TESTCXX -Wall -c plain.cpp
+        if test $? -ne 0; then
+            echo Error, unhandled environment test failed.
+            stop_ice 0
+            abort_tests
+        fi
+        flush_logs
+        check_everything_is_idle
+        check_log_message icecc "Have to use host 127.0.0.1:10246"
+        check_log_error icecc "<building_local>"
+        check_log_error icecc "Have to use host 127.0.0.1:10247"
+        check_log_error icecc "building myself, but telling localhost"
+        check_log_message icecc "<Transfer Environment>"
+
+        mark_logs "unsupported" "unhandled environment test"
+        ICECC_ENV_COMPRESSION="$compression" ICECC_EXTRAFILES="$extrafile" \
+            ICECC_TEST_SOCKET="$testdir"/socket-localice ICECC_TEST_REMOTEBUILD=1 ICECC_DEBUG=debug ICECC_LOGFILE="$testdir"/icecc.log \
+            PATH=$(dirname $TESTCXX):$PATH ICECC_PREFERRED_HOST=remoteice2 $valgrind "${icecc}" $TESTCXX -Wall -c plain.cpp
+        if test $? -ne 0; then
+            echo Error, unhandled environment test failed.
+            stop_ice 0
+            abort_tests
+        fi
+        flush_logs
+        check_everything_is_idle
+        check_log_message icecc "building myself, but telling localhost"
+        check_log_error icecc "<building_local>"
+        check_log_error icecc "Have to use host 127.0.0.1:10246"
+        check_log_error icecc "Have to use host 127.0.0.1:10247"
+        check_log_message scheduler "No suitable host found, assigning submitter"
+        check_log_error icecc "<Transfer Environment>"
+        rm -f "$extrafile"
+    else
+        skipped_tests="$skipped_tests unhandled_environment_type"
+    fi
+
     echo "Unhandled environment test successful."
     echo
 }
@@ -1047,7 +1092,7 @@ test_build_native_helper()
     if test $? -ne 0; then
         return 1
     fi
-    local tarball=$(sed -En '/^creating (.*\.tar\..*)/s//\1/p' "$testdir"/icecc-build-native-output)
+    local tarball=$(sed -En '/^creating (.*\.tar.*)/s//\1/p' "$testdir"/icecc-build-native-output)
     if test -z "$tarball"; then
         return 2
     fi
@@ -1092,7 +1137,7 @@ recursive_test()
         abort_tests
     fi
     popd >/dev/null
-    local tarball=$(sed -En '/^creating (.*\.tar\..*)/s//\1/p' "$testdir"/icecc-build-native-output)
+    local tarball=$(sed -En '/^creating (.*\.tar.*)/s//\1/p' "$testdir"/icecc-build-native-output)
     test_env="$testdir"/recursive_env/${tarball}
     PATH="$prefix"/lib/icecc/bin:"$prefix"/bin:/usr/local/bin:/usr/bin:/bin ICECC_TEST_SOCKET="$testdir"/socket-localice \
         ICECC_VERSION=$test_env ICECC_TEST_REMOTEBUILD=1 ICECC_DEBUG=debug ICECC_LOGFILE="$testdir"/icecc.log \
@@ -1481,7 +1526,7 @@ alltestlogs="$daemonlogs $otherlogs"
 # Call this at the start of a complete test (e.g. testing a feature). If a test fails, logs before this point will not be dumped.
 reset_logs()
 {
-    type="$1"
+    local type="$1"
     shift
     last_reset_log_mark=$flush_log_mark
     mark_logs $type "$@"
@@ -1490,7 +1535,7 @@ reset_logs()
 # Call this at the start of a sub-test (e.g. remote vs local build). Functions such as check_log_message will not check before the mark.
 mark_logs()
 {
-    type="$1"
+    local type="$1"
     shift
     last_section_log_mark=$flush_log_mark
     echo ================ > "$testdir"/log_header.txt

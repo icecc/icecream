@@ -148,6 +148,11 @@ enum Compression {
     C_ZSTD = 1
 };
 
+// The remote node is capable of unpacking environment compressed as .tar.xz .
+const int NODE_FEATURE_ENV_XZ = ( 1 << 0 );
+// The remote node is capable of unpacking environment compressed as .tar.zst .
+const int NODE_FEATURE_ENV_ZSTD = ( 1 << 1 );
+
 class MsgChannel;
 
 // a list of pairs of host platform, filename
@@ -420,19 +425,7 @@ public:
              std::string _target, unsigned int _arg_flags,
              const std::string &host, int _minimal_host_version,
              unsigned int _required_features,
-             unsigned int _client_count = 0)
-        : Msg(M_GET_CS)
-        , versions(envs)
-        , filename(f)
-        , lang(_lang)
-        , count(_count)
-        , target(_target)
-        , arg_flags(_arg_flags)
-        , client_id(0)
-        , preferred_host(host)
-        , minimal_host_version(_minimal_host_version)
-        , required_features(_required_features)
-        , client_count(_client_count) {}
+             unsigned int _client_count = 0);
 
     virtual void fill_from_channel(MsgChannel *c);
     virtual void send_to_channel(MsgChannel *c) const;
@@ -501,16 +494,20 @@ public:
     GetNativeEnvMsg()
         : Msg(M_GET_NATIVE_ENV) {}
 
-    GetNativeEnvMsg(const std::string &c, const std::list<std::string> &e)
+    GetNativeEnvMsg(const std::string &c, const std::list<std::string> &e,
+        const std::string &comp)
         : Msg(M_GET_NATIVE_ENV)
         , compiler(c)
-        , extrafiles(e) {}
+        , extrafiles(e)
+        , compression(comp)
+        {}
 
     virtual void fill_from_channel(MsgChannel *c);
     virtual void send_to_channel(MsgChannel *c) const;
 
     std::string compiler; // "gcc", "clang" or the actual binary
     std::list<std::string> extrafiles;
+    std::string compression; // "" (=default), "none", "gzip", "xz", etc.
 };
 
 class UseNativeEnvMsg : public Msg

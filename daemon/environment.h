@@ -32,7 +32,8 @@ class MsgChannel;
 extern bool cleanup_cache(const std::string &basedir, uid_t user_uid, gid_t user_gid);
 extern int start_create_env(const std::string &basedir,
                             uid_t user_uid, gid_t user_gid,
-                            const std::string &compiler, const std::list<std::string> &extrafiles);
+                            const std::string &compiler, const std::list<std::string> &extrafiles,
+                            const std::string &compression);
 extern size_t finish_create_env(int pipe, const std::string &basedir, std::string &native_environment);
 Environments available_environmnents(const std::string &basename);
 extern pid_t start_install_environment(const std::string &basename,

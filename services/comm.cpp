@@ -1913,6 +1913,30 @@ void Msg::send_to_channel(MsgChannel *c) const
     *c << (uint32_t) type;
 }
 
+GetCSMsg::GetCSMsg(const Environments &envs, const std::string &f,
+     CompileJob::Language _lang, unsigned int _count,
+     std::string _target, unsigned int _arg_flags,
+     const std::string &host, int _minimal_host_version,
+     unsigned int _required_features,
+     unsigned int _client_count)
+    : Msg(M_GET_CS)
+    , versions(envs)
+    , filename(f)
+    , lang(_lang)
+    , count(_count)
+    , target(_target)
+    , arg_flags(_arg_flags)
+    , client_id(0)
+    , preferred_host(host)
+    , minimal_host_version(_minimal_host_version)
+    , required_features(_required_features)
+    , client_count(_client_count)
+{
+    // These have been introduced in protocol version 42.
+    if( required_features & ( NODE_FEATURE_ENV_XZ | NODE_FEATURE_ENV_ZSTD ))
+        minimal_host_version = max( minimal_host_version, 42 );
+}
+
 void GetCSMsg::fill_from_channel(MsgChannel *c)
 {
     Msg::fill_from_channel(c);
@@ -2452,6 +2476,9 @@ void GetNativeEnvMsg::fill_from_channel(MsgChannel *c)
         *c >> compiler;
         *c >> extrafiles;
     }
+    compression = string();
+    if (IS_PROTOCOL_42(c))
+        *c >> compression;
 }
 
 void GetNativeEnvMsg::send_to_channel(MsgChannel *c) const
@@ -2462,6 +2489,8 @@ void GetNativeEnvMsg::send_to_channel(MsgChannel *c) const
         *c << compiler;
         *c << extrafiles;
     }
+    if (IS_PROTOCOL_42(c))
+        *c << compression;
 }
 
 void UseNativeEnvMsg::fill_from_channel(MsgChannel *c)
