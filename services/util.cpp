@@ -26,6 +26,8 @@
 #include <cassert>
 #include <cstring>
 
+#include "comm.h"
+
 using namespace std;
 
 /**
@@ -140,4 +142,14 @@ bool pollfd_is_set(const vector<pollfd>& pollfds, int fd, int flags, bool check_
         }
     }
     return false;
+}
+
+string supported_features_to_string(unsigned int)
+{
+    string ret;
+    if( ret.empty())
+        ret = "--";
+    else
+        ret.erase( 0, 1 ); // remove leading " "
+    return ret;
 }

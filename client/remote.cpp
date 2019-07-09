@@ -812,7 +812,7 @@ int build_remote(CompileJob &job, MsgChannel *local_daemon, const Environments &
         GetCSMsg getcs(envs, fake_filename, job.language(), torepeat,
                        job.targetPlatform(), job.argumentFlags(),
                        preferred_host ? preferred_host : string(),
-                       minimalRemoteVersion(job));
+                       minimalRemoteVersion(job), 0);
 
         trace() << "asking for host to use" << endl;
         if (!local_daemon->send_msg(getcs)) {
@@ -866,7 +866,7 @@ int build_remote(CompileJob &job, MsgChannel *local_daemon, const Environments &
         GetCSMsg getcs(envs, get_absfilename(job.inputFile()), job.language(), torepeat,
                        job.targetPlatform(), job.argumentFlags(),
                        preferred_host ? preferred_host : string(),
-                       minimalRemoteVersion(job));
+                       minimalRemoteVersion(job), 0);
 
 
         if (!local_daemon->send_msg(getcs)) {

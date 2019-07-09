@@ -41,6 +41,7 @@ Job::Job(const unsigned int _id, CompileServer *subm)
     , m_language()
     , m_preferredHost()
     , m_minimalHostVersion(0)
+    , m_requiredFeatures(0)
 {
     m_submitter->submittedJobsIncrement();
 }
@@ -216,4 +217,14 @@ int Job::minimalHostVersion() const
 void Job::setMinimalHostVersion(int version)
 {
     m_minimalHostVersion = version;
+}
+
+unsigned int Job::requiredFeatures() const
+{
+    return m_requiredFeatures;
+}
+
+void Job::setRequiredFeatures(unsigned int features)
+{
+    m_requiredFeatures = features;
 }

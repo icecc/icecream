@@ -101,6 +101,9 @@ public:
     bool chrootPossible() const;
     void setChrootPossible(const bool possible);
 
+    bool featuresSupported(unsigned int features) const;
+    void setSupportedFeatures(unsigned int features);
+
     int clientCount() const;
     void setClientCount( int clientCount );
     int submittedJobsCount() const;
@@ -162,6 +165,7 @@ private:
     State m_state;
     Type m_type;
     bool m_chrootPossible;
+    unsigned int m_featuresSupported;
     int m_clientCount; // number of client connections the daemon has
     int m_submittedJobsCount;
     unsigned int m_lastPickId;

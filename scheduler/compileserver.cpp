@@ -52,6 +52,7 @@ CompileServer::CompileServer(const int fd, struct sockaddr *_addr, const socklen
     , m_state(CONNECTED)
     , m_type(UNKNOWN)
     , m_chrootPossible(false)
+    , m_featuresSupported(0)
     , m_clientCount(0)
     , m_submittedJobsCount(0)
     , m_lastPickId(0)
@@ -161,15 +162,17 @@ bool CompileServer::is_eligible_ever(const Job *job) const
     // is lower than the daemon's then this is set to the minimum.
     // But here we are asked about the daemon's protocol version, so check that.
     bool version_okay = job->minimalHostVersion() <= maximum_remote_protocol;
+    bool features_okay = featuresSupported(job->requiredFeatures());
     bool eligible = jobs_okay
                     && (m_chrootPossible || job->submitter() == this)
                     && version_okay
+                    && features_okay
                     && m_acceptingInConnection
                     && can_install(job, true).size()
                     && check_remote(job);
 #if DEBUG_SCHEDULER > 2
     trace() << nodeName() << " is_eligible_ever: " << eligible << " (jobs_okay " << jobs_okay
-        << ", version_okay " << version_okay
+        << ", version_okay " << version_okay << ", features_okay " << features_okay
         << ", chroot_or_local " << (m_chrootPossible || job->submitter() == this)
         << ", accepting " << m_acceptingInConnection << ", can_install " << (can_install(job).size() != 0)
         << ", check_remote " << check_remote(job) << ")" << endl;
@@ -329,6 +332,16 @@ bool CompileServer::chrootPossible() const
 void CompileServer::setChrootPossible(const bool possible)
 {
     m_chrootPossible = possible;
+}
+
+bool CompileServer::featuresSupported(unsigned int features) const
+{
+    return ( m_featuresSupported & features ) == features;
+}
+
+void CompileServer::setSupportedFeatures(unsigned int features)
+{
+    m_featuresSupported = features;
 }
 
 int CompileServer::clientCount() const

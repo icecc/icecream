@@ -1949,6 +1949,11 @@ void GetCSMsg::fill_from_channel(MsgChannel *c)
     if (IS_PROTOCOL_39(c)) {
         *c >> client_count;
     }
+
+    required_features = 0;
+    if (IS_PROTOCOL_42(c)) {
+        *c >> required_features;
+    }
 }
 
 void GetCSMsg::send_to_channel(MsgChannel *c) const
@@ -1975,6 +1980,9 @@ void GetCSMsg::send_to_channel(MsgChannel *c) const
 
     if (IS_PROTOCOL_39(c)) {
         *c << client_count;
+    }
+    if (IS_PROTOCOL_42(c)) {
+        *c << required_features;
     }
 }
 
@@ -2336,7 +2344,8 @@ void JobDoneMsg::set_job_id( uint32_t jobId )
     flags &= ~ (uint32_t) UnknownJobId;
 }
 
-LoginMsg::LoginMsg(unsigned int myport, const std::string &_nodename, const std::string &_host_platform)
+LoginMsg::LoginMsg(unsigned int myport, const std::string &_nodename, const std::string &_host_platform,
+    unsigned int myfeatures)
     : Msg(M_LOGIN)
     , port(myport)
     , max_kids(0)
@@ -2344,6 +2353,7 @@ LoginMsg::LoginMsg(unsigned int myport, const std::string &_nodename, const std:
     , chroot_possible(false)
     , nodename(_nodename)
     , host_platform(_host_platform)
+    , supported_features(myfeatures)
 {
 #ifdef HAVE_LIBCAP_NG
     chroot_possible = capng_have_capability(CAPNG_EFFECTIVE, CAP_SYS_CHROOT);
@@ -2371,6 +2381,11 @@ void LoginMsg::fill_from_channel(MsgChannel *c)
     }
 
     noremote = (net_noremote != 0);
+
+    supported_features = 0;
+    if (IS_PROTOCOL_42(c)) {
+        *c >> supported_features;
+    }
 }
 
 void LoginMsg::send_to_channel(MsgChannel *c) const
@@ -2385,6 +2400,9 @@ void LoginMsg::send_to_channel(MsgChannel *c) const
 
     if (IS_PROTOCOL_26(c)) {
         *c << noremote;
+    }
+    if (IS_PROTOCOL_42(c)) {
+        *c << supported_features;
     }
 }
 

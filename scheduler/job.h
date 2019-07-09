@@ -93,6 +93,9 @@ public:
     int minimalHostVersion() const;
     void setMinimalHostVersion( int version );
 
+    unsigned int requiredFeatures() const;
+    void setRequiredFeatures(unsigned int features);
+
 private:
     const unsigned int m_id;
     unsigned int m_localClientId;
@@ -117,6 +120,7 @@ private:
     std::string m_language; // for debugging
     std::string m_preferredHost; // for debugging daemons
     int m_minimalHostVersion; // minimal version required for the the remote server
+    unsigned int m_requiredFeatures; // flags the job requires on the remote server
 };
 
 #endif
