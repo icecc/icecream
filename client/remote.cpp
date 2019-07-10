@@ -814,6 +814,7 @@ int build_remote(CompileJob &job, MsgChannel *local_daemon, const Environments &
                        preferred_host ? preferred_host : string(),
                        minimalRemoteVersion(job));
 
+        trace() << "asking for host to use" << endl;
         if (!local_daemon->send_msg(getcs)) {
             log_warning() << "asked for CS" << endl;
             throw client_error(24, "Error 24 - asked for CS");

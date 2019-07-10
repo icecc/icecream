@@ -116,6 +116,7 @@ public:
      * LINKJOB: This is a local job (aka link job) by a local client we told the scheduler about
      *          and await the finish of it
      * TOINSTALL: We're receiving an environment transfer and wait for it to complete.
+     * WAITINSTALL: Client is waiting for the environment transfer unpacking child to finish.
      * TOCOMPILE: We're supposed to compile it ourselves
      * WAITFORCS: Client asked for a CS and we asked the scheduler - waiting for its answer
      * WAITCOMPILE: Client got a CS and will ask him now (it's not me)
@@ -123,7 +124,7 @@ public:
      * WAITFORCHILD: Client is waiting for the compile job to finish.
      * WAITCREATEENV: We're waiting for icecc-create-env to finish.
      */
-    enum Status { UNKNOWN, GOTNATIVE, PENDING_USE_CS, JOBDONE, LINKJOB, TOINSTALL, TOCOMPILE,
+    enum Status { UNKNOWN, GOTNATIVE, PENDING_USE_CS, JOBDONE, LINKJOB, TOINSTALL, WAITINSTALL, TOCOMPILE,
                   WAITFORCS, WAITCOMPILE, CLIENTWORK, WAITFORCHILD, WAITCREATEENV,
                   LASTSTATE = WAITCREATEENV
                 } status;
@@ -134,6 +135,7 @@ public:
         usecsmsg = 0;
         client_id = 0;
         status = UNKNOWN;
+        pipe_from_child = -1;
         pipe_to_child = -1;
         child_pid = -1;
     }
@@ -152,6 +154,8 @@ public:
             return "linkjob";
         case TOINSTALL:
             return "toinstall";
+        case WAITINSTALL:
+            return "waitinstall";
         case TOCOMPILE:
             return "tocompile";
         case WAITFORCS:
@@ -179,6 +183,11 @@ public:
         delete job;
         job = 0;
 
+        if (pipe_from_child >= 0) {
+            if (-1 == close(pipe_from_child) && (errno != EBADF)){
+                log_perror("Failed to close pipe from child process");
+            }
+        }
         if (pipe_to_child >= 0) {
             if (-1 == close(pipe_to_child) && (errno != EBADF)){
                 log_perror("Failed to close pipe to child process");
@@ -187,12 +196,15 @@ public:
 
     }
     uint32_t job_id;
-    string outfile; // only useful for LINKJOB or TOINSTALL
+    string outfile; // only useful for LINKJOB or TOINSTALL/WAITINSTALL
     MsgChannel *channel;
     UseCSMsg *usecsmsg;
     CompileJob *job;
     int client_id;
-    int pipe_to_child; // pipe to child process, only valid if WAITFORCHILD or TOINSTALL
+    // pipe from child process with end status, only valid if WAITFORCHILD or TOINSTALL/WAITINSTALL
+    int pipe_from_child;
+    // pipe to child process, only valid if TOINSTALL/WAITINSTALL
+    int pipe_to_child;
     pid_t child_pid;
     string pending_create_env; // only for WAITCREATEENV
 
@@ -201,11 +213,12 @@ public:
 
         switch (status) {
         case LINKJOB:
-            return ret + " ClientID: " + toString(client_id) + " " + outfile;
+            return ret + " ClientID: " + toString(client_id) + " " + outfile + " PID: " + toString(child_pid);
         case TOINSTALL:
-            return ret + " " + toString(client_id) + " " + outfile;
+        case WAITINSTALL:
+            return ret + " ClientID: " + toString(client_id) + " " + outfile + " PID: " + toString(child_pid);
         case WAITFORCHILD:
-            return ret + " ClientID: " + toString(client_id) + " PID: " + toString(child_pid) + " PFD: " + toString(pipe_to_child);
+            return ret + " ClientID: " + toString(client_id) + " PID: " + toString(child_pid) + " PFD: " + toString(pipe_from_child);
         case WAITCREATEENV:
             return ret + " " + toString(client_id) + " " + pending_create_env;
         default:
@@ -518,7 +531,8 @@ struct Daemon {
     bool reannounce_environments() __attribute_warn_unused_result__;
     void answer_client_requests();
     bool handle_transfer_env(Client *client, EnvTransferMsg *msg) __attribute_warn_unused_result__;
-    bool handle_transfer_env_done(Client *client, bool cancel = false);
+    bool handle_env_install_child_done(Client *client);
+    bool finish_transfer_env(Client *client, bool cancel = false);
     bool handle_get_native_env(Client *client, GetNativeEnvMsg *msg) __attribute_warn_unused_result__;
     bool finish_get_native_env(Client *client, string env_key);
     void handle_old_request();
@@ -966,8 +980,10 @@ bool Daemon::handle_transfer_env(Client *client, EnvTransferMsg *emsg)
     log_info() << "handle_transfer_env, client status " << Client::status_str(client->status) <<  endl;
 
     assert(client->status != Client::TOINSTALL &&
+           client->status != Client::WAITINSTALL &&
            client->status != Client::TOCOMPILE &&
            client->status != Client::WAITCOMPILE);
+    assert(client->pipe_from_child < 0);
     assert(client->pipe_to_child < 0);
 
     string target = emsg->target;
@@ -976,11 +992,12 @@ bool Daemon::handle_transfer_env(Client *client, EnvTransferMsg *emsg)
         target =  machine_name;
     }
 
-    int sock_to_stdin = -1;
+    int pipe_from_child = -1;
+    int pipe_to_child = -1;
     FileChunkMsg *fmsg = 0;
 
     pid_t pid = start_install_environment(envbasedir, target, emsg->name, client->channel,
-                                          sock_to_stdin, fmsg, user_uid, user_gid, nice_level);
+                    pipe_to_child, pipe_from_child, fmsg, user_uid, user_gid, nice_level);
 
     if( pid <= 0 ) {
         delete fmsg;
@@ -994,7 +1011,8 @@ bool Daemon::handle_transfer_env(Client *client, EnvTransferMsg *emsg)
     current_kids++;
 
     trace() << "PID of child thread running untaring environment: " << pid << endl;
-    client->pipe_to_child = sock_to_stdin; //Write end of the pipe obtained from child
+    client->pipe_to_child = pipe_to_child;
+    client->pipe_from_child = pipe_from_child;
     client->child_pid = pid;
 
     if (!handle_file_chunk_env(client, fmsg)) {
@@ -1006,15 +1024,114 @@ bool Daemon::handle_transfer_env(Client *client, EnvTransferMsg *emsg)
     return true;
 }
 
-bool Daemon::handle_transfer_env_done(Client *client, bool cancel)
+bool Daemon::handle_file_chunk_env(Client *client, Msg *msg)
 {
-    log_info() << "handle_transfer_env_done PID " << client->child_pid <<" for " << client->outfile
+    /* this sucks, we can block when we're writing
+       the file chunk to the child, but we can't let the child
+       handle MsgChannel itself due to MsgChannel's stupid
+       caching layer inbetween, which causes us to lose partial
+       data after the M_END msg of the env transfer.  */
+
+    assert(client);
+    assert(client->status == Client::TOINSTALL || client->status == Client::WAITINSTALL);
+    assert(client->pipe_to_child >= 0);
+    assert(client->pipe_from_child >= 0);
+
+    if (msg->type == M_FILE_CHUNK) {
+        FileChunkMsg *fcmsg = static_cast<FileChunkMsg *>(msg);
+        ssize_t len = fcmsg->len;
+        off_t off = 0;
+
+        while (len) {
+            ssize_t bytes = write(client->pipe_to_child, fcmsg->buffer + off, len);
+
+            if (bytes < 0 && errno == EINTR) {
+                continue;
+            }
+            if (bytes < 0 && errno == EPIPE) {
+                // Broken pipe may mean the unpacking has failed, but it also may
+                // mean the child has already finished successfully (it seems to happen,
+                // maybe some tar implementations add needless trailing bytes?).
+                // Wait for the child to finish to find out whether it was ok.
+                return true;
+            }
+
+            if (bytes == -1) {
+                log_perror("write to transfer env pipe failed.");
+                handle_end(client, 137);
+                return false;
+            }
+
+            len -= bytes;
+            off += bytes;
+        }
+
+        return true;
+    }
+
+    if (msg->type == M_END) {
+        trace() << "received end of environment, waiting for child" << endl;
+        close(client->pipe_to_child);
+        client->pipe_to_child = -1;
+        // Transfer done, wait for handle_transfer_env_child_done() to finish the handling.
+        client->status = Client::WAITINSTALL; // Ignore further messages until child finishes.
+        return true;
+    }
+
+    // unexpected message type
+    log_error() << "protocol error while receiving environment (" << msg->type << ")" << endl;
+    handle_end(client, 138);
+    return false;
+}
+
+bool Daemon::handle_env_install_child_done(Client *client)
+{
+    assert(client->status == Client::TOINSTALL || client->status == Client::WAITINSTALL);
+    assert(client->child_pid >= 0);
+    assert(client->pipe_from_child >= 0);
+    bool success = false;
+    for (;;) {
+        char resultByte;
+        ssize_t n = ::read(client->pipe_from_child, &resultByte, 1);
+        if (n == -1 && errno == EINTR)
+            continue;
+        // The child at the end of start_install_environment() writes status on success.
+        if (n == 1 && resultByte == 0 )
+            success = true;
+        break;
+    }
+    log_info() << "handle_env_install_child_done PID " << client->child_pid << " for " << client->outfile
+        << " status: " << ( success ? "success" : "failed" ) << endl;
+    return finish_transfer_env( client, !success );
+}
+
+bool Daemon::finish_transfer_env(Client *client, bool cancel)
+{
+    log_info() << "finish_transfer_env PID " << client->child_pid << " for " << client->outfile
         << ( cancel ? " (cancel)" : "" ) << endl;
 
     assert(client->outfile.size());
-    assert(client->status == Client::TOINSTALL);
+    assert(client->status == Client::TOINSTALL || client->status == Client::WAITINSTALL);
 
+    if (client->pipe_from_child >= 0) {
+        close(client->pipe_from_child);
+        client->pipe_from_child = -1;
+    }
     if (client->pipe_to_child >= 0) {
+        if(!cancel) {
+            // This should mean there is still EndMsg pending for the env transfer, get it.
+            assert(client->status == Client::TOINSTALL);
+            bool ok = false;
+            if(Msg *msg = client->channel->get_msg(2)) {
+                ok = msg->type == M_END;
+                delete msg;
+            }
+            if(!ok) {
+                log_error() << "protocol error while receiving environment, end missing" << endl;
+                handle_end(client, 139);
+                return false;
+            }
+        }
         close(client->pipe_to_child);
         client->pipe_to_child = -1;
     }
@@ -1094,6 +1211,7 @@ void Daemon::check_cache_size(const string &new_env)
                 for (Clients::const_iterator it2 = clients.begin(); it2 != clients.end(); ++it2)  {
                     if (it2->second->status == Client::TOCOMPILE
                             || it2->second->status == Client::TOINSTALL
+                            || it2->second->status == Client::WAITINSTALL
                             || it2->second->status == Client::WAITFORCHILD) {
 
                         assert(it2->second->job);
@@ -1361,7 +1479,7 @@ void Daemon::handle_old_request()
             if (pid > 0) {
                 current_kids++;
                 client->status = Client::WAITFORCHILD;
-                client->pipe_to_child = sock;
+                client->pipe_from_child = sock;
                 client->child_pid = pid;
 
                 if (!send_scheduler(JobBeginMsg(job->jobID(), clients.size()))) {
@@ -1382,7 +1500,7 @@ bool Daemon::handle_compile_done(Client *client)
 {
     assert(client->status == Client::WAITFORCHILD);
     assert(client->child_pid > 0);
-    assert(client->pipe_to_child >= 0);
+    assert(client->pipe_from_child >= 0);
 
     JobDoneMsg *msg = new JobDoneMsg(client->job->jobID(), -1, JobDoneMsg::FROM_SERVER, clients.size());
     assert(msg);
@@ -1392,7 +1510,7 @@ bool Daemon::handle_compile_done(Client *client)
     unsigned int job_stat[8];
     int end_status = 151;
 
-    if (read(client->pipe_to_child, job_stat, sizeof(job_stat)) == sizeof(job_stat)) {
+    if (read(client->pipe_from_child, job_stat, sizeof(job_stat)) == sizeof(job_stat)) {
         msg->in_uncompressed = job_stat[JobStatistics::in_uncompressed];
         msg->in_compressed = job_stat[JobStatistics::in_compressed];
         msg->out_compressed = msg->out_uncompressed = job_stat[JobStatistics::out_uncompressed];
@@ -1403,15 +1521,16 @@ bool Daemon::handle_compile_done(Client *client)
         msg->pfaults = job_stat[JobStatistics::sys_pfaults];
     }
 
-    close(client->pipe_to_child);
-    client->pipe_to_child = -1;
+    close(client->pipe_from_child);
+    client->pipe_from_child = -1;
     string envforjob = client->job->targetPlatform() + "/" + client->job->environmentVersion();
     envs_last_use[envforjob] = time(NULL);
 
-    bool r = send_scheduler(*msg);
+    if(!send_scheduler(*msg))
+        log_warning() << "failed sending scheduler about compile done " << client->job->jobID() << endl;
     handle_end(client, end_status);
     delete msg;
-    return r;
+    return false;
 }
 
 bool Daemon::handle_compile_file(Client *client, Msg *msg)
@@ -1469,14 +1588,15 @@ bool Daemon::handle_blacklist_host_env(Client *client, Msg *msg)
 
 void Daemon::handle_end(Client *client, int exitcode)
 {
+    trace() << "handle_end " << client->client_id << " " << client->channel->name << endl;
 #ifdef ICECC_DEBUG
     trace() << "handle_end " << client->dump() << endl;
     trace() << dump_internals() << endl;
 #endif
     fd2chan.erase(client->channel->fd);
 
-    if (client->status == Client::TOINSTALL) {
-        handle_transfer_env_done(client, true);
+    if (client->status == Client::TOINSTALL || client->status == Client::WAITINSTALL) {
+        finish_transfer_env(client, true);
     }
 
     if (client->status == Client::CLIENTWORK) {
@@ -1527,6 +1647,7 @@ void Daemon::handle_end(Client *client, int exitcode)
             case Client::WAITFORCHILD:
             case Client::LINKJOB:
             case Client::TOINSTALL:
+            case Client::WAITINSTALL:
             case Client::WAITCREATEENV:
                 assert(false);   // should not have a job_id
                 break;
@@ -1622,54 +1743,9 @@ bool Daemon::handle_local_job(Client *client, Msg *msg)
     return true;
 }
 
-bool Daemon::handle_file_chunk_env(Client *client, Msg *msg)
-{
-    /* this sucks, we can block when we're writing
-       the file chunk to the child, but we can't let the child
-       handle MsgChannel itself due to MsgChannel's stupid
-       caching layer inbetween, which causes us to lose partial
-       data after the M_END msg of the env transfer.  */
-
-    assert(client && client->status == Client::TOINSTALL);
-    assert(client->pipe_to_child >= 0);
-
-    if (msg->type == M_FILE_CHUNK) {
-        FileChunkMsg *fcmsg = static_cast<FileChunkMsg *>(msg);
-        ssize_t len = fcmsg->len;
-        off_t off = 0;
-
-        while (len) {
-            ssize_t bytes = write(client->pipe_to_child, fcmsg->buffer + off, len);
-
-            if (bytes < 0 && errno == EINTR) {
-                continue;
-            }
-
-            if (bytes == -1) {
-                log_perror("write to transfer env pipe failed.");
-                handle_end(client, 137);
-                return false;
-            }
-
-            len -= bytes;
-            off += bytes;
-        }
-
-        return true;
-    }
-
-    if (msg->type == M_END) {
-        return handle_transfer_env_done(client);
-    }
-
-    // unexpected message type
-    handle_end(client, 138);
-    return false;
-}
-
 bool Daemon::handle_activity(Client *client)
 {
-    assert(client->status != Client::TOCOMPILE);
+    assert(client->status != Client::TOCOMPILE && client->status != Client::WAITINSTALL);
 
     Msg *msg = client->channel->get_msg(0, true);
 
@@ -1716,7 +1792,7 @@ bool Daemon::handle_activity(Client *client)
         ret = handle_blacklist_host_env(client, msg);
         break;
     default:
-        log_error() << "not compile: " << (char)msg->type << "protocol error on client "
+        log_error() << "protocol error " << msg->type << " on client "
                     << client->dump() << endl;
         client->channel->send_msg(EndMsg());
         handle_end(client, 120);
@@ -1777,7 +1853,8 @@ void Daemon::answer_client_requests()
         assert(client);
         int current_status = client->status;
         bool ignore_channel = current_status == Client::TOCOMPILE
-                              || current_status == Client::WAITFORCHILD;
+                              || current_status == Client::WAITFORCHILD
+                              || current_status == Client::WAITINSTALL;
 
         if (!ignore_channel && (!c->has_msg() || handle_activity(client))) {
             pfd.fd = i;
@@ -1785,9 +1862,11 @@ void Daemon::answer_client_requests()
             pollfds.push_back(pfd);
         }
 
-        if (current_status == Client::WAITFORCHILD
-                && client->pipe_to_child != -1) {
-            pfd.fd = client->pipe_to_child;
+        if ((current_status == Client::WAITFORCHILD
+                || current_status == Client::TOINSTALL
+                || current_status == Client::WAITINSTALL)
+              && client->pipe_from_child != -1) {
+            pfd.fd = client->pipe_from_child;
             pfd.events = POLLIN;
             pollfds.push_back(pfd);
         }
@@ -1909,8 +1988,6 @@ void Daemon::answer_client_requests()
                 return;
             }
 
-            trace() << "accepted " << c->fd << " " << c->name << endl;
-
             Client *client = new Client;
             client->client_id = ++new_client_id;
             client->channel = c;
@@ -1918,13 +1995,16 @@ void Daemon::answer_client_requests()
 
             fd2chan[c->fd] = c;
 
+            trace() << "accepted " << c->fd << " " << c->name << " as " << client->client_id << endl;
+
             while (!c->read_a_bit() || c->has_msg()) {
                 if (!handle_activity(client)) {
                     break;
                 }
 
                 if (client->status == Client::TOCOMPILE
-                        || client->status == Client::WAITFORCHILD) {
+                        || client->status == Client::WAITFORCHILD
+                        || client->status == Client::WAITINSTALL) {
                     break;
                 }
             }
@@ -1938,15 +2018,22 @@ void Daemon::answer_client_requests()
                 ++it;
 
                 if (client->status == Client::WAITFORCHILD
-                        && client->pipe_to_child >= 0
-                        && pollfd_is_set(pollfds, client->pipe_to_child, POLLIN)) {
+                        && client->pipe_from_child >= 0
+                        && pollfd_is_set(pollfds, client->pipe_from_child, POLLIN)) {
                     if (!handle_compile_done(client)) {
+                        return;
+                    }
+                }
+                if ((client->status == Client::TOINSTALL || client->status == Client::WAITINSTALL)
+                        && client->pipe_from_child >= 0
+                        && pollfd_is_set(pollfds, client->pipe_from_child, POLLIN)) {
+                    if (!handle_env_install_child_done(client)) {
                         return;
                     }
                 }
 
                 if (pollfd_is_set(pollfds, i, POLLIN)) {
-                    assert(client->status != Client::TOCOMPILE);
+                    assert(client->status != Client::TOCOMPILE && client->status != Client::WAITINSTALL);
 
                     while (!c->read_a_bit() || c->has_msg()) {
                         if (!handle_activity(client)) {
@@ -1954,7 +2041,8 @@ void Daemon::answer_client_requests()
                         }
 
                         if (client->status == Client::TOCOMPILE
-                                || client->status == Client::WAITFORCHILD) {
+                                || client->status == Client::WAITFORCHILD
+                                || client->status == Client::WAITINSTALL) {
                             break;
                         }
                     }

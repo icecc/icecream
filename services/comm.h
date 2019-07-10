@@ -94,7 +94,7 @@ enum MsgType {
     // C --> S
     M_GET_CS,
     // S --> C
-    M_USE_CS,  // = 'G'
+    M_USE_CS,  // = 'H'
     // C --> CS
     M_COMPILE_FILE, // = 'I'
     // generic file transfer
@@ -126,7 +126,7 @@ enum MsgType {
     M_TRANFER_ENV, // = 'X'
 
     M_TEXT,
-    M_STATUS_TEXT,
+    M_STATUS_TEXT, // = 'Z'
     M_GET_INTERNALS,
 
     // S --> CS, answered by M_LOGIN

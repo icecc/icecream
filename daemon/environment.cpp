@@ -250,6 +250,7 @@ int start_create_env(const string &basedir, uid_t user_uid, gid_t user_gid,
         if ((-1 == close(pipes[1])) && (errno != EBADF)){
             log_perror("close failed");
         }
+        fcntl(pipes[0], F_SETFD, FD_CLOEXEC);
         return pipes[0];
     }
     // else
@@ -388,7 +389,7 @@ static int copy_data(struct archive *ar, struct archive *aw)
 
 pid_t start_install_environment(const std::string &basename, const std::string &target,
                                 const std::string &name, MsgChannel *c,
-                                int &pipe_to_stdin, FileChunkMsg *&fmsg,
+                                int &pipe_to_child, int &pipe_from_child, FileChunkMsg *&fmsg,
                                 uid_t user_uid, gid_t user_gid, int extract_priority)
 {
     log_info() << "start_install_environment: " << basename << " target "<<target << " Name: " << name << endl;
@@ -438,9 +439,10 @@ pid_t start_install_environment(const std::string &basename, const std::string &
         return 0;
     }
 
-    int fds[2]; //File descriptor for Pipe
+    int fds_in[2]; // for receiving data
+    int fds_out[2]; // for sending out final status
 
-    if (pipe(fds) == -1) {
+    if (pipe(fds_in) == -1 || pipe(fds_out) == -1) {
         log_perror("start_install_environment: pipe creation failed for receiving environment");
         return 0;
     }
@@ -456,10 +458,16 @@ pid_t start_install_environment(const std::string &basename, const std::string &
         //Runs only on parent(PID value is 0 in child and PID id on parent)
         trace() << "Created fork for receiving environment on pid " << pid << endl;
 
-        if ((-1 == close(fds[0])) && (errno != EBADF)){
+        if ((-1 == close(fds_in[0])) && (errno != EBADF)){
             log_perror("Failed to close read end of pipe");
         }
-        pipe_to_stdin = fds[1]; //Set write end of pipe to pass to parent thread
+        if ((-1 == close(fds_out[1])) && (errno != EBADF)){
+            log_perror("Failed to close write end of pipe");
+        }
+        pipe_to_child = fds_in[1]; //Set write end of pipe to pass to parent thread
+        pipe_from_child = fds_out[0]; //Set write end of pipe to pass to parent thread
+        fcntl(pipe_to_child, F_SETFD, FD_CLOEXEC);
+        fcntl(pipe_from_child, F_SETFD, FD_CLOEXEC);
 
         return pid;
     }
@@ -489,7 +497,10 @@ pid_t start_install_environment(const std::string &basename, const std::string &
     signal(SIGCHLD, SIG_DFL);
     signal(SIGPIPE, SIG_DFL);
 
-    if ((-1 == close(fds[1])) && (errno != EBADF)){
+    if ((-1 == close(fds_in[1])) && (errno != EBADF)){
+        log_perror("Failed to close write end of pipe");
+    }
+    if ((-1 == close(fds_out[0])) && (errno != EBADF)){
         log_perror("Failed to close write end of pipe");
     }
 
@@ -516,7 +527,7 @@ pid_t start_install_environment(const std::string &basename, const std::string &
     archive_write_disk_set_options(ext, flags);
     archive_write_disk_set_standard_lookup(ext);
 
-    if(archive_read_open_fd(a, fds[0], fmsg->len) != ARCHIVE_OK){
+    if(archive_read_open_fd(a, fds_in[0], fmsg->len) != ARCHIVE_OK){
         log_error() << "start_install_environment: archive_read_open_fd() failed"<< endl;
         _exit(1);
     }
@@ -557,7 +568,11 @@ pid_t start_install_environment(const std::string &basename, const std::string &
     archive_write_free(ext);
     /*libarchive stream reader ends*/
 
-    _exit(100);
+    // Tell our parent that we have successfully finished.
+    char resultByte = 0;
+    ignore_result(write(fds_out[1], &resultByte, 1));
+
+    _exit(0);
 }
 
 

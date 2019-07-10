@@ -38,7 +38,7 @@ Environments available_environmnents(const std::string &basename);
 extern pid_t start_install_environment(const std::string &basename,
                                        const std::string &target,
                                        const std::string &name,
-                                       MsgChannel *c, int& pipe_to_child,
+                                       MsgChannel *c, int& pipe_to_child, int& pipe_from_child,
                                        FileChunkMsg*& fmsg,
                                        uid_t user_uid, gid_t user_gid, int extract_priority);
 extern size_t finalize_install_environment(const std::string &basename, const std::string &target,
