@@ -88,6 +88,11 @@ convert_path_cdup ()
 
 add_file ()
 {
+  local skipldd=
+  if test "$1" = "skipldd"; then
+    skipldd=1
+    shift
+  fi
   local name="$1"
   local path="$1";
   if test -n "$2"; then
@@ -111,7 +116,7 @@ add_file ()
   is_contained "$toadd" && return
   echo "adding file $toadd"
   target_files="$target_files $toadd"
-  if test -x "$path"; then
+  if test -x "$path" -a -z "$skipldd"; then
     # Only call ldd when it makes sense
     if file -L "$path" | grep 'ELF' > /dev/null 2>&1; then
 	if ! file -L "$path" | grep 'static' > /dev/null 2>&1; then
@@ -125,11 +130,17 @@ add_file ()
            local lib
            for lib in $(ldd "$path" | sed -n 's,^[^/]*\(/[^ ]*\).*,\1,p'); do
 	      test -f "$lib" || continue
-	      # Check wether the same library also exists in the parent directory,
+	      # Check whether the same library also exists in the parent directory,
 	      # and prefer that on the assumption that it is a more generic one.
 	      local baselib=$(echo "$lib" | sed 's,\(/[^/]*\)/.*\(/[^/]*\)$,\1\2,')
-	      test -f "$baselib" && lib=$baselib
-              add_file "$lib"
+	      if test -f "$baselib"; then
+	        lib=$baselib
+                add_file "$lib"
+              else
+                # Optimization: We are adding a library we got from ldd output, so avoid
+                # using ldd on it, as it should not find more than this ldd.
+                add_file "skipldd" "$lib"
+              fi
 
               # Add the non-haswell and non-avx512_1 libraries too
               case "$lib" in
@@ -169,8 +180,14 @@ add_file ()
 	    # Check wether the same library also exists in the parent directory,
 	    # and prefer that on the assumption that it is a more generic one.
 	    local baselib=$(echo "$lib" | sed 's,\(/[^/]*\)/.*\(/[^/]*\)$,\1\2,')
-	    test -f "$baselib" && lib=$baselib
-            add_file "$lib" "$libinstall"
+	    if test -f "$baselib"; then
+	      lib=$baselib
+              add_file "$lib" "$libinstall"
+            else
+              # Optimization: We are adding a library we got from otool output, so avoid
+              # using otool on it, as it should not find more than this otool.
+              add_file "skipldd" "$lib" "$libinstall"
+            fi
          done
     fi
   fi
