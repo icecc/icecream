@@ -723,7 +723,7 @@ static int prepare_connect(const string &hostname, unsigned short p,
     struct hostent *host = gethostbyname(hostname.c_str());
 
     if (!host) {
-        log_perror("Unknown host");
+        log_error() << "Connecting to " << hostname << " failed: " << hstrerror( h_errno ) << endl;
         if ((-1 == close(remote_fd)) && (errno != EBADF)){
             log_perror("close failed");
         }
