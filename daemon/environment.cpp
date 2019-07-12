@@ -577,18 +577,9 @@ pid_t start_install_environment(const std::string &basename, const std::string &
 
 
 size_t finalize_install_environment(const std::string &basename, const std::string &target,
-                                    pid_t pid, uid_t user_uid, gid_t user_gid)
+                                    uid_t user_uid, gid_t user_gid)
 {
-    int status = 1;
-    if (pid <= 0){
-        log_error() << "finalize_install_environment: Invalid pid " << pid << endl;
-        return 0;
-    }
-    trace() << "finalize_install_environment started for " << basename << " target " << target << " arriving on PID " << pid <<endl;
-    while (waitpid(pid, &status, 0) < 0 && errno == EINTR) {}
-
     string dirname = basename + "/target=" + target;
-
     errno = 0;
     mkdir((dirname + "/tmp").c_str(), 01775);
     ignore_result(chown((dirname + "/tmp").c_str(), user_uid, user_gid));

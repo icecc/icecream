@@ -1035,7 +1035,6 @@ bool Daemon::handle_file_chunk_env(Client *client, Msg *msg)
     assert(client);
     assert(client->status == Client::TOINSTALL || client->status == Client::WAITINSTALL);
     assert(client->pipe_to_child >= 0);
-    assert(client->pipe_from_child >= 0);
 
     if (msg->type == M_FILE_CHUNK) {
         FileChunkMsg *fcmsg = static_cast<FileChunkMsg *>(msg);
@@ -1073,9 +1072,13 @@ bool Daemon::handle_file_chunk_env(Client *client, Msg *msg)
         trace() << "received end of environment, waiting for child" << endl;
         close(client->pipe_to_child);
         client->pipe_to_child = -1;
-        // Transfer done, wait for handle_transfer_env_child_done() to finish the handling.
-        client->status = Client::WAITINSTALL; // Ignore further messages until child finishes.
-        return true;
+        if( client->child_pid >= 0 ) {
+            // Transfer done, wait for handle_transfer_env_child_done() to finish the handling.
+            client->status = Client::WAITINSTALL; // Ignore further messages until child finishes.
+            return true;
+        }
+        // Transfer done, child done, finish.
+        return finish_transfer_env( client );
     }
 
     // unexpected message type
@@ -1102,44 +1105,58 @@ bool Daemon::handle_env_install_child_done(Client *client)
     }
     log_info() << "handle_env_install_child_done PID " << client->child_pid << " for " << client->outfile
         << " status: " << ( success ? "success" : "failed" ) << endl;
-    return finish_transfer_env( client, !success );
+    client->child_pid = -1;
+    assert(current_kids > 0);
+    current_kids--;
+    if (client->pipe_from_child >= 0) {
+        close(client->pipe_from_child);
+        client->pipe_from_child = -1;
+    }
+    if( !success )
+        return finish_transfer_env( client, true ); // cancel
+    if( client->pipe_to_child >= 0 ) {
+        // we still haven't received M_END message, wait for that
+        assert( client->status == Client::TOINSTALL );
+        return true;
+    }
+    // Child done, transfer done, finish.
+    return finish_transfer_env( client );
 }
 
 bool Daemon::finish_transfer_env(Client *client, bool cancel)
 {
-    log_info() << "finish_transfer_env PID " << client->child_pid << " for " << client->outfile
+    log_info() << "finish_transfer_env for " << client->outfile
         << ( cancel ? " (cancel)" : "" ) << endl;
 
     assert(client->outfile.size());
     assert(client->status == Client::TOINSTALL || client->status == Client::WAITINSTALL);
 
     if (client->pipe_from_child >= 0) {
+        assert( cancel ); // If not cancelled, this is closed by handle_env_install_child_done().
         close(client->pipe_from_child);
         client->pipe_from_child = -1;
     }
     if (client->pipe_to_child >= 0) {
-        if(!cancel) {
-            // This should mean there is still EndMsg pending for the env transfer, get it.
-            assert(client->status == Client::TOINSTALL);
-            bool ok = false;
-            if(Msg *msg = client->channel->get_msg(2)) {
-                ok = msg->type == M_END;
-                delete msg;
-            }
-            if(!ok) {
-                log_error() << "protocol error while receiving environment, end missing" << endl;
-                handle_end(client, 139);
-                return false;
-            }
-        }
+        assert( cancel ); // If not cancelled, this is closed by handle_file_chunk_env().
         close(client->pipe_to_child);
         client->pipe_to_child = -1;
+    }
+    if (client->child_pid >= 0 ) {
+        assert( cancel ); // If not cancelled, this is handled by handle_env_install_child_done().
+        kill( client->child_pid, SIGTERM );
+        int status;
+        trace() << "finish_transfer_env kill and waiting for child PID " << client->child_pid <<endl;
+        while (waitpid(client->child_pid, &status, 0) < 0 && errno == EINTR)
+            ;
+        client->child_pid = -1;
+        assert(current_kids > 0);
+        current_kids--;
     }
 
     size_t installed_size = 0;
     if( !cancel ) {
         installed_size = finalize_install_environment(envbasedir, client->outfile,
-                            client->child_pid, user_uid, user_gid);
+                            user_uid, user_gid);
         log_info() << "installed_size: " << installed_size << endl;
     }
     if( installed_size == 0 )
@@ -1148,9 +1165,6 @@ bool Daemon::finish_transfer_env(Client *client, bool cancel)
     client->status = Client::UNKNOWN;
     string current = client->outfile;
     client->outfile.clear();
-    client->child_pid = -1;
-    assert(current_kids > 0);
-    current_kids--;
 
     if (installed_size) {
         cache_size += installed_size;
