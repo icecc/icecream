@@ -123,9 +123,6 @@ AC_CHECK_HEADERS([resolv.h], [], [],
 #endif
 ])
 
-AC_ARG_VAR(TAR, [Specifies tar path])
-AC_PATH_PROG(TAR, [tar])
-AC_DEFINE_UNQUOTED([TAR], ["$TAR"], [Define path to tar])
 AC_CHECK_HEADERS([netinet/tcp_var.h], [], [],
 [#include <sys/types.h>
 #if HAVE_SYS_SOCKETVAR_H
