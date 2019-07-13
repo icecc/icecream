@@ -137,8 +137,6 @@ class log_block
 public:
     log_block(const char *label = 0)
     {
-#ifndef NDEBUG
-
         for (unsigned i = 0; i < nesting; ++i) {
             log_info() << "  ";
         }
@@ -148,12 +146,10 @@ public:
         m_label = strdup(label ? label : "");
         ++nesting;
         gettimeofday(&m_start, 0);
-#endif
     }
 
     ~log_block()
     {
-#ifndef NDEBUG
         timeval end;
         gettimeofday(&end, 0);
 
@@ -168,7 +164,6 @@ public:
                    << "ms>\n";
 
         free(m_label);
-#endif
     }
 };
 
