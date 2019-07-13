@@ -62,6 +62,20 @@ if test "$GCC" = yes; then
     AC_MSG_NOTICE([Adding gcc options: $CFLAGS])
 fi
 
+AC_ARG_ENABLE(debug,
+    AS_HELP_STRING([--enable-debug],
+        [Enable debug mode (enable asserts, disable optimizations).]))
+AC_MSG_CHECKING([whether to enable debug module])
+if test "$enable_debug" = "yes"; then
+    CFLAGS="$CFLAGS -g -O0"
+    CXXFLAGS="$CXXFLAGS -g -O0"
+    AC_MSG_RESULT(yes)
+else
+    CFLAGS="$CFLAGS -DNDEBUG"
+    CXXFLAGS="$CXXFLAGS -DNDEBUG"
+    AC_MSG_RESULT(no)
+fi
+
 AC_PROG_MAKE_SET
 AC_PROG_INSTALL
 AC_C_INLINE

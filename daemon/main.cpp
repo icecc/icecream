@@ -1592,6 +1592,7 @@ bool Daemon::handle_blacklist_host_env(Client *client, Msg *msg)
     // just forward
     assert(dynamic_cast<BlacklistHostEnvMsg *>(msg));
     assert(client);
+    (void)client;
 
     if (!scheduler) {
         return false;
