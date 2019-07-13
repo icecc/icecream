@@ -1,7 +1,6 @@
 sbin_PROGRAMS = iceccd
 
 iceccd_SOURCES = \
-	ncpus.c \
 	main.cpp \
 	serve.cpp \
 	workit.cpp \
@@ -23,7 +22,6 @@ AM_LIBTOOLFLAGS = --silent
 noinst_HEADERS = \
 	environment.h \
 	load.h \
-	ncpus.h \
 	serve.h \
 	workit.h \
 	file_util.h
