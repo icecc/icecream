@@ -2134,10 +2134,11 @@ if test -z "$chroot_disabled"; then
     echo Different netnames test successful.
     echo
 
-    echo Testing newer scheduler.
-    reset_logs remote "Newer scheduler"
-    # Make this scheduler fake its start time, so it should be the preferred scheduler.
-    # We could similarly fake the version to be higher, but this should be safer.
+    echo Testing multiple schedulers.
+    reset_logs remote "Multiple schedulers"
+    # Make this scheduler fake its start time to appear to have been running a longer time,
+    # so it should be the preferred scheduler. We could similarly fake the version to be higher,
+    # but this should be safer.
     ICECC_TESTS=1 ICECC_TEST_SCHEDULER_PORTS=8767:8769 ICECC_FAKE_STARTTIME=1 \
         ICECC_TEST_FLUSH_LOG_MARK="$testdir"/flush_log_mark.txt ICECC_TEST_LOG_HEADER="$testdir"/log_header.txt \
         $valgrind "${icecc_scheduler}" -p 8769 -l "$testdir"/scheduler2.log -n ${netname} -v -v -v &
@@ -2154,7 +2155,7 @@ if test -z "$chroot_disabled"; then
     check_log_message remoteice2 "scheduler closed connection"
     # Daemons will not connect to the secondary debug scheduler (not implemented).
     stop_secondary_scheduler 1
-    echo Newer scheduler test successful.
+    echo Multiple schedulers test successful.
     echo
 
     echo Testing reconnect.
