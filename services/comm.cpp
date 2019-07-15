@@ -2074,12 +2074,12 @@ void CompileFileMsg::fill_from_channel(MsgChannel *c)
             l.append(*it, Arg_Remote);
     } else {
         list<string> _l1, _l2;
+        *c >> _l1;
+        *c >> _l2;
         for (list<string>::const_iterator it = _l1.begin(); it != _l1.end(); ++it)
             l.append(*it, Arg_Remote);
         for (list<string>::const_iterator it = _l2.begin(); it != _l2.end(); ++it)
             l.append(*it, Arg_Rest);
-        *c >> _l1;
-        *c >> _l2;
     }
     *c >> version;
     job->setLanguage((CompileJob::Language) lang);
