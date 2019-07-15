@@ -202,17 +202,13 @@ string clang_get_default_target(const CompileJob &job)
     return read_command_output( find_compiler( job ) + " -dumpmachine" );
 }
 
-static volatile int lock_fd = 0;
 static volatile int user_break_signal = 0;
 static volatile pid_t child_pid;
 
 static void handle_user_break(int sig)
 {
-    if (lock_fd) {
-        dcc_unlock(lock_fd);
-    }
+    dcc_unlock();
 
-    lock_fd = 0;
     user_break_signal = sig;
 
     if (child_pid != 0) {
@@ -276,14 +272,10 @@ int build_local(CompileJob &job, MsgChannel *local_daemon, struct rusage *used)
     trace() << "invoking:" << argstxt << endl;
 
     if (!local_daemon) {
-        int fd;
-
-        if (!dcc_lock_host(fd)) {
+        if (!dcc_lock_host()) {
             log_error() << "can't lock for local job" << endl;
             return EXIT_DISTCC_FAILED;
         }
-
-        lock_fd = fd;
     }
 
     bool color_output = job.language() != CompileJob::Lang_Custom
@@ -322,9 +314,7 @@ int build_local(CompileJob &job, MsgChannel *local_daemon, struct rusage *used)
         int exitcode = ( errno == ENOENT ? 127 : 126 );
         log_perror("execv failed");
 
-        if (lock_fd) {
-            dcc_unlock(lock_fd);
-        }
+        dcc_unlock();
 
         {
             char buf[256];
@@ -390,9 +380,7 @@ int build_local(CompileJob &job, MsgChannel *local_daemon, struct rusage *used)
         raise(user_break_signal);
     }
 
-    if (lock_fd) {
-        dcc_unlock(lock_fd);
-    }
+    dcc_unlock();
 
     return status;
 }

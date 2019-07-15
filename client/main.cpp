@@ -409,10 +409,10 @@ int main(int argc, char **argv)
     local |= analyse_argv(argv, job, icerun, &extrafiles);
 
     /* If ICECC is set to disable, then run job locally, without contacting
-       the daemon at all. Because of file-based locking that is used in this
-       case, all calls will be serialized and run by one.
+       the daemon at all. File-based locking will still ensure that all
+       calls are serialized up to the number of local cpus available.
        If ICECC is set to no, the job is run locally as well, but it is
-       serialized using the daemon, so several may be run at once.
+       serialized using the daemon.
      */
     if (icecc && !strcasecmp(icecc, "disable")) {
         assert( local_daemon == NULL );

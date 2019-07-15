@@ -512,6 +512,12 @@ static int build_remote_int(CompileJob &job, UseCSMsg *usecs, MsgChannel *local_
                 exit(errno);
             }
 
+            if (!dcc_lock_host()) {
+                log_error() << "can't lock for local cpp" << endl;
+                return EXIT_DISTCC_FAILED;
+            }
+            HostUnlock hostUnlock; // automatic dcc_unlock()
+
             /* This will fork, and return the pid of the child.  It will not
                return for the child itself.  If it returns normally it will have
                closed the write fd, i.e. sockets[1].  */
@@ -853,6 +859,13 @@ int build_remote(CompileJob &job, MsgChannel *local_daemon, const Environments &
         dcc_make_tmpnam("icecc", ".ix", &preproc, 0);
         const CharBufferDeleter preproc_holder(preproc);
         int cpp_fd = open(preproc, O_WRONLY);
+
+        if (!dcc_lock_host()) {
+            log_error() << "can't lock for local cpp" << endl;
+            return EXIT_DISTCC_FAILED;
+        }
+        HostUnlock hostUnlock; // automatic dcc_unlock()
+
         /* When call_cpp returns normally (for the parent) it will have closed
            the write fd, i.e. cpp_fd.  */
         pid_t cpp_pid = call_cpp(job, cpp_fd);
@@ -870,6 +883,7 @@ int build_remote(CompileJob &job, MsgChannel *local_daemon, const Environments &
             ::unlink(preproc);
             return shell_exit_status(status);
         }
+        dcc_unlock();
 
         char rand_seed[400]; // "designed to be oversized" (Levi's)
         sprintf(rand_seed, "-frandom-seed=%d", rand());
