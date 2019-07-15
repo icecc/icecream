@@ -1747,7 +1747,7 @@ static bool handle_activity(CompileServer *cs)
     return ret;
 }
 
-static int open_broad_listener(int port)
+static int open_broad_listener(int port, const char* listen_addr)
 {
     int listen_fd;
     struct sockaddr_in myaddr;
@@ -1766,7 +1766,13 @@ static int open_broad_listener(int port)
 
     myaddr.sin_family = AF_INET;
     myaddr.sin_port = htons(port);
-    myaddr.sin_addr.s_addr = INADDR_ANY;
+    if( listen_addr ) {
+        if( !inet_aton( listen_addr, &myaddr.sin_addr )) {
+            log_error() << "Address passed to --listen (" << listen_addr << ") is not valid" << endl;
+            return -1;
+        }
+    } else
+        myaddr.sin_addr.s_addr = INADDR_ANY;
 
     if (::bind(listen_fd, (struct sockaddr *) &myaddr, sizeof(myaddr)) < 0) {
         log_perror("bind()");
@@ -1776,7 +1782,7 @@ static int open_broad_listener(int port)
     return listen_fd;
 }
 
-static int open_tcp_listener(short port)
+static int open_tcp_listener(short port, const char* listen_addr)
 {
     int fd;
     struct sockaddr_in myaddr;
@@ -1803,7 +1809,13 @@ static int open_tcp_listener(short port)
 
     myaddr.sin_family = AF_INET;
     myaddr.sin_port = htons(port);
-    myaddr.sin_addr.s_addr = INADDR_ANY;
+    if( listen_addr ) {
+        if( !inet_aton( listen_addr, &myaddr.sin_addr )) {
+            log_error() << "Address passed to --listen (" << listen_addr << ") is not valid" << endl;
+            return -1;
+        }
+    } else
+        myaddr.sin_addr.s_addr = INADDR_ANY;
 
     if (::bind(fd, (struct sockaddr *) &myaddr, sizeof(myaddr)) < 0) {
         log_perror("bind()");
@@ -1835,6 +1847,7 @@ static void usage(const char *reason = 0)
          << "  -u, --user-uid\n"
          << "  -v[v[v]]]\n"
          << "  -r, --persistent-client-connection\n"
+         << "  --listen <address>\n"
          << endl;
 
     exit(1);
@@ -1907,6 +1920,7 @@ int main(int argc, char *argv[])
     uid_t user_uid;
     gid_t user_gid;
     int warn_icecc_user_errno = 0;
+    const char* listen_addr = NULL;
 
     if (getuid() == 0) {
         struct passwd *pw = getpwnam("icecc");
@@ -1934,6 +1948,7 @@ int main(int argc, char *argv[])
             { "daemonize", 0, NULL, 'd'},
             { "log-file", 1, NULL, 'l'},
             { "user-uid", 1, NULL, 'u'},
+            { "listen", 1, NULL, 0 },
             { 0, 0, 0, 0 }
         };
 
@@ -1944,8 +1959,15 @@ int main(int argc, char *argv[])
         }
 
         switch (c) {
-        case 0:
-            (void) long_options[option_index].name;
+        case 0: {
+            string optname = long_options[option_index].name;
+            if (optname == "listen") {
+                if (optarg && *optarg)
+                    listen_addr = optarg;
+                else
+                    usage("Error: --listen requires argument");
+            }
+        }
             break;
         case 'd':
             detach = true;
@@ -2065,19 +2087,19 @@ int main(int argc, char *argv[])
         }
     }
 
-    listen_fd = open_tcp_listener(scheduler_port);
+    listen_fd = open_tcp_listener(scheduler_port, listen_addr);
 
     if (listen_fd < 0) {
         return 1;
     }
 
-    text_fd = open_tcp_listener(scheduler_port + 1);
+    text_fd = open_tcp_listener(scheduler_port + 1, listen_addr);
 
     if (text_fd < 0) {
         return 1;
     }
 
-    broad_fd = open_broad_listener(scheduler_port);
+    broad_fd = open_broad_listener(scheduler_port, listen_addr);
 
     if (broad_fd < 0) {
         return 1;
