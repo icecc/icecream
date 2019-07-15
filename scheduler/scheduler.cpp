@@ -1810,7 +1810,7 @@ static int open_tcp_listener(short port)
         return -1;
     }
 
-    if (listen(fd, 10) < 0) {
+    if (listen(fd, 1024) < 0) {
         log_perror("listen()");
         return -1;
     }

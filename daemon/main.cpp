@@ -608,7 +608,7 @@ bool Daemon::setup_listen_fds()
             }
         }
 
-        if (listen(tcp_listen_fd, 20) < 0) {
+        if (listen(tcp_listen_fd, 1024) < 0) {
             log_perror("Failed to set TCP socket for listening to incoming connections");
             return false;
         }
@@ -691,7 +691,7 @@ bool Daemon::setup_listen_fds()
         umask(old_umask);
     }
 
-    if (listen(unix_listen_fd, 20) < 0) {
+    if (listen(unix_listen_fd, 1024) < 0) {
         log_perror("Failed to set unix socket for listening");
         return false;
     }
