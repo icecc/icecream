@@ -122,7 +122,6 @@ AC_CHECK_HEADERS([netinet/tcp_var.h], [], [],
 ])
 
 AC_CHECK_HEADERS([sys/user.h])
-AC_CHECK_HEADERS([archive.h, archive_entry.h])
 
 ######################################################################
 dnl Checks for types
@@ -196,9 +195,39 @@ AC_SUBST(ZSTD_LDADD)
 AC_CHECK_LIB([dl], [dlsym], [DL_LDADD=-ldl])
 AC_SUBST([DL_LDADD])
 
+AC_CHECK_HEADERS([archive.h, archive_entry.h])
 AC_CHECK_LIB(archive, archive_read_data_block, ARCHIVE_LDADD=-larchive,
     AC_MSG_ERROR([Could not find libarchive library - please install libarchive-devel]))
 AC_SUBST(ARCHIVE_LDADD)
+
+AC_MSG_CHECKING([whether libarchive has archive_read_support_filter_xz()])
+AC_TRY_COMPILE(
+    [
+    #include <archive.h>
+    ],
+    [
+        struct archive *a;
+        archive_read_support_filter_xz(a);
+    ],
+    [
+        AC_MSG_RESULT(yes)
+        AC_DEFINE(HAVE_LIBARCHIVE_XZ, 1, [Whether libarchive has archive_read_support_filter_xz()])
+    ],
+    [ AC_MSG_RESULT(no) ])
+AC_MSG_CHECKING([whether libarchive has archive_read_support_filter_zstd()])
+AC_TRY_COMPILE(
+    [
+    #include <archive.h>
+    ],
+    [
+        struct archive *a;
+        archive_read_support_filter_zstd(a);
+    ],
+    [
+        AC_MSG_RESULT(yes)
+        AC_DEFINE(HAVE_LIBARCHIVE_ZSTD, 1, [Whether libarchive has archive_read_support_filter_zstd()])
+    ],
+    [ AC_MSG_RESULT(no) ])
 
 # In DragonFlyBSD daemon needs to be linked against libkinfo.
 case $host_os in

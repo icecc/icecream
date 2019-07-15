@@ -78,6 +78,8 @@
 #  include <cap-ng.h>
 #endif
 
+#include <archive.h>
+
 #include <deque>
 #include <map>
 #include <algorithm>
@@ -480,6 +482,7 @@ struct Daemon {
     string schedname;
     int scheduler_port;
     int daemon_port;
+    unsigned int supported_features;
 
     int max_scheduler_pong;
     int max_scheduler_ping;
@@ -554,6 +557,7 @@ struct Daemon {
     string dump_internals() const;
     string determine_nodename();
     void determine_system();
+    void determine_supported_features();
     bool maybe_stats(bool force_check = false);
     bool send_scheduler(const Msg &msg) __attribute_warn_unused_result__;
     void close_scheduler();
@@ -733,6 +737,31 @@ string Daemon::determine_nodename()
     return nodename;
 }
 
+void Daemon::determine_supported_features()
+{
+    supported_features = 0;
+    struct archive* a = archive_read_new();
+    static bool test_disable = false;
+    // Make one of the two remotes in tests say it doesn't support xz/zstd tarballs.
+    if( getenv( "ICECC_TESTS" ) != NULL && nodename == "remoteice2" )
+        test_disable = true;
+    (void)test_disable;
+#ifdef HAVE_LIBARCHIVE_XZ
+    if( !test_disable && archive_read_support_filter_xz(a) >= ARCHIVE_WARN ) // includes ARCHIVE_OK
+        supported_features = supported_features | NODE_FEATURE_ENV_XZ;
+#endif
+#ifdef HAVE_LIBARCHIVE_ZSTD
+    if( !test_disable && archive_read_support_filter_zstd(a) >= ARCHIVE_WARN ) // includes ARCHIVE_OK
+        supported_features = supported_features | NODE_FEATURE_ENV_ZSTD;
+#endif
+    // sanity checks
+    if( archive_read_support_filter_gzip(a) < ARCHIVE_WARN ) // error
+        log_error() << "No support for uncompressing gzip available." << endl;
+    if( archive_read_support_format_tar(a) < ARCHIVE_WARN ) // error
+        log_error() << "No support for unpacking tar available." << endl;
+    archive_read_free(a);
+}
+
 bool Daemon::send_scheduler(const Msg& msg)
 {
     if (!scheduler) {
@@ -752,7 +781,7 @@ bool Daemon::send_scheduler(const Msg& msg)
 bool Daemon::reannounce_environments()
 {
     log_info() << "reannounce_environments " << endl;
-    LoginMsg lmsg(0, nodename, "");
+    LoginMsg lmsg(0, nodename, "", supported_features);
     lmsg.envs = available_environmnents(envbasedir);
     return send_scheduler(lmsg);
 }
@@ -890,6 +919,8 @@ string Daemon::dump_internals() const
     }
 
     result += "  Current kids: " + toString(current_kids) + " (max: " + toString(max_kids) + ")\n";
+
+    result += "  Supported features: " + supported_features_to_string(supported_features) + "\n";
 
     if (scheduler) {
         result += "  Scheduler protocol: " + toString(scheduler->protocol) + "\n";
@@ -1291,7 +1322,7 @@ bool Daemon::handle_get_native_env(Client *client, GetNativeEnvMsg *msg)
         filetimes[cppcompiler] = st.st_mtime;
     }
 
-    env_key = ccompiler;
+    env_key = msg->compression + ":" + ccompiler;
     for (list<string>::const_iterator it = msg->extrafiles.begin();
             it != msg->extrafiles.end(); ++it) {
         env_key += ':';
@@ -1337,7 +1368,8 @@ bool Daemon::handle_get_native_env(Client *client, GetNativeEnvMsg *msg)
         if (!env.create_env_pipe) { // start creating it only if not already in progress
             env.filetimes = filetimes;
             trace() << "start_create_env " << env_key << endl;
-            env.create_env_pipe = start_create_env(envbasedir, user_uid, user_gid, ccompiler, msg->extrafiles);
+            env.create_env_pipe = start_create_env(envbasedir, user_uid, user_gid, ccompiler,
+                msg->extrafiles, msg->compression);
         } else {
             trace() << "waiting for already running create_env " << env_key << endl;
         }
@@ -2127,7 +2159,7 @@ bool Daemon::reconnect()
     gettimeofday(&last_stat, 0);
     icecream_load = 0;
 
-    LoginMsg lmsg(daemon_port, determine_nodename(), machine_name);
+    LoginMsg lmsg(daemon_port, determine_nodename(), machine_name, supported_features);
     lmsg.envs = available_environmnents(envbasedir);
     lmsg.max_kids = max_kids;
     lmsg.noremote = noremote;
@@ -2410,6 +2442,9 @@ int main(int argc, char **argv)
     }
 
     log_info() << "allowing up to " << max_kids << " active jobs" << endl;
+
+    d.determine_supported_features();
+    log_info() << "supported features: " << supported_features_to_string(d.supported_features) << endl;
 
     int ret;
 

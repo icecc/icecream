@@ -1913,6 +1913,30 @@ void Msg::send_to_channel(MsgChannel *c) const
     *c << (uint32_t) type;
 }
 
+GetCSMsg::GetCSMsg(const Environments &envs, const std::string &f,
+     CompileJob::Language _lang, unsigned int _count,
+     std::string _target, unsigned int _arg_flags,
+     const std::string &host, int _minimal_host_version,
+     unsigned int _required_features,
+     unsigned int _client_count)
+    : Msg(M_GET_CS)
+    , versions(envs)
+    , filename(f)
+    , lang(_lang)
+    , count(_count)
+    , target(_target)
+    , arg_flags(_arg_flags)
+    , client_id(0)
+    , preferred_host(host)
+    , minimal_host_version(_minimal_host_version)
+    , required_features(_required_features)
+    , client_count(_client_count)
+{
+    // These have been introduced in protocol version 42.
+    if( required_features & ( NODE_FEATURE_ENV_XZ | NODE_FEATURE_ENV_ZSTD ))
+        minimal_host_version = max( minimal_host_version, 42 );
+}
+
 void GetCSMsg::fill_from_channel(MsgChannel *c)
 {
     Msg::fill_from_channel(c);
@@ -1949,6 +1973,11 @@ void GetCSMsg::fill_from_channel(MsgChannel *c)
     if (IS_PROTOCOL_39(c)) {
         *c >> client_count;
     }
+
+    required_features = 0;
+    if (IS_PROTOCOL_42(c)) {
+        *c >> required_features;
+    }
 }
 
 void GetCSMsg::send_to_channel(MsgChannel *c) const
@@ -1975,6 +2004,9 @@ void GetCSMsg::send_to_channel(MsgChannel *c) const
 
     if (IS_PROTOCOL_39(c)) {
         *c << client_count;
+    }
+    if (IS_PROTOCOL_42(c)) {
+        *c << required_features;
     }
 }
 
@@ -2336,7 +2368,8 @@ void JobDoneMsg::set_job_id( uint32_t jobId )
     flags &= ~ (uint32_t) UnknownJobId;
 }
 
-LoginMsg::LoginMsg(unsigned int myport, const std::string &_nodename, const std::string &_host_platform)
+LoginMsg::LoginMsg(unsigned int myport, const std::string &_nodename, const std::string &_host_platform,
+    unsigned int myfeatures)
     : Msg(M_LOGIN)
     , port(myport)
     , max_kids(0)
@@ -2344,6 +2377,7 @@ LoginMsg::LoginMsg(unsigned int myport, const std::string &_nodename, const std:
     , chroot_possible(false)
     , nodename(_nodename)
     , host_platform(_host_platform)
+    , supported_features(myfeatures)
 {
 #ifdef HAVE_LIBCAP_NG
     chroot_possible = capng_have_capability(CAPNG_EFFECTIVE, CAP_SYS_CHROOT);
@@ -2371,6 +2405,11 @@ void LoginMsg::fill_from_channel(MsgChannel *c)
     }
 
     noremote = (net_noremote != 0);
+
+    supported_features = 0;
+    if (IS_PROTOCOL_42(c)) {
+        *c >> supported_features;
+    }
 }
 
 void LoginMsg::send_to_channel(MsgChannel *c) const
@@ -2385,6 +2424,9 @@ void LoginMsg::send_to_channel(MsgChannel *c) const
 
     if (IS_PROTOCOL_26(c)) {
         *c << noremote;
+    }
+    if (IS_PROTOCOL_42(c)) {
+        *c << supported_features;
     }
 }
 
@@ -2434,6 +2476,9 @@ void GetNativeEnvMsg::fill_from_channel(MsgChannel *c)
         *c >> compiler;
         *c >> extrafiles;
     }
+    compression = string();
+    if (IS_PROTOCOL_42(c))
+        *c >> compression;
 }
 
 void GetNativeEnvMsg::send_to_channel(MsgChannel *c) const
@@ -2444,6 +2489,8 @@ void GetNativeEnvMsg::send_to_channel(MsgChannel *c) const
         *c << compiler;
         *c << extrafiles;
     }
+    if (IS_PROTOCOL_42(c))
+        *c << compression;
 }
 
 void UseNativeEnvMsg::fill_from_channel(MsgChannel *c)

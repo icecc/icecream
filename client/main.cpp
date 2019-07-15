@@ -97,8 +97,9 @@ static void dcc_show_usage(void)
         "   ICECC_EXTRAFILES           additional files used in the compilation.\n"
         "   ICECC_COLOR_DIAGNOSTICS    set to 1 or 0 to override color diagnostics support.\n"
         "   ICECC_CARET_WORKAROUND     set to 1 or 0 to override gcc show caret workaround.\n"
-        "   ICECC_COMPRESSION          if set, the libzstd compression level (1 to 19, default: 1)"
-        "\n");
+        "   ICECC_COMPRESSION          if set, the libzstd compression level (1 to 19, default: 1)\n"
+        "   ICECC_ENV_COMPRESSION      compression type for icecc environments [none|gzip|bzip2|zstd|xz]\n"
+        );
 }
 
 static void icerun_show_usage(void)
@@ -186,6 +187,11 @@ static int create_native(char **args)
     for (int extracount = 0; extrafiles[extracount]; extracount++) {
         argv.push_back(strdup("--addfile"));
         argv.push_back(strdup(extrafiles[extracount]));
+    }
+
+    if( const char* env_compression = getenv( "ICECC_ENV_COMPRESSION" )) {
+        argv.push_back(strdup("--compression"));
+        argv.push_back(strdup(env_compression));
     }
 
     argv.push_back(NULL);
@@ -474,8 +480,12 @@ int main(int argc, char **argv)
             else // Older daemons understood only two hardcoded compilers.
                 compiler = compiler_is_clang(job) ? "clang" : "gcc";
             compiler = get_absfilename( compiler );
+            string env_compression; // empty = default
+            if( const char* icecc_env_compression = getenv( "ICECC_ENV_COMPRESSION" ))
+                env_compression = icecc_env_compression;
             trace() << "asking for native environment for " << compiler << endl;
-            if (!local_daemon->send_msg(GetNativeEnvMsg(compiler, extrafiles))) {
+            if (!local_daemon->send_msg(GetNativeEnvMsg(compiler, extrafiles,
+                env_compression))) {
                 log_warning() << "failed to write get native environment" << endl;
                 local = true;
             } else {

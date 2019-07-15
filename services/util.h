@@ -45,4 +45,6 @@ inline T ignore_result(T x __attribute__((unused)))
 // If check_errors is set, then errors such as POLLHUP are also considered as matching.
 bool pollfd_is_set(const std::vector<pollfd>& pollfds, int fd, int flags, bool check_errors = true);
 
+std::string supported_features_to_string(unsigned int features);
+
 #endif

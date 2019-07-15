@@ -19,10 +19,11 @@ esac
 usage ()
 {
     echo "Create compiler environment for distributed build."
-    echo "Usage: $0 <compiler_binary>"
+    echo "Usage: $0 <compiler_binary> [extra_options]"
     echo "For GCC, pass the the gcc binary, the matching g++ will be used automatically."
     echo "For Clang, pass the clang binary."
     echo "Use --addfile <file> to add extra files."
+    echo "Use --compression <type> to set tarball type (none,gzip,bzip2,zstd,xz)."
     echo "For backwards compatibility, the following is also supported:"
     echo "$0 --gcc <gcc_path> <g++_path>"
     echo "$0 --clang <clang_path>"
@@ -314,10 +315,16 @@ else
         exit 1
     fi
     shift
-    if test -n "$1" -a "x$1" != "x--addfile"; then
-        # (backwards) compatibility, assume the second argument is the C++ compiler
-        added_gxx=$1
-        shift
+    if test -n "$1"; then
+        case "$1" in
+            --*)
+                ;; # an option, ignore
+            *)
+                # (backwards) compatibility, assume the second argument is the C++ compiler
+                added_gxx=$1
+                shift
+                ;;
+        esac
     fi
     if test -n "$gcc" -a -z "$added_gxx"; then
         # guess g++ from gcc
@@ -364,15 +371,63 @@ if test -n "$clang"; then
 fi
 
 extrafiles=
-while test "x$1" = "x--addfile"; do
-    shift
-    extrafiles="$extrafiles $1"
+compress_program=gzip
+compress_ext=.gz
+compress_args=
+
+while test -n "$1"; do
+
+    if test "x$1" = "x--addfile"; then
+        shift
+        extrafiles="$extrafiles $1"
+    elif test "x$1" = "x--compression"; then
+        shift
+        case "$1" in
+            none)
+                compress_ext=
+                compress_program=cat
+                ;;
+            gzip|gz)
+                compress_ext=.gz
+                compress_program=gzip
+                ;;
+            bzip2|bz2)
+                compress_ext=.bz2
+                compress_program=bzip2
+                ;;
+            zstd)
+                compress_ext=.zst
+                compress_program=zstd
+                # threads
+                compress_args=-T0
+                ;;
+            xz)
+                compress_ext=.xz
+                compress_program=xz
+                # threads
+                compress_args=-T0
+                if test -n "$ICECC_TESTS"; then
+                    compress_args="-T0 -0"
+                fi
+                ;;
+            *)
+                echo "Unknown compression type '$1'."
+                exit 1
+                ;;
+        esac
+    else
+        echo "Unknown argument '$1'"
+        exit 1
+    fi
+
     shift
 done
 
-if test -n "$1"; then
-    echo "Unknown argument '$1'"
-    exit 1
+if test -n "$compress_program"; then
+    if ! command -v "$compress_program" >/dev/null; then
+        echo "Cannot find compression program '$compress_program'."
+        exit 1
+    fi
 fi
 
 tempdir=$(mktemp -d /tmp/iceccenvXXXXXX)
@@ -524,18 +579,19 @@ md5=$(for i in $target_files; do $md5sum $tempdir/$i; done | sed -e "s# $tempdir
   echo "Couldn't compute MD5 sum."
   exit 2
 }
-echo "creating $md5.tar.gz"
+
+echo "creating $md5.tar$compress_ext"
 mydir=$(pwd)
 cd $tempdir
-tar -czh --numeric-owner -f "$md5".tar.gz $target_files || {
+tar -ch --numeric-owner -f - $target_files | "$compress_program" $compress_args > "$md5".tar"$compress_ext" || {
   echo "Couldn't create archive"
   exit 3
 }
-mv "$md5".tar.gz "$mydir"/
+mv "$md5".tar"$compress_ext" "$mydir"/
 cd ..
 rm -rf $tempdir
 rm -f $tmp_ld_so_conf
 
 # Print the tarball name to fd 5 (if it's open, created by whatever has invoked this)
-( echo $md5.tar.gz >&5 ) 2>/dev/null
+( echo $md5.tar"$compress_ext" >&5 ) 2>/dev/null
 exit 0

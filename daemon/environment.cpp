@@ -217,7 +217,8 @@ Environments available_environmnents(const string &basedir)
 
 // Returns fd for icecc-create-env output
 int start_create_env(const string &basedir, uid_t user_uid, gid_t user_gid,
-                     const std::string &compiler, const list<string> &extrafiles)
+                     const std::string &compiler, const list<string> &extrafiles,
+                     const std::string &compression)
 {
     string nativedir = basedir + "/native/";
     if (mkdir(nativedir.c_str(), 0775) && errno != EEXIST) {
@@ -310,6 +311,11 @@ int start_create_env(const string &basedir, uid_t user_uid, gid_t user_gid,
     }
 
     argv[pos++] = NULL;
+
+    if (!compression.empty()) {
+        // icecc will read it from ICECC_ENV_COMPRESSION, we are in a forked process, so simply set it
+        setenv( "ICECC_ENV_COMPRESSION", compression.c_str(), 1 );
+    }
 
     if (!exec_and_wait(argv)) {
         log_error() << BINDIR "/icecc --build-native failed" << endl;

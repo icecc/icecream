@@ -456,6 +456,7 @@ static bool handle_cs_request(MsgChannel *cs, Msg *_m)
         job->setLocalClientId(m->client_id);
         job->setPreferredHost(m->preferred_host);
         job->setMinimalHostVersion(m->minimal_host_version);
+        job->setRequiredFeatures(m->required_features);
         enqueue_job_request(job);
         std::ostream &dbg = log_info();
         dbg << "NEW " << job->id() << " client="
@@ -1027,6 +1028,7 @@ static bool handle_login(CompileServer *cs, Msg *_m)
 
     cs->setHostPlatform(m->host_platform);
     cs->setChrootPossible(m->chroot_possible);
+    cs->setSupportedFeatures(m->supported_features);
     cs->pick_new_id();
 
     for (list<string>::const_iterator it = block_css.begin(); it != block_css.end(); ++it)
@@ -1034,16 +1036,13 @@ static bool handle_login(CompileServer *cs, Msg *_m)
             return false;
         }
 
-    dbg << "login " << m->nodename << " protocol version: " << cs->protocol;
-#if 1
-    dbg << " [";
-
+    dbg << "login " << m->nodename << " protocol version: " << cs->protocol
+        << " features: " << supported_features_to_string(m->supported_features)
+        << " [";
     for (Environments::const_iterator it = m->envs.begin(); it != m->envs.end(); ++it) {
         dbg << it->second << "(" << it->first << "), ";
     }
-
     dbg << "]" << endl;
-#endif
 
     handle_monitor_stats(cs);
 

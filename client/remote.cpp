@@ -762,6 +762,18 @@ static int minimalRemoteVersion( const CompileJob& job)
     return version;
 }
 
+static unsigned int requiredRemoteFeatures()
+{
+    unsigned int features = 0;
+    if (const char* icecc_env_compression = getenv( "ICECC_ENV_COMPRESSION" )) {
+        if( strcmp( icecc_env_compression, "xz" ) == 0 )
+            features = features | NODE_FEATURE_ENV_XZ;
+        if( strcmp( icecc_env_compression, "zstd" ) == 0 )
+            features = features | NODE_FEATURE_ENV_ZSTD;
+    }
+    return features;
+}
+
 int build_remote(CompileJob &job, MsgChannel *local_daemon, const Environments &_envs, int permill)
 {
     srand(time(0) + getpid());
@@ -812,7 +824,7 @@ int build_remote(CompileJob &job, MsgChannel *local_daemon, const Environments &
         GetCSMsg getcs(envs, fake_filename, job.language(), torepeat,
                        job.targetPlatform(), job.argumentFlags(),
                        preferred_host ? preferred_host : string(),
-                       minimalRemoteVersion(job));
+                       minimalRemoteVersion(job), requiredRemoteFeatures());
 
         trace() << "asking for host to use" << endl;
         if (!local_daemon->send_msg(getcs)) {
@@ -866,7 +878,7 @@ int build_remote(CompileJob &job, MsgChannel *local_daemon, const Environments &
         GetCSMsg getcs(envs, get_absfilename(job.inputFile()), job.language(), torepeat,
                        job.targetPlatform(), job.argumentFlags(),
                        preferred_host ? preferred_host : string(),
-                       minimalRemoteVersion(job));
+                       minimalRemoteVersion(job), 0);
 
 
         if (!local_daemon->send_msg(getcs)) {
