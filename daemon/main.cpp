@@ -421,7 +421,7 @@ void usage(const char *reason = 0)
     }
 
     cerr << "usage: iceccd [-n <netname>] [-m <max_processes>] [--no-remote] [-d|--daemonize] [-l logfile] [-s <schedulerhost[:port]>]"
-        " [-v[v[v]]] [-u|--user-uid <user_uid>] [-b <env-basedir>] [--cache-limit <MB>] [-N <node_name>] [--listen <address>]" << endl;
+        " [-v[v[v]]] [-u|--user-uid <user_uid>] [-b <env-basedir>] [--cache-limit <MB>] [-N <node_name>] [-p|--port <port>] [--listen <address>]" << endl;
     exit(1);
 }
 
