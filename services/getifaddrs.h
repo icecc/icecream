@@ -29,6 +29,8 @@
 
 #include "config.h"
 
+#include <string>
+
 #include <sys/types.h>
 
 #include <sys/socket.h>
@@ -94,5 +96,13 @@ extern int kde_getifaddrs(struct kde_ifaddrs **__ifap);
 extern void kde_freeifaddrs(struct kde_ifaddrs *__ifa);
 
 #endif
+
+/**
+ * Constructs an IPv4 socket address for a given port and network interface.
+ *
+ * The address is suitable for use by a subsequent call to bind().
+ * If the interface argument is an empty string, the socket will listen on all interfaces.
+ */
+bool build_address_for_interface(struct sockaddr_in &myaddr, const std::string &interface, int port);
 
 #endif

@@ -50,6 +50,7 @@
 #include <stdio.h>
 #include <pwd.h>
 #include "../services/comm.h"
+#include "../services/getifaddrs.h"
 #include "../services/logging.h"
 #include "../services/job.h"
 #include "../services/util.h"
@@ -98,6 +99,7 @@ static volatile sig_atomic_t exit_main_loop = false;
 
 time_t starttime;
 time_t last_announce;
+static string scheduler_interface = "";
 static unsigned int scheduler_port = 8765;
 
 // A subset of connected_hosts representing the compiler servers
@@ -1747,7 +1749,7 @@ static bool handle_activity(CompileServer *cs)
     return ret;
 }
 
-static int open_broad_listener(int port)
+static int open_broad_listener(int port, const string &interface)
 {
     int listen_fd;
     struct sockaddr_in myaddr;
@@ -1764,9 +1766,9 @@ static int open_broad_listener(int port)
         return -1;
     }
 
-    myaddr.sin_family = AF_INET;
-    myaddr.sin_port = htons(port);
-    myaddr.sin_addr.s_addr = INADDR_ANY;
+    if (!build_address_for_interface(myaddr, interface, port)) {
+        return -1;
+    }
 
     if (::bind(listen_fd, (struct sockaddr *) &myaddr, sizeof(myaddr)) < 0) {
         log_perror("bind()");
@@ -1776,7 +1778,7 @@ static int open_broad_listener(int port)
     return listen_fd;
 }
 
-static int open_tcp_listener(short port)
+static int open_tcp_listener(short port, const string &interface)
 {
     int fd;
     struct sockaddr_in myaddr;
@@ -1801,9 +1803,9 @@ static int open_tcp_listener(short port)
         return -1;
     }
 
-    myaddr.sin_family = AF_INET;
-    myaddr.sin_port = htons(port);
-    myaddr.sin_addr.s_addr = INADDR_ANY;
+    if (!build_address_for_interface(myaddr, interface, port)) {
+        return -1;
+    }
 
     if (::bind(fd, (struct sockaddr *) &myaddr, sizeof(myaddr)) < 0) {
         log_perror("bind()");
@@ -1828,6 +1830,7 @@ static void usage(const char *reason = 0)
     cerr << "usage: icecc-scheduler [options] \n"
          << "Options:\n"
          << "  -n, --netname <name>\n"
+         << "  -i, --interface <net_interface>\n"
          << "  -p, --port <port>\n"
          << "  -h, --help\n"
          << "  -l, --log-file <file>\n"
@@ -1930,6 +1933,7 @@ int main(int argc, char *argv[])
             { "netname", 1, NULL, 'n' },
             { "help", 0, NULL, 'h' },
             { "persistent-client-connection", 0, NULL, 'r' },
+            { "interface", 1, NULL, 'i' },
             { "port", 1, NULL, 'p' },
             { "daemonize", 0, NULL, 'd'},
             { "log-file", 1, NULL, 'l'},
@@ -1937,7 +1941,7 @@ int main(int argc, char *argv[])
             { 0, 0, 0, 0 }
         };
 
-        const int c = getopt_long(argc, argv, "n:p:hl:vdru:", long_options, &option_index);
+        const int c = getopt_long(argc, argv, "n:i:p:hl:vdru:", long_options, &option_index);
 
         if (c == -1) {
             break;    // eoo
@@ -1974,6 +1978,20 @@ int main(int argc, char *argv[])
                 netname = optarg;
             } else {
                 usage("Error: -n requires argument");
+            }
+
+            break;
+        case 'i':
+
+            if (optarg && *optarg) {
+                string interface = optarg;
+                if (interface.empty()) {
+                    usage("Error: Invalid network interface specified");
+                }
+
+                scheduler_interface = interface;
+            } else {
+                usage("Error: -i requires argument");
             }
 
             break;
@@ -2065,19 +2083,19 @@ int main(int argc, char *argv[])
         }
     }
 
-    listen_fd = open_tcp_listener(scheduler_port);
+    listen_fd = open_tcp_listener(scheduler_port, scheduler_interface);
 
     if (listen_fd < 0) {
         return 1;
     }
 
-    text_fd = open_tcp_listener(scheduler_port + 1);
+    text_fd = open_tcp_listener(scheduler_port + 1, scheduler_interface);
 
     if (text_fd < 0) {
         return 1;
     }
 
-    broad_fd = open_broad_listener(scheduler_port);
+    broad_fd = open_broad_listener(scheduler_port, scheduler_interface);
 
     if (broad_fd < 0) {
         return 1;

@@ -26,10 +26,13 @@
  */
 
 #include "config.h"
+#include "getifaddrs.h"
+#include "logging.h"
+
+#include <netinet/in.h>
 
 #ifndef HAVE_IFADDRS_H
 
-#include "getifaddrs.h"
 #include <net/if.h>
 #include <sys/socket.h>
 #include <sys/ioctl.h>
@@ -37,7 +40,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
-#include <netinet/in.h>
 #include <stdio.h>
 
 #ifndef IF_NAMESIZE
@@ -288,3 +290,47 @@ struct { } kde_ifaddrs;
 #endif
 
 #endif
+
+bool build_address_for_interface(struct sockaddr_in &myaddr, const std::string &interface, int port)
+{
+    // Pre-fill the output parameter with the default address (port, INADDR_ANY)
+    myaddr.sin_family = AF_INET;
+    myaddr.sin_port = htons(port);
+    myaddr.sin_addr.s_addr = INADDR_ANY;
+
+    // If no interface was specified, return the default address
+    if (interface.empty()) {
+        return true;
+    }
+
+    // Otherwise, search for the IP address of the given interface
+    struct kde_ifaddrs *addrs;
+
+    if (kde_getifaddrs(&addrs) < 0) {
+        log_perror("kde_getifaddrs()");
+        return false;
+    }
+
+    bool found = false;
+
+    for (struct kde_ifaddrs *addr = addrs; addr != NULL; addr = addr->ifa_next) {
+        if (interface != addr->ifa_name) {
+            continue;
+        }
+        if (addr->ifa_addr == NULL || addr->ifa_addr->sa_family != AF_INET) {
+            continue;
+        }
+        myaddr.sin_addr.s_addr = reinterpret_cast<struct sockaddr_in *>(addr->ifa_addr)->sin_addr.s_addr;
+        found = true;
+        break;
+    }
+
+    kde_freeifaddrs(addrs);
+
+    if (!found) {
+        log_error() << "No IP address found for interface \"" << interface << "\"" << std::endl;
+        return false;
+    }
+
+    return true;
+}
