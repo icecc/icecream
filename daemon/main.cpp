@@ -1312,8 +1312,13 @@ bool Daemon::handle_get_native_env(Client *client, GetNativeEnvMsg *msg)
     map<string, time_t> filetimes;
     struct stat st;
 
-    string ccompiler = get_c_compiler(msg->compiler);
-    string cppcompiler = get_cpp_compiler(msg->compiler);
+    string compiler = msg->compiler;
+    // Older clients passed simply "gcc" or "clang" and not a binary.
+    if( !IS_PROTOCOL_41(client->channel) && compiler.find('/') == string::npos)
+        compiler = "/usr/bin/" + compiler;
+
+    string ccompiler = get_c_compiler(compiler);
+    string cppcompiler = get_cpp_compiler(compiler);
 
     trace() << "get_native_env for " << msg->compiler
         << " (" << ccompiler << "," << cppcompiler << ")" << endl;
