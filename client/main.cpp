@@ -476,10 +476,9 @@ int main(int argc, char **argv)
             Msg *umsg = NULL;
             string compiler;
             if( IS_PROTOCOL_41(local_daemon))
-                compiler = find_compiler( job );
+                compiler = get_absfilename( find_compiler( job ));
             else // Older daemons understood only two hardcoded compilers.
                 compiler = compiler_is_clang(job) ? "clang" : "gcc";
-            compiler = get_absfilename( compiler );
             string env_compression; // empty = default
             if( const char* icecc_env_compression = getenv( "ICECC_ENV_COMPRESSION" ))
                 env_compression = icecc_env_compression;
