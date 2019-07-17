@@ -527,7 +527,10 @@ fi
 
 # special case for weird multilib setups
 for dir in /lib /lib64 /usr/lib /usr/lib64; do
-    test -L $dir && cp -Pp $dir $tempdir$dir
+    if [ -L $dir ]; then
+        cp -Pp $dir $tempdir$dir
+        mkdir -p $tempdir/$(file $dir | cut -d' ' -f5-)
+    fi
 done
 
 new_target_files=
