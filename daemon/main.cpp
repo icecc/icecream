@@ -872,7 +872,6 @@ bool Daemon::maybe_stats(bool force_check)
 
 #endif
 
-        // Matz got in the urine that not all CPUs are always feed
         mem_limit = std::max(int(msg.freeMem / std::min(std::max(max_kids, 1U), 4U)), min_mem_limit);
 
         if (abs(int(msg.load) - current_load) >= 100
