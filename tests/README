@@ -3,6 +3,10 @@ Testuite for Icecream
 
 In this directory are tests for Icecream.
 
+These tests run Icecream binaries and test them in practice in a testing setup.
+This makes these tests a bit slower than unit tests, but it allows testing
+functionality that would be hard or impossible to test using unit tests.
+
 How to run the tests:
 =====================
 

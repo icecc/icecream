@@ -1,0 +1,9 @@
+Unit Tests for Icecream
+=====================
+
+In this directory are unit tests for Icecream.
+
+Unit tests check functionality by creating small binaries that test
+internal functionality (e.g. functions that analyze arguments). Unit tests
+are faster than actually testing Icecream binaries, but some tests
+may be difficult or impossible to implement here.
