@@ -134,8 +134,17 @@ add_file ()
 	      # Check whether the same library also exists in the parent directory,
 	      # and prefer that on the assumption that it is a more generic one.
 	      local baselib=$(echo "$lib" | sed 's,\(/[^/]*\)/.*\(/[^/]*\)$,\1\2,')
-	      if test -f "$baselib"; then
-	        lib=$baselib
+              usebaselib=
+              if test "$baselib" != "$lib" -a -f "$baselib"; then
+                # Make sure the base lib has the same architecture.
+                local archlib="$(objdump -f "$lib" | grep architecture)"
+                local archbaselib="$(objdump -f "$baselib" | grep architecture)"
+                if test "$archlib" = "$archbaselib"; then
+                  usebaselib=1
+                fi
+              fi
+              if test -n "$usebaselib"; then
+                lib=$baselib
                 add_file "$lib"
               else
                 # Optimization: We are adding a library we got from ldd output, so avoid
