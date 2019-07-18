@@ -119,7 +119,9 @@ static bool exec_and_wait(const char *const argv[])
 
     // child
     execv(argv[0], const_cast<char * const *>(argv));
-    log_perror("execv failed");
+    ostringstream errmsg;
+    errmsg << "execv " << argv[0] << " failed";
+    log_perror(errmsg.str());
     _exit(-1);
 }
 
@@ -636,7 +638,9 @@ size_t remove_environment(const string &basename, const string &env)
     argv[4] = NULL;
 
     execv(argv[0], argv);
-    log_perror("execv failed");
+    ostringstream errmsg;
+    errmsg << "execv " << argv[0] << " failed";
+    log_perror(errmsg.str());
     _exit(-1);
 }
 
@@ -763,7 +767,7 @@ bool verify_env(MsgChannel *client, const string &basedir, const string &target,
     reset_debug();
     chdir_to_environment(client, dirname, user_uid, user_gid);
     execl("bin/true", "bin/true", (void*)NULL);
-    log_perror("execl failed");
+    log_perror("execl bin/true failed");
     _exit(-1);
 
 }

@@ -312,7 +312,9 @@ int build_local(CompileJob &job, MsgChannel *local_daemon, struct rusage *used)
 
         execv(argv[0], &argv[0]);
         int exitcode = ( errno == ENOENT ? 127 : 126 );
-        log_perror("execv failed");
+        ostringstream errmsg;
+        errmsg << "execv " << argv[0] << " failed";
+        log_perror(errmsg.str());
 
         dcc_unlock();
 

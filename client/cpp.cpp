@@ -200,6 +200,8 @@ pid_t call_cpp(CompileJob &job, int fdwrite, int fdread)
     dcc_increment_safeguard(SafeguardStepCompiler);
     execv(argv[0], argv);
     int exitcode = ( errno == ENOENT ? 127 : 126 );
-    log_perror("execv failed");
+    ostringstream errmsg;
+    errmsg << "execv " << argv[0] << " failed";
+    log_perror(errmsg.str());
     _exit(exitcode);
 }

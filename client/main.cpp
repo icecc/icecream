@@ -196,7 +196,9 @@ static int create_native(char **args)
 
     argv.push_back(NULL);
     execv(argv[0], argv.data());
-    log_perror("execv failed");
+    ostringstream errmsg;
+    errmsg << "execv " << argv[0] << " failed";
+    log_perror(errmsg.str());
     return -1;
 }
 

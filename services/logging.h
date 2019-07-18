@@ -118,6 +118,11 @@ static inline std::ostream & log_perror(const char *prefix)
     return log_errno(prefix, errno);
 }
 
+static inline std::ostream & log_perror(const std::string &prefix)
+{
+    return log_perror(prefix.c_str());
+}
+
 static inline std::ostream & log_errno_trace(const char *prefix, int tmp_errno)
 {
     return trace() << prefix << "(Error: " << strerror(tmp_errno) << ")" << std::endl;
