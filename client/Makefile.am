@@ -16,8 +16,7 @@ icecc_SOURCES = \
 	main.cpp 
 icecc_LDADD = \
 	libclient.a \
-	../services/libicecc.la \
-	$(LIBRSYNC)
+	../services/libicecc.la
 
 noinst_HEADERS = \
 	argv.h \
