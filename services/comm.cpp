@@ -98,7 +98,7 @@ static int zstd_compression()
  * once. We can avoid this situation to a large extend by sending smaller
  * chunks of data over.
  */
-#define MAX_WRITE_SIZE 10 * 1024
+#define MAX_SLOW_WRITE_SIZE 10 * 1024
 
 /* TODO
  * buffered in/output per MsgChannel
@@ -339,6 +339,14 @@ void MsgChannel::writefull(const void *_buf, size_t count)
     msgtogo += count;
 }
 
+static size_t get_max_write_size()
+{
+    if( const char* icecc_slow_network = getenv( "ICECC_SLOW_NETWORK" ))
+        if( icecc_slow_network[ 0 ] == '1' )
+            return MAX_SLOW_WRITE_SIZE;
+    return MAX_MSG_SIZE;
+}
+
 bool MsgChannel::flush_writebuf(bool blocking)
 {
     const char *buf = msgbuf + msgofs;
@@ -346,14 +354,15 @@ bool MsgChannel::flush_writebuf(bool blocking)
 
     while (msgtogo) {
         int send_errno;
+        static size_t max_write_size = get_max_write_size();
 #ifdef MSG_NOSIGNAL
-        ssize_t ret = send(fd, buf, msgtogo < MAX_WRITE_SIZE ? msgtogo : MAX_WRITE_SIZE, MSG_NOSIGNAL);
+        ssize_t ret = send(fd, buf, min( msgtogo, max_write_size ), MSG_NOSIGNAL);
         send_errno = errno;
 #else
         void (*oldsigpipe)(int);
 
         oldsigpipe = signal(SIGPIPE, SIG_IGN);
-        ssize_t ret = send(fd, buf, msgtogo < MAX_WRITE_SIZE ? msgtogo : MAX_WRITE_SIZE, 0);
+        ssize_t ret = send(fd, buf, min( msgtogo, max_write_size ), 0);
         send_errno = errno;
         signal(SIGPIPE, oldsigpipe);
 #endif

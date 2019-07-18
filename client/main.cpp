@@ -99,6 +99,7 @@ static void dcc_show_usage(void)
         "   ICECC_CARET_WORKAROUND     set to 1 or 0 to override gcc show caret workaround.\n"
         "   ICECC_COMPRESSION          if set, the libzstd compression level (1 to 19, default: 1)\n"
         "   ICECC_ENV_COMPRESSION      compression type for icecc environments [none|gzip|bzip2|zstd|xz]\n"
+        "   ICECC_SLOW_NETWORK         set to 1 to send network data in smaller chunks\n"
         );
 }
 
