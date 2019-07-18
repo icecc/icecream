@@ -1,0 +1,7 @@
+- More tests in args.cpp?
+    - The existing ones are basic, if there are more things to be tested,
+      it should preferably be done here rather than in tests/.
+
+- Test for Msg::send_to_channel() and Msg::fill_from_channel()
+    - Test for various protocol versions (loop for all of them?), fill data, read it back and verify.
+        - Will need a fake MsgChannel for the writing/reading?
