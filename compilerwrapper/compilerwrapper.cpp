@@ -34,6 +34,7 @@ if clang is to be used as well, that will either call clang or the real gcc.
 Which one depends on an extra argument added by icecream.
 */
 
+#include <sstream>
 #include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -143,6 +144,8 @@ int main(int argc, char *argv[])
     fprintf(stderr, "\n");
 #endif
     execv(args[0], args);
-    fprintf(stderr, "execv failed\n");
+    std::ostringstream errmsg;
+    errmsg << "execv " << args[0] << " failed";
+    perror(errmsg.str().c_str());
     exit(1);
 }
