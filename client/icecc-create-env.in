@@ -534,11 +534,6 @@ if test -f /etc/ld.so.conf; then
   add_file $tmp_ld_so_conf /etc/ld.so.conf
 fi
 
-# special case for weird multilib setups
-for dir in /lib /lib64 /usr/lib /usr/lib64; do
-    test -L $dir && cp -Pp $dir $tempdir$dir
-done
-
 new_target_files=
 for i in $target_files; do
  case $i in
