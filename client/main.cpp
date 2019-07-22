@@ -200,7 +200,7 @@ static int create_native(char **args)
     ostringstream errmsg;
     errmsg << "execv " << argv[0] << " failed";
     log_perror(errmsg.str());
-    return -1;
+    return 1;
 }
 
 static MsgChannel* get_local_daemon()
