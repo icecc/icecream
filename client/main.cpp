@@ -175,12 +175,6 @@ static int create_native(char **args)
     }
 
     vector<char*> argv;
-    struct stat st;
-
-    if (lstat(BINDIR "/icecc-create-env", &st)) {
-        log_error() << BINDIR "/icecc-create-env does not exist" << endl;
-        return 1;
-    }
 
     argv.push_back(strdup(BINDIR "/icecc-create-env"));
     argv.push_back(strdup(compiler.c_str()));
