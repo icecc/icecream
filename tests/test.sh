@@ -537,13 +537,13 @@ run_ice()
             if test -z "$localrebuild"; then
                 check_log_error icecc "<building_local>"
             fi
-            if test -n "$output"; then
-                check_log_message remoteice1 "Remote compilation completed with exit code 0"
-                check_log_error remoteice1 "Remote compilation aborted with exit code"
-                check_log_error remoteice1 "Remote compilation exited with exit code"
-            elif test -n "$remoteabort"; then
+            if test -n "$remoteabort"; then
                 check_log_message remoteice1 "Remote compilation aborted with exit code"
                 check_log_error remoteice1 "Remote compilation completed with exit code 0"
+                check_log_error remoteice1 "Remote compilation exited with exit code"
+            elif test -n "$output"; then
+                check_log_message remoteice1 "Remote compilation completed with exit code 0"
+                check_log_error remoteice1 "Remote compilation aborted with exit code"
                 check_log_error remoteice1 "Remote compilation exited with exit code"
             else
                 check_log_message remoteice1 "Remote compilation exited with exit code $expected_exit"
@@ -1946,6 +1946,14 @@ run_ice "" "local" 300 "nostderrcheck" /bin/nonexistent-at-all-doesnt-exist
 
 run_ice "$testdir/warninginmacro.o" "remote" 0 $TESTCXX -Wall -Wextra -Werror -c warninginmacro.cpp -o "$testdir/"warninginmacro.o
 run_ice "$testdir/unusedmacro.o" "remote" 0 "unusedmacrohack" $TESTCXX -Wall -Wunused-macros -c unusedmacro.cpp -o "$testdir/unusedmacro.o"
+
+if test -n "$using_gcc"; then
+    # These all break because of -fdirectives-only bugs, check we manage to build them somehow.
+    run_ice "$testdir/countermacro.o" "remote" 0 "localrebuild" "remoteabort" "nostderrcheck" $TESTCC -Wall -Werror -c countermacro.c -o "$testdir"/countermacro.o
+    if $TESTCXX -std=c++11 -fsyntax-only -Werror -c rawliterals.cpp 2>/dev/null; then
+        run_ice "$testdir/rawliterals.o" "remote" 0 "localrebuild" "remoteabort" "nostderrcheck" $TESTCXX -std=c++11 -Wall -Werror -c rawliterals.cpp -o "$testdir"/rawliterals.o
+    fi
+fi
 
 if $TESTCXX -cxx-isystem ./ -fsyntax-only -Werror -c includes.cpp 2>/dev/null; then
     run_ice "$testdir/includes.o" "remote" 0 $TESTCXX -Wall -Werror -cxx-isystem ./ -c includes.cpp -o "$testdir"/includes.o
