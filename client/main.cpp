@@ -541,7 +541,12 @@ int main(int argc, char **argv)
                 local_daemon->send_msg(EndMsg());
             }
         } catch (remote_error& error) {
-            log_info() << "local build forced by remote exception: " << error.what() << endl;
+            // log the 'local cpp invocation failed' message by default, so that it's more
+            // obvious why the cpp output is there (possibly) twice
+            if( error.errorCode == 103 )
+                log_error() << "local build forced by remote exception: " << error.what() << endl;
+            else
+                log_info() << "local build forced by remote exception: " << error.what() << endl;
             local = true;
         }
         catch (client_error& error) {
