@@ -74,6 +74,52 @@ icerun="${prefix}/bin/icerun"
 wrapperdir="${pkglibexecdir}/bin"
 netname="icecctestnetname$$"
 protocolversion=$(grep '#define PROTOCOL_VERSION ' ../services/comm.h | sed 's/#define PROTOCOL_VERSION //')
+schedulerprotocolversion=$protocolversion
+daemonprotocolversion=$protocolversion
+
+# For testing compatibility of different versions:
+# The only 2 communications are client<->daemon and daemon<->scheduler.
+# So it should be necessary to test only these settings:
+# - other scheduler
+# - other daemon
+# - other client
+# Change the settings below to enable such runs (false->true).
+# Note that older versions may not pass successfully all tests. Either comment out what does not work
+# (if it's not an actual incompatibility problem) or use the test.sh script from the older version
+# to test with a current version.
+OTHERVERSIONPREFIX=/usr
+if false; then
+    icecc="$OTHERVERSIONPREFIX"/bin/icecc
+    icerun="$OTHERVERSIONPREFIX"/bin/icerun
+    if test -d "$OTHERVERSIONPREFIX"/lib/icecc/bin; then
+        wrapperdir="$OTHERVERSIONPREFIX"/lib/icecc/bin
+    elif test -d "$OTHERVERSIONPREFIX"/lib64/icecc/bin; then
+        wrapperdir="$OTHERVERSIONPREFIX"/lib64/icecc/bin
+    else
+        Cannot find wrapper dir for "$OTHERVERSIONPREFIX" .
+        exit 1
+    fi
+fi
+if false; then
+    # Make sure the daemon is capable of doing chroot (see e.g. how Makefile.am sets it in test-prepare).
+    iceccd="$OTHERVERSIONPREFIX"/sbin/iceccd
+    daemonprotocolversion=$(grep '#define PROTOCOL_VERSION ' "$OTHERVERSIONPREFIX"/include/icecc/comm.h | sed 's/#define PROTOCOL_VERSION //')
+    if test -z "$daemonprotocolversion"; then
+        Cannot find "$OTHERVERSIONPREFIX"/include/icecc/comm.h .
+        exit 1
+    fi
+fi
+if false; then
+    icecc_scheduler="$OTHERVERSIONPREFIX"/sbin/icecc-scheduler
+    schedulerprotocolversion=$(grep '#define PROTOCOL_VERSION ' "$OTHERVERSIONPREFIX"/include/icecc/comm.h | sed 's/#define PROTOCOL_VERSION //')
+    if test -z "$schedulerprotocolversion"; then
+        Cannot find "$OTHERVERSIONPREFIX"/include/icecc/comm.h .
+        exit 1
+    fi
+    # If the scheduler is older than 1.3 (protocol 42), then it reported the lowest
+    # of the protocol version of the scheduler and the daemon, so possibly set it here as well.
+    #daemonprotocolversion=$schedulerprotocolversion
+fi
 
 if test -z "$prefix" -o ! -x "$icecc"; then
     usage
@@ -2160,7 +2206,7 @@ if test -z "$chroot_disabled"; then
     echo $scheduler2_pid > "$testdir"/scheduler2.pid
     wait_for_ice_startup_complete scheduler2
     start_ice
-    check_log_message scheduler2 "Received scheduler announcement from .* (version $protocolversion, netname ${netname})"
+    check_log_message scheduler2 "Received scheduler announcement from .* (version $schedulerprotocolversion, netname ${netname})"
     check_log_error scheduler "has announced itself as a preferred scheduler, disconnecting all connections"
     check_log_message localice "Ignoring scheduler at .*:8769 because of a different netname (${netname}_secondary)"
     check_log_message remoteice1 "Ignoring scheduler at .*:8769 because of a different netname (${netname}_secondary)"
@@ -2182,7 +2228,7 @@ if test -z "$chroot_disabled"; then
     wait_for_ice_startup_complete scheduler2
     # Give the primary scheduler time to disconnect all clients.
     sleep 1
-    check_log_message scheduler "Received scheduler announcement from .* (version $protocolversion, netname ${netname})"
+    check_log_message scheduler "Received scheduler announcement from .* (version $schedulerprotocolversion, netname ${netname})"
     check_log_message scheduler "has announced itself as a preferred scheduler, disconnecting all connections"
     check_log_error scheduler2 "has announced itself as a preferred scheduler, disconnecting all connections"
     check_log_message localice "scheduler closed connection"
@@ -2197,9 +2243,9 @@ if test -z "$chroot_disabled"; then
     reset_logs remote "Reconnect"
     wait_for_ice_startup_complete localice remoteice1 remoteice2
     flush_logs
-    check_log_message scheduler "login localice protocol version: ${protocolversion}"
-    check_log_message scheduler "login remoteice1 protocol version: ${protocolversion}"
-    check_log_message scheduler "login remoteice2 protocol version: ${protocolversion}"
+    check_log_message scheduler "login localice protocol version: ${daemonprotocolversion}"
+    check_log_message scheduler "login remoteice1 protocol version: ${daemonprotocolversion}"
+    check_log_message scheduler "login remoteice2 protocol version: ${daemonprotocolversion}"
     check_log_message localice "Connected to scheduler"
     check_log_message remoteice1 "Connected to scheduler"
     check_log_message remoteice2 "Connected to scheduler"
