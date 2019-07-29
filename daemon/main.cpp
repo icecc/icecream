@@ -421,7 +421,7 @@ void usage(const char *reason = 0)
     }
 
     cerr << "usage: iceccd [-n <netname>] [-m <max_processes>] [--no-remote] [-d|--daemonize] [-l logfile] [-s <schedulerhost[:port]>]"
-        " [-v[v[v]]] [-u|--user-uid <user_uid>] [-b <env-basedir>] [--cache-limit <MB>] [-N <node_name>] [-p|--port <port>] [--listen <address>]" << endl;
+        " [-v[v[v]]] [-u|--user-uid <user_uid>] [-b <env-basedir>] [--cache-limit <MB>] [-N <node_name>] [-p|--port <port>]" << endl;
     exit(1);
 }
 
@@ -467,7 +467,6 @@ struct Daemon {
     string nodename;
     bool noremote;
     bool custom_nodename;
-    const char* listen_addr;
     size_t cache_size;
     map<int, MsgChannel *> fd2chan;
     int new_client_id;
@@ -515,7 +514,6 @@ struct Daemon {
         cache_size = 0;
         noremote = false;
         custom_nodename = false;
-        listen_addr = NULL;
         icecream_load = 0;
         icecream_usage.tv_sec = icecream_usage.tv_usec = 0;
         current_load = - 1000;
@@ -593,13 +591,7 @@ bool Daemon::setup_listen_fds()
             struct sockaddr_in myaddr;
             myaddr.sin_family = AF_INET;
             myaddr.sin_port = htons(daemon_port);
-            if( listen_addr ) {
-                if( !inet_aton( listen_addr, &myaddr.sin_addr )) {
-                    log_error() << "Address passed to --listen (" << listen_addr << ") is not valid" << endl;
-                    return false;
-                }
-            } else
-                myaddr.sin_addr.s_addr = INADDR_ANY;
+            myaddr.sin_addr.s_addr = INADDR_ANY;
 
             if (::bind(tcp_listen_fd, (struct sockaddr *)&myaddr,
                      sizeof(myaddr)) < 0) {
@@ -2222,7 +2214,6 @@ int main(int argc, char **argv)
             { "cache-limit", 1, NULL, 0},
             { "no-remote", 0, NULL, 0},
             { "port", 1, NULL, 'p'},
-            { "listen", 1, NULL, 0},
             { 0, 0, 0, 0 }
         };
 
@@ -2266,12 +2257,8 @@ int main(int argc, char **argv)
                 }
             } else if (optname == "no-remote") {
                 d.noremote = true;
-            } else if (optname == "listen") {
-                if (optarg && *optarg)
-                    d.listen_addr = optarg;
-                else
-                    usage("Error: --listen requires argument");
             }
+
         }
         break;
         case 'd':
