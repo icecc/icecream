@@ -22,7 +22,7 @@ usage ()
     echo "Usage: $0 <compiler_binary> [extra_options]"
     echo "For GCC, pass the the gcc binary, the matching g++ will be used automatically."
     echo "For Clang, pass the clang binary."
-    echo "Use --addfile <file> to add extra files."
+    echo "Use --addfile <file>[=<targetpath>] to add extra files."
     echo "Use --compression <type> to set tarball type (none,gzip,bzip2,zstd,xz)."
     echo "For backwards compatibility, the following is also supported:"
     echo "$0 --gcc <gcc_path> <g++_path>"
@@ -504,7 +504,12 @@ fi
 save_stripprefix="$stripprefix"
 stripprefix=
 for extrafile in $extrafiles; do
-    add_file $extrafile
+	targetpath=""
+	if [[ "$extrafile" == *=* ]]; then
+		targetpath="${extrafile#*=}"
+		extrafile="${extrafile%=*}"
+	fi
+    add_file $extrafile $targetpath
 done
 stripprefix="$save_stripprefix"
 
