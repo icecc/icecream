@@ -97,6 +97,7 @@
 #include "environment.h"
 #include "platform.h"
 #include "util.h"
+#include "getifaddrs.h"
 
 static std::string pidFilePath;
 static volatile sig_atomic_t exit_main_loop = 0;
@@ -421,7 +422,7 @@ void usage(const char *reason = 0)
     }
 
     cerr << "usage: iceccd [-n <netname>] [-m <max_processes>] [--no-remote] [-d|--daemonize] [-l logfile] [-s <schedulerhost[:port]>]"
-        " [-v[v[v]]] [-u|--user-uid <user_uid>] [-b <env-basedir>] [--cache-limit <MB>] [-N <node_name>] [-p|--port <port>] [--listen <address>]" << endl;
+        " [-v[v[v]]] [-u|--user-uid <user_uid>] [-b <env-basedir>] [--cache-limit <MB>] [-N <node_name>] [-i|--interface <net_interface>] [-p|--port <port>]" << endl;
     exit(1);
 }
 
@@ -467,7 +468,6 @@ struct Daemon {
     string nodename;
     bool noremote;
     bool custom_nodename;
-    const char* listen_addr;
     size_t cache_size;
     map<int, MsgChannel *> fd2chan;
     int new_client_id;
@@ -482,6 +482,7 @@ struct Daemon {
     string netname;
     string schedname;
     int scheduler_port;
+    string daemon_interface;
     int daemon_port;
     unsigned int supported_features;
 
@@ -515,7 +516,6 @@ struct Daemon {
         cache_size = 0;
         noremote = false;
         custom_nodename = false;
-        listen_addr = NULL;
         icecream_load = 0;
         icecream_usage.tv_sec = icecream_usage.tv_usec = 0;
         current_load = - 1000;
@@ -523,6 +523,7 @@ struct Daemon {
         scheduler = 0;
         discover = 0;
         scheduler_port = 8765;
+        daemon_interface = "";
         daemon_port = 10245;
         max_scheduler_pong = MAX_SCHEDULER_PONG;
         max_scheduler_ping = MAX_SCHEDULER_PING;
@@ -587,19 +588,14 @@ bool Daemon::setup_listen_fds()
             return false;
         }
 
+        struct sockaddr_in myaddr;
+        if (!build_address_for_interface(myaddr, daemon_interface, daemon_port)) {
+            return false;
+        }
+
         int count = 5;
 
         while (count) {
-            struct sockaddr_in myaddr;
-            myaddr.sin_family = AF_INET;
-            myaddr.sin_port = htons(daemon_port);
-            if( listen_addr ) {
-                if( !inet_aton( listen_addr, &myaddr.sin_addr )) {
-                    log_error() << "Address passed to --listen (" << listen_addr << ") is not valid" << endl;
-                    return false;
-                }
-            } else
-                myaddr.sin_addr.s_addr = INADDR_ANY;
 
             if (::bind(tcp_listen_fd, (struct sockaddr *)&myaddr,
                      sizeof(myaddr)) < 0) {
@@ -2221,12 +2217,12 @@ int main(int argc, char **argv)
             { "user-uid", 1, NULL, 'u'},
             { "cache-limit", 1, NULL, 0},
             { "no-remote", 0, NULL, 0},
+            { "interface", 1, NULL, 'i'},
             { "port", 1, NULL, 'p'},
-            { "listen", 1, NULL, 0},
             { 0, 0, 0, 0 }
         };
 
-        const int c = getopt_long(argc, argv, "N:n:m:l:s:hvdb:u:p:", long_options, &option_index);
+        const int c = getopt_long(argc, argv, "N:n:m:l:s:hvdb:u:i:p:", long_options, &option_index);
 
         if (c == -1) {
             break;    // eoo
@@ -2266,12 +2262,8 @@ int main(int argc, char **argv)
                 }
             } else if (optname == "no-remote") {
                 d.noremote = true;
-            } else if (optname == "listen") {
-                if (optarg && *optarg)
-                    d.listen_addr = optarg;
-                else
-                    usage("Error: --listen requires argument");
             }
+
         }
         break;
         case 'd':
@@ -2364,6 +2356,20 @@ int main(int argc, char **argv)
                 }
             } else {
                 usage("Error: -u requires a valid username");
+            }
+
+            break;
+        case 'i':
+
+            if (optarg && *optarg) {
+                string daemon_interface = optarg;
+                if (daemon_interface.empty()) {
+                    usage("Error: Invalid network interface specified");
+                }
+
+                d.daemon_interface = daemon_interface;
+            } else {
+                usage("Error: -i requires argument");
             }
 
             break;
