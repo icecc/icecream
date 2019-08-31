@@ -1226,14 +1226,26 @@ clangplugintest()
 # Both clang and gcc4.8+ produce different debuginfo depending on whether the source file is
 # given on the command line or using stdin (which is how icecream does it), so do not compare output.
 # But check the functionality is identical to local build.
-# 1st argument is compile command, without -o argument.
-# 2nd argument is first line of debug at which to start comparing.
+# First argument is the compiler.
+# Second argument is compile command, without -o argument.
+# Third argument is first line of debug at which to start comparing.
+# Follow optional arguments, in this order:
+#   - hasdebug - specifies that there should be debug info present (will check for a variable value)
 debug_test()
 {
     compiler="$1"
     args="$2"
     cmd="$1 $2"
     debugstart="$3"
+    shift
+    shift
+    shift
+    hasdebug=
+    if test "$1" = "hasdebug"; then
+        hasdebug=1
+        shift
+    fi
+
     echo "Running debug test ($cmd)."
     reset_logs "" "debug test ($cmd)"
 
@@ -1298,6 +1310,21 @@ debug_test()
         echo "Debug check failed (local)."
         stop_ice 0
         abort_tests
+    fi
+    if test -n "$hasdebug"; then
+        # debug-gdb.txt prints the value of one variable, check it. It has to be present twice, once in the listing, once when printed.
+        local value=$(grep "debugMember =" "$testdir"/debug-output-local.txt | sed 's/.*debugMember = \(.*\);/\1/')
+        if test -z "$value"; then
+            echo "Debug check variable value failed (not found)."
+            stop_ice 0
+            abort_tests
+        fi
+        local count=$(grep "$value" "$testdir"/debug-output-local.txt | wc -l)
+        if test "$count" != 2; then
+            echo "Debug check variable value failed (count $count)."
+            stop_ice 0
+            abort_tests
+        fi
     fi
     # Binaries without debug infos use hex addresses for some symbols, which may differ between runs
     # or builds, but is technically harmless. So remove symbol and stack addresses and let the readelf check handle that.
@@ -1997,12 +2024,12 @@ fi
 
 if command -v gdb >/dev/null; then
     if command -v readelf >/dev/null; then
-        debug_test "$TESTCXX" "-c -g debug.cpp" "Temporary breakpoint 1, main () at debug.cpp:8"
-        debug_test "$TESTCXX" "-c -g $(pwd)/debug/debug2.cpp" "Temporary breakpoint 1, main () at .*debug/debug2.cpp:8"
+        debug_test "$TESTCXX" "-c -g debug.cpp" "Temporary breakpoint 1, main () at debug.cpp:8" "hasdebug"
+        debug_test "$TESTCXX" "-c -g $(pwd)/debug/debug2.cpp" "Temporary breakpoint 1, main () at .*debug/debug2.cpp:8" "hasdebug"
         debug_test "$TESTCXX" "-c -g0 debug.cpp" "Temporary breakpoint 1, 0x"
         if test -z "$debug_fission_disabled"; then
-            debug_test "$TESTCXX" "-c -g debug.cpp -gsplit-dwarf" "Temporary breakpoint 1, main () at debug.cpp:8"
-            debug_test "$TESTCXX" "-c -g $(pwd)/debug/debug2.cpp -gsplit-dwarf" "Temporary breakpoint 1, main () at .*debug/debug2.cpp:8"
+            debug_test "$TESTCXX" "-c -g debug.cpp -gsplit-dwarf" "Temporary breakpoint 1, main () at debug.cpp:8" "hasdebug"
+            debug_test "$TESTCXX" "-c -g $(pwd)/debug/debug2.cpp -gsplit-dwarf" "Temporary breakpoint 1, main () at .*debug/debug2.cpp:8" "hasdebug"
             debug_test "$TESTCXX" "-c debug.cpp -gsplit-dwarf -g0" "Temporary breakpoint 1, 0x"
         fi
     fi
