@@ -463,6 +463,7 @@ struct Daemon {
     gid_t user_gid;
     int warn_icecc_user_errno;
     int tcp_listen_fd;
+    int tcp_listen_local_fd; // if tcp_listen is bound to a specific network interface, this one is bound to lo interface
     int unix_listen_fd;
     string machine_name;
     string nodename;
@@ -510,6 +511,7 @@ struct Daemon {
 
         envbasedir = "/var/tmp/icecc-envs";
         tcp_listen_fd = -1;
+        tcp_listen_local_fd = -1;
         unix_listen_fd = -1;
         new_client_id = 0;
         next_scheduler_connect = 0;
@@ -567,6 +569,8 @@ struct Daemon {
     bool reconnect();
     int working_loop();
     bool setup_listen_fds();
+    bool setup_listen_tcp_fd( int& fd, const string& interface );
+    bool setup_listen_unix_fd();
     void check_cache_size(const string &new_env);
     bool create_env_finished(string env_key);
 };
@@ -574,52 +578,70 @@ struct Daemon {
 bool Daemon::setup_listen_fds()
 {
     tcp_listen_fd = -1;
+    tcp_listen_local_fd = -1;
+    unix_listen_fd = -1;
 
     if (!noremote) { // if we only listen to local clients, there is no point in going TCP
-        if ((tcp_listen_fd = socket(PF_INET, SOCK_STREAM, 0)) < 0) {
-            log_perror("Failed to create TCP listen socket.");
+        if( !setup_listen_tcp_fd( tcp_listen_fd, daemon_interface ))
             return false;
+        // We should always listen on the loopback interface, so if we're binding only
+        // to a specific interface, bind also to the loopback.
+        if( !daemon_interface.empty()) {
+            if( !setup_listen_tcp_fd( tcp_listen_local_fd, "lo" ))
+                return false;
         }
+    }
+    if( !setup_listen_unix_fd())
+        return false;
+    return true;
+}
 
-        int optval = 1;
+bool Daemon::setup_listen_tcp_fd( int& fd, const string& interface )
+{
+    if( !interface.empty())
+        trace() << "starting to listen on interface " << interface << endl;
 
-        if (setsockopt(tcp_listen_fd, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(optval)) < 0) {
-            log_perror("Failed to set 'Reuse Address(SO_REUSEADDR)' option on TCP Listen Socket");
-            return false;
-        }
-
-        struct sockaddr_in myaddr;
-        if (!build_address_for_interface(myaddr, daemon_interface, daemon_port)) {
-            return false;
-        }
-
-        int count = 5;
-
-        while (count) {
-
-            if (::bind(tcp_listen_fd, (struct sockaddr *)&myaddr,
-                     sizeof(myaddr)) < 0) {
-                log_perror("Failed to bind address to TCP listen socket");
-                sleep(2);
-
-                if (!--count) {
-                    return false;
-                }
-
-                continue;
-            } else {
-                break;
-            }
-        }
-
-        if (listen(tcp_listen_fd, 1024) < 0) {
-            log_perror("Failed to set TCP socket for listening to incoming connections");
-            return false;
-        }
-
-        fcntl(tcp_listen_fd, F_SETFD, FD_CLOEXEC);
+    if ((fd = socket(PF_INET, SOCK_STREAM, 0)) < 0) {
+        log_perror("Failed to create TCP listen socket.");
+        return false;
     }
 
+    int optval = 1;
+    if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(optval)) < 0) {
+        log_perror("Failed to set 'Reuse Address(SO_REUSEADDR)' option on TCP Listen Socket");
+        return false;
+    }
+
+    struct sockaddr_in myaddr;
+    if (!build_address_for_interface(myaddr, interface, daemon_port)) {
+        return false;
+    }
+
+    int count = 5;
+    while (count) {
+        if (::bind(fd, (struct sockaddr *)&myaddr, sizeof(myaddr)) < 0) {
+            log_perror("Failed to bind address to TCP listen socket");
+            sleep(2);
+            if (!--count) {
+                return false;
+            }
+            continue;
+        } else {
+            break;
+        }
+    }
+
+    if (listen(fd, 1024) < 0) {
+        log_perror("Failed to set TCP socket for listening to incoming connections");
+        return false;
+    }
+
+    fcntl(fd, F_SETFD, FD_CLOEXEC);
+    return true;
+}
+
+bool Daemon::setup_listen_unix_fd()
+{
     if ((unix_listen_fd = socket(AF_UNIX, SOCK_STREAM, 0)) < 0) {
         log_perror("Failed to create a Unix scoket for listening");
         return false;
@@ -1884,11 +1906,16 @@ void Daemon::answer_client_requests()
     }
 
     vector< pollfd > pollfds;
-    pollfds.reserve( fd2chan.size() + 5 );
+    pollfds.reserve( fd2chan.size() + 6 );
     pollfd pfd; // tmp varible
 
     if (tcp_listen_fd != -1) {
         pfd.fd = tcp_listen_fd;
+        pfd.events = POLLIN;
+        pollfds.push_back(pfd);
+    }
+    if (tcp_listen_local_fd != -1) {
+        pfd.fd = tcp_listen_local_fd;
         pfd.events = POLLIN;
         pollfds.push_back(pfd);
     }
@@ -2018,7 +2045,9 @@ void Daemon::answer_client_requests()
         if (tcp_listen_fd != -1 && pollfd_is_set(pollfds, tcp_listen_fd, POLLIN)) {
             listen_fd = tcp_listen_fd;
         }
-
+        if (tcp_listen_local_fd != -1 && pollfd_is_set(pollfds, tcp_listen_local_fd, POLLIN)) {
+            listen_fd = tcp_listen_local_fd;
+        }
         if (pollfd_is_set(pollfds, unix_listen_fd, POLLIN)) {
             listen_fd = unix_listen_fd;
         }

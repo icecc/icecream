@@ -296,10 +296,15 @@ bool build_address_for_interface(struct sockaddr_in &myaddr, const std::string &
     // Pre-fill the output parameter with the default address (port, INADDR_ANY)
     myaddr.sin_family = AF_INET;
     myaddr.sin_port = htons(port);
-    myaddr.sin_addr.s_addr = INADDR_ANY;
+    myaddr.sin_addr.s_addr = htonl( INADDR_ANY );
 
     // If no interface was specified, return the default address
     if (interface.empty()) {
+        return true;
+    }
+    // Explicit case for loopback.
+    if (interface == "lo") {
+        myaddr.sin_addr.s_addr = htonl( INADDR_LOOPBACK );
         return true;
     }
 
