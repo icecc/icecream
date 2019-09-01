@@ -339,6 +339,11 @@ bool CompileServer::featuresSupported(unsigned int features) const
     return ( m_featuresSupported & features ) == features;
 }
 
+unsigned int CompileServer::supportedFeatures() const
+{
+    return m_featuresSupported;
+}
+
 void CompileServer::setSupportedFeatures(unsigned int features)
 {
     m_featuresSupported = features;

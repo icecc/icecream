@@ -340,6 +340,10 @@ static void handle_monitor_stats(CompileServer *cs, StatsMsg *m = 0)
     msg += buffer;
     sprintf(buffer, "Platform:%s\n", cs->hostPlatform().c_str());
     msg += buffer;
+    sprintf(buffer, "Version:%d\n", cs->maximum_remote_protocol);
+    msg += buffer;
+    sprintf(buffer, "Features:%s\n", supported_features_to_string(cs->supportedFeatures()).c_str());
+    msg += buffer;
     sprintf(buffer, "Speed:%f\n", server_speed(cs));
     msg += buffer;
 

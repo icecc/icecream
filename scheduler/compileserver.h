@@ -102,6 +102,7 @@ public:
     void setChrootPossible(const bool possible);
 
     bool featuresSupported(unsigned int features) const;
+    unsigned int supportedFeatures() const;
     void setSupportedFeatures(unsigned int features);
 
     int clientCount() const;
