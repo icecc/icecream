@@ -604,8 +604,6 @@ run_ice()
         check_log_error icecc "building myself, but telling localhost"
         if test -z "$localrebuild"; then
             check_log_error icecc "local build forced"
-        else
-            check_log_message icecc "local build forced by remote exception"
         fi
     fi
 

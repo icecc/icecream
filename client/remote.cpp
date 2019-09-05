@@ -544,7 +544,15 @@ static int build_remote_int(CompileJob &job, UseCSMsg *usecs, MsgChannel *local_
                 delete cserver;
                 cserver = 0;
                 log_warning() << "call_cpp process failed with exit status " << shell_exit_status(status) << endl;
-                throw remote_error(103, "Error 103 - local cpp invocation failed, trying to recompile locally");
+                // GCC's -fdirectives-only has a number of cases that it doesn't handle properly,
+                // so if in such mode preparing the source fails, try again recompiling locally.
+                // This will cause double error in case it is a real error, but it'll build successfully if
+                // it was just -fdirectives-only being broken. In other cases fail directly, Clang's
+                // -frewrite-includes is much more reliable than -fdirectives-only, so is GCC's plain -E.
+                if( !compiler_is_clang(job) && compiler_only_rewrite_includes(job))
+                    throw remote_error(103, "Error 103 - local cpp invocation failed, trying to recompile locally");
+                else
+                    return shell_exit_status(status);
             }
         } else {
             int cpp_fd = open(preproc_file, O_RDONLY);
