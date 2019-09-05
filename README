@@ -8,6 +8,8 @@ Required Libraries
 Note: The package name may vary by distro
 * libcap-ng-devel
 * libarchive-devel
+* lzo-devel
+* libzstd-devel
 
 How to install icecream
 =======================
