@@ -1,5 +1,28 @@
-1.2.1
-- require libarchive
+1.3
+- remove hardcoded compiler paths (compiler tarball is created with the same compiler that is used for build)
+- avoid build overloading by limiting number of local preprocessing runs to local CPUs available
+- fix Objective C/C++ support
+- fix job preloading to again allow sending one extra job to a fully busy node
+- use libarchive to handle archives instead of using tar
+- support xz and zstd compression for compiler tarballs (improved speed/size)
+- use zstd compression when sending network data, if possible (improved speed)
+- improve speed of creating compiler tarballs
+- more robust handling of receiving compiler tarballs
+- default cache size for compiler environments has been increased to 256MiB
+- path handling fixes
+- platforms improvements in icecc-create-env
+- fix memory detection on MacOSX
+- improve local performance when -include-pch is used
+- simplify PCH handling
+- fix keeping order of compiler debug arguments, especially -gsplit-dwarf
+- better support for assembler and preprocessor flags when building the Linux kernel
+- force local rebuild if local preprocessing fails (works around some GCC -fdirectives-only problems)
+- improved handling of network timeouts
+- avoid a timeout when the scheduler cannot find any suitable host for building
+- if ICECC_SLOW_NETWORK=1 is set, sending network data is split into smaller chunks
+- --interface option allows restricting which network interface daemons will use
+- improved debug logs
+- release builds are built without assert checks, use --enable-debug for developer builds
 
 1.2
  - Add more compiler flags to the list that mean build locally
