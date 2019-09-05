@@ -600,6 +600,8 @@ bool Daemon::setup_listen_tcp_fd( int& fd, const string& interface )
 {
     if( !interface.empty())
         trace() << "starting to listen on interface " << interface << endl;
+    else
+        trace() << "starting to listen on all interfaces" << endl;
 
     if ((fd = socket(PF_INET, SOCK_STREAM, 0)) < 0) {
         log_perror("Failed to create TCP listen socket.");
