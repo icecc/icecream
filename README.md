@@ -1,4 +1,3 @@
-[![Stories in Ready](https://badge.waffle.io/icecc/icecream.png?label=ready&title=Ready)](https://waffle.io/icecc/icecream)
 [![Build Status (Linux & macOS)](https://travis-ci.org/icecc/icecream.svg?branch=master)](https://travis-ci.org/icecc/icecream)
 [![Build Status (FreeBSD)](https://api.cirrus-ci.com/github/icecc/icecream.svg)](https://cirrus-ci.com/github/icecc/icecream)
 [![Codacy Badge](https://api.codacy.com/project/badge/Grade/d0fd9ba53b424b37964340970392eec2)](https://www.codacy.com/app/icecc/icecream?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=icecc/icecream&amp;utm_campaign=Badge_Grade)
