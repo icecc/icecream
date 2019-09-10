@@ -140,7 +140,7 @@ broadcasting response :
 
      yast2 firewall
 
-Choose "Custom Rules" -\> Add. Enter Source Networ **0/0** Protocol:
+Choose "Custom Rules" -\> Add. Enter Source Network **0/0** Protocol:
 **UDP** Source Port **8765**
 
 ### C compiler
