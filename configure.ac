@@ -11,7 +11,7 @@ AC_PREREQ([2.63])
 m4_define([icecream_version_major],[1])
 m4_define([icecream_version_minor],[2])
 m4_define([icecream_version_micro],[90])
-m4_ifval([icecream_version_micro],
+m4_ifnblank(icecream_version_micro,
         [m4_define([icecream_version],[icecream_version_major.icecream_version_minor.icecream_version_micro])],
         [m4_define([icecream_version],[icecream_version_major.icecream_version_minor])])
 
