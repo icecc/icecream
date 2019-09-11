@@ -17,12 +17,14 @@
 - fix keeping order of compiler debug arguments, especially -gsplit-dwarf
 - better support for assembler and preprocessor flags when building the Linux kernel
 - force local rebuild if local preprocessing fails (works around some GCC -fdirectives-only problems)
+- limit -fdirectives-only workarounds only to cases when it is used
 - improved handling of network timeouts
 - avoid a timeout when the scheduler cannot find any suitable host for building
 - if ICECC_SLOW_NETWORK=1 is set, sending network data is split into smaller chunks
 - --interface option allows restricting which network interface daemons will use
 - improved debug logs
 - release builds are built without assert checks, use --enable-debug for developer builds
+- added a manual page for icerun
 
 1.2
  - Add more compiler flags to the list that mean build locally
