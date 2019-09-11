@@ -1,0 +1,58 @@
+<?xml version="1.0" ?>
+<!-- vim:set ts=4 noet syntax=xml: -->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN" "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd"
+[
+  <!ENTITY icerun "<application>icerun</application>">
+]>
+
+<refentry id="icerun">
+
+<refentryinfo>
+  <title>Icecream User's Manual</title>
+  <author>
+    <personname>
+      <firstname>Cornelius</firstname>
+      <surname>Schumacher</surname>
+    </personname>
+  </author>
+  <date>April 21th, 2005</date>
+  <productname>Icecream</productname>
+</refentryinfo>
+
+<refmeta>
+  <refentrytitle>icerun</refentrytitle>
+  <manvolnum>1</manvolnum>
+</refmeta>
+
+<refnamediv>
+  <refname>icerun</refname>
+  <refpurpose>Icecream custom command wrapper</refpurpose>
+</refnamediv>
+
+<refsynopsisdiv>
+<cmdsynopsis>
+<command>icerun</command>
+<arg><replaceable>command</replaceable></arg>
+<arg><replaceable>command options</replaceable></arg>
+</cmdsynopsis>
+</refsynopsisdiv>
+
+<refsect1>
+<title>Description</title>
+<para>&icerun; is the Icecream custom command wrapper. It simply executes the passed
+command, but limits the number of parallel invocations the same way local compilations
+are limited. Since builds using Icecream usually require increasing the parallelism
+of a build, wrapping custom resource-demanding commands this way prevents these
+commnads from overloading the system.</para>
+</refsect1>
+
+<refsect1>
+<title>See Also</title>
+<para>icecream(7), icecc(1), icecc-scheduler(1), iceccd(1), icemon(1)</para>
+</refsect1>
+
+<refsect1>
+<title>Author</title>
+<para>Cornelius Schumacher</para>
+</refsect1>
+</refentry>
