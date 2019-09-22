@@ -18,7 +18,7 @@ get_default_valgrind_flags()
 {
     default_valgrind_args="--num-callers=50 --suppressions=valgrind_suppressions --log-file=$testdir/valgrind-%p.log"
     # Check if valgrind knows --error-markers, which makes it simpler to find out if log contains any error.
-    valgrind_error_markers="--error-marker2s=ICEERRORBEGIN,ICEERROREND"
+    valgrind_error_markers="--error-markers=ICEERRORBEGIN,ICEERROREND"
     valgrind $valgrind_error_markers true 2>/dev/null
     if test $? -eq 0; then
         default_valgrind_args="$default_valgrind_args $valgrind_error_markers"
