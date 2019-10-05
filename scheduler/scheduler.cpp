@@ -637,20 +637,14 @@ static CompileServer *pick_server(Job *job)
     for (list<CompileServer *>::iterator it = css.begin(); it != css.end(); ++it) {
         CompileServer *cs = *it;
 
-        /* For now ignore overloaded servers.  */
-        /* Pre-loadable (cs->jobList().size()) == (cs->maxJobs()) is checked later.  */
-        if ((int(cs->jobList().size()) > cs->maxJobs()) || (cs->load() >= 1000)) {
-#if DEBUG_SCHEDULER > 1
-            trace() << "overloaded " << cs->nodeName() << " " << cs->jobList().size() << "/"
-                    <<  cs->maxJobs() << " jobs, load:" << cs->load() << endl;
-#endif
-            continue;
-        }
-
         // Ignore ineligible servers
         if (!cs->is_eligible_now(job)) {
 #if DEBUG_SCHEDULER > 1
-            trace() << cs->nodeName() << " not eligible" << endl;
+            if ((int(cs->jobList().size()) >= cs->maxJobs() + c->maxPreloadJobs()) || (cs->load() >= 1000)) {
+                trace() << "overloaded " << cs->nodeName() << " " << cs->jobList().size() << "/"
+                        <<  cs->maxJobs() << " jobs, load:" << cs->load() << endl;
+            else
+                trace() << cs->nodeName() << " not eligible" << endl;
 #endif
             continue;
         }

@@ -155,6 +155,16 @@ string CompileServer::can_install(const Job *job, bool ignore_installing) const
     return string();
 }
 
+int CompileServer::maxPreloadCount() const
+{
+    // Always allow one job to be preloaded (sent to the compile server
+    // even though there is no compile slot free for it). Since servers
+    // with multiple cores are capable of handling many jobs at once,
+    // allow one extra preload job for each 4 cores, to minimize stalls
+    // when the compile server is waiting for more jobs to be received.
+    return 1 + (m_maxJobs / 4);
+}
+
 bool CompileServer::is_eligible_ever(const Job *job) const
 {
     bool jobs_okay = m_maxJobs > 0;
@@ -185,8 +195,8 @@ bool CompileServer::is_eligible_now(const Job *job) const
     if(!is_eligible_ever(job))
         return false;
     bool jobs_okay = int(m_jobList.size()) < m_maxJobs;
-    if( m_maxJobs > 0 && int(m_jobList.size()) == m_maxJobs )
-        jobs_okay = true; // allow one job for preloading
+    if( m_maxJobs > 0 && int(m_jobList.size()) < m_maxJobs + maxPreloadCount())
+        jobs_okay = true; // allow a job for preloading
     bool load_okay = m_load < 1000;
     bool eligible = jobs_okay
                     && load_okay

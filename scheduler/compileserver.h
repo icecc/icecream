@@ -83,6 +83,7 @@ public:
 
     int maxJobs() const;
     void setMaxJobs(const int jobs);
+    int maxPreloadCount() const;
 
     bool noRemote() const;
     void setNoRemote(const bool value);
