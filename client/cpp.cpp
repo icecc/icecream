@@ -152,6 +152,11 @@ pid_t call_cpp(CompileJob &job, int fdwrite, int fdread)
                 // it needs to be found in one of the -I paths, which we don't check) and the header file
                 // itself doesn't exist.
                 flags.erase(it++);
+            } else if ((*it) == "-fmodules" || (*it) == "-fcxx-modules" || (*it) == "-fmodules-ts"
+                || (*it).find("-fmodules-cache-path=") == 0) {
+                // Clang modules, handle like with PCH, remove the flags and compile remotely
+                // without them.
+                flags.erase(it++);
             } else {
                 ++it;
             }

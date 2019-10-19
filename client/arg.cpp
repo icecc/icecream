@@ -565,6 +565,11 @@ bool analyse_argv(const char * const *argv, CompileJob &job, bool icerun, list<s
 
                     args.append(argv[i], Arg_Local);
                 }
+            } else if (str_equal("-fmodules", a)
+                       || str_equal("-fcxx-modules", a)
+                       || str_equal("-fmodules-ts", a)
+                       || str_startswith("-fmodules-cache-path=", a)) {
+                args.append(a, Arg_Local);
             } else if (str_startswith("-Wp,", a)
                        || str_startswith("-D", a)
                        || str_startswith("-U", a)) {
