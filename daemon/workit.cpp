@@ -27,6 +27,7 @@
 #include "assert.h"
 #include "exitcode.h"
 #include "logging.h"
+#include "pipes.h"
 #include <sys/select.h>
 #include <algorithm>
 
@@ -45,7 +46,6 @@
 #if HAVE_SYS_USER_H && !defined(__DragonFly__)
 #  include <sys/user.h>
 #endif
-#include <sys/socket.h>
 
 #ifdef HAVE_SYS_VFS_H
 #include <sys/vfs.h>
@@ -141,19 +141,8 @@ int work_it(CompileJob &j, unsigned int job_stat[], MsgChannel *client, CompileR
         return EXIT_DISTCC_FAILED;
     }
 
-    // We use a socket pair instead of a pipe to get a "slightly" bigger
-    // output buffer. This saves context switches and latencies.
-    if (socketpair(AF_UNIX, SOCK_STREAM, 0, sock_in) < 0) {
+    if (create_large_pipe(sock_in)) {
         return EXIT_DISTCC_FAILED;
-    }
-
-    int maxsize = 2 * 1024 * 2024;
-#ifdef SO_SNDBUFFORCE
-
-    if (setsockopt(sock_in[1], SOL_SOCKET, SO_SNDBUFFORCE, &maxsize, sizeof(maxsize)) < 0)
-#endif
-    {
-        setsockopt(sock_in[1], SOL_SOCKET, SO_SNDBUF, &maxsize, sizeof(maxsize));
     }
 
     if (fcntl(sock_in[1], F_SETFL, O_NONBLOCK)) {

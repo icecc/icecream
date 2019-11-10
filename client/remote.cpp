@@ -53,6 +53,7 @@
 #include "md5.h"
 #include "util.h"
 #include "services/util.h"
+#include "pipes.h"
 
 #ifndef O_LARGEFILE
 #define O_LARGEFILE 0
@@ -507,7 +508,7 @@ static int build_remote_int(CompileJob &job, UseCSMsg *usecs, MsgChannel *local_
         if (!preproc_file) {
             int sockets[2];
 
-            if (pipe(sockets) != 0) {
+            if (create_large_pipe(sockets) != 0) {
                 log_perror("build_remote_in pipe");
                 /* for all possible cases, this is something severe */
                 throw client_error(32, "Error 18 - (fork error?)");

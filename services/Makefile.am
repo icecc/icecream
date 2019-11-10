@@ -1,5 +1,5 @@
 lib_LTLIBRARIES = libicecc.la
-libicecc_la_SOURCES = job.cpp comm.cpp exitcode.cpp getifaddrs.cpp logging.cpp ncpus.c tempfile.c platform.cpp gcc.cpp util.cpp
+libicecc_la_SOURCES = job.cpp comm.cpp exitcode.cpp getifaddrs.cpp logging.cpp ncpus.c pipes.cpp tempfile.c platform.cpp gcc.cpp util.cpp
 libicecc_la_LIBADD = \
 	$(LZO_LDADD) \
 	$(ZSTD_LDADD) \
@@ -20,6 +20,7 @@ noinst_HEADERS = \
 	getifaddrs.h \
 	logging.h \
 	ncpus.h \
+	pipes.h \
 	tempfile.h \
 	platform.h \
 	util.h

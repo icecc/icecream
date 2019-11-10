@@ -36,6 +36,7 @@
 
 #include <comm.h>
 #include "client.h"
+#include "pipes.h"
 
 using namespace std;
 
@@ -282,7 +283,7 @@ int build_local(CompileJob &job, MsgChannel *local_daemon, struct rusage *used)
                         && colorify_wanted(job);
     int pf[2];
 
-    if (color_output && pipe(pf)) {
+    if (color_output && create_large_pipe(pf)) {
         color_output = false;
     }
 
