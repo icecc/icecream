@@ -190,14 +190,8 @@ add_file ()
 	    # Check wether the same library also exists in the parent directory,
 	    # and prefer that on the assumption that it is a more generic one.
 	    local baselib=$(echo "$lib" | sed 's,\(/[^/]*\)/.*\(/[^/]*\)$,\1\2,')
-	    if test -f "$baselib"; then
-	      lib=$baselib
-              add_file "$lib" "$libinstall"
-            else
-              # Optimization: We are adding a library we got from otool output, so avoid
-              # using otool on it, as it should not find more than this otool.
-              add_file "skipldd" "$lib" "$libinstall"
-            fi
+	    test -f "$baselib" && lib=$baselib
+	          add_file "$lib" "$libinstall"
          done
     fi
   fi
