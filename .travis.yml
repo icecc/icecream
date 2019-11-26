@@ -39,11 +39,11 @@ matrix:
   - os: linux
     sudo: true # for setcap so we can run the tests in chroot.
     compiler: gcc
-    dist: xenial
+    dist: bionic
   - os: linux
     sudo: true # for setcap so we can run the tests in chroot.
     compiler: clang
-    dist: xenial
+    dist: bionic
   - os: osx
     before_install:
       - brew update
@@ -52,12 +52,12 @@ matrix:
     sudo: true # for setcap so we can run the tests in chroot.
     compiler: clang
     env: VALGRIND=1
-    dist: xenial
+    dist: bionic
   - os: linux
     sudo: true # for setcap so we can run the tests in chroot.
     compiler: clang
     env: BUILD_TYPE=ubsan
-    dist: xenial
+    dist: bionic
   allow_failures:
 
 before_script:
@@ -66,11 +66,6 @@ before_script:
          export SAN_FLAGS="-fsanitize=undefined -fno-omit-frame-pointer"
          export LDFLAGS="$UBSAN_FLAGS ${LDFLAGS}"
          export UBSAN_OPTIONS=print_stacktrace=1
-     fi
-  - |
-     # Without this, sanitizers don't work at all for whatever reason (BFD ld too old?).
-     if [ "$TRAVIS_OS_NAME" == "linux" -a -n "$SAN_FLAGS" ]; then
-         export LDFLAGS="${LDFLAGS} -fuse-ld=gold"
      fi
   - |
      if [ "$TRAVIS_OS_NAME" == "osx" ]; then
@@ -94,7 +89,6 @@ addons:
     - liblzo2-dev
     - libzstd1-dev
     - docbook2x
-    - realpath
     - gdb
     - valgrind
     - libarchive-dev
