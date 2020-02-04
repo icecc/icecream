@@ -219,6 +219,12 @@ abort_tests()
     exit 2
 }
 
+trap_handler()
+{
+    stop_ice 0
+    exit 3
+}
+
 start_iceccd()
 {
     name=$1
@@ -1910,6 +1916,8 @@ EOF
 # ==================================================================
 # Main code starts here
 # ==================================================================
+
+trap 'trap_handler' SIGINT
 
 echo
 
