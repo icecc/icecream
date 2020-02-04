@@ -5,9 +5,11 @@ test: test-full
 test-strict:
 	$(MAKE) test STRICT=1
 
+# The 'sudo true' for valgrind is because it sets up the password for further sudo
+# uses in the test.sh script.
 test-prepare:
 	if test -n "$(VALGRIND)"; then \
-	    true; \
+	    sudo true; \
 	elif test -x /sbin/setcap; then \
 	    sudo /sbin/setcap cap_sys_chroot+ep ${sbindir}/iceccd ; \
 	elif test -x /usr/sbin/setcap; then \
