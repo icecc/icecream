@@ -1,3 +1,6 @@
+1.3.1
+- fix creating compiler environment on Mac
+
 1.3
 - remove hardcoded compiler paths (compiler tarball is created with the same compiler that is used for build)
 - avoid build overloading by limiting number of local preprocessing runs to local CPUs available
