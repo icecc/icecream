@@ -5,6 +5,7 @@ testdir="$2"
 shift
 shift
 valgrind=
+valgrind_listener_pid=
 builddir=.
 strict=
 
@@ -16,7 +17,7 @@ usage()
 
 get_default_valgrind_flags()
 {
-    default_valgrind_args="--num-callers=50 --suppressions=valgrind_suppressions --log-file=$testdir/valgrind-%p.log"
+    default_valgrind_args="--num-callers=50 --suppressions=valgrind_suppressions --log-socket=127.0.0.1"
     # Check if valgrind knows --error-markers, which makes it simpler to find out if log contains any error.
     valgrind_error_markers="--error-markers=ICEERRORBEGIN,ICEERROREND"
     valgrind $valgrind_error_markers true 2>/dev/null
@@ -216,12 +217,20 @@ check_compilers()
 abort_tests()
 {
     dump_logs
+    if test -n "$valgrind_listener_pid"; then
+        sleep 1
+        kill "$valgrind_listener_pid"
+    fi
     exit 2
 }
 
 trap_handler()
 {
     stop_ice 0
+    if test -n "$valgrind_listener_pid"; then
+        sleep 1
+        kill "$valgrind_listener_pid"
+    fi
     exit 3
 }
 
@@ -1689,8 +1698,15 @@ dump_logs()
             cat_log_last_section ${log}
         fi
     done
-    valgrind_logs=$(ls "$testdir"/valgrind-*.log 2>/dev/null)
-    for log in $valgrind_logs; do
+    # Valgrind-listener merges all logs together, split them per PID.
+    cat "$testdir"/valgrind.log | sed 's/^([0-9]\+) //' | grep '^==[0-9]\+==' > "$testdir"/valgrind.tmp
+    while true; do
+        valpid=$(head -1 "$testdir"/valgrind.tmp | sed 's/^==\([0-9]*\)==.*$/\1/' 2>/dev/null)
+        if test -z "$valpid"; then
+            break
+        fi
+        log="$testdir"/valgrind2.tmp
+        grep "^==${valpid}==" "$testdir"/valgrind.tmp > ${log}
         has_error=
         if test -n "$valgrind_error_markers"; then
             if grep -q ICEERRORBEGIN ${log}; then
@@ -1704,10 +1720,13 @@ dump_logs()
         fi
         if  test -n "$has_error"; then
             echo ------------------------------------------------
-            echo "Log: ${log}" | sed "s#${testdir}/##"
+            echo "Log: valgrind-$valpid.log"
             grep -v ICEERRORBEGIN ${log} | grep -v ICEERROREND
         fi
+        grep -v "^==${valpid}==" "$testdir"/valgrind.tmp > ${log}
+        mv ${log} "$testdir"/valgrind.tmp
     done
+    rm -f "$testdir"/valgrind.tmp "$testdir"/valgrind2.tmp
 }
 
 cat_log_last_mark()
@@ -1779,11 +1798,11 @@ check_logs_for_generic_errors()
     fi
     has_valgrind_error=
     if test -n "$valgrind_error_markers"; then
-        if grep -q "ICEERRORBEGIN" "$testdir"/valgrind-*.log 2>/dev/null; then
+        if grep -q "ICEERRORBEGIN" "$testdir"/valgrind.log 2>/dev/null; then
             has_valgrind_error=1
         fi
     else
-        if grep -q '^==[0-9]*==    at ' "$testdir"/valgrind-*.log 2>/dev/null; then
+        if grep -q '^==[0-9]*==    at ' "$testdir"/valgrind.log 2>/dev/null; then
             has_valgrind_error=1
         fi
     fi
@@ -1930,7 +1949,13 @@ for log in $alltestlogs; do
     rm -f "$testdir"/${log}_all.log
     echo -n >"$testdir"/${log}.log
 done
-rm -f "$testdir"/valgrind-*.log 2>/dev/null
+rm -f "$testdir"/valgrind.log 2>/dev/null
+
+if test -n "$valgrind"; then
+    valgrind-listener >"$testdir"/valgrind.log &
+    valgrind_listener_pid=$!
+    sleep 1
+fi
 
 buildnativetest
 
@@ -2278,7 +2303,7 @@ buildnativewithsymlinktest
 buildnativewithwrappertest
 
 if test -n "$valgrind"; then
-    rm -f "$testdir"/valgrind-*.log
+    rm -f "$testdir"/valgrind.log
 fi
 
 ignore=
@@ -2317,6 +2342,11 @@ if test -n "$skipped_tests"; then
 else
     echo All tests OK.
     echo =============
+fi
+
+if test -n "$valgrind_listener_pid"; then
+    sleep 1
+    kill "$valgrind_listener_pid"
 fi
 
 exit 0
