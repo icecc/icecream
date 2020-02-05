@@ -82,7 +82,7 @@ first entry in your path, e.g. type
 
      export PATH=/usr/lib/icecc/bin:$PATH
 
-(Hint: put this in \~/.bashrc or /etc/profile to not have to type it in
+(Hint: put this in `~/.bashrc` or `/etc/profile` to not have to type it in
 everytime)
 
 Then you just compile with make -j \<num\>, where
@@ -295,7 +295,7 @@ with "file empty.o" if it's really a i586-linux object file.
 -   now tar that directory and use it on your client as specified above.
 
 My cross compiler for the above case is under
-[http://ktown.kde.org/\~coolo/ppc-osx-create-i586.tar.gz](http://ktown.kde.org/~coolo/ppc-osx-create-i586.tar.gz)
+[http://ktown.kde.org/~coolo/ppc-osx-create-i586.tar.gz](http://ktown.kde.org/~coolo/ppc-osx-create-i586.tar.gz)
 
 Cross-Compiling for embedded targets using icecream
 ------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -450,7 +450,7 @@ In most requirements icecream isn't special, e.g. it doesn't matter what
 distributed compile system you use, you won't have fun if your nodes are
 connected through than less or equal to 10MBit. Note that icecream
 compresses input and output files (using lzo), so you can calculate with
-\~1MBit per compile job - i.e more than make -j10 won't be possible
+~1MBit per compile job - i.e more than make -j10 won't be possible
 without delays.
 
 Remember that more machines are only good if you can use massive
