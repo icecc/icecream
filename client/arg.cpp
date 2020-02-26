@@ -434,6 +434,7 @@ bool analyse_argv(const char * const *argv, CompileJob &job, bool icerun, list<s
                 seen_s = true;
             } else if (!strcmp(a, "-fprofile-arcs")
                        || !strcmp(a, "-ftest-coverage")
+                       || !strcmp(a, "--coverage")
                        || !strcmp(a, "-frepo")
                        || !strcmp(a, "-fprofile-generate")
                        || !strcmp(a, "-fprofile-use")
