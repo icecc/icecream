@@ -30,6 +30,21 @@ AC_LANG([C++])
 # ===========================
 AC_PROG_CC
 AC_PROG_CXX
+
+AC_MSG_CHECKING([for C++11 support (-std=c++11)])
+CXXFLAGS="$CXXFLAGS -std=c++11"
+AC_TRY_COMPILE(
+    [
+        constexpr int get_const() { return 5; }
+    ],
+    [
+    ],
+    [
+        AC_MSG_RESULT(yes)
+    ],
+    [ AC_MSG_ERROR(no) ]
+)
+
 if test "$GCC" = yes; then
     cast_align=-Wcast-align
     wshadow=
