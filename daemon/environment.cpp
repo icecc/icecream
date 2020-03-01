@@ -600,18 +600,16 @@ size_t finalize_install_environment(const std::string &basename, const std::stri
     return sumup_dir(dirname);
 }
 
-size_t remove_environment(const string &basename, const string &env)
+void remove_environment(const string &basename, const string &env)
 {
     string dirname = basename + "/target=" + env;
-
-    size_t res = sumup_dir(dirname);
 
     flush_debug();
     pid_t pid = fork();
 
     if (pid == -1) {
         log_perror("failed to fork");
-        return 0;
+        return;
     }
 
     if (pid) {
@@ -620,11 +618,11 @@ size_t remove_environment(const string &basename, const string &env)
         while (waitpid(pid, &status, 0) < 0 && errno == EINTR) {}
 
         if (WIFEXITED(status)) {
-            return res;
+            return;
         }
 
-        // something went wrong. assume no disk space was free'd.
-        return 0;
+        // something went wrong.
+        return;
     }
 
     // else
@@ -644,10 +642,10 @@ size_t remove_environment(const string &basename, const string &env)
     _exit(-1);
 }
 
-size_t remove_native_environment(const string &env)
+void remove_native_environment(const string &env)
 {
     if (env.empty()) {
-        return 0;
+        return;
     }
 
     struct stat st;
@@ -656,10 +654,7 @@ size_t remove_native_environment(const string &env)
         if (-1 == unlink(env.c_str())){
             log_perror("unlink failed") << "\t" << env << endl;
         }
-        return st.st_size;
     }
-
-    return 0;
 }
 
 static void

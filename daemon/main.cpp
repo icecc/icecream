@@ -444,15 +444,23 @@ struct NativeEnvironment {
     // Timestamps for files including compiler binaries, if they have changed since the time
     // the native env was built, it needs to be rebuilt.
     map<string, time_t> filetimes;
+    time_t last_use;
+    size_t size; // tarball size
     int create_env_pipe; // if in progress of creating the environment
-    NativeEnvironment() {
-        create_env_pipe = 0;
-    }
+    NativeEnvironment() : last_use( 0 ), size( 0 ), create_env_pipe( 0 ) {}
+};
+
+struct ReceivedEnvironment {
+    ReceivedEnvironment() : last_use( 0 ), size( 0 ) {}
+    time_t last_use;
+    size_t size; // directory size
 };
 
 struct Daemon {
     Clients clients;
-    map<string, time_t> envs_last_use;
+    // Installed environments received from other nodes. The key is
+    // (job->targetPlatform() + "/" job->environmentVersion()).
+    map<string, ReceivedEnvironment> received_environments;
     // Map of native environments, the basic one(s) containing just the compiler
     // and possibly more containing additional files (such as compiler plugins).
     // The key is the compiler name and a concatenated list of the additional files
@@ -933,16 +941,14 @@ string Daemon::dump_internals() const
     for (map<string, NativeEnvironment>::const_iterator it = native_environments.begin();
             it != native_environments.end(); ++it) {
         result += "  NativeEnv (" + it->first + "): " + it->second.name
-            + (it->second.create_env_pipe ? " (creating)" : "" ) + "\n";
+            + ", size " + toString(it->second.size) + (it->second.create_env_pipe ? " (creating)" : "" ) + "\n";
     }
 
-    if (!envs_last_use.empty()) {
+    if (!received_environments.empty()) {
         result += "  Now: " + toString(time(0)) + "\n";
-    }
-
-    for (map<string, time_t>::const_iterator it = envs_last_use.begin();
-            it != envs_last_use.end(); ++it)  {
-        result += "  envs_last_use[" + it->first  + "] = " + toString(it->second) + "\n";
+        for (const auto& it : received_environments )
+            result += "  ReceivedEnv[" + it.first  + "] last_use " + toString(it.second.last_use)
+                + ", size " + toString(it.second.size) + "\n";
     }
 
     result += "  Current kids: " + toString(current_kids) + " (max: " + toString(max_kids) + ")\n";
@@ -1226,7 +1232,8 @@ bool Daemon::finish_transfer_env(Client *client, bool cancel)
 
     if (installed_size) {
         cache_size += installed_size;
-        envs_last_use[current] = time(NULL);
+        received_environments[current].last_use = time(NULL);
+        received_environments[current].size = installed_size;
         log_info() << "installed " << current << " size: " << installed_size
                     << " all: " << cache_size << endl;
     }
@@ -1247,37 +1254,26 @@ void Daemon::check_cache_size(const string &new_env)
     time_t now = time(NULL);
 
     while (cache_size > cache_size_limit) {
-        string oldest;
+        string oldest_received;
+        string oldest_native;
         // I don't dare to use (time_t)-1
         time_t oldest_time = time(NULL) + 90000;
-        string oldest_native_env_key;
 
-        for (map<string, time_t>::const_iterator it = envs_last_use.begin();
-                it != envs_last_use.end(); ++it) {
-            trace() << "considering cached environment: " << it->first << " " << it->second << " " << oldest_time << endl;
-            // ignore recently used envs (they might be in use _right_ now)
-            int keep_timeout = 200;
-            string native_env_key;
+        for (const auto& it : received_environments ) {
+            trace() << "considering cached environment: " << it.first << " " << it.second.last_use << " " << oldest_time << endl;
 
-            // If it is a native environment, allow removing it only after a longer period,
-            // unless there are many native environments.
-            for (map<string, NativeEnvironment>::const_iterator it2 = native_environments.begin();
-                    it2 != native_environments.end(); ++it2) {
-                if (it2->second.name == it->first) {
-                    native_env_key = it2->first;
-
-                    if (native_environments.size() < 5) {
-                        keep_timeout = 24 * 60 * 60;    // 1 day
-                    }
-
-                    if (it2->second.create_env_pipe) {
-                        keep_timeout = 365 * 24 * 60 * 60; // do not remove if it's still being created
-                    }
-                    break;
-                }
+            if (access(string(envbasedir + "/target=" + it.first + "/usr/bin/as").c_str(), X_OK) != 0) {
+                trace() << string(envbasedir + "/target=" + it.first + "/usr/bin/as") << " is missing, removing environment" << endl;
+                // force removing this one
+                oldest_time = 0;
+                oldest_received = it.first;
+                break;
             }
 
-            if (it->second < oldest_time && now - it->second > keep_timeout) {
+            // ignore recently used envs (they might be in use _right_ now)
+            int keep_timeout = 200;
+
+            if (it.second.last_use < oldest_time && now - it.second.last_use > keep_timeout) {
                 bool env_currently_in_use = false;
 
                 for (Clients::const_iterator it2 = clients.begin(); it2 != clients.end(); ++it2)  {
@@ -1290,38 +1286,71 @@ void Daemon::check_cache_size(const string &new_env)
                         string envforjob = it2->second->job->targetPlatform() + "/"
                                            + it2->second->job->environmentVersion();
 
-                        if (envforjob == it->first) {
+                        if (envforjob == it.first) {
                             env_currently_in_use = true;
                         }
                     }
                 }
 
                 if (!env_currently_in_use) {
-                    oldest_time = it->second;
-                    oldest = it->first;
-                    oldest_native_env_key = native_env_key;
+                    oldest_time = it.second.last_use;
+                    oldest_received = it.first;
                 }
             }
         }
+        for (const auto& it : native_environments ) {
+            trace() << "considering native environment: " << it.first << " " << it.second.last_use << " " << oldest_time << endl;
 
-        if (oldest.empty() || oldest == new_env) {
+            if (!it.second.name.empty() && access(it.second.name.c_str(), R_OK) != 0) {
+                trace() << it.second.name << " is missing, removing environment" << endl;
+                // force removing this one
+                oldest_time = 0;
+                oldest_native = it.first;
+                break;
+            }
+
+            // ignore recently used envs (they might be in use _right_ now)
+            int keep_timeout = 200;
+
+            // Allow removing native environments only after a longer period,
+            // unless there are many native environments.
+            if (native_environments.size() < 5) {
+                keep_timeout = 24 * 60 * 60;    // 1 day
+            }
+
+            if (it.second.create_env_pipe) {
+                keep_timeout = 365 * 24 * 60 * 60; // do not remove if it's still being created
+            }
+
+            if (it.second.last_use < oldest_time && now - it.second.last_use > keep_timeout) {
+                oldest_time = it.second.last_use;
+                oldest_native = it.first;
+            }
+        }
+
+        if ((oldest_received.empty() || oldest_received == new_env)
+            && (oldest_native.empty() || oldest_native == new_env)) {
             break;
         }
 
         size_t removed;
 
-        if (!oldest_native_env_key.empty()) {
-            removed = remove_native_environment(oldest);
-            native_environments.erase(oldest_native_env_key);
-            trace() << "removing " << oldest << " " << oldest_time << " " << removed << endl;
+        if (!oldest_native.empty()) {
+            remove_native_environment(oldest_native);
+            removed = native_environments[oldest_native].size;
+            trace() << "removing " << native_environments[oldest_native].name << " " << oldest_time
+                << " " << removed << endl;
+            native_environments.erase(oldest_native);
         } else {
-            removed = remove_environment(envbasedir, oldest);
-            trace() << "removing " << envbasedir << "/" << oldest << " " << oldest_time
-                    << " " << removed << endl;
+            remove_environment(envbasedir, oldest_received);
+            removed = received_environments[oldest_received].size;
+            trace() << "removing " << envbasedir << "/target=" << oldest_received << " " << oldest_time
+                << " " << removed << endl;
+            received_environments.erase(oldest_received);
         }
 
-        cache_size -= min(removed, cache_size);
-        envs_last_use.erase(oldest);
+        assert( cache_size >= removed );
+        cache_size -= removed;
     }
 }
 
@@ -1375,8 +1404,9 @@ bool Daemon::handle_get_native_env(Client *client, GetNativeEnvMsg *msg)
 
         if (env.filetimes != filetimes || access(env.name.c_str(), R_OK) != 0) {
             trace() << "native_env needs rebuild" << endl;
-            cache_size -= remove_native_environment(env.name);
-            envs_last_use.erase(env.name);
+            remove_native_environment(env.name);
+            cache_size -= env.size;
+            received_environments.erase(env.name);
             if (env.create_env_pipe) {
                 if ((-1 == close(env.create_env_pipe)) && (errno != EBADF)){
                     log_perror("close failed");
@@ -1420,7 +1450,7 @@ bool Daemon::finish_get_native_env(Client *client, string env_key)
         return false;
     }
 
-    envs_last_use[native_environments[env_key].name] = time(NULL);
+    native_environments[env_key].last_use = time(NULL);
     client->status = Client::GOTNATIVE;
     client->pending_create_env.clear();
     return true;
@@ -1458,7 +1488,8 @@ bool Daemon::create_env_finished(string env_key)
         return false;
     }
 
-    envs_last_use[env.name] = time(NULL);
+    env.last_use = time(NULL);
+    env.size = installed_size;
     check_cache_size(env.name);
 
     for (Clients::const_iterator it = clients.begin(); it != clients.end(); ++it) {
@@ -1550,7 +1581,7 @@ void Daemon::handle_old_request()
             trace() << "request for job " << job->jobID() << endl;
 
             string envforjob = job->targetPlatform() + "/" + job->environmentVersion();
-            envs_last_use[envforjob] = time(NULL);
+            received_environments[envforjob].last_use = time(NULL);
             pid = handle_connection(envbasedir, job, client->channel, sock, mem_limit, user_uid, user_gid);
             trace() << "handle connection returned " << pid << endl;
 
@@ -1602,7 +1633,7 @@ bool Daemon::handle_compile_done(Client *client)
     close(client->pipe_from_child);
     client->pipe_from_child = -1;
     string envforjob = client->job->targetPlatform() + "/" + client->job->environmentVersion();
-    envs_last_use[envforjob] = time(NULL);
+    received_environments[envforjob].last_use = time(NULL);
 
     if(!send_scheduler(*msg))
         log_warning() << "failed sending scheduler about compile done " << client->job->jobID() << endl;
