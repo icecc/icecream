@@ -810,7 +810,7 @@ bool Daemon::reannounce_environments()
 {
     log_info() << "reannounce_environments " << endl;
     LoginMsg lmsg(0, nodename, "", supported_features);
-    lmsg.envs = available_environmnents(envbasedir);
+    lmsg.envs = available_environments(envbasedir);
     return send_scheduler(lmsg);
 }
 
@@ -2200,7 +2200,7 @@ bool Daemon::reconnect()
     icecream_load = 0;
 
     LoginMsg lmsg(daemon_port, determine_nodename(), machine_name, supported_features);
-    lmsg.envs = available_environmnents(envbasedir);
+    lmsg.envs = available_environments(envbasedir);
     lmsg.max_kids = max_kids;
     lmsg.noremote = noremote;
     return send_scheduler(lmsg);

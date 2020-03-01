@@ -35,7 +35,7 @@ extern int start_create_env(const std::string &basedir,
                             const std::string &compiler, const std::list<std::string> &extrafiles,
                             const std::string &compression);
 extern size_t finish_create_env(int pipe, const std::string &basedir, std::string &native_environment);
-Environments available_environmnents(const std::string &basename);
+Environments available_environments(const std::string &basename);
 extern pid_t start_install_environment(const std::string &basename,
                                        const std::string &target,
                                        const std::string &name,

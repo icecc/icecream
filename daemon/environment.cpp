@@ -189,7 +189,7 @@ bool cleanup_cache(const string &basedir, uid_t user_uid, gid_t user_gid)
     return true;
 }
 
-Environments available_environmnents(const string &basedir)
+Environments available_environments(const string &basedir)
 {
     Environments envs;
 
