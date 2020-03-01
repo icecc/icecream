@@ -315,29 +315,30 @@ int handle_connection(const string &basedir, CompileJob *job,
             }
         }
 
-        throw myexception(rmsg.status);
+        exit_code = rmsg.status;
 
     } catch (const myexception& e) {
-        delete client;
-        client = 0;
-
-        if (!obj_file.empty()) {
-            if (-1 == unlink(obj_file.c_str()) && errno != ENOENT){
-                log_perror("unlink failure") << "\t" << obj_file << endl;
-            }
-        }
-        if (!dwo_file.empty()) {
-            if (-1 == unlink(dwo_file.c_str()) && errno != ENOENT){
-                log_perror("unlink failure") << "\t" << dwo_file << endl;
-            }
-        }
-        if (!tmp_path.empty()) {
-            rmpath(tmp_path.c_str());
-        }
-
-        delete job;
-
         exit_code = e.exitcode();
     }
+
+    delete client;
+    client = 0;
+
+    if (!obj_file.empty()) {
+        if (-1 == unlink(obj_file.c_str()) && errno != ENOENT){
+            log_perror("unlink failure") << "\t" << obj_file << endl;
+        }
+    }
+    if (!dwo_file.empty()) {
+        if (-1 == unlink(dwo_file.c_str()) && errno != ENOENT){
+            log_perror("unlink failure") << "\t" << dwo_file << endl;
+        }
+    }
+    if (!tmp_path.empty()) {
+        rmpath(tmp_path.c_str());
+    }
+
+    delete job;
+
     _exit(exit_code);
 }
