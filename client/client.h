@@ -48,12 +48,14 @@ extern bool analyse_argv(const char * const *argv, CompileJob &job, bool icerun,
                          std::list<std::string> *extrafiles);
 
 /* In cpp.cpp.  */
-extern pid_t call_cpp(CompileJob &job, int fdwrite, int fdread = -1);
+extern pid_t call_cpp(CompileJob &job, int fdWriteStdout, int fdReadStdout = -1,
+                      int fdWriteStderr = -1, int fdReadStderr = -1);
 
 /* In local.cpp.  */
 extern int build_local(CompileJob &job, MsgChannel *daemon, struct rusage *usage = 0);
 extern std::string find_compiler(const CompileJob &job);
 extern bool compiler_is_clang(const CompileJob &job);
+extern bool compiler_is_clang_cl(const CompileJob &job);
 extern bool compiler_only_rewrite_includes(const CompileJob &job);
 extern std::string compiler_path_lookup(const std::string &compiler);
 extern std::string clang_get_default_target(const CompileJob &job);

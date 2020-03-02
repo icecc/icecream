@@ -135,6 +135,7 @@ public:
         job_id = 0;
         channel = 0;
         job = 0;
+        language = CompileJob::Lang_Custom,
         usecsmsg = 0;
         client_id = 0;
         status = UNKNOWN;
@@ -199,7 +200,10 @@ public:
 
     }
     uint32_t job_id;
+    string infile;
     string outfile; // only useful for LINKJOB or TOINSTALL/WAITINSTALL
+    CompileJob::Language language;
+    string compiler;
     MsgChannel *channel;
     UseCSMsg *usecsmsg;
     CompileJob *job;
@@ -555,6 +559,7 @@ struct Daemon {
     bool handle_get_cs(Client *client, Msg *msg) __attribute_warn_unused_result__;
     bool handle_local_job(Client *client, Msg *msg) __attribute_warn_unused_result__;
     bool handle_job_done(Client *cl, JobDoneMsg *m) __attribute_warn_unused_result__;
+    bool handle_job_error(Client *client, JobErrorMsg *m) __attribute_warn_unused_result__;
     bool handle_compile_done(Client *client) __attribute_warn_unused_result__;
     bool handle_verify_env(Client *client, VerifyEnvMsg *msg) __attribute_warn_unused_result__;
     bool handle_blacklist_host_env(Client *client, Msg *msg) __attribute_warn_unused_result__;
@@ -1491,6 +1496,28 @@ bool Daemon::handle_job_done(Client *cl, JobDoneMsg *m)
     return send_scheduler(*msg);
 }
 
+bool Daemon::handle_job_error( Client *cl, JobErrorMsg *m )
+{
+    if ( !IS_PROTOCOL_107( scheduler ) )
+    {
+      return true;
+    }
+
+    JobErrorMsg *msg = static_cast< JobErrorMsg * >( m );
+    msg->job_id = cl->job_id;
+
+    if ( cl->status == Client::WAITFORCS || msg->localBuild )
+    {
+      // We don't know the job id, because we haven't received a reply from the scheduler yet or this is a local
+      // build. Use client_id to identify the job, the scheduler will use it for matching.
+      msg->client_id = cl->client_id;
+    }
+
+    trace() << "handle_job_error " << msg->job_id << "/" << msg->client_id << " " << msg->error << endl;
+
+    return send_scheduler( *msg );
+}
+
 void Daemon::handle_old_request()
 {
     while ((current_kids + clients.active_processes) < std::max((unsigned int)1, max_kids)) {
@@ -1508,7 +1535,8 @@ void Daemon::handle_old_request()
                 clients.active_processes++;
                 trace() << "pushed local job " << client->client_id << endl;
 
-                if (!send_scheduler(JobLocalBeginMsg(client->client_id, client->outfile))) {
+                if (!send_scheduler(JobLocalBeginMsg(client->client_id, client->infile, client->outfile,
+                                                     client->language, client->compiler))) {
                     return;
                 }
             }
@@ -1817,8 +1845,12 @@ int Daemon::handle_cs_conf(ConfCSMsg *msg)
 
 bool Daemon::handle_local_job(Client *client, Msg *msg)
 {
+    const JobLocalBeginMsg *beginMsg = dynamic_cast<JobLocalBeginMsg *>( msg );
     client->status = Client::LINKJOB;
-    client->outfile = dynamic_cast<JobLocalBeginMsg *>(msg)->outfile;
+    client->infile = beginMsg->inFile;
+    client->outfile = beginMsg->outFile;
+    client->language = beginMsg->language;
+    client->compiler = beginMsg->compiler;
     return true;
 }
 
@@ -1863,6 +1895,9 @@ bool Daemon::handle_activity(Client *client)
         break;
     case M_JOB_DONE:
         ret = handle_job_done(client, dynamic_cast<JobDoneMsg *>(msg));
+        break;
+    case M_JOB_ERROR:
+        ret = handle_job_error(client, dynamic_cast<JobErrorMsg *>(msg));
         break;
     case M_VERIFY_ENV:
         ret = handle_verify_env(client, dynamic_cast<VerifyEnvMsg *>(msg));

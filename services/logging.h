@@ -133,6 +133,8 @@ static inline std::ostream & log_perror_trace(const char *prefix)
     return log_errno_trace(prefix, errno);
 }
 
+std::ostream & log_backtrace();
+
 class log_block
 {
     static unsigned nesting;

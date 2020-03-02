@@ -218,7 +218,8 @@ static bool is_argument_with_space(const char* argument)
         "--include-with-prefix-after",
         "-iwithprefixbefore",
         "--include-with-prefix-before",
-        "-iwithsysroot"
+        "-iwithsysroot",
+        "-imsvc"
     };
 
     for( size_t i = 0; i < sizeof( arguments ) / sizeof( arguments[ 0 ] ); ++i ) {
@@ -228,6 +229,163 @@ static bool is_argument_with_space(const char* argument)
     }
 
     return false;
+}
+
+static bool isClangClArgument( const char* argument )
+{
+  // List of arguments was taken from a "clang-cl /?" call
+
+  static const char* const arguments[] =
+  {
+    "/arch:",
+    "/bigobj", // not in the help output, but occurs
+    "/Brepro",
+    "/C",
+    "/c",
+    "/D",
+    "/d1PP",
+    "/d1reportAllClassLayout",
+    "/diagnostics:",
+    "/EH",
+    "/EP",
+    "/execution-charset:",
+    "/E",
+    "/fallback",
+    "/FA",
+    "/Fa",
+    "/Fd", // not in the help output, but occurs
+    "/Fe",
+    "/Fi",
+    "/Fo",
+    "/fp:",
+    "/Fp",
+    "/GA",
+    "/Gd",
+    "/GF-",
+    "/GR-",
+    "/Gregcall",
+    "/GR",
+    "/Gr",
+    "/GS",
+    "/Gs",
+    "/guard:",
+    "/Gv",
+    "/Gw",
+    "/GX",
+    "/Gy",
+    "/Gz",
+    "/J",
+    "/LD",
+    "/MD",
+    "/MT",
+    "/nologo", // not in the help output, but occurs
+    "/O",
+    "/P",
+    "/Qvec",
+    "/RTC1",
+    "/RTCc",
+    "/RTCs",
+    "/RTCu",
+    "/showIncludes",
+    "/source-charset:",
+    "/std:",
+    "/TC",
+    "/TP",
+    "/utf-8",
+    "/vd",
+    "/vm",
+    "/volatile:",
+    "/W",
+    "/w",
+    "/X",
+    "/Y",
+    "/Z7",
+    "/Zc:",
+    "/Zd",
+    "/Zi",
+    "/Zl",
+    "/Zp",
+    "/Zs",
+    "--analyze",
+    "-faddrsig",
+    "-fansi-escape-codes",
+    "-fblocks",
+    "-fcf-protection",
+    "-fcolor-diagnostics",
+    "-fcomplete-member-pointers",
+    "-fcoverage-mapping",
+    "-fdebug-macro",
+    "-fdelayed-template-parsing",
+    "-fdiagnostics-absolute-paths",
+    "-fdiagnostics-parseable-fixits",
+    "-flto",
+    "-fmerge-all-constants",
+    "-fms-compatibility",
+    "-fms-extensions",
+    "-fmsc-version=",
+    "-fno-addrsig",
+    "-fno-builtin",
+    "-fno-complete-member-pointers",
+    "-fno-coverage-mapping",
+    "-fno-debug-macro",
+    "-fno-delayed-template-parsing",
+    "-fno-sanitize-",
+    "-fno-standalone-debug",
+    "-fobjc-runtime=",
+    "-fprofile-instr-",
+    "-fsanitize",
+    "-fstandalone-debug",
+    "-fwhole-program-vtables",
+    "-gcodeview",
+    "-gline-tables-only",
+    "-miamcu",
+    "-nobuiltininc",
+    "-Qunused-arguments",
+    "-R",
+    "-std:", // not in the help output, but occurs
+    "--target=",
+    "-v",
+    "-W"
+  };
+
+  for ( size_t i = 0; i < sizeof( arguments ) / sizeof( arguments[ 0 ] ); ++i )
+  {
+    if ( str_startswith( arguments[ i ], argument) )
+    {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+static bool isClangClArgumentWithSpace( const char* argument )
+{
+  // List of arguments was taken from a "clang-cl /?" call
+
+  static const char* const arguments[] =
+  {
+    "/FI",
+    "/imsvc",
+    "/I",
+    "/link",
+    "/o",
+    "/Tc",
+    "/Tp",
+    "/U",
+    "-mllvm",
+    "-Xclang"
+  };
+
+  for ( size_t i = 0; i < sizeof( arguments ) / sizeof( arguments[ 0 ] ); ++i )
+  {
+    if ( str_startswith( arguments[ i ], argument) )
+    {
+      return true;
+    }
+  }
+
+  return false;
 }
 
 static bool analyze_assembler_arg(string &arg, list<string> *extrafiles)
@@ -369,9 +527,12 @@ bool analyse_argv(const char * const *argv, CompileJob &job, bool icerun, list<s
                    It implies -E, so only the preprocessor is run,
                    not the compiler.  There would be no point trying
                    to distribute it even if we could. */
+              if ( !compiler_is_clang_cl( job ) )
+              {
                 always_local = true;
                 args.append(a, Arg_Local);
                 log_info() << "argument " << a << ", building locally" << endl;
+              }
             } else if (str_equal("--param", a)) {
                 args.append(a, Arg_Remote);
 
@@ -672,6 +833,16 @@ bool analyse_argv(const char * const *argv, CompileJob &job, bool icerun, list<s
                         always_local = true;
                         args.append(a, Arg_Rest);
                         args.append(p, Arg_Rest);
+                    }
+                    else if ( str_equal( "-ivfsoverlay", p ) )
+                    {
+                      if ( argv[ i + 1 ] && argv[ i + 2 ] && str_equal( "-Xclang", argv[ i + 1 ] ) )
+                      {
+                        args.append( a, Arg_Local );
+                        args.append( p, Arg_Local );
+                        args.append( argv[ ++i ], Arg_Local );
+                        args.append( argv[ ++i ], Arg_Local );
+                      }
                     } else {
                         args.append(a, Arg_Rest);
                         args.append(p, Arg_Rest);
@@ -709,6 +880,12 @@ bool analyse_argv(const char * const *argv, CompileJob &job, bool icerun, list<s
                 if (argv[i + 1]) {
                     args.append(argv[++i], Arg_Rest);
                 }
+            } else if ( str_equal( "--", a ) && compiler_is_clang_cl( job ) ) {
+              if ( argv[ i + 1 ] )
+              {
+                job.setInputFile( argv[ ++i ] );
+              }
+
             } else {
                 args.append(a, Arg_Rest);
 
@@ -720,6 +897,46 @@ bool analyse_argv(const char * const *argv, CompileJob &job, bool icerun, list<s
             }
         } else if (a[0] == '@') {
             args.append(a, Arg_Local);
+        } else if ( compiler_is_clang_cl( job ) ){
+          if ( isClangClArgument( a ) )
+          {
+            if ( str_startswith( "/D", a ) )
+            {
+              args.append( a, Arg_Cpp );
+            }
+            else if ( str_startswith( "/Fo", a ) )
+            {
+              a += 3;
+              ofile = a;
+            }
+            else if ( str_startswith( "/MD", a ) )
+            {
+              args.append( a, Arg_Cpp );
+              args.append( a, Arg_Remote );
+            }
+            else if ( str_startswith( "/showIncludes", a ) )
+            {
+              args.append( a, Arg_Cpp );
+            }
+            else
+            {
+              args.append( a, Arg_Rest );
+            }
+          }
+          else if ( isClangClArgumentWithSpace( a ) )
+          {
+            args.append(a, Arg_Remote);
+
+            /* skip next word, being option argument */
+            if ( argv[ i + 1 ] )
+            {
+              args.append( argv[ ++i ], Arg_Remote );
+            }
+          }
+          else
+          {
+            args.append(a, Arg_Rest);
+          }
         } else {
             args.append(a, Arg_Rest);
         }
@@ -764,6 +981,8 @@ bool analyse_argv(const char * const *argv, CompileJob &job, bool icerun, list<s
             if (it->first == "-Xclang" || it->first == "-x" || is_argument_with_space(it->first.c_str())) {
                 ++it;
                 ++it;
+            } else if (compiler_is_clang_cl(job) && isClangClArgument(it->first.c_str())) {
+              ++it;
             } else if (it->second != Arg_Rest || it->first.at(0) == '-'
                        || it->first.at(0) == '@') {
                 ++it;
@@ -788,6 +1007,8 @@ bool analyse_argv(const char * const *argv, CompileJob &job, bool icerun, list<s
                 break;
             }
         }
+
+        log_info() << "input file: " << ifile << "\n";
 
         if (ifile.find('.') != string::npos) {
             string::size_type dot_index = ifile.rfind('.');
@@ -912,11 +1133,24 @@ bool analyse_argv(const char * const *argv, CompileJob &job, bool icerun, list<s
     trace() << "scanned result: local args=" << concat_args(job.localFlags())
             << ", remote args=" << concat_args(job.remoteFlags())
             << ", rest=" << concat_args(job.restFlags())
+            << ", input file=" << job.inputFile()
             << ", local=" << always_local
             << ", compiler=" << job.compilerName()
             << ", lang=" << job.language()
             << endl;
 #endif
+    if (logfile_trace)
+    {
+      trace() << "scanned result:\n"
+              << "  local args=" << concat_args(job.localFlags()) << "\n"
+              << "  remote args=" << concat_args(job.remoteFlags()) << "\n"
+              << "  rest=" << concat_args(job.restFlags()) << "\n"
+              << "  input file=" << job.inputFile() << "\n"
+              << "  local=" << always_local << "\n"
+              << "  compiler=" << job.compilerName() << "\n"
+              << "  lang=" << job.language()
+              << endl;
+    }
 
     return always_local;
 }

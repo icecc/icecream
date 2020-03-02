@@ -21,6 +21,8 @@
     51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 */
 
+//#define DEBUG_CPP_FILE
+
 #include "config.h"
 
 #include <sys/types.h>
@@ -254,67 +256,193 @@ static void check_for_failure(Msg *msg, MsgChannel *cserver)
     }
 }
 
-static void write_fd_to_server(int fd, MsgChannel *cserver)
+static void write_source_chunk( unsigned char *buffer, off_t &offset, size_t &uncompressed, size_t &compressed,
+                                MsgChannel *cserver, FILE *debugOut )
+{
+  if ( offset )
+  {
+    FileChunkMsg fcmsg( buffer, offset );
+    if ( debugOut )
+    {
+      fwrite( buffer, offset, 1, debugOut );
+    }
+
+    if ( !cserver->send_msg( fcmsg ) )
+    {
+      Msg *m = cserver->get_msg( 2 );
+      check_for_failure( m, cserver );
+
+      log_error() << "write of source chunk to host " << cserver->name.c_str() << endl;
+      log_perror( "failed " );
+      std::string errmsg;
+      if ( errno > 0 )
+      {
+        errmsg = " (";
+        errmsg += strerror( errno );
+        errmsg += ")";
+      }
+      throw client_error(15, "Error 15 - write to host failed" + errmsg);
+    }
+
+    uncompressed += fcmsg.len;
+    compressed += fcmsg.compressed;
+    offset = 0;
+  }
+}
+
+static void write_fd_to_server(int stdout_fd, int stderr_fd, MsgChannel *cserver)
 {
     unsigned char buffer[100000]; // some random but huge number
+    std::string stderrBuffer;
     off_t offset = 0;
     size_t uncompressed = 0;
     size_t compressed = 0;
+    fd_set rfds;
+    struct timeval tv;
+    FILE *debugOut = nullptr;
+
+#ifdef DEBUG_CPP_FILE
+    char debugFilename[ 1000 ];
+    struct timeval tp;
+    gettimeofday( &tp, nullptr );
+    sprintf( debugFilename, "/tmp/icecc_debug_%ld.cpp", tp.tv_sec * 1000 + tp.tv_usec / 1000 );
+    debugOut = fopen( debugFilename, "w" );
+#endif
 
     do {
-        ssize_t bytes;
+      bool again = false;
 
-        do {
-            bytes = read(fd, buffer + offset, sizeof(buffer) - offset);
+      FD_ZERO( &rfds );
 
-            if (bytes < 0 && (errno == EINTR || errno == EAGAIN || errno == EWOULDBLOCK)) {
-                continue;
+      FD_SET( stdout_fd, &rfds );
+      int maxFds = stdout_fd;
+
+      if ( stderr_fd > 0 )
+      {
+        FD_SET( stderr_fd, &rfds );
+        maxFds = std::max( maxFds, stderr_fd );
+      }
+
+      tv.tv_sec = 600; // if the other side is slow...
+      tv.tv_usec = 0;
+
+      const int retval = select( maxFds + 1, &rfds, nullptr, nullptr, &tv );
+
+      if ( retval < 0 )
+      {
+        log_perror( "select" );
+      }
+      else if ( retval )
+      {
+        if ( FD_ISSET( stdout_fd, &rfds ) )
+        {
+          const auto bytes = read( stdout_fd, buffer + offset, sizeof( buffer ) - offset );
+
+          if ( bytes < 0 )
+          {
+            if ( errno == EINTR || errno == EAGAIN )
+            {
+              again = true;
             }
-
-            if (bytes < 0) {
-                log_perror("write_fd_to_server() reading from fd");
-                close(fd);
-                throw client_error(16, "Error 16 - error reading local file");
+            else
+            {
+              log_perror( "reading from stdout_fd" );
+              close( stdout_fd );
+              throw client_error( 16, "Error 16 - error reading local cpp file" );
             }
+          }
 
-            break;
-        } while (1);
+          offset += bytes;
 
-        offset += bytes;
+          if ( !bytes || offset == sizeof( buffer ) )
+          {
+            write_source_chunk( buffer, offset, uncompressed, compressed, cserver, debugOut );
+          }
 
-        if (!bytes || offset == sizeof(buffer)) {
-            if (offset) {
-                FileChunkMsg fcmsg(buffer, offset);
-
-                if (!cserver->send_msg(fcmsg)) {
-                    Msg *m = cserver->get_msg(2);
-                    check_for_failure(m, cserver);
-
-                    log_error() << "write of source chunk to host "
-                                << cserver->name.c_str() << endl;
-                    log_perror("failed ");
-                    close(fd);
-                    throw client_error(15, "Error 15 - write to host failed");
-                }
-
-                uncompressed += fcmsg.len;
-                compressed += fcmsg.compressed;
-                offset = 0;
-            }
-
-            if (!bytes) {
-                break;
-            }
+          if ( bytes )
+          {
+            again = true;
+          }
         }
-    } while (1);
 
-    if (compressed)
-        trace() << "sent " << compressed << " bytes (" << (compressed * 100 / uncompressed) <<
-                "%)" << endl;
+        if ( stderr_fd > 0 && FD_ISSET( stderr_fd, &rfds ) )
+        {
+          // Redirect all preprocessor output beginning with "Note: including file:" from STDERR toSTDOUT.
+          // This lines are used by Ninja to build the dependencies.
 
-    if ((-1 == close(fd)) && (errno != EBADF)){
-        log_perror("close failed");
+          char tmpBuffer[ 100000 ];
+          const auto bytes = read( stderr_fd, tmpBuffer, sizeof( tmpBuffer ) - 1 );
+
+          if ( bytes > 0 )
+          {
+            again = true;
+
+            tmpBuffer[ bytes ] = '\0';
+            stderrBuffer.append( tmpBuffer );
+          }
+        }
+      }
+      else
+      {
+        throw client_error( 103, "Error 103 - select timeout" );
+      }
+
+      if ( again )
+      {
+        continue;
+      }
+
+      break;
     }
+    while ( true );
+
+    // Send all what is still in the Buffer
+    write_source_chunk( buffer, offset, uncompressed, compressed, cserver, debugOut );
+
+    if ( ( -1 == close( stdout_fd ) ) && ( errno != EBADF ) )
+    {
+      log_perror( "close failed" );
+    }
+
+    if ( stderr_fd > 0 )
+    {
+      close( stderr_fd );
+
+      std::string::size_type pos = 0;
+      std::string::size_type prevPos = 0;
+      const char delimiter = '\n';
+
+      if ( stderrBuffer.back() != delimiter )
+      {
+        stderrBuffer.push_back( delimiter );
+      }
+
+      while ( ( pos = stderrBuffer.find( delimiter, pos ) ) != std::string::npos )
+      {
+        std::string line = stderrBuffer.substr( prevPos, pos - prevPos + 1 );
+
+        if ( line.find( "Note: including file:" ) == 0 )
+        {
+          fwrite( line.c_str(), line.length(), 1, stderr );
+        }
+        else
+        {
+          fwrite( line.c_str(), line.length(), 1, stdout );
+        }
+
+        prevPos = ++pos;
+      }
+    }
+
+    if ( compressed )
+    {
+      trace() << "sent " << compressed << " bytes (" << ( compressed * 100 / uncompressed ) << "%)" << endl;
+    }
+
+#ifdef DEBUG_CPP_FILE
+    fclose( debugOut );
+    trace() << "wrote debug file: " << debugFilename << " " << endl;
+#endif
 }
 
 static void receive_file(const string& output_file, MsgChannel* cserver)
@@ -421,6 +549,12 @@ static int build_remote_int(CompileJob &job, UseCSMsg *usecs, MsgChannel *local_
             throw client_error(2, "Error 2 - no server found at " + hostname);
         }
 
+        if ( compiler_is_clang_cl( job ) && !IS_PROTOCOL_107( cserver ) )
+        {
+          log_error() << "server " << hostname << " is too old for clang-cl" << endl;
+          throw client_error( 104, "Error 104 - server " + hostname + " too old for clang-cl" );
+        }
+
         if (!got_env) {
             log_block b("Transfer Environment");
             // transfer env
@@ -443,7 +577,7 @@ static int build_remote_int(CompileJob &job, UseCSMsg *usecs, MsgChannel *local_
                 throw client_error(5, "Error 5 - unable to open version file:\n\t" + version_file);
             }
 
-            write_fd_to_server(env_fd, cserver);
+            write_fd_to_server(env_fd, -1, cserver);
 
             if (!cserver->send_msg(EndMsg())) {
                 log_error() << "write of environment failed" << endl;
@@ -490,7 +624,7 @@ static int build_remote_int(CompileJob &job, UseCSMsg *usecs, MsgChannel *local_
 
         // Older remotes don't set properly -x argument.
         if(( job.language() == CompileJob::Lang_OBJC || job.language() == CompileJob::Lang_OBJCXX )
-            && !IS_PROTOCOL_38(cserver)) {
+            && !IS_PROTOCOL_38(cserver) && !compiler_is_clang_cl(job)) {
             job.appendFlag( "-x", Arg_Remote );
             job.appendFlag( job.language() == CompileJob::Lang_OBJC ? "objective-c" : "objective-c++", Arg_Remote );
         }
@@ -507,6 +641,7 @@ static int build_remote_int(CompileJob &job, UseCSMsg *usecs, MsgChannel *local_
 
         if (!preproc_file) {
             int sockets[2];
+            int ppOut[2];
 
             if (create_large_pipe(sockets) != 0) {
                 log_perror("build_remote_in pipe");
@@ -514,16 +649,35 @@ static int build_remote_int(CompileJob &job, UseCSMsg *usecs, MsgChannel *local_
                 throw client_error(32, "Error 18 - (fork error?)");
             }
 
-            if (!dcc_lock_host()) {
-                log_error() << "can't lock for local cpp" << endl;
-                return EXIT_DISTCC_FAILED;
+            if ( compiler_is_clang_cl( job ) )
+            {
+              if ( pipe( ppOut ) != 0 )
+              {
+                /* for all possible cases, this is something severe */
+                throw client_error(32, "Error 18 - (fork error?)");
+              }
+            }
+            else
+            {
+              ppOut[ 0 ] = -1;
+              ppOut[ 1 ] = -1;
+            }
+
+/*
+            {
+              log_block b("dcc_lock_host remote preprocessor");
+              if (!dcc_lock_host()) {
+                  log_error() << "can't lock for remote cpp" << endl;
+                  return EXIT_DISTCC_FAILED;
+              }
             }
             HostUnlock hostUnlock; // automatic dcc_unlock()
+*/
 
             /* This will fork, and return the pid of the child.  It will not
                return for the child itself.  If it returns normally it will have
                closed the write fd, i.e. sockets[1].  */
-            pid_t cpp_pid = call_cpp(job, sockets[1], sockets[0]);
+            pid_t cpp_pid = call_cpp(job, sockets[1], sockets[0], ppOut[1], ppOut[0]);
 
             if (cpp_pid == -1) {
                 throw client_error(18, "Error 18 - (fork error?)");
@@ -531,7 +685,7 @@ static int build_remote_int(CompileJob &job, UseCSMsg *usecs, MsgChannel *local_
 
             try {
                 log_block bl2("write_fd_to_server from cpp");
-                write_fd_to_server(sockets[0], cserver);
+                write_fd_to_server(sockets[0], ppOut[0], cserver);
             } catch (...) {
                 kill(cpp_pid, SIGTERM);
                 throw;
@@ -563,7 +717,7 @@ static int build_remote_int(CompileJob &job, UseCSMsg *usecs, MsgChannel *local_
             }
 
             log_block cpp_block("write_fd_to_server preprocessed");
-            write_fd_to_server(cpp_fd, cserver);
+            write_fd_to_server(cpp_fd, -1, cserver);
         }
 
         if (!cserver->send_msg(EndMsg())) {
@@ -574,7 +728,7 @@ static int build_remote_int(CompileJob &job, UseCSMsg *usecs, MsgChannel *local_
         Msg *msg;
         {
             log_block wait_cs("wait for cs");
-            msg = cserver->get_msg(12 * 60);
+            msg = cserver->get_msg(6 * 60);
 
             if (!msg) {
                 throw client_error(14, "Error 14 - error reading message from remote");
@@ -837,7 +991,7 @@ int build_remote(CompileJob &job, MsgChannel *local_daemon, const Environments &
 
         fake_filename += get_absfilename(job.inputFile());
 
-        GetCSMsg getcs(envs, fake_filename, job.language(), torepeat,
+        GetCSMsg getcs(envs, fake_filename, job.language(), job.compilerName(), torepeat,
                        job.targetPlatform(), job.argumentFlags(),
                        preferred_host ? preferred_host : string(),
                        minimalRemoteVersion(job), requiredRemoteFeatures());
@@ -870,9 +1024,12 @@ int build_remote(CompileJob &job, MsgChannel *local_daemon, const Environments &
         const CharBufferDeleter preproc_holder(preproc);
         int cpp_fd = open(preproc, O_WRONLY);
 
-        if (!dcc_lock_host()) {
-            log_error() << "can't lock for local cpp" << endl;
-            return EXIT_DISTCC_FAILED;
+        {
+          log_block b("dcc_lock_host local preprocessor");
+          if (!dcc_lock_host()) {
+              log_error() << "can't lock for local cpp" << endl;
+              return EXIT_DISTCC_FAILED;
+          }
         }
         HostUnlock hostUnlock; // automatic dcc_unlock()
 
@@ -899,7 +1056,7 @@ int build_remote(CompileJob &job, MsgChannel *local_daemon, const Environments &
         sprintf(rand_seed, "-frandom-seed=%d", rand());
         job.appendFlag(rand_seed, Arg_Remote);
 
-        GetCSMsg getcs(envs, get_absfilename(job.inputFile()), job.language(), torepeat,
+        GetCSMsg getcs(envs, get_absfilename(job.inputFile()), job.language(), job.compilerName(), torepeat,
                        job.targetPlatform(), job.argumentFlags(),
                        preferred_host ? preferred_host : string(),
                        minimalRemoteVersion(job), 0);

@@ -22,6 +22,8 @@
     51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 */
 
+#define MSG_DEBUG
+
 #include <config.h>
 
 #include <signal.h>
@@ -402,7 +404,7 @@ bool MsgChannel::flush_writebuf(bool blocking)
             }
 
             errno = send_errno;
-            log_perror("flush_writebuf() failed");
+            log_perror(string( "flush_writebuf() failed " ) + name);
             error = true;
             break;
         } else if (ret == 0) {
@@ -1174,6 +1176,10 @@ Msg *MsgChannel::get_msg(int timeout, bool eofAllowed)
         type = (enum MsgType) t;
     }
 
+#ifdef MSG_DEBUG
+    trace() << "recv msg (" << name << "): " << Msg::readableMsgType( type ) << endl;
+#endif
+
     switch (type) {
     case M_UNKNOWN:
         set_error();
@@ -1208,6 +1214,9 @@ Msg *MsgChannel::get_msg(int timeout, bool eofAllowed)
     case M_JOB_DONE:
         m = new JobDoneMsg;
         break;
+    case M_JOB_ERROR:
+        m = new JobErrorMsg;
+        break;
     case M_LOGIN:
         m = new LoginMsg;
         break;
@@ -1234,6 +1243,9 @@ Msg *MsgChannel::get_msg(int timeout, bool eofAllowed)
         break;
     case M_MON_STATS:
         m = new MonStatsMsg;
+        break;
+    case M_MON_SCHEDULER_INFO:
+        m = new MonSchedulerInfoMsg;
         break;
     case M_JOB_LOCAL_BEGIN:
         m = new JobLocalBeginMsg;
@@ -1305,6 +1317,10 @@ bool MsgChannel::send_msg(const Msg &m, int flags)
         return false;
     }
 
+#ifdef MSG_DEBUG
+    trace() << "send msg (" << name << "): " << Msg::readableMsgType( m.type ) << endl;
+#endif
+
     chop_output();
     size_t msgtogo_old = msgtogo;
 
@@ -1353,6 +1369,33 @@ static int get_second_port_for_debug( int port )
     else if( port == debugPort2 )
         secondPort = debugPort1;
     return secondPort ? secondPort : -1;
+}
+
+void MsgChannel::shutdown_socket()
+{
+  // Example was
+  // https://blog.netherlabs.nl/articles/2009/01/18/the-ultimate-so_linger-page-or-why-is-my-tcp-not-reliable
+
+  // Close the send channel
+  shutdown( fd, SHUT_WR );
+
+  sleep( 1 );
+
+  // Read all, what the other side is still sending. Not before this is finished, the other side will look if there is something to receive.
+  while ( true )
+  {
+    usleep( 50000 );
+    char buffer[ 10000 ];
+    const int res = read( fd, buffer, sizeof( buffer ) );
+    if (res <= 0 )
+    {
+      break;
+    }
+  }
+
+  sleep( 2 );
+
+  // Now the socket can be safely closed
 }
 
 void Broadcasts::broadcastSchedulerVersion(int scheduler_port, const char* netname, time_t starttime)
@@ -1763,7 +1806,8 @@ MsgChannel *DiscoverSched::try_get_scheduler()
                         << ":" << ntohs(remote_addr.sin_port) << " (unknown version)" << endl;
                 } else {
                     log_info() << "Suitable scheduler found at " << inet_ntoa(remote_addr.sin_addr)
-                        << ":" << ntohs(remote_addr.sin_port) << " (version: " << version << ")" << endl;
+                        << ":" << ntohs(remote_addr.sin_port) << " (version:" << version
+                        << " start:" << start_time << ")" << endl;
                 }
                 if (best_version != 0)
                     multiple = true;
@@ -1923,7 +1967,7 @@ void Msg::send_to_channel(MsgChannel *c) const
 }
 
 GetCSMsg::GetCSMsg(const Environments &envs, const std::string &f,
-     CompileJob::Language _lang, unsigned int _count,
+     CompileJob::Language _lang, const std::string &_compiler, unsigned int _count,
      std::string _target, unsigned int _arg_flags,
      const std::string &host, int _minimal_host_version,
      unsigned int _required_features,
@@ -1932,6 +1976,7 @@ GetCSMsg::GetCSMsg(const Environments &envs, const std::string &f,
     , versions(envs)
     , filename(f)
     , lang(_lang)
+    , compiler(_compiler)
     , count(_count)
     , target(_target)
     , arg_flags(_arg_flags)
@@ -1944,6 +1989,49 @@ GetCSMsg::GetCSMsg(const Environments &envs, const std::string &f,
     // These have been introduced in protocol version 42.
     if( required_features & ( NODE_FEATURE_ENV_XZ | NODE_FEATURE_ENV_ZSTD ))
         minimal_host_version = max( minimal_host_version, 42 );
+}
+
+std::string Msg::readableMsgType( MsgType type )
+{
+  switch ( type )
+  {
+  case M_BLACKLIST_HOST_ENV:  return "M_BLACKLIST_HOST_ENV";
+  case M_COMPILE_FILE:        return "M_COMPILE_FILE";
+  case M_COMPILE_RESULT:      return "M_COMPILE_RESULT";
+  case M_CS_CONF:             return "M_CS_CONF";
+  case M_END:                 return "M_END";
+  case M_FILE_CHUNK:          return "M_FILE_CHUNK";
+  case M_GET_CS:              return "M_GET_CS";
+  case M_GET_INTERNALS:       return "M_GET_INTERNALS";
+  case M_GET_NATIVE_ENV:      return "M_GET_NATIVE_ENV";
+  case M_JOB_BEGIN:           return "M_JOB_BEGIN";
+  case M_JOB_DONE:            return "M_JOB_DONE";
+  case M_JOB_ERROR:           return "M_JOB_ERROR";
+  case M_JOB_LOCAL_BEGIN:     return "M_JOB_LOCAL_BEGIN";
+  case M_JOB_LOCAL_DONE:      return "M_JOB_LOCAL_DONE";
+  case M_LOGIN:               return "M_LOGIN";
+  case M_MON_GET_CS:          return "M_MON_GET_CS";
+  case M_MON_JOB_BEGIN:       return "M_MON_JOB_BEGIN";
+  case M_MON_JOB_DONE:        return "M_MON_JOB_DONE";
+  case M_MON_LOCAL_JOB_BEGIN: return "M_MON_LOCAL_JOB_BEGIN";
+  case M_MON_LOGIN:           return "M_MON_LOGIN";
+  case M_MON_STATS:           return "M_MON_STATS";
+  case M_MON_SCHEDULER_INFO:  return "M_MON_SCHEDULER_INFO";
+  case M_NATIVE_ENV:          return "M_NATIVE_ENV";
+  case M_NO_CS:               return "M_NO_CS";
+  case M_PING:                return "M_PING";
+  case M_STATS:               return "M_STATS";
+  case M_STATUS_TEXT:         return "M_STATUS_TEXT";
+  case M_TEXT:                return "M_TEXT";
+  case M_TIMEOUT:             return "M_TIMEOUT";
+  case M_TRANFER_ENV:         return "M_TRANFER_ENV";
+  case M_USE_CS:              return "M_USE_CS";
+  case M_VERIFY_ENV:          return "M_VERIFY_ENV";
+  case M_VERIFY_ENV_RESULT:   return "M_VERIFY_ENV_RESULT";
+  default:                    break;
+  }
+
+  return "M_UNKNOWN";
 }
 
 void GetCSMsg::fill_from_channel(MsgChannel *c)
@@ -1987,6 +2075,10 @@ void GetCSMsg::fill_from_channel(MsgChannel *c)
     if (IS_PROTOCOL_42(c)) {
         *c >> required_features;
     }
+
+    if (IS_PROTOCOL_107(c)) {
+        *c >> compiler;
+    }
 }
 
 void GetCSMsg::send_to_channel(MsgChannel *c) const
@@ -2016,6 +2108,10 @@ void GetCSMsg::send_to_channel(MsgChannel *c) const
     }
     if (IS_PROTOCOL_42(c)) {
         *c << required_features;
+    }
+
+    if (IS_PROTOCOL_107(c)) {
+        *c << compiler;
     }
 }
 
@@ -2142,7 +2238,14 @@ void CompileFileMsg::send_to_channel(MsgChannel *c) const
             if (job->compilerName().find("clang") != string::npos) {
                 // Hack for compilerwrapper.
                 std::list<std::string> flags = job->remoteFlags();
-                flags.push_front("clang");
+                if ( job->compilerName().find( "clang-cl" ) != string::npos )
+                {
+                  flags.push_front( "clang-cl" );
+                }
+                else
+                {
+                  flags.push_front("clang");
+                }
                 *c << flags;
             } else {
                 *c << job->remoteFlags();
@@ -2173,6 +2276,11 @@ void CompileFileMsg::send_to_channel(MsgChannel *c) const
 // hardcoded).  For clang, the binary is just clang for both C/C++.
 string CompileFileMsg::remote_compiler_name() const
 {
+    if ( job->compilerName().find( "clang-cl" ) != string::npos)
+    {
+      return "clang-cl";
+    }
+
     if (job->compilerName().find("clang") != string::npos) {
         return "clang";
     }
@@ -2267,16 +2375,31 @@ void JobLocalBeginMsg::fill_from_channel(MsgChannel *c)
 {
     Msg::fill_from_channel(c);
     *c >> stime;
-    *c >> outfile;
+    *c >> outFile;
     *c >> id;
+    if ( IS_PROTOCOL_107(c) )
+    {
+      uint32_t lang;
+
+      *c >> inFile;
+      *c >> lang;
+      *c >> compiler;
+      language = static_cast< CompileJob::Language >( lang );
+    }
 }
 
 void JobLocalBeginMsg::send_to_channel(MsgChannel *c) const
 {
     Msg::send_to_channel(c);
     *c << stime;
-    *c << outfile;
+    *c << outFile;
     *c << id;
+    if ( IS_PROTOCOL_107(c) )
+    {
+      *c << inFile;
+      *c << ( uint32_t ) language;
+      *c << compiler;
+    }
 }
 
 void JobLocalDoneMsg::fill_from_channel(MsgChannel *c)
@@ -2377,6 +2500,34 @@ void JobDoneMsg::set_job_id( uint32_t jobId )
     flags &= ~ (uint32_t) UnknownJobId;
 }
 
+void JobErrorMsg::fill_from_channel( MsgChannel *c )
+{
+  Msg::fill_from_channel( c );
+  *c >> job_id;
+  *c >> error;
+  if ( IS_PROTOCOL_107( c ) )
+  {
+    uint32_t localBuildInt = 0;
+
+    *c >> client_id;
+    *c >> localBuildInt;
+
+    localBuild = ( localBuildInt != 0);
+  }
+}
+
+void JobErrorMsg::send_to_channel( MsgChannel *c ) const
+{
+  Msg::send_to_channel(c);
+  *c << job_id;
+  *c << error;
+  if ( IS_PROTOCOL_107( c ) )
+  {
+    *c << client_id;
+    *c << uint32_t( localBuild );
+  }
+}
+
 LoginMsg::LoginMsg(unsigned int myport, const std::string &_nodename, const std::string &_host_platform,
     unsigned int myfeatures)
     : Msg(M_LOGIN)
@@ -2387,6 +2538,7 @@ LoginMsg::LoginMsg(unsigned int myport, const std::string &_nodename, const std:
     , nodename(_nodename)
     , host_platform(_host_platform)
     , supported_features(myfeatures)
+    , protocol_version(0)
 {
 #ifdef HAVE_LIBCAP_NG
     chroot_possible = capng_have_capability(CAPNG_EFFECTIVE, CAP_SYS_CHROOT);
@@ -2414,6 +2566,7 @@ void LoginMsg::fill_from_channel(MsgChannel *c)
     }
 
     noremote = (net_noremote != 0);
+    protocol_version = c->protocol;
 
     supported_features = 0;
     if (IS_PROTOCOL_42(c)) {
@@ -2581,6 +2734,13 @@ void MonLocalJobBeginMsg::fill_from_channel(MsgChannel *c)
     *c >> job_id;
     *c >> stime;
     *c >> file;
+    if ( IS_PROTOCOL_107(c) )
+    {
+      uint32_t lang;
+      *c >> lang;
+      *c >> compiler;
+      language = static_cast< CompileJob::Language >( lang );
+    }
 }
 
 void MonLocalJobBeginMsg::send_to_channel(MsgChannel *c) const
@@ -2590,6 +2750,11 @@ void MonLocalJobBeginMsg::send_to_channel(MsgChannel *c) const
     *c << job_id;
     *c << stime;
     *c << shorten_filename(file);
+    if ( IS_PROTOCOL_107(c) )
+    {
+      *c << ( uint32_t ) language;
+      *c << compiler;
+    }
 }
 
 void MonStatsMsg::fill_from_channel(MsgChannel *c)
@@ -2606,6 +2771,26 @@ void MonStatsMsg::send_to_channel(MsgChannel *c) const
     *c << statmsg;
 }
 
+void MonSchedulerInfoMsg::fill_from_channel( MsgChannel *c )
+{
+  Msg::fill_from_channel( c );
+  uint32_t st;
+
+  *c >> protocolVersion;
+  *c >> st;
+  *c >> monitors;
+
+  startTime = st;
+}
+
+void MonSchedulerInfoMsg::send_to_channel( MsgChannel *c ) const
+{
+  Msg::send_to_channel(c);
+  *c << protocolVersion;
+  *c << ( uint64_t ) startTime;
+  *c << monitors;
+}
+
 void TextMsg::fill_from_channel(MsgChannel *c)
 {
     c->read_line(text);
@@ -2620,12 +2805,14 @@ void StatusTextMsg::fill_from_channel(MsgChannel *c)
 {
     Msg::fill_from_channel(c);
     *c >> text;
+    log_error() << "Received status: " << text << endl;
 }
 
 void StatusTextMsg::send_to_channel(MsgChannel *c) const
 {
     Msg::send_to_channel(c);
     *c << text;
+    log_error() << "Sending status: " << text << endl;
 }
 
 void VerifyEnvMsg::fill_from_channel(MsgChannel *c)

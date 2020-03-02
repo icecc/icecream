@@ -27,6 +27,8 @@ AM_CPPFLAGS = \
 	-DPLIBDIR=\"$(pkglibexecdir)\" \
 	-I$(top_srcdir)/services \
 	-I$(top_srcdir)/
+AM_CXXFLAGS = \
+	-std="c++11"
 
 EXTRA_DIST = icecc-create-env
 

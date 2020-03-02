@@ -36,7 +36,8 @@
 #include "job.h"
 
 // if you increase the PROTOCOL_VERSION, add a macro below and use that
-#define PROTOCOL_VERSION 42
+//#define PROTOCOL_VERSION 42
+#define PROTOCOL_VERSION 108
 // if you increase the MIN_PROTOCOL_VERSION, comment out macros below and clean up the code
 #define MIN_PROTOCOL_VERSION 21
 
@@ -67,6 +68,8 @@
 #define IS_PROTOCOL_40(c) ((c)->protocol >= 40)
 #define IS_PROTOCOL_41(c) ((c)->protocol >= 41)
 #define IS_PROTOCOL_42(c) ((c)->protocol >= 42)
+#define IS_PROTOCOL_107(c) ((c)->protocol >= 107)
+#define IS_PROTOCOL_108(c) ((c)->protocol >= 108)
 
 // Terms used:
 // S  = scheduler
@@ -140,7 +143,9 @@ enum MsgType {
     // C --> CS, CS --> S (forwarded from C), to not use given host for given environment
     M_BLACKLIST_HOST_ENV,
     // S --> CS
-    M_NO_CS
+    M_NO_CS,
+    M_JOB_ERROR,
+    M_MON_SCHEDULER_INFO,
 };
 
 enum Compression {
@@ -168,6 +173,8 @@ public:
     virtual void fill_from_channel(MsgChannel *c);
     virtual void send_to_channel(MsgChannel *c) const;
 
+    static std::string readableMsgType( MsgType );
+
     enum MsgType type;
 };
 
@@ -191,6 +198,7 @@ public:
 
     // false <--> error (msg not send)
     bool send_msg(const Msg &, int SendFlags = SendBlocking);
+    void shutdown_socket();
 
     bool has_msg(void) const
     {
@@ -421,7 +429,7 @@ public:
         , client_count(0) {}
 
     GetCSMsg(const Environments &envs, const std::string &f,
-             CompileJob::Language _lang, unsigned int _count,
+             CompileJob::Language _lang, const std::string &_compiler, unsigned int _count,
              std::string _target, unsigned int _arg_flags,
              const std::string &host, int _minimal_host_version,
              unsigned int _required_features,
@@ -433,6 +441,7 @@ public:
     Environments versions;
     std::string filename;
     CompileJob::Language lang;
+    std::string compiler;
     uint32_t count; // the number of UseCS messages to answer with - usually 1
     std::string target;
     uint32_t arg_flags;
@@ -680,16 +689,23 @@ public:
 class JobLocalBeginMsg : public Msg
 {
 public:
-    JobLocalBeginMsg(int job_id = 0, const std::string &file = "")
+    JobLocalBeginMsg(int job_id = 0, const std::string &infile = "", const std::string &outfile = "",
+                     CompileJob::Language lang = CompileJob::Lang_Custom, const std::string &comp = "")
         : Msg(M_JOB_LOCAL_BEGIN)
-        , outfile(file)
+        , inFile(infile)
+        , outFile(outfile)
+        , language(lang)
+        , compiler(comp)
         , stime(time(0))
         , id(job_id) {}
 
     virtual void fill_from_channel(MsgChannel *c);
     virtual void send_to_channel(MsgChannel *c) const;
 
-    std::string outfile;
+    std::string inFile;
+    std::string outFile;
+    CompileJob::Language language;
+    std::string compiler;
     uint32_t stime;
     uint32_t id;
 };
@@ -705,6 +721,28 @@ public:
     virtual void send_to_channel(MsgChannel *c) const;
 
     uint32_t job_id;
+};
+
+class JobErrorMsg : public Msg
+{
+public:
+    JobErrorMsg() :
+      Msg( M_JOB_ERROR )
+    {}
+
+    JobErrorMsg( unsigned int id, bool, const std::string &err ) :
+      Msg( M_JOB_ERROR ),
+      job_id( id ),
+      error( err )
+    {}
+
+    virtual void fill_from_channel( MsgChannel *c );
+    virtual void send_to_channel( MsgChannel *c ) const;
+
+    uint32_t job_id = 0;
+    uint32_t client_id = 0;
+    bool localBuild;
+    std::string error;
 };
 
 class LoginMsg : public Msg
@@ -727,6 +765,7 @@ public:
     std::string nodename;
     std::string host_platform;
     uint32_t supported_features; // bitmask of various features the node supports
+    int protocol_version;
 };
 
 class ConfCSMsg : public Msg
@@ -822,7 +861,7 @@ public:
     }
 
     MonGetCSMsg(int jobid, int hostid, GetCSMsg *m)
-        : GetCSMsg(Environments(), m->filename, m->lang, 1, m->target, 0, std::string(), false, m->client_count)
+        : GetCSMsg(Environments(), m->filename, m->lang, m->compiler, 1, m->target, 0, std::string(), false, m->client_count)
         , job_id(jobid)
         , clientid(hostid)
     {
@@ -881,12 +920,15 @@ public:
     MonLocalJobBeginMsg()
         : Msg(M_MON_LOCAL_JOB_BEGIN) {}
 
-    MonLocalJobBeginMsg(unsigned int id, const std::string &_file, unsigned int time, int _hostid)
+    MonLocalJobBeginMsg(unsigned int id, const std::string &_file, CompileJob::Language lang, const std::string &comp,
+                        unsigned int time, int _hostid)
         : Msg(M_MON_LOCAL_JOB_BEGIN)
         , job_id(id)
         , stime(time)
         , hostid(_hostid)
-        , file(_file) {}
+        , file(_file)
+        , language(lang)
+        , compiler(comp) {}
 
     virtual void fill_from_channel(MsgChannel *c);
     virtual void send_to_channel(MsgChannel *c) const;
@@ -895,6 +937,8 @@ public:
     uint32_t stime;
     uint32_t hostid;
     std::string file;
+    CompileJob::Language language;
+    std::string compiler;
 };
 
 class MonStatsMsg : public Msg
@@ -913,6 +957,27 @@ public:
 
     uint32_t hostid;
     std::string statmsg;
+};
+
+class MonSchedulerInfoMsg : public Msg
+{
+public:
+    MonSchedulerInfoMsg() :
+      Msg( M_MON_SCHEDULER_INFO )
+    {}
+
+    MonSchedulerInfoMsg( time_t st, uint32_t mons ) :
+      Msg( M_MON_SCHEDULER_INFO ),
+      startTime( st ),
+      monitors( mons )
+    {}
+
+    virtual void fill_from_channel( MsgChannel *c );
+    virtual void send_to_channel( MsgChannel *c ) const;
+
+    uint32_t protocolVersion = PROTOCOL_VERSION;
+    time_t startTime = 0;
+    uint32_t monitors = 0;
 };
 
 class TextMsg : public Msg

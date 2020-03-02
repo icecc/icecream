@@ -78,6 +78,11 @@ public:
     string hostPlatform() const;
     void setHostPlatform(const string &platform);
 
+    unsigned int protocolVersion() const;
+    void setProtocolVersion(unsigned int);
+
+    time_t startTime() const;
+
     unsigned int load() const;
     void setLoad(const unsigned int load);
 
@@ -158,6 +163,8 @@ private:
     string m_nodeName;
     time_t m_busyInstalling;
     string m_hostPlatform;
+    unsigned int m_protocolVersion;
+    time_t m_startTime;
 
     // LOAD is load * 1000
     unsigned int m_load;

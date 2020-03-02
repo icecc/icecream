@@ -83,8 +83,12 @@ convert_path_cdup ()
 {
   local filename="$1"
   local directory=$(dirname $filename)
-  local fixed_directory=$(cd "$directory" >/dev/null && pwd)
-  echo ${fixed_directory}/$(basename $filename)
+  if [ -d "$directory" ]; then
+    local fixed_directory=$(cd "$directory" >/dev/null && pwd)
+    echo ${fixed_directory}/$(basename $filename)
+  else
+    echo $(realpath -m $filename)
+  fi
 }
 
 add_file ()
@@ -121,6 +125,17 @@ add_file ()
     # Only call ldd when it makes sense
     if file -L "$path" | grep 'ELF' > /dev/null 2>&1; then
 	if ! file -L "$path" | grep 'static' > /dev/null 2>&1; then
+	   # Determine rpaths
+	   local_dir=$( dirname $path )
+	   remote_dir=$( dirname $name )
+ 	   i=0
+	   while read line; do
+	     RUNPATH[ $i ]="$line"
+	     RUNPATH_LOCAL[ $i ]=$( realpath -s "${line/\$ORIGIN/$local_dir}" )
+	     RUNPATH_REMOTE[ $i ]=$( realpath -s "${line/\$ORIGIN/$remote_dir}" )
+	     i=$(( i + 1 ))
+	   done < <( objdump -p "$path" | grep RUNPATH | awk '{print $2}' )
+
 	   # ldd now outputs ld as /lib/ld-linux.so.xx on current nptl based glibc
 		# this regexp parse the outputs like:
 		# ldd /usr/bin/gcc
@@ -145,7 +160,23 @@ add_file ()
               fi
               if test -n "$usebaselib"; then
                 lib=$baselib
-                add_file "$lib"
+
+                # Check rpaths
+                remote_libpath=$( realpath -s "$lib" )
+                i=0
+                while [[ i -lt ${#RUNPATH[@]} ]]; do
+                  if [[ "$remote_libpath" =~ ^${RUNPATH_LOCAL[$i]} ]]; then
+                    remote_libpath="${remote_libpath/${RUNPATH_LOCAL[$i]}/${RUNPATH_REMOTE[$i]}}"
+                    break
+                  fi
+                  i=$(( i + 1 ))
+                done
+
+                if [[ "$lib" != "$remote_libpath" ]]; then
+                  add_file "$lib" "$remote_libpath"
+                else
+                  add_file "$lib"
+                fi
               else
                 # Optimization: We are adding a library we got from ldd output, so avoid
                 # using ldd on it, as it should not find more than this ldd.
@@ -191,7 +222,7 @@ add_file ()
 	    # and prefer that on the assumption that it is a more generic one.
 	    local baselib=$(echo "$lib" | sed 's,\(/[^/]*\)/.*\(/[^/]*\)$,\1\2,')
 	    test -f "$baselib" && lib=$baselib
-	          add_file "$lib" "$libinstall"
+            add_file "$lib" "$libinstall"
          done
     fi
   fi
@@ -205,7 +236,11 @@ search_addfile()
     local file_installdir=$3
     local file=""
 
-    file=$($compiler -print-prog-name=$file_name)
+    if echo "$compiler" | grep "clang-cl"; then
+      file=$file_name
+    else
+      file=$($compiler -print-prog-name=$file_name)
+    fi
 
     if test -z "$file" || test "$file" = "$file_name" || ! test -e "$file"; then
         file=$($compiler -print-file-name=$file_name)
@@ -295,10 +330,25 @@ else
     fi
     if echo "$test_output" | grep -q '^clang 1 gcc.*'; then
         clang=1
-        # With clang, -print-prog-name gives the full path to the actual clang binary,
-        # allowing to bypass any possible wrapper script etc. Note we must pass
-        # just the binary name, not full path.
-        added_clang=$($1 -print-prog-name=$(basename $1))
+        if echo "$1" | grep "clang-cl"; then
+          # clang-cl has no -print-prog-name parameter, so we have to
+          # get the location of the actual clang binary from clang-cl -v output, which prints
+          # (to stderr) clangs path as InstalledDir.
+          added_clang=$($1 -v 2>&1 | grep InstalledDir: | sed 's/^InstalledDir: //')
+          if test -z "$added_clang"; then
+            echo Failed to find clang-cl location.
+            exit 1
+          fi
+          added_clang=${added_clang}/clang-cl
+          if ! test -x "$added_clang"; then
+            added_clang=$(command -v $added_clang)
+          fi
+        else
+          # With clang, -print-prog-name gives the full path to the actual clang binary,
+          # allowing to bypass any possible wrapper script etc. Note we must pass
+          # just the binary name, not full path.
+          added_clang=$($1 -print-prog-name=$(basename $1))
+        fi
         added_compilerwrapper=@PKGLIBEXECDIR@/compilerwrapper
     elif echo "$test_output" | grep -q 'clang __clang__ gcc.*'; then
         gcc=1
@@ -479,8 +529,11 @@ if test -n "$clang"; then
     add_file $added_compilerwrapper /usr/bin/gcc
     add_file $added_compilerwrapper /usr/bin/g++
 
-    search_addfile $orig_clang as /usr/bin
-    search_addfile $orig_clang objcopy /usr/bin
+    search_addfile $added_clang as /usr/bin
+    search_addfile $added_clang objcopy /usr/bin
+    search_addfile $added_clang clang /usr/bin
+    search_addfile $added_clang clang++ /usr/bin
+    search_addfile $added_clang clang-cl /usr/bin
 
     # HACK: Clang4.0 and later access /proc/cpuinfo and report an error when they fail
     # to find it, even if they use a fallback mechanism, making the error useless
@@ -491,6 +544,33 @@ if test -n "$clang"; then
         touch $tempdir/fakeproc/proc/cpuinfo
         add_file $tempdir/fakeproc/proc/cpuinfo /proc/cpuinfo
     fi
+
+    # clang always uses its internal .h files
+    if echo "$orig_clang" | grep "clang-cl"; then
+      tmp_clang=`echo ${orig_clang:0:-3}`
+      clangincludes=$($tmp_clang -print-file-name=include/limits.h)
+    else
+      search_addfile $added_clang clang /usr/bin
+      search_addfile $added_clang clang++ /usr/bin
+
+      clangincludes=$($orig_clang -print-file-name=include/limits.h)
+    fi
+    if test -z "$clangincludes"; then
+        echo $orig_clang cannot find its includes
+        exit 1
+    fi
+    clangincludes=$(dirname $(abs_path $clangincludes))
+    for file in $(find $clangincludes -type f); do
+      add_file "$file"
+    done
+
+    # clang also needs the c++ headers at /usr/include...
+    clangstl=$(dirname $(dirname $(abs_path $orig_clang)))/include/c++/v1
+    for file in $(find $clangstl -type f); do
+      relative=$(realpath --relative-to=$clangstl $file)
+      add_file "$file" /usr/include/$relative
+    done
+
 fi
 
 # Do not do any prefix stripping on extra files, they (e.g. clang plugins) are usually

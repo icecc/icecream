@@ -93,6 +93,7 @@ static void dcc_show_usage(void)
         "   ICECC_CC                   set C compiler name (default gcc).\n"
         "   ICECC_CXX                  set C++ compiler name (default g++).\n"
         "   ICECC_REMOTE_CPP           set to 1 or 0 to override remote preprocessing\n"
+        "   ICECC_CLANG_REMOTE_CPP     set to 1 or 0 to override remote preprocessing\n"
         "   ICECC_IGNORE_UNVERIFIED    if set, hosts where environment cannot be verified are not used.\n"
         "   ICECC_EXTRAFILES           additional files used in the compilation.\n"
         "   ICECC_COLOR_DIAGNOSTICS    set to 1 or 0 to override color diagnostics support.\n"
@@ -100,6 +101,7 @@ static void dcc_show_usage(void)
         "   ICECC_COMPRESSION          if set, the libzstd compression level (1 to 19, default: 1)\n"
         "   ICECC_ENV_COMPRESSION      compression type for icecc environments [none|gzip|bzip2|zstd|xz]\n"
         "   ICECC_SLOW_NETWORK         set to 1 to send network data in smaller chunks\n"
+        "   ICECC_TEST_REMOTEBUILD     if set always try to build remote\n"
         );
 }
 
@@ -284,6 +286,8 @@ private:
 
 int main(int argc, char **argv)
 {
+    std::list< std::string > errors;
+
     // expand @responsefile contents to arguments in argv array
     ArgumentExpander expand(&argc, &argv);
 
@@ -540,6 +544,11 @@ int main(int argc, char **argv)
             if (ret == 0) {
                 local_daemon->send_msg(EndMsg());
             }
+            else
+            {
+              // Probably simple an error in source code, so that the file wouldn't compile
+              errors.push_back( "Exit code of compiler was not 0" );
+            }
         } catch (remote_error& error) {
             // log the 'local cpp invocation failed' message by default, so that it's more
             // obvious why the cpp output is there (possibly) twice
@@ -548,6 +557,7 @@ int main(int argc, char **argv)
             else
                 log_info() << "local build forced by remote exception: " << error.what() << endl;
             local = true;
+            errors.push_back( error.what() );
         }
         catch (client_error& error) {
             if (remote_daemon.size()) {
@@ -558,6 +568,7 @@ int main(int argc, char **argv)
                             endl;
             }
 
+            errors.push_back( std::string( error.what() ) + " (" + remote_daemon.c_str() + ")" );
 #if 0
             /* currently debugging a client? throw an error then */
             if (debug_level > Error) {
@@ -567,6 +578,13 @@ int main(int argc, char **argv)
 
             local = true;
         }
+
+        for ( const auto &error : errors )
+        {
+          local_daemon->send_msg( JobErrorMsg( 0, false, error ) );
+        }
+        errors.clear();
+
         if (local) {
             // TODO It'd be better to reuse the connection, but the daemon
             // internal state gets confused for some reason, so work that around
@@ -586,7 +604,9 @@ int main(int argc, char **argv)
         Msg *startme = 0L;
 
         /* Inform the daemon that we like to start a job.  */
-        if (local_daemon->send_msg(JobLocalBeginMsg(0, get_absfilename(job.outputFile())))) {
+        if (local_daemon->send_msg(JobLocalBeginMsg(0, get_absfilename(job.inputFile()),
+                                                    get_absfilename(job.outputFile()), job.language(),
+                                                    job.compilerName()))) {
             /* Now wait until the daemon gives us the start signal.  40 minutes
                should be enough for all normal compile or link jobs.  */
             startme = local_daemon->get_msg(40 * 60);
@@ -598,6 +618,11 @@ int main(int argc, char **argv)
             delete startme;
             delete local_daemon;
             return build_local(job, 0);
+        }
+
+        for ( const auto &error : errors )
+        {
+          local_daemon->send_msg( JobErrorMsg( 0, true, error ) );
         }
 
         ret = build_local(job, local_daemon, &ru);
