@@ -45,6 +45,7 @@ CompileServer::CompileServer(const int fd, struct sockaddr *_addr, const socklen
     , m_nodeName()
     , m_busyInstalling(0)
     , m_hostPlatform()
+    , m_startTime(time(0))
     , m_load(1000)
     , m_maxJobs(0)
     , m_noRemote(false)
@@ -261,6 +262,21 @@ string CompileServer::hostPlatform() const
 void CompileServer::setHostPlatform(const string &platform)
 {
     m_hostPlatform = platform;
+}
+
+unsigned int CompileServer::protocolVersion() const
+{
+  return m_protocolVersion;
+}
+
+void CompileServer::setProtocolVersion( unsigned int version )
+{
+  m_protocolVersion = version;
+}
+
+time_t CompileServer::startTime() const
+{
+  return m_startTime;
 }
 
 unsigned int CompileServer::load() const

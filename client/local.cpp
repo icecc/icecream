@@ -153,6 +153,16 @@ bool compiler_is_clang(const CompileJob &job)
     return job.compilerName().find("clang") != string::npos;
 }
 
+bool compiler_is_clang_cl(const CompileJob &job)
+{
+  if ( !compiler_is_clang( job ) )
+  {
+    return false;
+  }
+
+  return job.compilerName().find( "clang-cl" ) != string::npos;
+}
+
 /*
 Clang works suboptimally when handling an already preprocessed source file,
 for example error messages quote (already preprocessed) parts of the source.
@@ -166,6 +176,11 @@ works similarly to -frewrite-includes (although it's not exactly the same).
 */
 bool compiler_only_rewrite_includes(const CompileJob &job)
 {
+    if ( compiler_is_clang_cl( job ) )
+    {
+      return false;
+    }
+
     if( job.blockRewriteIncludes()) {
         return false;
     }
@@ -248,13 +263,18 @@ int build_local(CompileJob &job, MsgChannel *local_daemon, struct rusage *used)
     arguments.push_back(compiler_name);
     appendList(arguments, job.allFlags());
 
-    if (!job.inputFile().empty()) {
-        arguments.push_back(job.inputFile());
-    }
-
     if (!job.outputFile().empty()) {
         arguments.push_back("-o");
         arguments.push_back(job.outputFile());
+    }
+
+    if ( !job.inputFile().empty() )
+    {
+      if ( compiler_is_clang_cl( job ) )
+      {
+        arguments.push_back( "--" );
+      }
+      arguments.push_back( job.inputFile() );
     }
 
     vector<char*> argv; 
@@ -273,6 +293,7 @@ int build_local(CompileJob &job, MsgChannel *local_daemon, struct rusage *used)
     trace() << "invoking:" << argstxt << endl;
 
     if (!local_daemon) {
+        log_block b("dcc_lock_host local compiler");
         if (!dcc_lock_host()) {
             log_error() << "can't lock for local job" << endl;
             return EXIT_DISTCC_FAILED;

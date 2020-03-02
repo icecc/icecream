@@ -68,7 +68,7 @@ bool dcc_is_preprocessed(const string &sfile)
  * allows us to overlap opening the TCP socket, which probably doesn't
  * use many cycles, with running the preprocessor.
  **/
-pid_t call_cpp(CompileJob &job, int fdwrite, int fdread)
+pid_t call_cpp(CompileJob &job, int fdWriteStdout, int fdReadStdout, int fdWriteStderr, int fdReadStderr)
 {
     flush_debug();
     pid_t pid = fork();
@@ -80,8 +80,14 @@ pid_t call_cpp(CompileJob &job, int fdwrite, int fdread)
 
     if (pid != 0) {
         /* Parent.  Close the write fd.  */
-        if (fdwrite > -1) {
-            if ((-1 == close(fdwrite)) && (errno != EBADF)){
+        if (fdWriteStdout > -1) {
+            if ((-1 == close(fdWriteStdout)) && (errno != EBADF)){
+                log_perror("close() failed");
+            }
+        }
+
+        if (fdWriteStderr > -1) {
+            if ((-1 == close(fdWriteStderr)) && (errno != EBADF)){
                 log_perror("close() failed");
             }
         }
@@ -90,8 +96,14 @@ pid_t call_cpp(CompileJob &job, int fdwrite, int fdread)
     }
 
     /* Child.  Close the read fd, in case we have one.  */
-    if (fdread > -1) {
-        if ((-1 == close(fdread)) && (errno != EBADF)){
+    if (fdReadStdout > -1) {
+        if ((-1 == close(fdReadStdout)) && (errno != EBADF)){
+            log_perror("close failed");
+        }
+    }
+
+    if (fdReadStderr > -1) {
+        if ((-1 == close(fdReadStderr)) && (errno != EBADF)){
             log_perror("close failed");
         }
     }
@@ -106,7 +118,7 @@ pid_t call_cpp(CompileJob &job, int fdwrite, int fdread)
 
     if (dcc_is_preprocessed(job.inputFile())) {
         /* already preprocessed, great.
-           write the file to the fdwrite (using cat) */
+           write the file to the fdWriteStdout (using cat) */
         argv = new char*[2 + 1];
         argv[0] = strdup("/bin/cat");
         argv[1] = strdup(job.inputFile().c_str());
@@ -164,8 +176,10 @@ pid_t call_cpp(CompileJob &job, int fdwrite, int fdread)
 
         int argc = flags.size();
         argc++; // the program
-        argc += 2; // -E file.i
+        argc += 1; // -E
         argc += 1; // -frewrite-includes / -fdirectives-only
+        argc += 3; // clang-cl
+        argc += 1; // inputFile
         argv = new char*[argc + 1];
         argv[0] = strdup(find_compiler(job).c_str());
         int i = 1;
@@ -175,7 +189,6 @@ pid_t call_cpp(CompileJob &job, int fdwrite, int fdread)
         }
 
         argv[i++] = strdup("-E");
-        argv[i++] = strdup(job.inputFile().c_str());
 
         if (compiler_only_rewrite_includes(job)) {
             if( compiler_is_clang(job)) {
@@ -184,6 +197,15 @@ pid_t call_cpp(CompileJob &job, int fdwrite, int fdread)
                 argv[i++] = strdup("-fdirectives-only");
             }
         }
+
+        if ( compiler_is_clang_cl( job ) )
+        {
+          argv[ i++ ] = strdup( "-Xclang" );
+          argv[ i++ ] = strdup( "-fcxx-exceptions" ); // necessary for boost::throw_exception
+          argv[ i++ ] = strdup( "--" ); // handle all following arguments as file
+        }
+
+        argv[i++] = strdup(job.inputFile().c_str());
 
         argv[i++] = 0;
     }
@@ -195,11 +217,16 @@ pid_t call_cpp(CompileJob &job, int fdwrite, int fdread)
     }
     trace() << "preparing source to send: " << argstxt << endl;
 
-    if (fdwrite != STDOUT_FILENO) {
+    if (fdWriteStdout != STDOUT_FILENO) {
         /* Ignore failure */
         close(STDOUT_FILENO);
-        dup2(fdwrite, STDOUT_FILENO);
-        close(fdwrite);
+        dup2(fdWriteStdout, STDOUT_FILENO);
+        close(fdWriteStdout);
+    }
+
+    if (fdWriteStderr > -1)
+    {
+      dup2( fdWriteStderr, STDERR_FILENO );
     }
 
     dcc_increment_safeguard(SafeguardStepCompiler);

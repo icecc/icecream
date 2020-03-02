@@ -87,6 +87,7 @@ error_client(MsgChannel *client, string error)
 {
     if (IS_PROTOCOL_23(client)) {
         client->send_msg(StatusTextMsg(error));
+        client->shutdown_socket();
     }
 }
 
@@ -221,10 +222,12 @@ int work_it(CompileJob &j, unsigned int job_stat[], MsgChannel *client, CompileR
         char **argv = new char*[argc + 1];
         int i = 0;
         bool clang = false;
+        bool clangCl = false;
 
         if (IS_PROTOCOL_30(client)) {
             assert(!j.compilerName().empty());
             clang = (j.compilerName().find("clang") != string::npos);
+            clangCl = ( j.compilerName().find( "clang-cl" ) != string::npos );
             argv[i++] = strdup(("/usr/bin/" + j.compilerName()).c_str());
         } else {
             if (j.language() == CompileJob::Lang_C) {
@@ -236,18 +239,21 @@ int work_it(CompileJob &j, unsigned int job_stat[], MsgChannel *client, CompileR
             }
         }
 
-        argv[i++] = strdup("-x");
-        if (j.language() == CompileJob::Lang_C) {
-          argv[i++] = strdup("c");
-        } else if (j.language() == CompileJob::Lang_CXX) {
-          argv[i++] = strdup("c++");
-        } else if (j.language() == CompileJob::Lang_OBJC) {
-          argv[i++] = strdup("objective-c");
-        } else if (j.language() == CompileJob::Lang_OBJCXX) {
-          argv[i++] = strdup("objective-c++");
-        } else {
-            error_client(client, "language not supported");
-            log_perror("language not supported");
+        if ( !clangCl )
+        {
+          argv[i++] = strdup("-x");
+          if (j.language() == CompileJob::Lang_C) {
+            argv[i++] = strdup("c");
+          } else if (j.language() == CompileJob::Lang_CXX) {
+            argv[i++] = strdup("c++");
+          } else if (j.language() == CompileJob::Lang_OBJC) {
+            argv[i++] = strdup("objective-c");
+          } else if (j.language() == CompileJob::Lang_OBJCXX) {
+            argv[i++] = strdup("objective-c++");
+          } else {
+              error_client(client, "language not supported");
+              log_perror("language not supported");
+          }
         }
 
         if( clang ) {
@@ -308,7 +314,7 @@ int work_it(CompileJob &j, unsigned int job_stat[], MsgChannel *client, CompileR
         assert(i <= argc);
 
         argstxt.clear();
-        for (int pos = 1;
+        for (int pos = 0;
              pos < i;
              ++pos ) {
             argstxt += ' ';
@@ -665,6 +671,7 @@ int work_it(CompileJob &j, unsigned int job_stat[], MsgChannel *client, CompileR
                             || (rmsg.err.find("failed to map segment from shared object") != string::npos)
                             || (rmsg.err.find("Assertion `NewElts && \"Out of memory\"' failed") != string::npos)
                             || (rmsg.err.find("terminate called after throwing an instance of 'std::bad_alloc'") != string::npos)
+                            || (rmsg.err.find("terminating with uncaught exception of type std::bad_alloc") != string::npos)
                             || (rmsg.err.find("llvm::MallocSlabAllocator::Allocate") != string::npos)) {
                         // the relation between ulimit and memory used is pretty thin ;(
                         log_warning() << "Remote compilation failed, presumably because of running out of memory (exit code "
@@ -705,6 +712,7 @@ int work_it(CompileJob &j, unsigned int job_stat[], MsgChannel *client, CompileR
                     }
                 } else {
                     log_warning() << "Remote compilation aborted with exit code " << shell_exit_status(status) << endl;
+                    return_value = EXIT_COMPILER_CRASHED;
                 }
 
                 return return_value;

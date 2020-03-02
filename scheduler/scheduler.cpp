@@ -97,7 +97,8 @@ static string pidFilePath;
 static map<int, CompileServer *> fd2cs;
 static volatile sig_atomic_t exit_main_loop = false;
 
-time_t starttime;
+time_t starttimeReal;
+time_t starttimeBroadcast;
 time_t last_announce;
 static string scheduler_interface = "";
 static unsigned int scheduler_port = 8765;
@@ -211,7 +212,7 @@ static void add_job_stats(Job *job, JobDoneMsg *msg)
 #if DEBUG_SCHEDULER > 1
     if (job->argFlags() < 7000) {
         trace() << "add_job_stats " << job->language() << " "
-                << (time(0) - starttime) << " "
+                << (time(0) - starttimeReal) << " "
                 << st.compileTimeUser() << " "
                 << (job->argFlags() & CompileJob::Flag_g ? '1' : '0')
                 << (job->argFlags() & CompileJob::Flag_g3 ? '1' : '0')
@@ -230,17 +231,28 @@ static bool handle_end(CompileServer *cs, Msg *);
 
 static void notify_monitors(Msg *m)
 {
+    list<CompileServer *> toRemove;
     list<CompileServer *>::iterator it;
-    list<CompileServer *>::iterator it_old;
+    const bool isSchedulerInfo = dynamic_cast< MonSchedulerInfoMsg *>( m );
 
-    for (it = monitors.begin(); it != monitors.end();) {
-        it_old = it++;
+    for (it = monitors.begin(); it != monitors.end();++it) {
+        CompileServer *csIt = ( *it );
+
+        if ( isSchedulerInfo && !IS_PROTOCOL_108( csIt ) )
+        {
+          continue;
+        }
 
         /* If we can't send it, don't be clever, simply close this monitor.  */
-        if (!(*it_old)->send_msg(*m, MsgChannel::SendNonBlocking /*| MsgChannel::SendBulkOnly*/)) {
+        if (!csIt->send_msg(*m, MsgChannel::SendNonBlocking /*| MsgChannel::SendBulkOnly*/)) {
             trace() << "monitor is blocking... removing" << endl;
-            handle_end(*it_old, 0);
+            toRemove.push_back( csIt );
         }
+    }
+
+    for ( it = toRemove.begin(); it != toRemove.end(); ++it )
+    {
+      handle_end( *it, 0 );
     }
 
     delete m;
@@ -345,6 +357,10 @@ static void handle_monitor_stats(CompileServer *cs, StatsMsg *m = 0)
     sprintf(buffer, "Features:%s\n", supported_features_to_string(cs->supportedFeatures()).c_str());
     msg += buffer;
     sprintf(buffer, "Speed:%f\n", server_speed(cs));
+    msg += buffer;
+    sprintf(buffer, "ProtocolVersion:%d\n", cs->protocolVersion());
+    msg += buffer;
+    sprintf(buffer, "StartTime:%ld\n", cs->startTime());
     msg += buffer;
 
     if (m) {
@@ -501,9 +517,9 @@ static bool handle_local_job(CompileServer *cs, Msg *_m)
     }
 
     ++new_job_id;
-    trace() << "handle_local_job " << m->outfile << " " << m->id << endl;
+    trace() << "handle_local_job " << m->inFile << " " << m->id << endl;
     cs->insertClientJobId(m->id, new_job_id);
-    notify_monitors(new MonLocalJobBeginMsg(new_job_id, m->outfile, m->stime, cs->hostId()));
+    notify_monitors(new MonLocalJobBeginMsg(new_job_id, m->inFile, m->language, m->compiler, m->stime, cs->hostId()));
     return true;
 }
 
@@ -1027,6 +1043,7 @@ static bool handle_login(CompileServer *cs, Msg *_m)
     }
 
     cs->setHostPlatform(m->host_platform);
+    cs->setProtocolVersion((unsigned int)m->protocol_version);
     cs->setChrootPossible(m->chroot_possible);
     cs->setSupportedFeatures(m->supported_features);
     cs->pick_new_id();
@@ -1036,6 +1053,14 @@ static bool handle_login(CompileServer *cs, Msg *_m)
             return false;
         }
 
+    if ( !IS_PROTOCOL_107( cs ) )
+    {
+      log_warning() << "login denied daemon " << m->nodename << ", protocol version " << cs->protocol << " too old"
+                    << endl;
+      return false;
+    }
+
+    log_warning() << "login daemon " << m->nodename << endl;
     dbg << "login " << m->nodename << " protocol version: " << cs->protocol
         << " features: " << supported_features_to_string(m->supported_features)
         << " [";
@@ -1081,6 +1106,7 @@ static bool handle_relogin(MsgChannel *mc, Msg *_m)
     cs->setBusyInstalling(0);
 
     std::ostream &dbg = trace();
+    log_warning() << "relogin daemon " << m->nodename << endl;
     dbg << "RELOGIN " << cs->nodeName() << "(" << cs->hostPlatform() << "): [";
 
     for (Environments::const_iterator it = m->envs.begin(); it != m->envs.end(); ++it) {
@@ -1108,10 +1134,15 @@ static bool handle_mon_login(CompileServer *cs, Msg *_m)
     monitors.push_back(cs);
     // monitors really want to be fed lazily
     cs->setBulkTransfer();
+    cs->setNodeName(cs->name);
+
+    log_warning() << "login monitor " << cs->nodeName() << endl;
 
     for (list<CompileServer *>::const_iterator it = css.begin(); it != css.end(); ++it) {
         handle_monitor_stats(*it);
     }
+
+    notify_monitors( new MonSchedulerInfoMsg( starttimeReal, monitors.size() ) );
 
     fd2cs.erase(cs->fd);   // no expected data from them
     return true;
@@ -1274,6 +1305,28 @@ static bool handle_job_done(CompileServer *cs, Msg *_m)
     return true;
 }
 
+static bool handle_job_error( CompileServer *cs, Msg *_m )
+{
+  JobErrorMsg *m = dynamic_cast< JobErrorMsg * >( _m );
+
+  if ( !m )
+  {
+    return false;
+  }
+
+  auto monMsg = new JobErrorMsg();
+  *monMsg = *m;
+  if ( uint32_t clientId = m->client_id )
+  {
+    // Der Client weiss die Job-ID nicht. Deshalb über die Client-ID den Job ermitteln.
+    monMsg->job_id = cs->getClientJobId( clientId );
+    monMsg->client_id = 0;
+  }
+  notify_monitors( monMsg );
+
+  return true;
+}
+
 static bool handle_ping(CompileServer *cs, Msg * /*_m*/)
 {
     cs->last_talk = time(0);
@@ -1398,7 +1451,7 @@ static bool handle_control_login(CompileServer *cs)
 
     std::ostringstream o;
     o << "200-ICECC " VERSION ": "
-      << time(0) - starttime << "s uptime, "
+      << time(0) - starttimeReal << "s uptime, "
       << css.size() << " hosts, "
       << jobs.size() << " jobs in queue "
       << "(" << new_job_id << " total)." << endl;
@@ -1593,16 +1646,25 @@ static bool handle_end(CompileServer *toremove, Msg *m)
     (void)m;
 #endif
 
+    bool found = true;
+
     switch (toremove->type()) {
     case CompileServer::MONITOR:
-        assert(find(monitors.begin(), monitors.end(), toremove) != monitors.end());
+        log_warning() << "logout monitor " << toremove->nodeName() << endl;
+        found = ( find(monitors.begin(), monitors.end(), toremove) != monitors.end() );
+        assert( found );
+        if ( !found )
+        {
+          log_error() << "monitor not found " << toremove->nodeName() << endl;
+        }
         monitors.remove(toremove);
 #if DEBUG_SCHEDULER > 1
         trace() << "handle_end(moni) " << monitors.size() << endl;
 #endif
+        notify_monitors( new MonSchedulerInfoMsg( starttimeReal, monitors.size() ) );
         break;
     case CompileServer::DAEMON:
-        log_info() << "remove daemon " << toremove->nodeName() << endl;
+        log_warning() << "logout daemon " << toremove->nodeName() << endl;
 
         notify_monitors(new MonStatsMsg(toremove->hostId(), "State:Offline\n"));
 
@@ -1670,17 +1732,22 @@ static bool handle_end(CompileServer *toremove, Msg *m)
 
         break;
     case CompileServer::LINE:
+        log_warning() << "logout line" << endl;
         toremove->send_msg(TextMsg("200 Good Bye!"));
         controls.remove(toremove);
 
         break;
     default:
+        log_error() << "logout UNKNOWN" << endl;
         trace() << "remote end had UNKNOWN type?" << endl;
         break;
     }
 
     fd2cs.erase(toremove->fd);
-    delete toremove;
+    if ( found )
+    {
+      delete toremove;
+    }
     return true;
 }
 
@@ -1707,6 +1774,9 @@ static bool handle_activity(CompileServer *cs)
         break;
     case M_JOB_DONE:
         ret = handle_job_done(cs, m);
+        break;
+    case M_JOB_ERROR:
+        ret = handle_job_error( cs, m );
         break;
     case M_PING:
         ret = handle_ping(cs, m);
@@ -1871,13 +1941,13 @@ static void handle_scheduler_announce(const char* buf, const char* netname, bool
     {
         if (other_netname == netname)
         {
-            if (other_protocol_version > PROTOCOL_VERSION || (other_protocol_version == PROTOCOL_VERSION && other_time < starttime))
+            if (other_protocol_version > PROTOCOL_VERSION || (other_protocol_version == PROTOCOL_VERSION && other_time < starttimeBroadcast))
             {
                 if (!persistent_clients){
                     log_info() << "Scheduler from " << inet_ntoa(broad_addr.sin_addr)
                         << ":" << ntohs(broad_addr.sin_port)
-                        << " (version " << int(other_protocol_version) << ") has announced itself as a preferred"
-                        " scheduler, disconnecting all connections." << endl;
+                        << " (version:" << int(other_protocol_version) << " start:" << starttimeBroadcast
+                        << ") has announced itself as a preferred scheduler, disconnecting all connections." << endl;
                     if (!css.empty() || !monitors.empty())
                     {
                         while (!css.empty())
@@ -2104,9 +2174,10 @@ int main(int argc, char *argv[])
         return 1;
     }
 
-    starttime = time(0);
+    starttimeReal = time(0);
+    starttimeBroadcast = starttimeReal;
     if( getenv( "ICECC_FAKE_STARTTIME" ) != NULL )
-        starttime -= 1000;
+        starttimeBroadcast = 946684800; // 01.01.2000
 
     ofstream pidFile;
     string progName = argv[0];
@@ -2124,8 +2195,8 @@ int main(int argc, char *argv[])
 
     time_t next_listen = 0;
 
-    Broadcasts::broadcastSchedulerVersion(scheduler_port, netname, starttime);
-    last_announce = starttime;
+//    Broadcasts::broadcastSchedulerVersion(scheduler_port, netname, starttimeBroadcast);
+    last_announce = starttimeBroadcast;
 
     while (!exit_main_loop) {
         int timeout = prune_servers();
@@ -2137,8 +2208,13 @@ int main(int argc, char *argv[])
         /* Announce ourselves from time to time, to make other possible schedulers disconnect
            their daemons if we are the preferred scheduler (daemons with version new enough
            should automatically select the best scheduler, but old daemons connect randomly). */
-        if (last_announce + 120 < time(NULL)) {
-            Broadcasts::broadcastSchedulerVersion(scheduler_port, netname, starttime);
+        /* Broadcast nur senden, wenn mindestens zwei Daemonen angemeldet sind. Es kann nämlich sein,
+           dass dieser Scheduler nicht von außen erreichbar ist und dadurch kein Daemon von seiner
+           Existenz weiß. Broadcasts senden kann er aber. Das führt dazu dass, falls er der älteste ist,
+           regelmäßig alle Daemonen vom zweitältesten aber erreichbaren Scheduler rausgeworfen werden.
+           #65813 */
+        if ( ( last_announce + 120 < time(NULL) ) && ( css.size() > 2 ) ) {
+            Broadcasts::broadcastSchedulerVersion(scheduler_port, netname, starttimeBroadcast);
             last_announce = time(NULL);
         }
 
@@ -2312,7 +2388,7 @@ int main(int argc, char *argv[])
                     log_info() << "broadcast from " << inet_ntoa(broad_addr.sin_addr)
                         << ":" << ntohs(broad_addr.sin_port)
                         << " (version " << daemon_version << ")\n";
-                    int reply_len = DiscoverSched::prepareBroadcastReply(buf, netname, starttime);
+                    int reply_len = DiscoverSched::prepareBroadcastReply(buf, netname, starttimeBroadcast);
                     if (sendto(broad_fd, buf, reply_len, 0,
                                 (struct sockaddr *) &broad_addr, broad_len) != reply_len) {
                         log_perror("sendto()");
