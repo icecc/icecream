@@ -169,7 +169,8 @@ rip_out_paths(const Environments &envs, map<string, string> &version_map, map<st
 
     string versfile;
 
-    for (const auto & env : envs) {
+    // host platform + filename
+    for (const std::pair<std::string, std::string> &env : envs) {
         for (int i = 0; suffs[i] != nullptr; i++)
             if (endswith(env.second, suffs[i], versfile)) {
                 versionfile_map[env.first] = env.second;

@@ -591,10 +591,10 @@ static CompileServer *pick_server(Job *job)
 
     /* if the user wants to test/prefer one specific daemon, we look for that one first */
     if (!job->preferredHost().empty()) {
-        for (auto & cs : css) {
+        for (CompileServer* const cs : css) {
             if (cs->matches(job->preferredHost()) && cs->is_eligible_now(job)) {
 #if DEBUG_SCHEDULER > 1
-                trace() << "taking preferred " << (*it)->nodeName() << " " <<  server_speed(*it, job, true) << endl;
+                trace() << "taking preferred " << cs->nodeName() << " " <<  server_speed(*cs, job, true) << endl;
 #endif
                 return cs;
             }
@@ -608,7 +608,7 @@ static CompileServer *pick_server(Job *job)
         CompileServer *selected = nullptr;
         int eligible_count = 0;
 
-        for (auto & cs : css) {
+        for (CompileServer* const cs : css) {
             if (cs->is_eligible_now( job )) {
                 ++eligible_count;
                 // Do not select the first one (which could be broken and so we might never get job stats),
@@ -634,8 +634,7 @@ static CompileServer *pick_server(Job *job)
 
     uint matches = 0;
 
-    for (list<CompileServer *>::iterator it = css.begin(); it != css.end(); ++it) {
-        CompileServer *cs = *it;
+    for (CompileServer * const cs : css) {
 
         // Ignore ineligible servers
         if (!cs->is_eligible_now(job)) {
@@ -889,7 +888,7 @@ static bool empty_queue()
 
             if ((job == first_job) || !job) { // no job found in the whole toanswer list
                 job = first_job;
-                for (auto & cs : css) {
+                for (CompileServer * const cs : css) {
                     if(!job->preferredHost().empty() && !cs->matches(job->preferredHost()))
                         continue;
                     if(cs->is_eligible_ever(job)) {
@@ -995,10 +994,10 @@ static bool empty_queue()
 
     if (!env.empty()) {
         list<Job *> masterJobFor = job->masterJobFor();
-        for (auto & it : masterJobFor) {
+        for (Job * const job : masterJobFor) {
             // remove all other environments
-            it->clearEnvironments();
-            it->appendEnvironment(make_pair(cs->hostPlatform(), env));
+            job->clearEnvironments();
+            job->appendEnvironment(make_pair(cs->hostPlatform(), env));
         }
     }
 
@@ -1303,11 +1302,11 @@ static bool handle_stats(CompileServer *cs, Msg *_m)
         }
     }
 
-    for (auto & it : css)
-        if (it == cs) {
-            it->setLoad(m->load);
-            it->setClientCount(m->client_count);
-            handle_monitor_stats(it, m);
+    for (CompileServer * const c : css)
+        if (c == cs) {
+            c->setLoad(m->load);
+            c->setClientCount(m->client_count);
+            handle_monitor_stats(c, m);
             return true;
         }
 
@@ -1430,7 +1429,7 @@ static bool handle_line(CompileServer *cs, Msg *_m)
     }
 
     if (cmd == "listcs") {
-        for (auto & it : css) {
+        for (CompileServer * const it : css) {
             char buffer[1000];
             sprintf(buffer, " (%s:%u) ", it->name.c_str(), it->remotePort());
             line = " " + it->nodeName() + buffer;
@@ -1479,7 +1478,7 @@ static bool handle_line(CompileServer *cs, Msg *_m)
             for (list<string>::const_iterator si = l.begin(); si != l.end(); ++si) {
                 if (cmd == "blockcs")
                     block_css.push_back(*si);
-                for (auto & it : css) {
+                for (CompileServer * const it : css) {
                     if (it->matches(*si)) {
                         if (cs->send_msg(TextMsg(string("removing host ") + *si))) {
                             handle_end(it, nullptr);
@@ -1504,7 +1503,7 @@ static bool handle_line(CompileServer *cs, Msg *_m)
             }
         }
     } else if (cmd == "internals") {
-        for (auto & it : css) {
+        for (CompileServer * const it : css) {
             Msg *msg = nullptr;
 
             if (!l.empty()) {
@@ -1664,7 +1663,7 @@ static bool handle_end(CompileServer *toremove, Msg *m)
             }
         }
 
-        for (auto & cs : css) {
+        for (CompileServer * const cs : css) {
             cs->eraseCSFromBlacklist(toremove);
         }
 
@@ -2182,7 +2181,7 @@ int main(int argc, char *argv[])
         }
 
         list<CompileServer *> cs_in_tsts;
-        for (auto & cs : css)
+        for (CompileServer * const cs : css)
         {
             if (cs->getConnectionInProgress())
             {

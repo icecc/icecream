@@ -327,8 +327,8 @@ int build_local(CompileJob &job, MsgChannel *local_daemon, struct rusage *used)
 
         _exit(exitcode);
     }
-    for(auto i : argv){
-        free(i);
+    for(char* const arg : argv){
+        free(arg);
     }
     argv.clear();
 

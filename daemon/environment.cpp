@@ -308,7 +308,7 @@ int start_create_env(const string &basedir, uid_t user_uid, gid_t user_gid,
     const int first_to_free = pos;
     argv[pos++] = strdup(compiler.c_str());
 
-    for (const auto & extrafile : extrafiles) {
+    for (const std::string &extrafile : extrafiles) {
         argv[pos++] = strdup(extrafile.c_str());
     }
 

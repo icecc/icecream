@@ -78,7 +78,7 @@ should_always_build_locally(const string &filepath)
 
     /* cmake */
     if (str_startswith("Check", filename)) {
-        for(auto cmake_check : cmake_checks) {
+        for(const char* const cmake_check : cmake_checks) {
             if (str_startswith( cmake_check, filename)) {
                 return true;
             }
@@ -221,8 +221,8 @@ static bool is_argument_with_space(const char* argument)
         "-iwithsysroot"
     };
 
-    for(auto i : arguments) {
-        if (str_equal( i, argument)) {
+    for(const char* const arg : arguments) {
+        if (str_equal( arg, argument)) {
             return true;
         }
     }
@@ -616,9 +616,9 @@ bool analyse_argv(const char * const *argv, CompileJob &job, bool icerun, list<s
                        || str_startswith("-fprofile-sample-use=", a)) {
                 const char* prefix = nullptr;
                 static const char* const prefixes[] = { "-fplugin=", "-fsanitize-blacklist=", "-fprofile-sample-use=" };
-                for(auto prefixe : prefixes) {
-                    if( str_startswith(prefixe, a)) {
-                        prefix = prefixe;
+                for(const char* const pr : prefixes) {
+                    if( str_startswith(pr, a)) {
+                        prefix = pr;
                         break;
                     }
                 }
