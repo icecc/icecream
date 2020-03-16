@@ -194,7 +194,7 @@ int handle_connection(const string &basedir, CompileJob *job,
             throw myexception(EXIT_DISTCC_FAILED);
         }
 
-        if (::access(_PATH_TMP + 1, W_OK) < 0) {
+        if (::access(&_PATH_TMP[1], W_OK) < 0) {
             error_client(client, "can't write to " _PATH_TMP);
             log_error() << "can't write into " << _PATH_TMP << " " << strerror(errno) << endl;
             throw myexception(-1);

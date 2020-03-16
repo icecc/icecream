@@ -89,7 +89,7 @@ int dcc_make_tmpnam(const char *prefix, const char *suffix, char **name_ret, int
 
     do {
         if (snprintf(tmpname, tmpname_length, "%s/%s_%08lx%s",
-                     (relative ? _PATH_TMP + 1 : _PATH_TMP),
+                     (relative ? &_PATH_TMP[1] : _PATH_TMP),
                      prefix,
                      random_bits & 0xffffffffUL,
                      suffix) == -1) {

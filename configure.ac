@@ -69,11 +69,11 @@ if test "$GCC" = yes; then
             wshadow=-Wshadow
         ],
         [ AC_MSG_RESULT(no) ])
-    CFLAGS="-g -W -Wall \
+    CFLAGS="-g -Wall -Wextra \
 -Wshadow -Wpointer-arith $cast_align -Wwrite-strings \
 -Waggregate-return -Wstrict-prototypes -Wmissing-prototypes \
 -Wnested-externs -Wundef $CFLAGS"
-    CXXFLAGS=" -g -W -Wall -Wpointer-arith $cast_align $wshadow -Wwrite-strings -Wundef $CXXFLAGS"
+    CXXFLAGS=" -g -Wall -Wextra -Wpointer-arith $cast_align $wshadow -Wwrite-strings -Wundef $CXXFLAGS"
     AC_MSG_NOTICE([Adding gcc options: $CFLAGS])
 fi
 
