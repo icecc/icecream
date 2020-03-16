@@ -1298,7 +1298,7 @@ static bool handle_stats(CompileServer *cs, Msg *_m)
     if (!IS_PROTOCOL_25(cs)) {
         cs->last_talk = time(0);
 
-        if (cs && (cs->maxJobs() < 0)) {
+        if (cs->maxJobs() < 0) {
             cs->setMaxJobs(cs->maxJobs() * -1);
         }
     }
@@ -1432,10 +1432,10 @@ static bool handle_line(CompileServer *cs, Msg *_m)
     if (cmd == "listcs") {
         for (list<CompileServer *>::iterator it = css.begin(); it != css.end(); ++it) {
             char buffer[1000];
-            sprintf(buffer, " (%s:%d) ", (*it)->name.c_str(), (*it)->remotePort());
+            sprintf(buffer, " (%s:%u) ", (*it)->name.c_str(), (*it)->remotePort());
             line = " " + (*it)->nodeName() + buffer;
             line += "[" + (*it)->hostPlatform() + "] speed=";
-            sprintf(buffer, "%.2f jobs=%d/%d load=%d", server_speed(*it),
+            sprintf(buffer, "%.2f jobs=%d/%d load=%u", server_speed(*it),
                     (int)(*it)->jobList().size(), (*it)->maxJobs(), (*it)->load());
             line += buffer;
 
