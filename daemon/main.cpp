@@ -599,7 +599,9 @@ bool Daemon::setup_listen_fds()
                 return false;
         }
     }
-    return setup_listen_unix_fd();
+    if( !setup_listen_unix_fd())
+        return false;
+    return true;
 }
 
 bool Daemon::setup_listen_tcp_fd( int& fd, const string& interface )
