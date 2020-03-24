@@ -1398,10 +1398,7 @@ bool Broadcasts::isSchedulerVersion(const char* buf, int buflen)
     if( buflen != BROAD_BUFLEN )
         return false;
     // Ignore versions older than 38, they are older than us anyway, so not interesting.
-    if( buf[0] == 'I' && buf[1] == 'C' && buf[2] == 'F') {
-        return true;
-    }
-    return false;
+    return buf[0] == 'I' && buf[1] == 'C' && buf[2] == 'F';
 }
 
 void Broadcasts::getSchedulerVersionData( const char* buf, int* protocol, time_t* time, string* netname )

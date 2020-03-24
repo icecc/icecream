@@ -250,11 +250,7 @@ static bool analyze_assembler_arg(string &arg, list<string> *extrafiles)
             pos++;
         }
 
-        if (*pos == '=') {
-            return true;
-        }
-
-        return false;
+        return *pos == '=';
     } else if (str_equal("--debug-prefix-map", pos) ||
                str_equal("--defsym", pos)) {
         second_option = true;
