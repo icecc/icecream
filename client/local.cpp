@@ -327,8 +327,8 @@ int build_local(CompileJob &job, MsgChannel *local_daemon, struct rusage *used)
 
         _exit(exitcode);
     }
-    for(vector<char*>::const_iterator i = argv.begin(); i != argv.end(); ++i){
-        free(*i);
+    for(auto i : argv){
+        free(i);
     }
     argv.clear();
 

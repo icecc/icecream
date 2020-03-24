@@ -252,9 +252,9 @@ public:
     unsigned int active_processes;
 
     Client *find_by_client_id(int id) const {
-        for (const_iterator it = begin(); it != end(); ++it)
-            if (it->second->client_id == id) {
-                return it->second;
+        for (auto it : *this)
+            if (it.second->client_id == id) {
+                return it.second;
             }
 
         return nullptr;
@@ -271,9 +271,9 @@ public:
     }
 
     Client *find_by_pid(pid_t pid) const {
-        for (const_iterator it = begin(); it != end(); ++it)
-            if (it->second->child_pid == pid) {
-                return it->second;
+        for (auto it : *this)
+            if (it.second->child_pid == pid) {
+                return it.second;
             }
 
         return nullptr;
@@ -293,8 +293,8 @@ public:
     string dump_status(Client::Status s) const {
         int count = 0;
 
-        for (const_iterator it = begin(); it != end(); ++it) {
-            if (it->second->status == s) {
+        for (auto it : *this) {
+            if (it.second->status == s) {
                 count++;
             }
         }
@@ -321,9 +321,9 @@ public:
         Client *client = nullptr;
         int min_client_id = 0;
 
-        for (const_iterator it = begin(); it != end(); ++it) {
-            if (it->second->status == s && (!min_client_id || min_client_id > it->second->client_id)) {
-                client = it->second;
+        for (auto it : *this) {
+            if (it.second->status == s && (!min_client_id || min_client_id > it.second->client_id)) {
+                client = it.second;
                 min_client_id = client->client_id;
             }
         }
@@ -922,12 +922,12 @@ string Daemon::dump_internals() const
     result += "Node Name: " + nodename + "\n";
     result += "  Remote name: " + remote_name + "\n";
 
-    for (map<int, MsgChannel *>::const_iterator it = fd2chan.begin(); it != fd2chan.end(); ++it)  {
-        result += "  fd2chan[" + toString(it->first) + "] = " + it->second->dump() + "\n";
+    for (auto it : fd2chan)  {
+        result += "  fd2chan[" + toString(it.first) + "] = " + it.second->dump() + "\n";
     }
 
-    for (Clients::const_iterator it = clients.begin(); it != clients.end(); ++it)  {
-        result += "  client " + toString(it->second->client_id) + ": " + it->second->dump() + "\n";
+    for (auto client : clients)  {
+        result += "  client " + toString(client.second->client_id) + ": " + client.second->dump() + "\n";
     }
 
     if (cache_size) {
@@ -936,10 +936,9 @@ string Daemon::dump_internals() const
 
     result += "  Architecture: " + machine_name + "\n";
 
-    for (map<string, NativeEnvironment>::const_iterator it = native_environments.begin();
-            it != native_environments.end(); ++it) {
-        result += "  NativeEnv (" + it->first + "): " + it->second.name
-            + ", size " + toString(it->second.size) + (it->second.create_env_pipe ? " (creating)" : "" ) + "\n";
+    for (const auto & native_environment : native_environments) {
+        result += "  NativeEnv (" + native_environment.first + "): " + native_environment.second.name
+            + ", size " + toString(native_environment.second.size) + (native_environment.second.create_env_pipe ? " (creating)" : "" ) + "\n";
     }
 
     if (!received_environments.empty()) {

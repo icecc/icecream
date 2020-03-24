@@ -591,12 +591,12 @@ static CompileServer *pick_server(Job *job)
 
     /* if the user wants to test/prefer one specific daemon, we look for that one first */
     if (!job->preferredHost().empty()) {
-        for (list<CompileServer *>::iterator it = css.begin(); it != css.end(); ++it) {
-            if ((*it)->matches(job->preferredHost()) && (*it)->is_eligible_now(job)) {
+        for (auto & cs : css) {
+            if (cs->matches(job->preferredHost()) && cs->is_eligible_now(job)) {
 #if DEBUG_SCHEDULER > 1
                 trace() << "taking preferred " << (*it)->nodeName() << " " <<  server_speed(*it, job, true) << endl;
 #endif
-                return *it;
+                return cs;
             }
         }
 
@@ -608,13 +608,13 @@ static CompileServer *pick_server(Job *job)
         CompileServer *selected = nullptr;
         int eligible_count = 0;
 
-        for (list<CompileServer *>::iterator it = css.begin(); it != css.end(); ++it) {
-            if ((*it)->is_eligible_now( job )) {
+        for (auto & cs : css) {
+            if (cs->is_eligible_now( job )) {
                 ++eligible_count;
                 // Do not select the first one (which could be broken and so we might never get job stats),
                 // but rather select randomly.
                 if( random() % eligible_count == 0 )
-                  selected = *it;
+                  selected = cs;
             }
         }
 
@@ -889,10 +889,10 @@ static bool empty_queue()
 
             if ((job == first_job) || !job) { // no job found in the whole toanswer list
                 job = first_job;
-                for (list<CompileServer *>::iterator it = css.begin(); it != css.end(); ++it) {
-                    if(!job->preferredHost().empty() && !(*it)->matches(job->preferredHost()))
+                for (auto & cs : css) {
+                    if(!job->preferredHost().empty() && !cs->matches(job->preferredHost()))
                         continue;
-                    if((*it)->is_eligible_ever(job)) {
+                    if(cs->is_eligible_ever(job)) {
                         trace() << "No suitable host found, delaying" << endl;
                         return false;
                     }
@@ -995,10 +995,10 @@ static bool empty_queue()
 
     if (!env.empty()) {
         list<Job *> masterJobFor = job->masterJobFor();
-        for (list<Job *>::iterator it = masterJobFor.begin(); it != masterJobFor.end(); ++it) {
+        for (auto & it : masterJobFor) {
             // remove all other environments
-            (*it)->clearEnvironments();
-            (*it)->appendEnvironment(make_pair(cs->hostPlatform(), env));
+            it->clearEnvironments();
+            it->appendEnvironment(make_pair(cs->hostPlatform(), env));
         }
     }
 
@@ -1303,11 +1303,11 @@ static bool handle_stats(CompileServer *cs, Msg *_m)
         }
     }
 
-    for (list<CompileServer *>::iterator it = css.begin(); it != css.end(); ++it)
-        if (*it == cs) {
-            (*it)->setLoad(m->load);
-            (*it)->setClientCount(m->client_count);
-            handle_monitor_stats(*it, m);
+    for (auto & it : css)
+        if (it == cs) {
+            it->setLoad(m->load);
+            it->setClientCount(m->client_count);
+            handle_monitor_stats(it, m);
             return true;
         }
 
@@ -1430,17 +1430,17 @@ static bool handle_line(CompileServer *cs, Msg *_m)
     }
 
     if (cmd == "listcs") {
-        for (list<CompileServer *>::iterator it = css.begin(); it != css.end(); ++it) {
+        for (auto & it : css) {
             char buffer[1000];
-            sprintf(buffer, " (%s:%u) ", (*it)->name.c_str(), (*it)->remotePort());
-            line = " " + (*it)->nodeName() + buffer;
-            line += "[" + (*it)->hostPlatform() + "] speed=";
-            sprintf(buffer, "%.2f jobs=%d/%d load=%u", server_speed(*it),
-                    (int)(*it)->jobList().size(), (*it)->maxJobs(), (*it)->load());
+            sprintf(buffer, " (%s:%u) ", it->name.c_str(), it->remotePort());
+            line = " " + it->nodeName() + buffer;
+            line += "[" + it->hostPlatform() + "] speed=";
+            sprintf(buffer, "%.2f jobs=%d/%d load=%u", server_speed(it),
+                    (int)it->jobList().size(), it->maxJobs(), it->load());
             line += buffer;
 
-            if ((*it)->busyInstalling()) {
-                sprintf(buffer, " busy installing since %ld s",  time(nullptr) - (*it)->busyInstalling());
+            if (it->busyInstalling()) {
+                sprintf(buffer, " busy installing since %ld s",  time(nullptr) - it->busyInstalling());
                 line += buffer;
             }
 
@@ -1448,7 +1448,7 @@ static bool handle_line(CompileServer *cs, Msg *_m)
                 return false;
             }
 
-            list<Job *> jobList = (*it)->jobList();
+            list<Job *> jobList = it->jobList();
             for (list<Job *>::const_iterator it2 = jobList.begin(); it2 != jobList.end(); ++it2) {
                 if (!cs->send_msg(TextMsg("   " + dump_job(*it2)))) {
                     return false;
@@ -1479,10 +1479,10 @@ static bool handle_line(CompileServer *cs, Msg *_m)
             for (list<string>::const_iterator si = l.begin(); si != l.end(); ++si) {
                 if (cmd == "blockcs")
                     block_css.push_back(*si);
-                for (list<CompileServer *>::iterator it = css.begin(); it != css.end(); ++it) {
-                    if ((*it)->matches(*si)) {
+                for (auto & it : css) {
+                    if (it->matches(*si)) {
                         if (cs->send_msg(TextMsg(string("removing host ") + *si))) {
-                            handle_end(*it, nullptr);
+                            handle_end(it, nullptr);
                         }
                         break;
                     }
@@ -1504,14 +1504,14 @@ static bool handle_line(CompileServer *cs, Msg *_m)
             }
         }
     } else if (cmd == "internals") {
-        for (list<CompileServer *>::iterator it = css.begin(); it != css.end(); ++it) {
+        for (auto & it : css) {
             Msg *msg = nullptr;
 
             if (!l.empty()) {
                 list<string>::const_iterator si;
 
                 for (si = l.begin(); si != l.end(); ++si) {
-                    if ((*it)->matches(*si)) {
+                    if (it->matches(*si)) {
                         break;
                     }
                 }
@@ -1521,8 +1521,8 @@ static bool handle_line(CompileServer *cs, Msg *_m)
                 }
             }
 
-            if ((*it)->send_msg(GetInternalStatus())) {
-                msg = (*it)->get_msg();
+            if (it->send_msg(GetInternalStatus())) {
+                msg = it->get_msg();
             }
 
             if (msg && msg->type == M_STATUS_TEXT) {
@@ -1530,7 +1530,7 @@ static bool handle_line(CompileServer *cs, Msg *_m)
                     return false;
                 }
             } else {
-                if (!cs->send_msg(TextMsg((*it)->nodeName() + " not reporting\n"))) {
+                if (!cs->send_msg(TextMsg(it->nodeName() + " not reporting\n"))) {
                     return false;
                 }
             }
@@ -1664,8 +1664,8 @@ static bool handle_end(CompileServer *toremove, Msg *m)
             }
         }
 
-        for (list<CompileServer *>::iterator itr = css.begin(); itr != css.end(); ++itr) {
-            (*itr)->eraseCSFromBlacklist(toremove);
+        for (auto & cs : css) {
+            cs->eraseCSFromBlacklist(toremove);
         }
 
         break;
@@ -2182,12 +2182,12 @@ int main(int argc, char *argv[])
         }
 
         list<CompileServer *> cs_in_tsts;
-        for (list<CompileServer *>::iterator it = css.begin(); it != css.end(); ++it)
+        for (auto & cs : css)
         {
-            if ((*it)->getConnectionInProgress())
+            if (cs->getConnectionInProgress())
             {
-                int csInFd = (*it)->getInFd();
-                cs_in_tsts.push_back(*it);
+                int csInFd = cs->getInFd();
+                cs_in_tsts.push_back(cs);
                 pfd.fd = csInFd;
                 pfd.events = POLLIN | POLLOUT;
                 pollfds.push_back( pfd );

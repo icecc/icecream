@@ -500,9 +500,8 @@ MsgChannel &MsgChannel::operator<<(const std::list<std::string> &l)
 {
     *this << (uint32_t) l.size();
 
-    for (list<string>::const_iterator it = l.begin();
-            it != l.end(); ++it) {
-        *this << *it;
+    for (const auto & it : l) {
+        *this << it;
     }
 
     return *this;
@@ -512,9 +511,9 @@ void MsgChannel::write_environments(const Environments &envs)
 {
     *this << envs.size();
 
-    for (Environments::const_iterator it = envs.begin(); it != envs.end(); ++it) {
-        *this << it->first;
-        *this << it->second;
+    for (const auto & env : envs) {
+        *this << env.first;
+        *this << env.second;
     }
 }
 

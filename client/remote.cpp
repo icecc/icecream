@@ -169,13 +169,13 @@ rip_out_paths(const Environments &envs, map<string, string> &version_map, map<st
 
     string versfile;
 
-    for (Environments::const_iterator it = envs.begin(); it != envs.end(); ++it) {
+    for (const auto & env : envs) {
         for (int i = 0; suffs[i] != nullptr; i++)
-            if (endswith(it->second, suffs[i], versfile)) {
-                versionfile_map[it->first] = it->second;
+            if (endswith(env.second, suffs[i], versfile)) {
+                versionfile_map[env.first] = env.second;
                 versfile = find_basename(versfile);
-                version_map[it->first] = versfile;
-                env2.push_back(make_pair(it->first, versfile));
+                version_map[env.first] = versfile;
+                env2.push_back(make_pair(env.first, versfile));
             }
     }
 
