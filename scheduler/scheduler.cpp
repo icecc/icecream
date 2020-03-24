@@ -122,7 +122,7 @@ static list<UnansweredList *> toanswer;
 static list<JobStat> all_job_stats;
 static JobStat cum_job_stats;
 
-static float server_speed(CompileServer *cs, Job *job = 0, bool blockDebug = false);
+static float server_speed(CompileServer *cs, Job *job = nullptr, bool blockDebug = false);
 
 /* Searches the queue for JOB and removes it.
    Returns true if something was deleted.  */
@@ -239,7 +239,7 @@ static void notify_monitors(Msg *m)
         /* If we can't send it, don't be clever, simply close this monitor.  */
         if (!(*it_old)->send_msg(*m, MsgChannel::SendNonBlocking /*| MsgChannel::SendBulkOnly*/)) {
             trace() << "monitor is blocking... removing" << endl;
-            handle_end(*it_old, 0);
+            handle_end(*it_old, nullptr);
         }
     }
 
@@ -322,7 +322,7 @@ static float server_speed(CompileServer *cs, Job *job, bool blockDebug)
     }
 }
 
-static void handle_monitor_stats(CompileServer *cs, StatsMsg *m = 0)
+static void handle_monitor_stats(CompileServer *cs, StatsMsg *m = nullptr)
 {
     if (monitors.empty()) {
         return;
@@ -391,7 +391,7 @@ static void enqueue_job_request(Job *job)
 static Job *get_job_request(void)
 {
     if (toanswer.empty()) {
-        return 0;
+        return nullptr;
     }
 
     UnansweredList *first = toanswer.front();
@@ -431,7 +431,7 @@ static bool handle_cs_request(MsgChannel *cs, Msg *_m)
 
     submitter->setClientCount(m->client_count);
 
-    Job *master_job = 0;
+    Job *master_job = nullptr;
 
     for (unsigned int i = 0; i < m->count; ++i) {
         Job *job = create_new_job(submitter);
@@ -600,12 +600,12 @@ static CompileServer *pick_server(Job *job)
             }
         }
 
-        return 0;
+        return nullptr;
     }
 
     /* If we have no statistics simply use any server which is usable.  */
     if (!all_job_stats.size ()) {
-        CompileServer *selected = NULL;
+        CompileServer *selected = nullptr;
         int eligible_count = 0;
 
         for (list<CompileServer *>::iterator it = css.begin(); it != css.end(); ++it) {
@@ -618,19 +618,19 @@ static CompileServer *pick_server(Job *job)
             }
         }
 
-        if( selected != NULL ) {
+        if( selected != nullptr ) {
             trace() << "no job stats - returning randomly selected " << selected->nodeName() << " load: " << selected->load() << " can install: " << selected->can_install(job) << endl;
             return selected;
         }
 
-        return 0;
+        return nullptr;
     }
 
-    CompileServer *best = 0;
+    CompileServer *best = nullptr;
     // best uninstalled
-    CompileServer *bestui = 0;
+    CompileServer *bestui = nullptr;
     // best preloadable host
-    CompileServer *bestpre = 0;
+    CompileServer *bestpre = nullptr;
 
     uint matches = 0;
 
@@ -764,14 +764,14 @@ static time_t prune_servers()
 {
     list<CompileServer *>::iterator it;
 
-    time_t now = time(0);
+    time_t now = time(nullptr);
     time_t min_time = MAX_SCHEDULER_PING;
 
     for (it = controls.begin(); it != controls.end();) {
         if ((now - (*it)->last_talk) >= MAX_SCHEDULER_PING) {
             CompileServer *old = *it;
             ++it;
-            handle_end(old, 0);
+            handle_end(old, nullptr);
             continue;
         }
 
@@ -791,7 +791,7 @@ static time_t prune_servers()
             trace() << "busy installing for a long time - removing " << (*it)->nodeName() << endl;
             CompileServer *old = *it;
             ++it;
-            handle_end(old, 0);
+            handle_end(old, nullptr);
             continue;
         }
 
@@ -808,7 +808,7 @@ static time_t prune_servers()
 
                 if ((*it)->send_msg(PingMsg())) {
                     // give it MAX_SCHEDULER_PONG to answer a ping
-                    (*it)->last_talk = time(0) - MAX_SCHEDULER_PING
+                    (*it)->last_talk = time(nullptr) - MAX_SCHEDULER_PING
                                        + 2 * MAX_SCHEDULER_PONG;
                     min_time = min(min_time, (time_t) 2 * MAX_SCHEDULER_PONG);
                     ++it;
@@ -820,7 +820,7 @@ static time_t prune_servers()
             trace() << "removing " << (*it)->nodeName() << endl;
             CompileServer *old = *it;
             ++it;
-            handle_end(old, 0);
+            handle_end(old, nullptr);
             continue;
         } else {
             min_time = min(min_time, MAX_SCHEDULER_PING - now + (*it)->last_talk);
@@ -848,7 +848,7 @@ static Job *delay_current_job()
     assert(!toanswer.empty());
 
     if (toanswer.size() == 1) {
-        return 0;
+        return nullptr;
     }
 
     UnansweredList *first = toanswer.front();
@@ -868,7 +868,7 @@ static bool empty_queue()
     assert(!css.empty());
 
     Job *first_job = job;
-    CompileServer *cs = 0;
+    CompileServer *cs = nullptr;
 
     while (true) {
         cs = pick_server(job);
@@ -951,7 +951,7 @@ static bool empty_queue()
         NoCSMsg m2(job->id(), job->localClientId());
         if (!job->submitter()->send_msg(m2)) {
             trace() << "failed to deliver job " << job->id() << endl;
-            handle_end(job->submitter(), 0);   // will care for the rest
+            handle_end(job->submitter(), nullptr);   // will care for the rest
             return true;
         }
     }
@@ -961,7 +961,7 @@ static bool empty_queue()
                 gotit, job->localClientId(), matched_job_id);
         if (!job->submitter()->send_msg(m2)) {
             trace() << "failed to deliver job " << job->id() << endl;
-            handle_end(job->submitter(), 0);   // will care for the rest
+            handle_end(job->submitter(), nullptr);   // will care for the rest
             return true;
         }
     }
@@ -978,7 +978,7 @@ static bool empty_queue()
 
     /* if it doesn't have the environment, it will get it. */
     if (!gotit) {
-        cs->setBusyInstalling(time(0));
+        cs->setBusyInstalling(time(nullptr));
     }
 
     string env;
@@ -1051,7 +1051,7 @@ static bool handle_login(CompileServer *cs, Msg *_m)
         if (cs->eq_ip(*(*it)) && cs->nodeName() == (*it)->nodeName()) {
             CompileServer *old = *it;
             ++it;
-            handle_end(old, 0);
+            handle_end(old, nullptr);
             continue;
         }
 
@@ -1141,7 +1141,7 @@ static bool handle_job_begin(CompileServer *cs, Msg *_m)
 
     job->setState(Job::COMPILING);
     job->setStartTime(m->stime);
-    job->setStartOnScheduler(time(0));
+    job->setStartOnScheduler(time(nullptr));
     notify_monitors(new MonJobBeginMsg(m->job_id, m->stime, cs->hostId()));
 #if DEBUG_SCHEDULER >= 0
     trace() << "BEGIN: " << m->job_id << " client=" << job->submitter()->nodeName()
@@ -1162,7 +1162,7 @@ static bool handle_job_done(CompileServer *cs, Msg *_m)
         return false;
     }
 
-    Job *j = 0;
+    Job *j = nullptr;
 
     if (uint32_t clientId = m->unknown_job_client_id()) {
         // The daemon has sent a done message for a job for which it doesn't know the job id (happens
@@ -1175,7 +1175,7 @@ static bool handle_job_done(CompileServer *cs, Msg *_m)
                     << " " << job->state() << " " << job->localClientId() << " " << clientId
                     << endl;
 
-            if (job->server() == 0 && job->submitter() == cs && job->localClientId() == clientId) {
+            if (job->server() == nullptr && job->submitter() == cs && job->localClientId() == clientId) {
                 trace() << "STOP (WAITFORCS) FOR " << mit->first << endl;
                 j = job;
                 m->set_job_id( j->id()); // Now we know the job's id.
@@ -1217,7 +1217,7 @@ static bool handle_job_done(CompileServer *cs, Msg *_m)
         log_info() << "server: " << j->server()->nodeName() << endl;
         log_info() << "msg came from: " << cs->nodeName() << endl;
         // the daemon is not following matz's rules: kick him
-        handle_end(cs, 0);
+        handle_end(cs, nullptr);
         return false;
     }
 
@@ -1226,7 +1226,7 @@ static bool handle_job_done(CompileServer *cs, Msg *_m)
         log_info() << "submitter: " << j->submitter()->nodeName() << endl;
         log_info() << "msg came from: " << cs->nodeName() << endl;
         // the daemon is not following matz's rules: kick him
-        handle_end(cs, 0);
+        handle_end(cs, nullptr);
         return false;
     }
 
@@ -1276,7 +1276,7 @@ static bool handle_job_done(CompileServer *cs, Msg *_m)
 
 static bool handle_ping(CompileServer *cs, Msg * /*_m*/)
 {
-    cs->last_talk = time(0);
+    cs->last_talk = time(nullptr);
 
     if (cs->maxJobs() < 0) {
         cs->setMaxJobs(cs->maxJobs() * -1);
@@ -1296,7 +1296,7 @@ static bool handle_stats(CompileServer *cs, Msg *_m)
     /* Before protocol 25, ping and stat handling was
        clutched together.  */
     if (!IS_PROTOCOL_25(cs)) {
-        cs->last_talk = time(0);
+        cs->last_talk = time(nullptr);
 
         if (cs->maxJobs() < 0) {
             cs->setMaxJobs(cs->maxJobs() * -1);
@@ -1390,7 +1390,7 @@ static void split_string(const string &s, const char *set, list<string> &l)
 static bool handle_control_login(CompileServer *cs)
 {
     cs->setType(CompileServer::LINE);
-    cs->last_talk = time(0);
+    cs->last_talk = time(nullptr);
     cs->setBulkTransfer();
     cs->setState(CompileServer::LOGGEDIN);
     assert(find(controls.begin(), controls.end(), cs) == controls.end());
@@ -1398,7 +1398,7 @@ static bool handle_control_login(CompileServer *cs)
 
     std::ostringstream o;
     o << "200-ICECC " VERSION ": "
-      << time(0) - starttime << "s uptime, "
+      << time(nullptr) - starttime << "s uptime, "
       << css.size() << " hosts, "
       << jobs.size() << " jobs in queue "
       << "(" << new_job_id << " total)." << endl;
@@ -1419,7 +1419,7 @@ static bool handle_line(CompileServer *cs, Msg *_m)
     split_string(m->text, " \t\n", l);
     string cmd;
 
-    cs->last_talk = time(0);
+    cs->last_talk = time(nullptr);
 
     if (l.empty()) {
         cmd = "";
@@ -1440,7 +1440,7 @@ static bool handle_line(CompileServer *cs, Msg *_m)
             line += buffer;
 
             if ((*it)->busyInstalling()) {
-                sprintf(buffer, " busy installing since %ld s",  time(0) - (*it)->busyInstalling());
+                sprintf(buffer, " busy installing since %ld s",  time(nullptr) - (*it)->busyInstalling());
                 line += buffer;
             }
 
@@ -1468,7 +1468,7 @@ static bool handle_line(CompileServer *cs, Msg *_m)
                 return false;
             }
     } else if (cmd == "quit" || cmd == "exit") {
-        handle_end(cs, 0);
+        handle_end(cs, nullptr);
         return false;
     } else if (cmd == "removecs" || cmd == "blockcs") {
         if (l.empty()) {
@@ -1482,7 +1482,7 @@ static bool handle_line(CompileServer *cs, Msg *_m)
                 for (list<CompileServer *>::iterator it = css.begin(); it != css.end(); ++it) {
                     if ((*it)->matches(*si)) {
                         if (cs->send_msg(TextMsg(string("removing host ") + *si))) {
-                            handle_end(*it, 0);
+                            handle_end(*it, nullptr);
                         }
                         break;
                     }
@@ -1505,7 +1505,7 @@ static bool handle_line(CompileServer *cs, Msg *_m)
         }
     } else if (cmd == "internals") {
         for (list<CompileServer *>::iterator it = css.begin(); it != css.end(); ++it) {
-            Msg *msg = NULL;
+            Msg *msg = nullptr;
 
             if (!l.empty()) {
                 list<string>::const_iterator si;
@@ -1818,7 +1818,7 @@ static int open_tcp_listener(short port, const string &interface)
     return fd;
 }
 
-static void usage(const char *reason = 0)
+static void usage(const char *reason = nullptr)
 {
     if (reason) {
         cerr << reason << endl;
@@ -1882,11 +1882,11 @@ static void handle_scheduler_announce(const char* buf, const char* netname, bool
                     {
                         while (!css.empty())
                         {
-                            handle_end(css.front(), NULL);
+                            handle_end(css.front(), nullptr);
                         }
                         while (!monitors.empty())
                         {
-                            handle_end(monitors.front(), NULL);
+                            handle_end(monitors.front(), nullptr);
                         }
                     }
                 }
@@ -1928,15 +1928,15 @@ int main(int argc, char *argv[])
     while (true) {
         int option_index = 0;
         static const struct option long_options[] = {
-            { "netname", 1, NULL, 'n' },
-            { "help", 0, NULL, 'h' },
-            { "persistent-client-connection", 0, NULL, 'r' },
-            { "interface", 1, NULL, 'i' },
-            { "port", 1, NULL, 'p' },
-            { "daemonize", 0, NULL, 'd'},
-            { "log-file", 1, NULL, 'l'},
-            { "user-uid", 1, NULL, 'u'},
-            { 0, 0, 0, 0 }
+            { "netname", 1, nullptr, 'n' },
+            { "help", 0, nullptr, 'h' },
+            { "persistent-client-connection", 0, nullptr, 'r' },
+            { "interface", 1, nullptr, 'i' },
+            { "port", 1, nullptr, 'p' },
+            { "daemonize", 0, nullptr, 'd'},
+            { "log-file", 1, nullptr, 'l'},
+            { "user-uid", 1, nullptr, 'u'},
+            { nullptr, 0, nullptr, 0 }
         };
 
         const int c = getopt_long(argc, argv, "n:i:p:hl:vdru:", long_options, &option_index);
@@ -2054,7 +2054,7 @@ int main(int argc, char *argv[])
             logfile = "/var/log/icecc/scheduler.log";
         }
 
-        if (setgroups(0, NULL) < 0) {
+        if (setgroups(0, nullptr) < 0) {
             log_perror("setgroups() failed");
             return 1;
         }
@@ -2104,8 +2104,8 @@ int main(int argc, char *argv[])
         return 1;
     }
 
-    starttime = time(0);
-    if( getenv( "ICECC_FAKE_STARTTIME" ) != NULL )
+    starttime = time(nullptr);
+    if( getenv( "ICECC_FAKE_STARTTIME" ) != nullptr )
         starttime -= 1000;
 
     ofstream pidFile;
@@ -2137,16 +2137,16 @@ int main(int argc, char *argv[])
         /* Announce ourselves from time to time, to make other possible schedulers disconnect
            their daemons if we are the preferred scheduler (daemons with version new enough
            should automatically select the best scheduler, but old daemons connect randomly). */
-        if (last_announce + 120 < time(NULL)) {
+        if (last_announce + 120 < time(nullptr)) {
             Broadcasts::broadcastSchedulerVersion(scheduler_port, netname, starttime);
-            last_announce = time(NULL);
+            last_announce = time(nullptr);
         }
 
         vector< pollfd > pollfds;
         pollfds.reserve( fd2cs.size() + css.size() + 5 );
         pollfd pfd; // tmp variable
 
-        if (time(0) >= next_listen) {
+        if (time(nullptr) >= next_listen) {
             pfd.fd = listen_fd;
             pfd.events = POLLIN;
             pollfds.push_back( pfd );
@@ -2233,7 +2233,7 @@ int main(int argc, char *argv[])
                 if (remote_fd >= 0) {
                     CompileServer *cs = new CompileServer(remote_fd, (struct sockaddr *) &remote_addr, remote_len, false);
                     trace() << "accepted " << cs->name << endl;
-                    cs->last_talk = time(0);
+                    cs->last_talk = time(nullptr);
 
                     if (!cs->protocol) { // protocol mismatch
                         delete cs;
@@ -2250,7 +2250,7 @@ int main(int argc, char *argv[])
                 }
             }
 
-            next_listen = time(0) + 1;
+            next_listen = time(nullptr) + 1;
         }
 
         if (active_fds && pollfd_is_set(pollfds, text_fd, POLLIN)) {
@@ -2271,7 +2271,7 @@ int main(int argc, char *argv[])
                 fd2cs[cs->fd] = cs;
 
                 if (!handle_control_login(cs)) {
-                    handle_end(cs, 0);
+                    handle_end(cs, nullptr);
                     continue;
                 }
 
@@ -2366,9 +2366,9 @@ int main(int argc, char *argv[])
 
     shutdown(broad_fd, SHUT_RDWR);
     while (!css.empty())
-        handle_end(css.front(), NULL);
+        handle_end(css.front(), nullptr);
     while (!monitors.empty())
-        handle_end(monitors.front(), NULL);
+        handle_end(monitors.front(), nullptr);
     if ((-1 == close(broad_fd)) && (errno != EBADF)){
         log_perror("close failed");
     }

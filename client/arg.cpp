@@ -311,7 +311,7 @@ bool analyse_argv(const char * const *argv, CompileJob &job, bool icerun, list<s
     bool wunused_macros = false;
     bool seen_arch = false;
     bool seen_pedantic = false;
-    const char *standard = NULL;
+    const char *standard = nullptr;
     // if rewriting includes and precompiling on remote machine, then cpp args are not local
     Argument_Type Arg_Cpp = compiler_only_rewrite_includes(job) ? Arg_Rest : Arg_Local;
 
@@ -614,7 +614,7 @@ bool analyse_argv(const char * const *argv, CompileJob &job, bool icerun, list<s
             } else if (str_startswith("-fplugin=", a)
                        || str_startswith("-fsanitize-blacklist=", a)
                        || str_startswith("-fprofile-sample-use=", a)) {
-                const char* prefix = NULL;
+                const char* prefix = nullptr;
                 static const char* const prefixes[] = { "-fplugin=", "-fsanitize-blacklist=", "-fprofile-sample-use=" };
                 for( size_t pref = 0; pref < sizeof(prefixes)/sizeof(prefixes[0]); ++pref) {
                     if( str_startswith(prefixes[pref], a)) {

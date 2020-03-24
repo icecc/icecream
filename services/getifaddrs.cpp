@@ -318,11 +318,11 @@ bool build_address_for_interface(struct sockaddr_in &myaddr, const std::string &
 
     bool found = false;
 
-    for (struct kde_ifaddrs *addr = addrs; addr != NULL; addr = addr->ifa_next) {
+    for (struct kde_ifaddrs *addr = addrs; addr != nullptr; addr = addr->ifa_next) {
         if (interface != addr->ifa_name) {
             continue;
         }
-        if (addr->ifa_addr == NULL || addr->ifa_addr->sa_family != AF_INET) {
+        if (addr->ifa_addr == nullptr || addr->ifa_addr->sa_family != AF_INET) {
             continue;
         }
         myaddr.sin_addr.s_addr = reinterpret_cast<struct sockaddr_in *>(addr->ifa_addr)->sin_addr.s_addr;

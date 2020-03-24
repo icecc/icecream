@@ -492,7 +492,7 @@ int CompileServer::getInFd() const
 
 void CompileServer::startInConnectionTest()
 {
-    if (m_noRemote || getConnectionInProgress() || (m_nextConnTime > time(0)))
+    if (m_noRemote || getConnectionInProgress() || (m_nextConnTime > time(nullptr)))
     {
         return;
     }
@@ -517,7 +517,7 @@ void CompileServer::startInConnectionTest()
     {
         updateInConnectivity(false);
     }
-    m_lastConnStartTime=time(0);
+    m_lastConnStartTime=time(nullptr);
 }
 
 void CompileServer::updateInConnectivity(bool acceptingIn)
@@ -543,7 +543,7 @@ void CompileServer::updateInConnectivity(bool acceptingIn)
                 ":" << m_remotePort <<
                 ") is accepting incoming connections." << endl;
         }
-        m_nextConnTime = time(0) + check_back_time;
+        m_nextConnTime = time(nullptr) + check_back_time;
         close(m_inFd);
         m_inFd = -1;
     }
@@ -557,12 +557,12 @@ void CompileServer::updateInConnectivity(bool acceptingIn)
                 ":" << m_remotePort <<
                 ") connected but is not able to accept incoming connections." << endl;
         }
-        m_nextConnTime = time(0) + time_offset_table[m_inConnAttempt];
+        m_nextConnTime = time(nullptr) + time_offset_table[m_inConnAttempt];
         if(m_inConnAttempt < (table_size - 1))
             m_inConnAttempt++;
         trace()  << nodeName() << " failed to accept an incoming connection on "
             << name << ":" << m_remotePort << " attempting again in "
-            << m_nextConnTime - time(0) << " seconds" << endl;
+            << m_nextConnTime - time(nullptr) << " seconds" << endl;
         close(m_inFd);
         m_inFd = -1;
     }
@@ -591,7 +591,7 @@ bool CompileServer::isConnected()
 
 time_t CompileServer::getConnectionTimeout()
 {
-    time_t now = time(0);
+    time_t now = time(nullptr);
     time_t elapsed_time = now - m_lastConnStartTime;
     time_t max_timeout = 5;
     return (elapsed_time < max_timeout) ? max_timeout - elapsed_time : 0;
@@ -612,6 +612,6 @@ time_t CompileServer::getNextTimeout()
     {
         return getConnectionTimeout();
     }
-    time_t until_connect = m_nextConnTime - time(0);
+    time_t until_connect = m_nextConnTime - time(nullptr);
     return (until_connect > 0) ? until_connect : 0;
 }

@@ -155,15 +155,15 @@ int work_it(CompileJob &j, unsigned int job_stat[], MsgChannel *client, CompileR
 
     act.sa_handler = SIG_IGN;
     act.sa_flags = 0;
-    sigaction(SIGPIPE, &act, 0L);
+    sigaction(SIGPIPE, &act, nullptr);
 
     act.sa_handler = theSigCHLDHandler;
     act.sa_flags = SA_NOCLDSTOP;
-    sigaction(SIGCHLD, &act, 0);
+    sigaction(SIGCHLD, &act, nullptr);
 
     sigaddset(&act.sa_mask, SIGCHLD);
     // Make sure we don't block this signal. gdb tends to do that :-(
-    sigprocmask(SIG_UNBLOCK, &act.sa_mask, 0);
+    sigprocmask(SIG_UNBLOCK, &act.sa_mask, nullptr);
 
     flush_debug();
     pid_t pid = fork();
@@ -304,7 +304,7 @@ int work_it(CompileJob &j, unsigned int job_stat[], MsgChannel *client, CompileR
         }
 
         // before you add new args, check above for argc
-        argv[i] = 0;
+        argv[i] = nullptr;
         assert(i <= argc);
 
         argstxt.clear();
@@ -426,13 +426,13 @@ int work_it(CompileJob &j, unsigned int job_stat[], MsgChannel *client, CompileR
     }
 
     struct timeval starttv;
-    gettimeofday(&starttv, 0);
+    gettimeofday(&starttv, nullptr);
 
     int return_value = 0;
     // Got EOF for preprocessed input. stdout send may be still pending.
     bool input_complete = false;
     // Pending data to send to stdin
-    FileChunkMsg *fcmsg = 0;
+    FileChunkMsg *fcmsg = nullptr;
     size_t off = 0;
 
     log_block parent_wait("parent, waiting");
@@ -446,7 +446,7 @@ int work_it(CompileJob &j, unsigned int job_stat[], MsgChannel *client, CompileR
                     client_fd = -1;
                     kill(pid, SIGTERM);
                     delete fcmsg;
-                    fcmsg = 0;
+                    fcmsg = nullptr;
                     delete msg;
                 } else {
                     if (msg->type == M_END) {
@@ -473,7 +473,7 @@ int work_it(CompileJob &j, unsigned int job_stat[], MsgChannel *client, CompileR
                         client_fd = -1;
                         kill(pid, SIGTERM);
                         delete fcmsg;
-                        fcmsg = 0;
+                        fcmsg = nullptr;
                         delete msg;
                     }
                 }
@@ -484,7 +484,7 @@ int work_it(CompileJob &j, unsigned int job_stat[], MsgChannel *client, CompileR
                 client_fd = -1;
                 kill(pid, SIGTERM);
                 delete fcmsg;
-                fcmsg = 0;
+                fcmsg = nullptr;
             }
         }
 
@@ -511,7 +511,7 @@ int work_it(CompileJob &j, unsigned int job_stat[], MsgChannel *client, CompileR
             // listening for more file data from the client even though it is being
             // thrown away.
             delete fcmsg;
-            fcmsg = 0;
+            fcmsg = nullptr;
         }
         if (client_fd >= 0 && !fcmsg) {
             pfd.fd = client_fd;
@@ -554,7 +554,7 @@ int work_it(CompileJob &j, unsigned int job_stat[], MsgChannel *client, CompileR
                 client_fd = -1;
                 input_complete = true;
                 delete fcmsg;
-                fcmsg = 0;
+                fcmsg = nullptr;
                 continue;
             }
 
@@ -585,7 +585,7 @@ int work_it(CompileJob &j, unsigned int job_stat[], MsgChannel *client, CompileR
                         return_value = EXIT_COMPILER_CRASHED;
                     }
                     delete fcmsg;
-                    fcmsg = 0;
+                    fcmsg = nullptr;
                     if (-1 == close(sock_in[1])){
                         log_perror("close failed");
                     }
@@ -597,7 +597,7 @@ int work_it(CompileJob &j, unsigned int job_stat[], MsgChannel *client, CompileR
 
                 if (off == fcmsg->len) {
                     delete fcmsg;
-                    fcmsg = 0;
+                    fcmsg = nullptr;
 
                     if (input_complete) {
                         if (-1 == close(sock_in[1])){
@@ -688,7 +688,7 @@ int work_it(CompileJob &j, unsigned int job_stat[], MsgChannel *client, CompileR
 
                 if (WIFEXITED(status)) {
                     struct timeval endtv;
-                    gettimeofday(&endtv, 0);
+                    gettimeofday(&endtv, nullptr);
                     rmsg.status = shell_exit_status(status);
                     job_stat[JobStatistics::exit_code] = shell_exit_status(status);
                     job_stat[JobStatistics::real_msec] = ((endtv.tv_sec - starttv.tv_sec) * 1000)

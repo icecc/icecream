@@ -68,7 +68,7 @@ int main(int argc, char *argv[])
     strcpy(args[0], argv[0]);
     char *separator = strrchr(args[0], '/');
 
-    if (separator == NULL) {
+    if (separator == nullptr) {
         args[0][0] = '\0';
     } else {
         separator[1] = '\0';    // after the separator
@@ -132,7 +132,7 @@ int main(int argc, char *argv[])
         }
     }
 
-    args[pos++] = NULL;
+    args[pos++] = nullptr;
     assert(pos <= argc + 2);
 #ifdef DEBUG
     fprintf(stderr, "Args2:\n");

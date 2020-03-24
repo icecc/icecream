@@ -268,7 +268,7 @@ int build_local(CompileJob &job, MsgChannel *local_daemon, struct rusage *used)
         argstxt += *it;
     }
 
-    argv.push_back(0);
+    argv.push_back(nullptr);
 
     trace() << "invoking:" << argstxt << endl;
 

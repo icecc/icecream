@@ -130,7 +130,7 @@ static bool cleanup_directory(const string &directory)
 {
     DIR *dir = opendir(directory.c_str());
 
-    if (dir == NULL) {
+    if (dir == nullptr) {
         return false;
     }
 
@@ -312,7 +312,7 @@ int start_create_env(const string &basedir, uid_t user_uid, gid_t user_gid,
         argv[pos++] = strdup(it->c_str());
     }
 
-    argv[pos++] = NULL;
+    argv[pos++] = nullptr;
 
     if (!compression.empty()) {
         // icecc will read it from ICECC_ENV_COMPRESSION, we are in a forked process, so simply set it
@@ -633,7 +633,7 @@ void remove_environment(const string &basename, const string &env)
     argv[1] = strdup("-rf");
     argv[2] = strdup("--");
     argv[3] = strdup(dirname.c_str());
-    argv[4] = NULL;
+    argv[4] = nullptr;
 
     execv(argv[0], argv);
     ostringstream errmsg;
@@ -761,7 +761,7 @@ bool verify_env(MsgChannel *client, const string &basedir, const string &target,
     // child
     reset_debug();
     chdir_to_environment(client, dirname, user_uid, user_gid);
-    execl("bin/true", "bin/true", (void*)NULL);
+    execl("bin/true", "bin/true", (void*)nullptr);
     log_perror("execl bin/true failed");
     _exit(-1);
 
