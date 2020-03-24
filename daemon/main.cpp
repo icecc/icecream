@@ -332,7 +332,7 @@ public:
     }
 };
 
-static int set_new_pgrp(void)
+static int set_new_pgrp()
 {
     /* If we're a session group leader, then we are not able to call
      * setpgid().  However, setsid will implicitly have put us into a new
@@ -367,7 +367,7 @@ static void dcc_daemon_terminate(int);
  * Catch all relevant termination signals.  Set up in parent and also
  * applies to children.
  **/
-void dcc_daemon_catch_signals(void)
+void dcc_daemon_catch_signals()
 {
     /* SIGALRM is caught to allow for built-in timeouts when running test
      * cases. */

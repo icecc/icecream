@@ -168,7 +168,7 @@ bool MsgChannel::read_a_bit()
     return true;
 }
 
-bool MsgChannel::update_state(void)
+bool MsgChannel::update_state()
 {
     switch (instate) {
     case NEED_PROTO:

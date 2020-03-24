@@ -388,7 +388,7 @@ static void enqueue_job_request(Job *job)
     }
 }
 
-static Job *get_job_request(void)
+static Job *get_job_request()
 {
     if (toanswer.empty()) {
         return nullptr;
@@ -400,7 +400,7 @@ static Job *get_job_request(void)
 }
 
 /* Removes the first job request (the one returned by get_job_request()) */
-static void remove_job_request(void)
+static void remove_job_request()
 {
     if (toanswer.empty()) {
         return;

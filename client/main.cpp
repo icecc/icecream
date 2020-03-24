@@ -66,7 +66,7 @@ using namespace std;
 
 extern const char *rs_program_name;
 
-static void dcc_show_usage(void)
+static void dcc_show_usage()
 {
     printf(
         "Usage:\n"
@@ -103,7 +103,7 @@ static void dcc_show_usage(void)
         );
 }
 
-static void icerun_show_usage(void)
+static void icerun_show_usage()
 {
     printf(
         "Usage:\n"
@@ -138,7 +138,7 @@ static void dcc_client_signalled(int whichsig)
     raise(whichsig);
 }
 
-static void dcc_client_catch_signals(void)
+static void dcc_client_catch_signals()
 {
     signal(SIGTERM, &dcc_client_signalled);
     signal(SIGINT, &dcc_client_signalled);
