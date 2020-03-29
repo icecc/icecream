@@ -168,7 +168,7 @@ bool MsgChannel::read_a_bit()
     return true;
 }
 
-bool MsgChannel::update_state(void)
+bool MsgChannel::update_state()
 {
     switch (instate) {
     case NEED_PROTO:
@@ -500,9 +500,8 @@ MsgChannel &MsgChannel::operator<<(const std::list<std::string> &l)
 {
     *this << (uint32_t) l.size();
 
-    for (list<string>::const_iterator it = l.begin();
-            it != l.end(); ++it) {
-        *this << *it;
+    for (const std::string &s : l) {
+        *this << s;
     }
 
     return *this;
@@ -512,9 +511,9 @@ void MsgChannel::write_environments(const Environments &envs)
 {
     *this << envs.size();
 
-    for (Environments::const_iterator it = envs.begin(); it != envs.end(); ++it) {
-        *this << it->first;
-        *this << it->second;
+    for (const std::pair<std::string, std::string> &env : envs) {
+        *this << env.first;
+        *this << env.second;
     }
 }
 
@@ -548,7 +547,7 @@ void MsgChannel::readcompressed(unsigned char **uncompressed_buf, size_t &_uclen
         *this >> proto;
         if (proto != C_LZO && proto != C_ZSTD) {
             log_error() << "Unknown compression protocol " << proto << endl;
-            *uncompressed_buf = 0;
+            *uncompressed_buf = nullptr;
             _uclen = 0;
             _clen = compressed_len;
             set_error();
@@ -564,7 +563,7 @@ void MsgChannel::readcompressed(unsigned char **uncompressed_buf, size_t &_uclen
             || (uncompressed_len && !compressed_len)
             || inofs < intogo + compressed_len) {
         log_error() << "failure in readcompressed() length checking" << endl;
-        *uncompressed_buf = 0;
+        *uncompressed_buf = nullptr;
         uncompressed_len = 0;
         _uclen = uncompressed_len;
         _clen = compressed_len;
@@ -582,7 +581,7 @@ void MsgChannel::readcompressed(unsigned char **uncompressed_buf, size_t &_uclen
             log_error() << "internal error - decompression of data from " << dump().c_str()
                         << " failed: " << ZSTD_getErrorName(ret) << endl;
             delete[] *uncompressed_buf;
-            *uncompressed_buf = 0;
+            *uncompressed_buf = nullptr;
             uncompressed_len = 0;
         }
     } else if (proto == C_LZO && uncompressed_len && compressed_len) {
@@ -600,7 +599,7 @@ void MsgChannel::readcompressed(unsigned char **uncompressed_buf, size_t &_uclen
             log_error() << "internal error - decompression of data from " << dump().c_str()
                         << " failed: " << ret << endl;
             delete [] *uncompressed_buf;
-            *uncompressed_buf = 0;
+            *uncompressed_buf = nullptr;
             uncompressed_len = 0;
         }
     }
@@ -821,12 +820,12 @@ MsgChannel *Service::createChannel(const string &hostname, unsigned short p, int
     struct sockaddr_in remote_addr;
 
     if ((remote_fd = prepare_connect(hostname, p, remote_addr)) < 0) {
-        return 0;
+        return nullptr;
     }
 
     if (timeout) {
         if (!connect_async(remote_fd, (struct sockaddr *) &remote_addr, sizeof(remote_addr), timeout)) {
-            return 0;    // remote_fd is already closed
+            return nullptr;    // remote_fd is already closed
         }
     } else {
         int i = 2048;
@@ -838,7 +837,7 @@ MsgChannel *Service::createChannel(const string &hostname, unsigned short p, int
             if (-1 == close(remote_fd) && (errno != EBADF)){
                 log_perror("close failed");
             }
-            return 0;
+            return nullptr;
         }
     }
 
@@ -853,7 +852,7 @@ MsgChannel *Service::createChannel(const string &socket_path)
 
     if ((remote_fd = socket(AF_UNIX, SOCK_STREAM, 0)) < 0) {
         log_perror("socket()");
-        return 0;
+        return nullptr;
     }
 
     remote_addr.sun_family = AF_UNIX;
@@ -869,7 +868,7 @@ MsgChannel *Service::createChannel(const string &socket_path)
         if ((-1 == close(remote_fd)) && (errno != EBADF)){
             log_perror("close failed");
         }
-        return 0;
+        return nullptr;
     }
 
     trace() << "connected to " << socket_path << endl;
@@ -904,7 +903,7 @@ MsgChannel *Service::createChannel(int fd, struct sockaddr *_a, socklen_t _l)
 
     if (!c->wait_for_protocol()) {
         delete c;
-        c = 0;
+        c = nullptr;
     }
 
     return c;
@@ -922,12 +921,12 @@ MsgChannel::MsgChannel(int _fd, struct sockaddr *_a, socklen_t _l, bool text)
             name = "local unix domain socket";
         } else {
             char buf[16384] = "";
-            if(int error = getnameinfo(addr, _l, buf, sizeof(buf), NULL, 0, NI_NUMERICHOST))
+            if(int error = getnameinfo(addr, _l, buf, sizeof(buf), nullptr, 0, NI_NUMERICHOST))
                 log_error() << "getnameinfo(): " << error << endl;
             name = buf;
         }
     } else {
-        addr = 0;
+        addr = nullptr;
         name = "";
     }
 
@@ -1001,7 +1000,7 @@ MsgChannel::MsgChannel(int _fd, struct sockaddr *_a, socklen_t _l, bool text)
         }
     }
 
-    last_talk = time(0);
+    last_talk = time(nullptr);
 }
 
 MsgChannel::~MsgChannel()
@@ -1139,12 +1138,12 @@ bool MsgChannel::wait_for_msg(int timeout)
 
 Msg *MsgChannel::get_msg(int timeout, bool eofAllowed)
 {
-    Msg *m = 0;
+    Msg *m = nullptr;
     enum MsgType type;
 
     if (!wait_for_msg(timeout)) {
         // trace() << "!wait_for_msg()\n";
-        return 0;
+        return nullptr;
     }
 
     /* If we've seen the EOF, and we don't have a complete message,
@@ -1155,13 +1154,13 @@ Msg *MsgChannel::get_msg(int timeout, bool eofAllowed)
             trace() << "saw eof without complete msg! " << instate << endl;
             set_error();
         }
-        return 0;
+        return nullptr;
     }
 
     if (!has_msg()) {
         trace() << "saw eof without msg! " << eof << " " << instate << endl;
         set_error();
-        return 0;
+        return nullptr;
     }
 
     size_t intogo_old = intogo;
@@ -1177,7 +1176,7 @@ Msg *MsgChannel::get_msg(int timeout, bool eofAllowed)
     switch (type) {
     case M_UNKNOWN:
         set_error();
-        return 0;
+        return nullptr;
     case M_PING:
         m = new PingMsg;
         break;
@@ -1275,7 +1274,7 @@ Msg *MsgChannel::get_msg(int timeout, bool eofAllowed)
     if (!m) {
         trace() << "no message type" << endl;
         set_error();
-        return 0;
+        return nullptr;
     }
 
     m->fill_from_channel(this);
@@ -1286,7 +1285,7 @@ Msg *MsgChannel::get_msg(int timeout, bool eofAllowed)
                 << " read " << (intogo - intogo_old) << endl;
             delete m;
             set_error();
-            return 0;
+            return nullptr;
         }
     }
 
@@ -1343,7 +1342,7 @@ static int get_second_port_for_debug( int port )
         if( const char* env = getenv( "ICECC_TEST_SCHEDULER_PORTS" )) {
             debugPort1 = atoi( env );
             const char* env2 = strchr( env, ':' );
-            if( env2 != NULL )
+            if( env2 != nullptr )
                 debugPort2 = atoi( env2 + 1 );
         }
     }
@@ -1398,10 +1397,7 @@ bool Broadcasts::isSchedulerVersion(const char* buf, int buflen)
     if( buflen != BROAD_BUFLEN )
         return false;
     // Ignore versions older than 38, they are older than us anyway, so not interesting.
-    if( buf[0] == 'I' && buf[1] == 'C' && buf[2] == 'F') {
-        return true;
-    }
-    return false;
+    return buf[0] == 'I' && buf[1] == 'C' && buf[2] == 'F';
 }
 
 void Broadcasts::getSchedulerVersionData( const char* buf, int* protocol, time_t* time, string* netname )
@@ -1415,11 +1411,11 @@ void Broadcasts::getSchedulerVersionData( const char* buf, int* protocol, time_t
     tmp_time_high = ntohl( tmp_time_high );
     time_t other_time = ( uint64_t( tmp_time_high ) << 32 ) | tmp_time_low;;
     string recv_netname = string(buf + 4 + 2 * sizeof(uint32_t));
-    if( protocol != NULL )
+    if( protocol != nullptr )
         *protocol = other_scheduler_protocol;
-    if( time != NULL )
+    if( time != nullptr )
         *time = other_time;
-    if( netname != NULL )
+    if( netname != nullptr )
         *netname = recv_netname;
 }
 
@@ -1460,17 +1456,17 @@ static int open_send_broadcast(int port, const char* buf, int size)
         return ret;
     }
 
-    for (struct kde_ifaddrs *addr = addrs; addr != NULL; addr = addr->ifa_next) {
+    for (struct kde_ifaddrs *addr = addrs; addr != nullptr; addr = addr->ifa_next) {
         /*
          * See if this interface address is IPv4...
          */
 
-        if (addr->ifa_addr == NULL || addr->ifa_addr->sa_family != AF_INET
-                || addr->ifa_netmask == NULL || addr->ifa_name == NULL) {
+        if (addr->ifa_addr == nullptr || addr->ifa_addr->sa_family != AF_INET
+                || addr->ifa_netmask == nullptr || addr->ifa_name == nullptr) {
             continue;
         }
 
-        static bool in_tests = getenv( "ICECC_TESTS" ) != NULL;
+        static bool in_tests = getenv( "ICECC_TESTS" ) != nullptr;
         if (!in_tests) {
             if (ntohl(((struct sockaddr_in *) addr->ifa_addr)->sin_addr.s_addr) == 0x7f000001) {
                 trace() << "ignoring localhost " << addr->ifa_name << " for broadcast" << endl;
@@ -1541,11 +1537,11 @@ DiscoverSched::DiscoverSched(const std::string &_netname, int _timeout,
     , best_port(0)
     , multiple(false)
 {
-    time0 = time(0);
+    time0 = time(nullptr);
 
     if (schedname.empty()) {
         const char *get = getenv("ICECC_SCHEDULER");
-        if( get == NULL )
+        if( get == nullptr )
             get = getenv("USE_SCHEDULER");
 
         if (get) {
@@ -1591,12 +1587,12 @@ DiscoverSched::~DiscoverSched()
 
 bool DiscoverSched::timed_out()
 {
-    return (time(0) - time0 >= timeout);
+    return (time(nullptr) - time0 >= timeout);
 }
 
 void DiscoverSched::attempt_scheduler_connect()
 {
-    time0 = time(0) + MAX_SCHEDULER_PONG;
+    time0 = time(nullptr) + MAX_SCHEDULER_PONG;
     log_info() << "scheduler is on " << schedname << ":" << sport << " (net " << netname << ")" << endl;
 
     if ((ask_fd = prepare_connect(schedname, sport, remote_addr)) >= 0) {
@@ -1618,7 +1614,7 @@ bool DiscoverSched::isSchedulerDiscovery(const char* buf, int buflen, int* daemo
 {
     if( buflen != 1 )
         return false;
-    if( daemon_version != NULL ) {
+    if( daemon_version != nullptr ) {
         *daemon_version = buf[ 0 ];
     }
     return true;
@@ -1685,32 +1681,32 @@ void DiscoverSched::get_broad_data(const char* buf, const char** name, int* vers
 {
     if (buf[0] == PROTOCOL_VERSION + 1) {
         // Scheduler version 32 or older, didn't send us its version, assume it's 32.
-        if (name != NULL)
+        if (name != nullptr)
             *name = buf + 1;
-        if (version != NULL)
+        if (version != nullptr)
             *version = 32;
-        if (start_time != NULL)
+        if (start_time != nullptr)
             *start_time = 0; // Unknown too.
     } else if(buf[0] == PROTOCOL_VERSION + 2) {
-        if (version != NULL) {
+        if (version != nullptr) {
             uint32_t tmp_version;
             memcpy(&tmp_version, buf + 1, sizeof(uint32_t));
             *version = tmp_version;
         }
-        if (start_time != NULL) {
+        if (start_time != nullptr) {
             uint64_t tmp_time;
             memcpy(&tmp_time, buf + 1 + sizeof(uint32_t), sizeof(uint64_t));
             *start_time = tmp_time;
         }
-        if (name != NULL)
+        if (name != nullptr)
             *name = buf + 1 + sizeof(uint32_t) + sizeof(uint64_t);
     } else if(buf[0] == PROTOCOL_VERSION + 3) {
-        if (version != NULL) {
+        if (version != nullptr) {
             uint32_t tmp_version;
             memcpy(&tmp_version, buf + 1, sizeof(uint32_t));
             *version = ntohl( tmp_version );
         }
-        if (start_time != NULL) {
+        if (start_time != nullptr) {
             uint32_t tmp_time_low, tmp_time_high;
             memcpy(&tmp_time_high, buf + 1 + sizeof(uint32_t), sizeof(uint32_t));
             memcpy(&tmp_time_low, buf + 1 + 2 * sizeof(uint32_t), sizeof(uint32_t));
@@ -1718,7 +1714,7 @@ void DiscoverSched::get_broad_data(const char* buf, const char** name, int* vers
             tmp_time_high = ntohl( tmp_time_high );
             *start_time = ( uint64_t( tmp_time_high ) << 32 ) | tmp_time_low;;
         }
-        if (name != NULL)
+        if (name != nullptr)
             *name = buf + 1 + 3 * sizeof(uint32_t);
     } else {
         abort();
@@ -1782,7 +1778,7 @@ MsgChannel *DiscoverSched::try_get_scheduler()
 
         if (timed_out()) {
             if (best_version == 0) {
-                return 0;
+                return nullptr;
             }
             schedname = best_schedname;
             sport = best_port;
@@ -1827,7 +1823,7 @@ MsgChannel *DiscoverSched::try_get_scheduler()
         }
     }
 
-    return 0;
+    return nullptr;
 }
 
 bool DiscoverSched::get_broad_answer(int ask_fd, int timeout, char *buf2, struct sockaddr_in *remote_addr,
@@ -1875,7 +1871,7 @@ list<string> DiscoverSched::getNetnames(int timeout, int port)
     int ask_fd;
     struct sockaddr_in remote_addr;
     socklen_t remote_len;
-    time_t time0 = time(0);
+    time_t time0 = time(nullptr);
 
     char buf = PROTOCOL_VERSION;
     ask_fd = open_send_broadcast(port, &buf, 1);
@@ -1885,18 +1881,18 @@ list<string> DiscoverSched::getNetnames(int timeout, int port)
         bool first = true;
         /* Wait at least two seconds to give all schedulers a chance to answer
            (unless that'd be longer than the timeout).*/
-        time_t timeout_time = time(NULL) + min(2 + 1, timeout);
+        time_t timeout_time = time(nullptr) + min(2 + 1, timeout);
 
         /* Read/test all arriving packages.  */
         while (get_broad_answer(ask_fd, first ? timeout : 0, buf2,
                                 &remote_addr, &remote_len)
-               && time(NULL) < timeout_time) {
+               && time(nullptr) < timeout_time) {
             first = false;
             const char* name;
-            get_broad_data(buf2, &name, NULL, NULL);
+            get_broad_data(buf2, &name, nullptr, nullptr);
             l.push_back(name);
         }
-    } while (time(0) - time0 < (timeout / 1000));
+    } while (time(nullptr) - time0 < (timeout / 1000));
 
     if ((-1 == close(ask_fd)) && (errno != EBADF)){
         log_perror("close failed");
@@ -2193,7 +2189,7 @@ void FileChunkMsg::fill_from_channel(MsgChannel *c)
         delete [] buffer;
     }
 
-    buffer = 0;
+    buffer = nullptr;
     del_buf = true;
 
     Msg::fill_from_channel(c);

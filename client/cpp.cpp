@@ -110,7 +110,7 @@ pid_t call_cpp(CompileJob &job, int fdwrite, int fdread)
         argv = new char*[2 + 1];
         argv[0] = strdup("/bin/cat");
         argv[1] = strdup(job.inputFile().c_str());
-        argv[2] = 0;
+        argv[2] = nullptr;
     } else {
         list<string> flags = job.localFlags();
         appendList(flags, job.restFlags());
@@ -185,11 +185,11 @@ pid_t call_cpp(CompileJob &job, int fdwrite, int fdread)
             }
         }
 
-        argv[i++] = 0;
+        argv[i++] = nullptr;
     }
 
     string argstxt = argv[ 0 ];
-    for( int i = 1; argv[ i ] != NULL; ++i ) {
+    for( int i = 1; argv[ i ] != nullptr; ++i ) {
         argstxt += ' ';
         argstxt += argv[ i ];
     }

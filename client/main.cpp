@@ -66,7 +66,7 @@ using namespace std;
 
 extern const char *rs_program_name;
 
-static void dcc_show_usage(void)
+static void dcc_show_usage()
 {
     printf(
         "Usage:\n"
@@ -103,7 +103,7 @@ static void dcc_show_usage(void)
         );
 }
 
-static void icerun_show_usage(void)
+static void icerun_show_usage()
 {
     printf(
         "Usage:\n"
@@ -138,7 +138,7 @@ static void dcc_client_signalled(int whichsig)
     raise(whichsig);
 }
 
-static void dcc_client_catch_signals(void)
+static void dcc_client_catch_signals()
 {
     signal(SIGTERM, &dcc_client_signalled);
     signal(SIGINT, &dcc_client_signalled);
@@ -189,7 +189,7 @@ static int create_native(char **args)
         argv.push_back(strdup(env_compression));
     }
 
-    argv.push_back(NULL);
+    argv.push_back(nullptr);
     execv(argv[0], argv.data());
     ostringstream errmsg;
     errmsg << "execv " << argv[0] << " failed";
@@ -200,7 +200,7 @@ static int create_native(char **args)
 static MsgChannel* get_local_daemon()
 {
     MsgChannel* local_daemon;
-    if (getenv("ICECC_TEST_SOCKET") == NULL) {
+    if (getenv("ICECC_TEST_SOCKET") == nullptr) {
         /* try several options to reach the local daemon - 3 sockets, one TCP */
         local_daemon = Service::createChannel("/var/run/icecc/iceccd.socket");
 
@@ -252,18 +252,18 @@ public:
 
         newargv = *argvp;
         if (newargv == oldargv)
-            newargv = NULL;
+            newargv = nullptr;
     }
 
     ~ArgumentExpander()
     {
-        if (newargv != NULL)
+        if (newargv != nullptr)
             freeargv(newargv);
     }
 
     bool changed() const
     {
-        return newargv != NULL;
+        return newargv != nullptr;
     }
 
     char** originalArgv() const
@@ -396,9 +396,9 @@ int main(int argc, char **argv)
     // the daemon has as many connections as possible when we start asking for a remote
     // node to build, allowing the daemon/scheduler to do load balancing based on the number
     // of expected build jobs.
-    MsgChannel *local_daemon = NULL;
+    MsgChannel *local_daemon = nullptr;
     const char *icecc = getenv("ICECC");
-    if (icecc == NULL || strcasecmp(icecc, "disable") != 0) {
+    if (icecc == nullptr || strcasecmp(icecc, "disable") != 0) {
         local_daemon = get_local_daemon();
     }
 
@@ -413,7 +413,7 @@ int main(int argc, char **argv)
      */
     if (icecc && !strcasecmp(icecc, "disable")) {
         assert( local_daemon == NULL );
-        return build_local(job, 0);
+        return build_local(job, nullptr);
     }
 
     if (icecc && !strcasecmp(icecc, "no")) {
@@ -422,7 +422,7 @@ int main(int argc, char **argv)
 
     if (!local_daemon) {
         log_warning() << "no local daemon found" << endl;
-        return build_local(job, 0);
+        return build_local(job, nullptr);
     }
 
     if (const char *extrafilesenv = getenv("ICECC_EXTRAFILES")) {
@@ -430,7 +430,7 @@ int main(int argc, char **argv)
             const char *colon = strchr(extrafilesenv, ':');
             string file;
 
-            if (colon == NULL) {
+            if (colon == nullptr) {
                 file = extrafilesenv;
             } else {
                 file = string(extrafilesenv, colon - extrafilesenv);
@@ -447,7 +447,7 @@ int main(int argc, char **argv)
                 break;
             }
 
-            if (colon == NULL) {
+            if (colon == nullptr) {
                 break;
             }
 
@@ -470,7 +470,7 @@ int main(int argc, char **argv)
             log_warning() << "Local daemon is too old to handle extra files." << endl;
             local = true;
         } else {
-            Msg *umsg = NULL;
+            Msg *umsg = nullptr;
             string compiler;
             if( IS_PROTOCOL_41(local_daemon))
                 compiler = get_absfilename( find_compiler( job ));
@@ -575,7 +575,7 @@ int main(int argc, char **argv)
             local_daemon = get_local_daemon();
             if (!local_daemon) {
                 log_warning() << "no local daemon found" << endl;
-                return build_local(job, 0);
+                return build_local(job, nullptr);
             }
         }
     }
@@ -583,7 +583,7 @@ int main(int argc, char **argv)
     if (local) {
         log_block b("building_local");
         struct rusage ru;
-        Msg *startme = 0L;
+        Msg *startme = nullptr;
 
         /* Inform the daemon that we like to start a job.  */
         if (local_daemon->send_msg(JobLocalBeginMsg(0, get_absfilename(job.outputFile())))) {
@@ -597,7 +597,7 @@ int main(int argc, char **argv)
         if (!startme || startme->type != M_JOB_LOCAL_BEGIN) {
             delete startme;
             delete local_daemon;
-            return build_local(job, 0);
+            return build_local(job, nullptr);
         }
 
         ret = build_local(job, local_daemon, &ru);

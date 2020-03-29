@@ -268,7 +268,7 @@ int build_local(CompileJob &job, MsgChannel *local_daemon, struct rusage *used)
         argstxt += *it;
     }
 
-    argv.push_back(0);
+    argv.push_back(nullptr);
 
     trace() << "invoking:" << argstxt << endl;
 
@@ -327,8 +327,8 @@ int build_local(CompileJob &job, MsgChannel *local_daemon, struct rusage *used)
 
         _exit(exitcode);
     }
-    for(vector<char*>::const_iterator i = argv.begin(); i != argv.end(); ++i){
-        free(*i);
+    for(char* const arg : argv){
+        free(arg);
     }
     argv.clear();
 

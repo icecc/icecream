@@ -133,9 +133,9 @@ public:
                 } status;
     Client() {
         job_id = 0;
-        channel = 0;
-        job = 0;
-        usecsmsg = 0;
+        channel = nullptr;
+        job = nullptr;
+        usecsmsg = nullptr;
         client_id = 0;
         status = UNKNOWN;
         pipe_from_child = -1;
@@ -180,11 +180,11 @@ public:
     ~Client() {
         status = (Status) - 1;
         delete channel;
-        channel = 0;
+        channel = nullptr;
         delete usecsmsg;
-        usecsmsg = 0;
+        usecsmsg = nullptr;
         delete job;
-        job = 0;
+        job = nullptr;
 
         if (pipe_from_child >= 0) {
             if (-1 == close(pipe_from_child) && (errno != EBADF)){
@@ -252,38 +252,38 @@ public:
     unsigned int active_processes;
 
     Client *find_by_client_id(int id) const {
-        for (const_iterator it = begin(); it != end(); ++it)
-            if (it->second->client_id == id) {
-                return it->second;
+        for (auto it : *this)
+            if (it.second->client_id == id) {
+                return it.second;
             }
 
-        return 0;
+        return nullptr;
     }
 
     Client *find_by_channel(MsgChannel *c) const {
         const_iterator it = find(c);
 
         if (it == end()) {
-            return 0;
+            return nullptr;
         }
 
         return it->second;
     }
 
     Client *find_by_pid(pid_t pid) const {
-        for (const_iterator it = begin(); it != end(); ++it)
-            if (it->second->child_pid == pid) {
-                return it->second;
+        for (auto it : *this)
+            if (it.second->child_pid == pid) {
+                return it.second;
             }
 
-        return 0;
+        return nullptr;
     }
 
     Client *first() {
         iterator it = begin();
 
         if (it == end()) {
-            return 0;
+            return nullptr;
         }
 
         Client *cl = it->second;
@@ -293,8 +293,8 @@ public:
     string dump_status(Client::Status s) const {
         int count = 0;
 
-        for (const_iterator it = begin(); it != end(); ++it) {
-            if (it->second->status == s) {
+        for (auto it : *this) {
+            if (it.second->status == s) {
                 count++;
             }
         }
@@ -318,12 +318,12 @@ public:
     }
     Client *get_earliest_client(Client::Status s) const {
         // TODO: possibly speed this up in adding some sorted lists
-        Client *client = 0;
+        Client *client = nullptr;
         int min_client_id = 0;
 
-        for (const_iterator it = begin(); it != end(); ++it) {
-            if (it->second->status == s && (!min_client_id || min_client_id > it->second->client_id)) {
-                client = it->second;
+        for (auto it : *this) {
+            if (it.second->status == s && (!min_client_id || min_client_id > it.second->client_id)) {
+                client = it.second;
                 min_client_id = client->client_id;
             }
         }
@@ -332,7 +332,7 @@ public:
     }
 };
 
-static int set_new_pgrp(void)
+static int set_new_pgrp()
 {
     /* If we're a session group leader, then we are not able to call
      * setpgid().  However, setsid will implicitly have put us into a new
@@ -367,7 +367,7 @@ static void dcc_daemon_terminate(int);
  * Catch all relevant termination signals.  Set up in parent and also
  * applies to children.
  **/
-void dcc_daemon_catch_signals(void)
+void dcc_daemon_catch_signals()
 {
     /* SIGALRM is caught to allow for built-in timeouts when running test
      * cases. */
@@ -415,7 +415,7 @@ static void dcc_daemon_terminate(int whichsig)
     ++exit_main_loop;
 }
 
-void usage(const char *reason = 0)
+void usage(const char *reason = nullptr)
 {
     if (reason) {
         cerr << reason << endl;
@@ -530,8 +530,8 @@ struct Daemon {
         icecream_usage.tv_sec = icecream_usage.tv_usec = 0;
         current_load = - 1000;
         num_cpus = 0;
-        scheduler = 0;
-        discover = 0;
+        scheduler = nullptr;
+        discover = nullptr;
         scheduler_port = 8765;
         daemon_interface = "";
         daemon_port = 10245;
@@ -666,7 +666,7 @@ bool Daemon::setup_listen_unix_fd()
     bool reset_umask = false;
     mode_t old_umask = 0;
 
-    if (getenv("ICECC_TEST_SOCKET") == NULL) {
+    if (getenv("ICECC_TEST_SOCKET") == nullptr) {
 #ifdef HAVE_LIBCAP_NG
         // We run as system daemon (UID has been already changed).
         if (capng_have_capability( CAPNG_EFFECTIVE, CAP_SYS_CHROOT )) {
@@ -779,7 +779,7 @@ void Daemon::determine_supported_features()
     struct archive* a = archive_read_new();
     static bool test_disable = false;
     // Make one of the two remotes in tests say it doesn't support xz/zstd tarballs.
-    if( getenv( "ICECC_TESTS" ) != NULL && nodename == "remoteice2" )
+    if( getenv( "ICECC_TESTS" ) != nullptr && nodename == "remoteice2" )
         test_disable = true;
     (void)test_disable;
 #ifdef HAVE_LIBARCHIVE_XZ
@@ -829,19 +829,19 @@ void Daemon::close_scheduler()
     }
 
     delete scheduler;
-    scheduler = 0;
+    scheduler = nullptr;
     delete discover;
-    discover = 0;
-    next_scheduler_connect = time(0) + 20 + (rand() & 31);
-    static bool fast_reconnect = getenv( "ICECC_TESTS" ) != NULL;
+    discover = nullptr;
+    next_scheduler_connect = time(nullptr) + 20 + (rand() & 31);
+    static bool fast_reconnect = getenv( "ICECC_TESTS" ) != nullptr;
     if( fast_reconnect )
-        next_scheduler_connect = time(0) + 3;
+        next_scheduler_connect = time(nullptr) + 3;
 }
 
 bool Daemon::maybe_stats(bool force_check)
 {
     struct timeval now;
-    gettimeofday(&now, 0);
+    gettimeofday(&now, nullptr);
 
     time_t diff_sent = (now.tv_sec - last_stat.tv_sec) * 1000 + (now.tv_usec - last_stat.tv_usec) / 1000;
 
@@ -924,12 +924,12 @@ string Daemon::dump_internals() const
     result += "Node Name: " + nodename + "\n";
     result += "  Remote name: " + remote_name + "\n";
 
-    for (map<int, MsgChannel *>::const_iterator it = fd2chan.begin(); it != fd2chan.end(); ++it)  {
-        result += "  fd2chan[" + toString(it->first) + "] = " + it->second->dump() + "\n";
+    for (auto it : fd2chan)  {
+        result += "  fd2chan[" + toString(it.first) + "] = " + it.second->dump() + "\n";
     }
 
-    for (Clients::const_iterator it = clients.begin(); it != clients.end(); ++it)  {
-        result += "  client " + toString(it->second->client_id) + ": " + it->second->dump() + "\n";
+    for (auto client : clients)  {
+        result += "  client " + toString(client.second->client_id) + ": " + client.second->dump() + "\n";
     }
 
     if (cache_size) {
@@ -938,14 +938,13 @@ string Daemon::dump_internals() const
 
     result += "  Architecture: " + machine_name + "\n";
 
-    for (map<string, NativeEnvironment>::const_iterator it = native_environments.begin();
-            it != native_environments.end(); ++it) {
-        result += "  NativeEnv (" + it->first + "): " + it->second.name
-            + ", size " + toString(it->second.size) + (it->second.create_env_pipe ? " (creating)" : "" ) + "\n";
+    for (const auto & native_environment : native_environments) {
+        result += "  NativeEnv (" + native_environment.first + "): " + native_environment.second.name
+            + ", size " + toString(native_environment.second.size) + (native_environment.second.create_env_pipe ? " (creating)" : "" ) + "\n";
     }
 
     if (!received_environments.empty()) {
-        result += "  Now: " + toString(time(0)) + "\n";
+        result += "  Now: " + toString(time(nullptr)) + "\n";
         for (const auto& it : received_environments )
             result += "  ReceivedEnv[" + it.first  + "] last_use " + toString(it.second.last_use)
                 + ", size " + toString(it.second.size) + "\n";
@@ -1058,7 +1057,7 @@ bool Daemon::handle_transfer_env(Client *client, EnvTransferMsg *emsg)
 
     int pipe_from_child = -1;
     int pipe_to_child = -1;
-    FileChunkMsg *fmsg = 0;
+    FileChunkMsg *fmsg = nullptr;
 
     pid_t pid = start_install_environment(envbasedir, target, emsg->name, client->channel,
                     pipe_to_child, pipe_from_child, fmsg, user_uid, user_gid, nice_level);
@@ -1232,7 +1231,7 @@ bool Daemon::finish_transfer_env(Client *client, bool cancel)
 
     if (installed_size) {
         cache_size += installed_size;
-        received_environments[current].last_use = time(NULL);
+        received_environments[current].last_use = time(nullptr);
         received_environments[current].size = installed_size;
         log_info() << "installed " << current << " size: " << installed_size
                     << " all: " << cache_size << endl;
@@ -1251,13 +1250,13 @@ bool Daemon::finish_transfer_env(Client *client, bool cancel)
 
 void Daemon::check_cache_size(const string &new_env)
 {
-    time_t now = time(NULL);
+    time_t now = time(nullptr);
 
     while (cache_size > cache_size_limit) {
         string oldest_received;
         string oldest_native;
         // I don't dare to use (time_t)-1
-        time_t oldest_time = time(NULL) + 90000;
+        time_t oldest_time = time(nullptr) + 90000;
 
         for (const auto& it : received_environments ) {
             trace() << "considering cached environment: " << it.first << " " << it.second.last_use << " " << oldest_time << endl;
@@ -1450,7 +1449,7 @@ bool Daemon::finish_get_native_env(Client *client, string env_key)
         return false;
     }
 
-    native_environments[env_key].last_use = time(NULL);
+    native_environments[env_key].last_use = time(nullptr);
     client->status = Client::GOTNATIVE;
     client->pending_create_env.clear();
     return true;
@@ -1488,7 +1487,7 @@ bool Daemon::create_env_finished(string env_key)
         return false;
     }
 
-    env.last_use = time(NULL);
+    env.last_use = time(nullptr);
     env.size = installed_size;
     check_cache_size(env.name);
 
@@ -1581,7 +1580,7 @@ void Daemon::handle_old_request()
             trace() << "request for job " << job->jobID() << endl;
 
             string envforjob = job->targetPlatform() + "/" + job->environmentVersion();
-            received_environments[envforjob].last_use = time(NULL);
+            received_environments[envforjob].last_use = time(nullptr);
             pid = handle_connection(envbasedir, job, client->channel, sock, mem_limit, user_uid, user_gid);
             trace() << "handle connection returned " << pid << endl;
 
@@ -1633,7 +1632,7 @@ bool Daemon::handle_compile_done(Client *client)
     close(client->pipe_from_child);
     client->pipe_from_child = -1;
     string envforjob = client->job->targetPlatform() + "/" + client->job->environmentVersion();
-    received_environments[envforjob].last_use = time(NULL);
+    received_environments[envforjob].last_use = time(nullptr);
 
     if(!send_scheduler(*msg))
         log_warning() << "failed sending scheduler about compile done " << client->job->jobID() << endl;
@@ -2194,7 +2193,7 @@ bool Daemon::reconnect()
         return true;
     }
 
-    if (!discover && next_scheduler_connect > time(0)) {
+    if (!discover && next_scheduler_connect > time(nullptr)) {
         trace() << "Delaying reconnect." << endl;
         return false;
     }
@@ -2203,7 +2202,7 @@ bool Daemon::reconnect()
     trace() << "reconn " << dump_internals() << endl;
 #endif
 
-    if (!discover || (NULL == (scheduler = discover->try_get_scheduler()) && discover->timed_out())) {
+    if (!discover || (nullptr == (scheduler = discover->try_get_scheduler()) && discover->timed_out())) {
         delete discover;
         discover = new DiscoverSched(netname, max_scheduler_pong, schedname, scheduler_port);
     }
@@ -2214,7 +2213,7 @@ bool Daemon::reconnect()
     }
 
     delete discover;
-    discover = 0;
+    discover = nullptr;
     sockaddr_in name;
     socklen_t len = sizeof(name);
     int error = getsockname(scheduler->fd, (struct sockaddr*)&name, &len);
@@ -2227,7 +2226,7 @@ bool Daemon::reconnect()
 
     log_info() << "Connected to scheduler (I am known as " << remote_name << ")" << endl;
     current_load = -1000;
-    gettimeofday(&last_stat, 0);
+    gettimeofday(&last_stat, nullptr);
     icecream_load = 0;
 
     LoginMsg lmsg(daemon_port, determine_nodename(), machine_name, supported_features);
@@ -2255,7 +2254,7 @@ int Daemon::working_loop()
 int main(int argc, char **argv)
 {
     int max_processes = -1;
-    srand(time(0) + getpid());
+    srand(time(nullptr) + getpid());
 
     Daemon d;
 
@@ -2267,21 +2266,21 @@ int main(int argc, char **argv)
     while (true) {
         int option_index = 0;
         static const struct option long_options[] = {
-            { "netname", 1, NULL, 'n' },
-            { "max-processes", 1, NULL, 'm' },
-            { "help", 0, NULL, 'h' },
-            { "daemonize", 0, NULL, 'd'},
-            { "log-file", 1, NULL, 'l'},
-            { "nice", 1, NULL, 0},
-            { "name", 1, NULL, 'N'},
-            { "scheduler-host", 1, NULL, 's' },
-            { "env-basedir", 1, NULL, 'b' },
-            { "user-uid", 1, NULL, 'u'},
-            { "cache-limit", 1, NULL, 0},
-            { "no-remote", 0, NULL, 0},
-            { "interface", 1, NULL, 'i'},
-            { "port", 1, NULL, 'p'},
-            { 0, 0, 0, 0 }
+            { "netname", 1, nullptr, 'n' },
+            { "max-processes", 1, nullptr, 'm' },
+            { "help", 0, nullptr, 'h' },
+            { "daemonize", 0, nullptr, 'd'},
+            { "log-file", 1, nullptr, 'l'},
+            { "nice", 1, nullptr, 0},
+            { "name", 1, nullptr, 'N'},
+            { "scheduler-host", 1, nullptr, 's' },
+            { "env-basedir", 1, nullptr, 'b' },
+            { "user-uid", 1, nullptr, 'u'},
+            { "cache-limit", 1, nullptr, 0},
+            { "no-remote", 0, nullptr, 0},
+            { "interface", 1, nullptr, 'i'},
+            { "port", 1, nullptr, 'p'},
+            { nullptr, 0, nullptr, 0 }
         };
 
         const int c = getopt_long(argc, argv, "N:n:m:l:s:hvdb:u:i:p:", long_options, &option_index);

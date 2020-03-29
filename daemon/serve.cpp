@@ -207,7 +207,7 @@ int handle_connection(const string &basedir, CompileJob *job,
 
         memset(job_stat, 0, sizeof(job_stat));
 
-        char *tmp_output = 0;
+        char *tmp_output = nullptr;
         char prefix_output[32]; // 20 for 2^64 + 6 for "icecc-" + 1 for trailing NULL
         sprintf(prefix_output, "icecc-%u", job_id);
 
@@ -322,7 +322,7 @@ int handle_connection(const string &basedir, CompileJob *job,
     }
 
     delete client;
-    client = 0;
+    client = nullptr;
 
     if (!obj_file.empty()) {
         if (-1 == unlink(obj_file.c_str()) && errno != ENOENT){

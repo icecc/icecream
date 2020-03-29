@@ -165,17 +165,18 @@ rip_out_paths(const Environments &envs, map<string, string> &version_map, map<st
 
     Environments env2;
 
-    static const char *suffs[] = { ".tar.xz", ".tar.zst", ".tar.bz2", ".tar.gz", ".tar", ".tgz", NULL };
+    static const char *suffs[] = { ".tar.xz", ".tar.zst", ".tar.bz2", ".tar.gz", ".tar", ".tgz", nullptr };
 
     string versfile;
 
-    for (Environments::const_iterator it = envs.begin(); it != envs.end(); ++it) {
-        for (int i = 0; suffs[i] != NULL; i++)
-            if (endswith(it->second, suffs[i], versfile)) {
-                versionfile_map[it->first] = it->second;
+    // host platform + filename
+    for (const std::pair<std::string, std::string> &env : envs) {
+        for (int i = 0; suffs[i] != nullptr; i++)
+            if (endswith(env.second, suffs[i], versfile)) {
+                versionfile_map[env.first] = env.second;
                 versfile = find_basename(versfile);
-                version_map[it->first] = versfile;
-                env2.push_back(make_pair(it->first, versfile));
+                version_map[env.first] = versfile;
+                env2.push_back(make_pair(env.first, versfile));
             }
     }
 
@@ -329,7 +330,7 @@ static void receive_file(const string& output_file, MsgChannel* cserver)
         throw client_error(31, "Error 31 - " + errmsg);
     }
 
-    Msg* msg = 0;
+    Msg* msg = nullptr;
     size_t uncompressed = 0;
     size_t compressed = 0;
 
@@ -410,7 +411,7 @@ static int build_remote_int(CompileJob &job, UseCSMsg *usecs, MsgChannel *local_
 
     int status = 255;
 
-    MsgChannel *cserver = 0;
+    MsgChannel *cserver = nullptr;
 
     try {
         cserver = Service::createChannel(hostname, port, 10);
@@ -543,7 +544,7 @@ static int build_remote_int(CompileJob &job, UseCSMsg *usecs, MsgChannel *local_
 
             if (shell_exit_status(status) != 0) {   // failure
                 delete cserver;
-                cserver = 0;
+                cserver = nullptr;
                 log_warning() << "call_cpp process failed with exit status " << shell_exit_status(status) << endl;
                 // GCC's -fdirectives-only has a number of cases that it doesn't handle properly,
                 // so if in such mode preparing the source fails, try again recompiling locally.
@@ -650,7 +651,7 @@ static int build_remote_int(CompileJob &job, UseCSMsg *usecs, MsgChannel *local_
                 delete msg;
             }
             delete cserver;
-            cserver = 0;
+            cserver = nullptr;
         }
 
         throw;
@@ -727,11 +728,11 @@ maybe_build_local(MsgChannel *local_daemon, UseCSMsg *usecs, CompileJob &job,
 
         struct rusage ru;
 
-        gettimeofday(&begintv, 0);
+        gettimeofday(&begintv, nullptr);
 
         ret = build_local(job, local_daemon, &ru);
 
-        gettimeofday(&endtv, 0);
+        gettimeofday(&endtv, nullptr);
 
         // filling the stats, so the daemon can play proxy for us
         JobDoneMsg msg(job_id, ret, JobDoneMsg::FROM_SUBMITTER);
@@ -792,7 +793,7 @@ static unsigned int requiredRemoteFeatures()
 
 int build_remote(CompileJob &job, MsgChannel *local_daemon, const Environments &_envs, int permill)
 {
-    srand(time(0) + getpid());
+    srand(time(nullptr) + getpid());
 
     int torepeat = 1;
     bool has_split_dwarf = job.dwarfFissionEnabled();
@@ -856,7 +857,7 @@ int build_remote(CompileJob &job, MsgChannel *local_daemon, const Environments &
                 ret = build_remote_int(job, usecs, local_daemon,
                                        version_map[usecs->host_platform],
                                        versionfile_map[usecs->host_platform],
-                                       0, true);
+                                       nullptr, true);
         } catch(...) {
             delete usecs;
             throw;
@@ -865,7 +866,7 @@ int build_remote(CompileJob &job, MsgChannel *local_daemon, const Environments &
         delete usecs;
         return ret;
     } else {
-        char *preproc = 0;
+        char *preproc = nullptr;
         dcc_make_tmpnam("icecc", ".ix", &preproc, 0);
         const CharBufferDeleter preproc_holder(preproc);
         int cpp_fd = open(preproc, O_WRONLY);
@@ -924,7 +925,7 @@ int build_remote(CompileJob &job, MsgChannel *local_daemon, const Environments &
 
         for (int i = 0; i < torepeat; i++) {
             jobs[i] = job;
-            char *buffer = 0;
+            char *buffer = nullptr;
 
             if (i) {
                 dcc_make_tmpnam("icecc", ".o", &buffer, 0);

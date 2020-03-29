@@ -277,7 +277,7 @@ bool colorify_wanted(const CompileJob &job)
     if (explicit_color_diagnostics) { // colors explicitly enabled/disabled by an option
         return false;
     }
-    if (getenv("ICECC_COLOR_DIAGNOSTICS") != NULL)
+    if (getenv("ICECC_COLOR_DIAGNOSTICS") != nullptr)
         return false; // if set explicitly, assume icecream's colorify is not wanted
 
     if (getenv("EMACS")) {
@@ -360,7 +360,7 @@ std::string get_cwd()
     static std::vector<char> buffer(1024);
 
     errno = 0;
-    while (getcwd(&buffer[0], buffer.size() - 1) == 0 && errno == ERANGE) {
+    while (getcwd(&buffer[0], buffer.size() - 1) == nullptr && errno == ERANGE) {
         buffer.resize(buffer.size() + 1024);
         errno = 0;
     }

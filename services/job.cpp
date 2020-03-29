@@ -32,9 +32,9 @@ list<string> CompileJob::flags(Argument_Type argumentType) const
 {
     list<string> args;
 
-    for (ArgumentsList::const_iterator it = m_flags.begin(); it != m_flags.end(); ++it) {
-        if (it->second == argumentType) {
-            args.push_back(it->first);
+    for (const std::pair<std::string, Argument_Type>& m_flag : m_flags) {
+        if (m_flag.second == argumentType) {
+            args.push_back(m_flag.first);
         }
     }
 
@@ -60,9 +60,9 @@ list<string> CompileJob::nonLocalFlags() const
 {
     list<string> args;
 
-    for (ArgumentsList::const_iterator it = m_flags.begin(); it != m_flags.end(); ++it) {
-        if (it->second != Arg_Local) {
-            args.push_back(it->first);
+    for (const std::pair<std::string, Argument_Type> &m_flag : m_flags) {
+        if (m_flag.second != Arg_Local) {
+            args.push_back(m_flag.first);
         }
     }
 
@@ -73,8 +73,8 @@ list<string> CompileJob::allFlags() const
 {
     list<string> args;
 
-    for (ArgumentsList::const_iterator it = m_flags.begin(); it != m_flags.end(); ++it) {
-        args.push_back(it->first);
+    for (const std::pair<std::string, Argument_Type> &m_flag : m_flags) {
+        args.push_back(m_flag.first);
     }
 
     return args;
@@ -89,8 +89,8 @@ unsigned int CompileJob::argumentFlags() const
 {
     unsigned int result = Flag_None;
 
-    for (ArgumentsList::const_iterator it = m_flags.begin(); it != m_flags.end(); ++it) {
-        const string arg = it->first;
+    for (const std::pair<std::string, Argument_Type> &m_flag : m_flags) {
+        const string arg = m_flag.first;
 
         if (arg.at(0) == '-') {
             if (arg.length() == 1) {

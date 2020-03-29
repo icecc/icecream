@@ -41,7 +41,7 @@ using namespace std;
 static const char dcc_safeguard_name[] = "_ICECC_SAFEGUARD";
 static int dcc_safeguard_level;
 
-int dcc_recursion_safeguard(void)
+int dcc_recursion_safeguard()
 {
     const char *env = getenv(dcc_safeguard_name);
 
