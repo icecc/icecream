@@ -580,6 +580,8 @@ struct Daemon {
     bool setup_listen_tcp_fd( int& fd, const string& interface );
     bool setup_listen_unix_fd();
     void check_cache_size(const string &new_env);
+    void remove_native_environment(const string& env_key);
+    void remove_environment(const string& env_key);
     bool create_env_finished(string env_key);
 };
 
@@ -1064,7 +1066,7 @@ bool Daemon::handle_transfer_env(Client *client, EnvTransferMsg *emsg)
 
     if( pid <= 0 ) {
         delete fmsg;
-        remove_environment(envbasedir, target + "/" + emsg->name);
+        remove_environment_files(envbasedir, target + "/" + emsg->name);
         handle_end(client, 144);
         return false;
     }
@@ -1223,7 +1225,7 @@ bool Daemon::finish_transfer_env(Client *client, bool cancel)
         log_info() << "installed_size: " << installed_size << endl;
     }
     if( installed_size == 0 )
-        remove_environment(envbasedir, client->outfile);
+        remove_environment_files(envbasedir, client->outfile);
 
     client->status = Client::UNKNOWN;
     string current = client->outfile;
@@ -1332,25 +1334,39 @@ void Daemon::check_cache_size(const string &new_env)
             break;
         }
 
-        size_t removed;
-
-        if (!oldest_native.empty()) {
+        if (!oldest_native.empty())
             remove_native_environment(oldest_native);
-            removed = native_environments[oldest_native].size;
-            trace() << "removing " << native_environments[oldest_native].name << " " << oldest_time
-                << " " << removed << endl;
-            native_environments.erase(oldest_native);
-        } else {
-            remove_environment(envbasedir, oldest_received);
-            removed = received_environments[oldest_received].size;
-            trace() << "removing " << envbasedir << "/target=" << oldest_received << " " << oldest_time
-                << " " << removed << endl;
-            received_environments.erase(oldest_received);
-        }
-
-        assert( cache_size >= removed );
-        cache_size -= removed;
+        else
+            remove_environment(oldest_received);
     }
+}
+
+void Daemon::remove_native_environment(const string& env_key)
+{
+    assert(!env_key.empty());
+    remove_native_environment_files(env_key);
+    const NativeEnvironment &env = native_environments[env_key];
+    trace() << "removing " << env.name << " " << env.size << endl;
+    if (env.create_env_pipe) {
+        if ((-1 == close(env.create_env_pipe)) && (errno != EBADF)){
+            log_perror("close failed");
+        }
+        // TODO kill the still running icecc-create-env process?
+    }
+    assert( cache_size >= env.size );
+    cache_size -= env.size;
+    native_environments.erase(env_key);
+}
+
+void Daemon::remove_environment(const string& env_key)
+{
+    assert(!env_key.empty());
+    remove_environment_files(envbasedir, env_key);
+    const ReceivedEnvironment& env = received_environments[env_key];
+    trace() << "removing " << envbasedir << "/target=" << env_key << " " << env.size << endl;
+    assert( cache_size >= env.size );
+    cache_size -= env.size;
+    received_environments.erase(env_key);
 }
 
 bool Daemon::handle_get_native_env(Client *client, GetNativeEnvMsg *msg)
@@ -1404,15 +1420,6 @@ bool Daemon::handle_get_native_env(Client *client, GetNativeEnvMsg *msg)
         if (env.filetimes != filetimes || access(env.name.c_str(), R_OK) != 0) {
             trace() << "native_env needs rebuild" << endl;
             remove_native_environment(env.name);
-            cache_size -= env.size;
-            received_environments.erase(env.name);
-            if (env.create_env_pipe) {
-                if ((-1 == close(env.create_env_pipe)) && (errno != EBADF)){
-                    log_perror("close failed");
-                }
-                // TODO kill the still running icecc-create-env process?
-            }
-            native_environments.erase(env_key);   // invalidates 'env'
         }
     }
 
@@ -1633,6 +1640,11 @@ bool Daemon::handle_compile_done(Client *client)
     client->pipe_from_child = -1;
     string envforjob = client->job->targetPlatform() + "/" + client->job->environmentVersion();
     received_environments[envforjob].last_use = time(nullptr);
+    if(end_status == EXIT_COMPILER_MISSING) { // Environment damaged?
+        remove_environment(envforjob);
+        if( !reannounce_environments())
+            log_warning() << "failed reannounce environments after failed compile " << client->job->jobID() << endl;
+    }
 
     if(!send_scheduler(*msg))
         log_warning() << "failed sending scheduler about compile done " << client->job->jobID() << endl;

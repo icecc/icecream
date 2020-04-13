@@ -600,7 +600,7 @@ size_t finalize_install_environment(const std::string &basename, const std::stri
     return sumup_dir(dirname);
 }
 
-void remove_environment(const string &basename, const string &env)
+void remove_environment_files(const string &basename, const string &env)
 {
     string dirname = basename + "/target=" + env;
 
@@ -642,7 +642,7 @@ void remove_environment(const string &basename, const string &env)
     _exit(-1);
 }
 
-void remove_native_environment(const string &env)
+void remove_native_environment_files(const string &env)
 {
     if (env.empty()) {
         return;

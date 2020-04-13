@@ -175,6 +175,8 @@ int handle_connection(const string &basedir, CompileJob *job,
 
     string tmp_path, obj_file, dwo_file;
     int exit_code = 0;
+    unsigned int job_stat[8];
+    memset(job_stat, 0, sizeof(job_stat));
 
     try {
         if (job->environmentVersion().size()) {
@@ -184,7 +186,7 @@ int handle_connection(const string &basedir, CompileJob *job,
                 error_client(client, dirname + "/usr/bin/as is not executable, installed environment removed?");
                 log_error() << "I don't have environment " << job->environmentVersion() << "(" << job->targetPlatform() << ") " << job->jobID() << endl;
                 // The scheduler didn't listen to us, or maybe something has removed the files.
-                throw myexception(EXIT_DISTCC_FAILED);
+                throw myexception(EXIT_COMPILER_MISSING);
             }
 
             chdir_to_environment(client, dirname, user_uid, user_gid);
@@ -201,11 +203,8 @@ int handle_connection(const string &basedir, CompileJob *job,
         }
 
         int ret;
-        unsigned int job_stat[8];
         CompileResultMsg rmsg;
         unsigned int job_id = job->jobID();
-
-        memset(job_stat, 0, sizeof(job_stat));
 
         char *tmp_output = nullptr;
         char prefix_output[32]; // 20 for 2^64 + 6 for "icecc-" + 1 for trailing NULL
@@ -319,6 +318,16 @@ int handle_connection(const string &basedir, CompileJob *job,
 
     } catch (const myexception& e) {
         exit_code = e.exitcode();
+        assert(exit_code != 0);
+        // There is nothing that would actually collect and care about the exit
+        // status of this process. Make sure to send the exit code (i.e. error code)
+        // using the pipe where it will be read and acted upon if needed.
+        job_stat[JobStatistics::exit_code] = exit_code;
+        if(out_fd != -1)
+        {
+            ignore_result(write(out_fd, job_stat, sizeof(job_stat)));
+            close(out_fd);
+        }
     }
 
     delete client;
