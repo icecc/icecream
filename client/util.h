@@ -40,7 +40,6 @@ extern bool output_needs_workaround(const CompileJob &job);
 extern bool ignore_unverified();
 extern int resolve_link(const std::string &file, std::string &resolved);
 extern std::string get_cwd();
-extern std::string read_command_output(const std::string& command);
 
 extern bool dcc_lock_host();
 extern void dcc_unlock();
