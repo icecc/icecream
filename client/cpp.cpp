@@ -127,7 +127,7 @@ pid_t call_cpp(CompileJob &job, int fdwrite, int fdread)
                     if (access(p.c_str(), R_OK) < 0 && access((p + ".gch").c_str(), R_OK) == 0) {
                         // PCH is useless for preprocessing, ignore the flag.
                         list<string>::iterator o = --it;
-                        it++;
+                        ++it;
                         flags.erase(o);
                         o = it++;
                         flags.erase(o);
