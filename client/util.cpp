@@ -369,26 +369,3 @@ std::string get_cwd()
 
     return string(&buffer[0]);
 }
-
-std::string read_command_output(const std::string& command)
-{
-    FILE *f = popen(command.c_str(), "r");
-    string output;
-
-    if (!f) {
-        log_error() << "no pipe " << strerror(errno) << endl;
-        return output;
-    }
-
-    char buffer[1024];
-
-    while (!feof(f)) {
-        size_t bytes = fread(buffer, 1, sizeof(buffer) - 1, f);
-        buffer[bytes] = 0;
-        output += buffer;
-    }
-
-    pclose(f);
-    // get rid of the endline
-    return output.substr(0, output.length() - 1);
-}

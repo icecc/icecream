@@ -24,6 +24,7 @@
 #include <string>
 #include <sys/poll.h>
 #include <vector>
+#include <unistd.h>
 
 extern std::string find_basename(const std::string &sfile);
 extern std::string find_prefix(const std::string &basename);
@@ -34,6 +35,12 @@ extern bool is_cpp_compiler(const std::string& compiler);
 // E.g. get_c_compiler("clang++-8") -> "clang-8".
 extern std::string get_c_compiler(const std::string& compiler);
 extern std::string get_cpp_compiler(const std::string& compiler);
+
+extern std::string read_command_output(const std::string& command,
+    const std::vector<std::string>& args, int output_fd = STDOUT_FILENO);
+// Returns just one line, with the trailing \n removed.
+extern std::string read_command_line(const std::string& command,
+    const std::vector<std::string>& args, int output_fd = STDOUT_FILENO);
 
 template<typename T>
 inline T ignore_result(T x __attribute__((unused)))

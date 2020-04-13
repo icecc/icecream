@@ -25,8 +25,12 @@
 
 #include <cassert>
 #include <cstring>
+#include <sys/types.h>
+#include <sys/wait.h>
 
 #include "comm.h"
+#include "logging.h"
+#include "exitcode.h"
 
 using namespace std;
 
@@ -124,6 +128,90 @@ string get_cpp_compiler(const string& compiler)
         return compiler.substr( 0, pos ) + "c++" + compiler.substr( pos + strlen( "cc" ));
     assert( false );
     return string();
+}
+
+string read_command_output(const string& command, const vector<string>& args, int output_fd)
+{
+    flush_debug();
+    int pipes[2];
+    if (pipe(pipes) == -1) {
+        log_error() << "failed to create pipe: " << strerror(errno) << endl;
+        _exit(147);
+    }
+    pid_t pid = fork();
+
+    if (pid == -1) {
+        log_perror("failed to fork");
+        _exit(147);
+    }
+
+    if (pid) { // parent
+        if (close(pipes[1]) < 0){
+            log_perror("close failed");
+        }
+        int status;
+        while (waitpid(pid, &status, 0) < 0 && errno == EINTR)
+            ;
+        if(shell_exit_status(status) != 0)
+            return string();
+        string output;
+        char buf[1024];
+        for (;;) {
+            int r = read(pipes[0], buf, sizeof(buf) - 1 );
+            if( r > 0 ) {
+                buf[r] = '\0';
+                output += buf;
+            }
+            if (r == 0)
+                break;
+            if (r < 0 && errno != EINTR)
+                break;
+        }
+        return output;
+    }
+
+    // child
+
+    if (close(pipes[0]) < 0){
+        log_perror("close failed");
+    }
+
+    close(STDIN_FILENO);
+    close(STDOUT_FILENO);
+    close(STDERR_FILENO);
+
+    if (dup2(pipes[1], output_fd) < 0){
+        log_perror("dup2 failed");
+        return string();
+    }
+
+    if (close(pipes[1]) < 0){
+        log_perror("close failed");
+    }
+
+    const char **argv;
+    argv = new const char*[args.size() + 2];
+    int pos = 0;
+    argv[pos++] = strdup(command.c_str());
+    for (const string& arg : args)
+        argv[pos++] = strdup(arg.c_str());
+    argv[pos++] = nullptr;
+
+    execvp(argv[0], const_cast<char * const *>(argv));
+    ostringstream errmsg;
+    errmsg << "execv " << argv[0] << " failed";
+    log_perror(errmsg.str());
+    _exit(-1);
+}
+
+string read_command_line(const string& command, const vector<string>& args, int output_fd)
+{
+    string output = read_command_output( command, args, output_fd );
+    // get rid of the endline
+    if( output[ output.length() - 1 ] == '\n' )
+        return output.substr(0, output.length() - 1);
+    else
+        return output;
 }
 
 bool pollfd_is_set(const vector<pollfd>& pollfds, int fd, int flags, bool check_errors)

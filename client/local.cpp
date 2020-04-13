@@ -200,7 +200,7 @@ bool compiler_only_rewrite_includes(const CompileJob &job)
 
 string clang_get_default_target(const CompileJob &job)
 {
-    return read_command_output( find_compiler( job ) + " -dumpmachine" );
+    return read_command_line( find_compiler( job ), { "-dumpmachine" } );
 }
 
 bool compiler_get_arch_flags(const CompileJob& job, bool march, bool mcpu, bool mtune, list<string>& args)
@@ -210,12 +210,15 @@ bool compiler_get_arch_flags(const CompileJob& job, bool march, bool mcpu, bool 
     // TODO: This probably should be cached somehow in iceccd.
     string compiler = find_compiler(job);
     bool is_clang = compiler_is_clang(job);
-    string flags_output = read_command_output( compiler + " -### -E -"
-        + ( march ? " -march=native" : "" )
-        + ( mcpu ? " -mcpu=native" : "" )
-        + ( mtune ? " -mtune=native" : "" )
-        + " 2>&1" );
-    string normal_output = read_command_output( compiler + " -### -E - 2>&1" );
+    vector< string > compiler_args = { "-###", "-E", "-" };
+    string normal_output = read_command_output( compiler, compiler_args, STDERR_FILENO );
+    if( march )
+        compiler_args.push_back( "-march=native" );
+    if( mcpu )
+        compiler_args.push_back( "-mcpu=native" );
+    if( mtune )
+        compiler_args.push_back( "-mtune=native" );
+    string flags_output = read_command_output( compiler, compiler_args, STDERR_FILENO );
     try {
         // get the right line
         if(is_clang) {
