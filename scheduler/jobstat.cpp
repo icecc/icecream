@@ -82,7 +82,7 @@ void JobStat::setJobId(unsigned int id)
     m_jobId = id;
 }
 
-JobStat &JobStat::operator+(const JobStat &st)
+JobStat &JobStat::operator+=(const JobStat &st)
 {
     m_outputSize += st.m_outputSize;
     m_compileTimeReal += st.m_compileTimeReal;
@@ -92,12 +92,13 @@ JobStat &JobStat::operator+(const JobStat &st)
     return *this;
 }
 
-JobStat &JobStat::operator+=(const JobStat &st)
+JobStat &JobStat::operator+(const JobStat &st)
 {
-    return *this + st;
+    JobStat r = *this;
+    return r += st;
 }
 
-JobStat &JobStat::operator-(const JobStat &st)
+JobStat &JobStat::operator-=(const JobStat &st)
 {
     m_outputSize -= st.m_outputSize;
     m_compileTimeReal -= st.m_compileTimeReal;
@@ -107,9 +108,10 @@ JobStat &JobStat::operator-(const JobStat &st)
     return *this;
 }
 
-JobStat &JobStat::operator-=(const JobStat &st)
+JobStat &JobStat::operator-(const JobStat &st)
 {
-    return *this - st;
+    JobStat r = *this;
+    return r -= st;
 }
 
 JobStat JobStat::operator/(int d) const
