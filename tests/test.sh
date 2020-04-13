@@ -1974,9 +1974,22 @@ run_ice "$testdir/plain.o" "remote" 0 $TESTCXX -Wall -Werror -c plain.cpp -O2 -o
 run_ice "$testdir/plain.ii" "local" 0 $TESTCXX -Wall -Werror -E plain.cpp -o "$testdir/"plain.ii
 run_ice "$testdir/includes.o" "remote" 0 $TESTCXX -Wall -Werror -c includes.cpp -o "$testdir"/includes.o
 run_ice "$testdir/includes.o" "remote" 0 $TESTCXX -Wall -Werror -c includes-without.cpp -include includes.h -o "$testdir"/includes.o
-run_ice "$testdir/plain.o" "local" 0 $TESTCXX -Wall -Werror -c plain.cpp -mtune=native -o "$testdir"/plain.o
 run_ice "$testdir/plain.o" "remote" 0 $TESTCC -Wall -Werror -x c++ -c plain -o "$testdir"/plain.o
 run_ice "$testdir/plain.s" "remote" 0 $TESTCC -Wall -Werror -S plain.c -o "$testdir"/plain.s
+
+if test -n "$using_clang"; then
+    target_cpu=$($TESTCXX -### -E - -march=native 2>&1 | grep '"-cc1"' | sed 's/^.* "-target-cpu" "\([^"]*\)".*$/\1/')
+    run_ice "$testdir/plain.o" "remote" 0 $TESTCXX -Wall -Werror -c plain.cpp -march=native -o "$testdir"/plain.o
+    if test -z "$chroot_disabled"; then
+        check_section_log_message remoteice1 "remote compile arguments:.* -Xclang -target-cpu -Xclang $target_cpu "
+    fi
+else
+    target_cpu=$($TESTCXX -### -E - -march=native 2>&1 | grep '/cc1 ' | sed 's/^.* "-march=\([^"]*\)".*$/\1/')
+    run_ice "$testdir/plain.o" "remote" 0 $TESTCXX -Wall -Werror -c plain.cpp -march=native -o "$testdir"/plain.o
+    if test -z "$chroot_disabled"; then
+        check_section_log_message remoteice1 "remote compile arguments:.* -march=$target_cpu "
+    fi
+fi
 
 $TESTCC -Wa,-al=listing.txt -Wall -Werror -c plain.c -o "$testdir/"plain.o 2>/dev/null
 if test $? -eq 0; then

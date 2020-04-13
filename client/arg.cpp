@@ -311,6 +311,9 @@ bool analyse_argv(const char * const *argv, CompileJob &job, bool icerun, list<s
     bool wunused_macros = false;
     bool seen_arch = false;
     bool seen_pedantic = false;
+    bool seen_march_native = false;
+    bool seen_mcpu_native = false;
+    bool seen_mtune_native = false;
     const char *standard = nullptr;
     // if rewriting includes and precompiling on remote machine, then cpp args are not local
     Argument_Type Arg_Cpp = compiler_only_rewrite_includes(job) ? Arg_Rest : Arg_Local;
@@ -472,14 +475,15 @@ bool analyse_argv(const char * const *argv, CompileJob &job, bool icerun, list<s
                     log_info() << "unsupported -x option: " << unsupported_opt << "; running locally" << endl;
                     always_local = true;
                 }
-            } else if (!strcmp(a, "-march=native") || !strcmp(a, "-mcpu=native")
-                       || !strcmp(a, "-mtune=native")) {
-                log_info() << "-{march,mpcu,mtune}=native optimizes for local machine, "
-                           << "building locally"
-                           << endl;
-                always_local = true;
-                args.append(a, Arg_Local);
-
+            } else if (!strcmp(a, "-march=native")) {
+                args.append(a, Arg_Rest);
+                seen_march_native = true;
+            } else if (!strcmp(a, "-mcpu=native")) {
+                args.append(a, Arg_Rest);
+                seen_mcpu_native = true;
+            } else if (!strcmp(a, "-mtune=native")) {
+                args.append(a, Arg_Rest);
+                seen_mtune_native = true;
             } else if (!strcmp(a, "-fexec-charset") || !strcmp(a, "-fwide-exec-charset") || !strcmp(a, "-finput-charset") ) {
 #if CLIENT_DEBUG
                 log_info() << "-f*-charset assumes charset conversion in the build environment; must be local" << endl;
@@ -898,6 +902,34 @@ bool analyse_argv(const char * const *argv, CompileJob &job, bool icerun, list<s
         } else {
             always_local = true;
             log_error() << "failed to read default clang host platform, building locally" << endl;
+        }
+    }
+    if( !always_local && (seen_march_native || seen_mcpu_native || seen_mtune_native)) {
+        // These depend on the host where the compilation is done, so expand these
+        // to the actual flags that would be used if compiled locally.
+        list<string> arch_args;
+        if(compiler_get_arch_flags(job, seen_march_native, seen_mcpu_native, seen_mtune_native, arch_args)) {
+            bool handled = false;
+            for( auto it = args.begin(); it != args.end();) {
+                if( it->first == "-march=native" || it->first == "-mcpu=native" || it->first == "-mtune=native" ) {
+                    // Remove all the arguments, replace the first one with the specific flags.
+                    it = args.erase( it );
+                    if( !handled ) {
+                        for( const string& arg : arch_args ) {
+                            it = args.insert( it, std::make_pair( arg, Arg_Rest ));
+                            ++it;
+                        }
+                        handled = true;
+                    }
+                } else {
+                    ++it;
+                }
+            }
+            assert( handled );
+        }
+        else {
+            always_local = true;
+            log_error() << "failed to read -march/cpu/tune=native flags, building locally" << endl;
         }
     }
 

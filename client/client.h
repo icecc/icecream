@@ -57,6 +57,8 @@ extern bool compiler_is_clang(const CompileJob &job);
 extern bool compiler_only_rewrite_includes(const CompileJob &job);
 extern std::string compiler_path_lookup(const std::string &compiler);
 extern std::string clang_get_default_target(const CompileJob &job);
+extern bool compiler_get_arch_flags(const CompileJob& job, bool march, bool mcpu, bool mtune,
+    std::list<std::string>& args);
 
 /* In remote.cpp - permill is the probability it will be compiled three times */
 extern int build_remote(CompileJob &job, MsgChannel *scheduler, const Environments &envs, int permill);
