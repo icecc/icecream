@@ -1978,11 +1978,14 @@ void Daemon::answer_client_requests()
         Client *client = clients.find_by_channel(c);
         assert(client);
         int current_status = client->status;
-        bool ignore_channel = current_status == Client::TOCOMPILE
-                              || current_status == Client::WAITFORCHILD
-                              || current_status == Client::WAITINSTALL;
+        bool ignore_channel = current_status == Client::WAITFORCHILD ||
+                              current_status == Client::WAITINSTALL;
 
-        if (!ignore_channel && (!c->has_msg() || handle_activity(client))) {
+        /* when the remote host is full with work, the wait time for it to free up and
+           fork a child to compile could be long. If the input is ready to read, we will read
+           them and save it for the child; otherwise the write on the client side would be blocked */
+        if ( current_status == Client::TOCOMPILE ||
+             (!ignore_channel && (!c->has_msg() || handle_activity(client)))) {
             pfd.fd = i;
             pfd.events = POLLIN;
             pollfds.push_back(pfd);
@@ -2161,17 +2164,26 @@ void Daemon::answer_client_requests()
                 }
 
                 if (pollfd_is_set(pollfds, i, POLLIN)) {
-                    assert(client->status != Client::TOCOMPILE && client->status != Client::WAITINSTALL);
+                    if( client->status == Client::TOCOMPILE )
+                    {
+                        /* read as the preprocessed input is ready but don't process it and leave it to the child
+                           if we didn't read it now, the client would be blocked and timed out */
+                        c->read_a_bit();
+                    }
+                    else
+                    {
+                        assert(client->status != Client::TOCOMPILE && client->status != Client::WAITINSTALL);
 
-                    while (!c->read_a_bit() || c->has_msg()) {
-                        if (!handle_activity(client)) {
-                            break;
-                        }
+                        while (!c->read_a_bit() || c->has_msg()) {
+                            if (!handle_activity(client)) {
+                                break;
+                            }
 
-                        if (client->status == Client::TOCOMPILE
+                            if (client->status == Client::TOCOMPILE
                                 || client->status == Client::WAITFORCHILD
                                 || client->status == Client::WAITINSTALL) {
-                            break;
+                                break;
+                            }
                         }
                     }
                 }
@@ -2188,7 +2200,6 @@ void Daemon::answer_client_requests()
                 }
                 ++it;
             }
-
         }
 
         if (had_scheduler && !scheduler) {
@@ -2594,4 +2605,3 @@ int main(int argc, char **argv)
 
     return d.working_loop();
 }
-
