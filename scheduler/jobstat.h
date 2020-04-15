@@ -43,17 +43,9 @@ public:
     unsigned int jobId() const;
     void setJobId(unsigned int id);
 
-    JobStat &operator+(const JobStat &st);
-
-    JobStat &operator+=(const JobStat &st);
-
-    JobStat &operator-(const JobStat &st);
-
-    JobStat &operator-=(const JobStat &st);
-
-    JobStat operator/(int d) const;
-
-    JobStat &operator/=(int d);
+    JobStat& operator+=(const JobStat& st);
+    JobStat& operator-=(const JobStat& st);
+    JobStat& operator/=(int d);
 
 private:
     unsigned long m_outputSize;  // output size (uncompressed)
@@ -62,5 +54,23 @@ private:
     unsigned long m_compileTimeSys;
     unsigned int m_jobId;
 };
+
+inline
+JobStat operator+(const JobStat& l, const JobStat& r)
+{
+    return JobStat( l ) += r;
+}
+
+inline
+JobStat operator-(const JobStat& l, const JobStat& r)
+{
+    return JobStat( l ) -= r;
+}
+
+inline
+JobStat operator/(const JobStat& st, int d)
+{
+    return JobStat( st ) /= d;
+}
 
 #endif
