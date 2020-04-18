@@ -1937,7 +1937,7 @@ void Daemon::answer_client_requests()
 
 #endif
 
-    /* reap zombis */
+    /* reap zombies */
     int status;
 
     while (waitpid(-1, &status, WNOHANG) < 0 && errno == EINTR) {}

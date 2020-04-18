@@ -63,7 +63,7 @@
 /* TODO:
    * leak check
    * are all filedescs closed when done?
-   * simplify livetime of the various structures (Jobs/Channels/CompileServers know
+   * simplify lifetime of the various structures (Jobs/Channels/CompileServers know
      of each other and sometimes take over ownership)
  */
 
