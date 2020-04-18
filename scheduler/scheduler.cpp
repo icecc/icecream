@@ -112,12 +112,14 @@ static map<unsigned int, Job *> jobs;
 
 /* XXX Uah.  Don't use a queue for the job requests.  It's a hell
    to delete anything out of them (for clean up).  */
-struct UnansweredList {
+// Job requests from one submitter.
+struct JobRequestsGroup {
     list<Job *> l;
     CompileServer *submitter;
     bool remove_job(Job *);
 };
-static list<UnansweredList *> toanswer;
+// All pending job requests.
+static list<JobRequestsGroup *> job_requests;
 
 static list<JobStat> all_job_stats;
 static JobStat cum_job_stats;
@@ -126,7 +128,7 @@ static float server_speed(CompileServer *cs, Job *job = nullptr, bool blockDebug
 
 /* Searches the queue for JOB and removes it.
    Returns true if something was deleted.  */
-bool UnansweredList::remove_job(Job *job)
+bool JobRequestsGroup::remove_job(Job *job)
 {
     list<Job *>::iterator it;
 
@@ -378,42 +380,42 @@ static Job *create_new_job(CompileServer *submitter)
 
 static void enqueue_job_request(Job *job)
 {
-    if (!toanswer.empty() && toanswer.back()->submitter == job->submitter()) {
-        toanswer.back()->l.push_back(job);
+    if (!job_requests.empty() && job_requests.back()->submitter == job->submitter()) {
+        job_requests.back()->l.push_back(job);
     } else {
-        UnansweredList *newone = new UnansweredList();
+        JobRequestsGroup *newone = new JobRequestsGroup();
         newone->submitter = job->submitter();
         newone->l.push_back(job);
-        toanswer.push_back(newone);
+        job_requests.push_back(newone);
     }
 }
 
 static Job *get_job_request()
 {
-    if (toanswer.empty()) {
+    if (job_requests.empty()) {
         return nullptr;
     }
 
-    UnansweredList *first = toanswer.front();
+    JobRequestsGroup *first = job_requests.front();
     assert(!first->l.empty());
     return first->l.front();
 }
 
-/* Removes the first job request (the one returned by get_job_request()) */
+// Removes the first job request (the one returned by get_job_request()).
+// Also rotates submitters in a round-robin fashion to try to serve
+// them all fairly.
 static void remove_job_request()
 {
-    if (toanswer.empty()) {
-        return;
-    }
+    assert(!job_requests.empty());
 
-    UnansweredList *first = toanswer.front();
-    toanswer.pop_front();
+    JobRequestsGroup *first = job_requests.front();
+    job_requests.pop_front();
     first->l.pop_front();
 
     if (first->l.empty()) {
         delete first;
     } else {
-        toanswer.push_back(first);
+        job_requests.push_back(first);
     }
 }
 
@@ -842,17 +844,17 @@ static time_t prune_servers()
     return min_time;
 }
 
-static Job *delay_current_job()
+static Job* delay_current_job_request_get_next()
 {
-    assert(!toanswer.empty());
+    assert(!job_requests.empty());
 
-    if (toanswer.size() == 1) {
+    if (job_requests.size() == 1) {
         return nullptr;
     }
 
-    UnansweredList *first = toanswer.front();
-    toanswer.pop_front();
-    toanswer.push_back(first);
+    JobRequestsGroup *first = job_requests.front();
+    job_requests.pop_front();
+    job_requests.push_back(first);
     return get_job_request();
 }
 
@@ -884,9 +886,9 @@ static bool empty_queue()
                 && job->preferredHost().empty()
                 /* This should be trivially true.  */
                 && cs->can_install(job).size())) {
-            job = delay_current_job();
+            job = delay_current_job_request_get_next();
 
-            if ((job == first_job) || !job) { // no job found in the whole toanswer list
+            if ((job == first_job) || !job) { // no job found in the whole job_requests list
                 job = first_job;
                 for (CompileServer * const cs : css) {
                     if(!job->preferredHost().empty() && !cs->matches(job->preferredHost()))
@@ -1179,13 +1181,13 @@ static bool handle_job_done(CompileServer *cs, Msg *_m)
                 j = job;
                 m->set_job_id( j->id()); // Now we know the job's id.
 
-                /* Unfortunately the toanswer queues are also tagged based on the daemon,
+                /* Unfortunately the job_requests queues are also tagged based on the daemon,
                 so we need to clean them up also.  */
-                list<UnansweredList *>::iterator it;
+                list<JobRequestsGroup *>::iterator it;
 
-                for (it = toanswer.begin(); it != toanswer.end(); ++it)
+                for (it = job_requests.begin(); it != job_requests.end(); ++it)
                     if ((*it)->submitter == cs) {
-                        UnansweredList *l = *it;
+                        JobRequestsGroup *l = *it;
                         list<Job *>::iterator jit;
 
                         for (jit = l->l.begin(); jit != l->l.end(); ++jit) {
@@ -1196,7 +1198,7 @@ static bool handle_job_done(CompileServer *cs, Msg *_m)
                         }
 
                         if (l->l.empty()) {
-                            it = toanswer.erase(it);
+                            it = job_requests.erase(it);
                             break;
                         }
                     }
@@ -1612,12 +1614,12 @@ static bool handle_end(CompileServer *toremove, Msg *m)
          disconnect soon too.  */
         css.remove(toremove);
 
-        /* Unfortunately the toanswer queues are also tagged based on the daemon,
+        /* Unfortunately the job_requests queues are also tagged based on the daemon,
            so we need to clean them up also.  */
 
-        for (list<UnansweredList *>::iterator it = toanswer.begin(); it != toanswer.end();) {
+        for (list<JobRequestsGroup *>::iterator it = job_requests.begin(); it != job_requests.end();) {
             if ((*it)->submitter == toremove) {
-                UnansweredList *l = *it;
+                JobRequestsGroup *l = *it;
                 list<Job *>::iterator jit;
 
                 for (jit = l->l.begin(); jit != l->l.end(); ++jit) {
@@ -1633,7 +1635,7 @@ static bool handle_end(CompileServer *toremove, Msg *m)
                 }
 
                 delete l;
-                it = toanswer.erase(it);
+                it = job_requests.erase(it);
             } else {
                 ++it;
             }
