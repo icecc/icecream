@@ -11,5 +11,5 @@ Version: @VERSION@
 Requires:
 Conflicts:
 Libs: -L${libdir} -licecc
-Libs.private: @CAPNG_LDADD@ -llzo2 -lzstd -larchive
+Libs.private: @LIBCAP_NG_LIBS@ -llzo2 @LIBZSTD_LIBS@ @LIBARCHIVE_LIBS@
 Cflags: -I${includedir}

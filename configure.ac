@@ -93,12 +93,14 @@ fi
 
 AC_PROG_MAKE_SET
 AC_PROG_INSTALL
+PKG_PROG_PKG_CONFIG
 AC_C_INLINE
 AC_DISABLE_SHARED
 AC_ENABLE_STATIC
 AC_PROG_LIBTOOL
 
-ICECC_LIBCAP_NG_PATH
+AS_CASE([$host], [*linux*], [LIBCAP_NG_DEFAULT=yes], [LIBCAP_NG_DEFAULT=auto])
+PKG_HAVE_DEFINE_WITH_MODULES([LIBCAP_NG], [libcap-ng], , $LIBCAP_NG_DEFAULT)
 
 # =============
 # Documentation
@@ -214,17 +216,12 @@ AC_CHECK_LIB(lzo2, lzo1x_1_compress, LZO_LDADD=-llzo2,
 	AC_MSG_ERROR([Could not find lzo2 library - please install lzo-devel]))
 AC_SUBST(LZO_LDADD)
 
-AC_CHECK_LIB(zstd, ZSTD_compress, ZSTD_LDADD=-lzstd,
-        AC_MSG_ERROR([Could not find zstd library - please install libzstd-devel]))
-AC_SUBST(ZSTD_LDADD)
+PKG_CHECK_MODULES([LIBZSTD], [libzstd])
 
 AC_CHECK_LIB([dl], [dlsym], [DL_LDADD=-ldl])
 AC_SUBST([DL_LDADD])
 
-AC_CHECK_HEADERS([archive.h, archive_entry.h])
-AC_CHECK_LIB(archive, archive_read_data_block, ARCHIVE_LDADD=-larchive,
-    AC_MSG_ERROR([Could not find libarchive library - please install libarchive-devel]))
-AC_SUBST(ARCHIVE_LDADD)
+PKG_CHECK_MODULES([LIBARCHIVE], [libarchive])
 
 AC_MSG_CHECKING([whether libarchive has archive_read_support_filter_xz()])
 AC_TRY_COMPILE(

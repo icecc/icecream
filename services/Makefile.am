@@ -2,8 +2,8 @@ lib_LTLIBRARIES = libicecc.la
 libicecc_la_SOURCES = job.cpp comm.cpp exitcode.cpp getifaddrs.cpp logging.cpp ncpus.c pipes.cpp tempfile.c platform.cpp gcc.cpp util.cpp
 libicecc_la_LIBADD = \
 	$(LZO_LDADD) \
-	$(ZSTD_LDADD) \
-	$(CAPNG_LDADD) \
+	$(LIBZSTD_LIBS) \
+	$(LIBCAP_NG_LIBS) \
 	$(DL_LDADD)
 
 libicecc_la_CFLAGS = -fPIC -DPIC

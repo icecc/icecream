@@ -11,8 +11,8 @@ iceccd_SOURCES = \
 iceccd_LDADD = \
 	../services/libicecc.la \
 	$(LIB_KINFO) \
-	$(CAPNG_LDADD) \
-	$(ARCHIVE_LDADD)
+	$(LIBCAP_NG_LIBS) \
+	$(LIBARCHIVE_LIBS)
 
 AM_CPPFLAGS = \
 	-I$(top_srcdir)/services
