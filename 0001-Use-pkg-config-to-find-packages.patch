@@ -1,0 +1,507 @@
+From 4a9631fdbcfa37b52ad945b1c5717b1186ddd45a Mon Sep 17 00:00:00 2001
+From: Joshua Watt <JPEWhacker@gmail.com>
+Date: Tue, 19 May 2020 09:09:29 -0500
+Subject: [PATCH] Use pkg-config to find packages
+
+Package config should be used to find packages instead of manually
+searching for headers. This makes cross-compiling easier, as well as
+makes it possible to build a static binary (in particular, libarchive is
+annoying to link statically without using pkg-config)
+---
+ configure.ac         |  13 +-
+ daemon/Makefile.am   |   4 +-
+ m4/cap-ng.m4         |  48 ------
+ m4/pkg.m4            | 343 +++++++++++++++++++++++++++++++++++++++++++
+ services/Makefile.am |   4 +-
+ services/icecc.pc.in |   2 +-
+ 6 files changed, 353 insertions(+), 61 deletions(-)
+ delete mode 100644 m4/cap-ng.m4
+ create mode 100644 m4/pkg.m4
+
+diff --git a/configure.ac b/configure.ac
+index 555da0a..d7d49ff 100644
+--- a/configure.ac
++++ b/configure.ac
+@@ -78,12 +78,14 @@ fi
+ 
+ AC_PROG_MAKE_SET
+ AC_PROG_INSTALL
++PKG_PROG_PKG_CONFIG
+ AC_C_INLINE
+ AC_DISABLE_SHARED
+ AC_ENABLE_STATIC
+ AC_PROG_LIBTOOL
+ 
+-ICECC_LIBCAP_NG_PATH
++AS_CASE([$host], [*linux*], [LIBCAP_NG_DEFAULT=yes], [LIBCAP_NG_DEFAULT=auto])
++PKG_HAVE_DEFINE_WITH_MODULES([LIBCAP_NG], [libcap-ng], , $LIBCAP_NG_DEFAULT)
+ 
+ # =============
+ # Documentation
+@@ -199,17 +201,12 @@ AC_CHECK_LIB(lzo2, lzo1x_1_compress, LZO_LDADD=-llzo2,
+ 	AC_MSG_ERROR([Could not find lzo2 library - please install lzo-devel]))
+ AC_SUBST(LZO_LDADD)
+ 
+-AC_CHECK_LIB(zstd, ZSTD_compress, ZSTD_LDADD=-lzstd,
+-        AC_MSG_ERROR([Could not find zstd library - please install libzstd-devel]))
+-AC_SUBST(ZSTD_LDADD)
++PKG_CHECK_MODULES([LIBZSTD], [libzstd])
+ 
+ AC_CHECK_LIB([dl], [dlsym], [DL_LDADD=-ldl])
+ AC_SUBST([DL_LDADD])
+ 
+-AC_CHECK_HEADERS([archive.h, archive_entry.h])
+-AC_CHECK_LIB(archive, archive_read_data_block, ARCHIVE_LDADD=-larchive,
+-    AC_MSG_ERROR([Could not find libarchive library - please install libarchive-devel]))
+-AC_SUBST(ARCHIVE_LDADD)
++PKG_CHECK_MODULES([LIBARCHIVE], [libarchive])
+ 
+ AC_MSG_CHECKING([whether libarchive has archive_read_support_filter_xz()])
+ AC_TRY_COMPILE(
+diff --git a/daemon/Makefile.am b/daemon/Makefile.am
+index bbf9ee1..4ce0d99 100644
+--- a/daemon/Makefile.am
++++ b/daemon/Makefile.am
+@@ -11,8 +11,8 @@ iceccd_SOURCES = \
+ iceccd_LDADD = \
+ 	../services/libicecc.la \
+ 	$(LIB_KINFO) \
+-	$(CAPNG_LDADD) \
+-	$(ARCHIVE_LDADD)
++	$(LIBCAP_NG_LIBS) \
++	$(LIBARCHIVE_LIBS)
+ 
+ AM_CPPFLAGS = \
+ 	-I$(top_srcdir)/services
+diff --git a/m4/cap-ng.m4 b/m4/cap-ng.m4
+deleted file mode 100644
+index 5a1e265..0000000
+--- a/m4/cap-ng.m4
++++ /dev/null
+@@ -1,48 +0,0 @@
+-# libcap-ng.m4 - Checks for the libcap-ng support
+-# 	Copyright (c) 2009 Steve Grubb sgrubb@redhat.com
+-#
+-AC_DEFUN([ICECC_LIBCAP_NG_PATH],
+-[
+-  case $host in
+-    *linux*) capng_auto=no ;;
+-    *) capng_auto=yes ;;
+-  esac
+-
+-  AC_ARG_WITH(libcap-ng,
+-    [  --with-libcap-ng=[auto/yes/no]  Add Libcap-ng support],,
+-    with_libcap_ng=auto)
+-
+-  # Check for Libcap-ng API
+-  #
+-  # libcap-ng detection
+-
+-  if test x$with_libcap_ng = xno ; then
+-      have_libcap_ng=no;
+-  else
+-      # Start by checking for header file
+-      AC_CHECK_HEADER(cap-ng.h, capng_headers=yes, capng_headers=no)
+-
+-      # See if we have libcap-ng library
+-      AC_CHECK_LIB(cap-ng, capng_clear,
+-	         CAPNG_LDADD=-lcap-ng,)
+-
+-      # Check results are usable
+-      if test x$with_libcap_ng = xyes -a x$CAPNG_LDADD = x ; then
+-         AC_MSG_ERROR(libcap-ng support was requested and the library was not found)
+-      fi
+-      if test x$capng_auto = xno -a x$CAPNG_LDADD = x ; then
+-         AC_MSG_ERROR(libcap-ng library was not found)
+-      fi
+-      if test x$CAPNG_LDADD != x -a $capng_headers = no ; then
+-         AC_MSG_ERROR(libcap-ng libraries found but headers are missing)
+-      fi
+-  fi
+-  AC_SUBST(CAPNG_LDADD)
+-  AC_MSG_CHECKING(whether to use libcap-ng)
+-  if test x$CAPNG_LDADD != x ; then
+-      AC_DEFINE(HAVE_LIBCAP_NG,1,[libcap-ng support])
+-      AC_MSG_RESULT(yes)
+-  else
+-      AC_MSG_RESULT(no)
+-  fi
+-])
+diff --git a/m4/pkg.m4 b/m4/pkg.m4
+new file mode 100644
+index 0000000..d8549a4
+--- /dev/null
++++ b/m4/pkg.m4
+@@ -0,0 +1,343 @@
++# pkg.m4 - Macros to locate and utilise pkg-config.   -*- Autoconf -*-
++# serial 11 (pkg-config-0.29.1)
++
++dnl Copyright © 2004 Scott James Remnant <scott@netsplit.com>.
++dnl Copyright © 2012-2015 Dan Nicholson <dbn.lists@gmail.com>
++dnl
++dnl This program is free software; you can redistribute it and/or modify
++dnl it under the terms of the GNU General Public License as published by
++dnl the Free Software Foundation; either version 2 of the License, or
++dnl (at your option) any later version.
++dnl
++dnl This program is distributed in the hope that it will be useful, but
++dnl WITHOUT ANY WARRANTY; without even the implied warranty of
++dnl MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
++dnl General Public License for more details.
++dnl
++dnl You should have received a copy of the GNU General Public License
++dnl along with this program; if not, write to the Free Software
++dnl Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
++dnl 02111-1307, USA.
++dnl
++dnl As a special exception to the GNU General Public License, if you
++dnl distribute this file as part of a program that contains a
++dnl configuration script generated by Autoconf, you may include it under
++dnl the same distribution terms that you use for the rest of that
++dnl program.
++
++dnl PKG_PREREQ(MIN-VERSION)
++dnl -----------------------
++dnl Since: 0.29
++dnl
++dnl Verify that the version of the pkg-config macros are at least
++dnl MIN-VERSION. Unlike PKG_PROG_PKG_CONFIG, which checks the user's
++dnl installed version of pkg-config, this checks the developer's version
++dnl of pkg.m4 when generating configure.
++dnl
++dnl To ensure that this macro is defined, also add:
++dnl m4_ifndef([PKG_PREREQ],
++dnl     [m4_fatal([must install pkg-config 0.29 or later before running autoconf/autogen])])
++dnl
++dnl See the "Since" comment for each macro you use to see what version
++dnl of the macros you require.
++m4_defun([PKG_PREREQ],
++[m4_define([PKG_MACROS_VERSION], [0.29.1])
++m4_if(m4_version_compare(PKG_MACROS_VERSION, [$1]), -1,
++    [m4_fatal([pkg.m4 version $1 or higher is required but ]PKG_MACROS_VERSION[ found])])
++])dnl PKG_PREREQ
++
++dnl PKG_PROG_PKG_CONFIG([MIN-VERSION])
++dnl ----------------------------------
++dnl Since: 0.16
++dnl
++dnl Search for the pkg-config tool and set the PKG_CONFIG variable to
++dnl first found in the path. Checks that the version of pkg-config found
++dnl is at least MIN-VERSION. If MIN-VERSION is not specified, 0.9.0 is
++dnl used since that's the first version where most current features of
++dnl pkg-config existed.
++AC_DEFUN([PKG_PROG_PKG_CONFIG],
++[m4_pattern_forbid([^_?PKG_[A-Z_]+$])
++m4_pattern_allow([^PKG_CONFIG(_(PATH|LIBDIR|SYSROOT_DIR|ALLOW_SYSTEM_(CFLAGS|LIBS)))?$])
++m4_pattern_allow([^PKG_CONFIG_(DISABLE_UNINSTALLED|TOP_BUILD_DIR|DEBUG_SPEW)$])
++AC_ARG_VAR([PKG_CONFIG], [path to pkg-config utility])
++AC_ARG_VAR([PKG_CONFIG_PATH], [directories to add to pkg-config's search path])
++AC_ARG_VAR([PKG_CONFIG_LIBDIR], [path overriding pkg-config's built-in search path])
++
++if test "x$ac_cv_env_PKG_CONFIG_set" != "xset"; then
++	AC_PATH_TOOL([PKG_CONFIG], [pkg-config])
++fi
++if test -n "$PKG_CONFIG"; then
++	_pkg_min_version=m4_default([$1], [0.9.0])
++	AC_MSG_CHECKING([pkg-config is at least version $_pkg_min_version])
++	if $PKG_CONFIG --atleast-pkgconfig-version $_pkg_min_version; then
++		AC_MSG_RESULT([yes])
++	else
++		AC_MSG_RESULT([no])
++		PKG_CONFIG=""
++	fi
++fi[]dnl
++])dnl PKG_PROG_PKG_CONFIG
++
++dnl PKG_CHECK_EXISTS(MODULES, [ACTION-IF-FOUND], [ACTION-IF-NOT-FOUND])
++dnl -------------------------------------------------------------------
++dnl Since: 0.18
++dnl
++dnl Check to see whether a particular set of modules exists. Similar to
++dnl PKG_CHECK_MODULES(), but does not set variables or print errors.
++dnl
++dnl Please remember that m4 expands AC_REQUIRE([PKG_PROG_PKG_CONFIG])
++dnl only at the first occurence in configure.ac, so if the first place
++dnl it's called might be skipped (such as if it is within an "if", you
++dnl have to call PKG_CHECK_EXISTS manually
++AC_DEFUN([PKG_CHECK_EXISTS],
++[AC_REQUIRE([PKG_PROG_PKG_CONFIG])dnl
++if test -n "$PKG_CONFIG" && \
++    AC_RUN_LOG([$PKG_CONFIG --exists --print-errors "$1"]); then
++  m4_default([$2], [:])
++m4_ifvaln([$3], [else
++  $3])dnl
++fi])
++
++dnl _PKG_CONFIG([VARIABLE], [COMMAND], [MODULES])
++dnl ---------------------------------------------
++dnl Internal wrapper calling pkg-config via PKG_CONFIG and setting
++dnl pkg_failed based on the result.
++m4_define([_PKG_CONFIG],
++[if test -n "$$1"; then
++    pkg_cv_[]$1="$$1"
++ elif test -n "$PKG_CONFIG"; then
++    PKG_CHECK_EXISTS([$3],
++                     [pkg_cv_[]$1=`$PKG_CONFIG --[]$2 "$3" 2>/dev/null`
++		      test "x$?" != "x0" && pkg_failed=yes ],
++		     [pkg_failed=yes])
++ else
++    pkg_failed=untried
++fi[]dnl
++])dnl _PKG_CONFIG
++
++dnl _PKG_SHORT_ERRORS_SUPPORTED
++dnl ---------------------------
++dnl Internal check to see if pkg-config supports short errors.
++AC_DEFUN([_PKG_SHORT_ERRORS_SUPPORTED],
++[AC_REQUIRE([PKG_PROG_PKG_CONFIG])
++if $PKG_CONFIG --atleast-pkgconfig-version 0.20; then
++        _pkg_short_errors_supported=yes
++else
++        _pkg_short_errors_supported=no
++fi[]dnl
++])dnl _PKG_SHORT_ERRORS_SUPPORTED
++
++
++dnl PKG_CHECK_MODULES(VARIABLE-PREFIX, MODULES, [ACTION-IF-FOUND],
++dnl   [ACTION-IF-NOT-FOUND])
++dnl --------------------------------------------------------------
++dnl Since: 0.4.0
++dnl
++dnl Note that if there is a possibility the first call to
++dnl PKG_CHECK_MODULES might not happen, you should be sure to include an
++dnl explicit call to PKG_PROG_PKG_CONFIG in your configure.ac
++AC_DEFUN([PKG_CHECK_MODULES],
++[AC_REQUIRE([PKG_PROG_PKG_CONFIG])dnl
++AC_ARG_VAR([$1][_CFLAGS], [C compiler flags for $1, overriding pkg-config])dnl
++AC_ARG_VAR([$1][_LIBS], [linker flags for $1, overriding pkg-config])dnl
++
++pkg_failed=no
++AC_MSG_CHECKING([for $1])
++
++_PKG_CONFIG([$1][_CFLAGS], [cflags], [$2])
++_PKG_CONFIG([$1][_LIBS], [libs], [$2])
++
++m4_define([_PKG_TEXT], [Alternatively, you may set the environment variables $1[]_CFLAGS
++and $1[]_LIBS to avoid the need to call pkg-config.
++See the pkg-config man page for more details.])
++
++if test $pkg_failed = yes; then
++   	AC_MSG_RESULT([no])
++        _PKG_SHORT_ERRORS_SUPPORTED
++        if test $_pkg_short_errors_supported = yes; then
++	        $1[]_PKG_ERRORS=`$PKG_CONFIG --short-errors --print-errors --cflags --libs "$2" 2>&1`
++        else 
++	        $1[]_PKG_ERRORS=`$PKG_CONFIG --print-errors --cflags --libs "$2" 2>&1`
++        fi
++	# Put the nasty error message in config.log where it belongs
++	echo "$$1[]_PKG_ERRORS" >&AS_MESSAGE_LOG_FD
++
++	m4_default([$4], [AC_MSG_ERROR(
++[Package requirements ($2) were not met:
++
++$$1_PKG_ERRORS
++
++Consider adjusting the PKG_CONFIG_PATH environment variable if you
++installed software in a non-standard prefix.
++
++_PKG_TEXT])[]dnl
++        ])
++elif test $pkg_failed = untried; then
++     	AC_MSG_RESULT([no])
++	m4_default([$4], [AC_MSG_FAILURE(
++[The pkg-config script could not be found or is too old.  Make sure it
++is in your PATH or set the PKG_CONFIG environment variable to the full
++path to pkg-config.
++
++_PKG_TEXT
++
++To get pkg-config, see <http://pkg-config.freedesktop.org/>.])[]dnl
++        ])
++else
++	$1[]_CFLAGS=$pkg_cv_[]$1[]_CFLAGS
++	$1[]_LIBS=$pkg_cv_[]$1[]_LIBS
++        AC_MSG_RESULT([yes])
++	$3
++fi[]dnl
++])dnl PKG_CHECK_MODULES
++
++
++dnl PKG_CHECK_MODULES_STATIC(VARIABLE-PREFIX, MODULES, [ACTION-IF-FOUND],
++dnl   [ACTION-IF-NOT-FOUND])
++dnl ---------------------------------------------------------------------
++dnl Since: 0.29
++dnl
++dnl Checks for existence of MODULES and gathers its build flags with
++dnl static libraries enabled. Sets VARIABLE-PREFIX_CFLAGS from --cflags
++dnl and VARIABLE-PREFIX_LIBS from --libs.
++dnl
++dnl Note that if there is a possibility the first call to
++dnl PKG_CHECK_MODULES_STATIC might not happen, you should be sure to
++dnl include an explicit call to PKG_PROG_PKG_CONFIG in your
++dnl configure.ac.
++AC_DEFUN([PKG_CHECK_MODULES_STATIC],
++[AC_REQUIRE([PKG_PROG_PKG_CONFIG])dnl
++_save_PKG_CONFIG=$PKG_CONFIG
++PKG_CONFIG="$PKG_CONFIG --static"
++PKG_CHECK_MODULES($@)
++PKG_CONFIG=$_save_PKG_CONFIG[]dnl
++])dnl PKG_CHECK_MODULES_STATIC
++
++
++dnl PKG_INSTALLDIR([DIRECTORY])
++dnl -------------------------
++dnl Since: 0.27
++dnl
++dnl Substitutes the variable pkgconfigdir as the location where a module
++dnl should install pkg-config .pc files. By default the directory is
++dnl $libdir/pkgconfig, but the default can be changed by passing
++dnl DIRECTORY. The user can override through the --with-pkgconfigdir
++dnl parameter.
++AC_DEFUN([PKG_INSTALLDIR],
++[m4_pushdef([pkg_default], [m4_default([$1], ['${libdir}/pkgconfig'])])
++m4_pushdef([pkg_description],
++    [pkg-config installation directory @<:@]pkg_default[@:>@])
++AC_ARG_WITH([pkgconfigdir],
++    [AS_HELP_STRING([--with-pkgconfigdir], pkg_description)],,
++    [with_pkgconfigdir=]pkg_default)
++AC_SUBST([pkgconfigdir], [$with_pkgconfigdir])
++m4_popdef([pkg_default])
++m4_popdef([pkg_description])
++])dnl PKG_INSTALLDIR
++
++
++dnl PKG_NOARCH_INSTALLDIR([DIRECTORY])
++dnl --------------------------------
++dnl Since: 0.27
++dnl
++dnl Substitutes the variable noarch_pkgconfigdir as the location where a
++dnl module should install arch-independent pkg-config .pc files. By
++dnl default the directory is $datadir/pkgconfig, but the default can be
++dnl changed by passing DIRECTORY. The user can override through the
++dnl --with-noarch-pkgconfigdir parameter.
++AC_DEFUN([PKG_NOARCH_INSTALLDIR],
++[m4_pushdef([pkg_default], [m4_default([$1], ['${datadir}/pkgconfig'])])
++m4_pushdef([pkg_description],
++    [pkg-config arch-independent installation directory @<:@]pkg_default[@:>@])
++AC_ARG_WITH([noarch-pkgconfigdir],
++    [AS_HELP_STRING([--with-noarch-pkgconfigdir], pkg_description)],,
++    [with_noarch_pkgconfigdir=]pkg_default)
++AC_SUBST([noarch_pkgconfigdir], [$with_noarch_pkgconfigdir])
++m4_popdef([pkg_default])
++m4_popdef([pkg_description])
++])dnl PKG_NOARCH_INSTALLDIR
++
++
++dnl PKG_CHECK_VAR(VARIABLE, MODULE, CONFIG-VARIABLE,
++dnl [ACTION-IF-FOUND], [ACTION-IF-NOT-FOUND])
++dnl -------------------------------------------
++dnl Since: 0.28
++dnl
++dnl Retrieves the value of the pkg-config variable for the given module.
++AC_DEFUN([PKG_CHECK_VAR],
++[AC_REQUIRE([PKG_PROG_PKG_CONFIG])dnl
++AC_ARG_VAR([$1], [value of $3 for $2, overriding pkg-config])dnl
++
++_PKG_CONFIG([$1], [variable="][$3]["], [$2])
++AS_VAR_COPY([$1], [pkg_cv_][$1])
++
++AS_VAR_IF([$1], [""], [$5], [$4])dnl
++])dnl PKG_CHECK_VAR
++
++dnl PKG_WITH_MODULES(VARIABLE-PREFIX, MODULES,
++dnl   [ACTION-IF-FOUND],[ACTION-IF-NOT-FOUND],
++dnl   [DESCRIPTION], [DEFAULT])
++dnl ------------------------------------------
++dnl
++dnl Prepare a "--with-" configure option using the lowercase
++dnl [VARIABLE-PREFIX] name, merging the behaviour of AC_ARG_WITH and
++dnl PKG_CHECK_MODULES in a single macro.
++AC_DEFUN([PKG_WITH_MODULES],
++[
++m4_pushdef([with_arg], m4_tolower([$1]))
++
++m4_pushdef([description],
++           [m4_default([$5], [build with ]with_arg[ support])])
++
++m4_pushdef([def_arg], [m4_default([$6], [auto])])
++m4_pushdef([def_action_if_found], [AS_TR_SH([with_]with_arg)=yes])
++m4_pushdef([def_action_if_not_found], [AS_TR_SH([with_]with_arg)=no])
++
++m4_case(def_arg,
++            [yes],[m4_pushdef([with_without], [--without-]with_arg)],
++            [m4_pushdef([with_without],[--with-]with_arg)])
++
++AC_ARG_WITH(with_arg,
++     AS_HELP_STRING(with_without, description[ @<:@default=]def_arg[@:>@]),,
++    [AS_TR_SH([with_]with_arg)=def_arg])
++
++AS_CASE([$AS_TR_SH([with_]with_arg)],
++            [yes],[PKG_CHECK_MODULES([$1],[$2],$3,$4)],
++            [auto],[PKG_CHECK_MODULES([$1],[$2],
++                                        [m4_n([def_action_if_found]) $3],
++                                        [m4_n([def_action_if_not_found]) $4])])
++
++m4_popdef([with_arg])
++m4_popdef([description])
++m4_popdef([def_arg])
++
++])dnl PKG_WITH_MODULES
++
++dnl PKG_HAVE_WITH_MODULES(VARIABLE-PREFIX, MODULES,
++dnl   [DESCRIPTION], [DEFAULT])
++dnl -----------------------------------------------
++dnl
++dnl Convenience macro to trigger AM_CONDITIONAL after PKG_WITH_MODULES
++dnl check._[VARIABLE-PREFIX] is exported as make variable.
++AC_DEFUN([PKG_HAVE_WITH_MODULES],
++[
++PKG_WITH_MODULES([$1],[$2],,,[$3],[$4])
++
++AM_CONDITIONAL([HAVE_][$1],
++               [test "$AS_TR_SH([with_]m4_tolower([$1]))" = "yes"])
++])dnl PKG_HAVE_WITH_MODULES
++
++dnl PKG_HAVE_DEFINE_WITH_MODULES(VARIABLE-PREFIX, MODULES,
++dnl   [DESCRIPTION], [DEFAULT])
++dnl ------------------------------------------------------
++dnl
++dnl Convenience macro to run AM_CONDITIONAL and AC_DEFINE after
++dnl PKG_WITH_MODULES check. HAVE_[VARIABLE-PREFIX] is exported as make
++dnl and preprocessor variable.
++AC_DEFUN([PKG_HAVE_DEFINE_WITH_MODULES],
++[
++PKG_HAVE_WITH_MODULES([$1],[$2],[$3],[$4])
++
++AS_IF([test "$AS_TR_SH([with_]m4_tolower([$1]))" = "yes"],
++        [AC_DEFINE([HAVE_][$1], 1, [Enable ]m4_tolower([$1])[ support])])
++])dnl PKG_HAVE_DEFINE_WITH_MODULES
+diff --git a/services/Makefile.am b/services/Makefile.am
+index bc55c1a..8be17fe 100644
+--- a/services/Makefile.am
++++ b/services/Makefile.am
+@@ -2,8 +2,8 @@ lib_LTLIBRARIES = libicecc.la
+ libicecc_la_SOURCES = job.cpp comm.cpp exitcode.cpp getifaddrs.cpp logging.cpp ncpus.c tempfile.c platform.cpp gcc.cpp util.cpp
+ libicecc_la_LIBADD = \
+ 	$(LZO_LDADD) \
+-	$(ZSTD_LDADD) \
+-	$(CAPNG_LDADD) \
++	$(LIBZSTD_LIBS) \
++	$(LIBCAP_NG_LIBS) \
+ 	$(DL_LDADD)
+ 
+ libicecc_la_CFLAGS = -fPIC -DPIC
+diff --git a/services/icecc.pc.in b/services/icecc.pc.in
+index 97a2c4f..6121cff 100644
+--- a/services/icecc.pc.in
++++ b/services/icecc.pc.in
+@@ -11,5 +11,5 @@ Version: @VERSION@
+ Requires:
+ Conflicts:
+ Libs: -L${libdir} -licecc
+-Libs.private: @CAPNG_LDADD@ -llzo2 -lzstd -larchive
++Libs.private: @LIBCAP_NG_LIBS@ -llzo2 @LIBZSTD_LIBS@ @LIBARCHIVE_LIBS@
+ Cflags: -I${includedir}
+-- 
+2.17.1
+
