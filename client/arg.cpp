@@ -177,6 +177,7 @@ static bool is_argument_with_space(const char* argument)
         "-segs_read_only_addr",
         "-segs_read_write_addr",
         "-serialize-diagnostics",
+        "--serialize-diagnostics",
         "-std",
         "--stdlib",
         "--force-link",
