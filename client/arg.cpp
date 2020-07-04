@@ -709,6 +709,12 @@ bool analyse_argv(const char * const *argv, CompileJob &job, bool icerun, list<s
                 if (argv[i + 1]) {
                     args.append(argv[++i], Arg_Rest);
                 }
+            } else if (str_equal("-fdirectives-only", a)
+                       || str_equal("-frewrite-includes", a)) {
+                // These don't make sense to run locally, and we inject them where
+                // appropriate remotely if remote preprocessing is requested. Therefore,
+                // skip them if they were supplied.
+                ++i;
             } else {
                 args.append(a, Arg_Rest);
 
