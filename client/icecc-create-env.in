@@ -81,10 +81,14 @@ resolve_path()
 # This could use realpath, but that's reportedly not that widely available.
 convert_path_cdup ()
 {
-  local filename="$1"
-  local directory=$(dirname $filename)
-  local fixed_directory=$(cd "$directory" >/dev/null && pwd)
-  echo ${fixed_directory}/$(basename $filename)
+  # Remove all /./ sequences.
+  local path=${1//\/.\//\/}
+
+  # Remove dir/.. sequences.
+  while [[ $path =~ ([^/][^/]*/\.\./) ]]; do
+    path=${path/${BASH_REMATCH[0]}/}
+  done
+  echo $path
 }
 
 add_file ()
@@ -485,7 +489,8 @@ if test -n "$clang"; then
     # HACK: Clang4.0 and later access /proc/cpuinfo and report an error when they fail
     # to find it, even if they use a fallback mechanism, making the error useless
     # (at least in this case). Since the file is not really needed, create a fake one.
-    if test -d /proc; then
+    # Only add an empty file if the user did not attempt to add there own.
+    if test -d /proc && [[ $extrafiles != *" /proc/cpuinfo"* ]]; then
         mkdir $tempdir/fakeproc
         mkdir $tempdir/fakeproc/proc
         touch $tempdir/fakeproc/proc/cpuinfo
@@ -498,7 +503,9 @@ fi
 save_stripprefix="$stripprefix"
 stripprefix=
 for extrafile in $extrafiles; do
-    add_file $extrafile
+    target=$(echo $extrafile | cut -d= -f1)
+    path=$(echo $extrafile | cut -d= -f2)
+    add_file $path $target
 done
 stripprefix="$save_stripprefix"
 
