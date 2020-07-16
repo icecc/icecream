@@ -96,6 +96,9 @@ public:
     unsigned int requiredFeatures() const;
     void setRequiredFeatures(unsigned int features);
 
+    int niceness() const;
+    void setNiceness( int niceness );
+
 private:
     const unsigned int m_id;
     unsigned int m_localClientId;
@@ -121,6 +124,7 @@ private:
     std::string m_preferredHost; // for debugging daemons
     int m_minimalHostVersion; // minimal version required for the the remote server
     unsigned int m_requiredFeatures; // flags the job requires on the remote server
+    int m_niceness; // nice priority (0-20)
 };
 
 #endif

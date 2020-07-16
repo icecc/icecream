@@ -256,7 +256,7 @@ inline std::string concat_args(const std::list<std::string> &args)
 
     for (std::list<std::string>::const_iterator it = args.begin(); it != args.end();) {
         str << *it++;
-	if (it != args.end())
+        if (it != args.end())
             str << ", ";
     }
     return str.str() + "'";

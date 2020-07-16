@@ -116,9 +116,14 @@ static map<unsigned int, Job *> jobs;
 struct JobRequestsGroup {
     list<Job *> l;
     CompileServer *submitter;
+    // Priority as unix nice values 0 (highest) to 20 (lowest).
+    // Values <0 are mapped to 0 (otherwise somebody could use this to starve
+    // the whole cluster).
+    int niceness;
     bool remove_job(Job *);
 };
-// All pending job requests.
+// All pending job requests, grouped by the same submitter and niceness value,
+// and sorted with higher priority first.
 static list<JobRequestsGroup *> job_requests;
 
 static list<JobStat> all_job_stats;
@@ -130,14 +135,12 @@ static float server_speed(CompileServer *cs, Job *job = nullptr, bool blockDebug
    Returns true if something was deleted.  */
 bool JobRequestsGroup::remove_job(Job *job)
 {
-    list<Job *>::iterator it;
-
-    for (it = l.begin(); it != l.end(); ++it)
+    assert(niceness == job->niceness());
+    for (list<Job *>::iterator it = l.begin(); it != l.end(); ++it)
         if (*it == job) {
             l.erase(it);
             return true;
         }
-
     return false;
 }
 
@@ -380,42 +383,102 @@ static Job *create_new_job(CompileServer *submitter)
 
 static void enqueue_job_request(Job *job)
 {
-    if (!job_requests.empty() && job_requests.back()->submitter == job->submitter()) {
-        job_requests.back()->l.push_back(job);
-    } else {
-        JobRequestsGroup *newone = new JobRequestsGroup();
-        newone->submitter = job->submitter();
-        newone->l.push_back(job);
-        job_requests.push_back(newone);
+    for( list<JobRequestsGroup*>::iterator it = job_requests.begin(); it != job_requests.end(); ++it ) {
+        if( (*it)->submitter == job->submitter() && (*it)->niceness == job->niceness()) {
+            (*it)->l.push_back(job);
+            return;
+        }
+        if( (*it)->niceness > job->niceness()) { // lower priority starts here, insert group
+            JobRequestsGroup *newone = new JobRequestsGroup();
+            newone->submitter = job->submitter();
+            newone->niceness = job->niceness();
+            newone->l.push_back(job);
+            job_requests.insert(it, newone);
+            return;
+        }
     }
+    JobRequestsGroup *newone = new JobRequestsGroup();
+    newone->submitter = job->submitter();
+    newone->niceness = job->niceness();
+    newone->l.push_back(job);
+    job_requests.push_back(newone);
 }
 
-static Job *get_job_request()
+static void enqueue_job_requests_group(JobRequestsGroup* group) {
+    for( list<JobRequestsGroup*>::iterator it = job_requests.begin(); it != job_requests.end(); ++it ) {
+        if( (*it)->niceness > group->niceness) { // lower priority starts here, insert group
+            job_requests.insert(it, group);
+            return;
+        }
+    }
+    job_requests.push_back(group);
+}
+
+// Gives a position in job_requests, used to iterate items.
+struct JobRequestPosition
+{
+    JobRequestPosition() : group( nullptr ), job( nullptr ) {}
+    JobRequestPosition(JobRequestsGroup* g, Job* j) : group( g ), job( j ) {}
+    bool isValid() const { return group != nullptr; }
+    JobRequestsGroup* group;
+    Job* job;
+};
+
+static JobRequestPosition get_first_job_request()
 {
     if (job_requests.empty()) {
-        return nullptr;
+        return JobRequestPosition();
     }
 
     JobRequestsGroup *first = job_requests.front();
     assert(!first->l.empty());
-    return first->l.front();
+    return JobRequestPosition( first, first->l.front());
 }
 
-// Removes the first job request (the one returned by get_job_request()).
-// Also rotates submitters in a round-robin fashion to try to serve
-// them all fairly.
-static void remove_job_request()
+static JobRequestPosition get_next_job_request(const JobRequestPosition& pos)
 {
     assert(!job_requests.empty());
+    assert(pos.group != nullptr && pos.job != nullptr);
 
-    JobRequestsGroup *first = job_requests.front();
-    job_requests.pop_front();
-    first->l.pop_front();
+    JobRequestsGroup* group = pos.group;
+    // Get next job in the same group.
+    list<Job*>::iterator jobIt = std::find(group->l.begin(), group->l.end(), pos.job);
+    assert(jobIt != group->l.end());
+    ++jobIt;
+    if( jobIt != group->l.end())
+        return JobRequestPosition( group, *jobIt );
+    // Get next group.
+    list<JobRequestsGroup*>::iterator groupIt = std::find(job_requests.begin(), job_requests.end(), group);
+    assert(groupIt != job_requests.end());
+    ++groupIt;
+    if( groupIt != job_requests.end())
+    {
+        group = *groupIt;
+        assert(!group->l.empty());
+        return JobRequestPosition( group, group->l.front());
+    }
+    // end
+    return JobRequestPosition();
+}
 
-    if (first->l.empty()) {
-        delete first;
+// Removes the given job request.
+// Also tries to rotate submitters in a round-robin fashion to try to serve
+// them all fairly.
+static void remove_job_request(const JobRequestPosition& pos)
+{
+    assert(!job_requests.empty());
+    assert(pos.group != nullptr && pos.job != nullptr);
+
+    JobRequestsGroup* group = pos.group;
+    assert(std::find(job_requests.begin(), job_requests.end(), group) != job_requests.end());
+    job_requests.remove(group);
+    assert(std::find(group->l.begin(), group->l.end(), pos.job) != group->l.end());
+    group->remove_job(pos.job);
+
+    if (group->l.empty()) {
+        delete group;
     } else {
-        job_requests.push_back(first);
+        enqueue_job_requests_group(group);
     }
 }
 
@@ -465,6 +528,7 @@ static bool handle_cs_request(MsgChannel *cs, Msg *_m)
         job->setPreferredHost(m->preferred_host);
         job->setMinimalHostVersion(m->minimal_host_version);
         job->setRequiredFeatures(m->required_features);
+        job->setNiceness(max(0, min(20,int(m->niceness))));
         enqueue_job_request(job);
         std::ostream &dbg = log_info();
         dbg << "NEW " << job->id() << " client="
@@ -481,7 +545,7 @@ static bool handle_cs_request(MsgChannel *cs, Msg *_m)
             }
         }
 
-        dbg << "] " << m->filename << " " << job->language() << endl;
+        dbg << "] " << m->filename << " " << job->language() << " " << job->niceness() << endl;
         notify_monitors(new MonGetCSMsg(job->id(), submitter->hostId(), m));
 
         if (!master_job) {
@@ -844,32 +908,17 @@ static time_t prune_servers()
     return min_time;
 }
 
-static Job* delay_current_job_request_get_next()
-{
-    assert(!job_requests.empty());
-
-    if (job_requests.size() == 1) {
-        return nullptr;
-    }
-
-    JobRequestsGroup *first = job_requests.front();
-    job_requests.pop_front();
-    job_requests.push_back(first);
-    return get_job_request();
-}
-
 static bool empty_queue()
 {
-    Job *job = get_job_request();
-
-    if (!job) {
+    JobRequestPosition jobPosition = get_first_job_request();
+    if (!jobPosition.isValid()) {
         return false;
     }
 
     assert(!css.empty());
 
-    Job *first_job = job;
     CompileServer *cs = nullptr;
+    Job* job = jobPosition.job;
 
     while (true) {
         cs = pick_server(job);
@@ -881,35 +930,35 @@ static bool empty_queue()
         /* Ignore the load on the submitter itself if no other host could
            be found.  We only obey to its max job number.  */
         cs = job->submitter();
-
-        if (!((int(cs->jobList().size()) < cs->maxJobs())
+        if ((int(cs->jobList().size()) < cs->maxJobs())
                 && job->preferredHost().empty()
                 /* This should be trivially true.  */
-                && cs->can_install(job).size())) {
-            job = delay_current_job_request_get_next();
+                && cs->can_install(job).size()) {
+            break;
+        }
 
-            if ((job == first_job) || !job) { // no job found in the whole job_requests list
-                job = first_job;
-                for (CompileServer * const cs : css) {
-                    if(!job->preferredHost().empty() && !cs->matches(job->preferredHost()))
-                        continue;
-                    if(cs->is_eligible_ever(job)) {
-                        trace() << "No suitable host found, delaying" << endl;
-                        return false;
-                    }
+        jobPosition = get_next_job_request( jobPosition );
+        if (!jobPosition.isValid()) { // no job found in the whole job_requests list
+            jobPosition = get_first_job_request();
+            assert( jobPosition.isValid());
+            job = jobPosition.job;
+            for (CompileServer * const cs : css) {
+                if(!job->preferredHost().empty() && !cs->matches(job->preferredHost()))
+                    continue;
+                if(cs->is_eligible_ever(job)) {
+                    trace() << "No suitable host found, delaying" << endl;
+                    return false;
                 }
-                // This means that there's nobody who could possibly handle the job,
-                // so there's no point in delaying.
-                log_info() << "No suitable host found, assigning submitter" << endl;
-                cs = job->submitter();
-                break;
             }
-        } else {
+            // This means that there's nobody who could possibly handle the job,
+            // so there's no point in delaying.
+            log_info() << "No suitable host found, assigning submitter" << endl;
+            cs = job->submitter();
             break;
         }
     }
 
-    remove_job_request();
+    remove_job_request( jobPosition );
 
     job->setState(Job::WAITINGFORCS);
     job->setServer(cs);

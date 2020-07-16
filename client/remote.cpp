@@ -27,7 +27,8 @@
 #include <sys/socket.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
-
+#include <sys/time.h>
+#include <sys/resource.h>
 
 #ifdef __FreeBSD__
 // Grmbl  Why is this needed?  We don't use readv/writev
@@ -229,9 +230,21 @@ get_absfilename(const string &_file)
     return file;
 }
 
+static int get_niceness()
+{
+    errno = 0;
+    int niceness = getpriority( PRIO_PROCESS, getpid());
+    if( niceness == -1 && errno != 0 )
+        niceness = 0;
+    return niceness;
+}
+
 static UseCSMsg *get_server(MsgChannel *local_daemon)
 {
-    Msg *umsg = local_daemon->get_msg(4 * 60);
+    int timeout = 4 * 60;
+    if( get_niceness() > 0 ) // low priority jobs may take longer to get a slot assigned
+        timeout = 60 * 60;
+    Msg *umsg = local_daemon->get_msg( timeout );
 
     if (!umsg || umsg->type != M_USE_CS) {
         log_warning() << "reply was not expected use_cs " << (umsg ? (char)umsg->type : '0')  << endl;
@@ -859,7 +872,8 @@ int build_remote(CompileJob &job, MsgChannel *local_daemon, const Environments &
         GetCSMsg getcs(envs, fake_filename, job.language(), torepeat,
                        job.targetPlatform(), job.argumentFlags(),
                        preferred_host ? preferred_host : string(),
-                       minimalRemoteVersion(job), requiredRemoteFeatures());
+                       minimalRemoteVersion(job), requiredRemoteFeatures(),
+                       get_niceness());
 
         trace() << "asking for host to use" << endl;
         if (!local_daemon->send_msg(getcs)) {
@@ -921,7 +935,7 @@ int build_remote(CompileJob &job, MsgChannel *local_daemon, const Environments &
         GetCSMsg getcs(envs, get_absfilename(job.inputFile()), job.language(), torepeat,
                        job.targetPlatform(), job.argumentFlags(),
                        preferred_host ? preferred_host : string(),
-                       minimalRemoteVersion(job), 0);
+                       minimalRemoteVersion(job), 0, get_niceness());
 
 
         if (!local_daemon->send_msg(getcs)) {
