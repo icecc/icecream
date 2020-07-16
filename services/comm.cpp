@@ -976,6 +976,11 @@ MsgChannel::MsgChannel(int _fd, struct sockaddr *_a, socklen_t _l, bool text)
 #endif
     }
 
+#ifdef TCP_USER_TIMEOUT
+    int timeout = 3 * 3 * 1000; // matches the timeout part of keepalive above, in milliseconds
+    setsockopt(_fd, IPPROTO_TCP, TCP_USER_TIMEOUT, (char *) &timeout, sizeof(timeout));
+#endif
+
     if (fcntl(fd, F_SETFL, O_NONBLOCK) < 0) {
         log_perror("MsgChannel fcntl()");
     }
