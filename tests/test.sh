@@ -1976,6 +1976,7 @@ run_ice "$testdir/includes.o" "remote" 0 $TESTCXX -Wall -Werror -c includes.cpp 
 run_ice "$testdir/includes.o" "remote" 0 $TESTCXX -Wall -Werror -c includes-without.cpp -include includes.h -o "$testdir"/includes.o
 run_ice "$testdir/plain.o" "remote" 0 $TESTCC -Wall -Werror -x c++ -c plain -o "$testdir"/plain.o
 run_ice "$testdir/plain.s" "remote" 0 $TESTCC -Wall -Werror -S plain.c -o "$testdir"/plain.s
+run_ice "$testdir/plain.o" "remote" 0 $TESTCC -Wall -Werror -Wpedantic -c plain.c -o "$testdir/"plain.o
 
 if test -n "$using_clang"; then
     target_cpu=$($TESTCXX -### -E - -march=native 2>&1 | grep '"-cc1"' | sed 's/^.* "-target-cpu" "\([^"]*\)".*$/\1/')

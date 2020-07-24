@@ -696,10 +696,9 @@ bool analyse_argv(const char * const *argv, CompileJob &job, bool icerun, list<s
             } else if (str_equal("-Wno-unused-macros", a)) {
                 wunused_macros = false;
                 args.append(a, Arg_Rest);
-            } else if (str_equal("-pedantic", a)) {
-                seen_pedantic = true;
-                args.append(a, Arg_Rest);
-            } else if (str_equal("-pedantic-errors", a)) {
+            } else if (str_equal("-pedantic", a)
+                       || str_equal("-Wpedantic", a)
+                       || str_equal("-pedantic-errors", a)) {
                 seen_pedantic = true;
                 args.append(a, Arg_Rest);
             } else if (str_equal("-arch", a)) {
@@ -883,7 +882,7 @@ bool analyse_argv(const char * const *argv, CompileJob &job, bool icerun, list<s
     // are allowed.  GCC allows GNU extensions by default, so let's check if a standard
     // other than eg gnu11 or gnu++14 was specified.
     if( seen_pedantic && !compiler_is_clang(job) && (!standard || str_startswith("gnu", standard)) ) {
-        log_info() << "argument -pedantic, forcing local preprocessing" << endl;
+        log_info() << "argument -pedantic, forcing local preprocessing (try using -std=cXX instead of -std=gnuXX)" << endl;
         job.setBlockRewriteIncludes(true);
     }
 
