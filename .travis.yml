@@ -21,10 +21,11 @@ script:
                 exit 1
             fi
         elif test "$TRAVIS_OS_NAME" = "osx"; then
+            export PATH="/usr/local/opt/util-linux/bin:$PATH"
             if test -n "$STRICTTESTS"; then
                 strict="-strict"
             fi
-            make -s test${strict} TESTCC=clang TESTCXX=clang++
+            make -s test${strict} TESTCC=clang TESTCXX=clang++ SUDO=1
             if test $? -ne 0; then
                 exit 1
             fi
@@ -47,7 +48,7 @@ matrix:
   - os: osx
     before_install:
       - brew update
-      - brew install lzo docbook2x gdb ccache libarchive expect telnet
+      - brew install lzo docbook2x gdb ccache libarchive expect telnet util-linux
   - os: linux
     sudo: true # for setcap so we can run the tests in chroot.
     compiler: clang

@@ -5,10 +5,12 @@ test: test-full
 test-strict:
 	$(MAKE) test STRICT=1
 
-# The 'sudo true' for valgrind is because it sets up the password for further sudo
+# The 'sudo true' for valgrind and/or sudo is because it sets up the password for further sudo
 # uses in the test.sh script.
 test-prepare:
 	if test -n "$(VALGRIND)"; then \
+	    sudo true; \
+	elif test -n "$(SUDO)"; then \
 	    sudo true; \
 	elif test -x /sbin/setcap; then \
 	    sudo /sbin/setcap cap_sys_chroot+ep ${sbindir}/iceccd ; \
@@ -24,6 +26,6 @@ test-full: test-prepare
 	$(MAKE) test-run
 
 test-run: test-setup.sh
-	results=`realpath -s ${builddir}/results` && builddir2=`realpath -s ${builddir}` && cd ${srcdir} && /bin/bash test.sh ${prefix} $$results --builddir=$$builddir2 --strict=$(STRICT) --valgrind=$(VALGRIND)
+	results=`realpath -s ${builddir}/results` && builddir2=`realpath -s ${builddir}` && cd ${srcdir} && /bin/bash test.sh ${prefix} $$results --builddir=$$builddir2 --strict=$(STRICT) --valgrind=$(VALGRIND) --sudo=$(SUDO)
 
 check_SCRIPTS = test.sh test-setup.sh

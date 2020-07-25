@@ -8,6 +8,8 @@ valgrind=
 valgrind_listener_pid=
 builddir=.
 strict=
+sudo=
+killcmd=kill
 
 usage()
 {
@@ -52,6 +54,14 @@ while test -n "$1"; do
             if test "$strict" = "0"; then
                 strict=
             fi
+            ;;
+        --sudo|--sudo=1)
+            sudo="sudo -E --"
+            # sudo will not forward a signal from its own process group, so set a new one for it
+            killcmd="sudo -- setsid -w -- kill"
+            ;;
+        --sudo=)
+            # when invoked from Makefile, no sudo
             ;;
         *)
             usage
@@ -240,7 +250,7 @@ start_iceccd()
     shift
     ICECC_TEST_SOCKET="$testdir"/socket-${name} ICECC_SCHEDULER=:8767 ICECC_TESTS=1 ICECC_TEST_SCHEDULER_PORTS=8767:8769 \
         ICECC_TEST_FLUSH_LOG_MARK="$testdir"/flush_log_mark.txt ICECC_TEST_LOG_HEADER="$testdir"/log_header.txt \
-        $valgrind "${iceccd}" -b "$testdir"/envs-${name} -l "$testdir"/${name}.log -n ${netname} -N ${name}  -v -v -v "$@" &
+        $sudo $valgrind "${iceccd}" -b "$testdir"/envs-${name} -l "$testdir"/${name}.log -n ${netname} -N ${name}  -v -v -v -u $(whoami) "$@" &
     pid=$!
     eval ${name}_pid=${pid}
     echo ${pid} > "$testdir"/${name}.pid
@@ -252,7 +262,7 @@ kill_daemon()
 
     pid=${daemon}_pid
     if test -n "${!pid}"; then
-        kill "${!pid}" 2>/dev/null
+        $killcmd "${!pid}" 2>/dev/null
         if test $check_type -eq 1; then
             wait ${!pid}
             exitcode=$?
@@ -296,7 +306,7 @@ start_only_daemon()
 {
     ICECC_TEST_SOCKET="$testdir"/socket-localice ICECC_SCHEDULER=:8767 ICECC_TESTS=1 ICECC_TEST_SCHEDULER_PORTS=8767:8769 \
         ICECC_TEST_FLUSH_LOG_MARK="$testdir"/flush_log_mark.txt ICECC_TEST_LOG_HEADER="$testdir"/log_header.txt \
-        $valgrind "${iceccd}" --no-remote -b "$testdir"/envs-localice -l "$testdir"/localice.log -n ${netname} -N localice -m 2 -v -v -v &
+        $sudo $valgrind "${iceccd}" --no-remote -b "$testdir"/envs-localice -l "$testdir"/localice.log -n ${netname} -N localice -m 2 -u $(whoami) -v -v -v &
     localice_pid=$!
     echo $localice_pid > "$testdir"/localice.pid
     wait_for_ice_startup_complete "noscheduler" localice
@@ -316,7 +326,7 @@ stop_ice()
     fi
     if test $check_type -eq 1; then
         if test -n "$scheduler_pid"; then
-            if ! kill -0 $scheduler_pid; then
+            if ! $killcmd -0 $scheduler_pid; then
                 echo Scheduler no longer running.
                 stop_ice 0
                 abort_tests
@@ -324,7 +334,7 @@ stop_ice()
         fi
         for daemon in localice remoteice1 remoteice2; do
             pid=${daemon}_pid
-            if ! kill -0 ${!pid}; then
+            if ! $killcmd -0 ${!pid}; then
                 echo Daemon $daemon no longer running.
                 stop_ice 0
                 abort_tests
@@ -386,13 +396,13 @@ stop_only_daemon()
 {
     check_first="$1"
     if test $check_first -ne 0; then
-        if ! kill -0 $localice_pid; then
+        if ! $killcmd -0 $localice_pid; then
             echo Daemon localice no longer running.
             stop_only_daemon 0
             abort_tests
         fi
     fi
-    kill $localice_pid 2>/dev/null
+    $killcmd $localice_pid 2>/dev/null
     rm -f "$testdir"/localice.pid
     rm -rf "$testdir"/envs-localice
     rm -f "$testdir"/socket-localice
@@ -429,7 +439,7 @@ wait_for_ice_startup_complete()
                 cat_log_last_mark ${process} | grep -q "scheduler ready" || notready=1
             elif echo "$process" | grep -q -e "localice" -e "remoteice"; then
                 pid=${process}_pid
-                if ! kill -0 ${!pid}; then
+                if ! $killcmd -0 ${!pid}; then
                     echo Daemon $process start failure.
                     stop_ice 0
                     abort_tests
@@ -452,7 +462,7 @@ wait_for_ice_startup_complete()
         # ensure log file flush
         for process in $processes; do
             pid=${process}_pid
-            kill -HUP ${!pid}
+            $killcmd -HUP ${!pid}
         done
     done
     if test -n "$notready"; then
@@ -1637,7 +1647,7 @@ mark_logs()
     for daemon in $daemonlogs; do
         pid=${daemon}_pid
         if test -n "${!pid}"; then
-            kill -0 ${!pid}
+            $killcmd -0 ${!pid}
             if test $? -ne 0; then
                 manual="$manual $daemon"
             fi
@@ -1659,7 +1669,7 @@ flush_logs()
     for daemon in $daemonlogs; do
         pid=${daemon}_pid
         if test -n "${!pid}"; then
-            kill -HUP ${!pid}
+            $killcmd -HUP ${!pid}
             if test $? -eq 0; then
                 wait_for="$wait_for $daemon"
             else

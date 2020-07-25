@@ -713,6 +713,8 @@ bool Daemon::setup_listen_unix_fd()
         if (-1 == unlink(myaddr.sun_path) && errno != ENOENT){
             log_perror("unlink failed") << "\t" << myaddr.sun_path << endl;
         }
+        old_umask = umask(0);
+        reset_umask = true;
     }
 
     if (::bind(unix_listen_fd, (struct sockaddr*)&myaddr, sizeof(myaddr)) < 0) {
