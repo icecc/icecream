@@ -2082,13 +2082,14 @@ else
 fi
 
 debug_fission_disabled=1
-$TESTCXX -gsplit-dwarf true.cpp -o "$testdir"/true 2>/dev/null >/dev/null
-if test $? -eq 0; then
+rm -f "$testdir"/true.dwo
+$TESTCXX -gsplit-dwarf -g true.cpp -o "$testdir"/true 2>/dev/null >/dev/null
+if test $? -eq 0 -a -f true.dwo; then
     "$testdir"/true
     if test $? -eq 0; then
         debug_fission_disabled=
     fi
-    rm -f "$testdir"/true "$testdir"/true.dwo true.dwo
+    rm -f "$testdir"/true true.dwo
 fi
 
 if test -n "$debug_fission_disabled"; then
