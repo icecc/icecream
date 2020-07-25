@@ -917,23 +917,23 @@ static bool empty_queue()
 
     assert(!css.empty());
 
-    CompileServer *cs = nullptr;
+    CompileServer *use_cs = nullptr;
     Job* job = jobPosition.job;
 
     while (true) {
-        cs = pick_server(job);
+        use_cs = pick_server(job);
 
-        if (cs) {
+        if (use_cs) {
             break;
         }
 
         /* Ignore the load on the submitter itself if no other host could
            be found.  We only obey to its max job number.  */
-        cs = job->submitter();
-        if ((int(cs->jobList().size()) < cs->maxJobs())
+        use_cs = job->submitter();
+        if ((int(use_cs->jobList().size()) < use_cs->maxJobs())
                 && job->preferredHost().empty()
                 /* This should be trivially true.  */
-                && cs->can_install(job).size()) {
+                && use_cs->can_install(job).size()) {
             break;
         }
 
@@ -953,7 +953,7 @@ static bool empty_queue()
             // This means that there's nobody who could possibly handle the job,
             // so there's no point in delaying.
             log_info() << "No suitable host found, assigning submitter" << endl;
-            cs = job->submitter();
+            use_cs = job->submitter();
             break;
         }
     }
@@ -961,14 +961,14 @@ static bool empty_queue()
     remove_job_request( jobPosition );
 
     job->setState(Job::WAITINGFORCS);
-    job->setServer(cs);
+    job->setServer(use_cs);
 
-    string host_platform = envs_match(cs, job);
+    string host_platform = envs_match(use_cs, job);
     bool gotit = true;
 
     if (host_platform.empty()) {
         gotit = false;
-        host_platform = cs->can_install(job);
+        host_platform = use_cs->can_install(job);
     }
 
     // mix and match between job ids
@@ -980,7 +980,7 @@ static bool empty_queue()
             l != lastRequestedJobs.end(); ++l) {
         unsigned rcount = 0;
 
-        list<JobStat> lastCompiledJobs = cs->lastCompiledJobs();
+        list<JobStat> lastCompiledJobs = use_cs->lastCompiledJobs();
         for (list<JobStat>::const_iterator r = lastCompiledJobs.begin();
                 r != lastCompiledJobs.end(); ++r) {
             if (l->jobId() == r->jobId()) {
@@ -996,7 +996,7 @@ static bool empty_queue()
             break;
         }
     }
-    if(IS_PROTOCOL_37(job->submitter()) && cs == job->submitter())
+    if(IS_PROTOCOL_37(job->submitter()) && use_cs == job->submitter())
     {
         NoCSMsg m2(job->id(), job->localClientId());
         if (!job->submitter()->send_msg(m2)) {
@@ -1007,7 +1007,7 @@ static bool empty_queue()
     }
     else
     {
-        UseCSMsg m2(host_platform, cs->name, cs->remotePort(), job->id(),
+        UseCSMsg m2(host_platform, use_cs->name, use_cs->remotePort(), job->id(),
                 gotit, job->localClientId(), matched_job_id);
         if (!job->submitter()->send_msg(m2)) {
             trace() << "failed to deliver job " << job->id() << endl;
@@ -1019,16 +1019,16 @@ static bool empty_queue()
 
 #if DEBUG_SCHEDULER >= 0
     if (!gotit) {
-        trace() << "put " << job->id() << " in joblist of " << cs->nodeName() << " (will install now)" << endl;
+        trace() << "put " << job->id() << " in joblist of " << use_cs->nodeName() << " (will install now)" << endl;
     } else {
-        trace() << "put " << job->id() << " in joblist of " << cs->nodeName() << endl;
+        trace() << "put " << job->id() << " in joblist of " << use_cs->nodeName() << endl;
     }
 #endif
-    cs->appendJob(job);
+    use_cs->appendJob(job);
 
     /* if it doesn't have the environment, it will get it. */
     if (!gotit) {
-        cs->setBusyInstalling(time(nullptr));
+        use_cs->setBusyInstalling(time(nullptr));
     }
 
     string env;
@@ -1036,7 +1036,7 @@ static bool empty_queue()
     if (!job->masterJobFor().empty()) {
         Environments environments = job->environments();
         for (Environments::const_iterator it = environments.begin(); it != environments.end(); ++it) {
-            if (it->first == cs->hostPlatform()) {
+            if (it->first == use_cs->hostPlatform()) {
                 env = it->second;
                 break;
             }
@@ -1045,10 +1045,10 @@ static bool empty_queue()
 
     if (!env.empty()) {
         list<Job *> masterJobFor = job->masterJobFor();
-        for (Job * const job : masterJobFor) {
+        for (Job * const jobTmp : masterJobFor) {
             // remove all other environments
-            job->clearEnvironments();
-            job->appendEnvironment(make_pair(cs->hostPlatform(), env));
+            jobTmp->clearEnvironments();
+            jobTmp->appendEnvironment(make_pair(use_cs->hostPlatform(), env));
         }
     }
 
