@@ -495,9 +495,9 @@ static int build_remote_int(CompileJob &job, UseCSMsg *usecs, MsgChannel *local_
                     if (!static_cast<VerifyEnvResultMsg*>(verify_msg)->ok) {
                         // The remote can't handle the environment at all (e.g. kernel too old),
                         // mark it as never to be used again for this environment.
-                        log_info() << "Host " << hostname
-                                   << " did not successfully verify environment."
-                                   << endl;
+                        log_warning() << "Host " << hostname
+                                      << " did not successfully verify environment."
+                                      << endl;
                         BlacklistHostEnvMsg blacklist(job.targetPlatform(),
                                                       job.environmentVersion(), hostname);
                         local_daemon->send_msg(blacklist);
@@ -532,7 +532,7 @@ static int build_remote_int(CompileJob &job, UseCSMsg *usecs, MsgChannel *local_
             log_block b("send compile_file");
 
             if (!cserver->send_msg(compile_file)) {
-                log_info() << "write of job failed" << endl;
+                log_warning() << "write of job failed" << endl;
                 throw client_error(9, "Error 9 - error sending file to remote");
             }
         }
@@ -599,7 +599,7 @@ static int build_remote_int(CompileJob &job, UseCSMsg *usecs, MsgChannel *local_
         }
 
         if (!cserver->send_msg(EndMsg())) {
-            log_info() << "write of end failed" << endl;
+            log_warning() << "write of end failed" << endl;
             throw client_error(12, "Error 12 - failed to send file to remote");
         }
 
@@ -628,21 +628,21 @@ static int build_remote_int(CompileJob &job, UseCSMsg *usecs, MsgChannel *local_
 
         if (status && crmsg->was_out_of_memory) {
             delete crmsg;
-            log_info() << "the server ran out of memory, recompiling locally" << endl;
+            log_warning() << "the server ran out of memory, recompiling locally" << endl;
             throw remote_error(101, "Error 101 - the server ran out of memory, recompiling locally");
         }
 
         if (output) {
             if ((!crmsg->out.empty() || !crmsg->err.empty()) && output_needs_workaround(job)) {
                 delete crmsg;
-                log_info() << "command needs stdout/stderr workaround, recompiling locally" << endl;
-                log_info() << "(set ICECC_CARET_WORKAROUND=0 to override)" << endl;
+                log_warning() << "command needs stdout/stderr workaround, recompiling locally" << endl;
+                log_warning() << "(set ICECC_CARET_WORKAROUND=0 to override)" << endl;
                 throw remote_error(102, "Error 102 - command needs stdout/stderr workaround, recompiling locally");
             }
 
             if (crmsg->err.find("file not found") != string::npos) {
                 delete crmsg;
-                log_info() << "remote is missing file, recompiling locally" << endl;
+                log_warning() << "remote is missing file, recompiling locally" << endl;
                 throw remote_error(104, "Error 104 - remote is missing file, recompiling locally");
             }
 
@@ -751,7 +751,7 @@ maybe_build_local(MsgChannel *local_daemon, UseCSMsg *usecs, CompileJob &job,
         CompileFileMsg compile_file(&job);
 
         if (!local_daemon->send_msg(compile_file)) {
-            log_info() << "write of job failed" << endl;
+            log_warning() << "write of job failed" << endl;
             throw client_error(29, "Error 29 - write of job failed");
         }
 
