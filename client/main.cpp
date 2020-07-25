@@ -546,7 +546,7 @@ int main(int argc, char **argv)
             if( error.errorCode == 103 )
                 log_error() << "local build forced by remote exception: " << error.what() << endl;
             else
-                log_info() << "local build forced by remote exception: " << error.what() << endl;
+                log_warning() << "local build forced by remote exception: " << error.what() << endl;
             local = true;
         }
         catch (client_error& error) {
