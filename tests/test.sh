@@ -1699,34 +1699,36 @@ dump_logs()
         fi
     done
     # Valgrind-listener merges all logs together, split them per PID.
-    cat "$testdir"/valgrind.log | sed 's/^([0-9]\+) //' | grep '^==[0-9]\+==' > "$testdir"/valgrind.tmp
-    while true; do
-        valpid=$(head -1 "$testdir"/valgrind.tmp | sed 's/^==\([0-9]*\)==.*$/\1/' 2>/dev/null)
-        if test -z "$valpid"; then
-            break
-        fi
-        log="$testdir"/valgrind2.tmp
-        grep "^==${valpid}==" "$testdir"/valgrind.tmp > ${log}
-        has_error=
-        if test -n "$valgrind_error_markers"; then
-            if grep -q ICEERRORBEGIN ${log}; then
-                has_error=1
+    if test -f "$testdir"/valgrind.log; then
+        cat "$testdir"/valgrind.log | sed 's/^([0-9]\+) //' | grep '^==[0-9]\+==' > "$testdir"/valgrind.tmp
+        while true; do
+            valpid=$(head -1 "$testdir"/valgrind.tmp | sed 's/^==\([0-9]*\)==.*$/\1/' 2>/dev/null)
+            if test -z "$valpid"; then
+                break
             fi
-        else
-            # Let's guess that every error message has this.
-            if grep -q '^==[0-9]*==    at ' ${log}; then
-                has_error=1
+            log="$testdir"/valgrind2.tmp
+            grep "^==${valpid}==" "$testdir"/valgrind.tmp > ${log}
+            has_error=
+            if test -n "$valgrind_error_markers"; then
+                if grep -q ICEERRORBEGIN ${log}; then
+                    has_error=1
+                fi
+            else
+                # Let's guess that every error message has this.
+                if grep -q '^==[0-9]*==    at ' ${log}; then
+                    has_error=1
+                fi
             fi
-        fi
-        if  test -n "$has_error"; then
-            echo ------------------------------------------------
-            echo "Log: valgrind-$valpid.log"
-            grep -v ICEERRORBEGIN ${log} | grep -v ICEERROREND
-        fi
-        grep -v "^==${valpid}==" "$testdir"/valgrind.tmp > ${log}
-        mv ${log} "$testdir"/valgrind.tmp
-    done
-    rm -f "$testdir"/valgrind.tmp "$testdir"/valgrind2.tmp
+            if  test -n "$has_error"; then
+                echo ------------------------------------------------
+                echo "Log: valgrind-$valpid.log"
+                grep -v ICEERRORBEGIN ${log} | grep -v ICEERROREND
+            fi
+            grep -v "^==${valpid}==" "$testdir"/valgrind.tmp > ${log}
+            mv ${log} "$testdir"/valgrind.tmp
+        done
+        rm -f "$testdir"/valgrind.tmp "$testdir"/valgrind2.tmp
+    fi
 }
 
 cat_log_last_mark()
