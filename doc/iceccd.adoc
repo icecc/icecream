@@ -1,0 +1,90 @@
+ICECCD(1)
+=========
+:doctype: manpage
+:man source: iceccd
+:man version: {revnumber}
+:man manual: Icecream User's Manual
+
+
+Name
+----
+iceccd - Icecream daemon
+
+
+Synopsis
+--------
+*iceccd* [_options_]
+
+
+Description
+-----------
+The Icecream daemon has to run on all nodes being part of the Icecream
+compile cluster. It receives compile jobs and executes them in a chroot
+environment. The compile clients send their compile environment the first time
+they send a job to a particular daemon, so that the environment of the daemon
+does not have to match the one of the client.
+
+The daemon also has to run on clients sending compile jobs to the Icecream
+network. If a node should be able to send compile jobs, but never receive any,
+start the daemon with the option *-m 0*.
+
+All Icecream daemons need to have contact to the Icecream scheduler which
+controls the distribution of data between compile nodes. Normally the daemon
+will automatically find the right scheduler. If this is not the case you can
+explicitly specify the name of the Icecream network and the host running the
+scheduler.
+
+
+Options
+-------
+
+*-b, --env-basedir* _env-basedir_::
+    Base directory for storing compile environments sent to the daemon by the compile clients.
+
+*--cache-limit* _MB_::
+    Maximum size in Mega Bytes of cache used to store compile environments of compile clients.
+
+*-d, --daemonize*::
+    Detach daemon from shell.
+
+*-h, --help*::
+    Print help message and exit.
+
+*-l, --log-file* _log-file_::
+    Name of file where log output is written to.
+
+*-m, --max-processes* _max-processes_::
+    Maximum number of compile jobs started in parallel on machine running the daemon.
+
+*-N* _hostname_::
+    The name of the icecream host on the network.
+
+*-n, --name, --netname* _net-name_::
+    The name of the icecream network the daemon should connect to.
+    There has to be a scheduler running for the network under the same network name.
+
+*--nice* _level_::
+    The level of niceness to use.  Default is 5.
+
+*--no-remote*::
+    Prevents jobs from other nodes being scheduled on this one.
+
+*-s, --scheduler-host* _scheduler-host_::
+    Name of host running the scheduler for the network the daemon
+    should connect to. This option might help if the scheduler cannot broadcast its
+    presence to the clients due to firewall settings or similar
+    reasons, when this is enabled scheduler should use *--persistent-client-connection*.
+
+*-u, --user-uid* _user_::
+    Specify the system user used by the daemon, which must be different than *root*.
+    If not specified, the daemon defaults to the *icecc* system user if available, or *nobody* if not.
+
+*-v, -vv, -vvv*::
+    Control verbosity of daemon. The more v the more verbose.
+
+
+See Also
+--------
+link:icecream.adoc[icecream(7)], link:icecc-scheduler.adoc[icecc-scheduler(1)],
+ifdef::env-github[link:https://github.com/icecc/icemon/tree/master/doc/icemon.adoc[icemon(1)]]
+ifndef::env-github[icemon(1)]

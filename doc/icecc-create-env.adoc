@@ -1,0 +1,40 @@
+ICECC-CREATE_ENV(1)
+===================
+:doctype: manpage
+:man source: icerun
+:man version: {revnumber}
+:man manual: Icecream User's Manual
+
+Name
+----
+icecc-create-env - Create an Icrecream environment tarball
+
+
+Synopsis
+--------
+*icecc-create-env* _compiler-binary_ [--addfile _file_]...
+
+
+Description
+-----------
+Icecc-create-env is an Icecream helper that creates a new *.tar.gz*
+archive with all the files (compiler, tools and libraries) needed to setup a
+build environment.
+
+The resulting archive has a random file name like *ddaea39ca1a7c88522b185eca04da2d8.tar.gz*,
+which can then be renamed. See icecream(7) for more information on using the environment
+tarballs.
+
+NOTE: In the usual case it is not necessary to invoke `icecc-create-env` manually, as it will be
+called automatically for the native compiler used whenever necessary.
+
+
+Options
+-------
+*--addfile* _file_::
+    Add _file_ to the environment archive, can be specified multiple times.
+
+
+See Also
+--------
+link:icecream.adoc[icecream(7)], link:icecc-scheduler.adoc[icecc-scheduler(1)], link:iceccd.adoc[iceccd(1)]

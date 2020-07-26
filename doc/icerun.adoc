@@ -1,0 +1,33 @@
+ICERUN(1)
+=========
+:doctype: manpage
+:man source: icerun
+:man version: {revnumber}
+:man manual: Icecream User's Manual
+
+
+Name
+----
+icerun - Icecream custom command wrapper
+
+
+Synopsis
+--------
+*icerun* [_command_] [_command options_]
+
+
+Description
+-----------
+Icerun is the Icecream custom command wrapper. It simply executes the passed
+command, but limits the number of parallel invocations the same way local compilations
+are limited. Since builds using Icecream usually require increasing the parallelism
+of a build, wrapping custom resource-demanding commands this way prevents these
+commnads from overloading the system.
+
+
+See Also
+--------
+link:icecream.adoc[icecream(7)], link:icecc.adoc[icecc(1)], link:icecc-scheduler.adoc[icecc-scheduler(1)],
+link:iceccd.adoc[iceccd(1)],
+ifdef::env-github[link:https://github.com/icecc/icemon/tree/master/doc/icemon.adoc[icemon(1)]]
+ifndef::env-github[icemon(1)]

@@ -1,0 +1,35 @@
+ICECC(1)
+=========
+:doctype: manpage
+:man source: icecc
+:man version: {revnumber}
+:man manual: Icecream User's Manual
+
+
+Name
+----
+icecc - Icecream compiler stub
+
+
+Synopsis
+--------
+*icecc* [_compiler_] [_compile options_] -o _OBJECT_ -c _SOURCE_
+
+
+Description
+-----------
+Icecc is the Icecream compiler stub. It gets called in place of the actual
+compiler and transparently routes the compile requests to the Icecream
+network. You should not call icecc directly, but place the specific compiler
+stubs in your path:
+[source,shell]
+----
+export PATH=/usr/lib/icecc/bin:$PATH
+----
+
+
+See Also
+--------
+link:icecream.adoc[icecream(7)], link:icecc-scheduler.adoc[icecc-scheduler(1)], link:iceccd.adoc[iceccd(1)],
+ifdef::env-github[link:https://github.com/icecc/icemon/tree/master/doc/icemon.adoc[icemon(1)]]
+ifndef::env-github[icemon(1)]
