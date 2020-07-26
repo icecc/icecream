@@ -1,22 +1,22 @@
 if WITH_ICECREAM_MAN
 
-icecc.1: $(srcdir)/man-icecc.1.xml
-	$(DOCBOOK2X) $<
+man_verbose = $(man_verbose_@AM_V@)
+man_verbose_ = $(man_verbose_@AM_DEFAULT_V@)
+man_verbose_0 = @echo MAN $@;
 
-icerun.1: $(srcdir)/man-icerun.1.xml
-	$(DOCBOOK2X) $<
+# do not show anything here
+xml_verbose = $(xml_verbose_@AM_V@)
+xml_verbose_ = $(xml_verbose_@AM_DEFAULT_V@)
+xml_verbose_0 = @
 
-icecc-create-env.1: $(srcdir)/man-icecc-create-env.1.xml
-	$(DOCBOOK2X) $<
+%.xml: $(srcdir)/%.adoc
+	$(xml_verbose)$(ASCIIDOC) -a revnumber=${VERSION} -d manpage -b docbook -o $(builddir)/$@ $<
 
-icecc-scheduler.1: $(srcdir)/man-icecc-scheduler.1.xml
-	$(DOCBOOK2X) $<
+%.1: %.xml
+	$(man_verbose)$(A2X) --doctype manpage --format manpage $<
 
-iceccd.1: $(srcdir)/man-iceccd.1.xml
-	$(DOCBOOK2X) $<
-
-icecream.7: $(srcdir)/man-icecream.7.xml
-	$(DOCBOOK2X) $<
+%.7: %.xml
+	$(man_verbose)$(A2X) --doctype manpage --format manpage $<
 
 dist_man_MANS = \
 	icecc.1 \
@@ -26,12 +26,14 @@ dist_man_MANS = \
 	icecc-create-env.1 \
 	icecream.7
 
+CLEANFILES = $(dist_man_MANS)
+
 endif
 
 EXTRA_DIST = \
-	man-icecc.1.xml \
-	man-icerun.1.xml \
-	man-iceccd.1.xml \
-	man-icecc-scheduler.1.xml \
-	man-icecc-create-env.1.xml \
-	man-icecream.7.xml
+	icecc.adoc \
+	icerun.adoc \
+	iceccd.adoc \
+	icecc-scheduler.adoc \
+	icecc-create-env.adoc \
+	icecream.adoc

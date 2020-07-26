@@ -1,0 +1,65 @@
+Icecream documentation is written using AsciiDoc (see https://asciidoc.org/).
+
+
+Manual pages
+------------
+
+* link:icecream.adoc[icecream(7)] - the main manual page
+
+* link:icecc.adoc[icecc(1)] - compiler wrapper
+
+* link:icerun.adoc[icerun(1)] - wrapper for custom commands
+
+* link:iceccd.adoc[iceccd(1)] - daemon
+
+* link:icecc-scheduler.adoc[icecc-scheduler(1)] - scheduler daemon
+
+* link:icecc-create-env.adoc[icecc-create-env(1)] - tool used to create compiler tarballs
+
+
+Documentation on writing using AsciiDoc
+---------------------------------------
+
+For AsciiDoc documentation see its https://asciidoc.org/userguide.html[User Guide]
+or some https://powerman.name/doc/asciidoc[cheatsheet].
+
+Also note that GitHub actually uses https://asciidoctor.org[AsciiDoctor], which is mostly
+compatible with AsciiDoc, but there may be slight differences. The AsciiDoc format is
+the one to use, both because the `asciidoc` tool is used to generate manual pages
+and because even GitHub uses compatibility mode for documentation written in the format
+required for manual pages.
+
+Conventions
+-----------
+
+Unlike Docbook, AsciiDoc does not mark semantic meaning of parts of text. This means
+it's simpler to read and write, but there are no official rules for how to mark a shell
+variable or a command.
+
+Follow these guidelines:
+
+* +++__+++ (underscores) - for "variables" where the proper value should be substituted
+ (AsciiDoc examples use single quotes for manpages, but that's inconsistent with normal
+ AsciiDoc formats, where single quotes simply result in quoting, and using underscores
+ seems have the same result when used for manpages).
+
+// TODO: Is the above a good rule?
+
+* +++**+++ (asterisk) - for literal names of commands, variables, etc., also inline examples of commands
+
+* +++``+++ (backticks) - for filenames, binary names, etc. in normal text
+
+Example:
+
+----
+To run a parallel build, use *make -j _num_*, where _num_ is a number of parallel jobs.
+If you use other build tool than `make`, such as `ninja`, consult the documentation of the tool.
+----
+
+This results in:
+
+To run a parallel build, use *make -j _num_*, where _num_ is a number of parallel jobs.
+If you use other build tool than `make`, such as `ninja`, consult the documentation of the tool.
+
+If you want to reference another document, use `+++link+++:document.adoc[Text]` or `+++link+++:document.adoc#section[Text]`.
+Use the `+++<<>>+++` format only when referencing sections in the same document.

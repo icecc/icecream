@@ -1,0 +1,60 @@
+ICECC-SCHEDULER(1)
+==================
+:doctype: manpage
+:man source: icecc-scheduler
+:man version: {revnumber}
+:man manual: Icecream User's Manual
+
+
+Name
+----
+icecc-scheduler - Icecream scheduler
+
+
+Synopsis
+--------
+*icecc-scheduler* [_options_]
+
+
+Description
+-----------
+The Icecream scheduler is the central instance of an Icecream compile
+network. It distributes the compile jobs and provides the data for the
+monitors.
+
+
+Options
+-------
+
+*-d, --daemonize*::
+    Detach daemon from shell.
+
+*-r, --persistent-client-connection*::
+    Client connections are not disconnected from the scheduler even if there is a better scheduler available.
+
+*-h, --help*::
+    Print help message and exit.
+
+*-l, --log-file* _log-file_::
+    Name of file where log output is written to.
+
+*-n, --netname* _net-name_::
+    The name of the Icecream network the scheduler controls.
+
+*-p, --port* _port_::
+    IP port the scheduler uses.
+
+*-u, --user-uid* _user_::
+    Specify the system user used by the daemon, which must be
+    different than *root*. If not specified, the daemon defaults
+    to the *icecc* system user if available, or *nobody* if not.
+
+*-v, -vv, -vvv*::
+    Control verbosity of daemon. The more v the more verbose.
+
+
+See Also
+--------
+link:icecream.adoc[icecream(7)], link:iceccd.adoc[iceccd(1)],
+ifdef::env-github[link:https://github.com/icecc/icemon/tree/master/doc/icemon.adoc[icemon(1)]]
+ifndef::env-github[icemon(1)]
