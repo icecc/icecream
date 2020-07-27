@@ -116,36 +116,7 @@ pid_t call_cpp(CompileJob &job, int fdwrite, int fdread)
         appendList(flags, job.restFlags());
 
         for (list<string>::iterator it = flags.begin(); it != flags.end();) {
-            /* This has a duplicate meaning. it can either include a file
-               for preprocessing or a precompiled header. decide which one.  */
-            if ((*it) == "-include") {
-                ++it;
-
-                if (it != flags.end()) {
-                    std::string p = (*it);
-
-                    if (access(p.c_str(), R_OK) < 0 && access((p + ".gch").c_str(), R_OK) == 0) {
-                        // PCH is useless for preprocessing, ignore the flag.
-                        list<string>::iterator o = --it;
-                        ++it;
-                        flags.erase(o);
-                        o = it++;
-                        flags.erase(o);
-                    }
-                }
-            } else if ((*it) == "-include-pch") {
-                list<string>::iterator o = it;
-                ++it;
-                if (it != flags.end()) {
-                    std::string p = (*it);
-                    if (access(p.c_str(), R_OK) == 0) {
-                        // PCH is useless for preprocessing (and probably slows things down), ignore the flag.
-                        flags.erase(o);
-                        o = it++;
-                        flags.erase(o);
-                    }
-                }
-            } else if ((*it) == "-fpch-preprocess") {
+            if ((*it) == "-fpch-preprocess") {
                 // This would add #pragma GCC pch_preprocess to the preprocessed output, which would make
                 // the remote GCC try to load the PCH directly and fail. Just drop it. This may cause a build
                 // failure if the -include check above failed to detect usage of a PCH file (e.g. because
