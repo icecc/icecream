@@ -47,6 +47,9 @@ matrix:
     compiler: clang
     dist: bionic
   - os: osx
+    before_install:
+      - brew update
+      - brew install lzo docbook2x gdb ccache libarchive expect telnet util-linux gnu-getopt
   - os: linux
     sudo: true # for setcap so we can run the tests in chroot.
     compiler: clang
@@ -93,15 +96,3 @@ addons:
     - libarchive-dev
     - expect
     - telnet
-  homebrew:
-    packages:
-    - lzo
-    - docbook2x
-    - gdb
-    - ccache
-    - libarchive
-    - expect
-    - telnet
-    - util-linux # setsid for tests
-    - gnu-getopt # used by icecc-test-env (used by tests)
-    update: true
