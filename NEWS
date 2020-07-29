@@ -1,3 +1,16 @@
+1.4
+- scheduler assigns jobs with larger priority first, so compilations with higher 'nice' value
+  do not interfere with normal compilations
+- avoid large timeouts if there is a network problem
+- support for -march/-mcpu/-mtune used with =native (proper specific flags will be substituted)
+- support for Clang's -fmodules, by removing the -fmodules flag for remote compilation
+- do not keep host lock when sending preprocessed source (reduces chance of network timeouts)
+- send more jobs in advance to nodes with many CPU cores
+- try to use larger network buffers
+- force local compilations if --coverage is used
+- correctly clean up caches
+- handle properly the case when something removes files in the cache directory
+
 1.3
 - remove hardcoded compiler paths (compiler tarball is created with the same compiler that is used for build)
 - avoid build overloading by limiting number of local preprocessing runs to local CPUs available
