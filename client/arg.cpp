@@ -220,6 +220,7 @@ static bool is_argument_with_space(const char* argument)
         "-iwithprefixbefore",
         "--include-with-prefix-before",
         "-iwithsysroot"
+        "-index-store-path"
     };
 
     for(const char* const arg : arguments) {
@@ -556,7 +557,8 @@ bool analyse_argv(const char * const *argv, CompileJob &job, bool icerun, list<s
                        || str_equal("--include-with-prefix-after", a)
                        || str_equal("-iwithprefixbefore", a)
                        || str_equal("--include-with-prefix-before", a)
-                       || str_equal("-iwithsysroot", a)) {
+                       || str_equal("-iwithsysroot", a)
+                       || str_equal("-index-store-path", a)) {
                 args.append(a, Arg_Local);
 
                 assert( is_argument_with_space( a ));
