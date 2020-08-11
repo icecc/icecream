@@ -491,6 +491,10 @@ if test -n "$clang"; then
         touch $tempdir/fakeproc/proc/cpuinfo
         add_file $tempdir/fakeproc/proc/cpuinfo /proc/cpuinfo
     fi
+    # clang needs tmp directory when it used with "-fembed-bitcode"
+    mkdir -p $tempdir/fakevar/tmp
+    touch $tempdir/fakevar/tmp/DUMMY
+    add_file $tempdir/fakevar/tmp/DUMMY /var/tmp/DUMMY
 fi
 
 # Do not do any prefix stripping on extra files, they (e.g. clang plugins) are usually
