@@ -346,8 +346,8 @@ for the same host architecture:
     icecream. icecc-create-env script can be used to
     create the tarball file for each toolchain, for example:
 
-    icecc-create-env /work/toolchain1/bin/arm-eabi-gcc
-    icecc-create-env /work/toolchain2/bin/arm-linux-androideabi-gcc
+     - `icecc-create-env /work/toolchain1/bin/arm-eabi-gcc`
+     - `icecc-create-env /work/toolchain2/bin/arm-linux-androideabi-gcc`
 
 -   Set ICECC\_VERSION to point to the native tarball file and for each
     tarball file created to the toolchains (e.g  ICECC\_VERSION=/work/i386-native.tar.gz,/work/arm-eabi-toolchain1.tar.gz=arm-eabi,/work/arm-linux-androideabi-toolchain2.tar.gz=arm-linux-androideabi).
