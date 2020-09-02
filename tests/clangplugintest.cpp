@@ -1,4 +1,5 @@
-bool foo()
-    {
+bool
+foo()
+{
     return false;
-    }
+}

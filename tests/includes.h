@@ -1,7 +1,7 @@
 #ifndef INCLUDES_H
 #define INCLUDES_H
 
-#include <string.h>
 #include <iostream>
+#include <string.h>
 
 #endif

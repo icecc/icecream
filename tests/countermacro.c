@@ -1,4 +1,5 @@
-int f()
+int
+f()
 {
 #if __COUNTER__ > 1
     return 1;
