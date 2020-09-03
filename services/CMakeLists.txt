@@ -1,6 +1,9 @@
 include(CheckIncludeFile)
 include(CheckCSourceCompiles)
 
+find_library(zstd NAMES libzstd.a libzstd.so REQUIRED)
+find_library(lzo2 NAMES liblzo2.a liblzo2.so REQUIRED)
+
 check_include_file(ifaddrs.h HAVE_IFADDRS_H)
 check_include_file(netinet/tcp_var.h HAVE_NETINET_TCP_VAR_H)
 
@@ -50,7 +53,7 @@ target_compile_definitions(icecc_la
 target_include_directories(icecc_la
     PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>/include)
 target_link_libraries(icecc_la
-    PUBLIC -llzo2 -lzstd -larchive -lcap-ng -ldl
+    PUBLIC -llzo2 -lzstd -lcap-ng -ldl
     PRIVATE copts_common copts_pic)
 
 if (ICECREAM_LTO)
