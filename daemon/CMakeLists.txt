@@ -55,7 +55,8 @@ target_compile_definitions(iceccd PRIVATE
     $<$<BOOL:${HAVE_SYS_VFS_H}>:HAVE_SYS_VFS_H>
     $<$<BOOL:${HAVE_LIBARCHIVE_XZ}>:HAVE_LIBARCHIVE_XZ>
     $<$<BOOL:${HAVE_LIBARCHIVE_ZSTD}>:HAVE_LIBARCHIVE_ZSTD>)
-target_link_libraries(iceccd PRIVATE copts_common copts_pic icecc_la -larchive)
+target_link_libraries(iceccd PRIVATE copts_common copts_pic icecc_la
+    $<$<OR:$<BOOL:${HAVE_LIBARCHIVE_XZ}>,$<BOOL:${HAVE_LIBARCHIVE_ZSTD}>>:-larchive>)
 
 if (ICECREAM_LTO)
     set_property(TARGET iceccd PROPERTY INTERPROCEDURAL_OPTIMIZATION ON)
