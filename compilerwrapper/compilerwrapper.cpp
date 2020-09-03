@@ -1,4 +1,5 @@
-/* -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; fill-column: 99; -*- */
+/* -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; fill-column: 99; -*-
+ */
 /* vim: set ts=4 sw=4 et tw=99:  */
 /*
 Copyright (C) 2012 Lubos Lunak <l.lunak@suse.cz>
@@ -25,7 +26,6 @@ THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-
 /*
 Older icecream versions assume the compiler is always GCC. This can
 be fixed on the local side, but remote nodes would need icecream upgrade.
@@ -34,8 +34,8 @@ if clang is to be used as well, that will either call clang or the real gcc.
 Which one depends on an extra argument added by icecream.
 */
 
-#include <sstream>
 #include <assert.h>
+#include <sstream>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -43,12 +43,14 @@ Which one depends on an extra argument added by icecream.
 
 //#define DEBUG
 
-int main(int argc, char *argv[])
+int
+main(int argc, char * argv[])
 {
     bool iscxx = false;
-    int argv0len = strlen(argv[0]);
+    int  argv0len = strlen(argv[0]);
 
-    if (argv0len > 2 && argv[0][argv0len - 1] == '+' && argv[0][argv0len - 2] == '+') {
+    if (argv0len > 2 && argv[0][argv0len - 1] == '+' &&
+        argv[0][argv0len - 2] == '+') {
         iscxx = true;
     }
 
@@ -61,17 +63,18 @@ int main(int argc, char *argv[])
 
     fprintf(stderr, "\n");
 #endif
-    bool isclang = argc >= 2 && strcmp(argv[1], "clang") == 0;   // the extra argument from icecream
+    bool isclang = argc >= 2 && strcmp(argv[1], "clang") ==
+                                    0; // the extra argument from icecream
     // 1 extra for -no-canonical-prefixes
-    char **args = new char*[argc + 2];
+    char ** args = new char *[argc + 2];
     args[0] = new char[strlen(argv[0]) + 20];
     strcpy(args[0], argv[0]);
-    char *separator = strrchr(args[0], '/');
+    char * separator = strrchr(args[0], '/');
 
     if (separator == nullptr) {
         args[0][0] = '\0';
     } else {
-        separator[1] = '\0';    // after the separator
+        separator[1] = '\0'; // after the separator
     }
 
     if (isclang) {
@@ -85,16 +88,19 @@ int main(int argc, char *argv[])
     int pos = 1;
 
     if (isclang) {
-        args[pos++] = strdup("-no-canonical-prefixes");   // otherwise clang tries to access /proc/self/exe
+        args[pos++] =
+            strdup("-no-canonical-prefixes"); // otherwise clang tries to access
+                                              // /proc/self/exe
         // clang wants the -x argument early, otherwise it seems to ignore it
         // (and treats the file as already preprocessed)
         int x_arg_pos = -1;
 
         for (int i = 2; // 2 - skip the extra "clang" argument
-                i < argc;
-                ++i) {
-            if (strcmp(argv[i], "-x") == 0 && i + 1 < argc
-                    && (strcmp(argv[i + 1], "c") == 0 || strcmp(argv[i + 1], "c++") == 0)) {
+             i < argc;
+             ++i) {
+            if (strcmp(argv[i], "-x") == 0 && i + 1 < argc &&
+                (strcmp(argv[i + 1], "c") == 0 ||
+                 strcmp(argv[i + 1], "c++") == 0)) {
                 x_arg_pos = i;
                 args[pos++] = strdup("-x");
                 args[pos++] = strdup(argv[i + 1]);
@@ -103,16 +109,21 @@ int main(int argc, char *argv[])
         }
 
         for (int i = 2; // 2 - skip the extra "clang" argument
-                i < argc;
-                ++i) {
+             i < argc;
+             ++i) {
             // strip options that icecream adds but clang doesn't know or need
             if (strcmp(argv[i], "-fpreprocessed") == 0) {
-                continue;    // clang doesn't know this (it presumably needs to always preprocess anyway)
+                continue; // clang doesn't know this (it presumably needs to
+                          // always preprocess anyway)
             }
 
             if (strcmp(argv[i], "--param") == 0 && i + 1 < argc) {
-                if (strncmp(argv[i + 1], "ggc-min-expand=", strlen("ggc-min-expand=")) == 0
-                        || strncmp(argv[i + 1], "ggc-min-heapsize=", strlen("ggc-min-heapsize=")) == 0) {
+                if (strncmp(argv[i + 1],
+                            "ggc-min-expand=",
+                            strlen("ggc-min-expand=")) == 0 ||
+                    strncmp(argv[i + 1],
+                            "ggc-min-heapsize=",
+                            strlen("ggc-min-heapsize=")) == 0) {
                     // drop --param and the parameter itself
                     ++i;
                     continue;
