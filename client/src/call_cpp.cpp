@@ -34,12 +34,10 @@
 #include "logging.h"
 #include "safeguard.h"
 
-using namespace std;
-
 namespace {
 
 bool
-dcc_is_preprocessed(const string & sfile)
+dcc_is_preprocessed(const std::string & sfile)
 {
     if (sfile.size() < 3) {
         return false;
@@ -116,10 +114,10 @@ call_cpp(CompileJob & job, int fdwrite, int fdread)
         argv[1] = strdup(job.inputFile().c_str());
         argv[2] = nullptr;
     } else {
-        list<string> flags = job.localFlags();
+        std::list<std::string> flags = job.localFlags();
         appendList(flags, job.restFlags());
 
-        for (list<string>::iterator it = flags.begin(); it != flags.end();) {
+        for (auto it = flags.begin(); it != flags.end();) {
             /* This has a duplicate meaning. it can either include a file
                for preprocessing or a precompiled header. decide which one.  */
             if ((*it) == "-include") {
@@ -131,7 +129,7 @@ call_cpp(CompileJob & job, int fdwrite, int fdread)
                     if (access(p.c_str(), R_OK) < 0 &&
                         access((p + ".gch").c_str(), R_OK) == 0) {
                         // PCH is useless for preprocessing, ignore the flag.
-                        list<string>::iterator o = --it;
+                        auto o = --it;
                         ++it;
                         flags.erase(o);
                         o = it++;
@@ -139,7 +137,7 @@ call_cpp(CompileJob & job, int fdwrite, int fdread)
                     }
                 }
             } else if ((*it) == "-include-pch") {
-                list<string>::iterator o = it;
+                auto o = it;
                 ++it;
                 if (it != flags.end()) {
                     std::string p = (*it);
@@ -179,8 +177,7 @@ call_cpp(CompileJob & job, int fdwrite, int fdread)
         argv[0] = strdup(find_compiler(job).c_str());
         int i = 1;
 
-        for (list<string>::const_iterator it = flags.begin(); it != flags.end();
-             ++it) {
+        for (auto it = flags.begin(); it != flags.end(); ++it) {
             argv[i++] = strdup(it->c_str());
         }
 
@@ -198,12 +195,12 @@ call_cpp(CompileJob & job, int fdwrite, int fdread)
         argv[i++] = nullptr;
     }
 
-    string argstxt = argv[0];
+    std::string argstxt = argv[0];
     for (int i = 1; argv[i] != nullptr; ++i) {
         argstxt += ' ';
         argstxt += argv[i];
     }
-    trace() << "preparing source to send: " << argstxt << endl;
+    trace() << "preparing source to send: " << argstxt << std::endl;
 
     if (fdwrite != STDOUT_FILENO) {
         /* Ignore failure */
@@ -214,8 +211,8 @@ call_cpp(CompileJob & job, int fdwrite, int fdread)
 
     dcc_increment_safeguard(SafeguardStepCompiler);
     execv(argv[0], argv);
-    int           exitcode = (errno == ENOENT ? 127 : 126);
-    ostringstream errmsg;
+    int                exitcode = (errno == ENOENT ? 127 : 126);
+    std::ostringstream errmsg;
     errmsg << "execv " << argv[0] << " failed";
     log_perror(errmsg.str());
     _exit(exitcode);

@@ -29,8 +29,6 @@ extern "C" {
 #include <sys/stat.h>
 }
 
-using namespace std;
-
 // Whether any option controlling color output has been explicitly given.
 bool explicit_color_diagnostics;
 
@@ -55,9 +53,9 @@ str_startswith(const char * head, const char * worm)
 
 /* Some files should always be built locally... */
 bool
-should_always_build_locally(const string & filepath)
+should_always_build_locally(const std::string & filepath)
 {
-    string       p = find_basename(filepath);
+    std::string  p = find_basename(filepath);
     const char * filename = p.c_str();
 
     /* autoconf */
@@ -89,13 +87,13 @@ should_always_build_locally(const string & filepath)
 bool
 analyze_program(const char * name, CompileJob & job, bool & icerun)
 {
-    string compiler_name = find_basename(name);
+    std::string compiler_name = find_basename(name);
 
     job.setCompilerName(compiler_name);
 
     if (icerun) {
         job.setLanguage(CompileJob::Lang_Custom);
-        log_info() << "icerun, running locally." << endl;
+        log_info() << "icerun, running locally." << std::endl;
         return true;
     } else if (is_cpp_compiler(compiler_name)) {
         job.setLanguage(CompileJob::Lang_CXX);
@@ -103,7 +101,7 @@ analyze_program(const char * name, CompileJob & job, bool & icerun)
         job.setLanguage(CompileJob::Lang_C);
     } else {
         job.setLanguage(CompileJob::Lang_Custom);
-        log_info() << "custom command, running locally." << endl;
+        log_info() << "custom command, running locally." << std::endl;
         icerun = true;
         return true;
     }
@@ -230,7 +228,7 @@ is_argument_with_space(const char * argument)
 }
 
 bool
-analyze_assembler_arg(string & arg, list<string> * extrafiles)
+analyze_assembler_arg(std::string & arg, std::list<std::string> * extrafiles)
 {
     const char * pos = arg.c_str();
     static bool  second_option;
@@ -277,7 +275,7 @@ analyze_assembler_arg(string & arg, list<string> * extrafiles)
             return false;
         } else {
             log_warning() << "file for argument missing, building locally"
-                          << endl;
+                          << std::endl;
             return true;
         }
 
@@ -288,22 +286,22 @@ analyze_assembler_arg(string & arg, list<string> * extrafiles)
 } // namespace
 
 bool
-analyse_argv(const char * const * argv,
-             CompileJob &         job,
-             bool                 icerun,
-             list<string> *       extrafiles)
+analyse_argv(const char * const *     argv,
+             CompileJob &             job,
+             bool                     icerun,
+             std::list<std::string> * extrafiles)
 {
     ArgumentsList args;
-    string        ofile;
+    std::string   ofile;
 
 #if CLIENT_DEBUG > 1
-    trace() << "scanning arguments" << endl;
+    trace() << "scanning arguments" << std::endl;
 
     for (int index = 0; argv[index]; index++) {
-        trace() << " " << argv[index] << endl;
+        trace() << " " << argv[index] << std::endl;
     }
 
-    trace() << endl;
+    trace() << std::endl;
 #endif
 
     bool had_cc = (job.compilerName().size() > 0);
@@ -339,7 +337,7 @@ analyse_argv(const char * const * argv,
             if (!strcmp(a, "-E")) {
                 always_local = true;
                 args.append(a, Arg_Local);
-                log_warning() << "preprocessing, building locally" << endl;
+                log_warning() << "preprocessing, building locally" << std::endl;
             } else if (!strncmp(a, "-fdump", 6) || !strcmp(a, "-combine") ||
                        !strcmp(a, "-fsyntax-only") ||
                        !strncmp(a, "-ftime-report", strlen("-ftime-report")) ||
@@ -347,7 +345,7 @@ analyse_argv(const char * const * argv,
                 always_local = true;
                 args.append(a, Arg_Local);
                 log_warning()
-                    << "argument " << a << ", building locally" << endl;
+                    << "argument " << a << ", building locally" << std::endl;
             } else if (!strcmp(a, "-MD") || !strcmp(a, "-MMD") ||
                        str_startswith("-Wp,-MD", a) ||
                        str_startswith("-Wp,-MMD", a)) {
@@ -380,7 +378,7 @@ analyse_argv(const char * const * argv,
                 always_local = true;
                 args.append(a, Arg_Local);
                 log_warning()
-                    << "argument " << a << ", building locally" << endl;
+                    << "argument " << a << ", building locally" << std::endl;
             } else if (str_equal("--param", a)) {
                 args.append(a, Arg_Remote);
 
@@ -396,7 +394,7 @@ analyse_argv(const char * const * argv,
                 always_local = true;
                 args.append(a, Arg_Local);
                 log_warning()
-                    << "argument " << a << ", building locally" << endl;
+                    << "argument " << a << ", building locally" << std::endl;
 
                 if (str_equal(a, "-B")) {
                     assert(is_argument_with_space(a));
@@ -413,8 +411,8 @@ analyse_argv(const char * const * argv,
                  */
                 const char *pos = a + 4, *next_comma;
                 bool        local = false;
-                string      as_arg;
-                string      remote_arg = "-Wa";
+                std::string as_arg;
+                std::string remote_arg = "-Wa";
 
                 while (1) {
                     next_comma = strchr(pos, ',');
@@ -436,8 +434,8 @@ analyse_argv(const char * const * argv,
                 if (local) {
                     always_local = true;
                     args.append(a, Arg_Local);
-                    log_warning()
-                        << "argument " << a << ", building locally" << endl;
+                    log_warning() << "argument " << a << ", building locally"
+                                  << std::endl;
                 } else {
                     args.append(remote_arg, Arg_Remote);
                 }
@@ -455,7 +453,7 @@ analyse_argv(const char * const * argv,
                        !strcmp(a, "-fbranch-probabilities")) {
                 log_warning()
                     << "compiler will emit additional local files (argument "
-                    << a << "); building locally" << endl;
+                    << a << "); building locally" << std::endl;
                 always_local = true;
                 args.append(a, Arg_Local);
             } else if (!strcmp(a, "-gsplit-dwarf")) {
@@ -493,7 +491,7 @@ analyse_argv(const char * const * argv,
                 if (unsupported) {
                     log_warning()
                         << "unsupported -x option: " << unsupported_opt
-                        << "; running locally" << endl;
+                        << "; running locally" << std::endl;
                     always_local = true;
                 }
             } else if (!strcmp(a, "-march=native")) {
@@ -510,7 +508,7 @@ analyse_argv(const char * const * argv,
                        !strcmp(a, "-finput-charset")) {
                 log_warning() << "-f*-charset assumes charset conversion in "
                                  "the build environment; must be local"
-                              << endl;
+                              << std::endl;
                 always_local = true;
                 args.append(a, Arg_Local);
             } else if (!strcmp(a, "-c")) {
@@ -532,7 +530,7 @@ analyse_argv(const char * const * argv,
                      * so we just always run it locally.  Hopefully this is a
                      * pretty rare case. */
                     log_warning()
-                        << "output to stdout?  running locally" << endl;
+                        << "output to stdout?  running locally" << std::endl;
                     always_local = true;
                 }
             } else if (str_equal("-D", a) || str_equal("-U", a)) {
@@ -579,7 +577,7 @@ analyse_argv(const char * const * argv,
                     if (str_startswith("-O", argv[i])) {
                         always_local = true;
                         log_warning() << "argument " << a << " " << argv[i]
-                                      << ", building locally" << endl;
+                                      << ", building locally" << std::endl;
                     }
 
                     args.append(argv[i], Arg_Local);
@@ -644,7 +642,7 @@ analyse_argv(const char * const * argv,
                     }
                 }
                 assert(prefix != NULL);
-                string file = a + strlen(prefix);
+                std::string file = a + strlen(prefix);
 
                 if (access(file.c_str(), R_OK) == 0) {
                     file = get_absfilename(file);
@@ -652,7 +650,7 @@ analyse_argv(const char * const * argv,
                 } else {
                     always_local = true;
                     log_warning() << "file for argument " << a
-                                  << " missing, building locally" << endl;
+                                  << " missing, building locally" << std::endl;
                 }
 
                 args.append(prefix + file, Arg_Rest);
@@ -666,7 +664,7 @@ analyse_argv(const char * const * argv,
                             str_equal(argv[i + 1], "-Xclang")) {
                             args.append(a, Arg_Rest);
                             args.append(p, Arg_Rest);
-                            string file = argv[i + 2];
+                            std::string file = argv[i + 2];
 
                             if (access(file.c_str(), R_OK) == 0) {
                                 file = get_absfilename(file);
@@ -676,7 +674,8 @@ analyse_argv(const char * const * argv,
                                 log_warning()
                                     << "plugin for argument " << a << " " << p
                                     << " " << argv[i + 1] << " " << file
-                                    << " missing, building locally" << endl;
+                                    << " missing, building locally"
+                                    << std::endl;
                             }
 
                             args.append(argv[i + 1], Arg_Rest);
@@ -690,7 +689,7 @@ analyse_argv(const char * const * argv,
                         // when other objects would assume this object file
                         // would provide some symbols from the PCH.
                         log_info() << "argument " << a << " " << p
-                                   << ", building locally" << endl;
+                                   << ", building locally" << std::endl;
                         always_local = true;
                         args.append(a, Arg_Rest);
                         args.append(p, Arg_Rest);
@@ -722,8 +721,8 @@ analyse_argv(const char * const * argv,
                 args.append(a, Arg_Rest);
             } else if (str_equal("-arch", a)) {
                 if (seen_arch) {
-                    log_warning()
-                        << "multiple -arch options, building locally" << endl;
+                    log_warning() << "multiple -arch options, building locally"
+                                  << std::endl;
                     always_local = true;
                 }
                 seen_arch = false;
@@ -750,12 +749,12 @@ analyse_argv(const char * const * argv,
     if (!seen_c && !seen_s) {
         if (!always_local) {
             log_warning() << "neither -c nor -S argument, building locally"
-                          << endl;
+                          << std::endl;
         }
         always_local = true;
     } else if (seen_s) {
         if (seen_c) {
-            log_info() << "can't have both -c and -S, ignoring -c" << endl;
+            log_info() << "can't have both -c and -S, ignoring -c" << std::endl;
         }
 
         args.append("-S", Arg_Remote);
@@ -773,13 +772,13 @@ analyse_argv(const char * const * argv,
         /* TODO: ccache has the heuristic of ignoring arguments that are not
          * extant files when looking for the input file; that's possibly
          * worthwile.  Of course we can't do that on the server. */
-        string ifile;
+        std::string ifile;
 
-        for (ArgumentsList::iterator it = args.begin(); it != args.end();) {
+        for (auto it = args.begin(); it != args.end();) {
             if (it->first == "-") {
                 always_local = true;
                 log_warning()
-                    << "stdin/stdout argument, building locally" << endl;
+                    << "stdin/stdout argument, building locally" << std::endl;
                 break;
             }
 
@@ -794,37 +793,37 @@ analyse_argv(const char * const * argv,
                 ++it;
             } else if (ifile.empty()) {
 #if CLIENT_DEBUG
-                log_info() << "input file: " << it->first << endl;
+                log_info() << "input file: " << it->first << std::endl;
 #endif
                 job.setInputFile(it->first);
                 ifile = it->first;
                 it = args.erase(it);
                 if (should_always_build_locally(ifile)) {
-                    log_info()
-                        << "configure tests are run locally: " << ifile << endl;
+                    log_info() << "configure tests are run locally: " << ifile
+                               << std::endl;
                     always_local = true;
                 }
             } else {
                 log_warning() << "found another non option on command line. "
                                  "Two input files? "
-                              << it->first << endl;
+                              << it->first << std::endl;
                 always_local = true;
                 args = backup;
-                job.setInputFile(string());
+                job.setInputFile(std::string());
                 break;
             }
         }
 
-        if (ifile.find('.') != string::npos) {
-            string::size_type dot_index = ifile.rfind('.');
-            string            ext = ifile.substr(dot_index + 1);
+        if (ifile.find('.') != std::string::npos) {
+            std::string::size_type dot_index = ifile.rfind('.');
+            std::string            ext = ifile.substr(dot_index + 1);
 
             if (ext == "cc" || ext == "cpp" || ext == "cxx" || ext == "cp" ||
                 ext == "c++" || ext == "C" || ext == "ii") {
 #if CLIENT_DEBUG
 
                 if (job.language() != CompileJob::Lang_CXX) {
-                    log_info() << "switching to C++ for " << ifile << endl;
+                    log_info() << "switching to C++ for " << ifile << std::endl;
                 }
 
 #endif
@@ -840,10 +839,10 @@ analyse_argv(const char * const * argv,
                        ext == "FPP" || ext == "r") {
                 always_local = true;
                 log_info() << "source file " << ifile << ", building locally"
-                           << endl;
+                           << std::endl;
             } else if (ext != "c" &&
                        ext != "i") { // C is special, it depends on arg[0] name
-                log_warning() << "unknown extension " << ext << endl;
+                log_warning() << "unknown extension " << ext << std::endl;
                 always_local = true;
             }
 
@@ -859,10 +858,10 @@ analyse_argv(const char * const * argv,
             }
 
             if (!always_local && seen_md && !seen_mf) {
-                string dfile = ofile.substr(0, ofile.rfind('.')) + ".d";
+                std::string dfile = ofile.substr(0, ofile.rfind('.')) + ".d";
 
 #if CLIENT_DEBUG
-                log_info() << "dep file: " << dfile << endl;
+                log_info() << "dep file: " << dfile << std::endl;
 #endif
 
                 args.append("-MF", Arg_Local);
@@ -870,7 +869,7 @@ analyse_argv(const char * const * argv,
             }
         }
     } else { // always_local
-        job.setInputFile(string());
+        job.setInputFile(std::string());
     }
 
     struct stat st;
@@ -880,7 +879,7 @@ analyse_argv(const char * const * argv,
             (!stat(ofile.c_str(), &st) && !S_ISREG(st.st_mode))) {
             log_warning()
                 << "output file empty or not a regular file, building locally"
-                << endl;
+                << std::endl;
             always_local = true;
         }
     }
@@ -912,7 +911,7 @@ analyse_argv(const char * const * argv,
         (!standard || str_startswith("gnu", standard))) {
         log_warning() << "argument -pedantic, forcing local preprocessing (try "
                          "using -std=cXX instead of -std=gnuXX)"
-                      << endl;
+                      << std::endl;
         job.setBlockRewriteIncludes(true);
     }
 
@@ -930,7 +929,7 @@ analyse_argv(const char * const * argv,
         // However one clang binary can compile for many platforms and so when
         // cross-compiling it would by default compile for the remote host
         // platform. Therefore explicitly ask for our platform.
-        string default_target = clang_get_default_target(job);
+        std::string default_target = clang_get_default_target(job);
         if (!default_target.empty()) {
             args.append("-target", Arg_Remote);
             args.append(default_target, Arg_Remote);
@@ -938,14 +937,14 @@ analyse_argv(const char * const * argv,
             always_local = true;
             log_error() << "failed to read default clang host platform, "
                            "building locally"
-                        << endl;
+                        << std::endl;
         }
     }
     if (!always_local &&
         (seen_march_native || seen_mcpu_native || seen_mtune_native)) {
         // These depend on the host where the compilation is done, so expand
         // these to the actual flags that would be used if compiled locally.
-        list<string> arch_args;
+        std::list<std::string> arch_args;
         if (compiler_get_arch_flags(job,
                                     seen_march_native,
                                     seen_mcpu_native,
@@ -960,7 +959,7 @@ analyse_argv(const char * const * argv,
                     // specific flags.
                     it = args.erase(it);
                     if (!handled) {
-                        for (const string & arg : arch_args) {
+                        for (const std::string & arg : arch_args) {
                             it = args.insert(it, std::make_pair(arg, Arg_Rest));
                             ++it;
                         }
@@ -975,7 +974,7 @@ analyse_argv(const char * const * argv,
             always_local = true;
             log_error() << "failed to read -march/cpu/tune=native flags, "
                            "building locally"
-                        << endl;
+                        << std::endl;
         }
     }
 
@@ -987,7 +986,7 @@ analyse_argv(const char * const * argv,
             << ", remote args=" << concat_args(job.remoteFlags())
             << ", rest=" << concat_args(job.restFlags())
             << ", local=" << always_local << ", compiler=" << job.compilerName()
-            << ", lang=" << job.language() << endl;
+            << ", lang=" << job.language() << std::endl;
 #endif
 
     return always_local;
