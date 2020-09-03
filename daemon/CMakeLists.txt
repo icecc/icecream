@@ -10,6 +10,32 @@ check_include_file(sys/signal.h HAVE_SYS_SIGNAL_H)
 check_include_file(sys/user.h HAVE_SYS_USER_H)
 check_include_file(sys/vfs.h HAVE_SYS_VFS_H)
 
+set(CMAKE_REQUIRED_LIBRARIES archive)
+
+check_c_source_compiles(
+    "
+    #include <archive.h>
+    void main()
+    {
+        struct archive * a;
+        archive_read_support_filter_xz(a);
+    }
+    "
+    HAVE_LIBARCHIVE_XZ)
+
+check_c_source_compiles(
+    "
+    #include <archive.h>
+    void main()
+    {
+        struct archive * a;
+        archive_read_support_filter_zstd(a);
+    }
+    "
+    HAVE_LIBARCHIVE_ZSTD)
+
+unset(CMAKE_REQUIRED_LIBRARIES)
+
 add_executable(iceccd
     src/environment.cpp
     src/file_util.cpp
@@ -26,7 +52,9 @@ target_compile_definitions(iceccd PRIVATE
     $<$<BOOL:${HAVE_SYS_PARAM_H}>:HAVE_SYS_PARAM_H>
     $<$<BOOL:${HAVE_SYS_SIGNAL_H}>:HAVE_SYS_SIGNAL_H>
     $<$<BOOL:${HAVE_SYS_USER_H}>:HAVE_SYS_USER_H>
-    $<$<BOOL:${HAVE_SYS_VFS_H}>:HAVE_SYS_VFS_H>)
+    $<$<BOOL:${HAVE_SYS_VFS_H}>:HAVE_SYS_VFS_H>
+    $<$<BOOL:${HAVE_LIBARCHIVE_XZ}>:HAVE_LIBARCHIVE_XZ>
+    $<$<BOOL:${HAVE_LIBARCHIVE_ZSTD}>:HAVE_LIBARCHIVE_ZSTD>)
 target_link_libraries(iceccd PRIVATE copts_common copts_pic icecc_la -larchive)
 
 if (ICECREAM_LTO)
