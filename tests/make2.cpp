@@ -1,5 +1,6 @@
 #include "make.h"
 
-void make2()
-    {
-    }
+void
+make2()
+{
+}

@@ -1,4 +1,5 @@
-/* -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; fill-column: 99; -*- */
+/* -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; fill-column: 99; -*-
+ */
 /* vim: set ts=4 sw=4 et tw=99:  */
 /*
  * distcc -- A simple distributed compiler system
@@ -35,7 +36,8 @@
  * These need to be in [1,255] so that they can be used as exit()
  * codes.
  **/
-enum dcc_exitcode {
+enum dcc_exitcode
+{
     EXIT_DISTCC_FAILED = 100, /**< General failure */
     EXIT_BAD_ARGUMENTS = 101,
     EXIT_BIND_FAILED = 102,
@@ -58,6 +60,7 @@ enum dcc_exitcode {
     EXIT_TEST_SOCKET_ERROR = 119
 };
 
-extern int shell_exit_status(int status);
+extern int
+shell_exit_status(int status);
 
 #endif /* _DISTCC_EXITCODE_H */

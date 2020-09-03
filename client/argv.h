@@ -1,4 +1,5 @@
-/* -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; fill-column: 99; -*- */
+/* -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; fill-column: 99; -*-
+ */
 /* vim: set ts=4 sw=4 et tw=99:  */
 /*
  * icecc -- A simple distributed compiler system
@@ -27,12 +28,13 @@
 #define _CLIENT_ARGV_H_
 
 #ifdef __cplusplus
-extern "C"
-{
+extern "C" {
 #endif
 
-void expandargv (int *argcp, char ***argvp);
-void freeargv(char **vector);
+void
+expandargv(int * argcp, char *** argvp);
+void
+freeargv(char ** vector);
 
 #ifdef __cplusplus
 }

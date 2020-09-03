@@ -1,4 +1,5 @@
-/* -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; fill-column: 99; -*- */
+/* -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; fill-column: 99; -*-
+ */
 /* vim: set ts=4 sw=4 et tw=99:  */
 /*
  * distcc -- A simple distributed compiler system
@@ -20,32 +21,29 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#include "config.h"
-
-#include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <string.h>
-#include <errno.h>
-#include <fcntl.h>
-#include <signal.h>
-#include <time.h>
-#include <limits.h>
-
-#include <sys/types.h>
-#include <pwd.h>
-
-#include <sys/stat.h>
-#include <sys/file.h>
-
-#include <vector>
+#include "util.h"
 
 #include "client.h"
+#include "config.h"
 #include "exitcode.h"
 #include "job.h"
 #include "logging.h"
 #include "ncpus.h"
-#include "util.h"
+
+#include <errno.h>
+#include <fcntl.h>
+#include <limits.h>
+#include <pwd.h>
+#include <signal.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/file.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <time.h>
+#include <unistd.h>
+#include <vector>
 
 using namespace std;
 
@@ -60,7 +58,8 @@ extern bool explicit_no_show_caret;
  *
  * @returns 0 on success, or -1 on error with `errno' set.
  **/
-int set_cloexec_flag(int desc, int value)
+int
+set_cloexec_flag(int desc, int value)
 {
     int oldflags = fcntl(desc, F_GETFD, 0);
 
@@ -88,11 +87,12 @@ int set_cloexec_flag(int desc, int value)
  * children it is set back to the default value, because they may not
  * handle the error properly.
  **/
-int dcc_ignore_sigpipe(int val)
+int
+dcc_ignore_sigpipe(int val)
 {
     if (signal(SIGPIPE, val ? SIG_IGN : SIG_DFL) == SIG_ERR) {
-        log_warning() << "signal(SIGPIPE, " << (val ? "ignore" : "default") << ") failed: "
-                      << strerror(errno) << endl;
+        log_warning() << "signal(SIGPIPE, " << (val ? "ignore" : "default")
+                      << ") failed: " << strerror(errno) << endl;
         return EXIT_DISTCC_FAILED;
     }
 
@@ -106,7 +106,8 @@ int dcc_ignore_sigpipe(int val)
  * @retval 0 if we got the lock
  * @retval -1 with errno set if the file is already locked.
  **/
-static int sys_lock(int fd, bool block)
+static int
+sys_lock(int fd, bool block)
 {
 #if defined(F_SETLK)
     struct flock lockparam;
@@ -114,7 +115,7 @@ static int sys_lock(int fd, bool block)
     lockparam.l_type = F_WRLCK;
     lockparam.l_whence = SEEK_SET;
     lockparam.l_start = 0;
-    lockparam.l_len = 0;        /* whole file */
+    lockparam.l_len = 0; /* whole file */
 
     return fcntl(fd, block ? F_SETLKW : F_SETLK, &lockparam);
 #elif defined(HAVE_FLOCK)
@@ -122,14 +123,14 @@ static int sys_lock(int fd, bool block)
 #elif defined(HAVE_LOCKF)
     return lockf(fd, block ? F_LOCK : F_TLOCK, 0);
 #else
-#  error "No supported lock method.  Please port this code."
+#error "No supported lock method.  Please port this code."
 #endif
 }
 
-
 static volatile int lock_fd = -1;
 
-void dcc_unlock()
+void
+dcc_unlock()
 {
     // This must be safe to use from a signal handler.
     if (lock_fd != -1)
@@ -137,11 +138,11 @@ void dcc_unlock()
     lock_fd = -1;
 }
 
-
 /**
  * Open a lockfile, creating if it does not exist.
  **/
-static bool dcc_open_lockfile(const string &fname, int &plockfd)
+static bool
+dcc_open_lockfile(const string & fname, int & plockfd)
 {
     /* Create if it doesn't exist.  We don't actually do anything with
      * the file except lock it.
@@ -152,7 +153,8 @@ static bool dcc_open_lockfile(const string &fname, int &plockfd)
     plockfd = open(fname.c_str(), O_WRONLY | O_CREAT, 0666);
 
     if (plockfd == -1 && errno != EEXIST) {
-        log_error() << "failed to create " << fname << ": " << strerror(errno) << endl;
+        log_error() << "failed to create " << fname << ": " << strerror(errno)
+                    << endl;
         return false;
     }
 
@@ -161,14 +163,16 @@ static bool dcc_open_lockfile(const string &fname, int &plockfd)
     return true;
 }
 
-static bool dcc_lock_host_slot(string fname, int lock, bool block);
+static bool
+dcc_lock_host_slot(string fname, int lock, bool block);
 
-bool dcc_lock_host()
+bool
+dcc_lock_host()
 {
     assert(lock_fd == -1);
 
-    string fname = "/tmp/.icecream-";
-    struct passwd *pwd = getpwuid(getuid());
+    string          fname = "/tmp/.icecream-";
+    struct passwd * pwd = getpwuid(getuid());
 
     if (pwd) {
         fname += pwd->pw_name;
@@ -190,19 +194,20 @@ bool dcc_lock_host()
     // To ensure better distribution, select a "random" starting slot.
     int lock_offset = getpid();
     // First try if any slot is free.
-    for( int lock = 0; lock < max_cpu; ++lock ) {
-        if( dcc_lock_host_slot( fname, ( lock + lock_offset ) % max_cpu, false ))
+    for (int lock = 0; lock < max_cpu; ++lock) {
+        if (dcc_lock_host_slot(fname, (lock + lock_offset) % max_cpu, false))
             return true;
     }
     // If not, block on the first selected one.
-    return dcc_lock_host_slot( fname, lock_offset % max_cpu, true );
+    return dcc_lock_host_slot(fname, lock_offset % max_cpu, true);
 }
 
-bool dcc_lock_host_slot(string fname, int lock, bool block)
+bool
+dcc_lock_host_slot(string fname, int lock, bool block)
 {
-    if( lock > 0 ) { // 1st keep without the 0 for backwards compatibility
-        char num[ 20 ];
-        sprintf( num, "%d", lock );
+    if (lock > 0) { // 1st keep without the 0 for backwards compatibility
+        char num[20];
+        sprintf(num, "%d", lock);
         fname += num;
     }
 
@@ -218,32 +223,35 @@ bool dcc_lock_host_slot(string fname, int lock, bool block)
 
     switch (errno) {
 #if defined(EWOULDBLOCK) && EWOULDBLOCK != EAGAIN
-    case EWOULDBLOCK:
+        case EWOULDBLOCK:
 #endif
-    case EAGAIN:
-    case EACCES: /* HP-UX and Cygwin give this for exclusion */
-        if( block )
-            trace() << fname << " is busy" << endl;
-        break;
-    default:
-        log_error() << "lock " << fname << " failed: " << strerror(errno) << endl;
-        break;
+        case EAGAIN:
+        case EACCES: /* HP-UX and Cygwin give this for exclusion */
+            if (block)
+                trace() << fname << " is busy" << endl;
+            break;
+        default:
+            log_error() << "lock " << fname << " failed: " << strerror(errno)
+                        << endl;
+            break;
     }
 
-    if ((-1 == ::close(fd)) && (errno != EBADF)){
+    if ((-1 == ::close(fd)) && (errno != EBADF)) {
         log_perror("close failed");
     }
     return false;
 }
 
-bool color_output_possible()
+bool
+color_output_possible()
 {
-    const char* term_env = getenv("TERM");
+    const char * term_env = getenv("TERM");
 
     return isatty(2) && term_env && strcasecmp(term_env, "DUMB");
 }
 
-bool compiler_has_color_output(const CompileJob &job)
+bool
+compiler_has_color_output(const CompileJob & job)
 {
     if (!color_output_possible())
         return false;
@@ -252,7 +260,8 @@ bool compiler_has_color_output(const CompileJob &job)
     if (compiler_is_clang(job)) {
         return true;
     }
-    if (const char* icecc_color_diagnostics = getenv("ICECC_COLOR_DIAGNOSTICS")) {
+    if (const char * icecc_color_diagnostics =
+            getenv("ICECC_COLOR_DIAGNOSTICS")) {
         return *icecc_color_diagnostics == '1';
     }
 #ifdef HAVE_GCC_COLOR_DIAGNOSTICS
@@ -262,23 +271,27 @@ bool compiler_has_color_output(const CompileJob &job)
     // version is used for the actual compile. However it requires
     // also GCC_COLORS to be set (and not empty), so use that
     // for detecting if GCC would use colors.
-    if (const char *gcc_colors = getenv("GCC_COLORS")) {
+    if (const char * gcc_colors = getenv("GCC_COLORS")) {
         return (*gcc_colors != '\0');
     }
     return false;
 }
 
 // Whether icecream should add colors to the compiler output.
-bool colorify_wanted(const CompileJob &job)
+bool
+colorify_wanted(const CompileJob & job)
 {
     if (compiler_has_color_output(job)) {
-        return false; // -fcolor-diagnostics handling lets the compiler do it itself
+        return false; // -fcolor-diagnostics handling lets the compiler do it
+                      // itself
     }
-    if (explicit_color_diagnostics) { // colors explicitly enabled/disabled by an option
+    if (explicit_color_diagnostics) { // colors explicitly enabled/disabled by
+                                      // an option
         return false;
     }
     if (getenv("ICECC_COLOR_DIAGNOSTICS") != nullptr)
-        return false; // if set explicitly, assume icecream's colorify is not wanted
+        return false; // if set explicitly, assume icecream's colorify is not
+                      // wanted
 
     if (getenv("EMACS")) {
         return false;
@@ -287,12 +300,13 @@ bool colorify_wanted(const CompileJob &job)
     return color_output_possible();
 }
 
-void colorify_output(const string &_s_ccout)
+void
+colorify_output(const string & _s_ccout)
 {
-    string s_ccout(_s_ccout);
+    string            s_ccout(_s_ccout);
     string::size_type end;
 
-    while ((end = s_ccout.find('\n')) !=  string::npos) {
+    while ((end = s_ccout.find('\n')) != string::npos) {
 
         string cline = s_ccout.substr(string::size_type(0), end);
         s_ccout = s_ccout.substr(end + 1);
@@ -309,8 +323,8 @@ void colorify_output(const string &_s_ccout)
     fprintf(stderr, "%s", s_ccout.c_str());
 }
 
-
-bool ignore_unverified()
+bool
+ignore_unverified()
 {
     return getenv("ICECC_IGNORE_UNVERIFIED");
 }
@@ -325,13 +339,14 @@ bool ignore_unverified()
 // host, but this has been already tried in the sendheaders branch (for
 // preprocessing remotely too) and performance-wise it just doesn't seem to
 // be worth it.
-bool output_needs_workaround(const CompileJob &job)
+bool
+output_needs_workaround(const CompileJob & job)
 {
     if (compiler_is_clang(job))
         return false;
     if (explicit_no_show_caret)
         return false;
-    if (const char* caret_workaround = getenv("ICECC_CARET_WORKAROUND"))
+    if (const char * caret_workaround = getenv("ICECC_CARET_WORKAROUND"))
         return *caret_workaround == '1';
 #ifdef HAVE_GCC_SHOW_CARET
     return true;
@@ -339,7 +354,8 @@ bool output_needs_workaround(const CompileJob &job)
     return false;
 }
 
-int resolve_link(const std::string &file, std::string &resolved)
+int
+resolve_link(const std::string & file, std::string & resolved)
 {
     char buf[PATH_MAX];
     buf[PATH_MAX - 1] = '\0';
@@ -355,12 +371,14 @@ int resolve_link(const std::string &file, std::string &resolved)
     return 0;
 }
 
-std::string get_cwd()
+std::string
+get_cwd()
 {
     static std::vector<char> buffer(1024);
 
     errno = 0;
-    while (getcwd(&buffer[0], buffer.size() - 1) == nullptr && errno == ERANGE) {
+    while (getcwd(&buffer[0], buffer.size() - 1) == nullptr &&
+           errno == ERANGE) {
         buffer.resize(buffer.size() + 1024);
         errno = 0;
     }

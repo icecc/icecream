@@ -1,4 +1,5 @@
-/* -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; fill-column: 99; -*- */
+/* -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; fill-column: 99; -*-
+ */
 /* vim: set ts=4 sw=4 et tw=99:  */
 /*
     This file is part of Icecream.
@@ -26,6 +27,11 @@
 #include <comm.h>
 
 // 'hint' is used to approximate the load, whenever getloadavg() is unavailable.
-void fill_stats(unsigned long &myidleload, unsigned long &myniceload, unsigned int &memory_fillgrade, StatsMsg *msg, unsigned int hint);
+void
+fill_stats(unsigned long & myidleload,
+           unsigned long & myniceload,
+           unsigned int &  memory_fillgrade,
+           StatsMsg *      msg,
+           unsigned int    hint);
 
 #endif

@@ -1,4 +1,5 @@
-/* -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; fill-column: 99; -*- */
+/* -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; fill-column: 99; -*-
+ */
 /* vim: set ts=4 sw=4 et tw=99:  */
 /*
     This file is part of Icecream.
@@ -27,7 +28,8 @@
 extern "C" {
 #endif
 
-    int dcc_ncpus(int *);
+int
+dcc_ncpus(int *);
 
 #ifdef __cplusplus
 }

@@ -1,4 +1,5 @@
-/* -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; fill-column: 99; -*- */
+/* -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; fill-column: 99; -*-
+ */
 /* vim: set ts=4 sw=4 et tw=99:  */
 /*
  * distcc -- A simple distributed compiler system
@@ -23,17 +24,17 @@
 /* Thanks to Dimitri PAPADOPOULOS-ORFANOS for researching many of the methods
  * in this file. */
 
-#include "config.h"
-
-#include <stdio.h>
-#include <string.h>
-#include <stdlib.h>
-#include <errno.h>
-#include <unistd.h>
-#include <sys/stat.h>
-
 #include "ncpus.h"
+
+#include "config.h"
 #include "exitcode.h"
+
+#include <errno.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/stat.h>
+#include <unistd.h>
 
 /**
  * Determine number of processors online.
@@ -42,14 +43,15 @@
  * should run on this machine.  Obviously this is only very rough: the
  * correct number needs to take into account disk buffers, IO
  * bandwidth, other tasks, etc.
-**/
+ **/
 
 #if defined(__hpux__) || defined(__hpux)
 
 #include <sys/param.h>
 #include <sys/pstat.h>
 
-int dcc_ncpus(int *ncpus)
+int
+dcc_ncpus(int * ncpus)
 {
     struct pst_dynamic psd;
 
@@ -63,17 +65,18 @@ int dcc_ncpus(int *ncpus)
     return EXIT_DISTCC_FAILED;
 }
 
-
-#elif defined(__FreeBSD__) || defined(__FreeBSD_kernel__) || defined(__OpenBSD__) || defined(__NetBSD__) || defined(__APPLE__) || defined(__bsdi__) || defined(__DragonFly__)
+#elif defined(__FreeBSD__) || defined(__FreeBSD_kernel__) ||                   \
+    defined(__OpenBSD__) || defined(__NetBSD__) || defined(__APPLE__) ||       \
+    defined(__bsdi__) || defined(__DragonFly__)
 
 /* http://www.FreeBSD.org/cgi/man.cgi?query=sysctl&sektion=3&manpath=FreeBSD+4.6-stable
    http://www.openbsd.org/cgi-bin/man.cgi?query=sysctl&sektion=3&manpath=OpenBSD+Current
    http://www.tac.eu.org/cgi-bin/man-cgi?sysctl+3+NetBSD-current
 */
 
-#include <sys/types.h>
 #include <sys/param.h>
 #include <sys/sysctl.h>
+#include <sys/types.h>
 
 #if defined(__FreeBSD__) || defined(__FreeBSD_kernel__)
 #undef HAVE_RS_LOG_ERROR
@@ -81,9 +84,10 @@ int dcc_ncpus(int *ncpus)
 #define HAVE_RS_LOG_ERROR
 #endif
 
-int dcc_ncpus(int *ncpus)
+int
+dcc_ncpus(int * ncpus)
 {
-    int mib[2];
+    int    mib[2];
     size_t len = sizeof(*ncpus);
     mib[0] = CTL_HW;
     mib[1] = HW_NCPU;
@@ -93,8 +97,7 @@ int dcc_ncpus(int *ncpus)
     }
 
 #ifdef have_rs_log_error
-    rs_log_error("sysctl(CTL_HW:HW_NCPU) failed: %s",
-                 strerror(errno));
+    rs_log_error("sysctl(CTL_HW:HW_NCPU) failed: %s", strerror(errno));
 #else
     fprintf(stderr, "sysctl(CTL_HW:HW_NCPU) failed: %s", strerror(errno));
 #endif
@@ -111,7 +114,8 @@ int dcc_ncpus(int *ncpus)
   http://techpubs.sgi.com/library/tpl/cgi-bin/getdoc.cgi?coll=0650&db=man&fname=/usr/share/catman/p_man/cat3c/sysconf.z
 */
 
-int dcc_ncpus(int *ncpus)
+int
+dcc_ncpus(int * ncpus)
 {
 #if defined(_SC_NPROCESSORS_ONLN)
     /* Linux, Solaris, Tru64, UnixWare 7, and Open UNIX 8  */
@@ -121,7 +125,7 @@ int dcc_ncpus(int *ncpus)
     *ncpus = sysconf(_SC_NPROC_ONLN);
 #else
 #warning "Please port this function"
-    *ncpus = -1;                /* unknown */
+    *ncpus = -1; /* unknown */
 #endif
 
     if (*ncpus == -1) {

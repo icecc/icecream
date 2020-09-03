@@ -1,4 +1,5 @@
-/* -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; fill-column: 99; -*- */
+/* -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; fill-column: 99; -*-
+ */
 /* vim: set ts=4 sw=4 et tw=99:  */
 /*
     This file is part of Icecream.
@@ -22,42 +23,39 @@
     51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 */
 
-#include <config.h>
-
-#include <signal.h>
-#include <sys/types.h>
-#include <netinet/in.h>
-#include <sys/socket.h>
-#include <sys/un.h>
 #include <arpa/inet.h>
-#include <poll.h>
+#include <config.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
+#include <poll.h>
+#include <signal.h>
+#include <sys/socket.h>
+#include <sys/types.h>
+#include <sys/un.h>
 #ifdef HAVE_NETINET_TCP_VAR_H
-#include <sys/socketvar.h>
 #include <netinet/tcp_var.h>
+#include <sys/socketvar.h>
 #endif
+#include <assert.h>
 #include <errno.h>
 #include <fcntl.h>
-#include <netdb.h>
-#include <unistd.h>
-#include <errno.h>
-#include <string>
 #include <iostream>
-#include <assert.h>
 #include <lzo/lzo1x.h>
-#include <zstd.h>
+#include <netdb.h>
 #include <stdio.h>
+#include <string>
+#include <unistd.h>
+#include <zstd.h>
 #ifdef HAVE_LIBCAP_NG
 #include <cap-ng.h>
 #endif
+#include "comm.h"
 #include "getifaddrs.h"
+#include "job.h"
+#include "logging.h"
+
 #include <net/if.h>
 #include <sys/ioctl.h>
-
-#include "logging.h"
-#include "job.h"
-#include "comm.h"
 
 using namespace std;
 
@@ -70,14 +68,15 @@ using namespace std;
 #define ZSTD_COMPRESSBOUND(n) ZSTD_compressBound(n)
 #endif
 
-static int zstd_compression()
+static int
+zstd_compression()
 {
-    const char *level = getenv("ICECC_COMPRESSION");
+    const char * level = getenv("ICECC_COMPRESSION");
     if (!level || !*level)
         return ZSTD_CLEVEL_DEFAULT;
 
-    char *endptr;
-    int n = strtol(level, &endptr, 0);
+    char * endptr;
+    int    n = strtol(level, &endptr, 0);
     if (*endptr)
         return ZSTD_CLEVEL_DEFAULT;
     return n;
@@ -113,20 +112,21 @@ static int zstd_compression()
  */
 
 /* Tries to fill the inbuf completely.  */
-bool MsgChannel::read_a_bit()
+bool
+MsgChannel::read_a_bit()
 {
     chop_input();
     size_t count = inbuflen - inofs;
 
     if (count < 128) {
-        inbuflen = (inbuflen + 128 + 127) & ~(size_t) 127;
-        inbuf = (char *) realloc(inbuf, inbuflen);
+        inbuflen = (inbuflen + 128 + 127) & ~(size_t)127;
+        inbuf = (char *)realloc(inbuf, inbuflen);
         assert(inbuf); // Probably unrecoverable if realloc fails anyway.
         count = inbuflen - inofs;
     }
 
-    char *buf = inbuf + inofs;
-    bool error = false;
+    char * buf = inbuf + inofs;
+    bool   error = false;
 
     while (count) {
         if (eof) {
@@ -162,146 +162,150 @@ bool MsgChannel::read_a_bit()
         // Daemons sometimes successfully do accept() but then the connection
         // gets ECONNRESET. Probably a spurious result from accept(), so
         // just be silent about it in this case.
-        set_error( instate == NEED_PROTO );
+        set_error(instate == NEED_PROTO);
         return false;
     }
     return true;
 }
 
-bool MsgChannel::update_state()
+bool
+MsgChannel::update_state()
 {
     switch (instate) {
-    case NEED_PROTO:
+        case NEED_PROTO:
 
-        while (inofs - intogo >= 4) {
-            if (protocol == 0) {
-                return false;
-            }
-
-            uint32_t remote_prot = 0;
-            unsigned char vers[4];
-            //readuint32 (remote_prot);
-            memcpy(vers, inbuf + intogo, 4);
-            intogo += 4;
-
-            for (int i = 0; i < 4; ++i) {
-                remote_prot |= vers[i] << (i * 8);
-            }
-
-            if (protocol == -1) {
-                /* The first time we read the remote protocol.  */
-                protocol = 0;
-
-                if (remote_prot < MIN_PROTOCOL_VERSION || remote_prot > (1 << 20)) {
-                    remote_prot = 0;
-                    set_error();
+            while (inofs - intogo >= 4) {
+                if (protocol == 0) {
                     return false;
                 }
 
-                maximum_remote_protocol = remote_prot;
-
-                if (remote_prot > PROTOCOL_VERSION) {
-                    remote_prot = PROTOCOL_VERSION;    // ours is smaller
-                }
+                uint32_t      remote_prot = 0;
+                unsigned char vers[4];
+                // readuint32 (remote_prot);
+                memcpy(vers, inbuf + intogo, 4);
+                intogo += 4;
 
                 for (int i = 0; i < 4; ++i) {
-                    vers[i] = remote_prot >> (i * 8);
+                    remote_prot |= vers[i] << (i * 8);
                 }
 
-                writefull(vers, 4);
-
-                if (!flush_writebuf(true)) {
-                    set_error();
-                    return false;
-                }
-
-                protocol = -1 - remote_prot;
-            } else if (protocol < -1) {
-                /* The second time we read the remote protocol.  */
-                protocol = - (protocol + 1);
-
-                if ((int)remote_prot != protocol) {
+                if (protocol == -1) {
+                    /* The first time we read the remote protocol.  */
                     protocol = 0;
+
+                    if (remote_prot < MIN_PROTOCOL_VERSION ||
+                        remote_prot > (1 << 20)) {
+                        remote_prot = 0;
+                        set_error();
+                        return false;
+                    }
+
+                    maximum_remote_protocol = remote_prot;
+
+                    if (remote_prot > PROTOCOL_VERSION) {
+                        remote_prot = PROTOCOL_VERSION; // ours is smaller
+                    }
+
+                    for (int i = 0; i < 4; ++i) {
+                        vers[i] = remote_prot >> (i * 8);
+                    }
+
+                    writefull(vers, 4);
+
+                    if (!flush_writebuf(true)) {
+                        set_error();
+                        return false;
+                    }
+
+                    protocol = -1 - remote_prot;
+                } else if (protocol < -1) {
+                    /* The second time we read the remote protocol.  */
+                    protocol = -(protocol + 1);
+
+                    if ((int)remote_prot != protocol) {
+                        protocol = 0;
+                        set_error();
+                        return false;
+                    }
+
+                    instate = NEED_LEN;
+                    /* Don't consume bytes from messages.  */
+                    break;
+                } else {
+                    trace() << "NEED_PROTO but protocol > 0" << endl;
+                    set_error();
+                    return false;
+                }
+            }
+
+            /* FALLTHROUGH if the protocol setup was complete (instate was
+            changed to NEED_LEN then).  */
+            if (instate != NEED_LEN) {
+                break;
+            }
+            // fallthrough
+        case NEED_LEN:
+
+            if (text_based) {
+                // Skip any leading whitespace
+                for (; inofs < intogo; ++inofs)
+                    if (inbuf[inofs] >= ' ') {
+                        break;
+                    }
+
+                // Skip until next newline
+                for (inmsglen = 0; inmsglen < inofs - intogo; ++inmsglen)
+                    if (inbuf[intogo + inmsglen] < ' ') {
+                        instate = HAS_MSG;
+                        break;
+                    }
+
+                break;
+            } else if (inofs - intogo >= 4) {
+                (*this) >> inmsglen;
+
+                if (inmsglen > MAX_MSG_SIZE) {
+                    log_error() << "received a too large message (size "
+                                << inmsglen << "), ignoring" << endl;
                     set_error();
                     return false;
                 }
 
-                instate = NEED_LEN;
-                /* Don't consume bytes from messages.  */
-                break;
+                if (inbuflen - intogo < inmsglen) {
+                    inbuflen = (inmsglen + intogo + 127) & ~(size_t)127;
+                    inbuf = (char *)realloc(inbuf, inbuflen);
+                    assert(inbuf); // Probably unrecoverable if realloc fails
+                                   // anyway.
+                }
+
+                instate = FILL_BUF;
+                /* FALLTHROUGH */
             } else {
-                trace() << "NEED_PROTO but protocol > 0" << endl;
-                set_error();
-                return false;
+                break;
             }
-        }
-
-        /* FALLTHROUGH if the protocol setup was complete (instate was changed
-        to NEED_LEN then).  */
-        if (instate != NEED_LEN) {
-            break;
-        }
-        // fallthrough
-    case NEED_LEN:
-
-        if (text_based) {
-            // Skip any leading whitespace
-            for (; inofs < intogo; ++inofs)
-                if (inbuf[inofs] >= ' ') {
-                    break;
-                }
-
-            // Skip until next newline
-            for (inmsglen = 0; inmsglen < inofs - intogo; ++inmsglen)
-                if (inbuf[intogo + inmsglen] < ' ') {
-                    instate = HAS_MSG;
-                    break;
-                }
-
-            break;
-        } else if (inofs - intogo >= 4) {
-            (*this) >> inmsglen;
-
-            if (inmsglen > MAX_MSG_SIZE) {
-                log_error() << "received a too large message (size " << inmsglen << "), ignoring" << endl;
-                set_error();
-                return false;
-            }
-
-            if (inbuflen - intogo < inmsglen) {
-                inbuflen = (inmsglen + intogo + 127) & ~(size_t)127;
-                inbuf = (char *) realloc(inbuf, inbuflen);
-                assert(inbuf); // Probably unrecoverable if realloc fails anyway.
-            }
-
-            instate = FILL_BUF;
             /* FALLTHROUGH */
-        } else {
+        case FILL_BUF:
+
+            if (inofs - intogo >= inmsglen) {
+                instate = HAS_MSG;
+            }
+            /* FALLTHROUGH */
+            else {
+                break;
+            }
+
+        case HAS_MSG:
+            /* handled elsewere */
             break;
-        }
-        /* FALLTHROUGH */
-    case FILL_BUF:
 
-        if (inofs - intogo >= inmsglen) {
-            instate = HAS_MSG;
-        }
-        /* FALLTHROUGH */
-        else {
-            break;
-        }
-
-    case HAS_MSG:
-        /* handled elsewere */
-        break;
-
-    case ERROR:
-        return false;
+        case ERROR: return false;
     }
 
     return true;
 }
 
-void MsgChannel::chop_input()
+void
+MsgChannel::chop_input()
 {
     /* Make buffer smaller, if there's much already read in front
        of it, or it is cheap to do.  */
@@ -315,7 +319,8 @@ void MsgChannel::chop_input()
     }
 }
 
-void MsgChannel::chop_output()
+void
+MsgChannel::chop_output()
 {
     if (msgofs > 8192 || msgtogo <= 16) {
         if (msgtogo) {
@@ -326,12 +331,13 @@ void MsgChannel::chop_output()
     }
 }
 
-void MsgChannel::writefull(const void *_buf, size_t count)
+void
+MsgChannel::writefull(const void * _buf, size_t count)
 {
     if (msgtogo + count >= msgbuflen) {
         /* Realloc to a multiple of 128.  */
         msgbuflen = (msgtogo + count + 127) & ~(size_t)127;
-        msgbuf = (char *) realloc(msgbuf, msgbuflen);
+        msgbuf = (char *)realloc(msgbuf, msgbuflen);
         assert(msgbuf); // Probably unrecoverable if realloc fails anyway.
     }
 
@@ -339,30 +345,32 @@ void MsgChannel::writefull(const void *_buf, size_t count)
     msgtogo += count;
 }
 
-static size_t get_max_write_size()
+static size_t
+get_max_write_size()
 {
-    if( const char* icecc_slow_network = getenv( "ICECC_SLOW_NETWORK" ))
-        if( icecc_slow_network[ 0 ] == '1' )
+    if (const char * icecc_slow_network = getenv("ICECC_SLOW_NETWORK"))
+        if (icecc_slow_network[0] == '1')
             return MAX_SLOW_WRITE_SIZE;
     return MAX_MSG_SIZE;
 }
 
-bool MsgChannel::flush_writebuf(bool blocking)
+bool
+MsgChannel::flush_writebuf(bool blocking)
 {
-    const char *buf = msgbuf + msgofs;
-    bool error = false;
+    const char * buf = msgbuf + msgofs;
+    bool         error = false;
 
     while (msgtogo) {
-        int send_errno;
+        int           send_errno;
         static size_t max_write_size = get_max_write_size();
 #ifdef MSG_NOSIGNAL
-        ssize_t ret = send(fd, buf, min( msgtogo, max_write_size ), MSG_NOSIGNAL);
+        ssize_t ret = send(fd, buf, min(msgtogo, max_write_size), MSG_NOSIGNAL);
         send_errno = errno;
 #else
         void (*oldsigpipe)(int);
 
         oldsigpipe = signal(SIGPIPE, SIG_IGN);
-        ssize_t ret = send(fd, buf, min( msgtogo, max_write_size ), 0);
+        ssize_t ret = send(fd, buf, min(msgtogo, max_write_size), 0);
         send_errno = errno;
         signal(SIGPIPE, oldsigpipe);
 #endif
@@ -374,7 +382,8 @@ bool MsgChannel::flush_writebuf(bool blocking)
 
             /* If we want to write blocking, but couldn't write anything,
                select on the fd.  */
-            if (blocking && ( send_errno == EAGAIN || send_errno == ENOTCONN || send_errno == EWOULDBLOCK )) {
+            if (blocking && (send_errno == EAGAIN || send_errno == ENOTCONN ||
+                             send_errno == EWOULDBLOCK)) {
                 int ready;
 
                 for (;;) {
@@ -395,7 +404,8 @@ bool MsgChannel::flush_writebuf(bool blocking)
                     continue;
                 }
                 if (ready == 0) {
-                    log_error() << "timed out while trying to send data" << endl;
+                    log_error()
+                        << "timed out while trying to send data" << endl;
                 }
 
                 /* Timeout or real error --> error.  */
@@ -417,14 +427,15 @@ bool MsgChannel::flush_writebuf(bool blocking)
 
     msgofs = buf - msgbuf;
     chop_output();
-    if(error) {
+    if (error) {
         set_error();
         return false;
     }
     return true;
 }
 
-MsgChannel &MsgChannel::operator>>(uint32_t &buf)
+MsgChannel &
+MsgChannel::operator>>(uint32_t & buf)
 {
     if (inofs >= intogo + 4) {
         if (ptrdiff_t(inbuf + intogo) % 4) {
@@ -444,16 +455,18 @@ MsgChannel &MsgChannel::operator>>(uint32_t &buf)
     return *this;
 }
 
-MsgChannel &MsgChannel::operator<<(uint32_t i)
+MsgChannel &
+MsgChannel::operator<<(uint32_t i)
 {
     i = htonl(i);
     writefull(&i, 4);
     return *this;
 }
 
-MsgChannel &MsgChannel::operator>>(string &s)
+MsgChannel &
+MsgChannel::operator>>(string & s)
 {
-    char *buf;
+    char * buf;
     // len is including the (also saved) 0 Byte
     uint32_t len;
     *this >> len;
@@ -469,7 +482,8 @@ MsgChannel &MsgChannel::operator>>(string &s)
     return *this;
 }
 
-MsgChannel &MsgChannel::operator<<(const std::string &s)
+MsgChannel &
+MsgChannel::operator<<(const std::string & s)
 {
     uint32_t len = 1 + s.length();
     *this << len;
@@ -477,7 +491,8 @@ MsgChannel &MsgChannel::operator<<(const std::string &s)
     return *this;
 }
 
-MsgChannel &MsgChannel::operator>>(list<string> &l)
+MsgChannel &
+MsgChannel::operator>>(list<string> & l)
 {
     uint32_t len;
     l.clear();
@@ -496,28 +511,31 @@ MsgChannel &MsgChannel::operator>>(list<string> &l)
     return *this;
 }
 
-MsgChannel &MsgChannel::operator<<(const std::list<std::string> &l)
+MsgChannel &
+MsgChannel::operator<<(const std::list<std::string> & l)
 {
-    *this << (uint32_t) l.size();
+    *this << (uint32_t)l.size();
 
-    for (const std::string &s : l) {
+    for (const std::string & s : l) {
         *this << s;
     }
 
     return *this;
 }
 
-void MsgChannel::write_environments(const Environments &envs)
+void
+MsgChannel::write_environments(const Environments & envs)
 {
     *this << envs.size();
 
-    for (const std::pair<std::string, std::string> &env : envs) {
+    for (const std::pair<std::string, std::string> & env : envs) {
         *this << env.first;
         *this << env.second;
     }
 }
 
-void MsgChannel::read_environments(Environments &envs)
+void
+MsgChannel::read_environments(Environments & envs)
 {
     envs.clear();
     uint32_t count;
@@ -532,7 +550,10 @@ void MsgChannel::read_environments(Environments &envs)
     }
 }
 
-void MsgChannel::readcompressed(unsigned char **uncompressed_buf, size_t &_uclen, size_t &_clen)
+void
+MsgChannel::readcompressed(unsigned char ** uncompressed_buf,
+                           size_t &         _uclen,
+                           size_t &         _clen)
 {
     lzo_uint uncompressed_len;
     lzo_uint compressed_len;
@@ -558,10 +579,9 @@ void MsgChannel::readcompressed(unsigned char **uncompressed_buf, size_t &_uclen
     /* If there was some input, but nothing compressed,
        or lengths are bigger than the whole chunk message
        or we don't have everything to uncompress, there was an error.  */
-    if (uncompressed_len > MAX_MSG_SIZE
-            || compressed_len > (inofs - intogo)
-            || (uncompressed_len && !compressed_len)
-            || inofs < intogo + compressed_len) {
+    if (uncompressed_len > MAX_MSG_SIZE || compressed_len > (inofs - intogo) ||
+        (uncompressed_len && !compressed_len) ||
+        inofs < intogo + compressed_len) {
         log_error() << "failure in readcompressed() length checking" << endl;
         *uncompressed_buf = nullptr;
         uncompressed_len = 0;
@@ -574,21 +594,27 @@ void MsgChannel::readcompressed(unsigned char **uncompressed_buf, size_t &_uclen
     *uncompressed_buf = new unsigned char[uncompressed_len];
 
     if (proto == C_ZSTD && uncompressed_len && compressed_len) {
-        const void *compressed_buf = inbuf + intogo;
-        size_t ret = ZSTD_decompress(*uncompressed_buf, uncompressed_len,
-                                     compressed_buf, compressed_len);
+        const void * compressed_buf = inbuf + intogo;
+        size_t       ret = ZSTD_decompress(*uncompressed_buf,
+                                     uncompressed_len,
+                                     compressed_buf,
+                                     compressed_len);
         if (ZSTD_isError(ret)) {
-            log_error() << "internal error - decompression of data from " << dump().c_str()
+            log_error() << "internal error - decompression of data from "
+                        << dump().c_str()
                         << " failed: " << ZSTD_getErrorName(ret) << endl;
-            delete[] *uncompressed_buf;
+            delete[] * uncompressed_buf;
             *uncompressed_buf = nullptr;
             uncompressed_len = 0;
         }
     } else if (proto == C_LZO && uncompressed_len && compressed_len) {
-        const lzo_byte *compressed_buf = (lzo_byte *)(inbuf + intogo);
-        lzo_voidp wrkmem = (lzo_voidp) malloc(LZO1X_MEM_COMPRESS);
-        int ret = lzo1x_decompress(compressed_buf, compressed_len,
-                                   *uncompressed_buf, &uncompressed_len, wrkmem);
+        const lzo_byte * compressed_buf = (lzo_byte *)(inbuf + intogo);
+        lzo_voidp        wrkmem = (lzo_voidp)malloc(LZO1X_MEM_COMPRESS);
+        int              ret = lzo1x_decompress(compressed_buf,
+                                   compressed_len,
+                                   *uncompressed_buf,
+                                   &uncompressed_len,
+                                   wrkmem);
         free(wrkmem);
 
         if (ret != LZO_E_OK) {
@@ -596,9 +622,9 @@ void MsgChannel::readcompressed(unsigned char **uncompressed_buf, size_t &_uclen
             Remove the buffer, and indicate there is nothing in it,
             but don't reset the compressed_len, so our caller know,
             that there actually was something read in.  */
-            log_error() << "internal error - decompression of data from " << dump().c_str()
-                        << " failed: " << ret << endl;
-            delete [] *uncompressed_buf;
+            log_error() << "internal error - decompression of data from "
+                        << dump().c_str() << " failed: " << ret << endl;
+            delete[] * uncompressed_buf;
             *uncompressed_buf = nullptr;
             uncompressed_len = 0;
         }
@@ -612,7 +638,10 @@ void MsgChannel::readcompressed(unsigned char **uncompressed_buf, size_t &_uclen
     _clen = compressed_len;
 }
 
-void MsgChannel::writecompressed(const unsigned char *in_buf, size_t _in_len, size_t &_out_len)
+void
+MsgChannel::writecompressed(const unsigned char * in_buf,
+                            size_t                _in_len,
+                            size_t &              _out_len)
 {
     uint32_t proto = C_LZO;
     if (IS_PROTOCOL_40(this))
@@ -626,7 +655,7 @@ void MsgChannel::writecompressed(const unsigned char *in_buf, size_t _in_len, si
         out_len = ZSTD_COMPRESSBOUND(in_len);
     *this << in_len;
     size_t msgtogo_old = msgtogo;
-    *this << (uint32_t) 0;
+    *this << (uint32_t)0;
 
     if (IS_PROTOCOL_40(this))
         *this << proto;
@@ -634,27 +663,30 @@ void MsgChannel::writecompressed(const unsigned char *in_buf, size_t _in_len, si
     if (msgtogo + out_len >= msgbuflen) {
         /* Realloc to a multiple of 128.  */
         msgbuflen = (msgtogo + out_len + 127) & ~(size_t)127;
-        msgbuf = (char *) realloc(msgbuf, msgbuflen);
+        msgbuf = (char *)realloc(msgbuf, msgbuflen);
         assert(msgbuf); // Probably unrecoverable if realloc fails anyway.
     }
 
     if (proto == C_LZO) {
-        lzo_byte *out_buf = (lzo_byte *)(msgbuf + msgtogo);
-        lzo_voidp wrkmem = (lzo_voidp) malloc(LZO1X_MEM_COMPRESS);
+        lzo_byte * out_buf = (lzo_byte *)(msgbuf + msgtogo);
+        lzo_voidp  wrkmem = (lzo_voidp)malloc(LZO1X_MEM_COMPRESS);
         int ret = lzo1x_1_compress(in_buf, in_len, out_buf, &out_len, wrkmem);
         free(wrkmem);
 
         if (ret != LZO_E_OK) {
             /* this should NEVER happen */
-            log_error() << "internal error - compression failed: " << ret << endl;
+            log_error() << "internal error - compression failed: " << ret
+                        << endl;
             out_len = 0;
         }
     } else if (proto == C_ZSTD) {
-        void *out_buf = msgbuf + msgtogo;
-        size_t ret = ZSTD_compress(out_buf, out_len, in_buf, in_len, zstd_compression());
+        void * out_buf = msgbuf + msgtogo;
+        size_t ret =
+            ZSTD_compress(out_buf, out_len, in_buf, in_len, zstd_compression());
         if (ZSTD_isError(ret)) {
             /* this should NEVER happen */
-            log_error() << "internal error - compression failed: " << ZSTD_getErrorName(ret) << endl;
+            log_error() << "internal error - compression failed: "
+                        << ZSTD_getErrorName(ret) << endl;
             out_len = 0;
         }
 
@@ -662,15 +694,18 @@ void MsgChannel::writecompressed(const unsigned char *in_buf, size_t _in_len, si
     }
 
     uint32_t _olen = htonl(out_len);
-    if(out_len > MAX_MSG_SIZE) {
-        log_error() << "internal error - size of compressed message to write exceeds max size:" << out_len << endl;
+    if (out_len > MAX_MSG_SIZE) {
+        log_error() << "internal error - size of compressed message to write "
+                       "exceeds max size:"
+                    << out_len << endl;
     }
     memcpy(msgbuf + msgtogo_old, &_olen, 4);
     msgtogo += out_len;
     _out_len = out_len;
 }
 
-void MsgChannel::read_line(string &line)
+void
+MsgChannel::read_line(string & line)
 {
     /* XXX handle DOS and MAC line endings and null bytes as string endings.  */
     if (!text_based || inofs < intogo) {
@@ -685,7 +720,8 @@ void MsgChannel::read_line(string &line)
     }
 }
 
-void MsgChannel::write_line(const string &line)
+void
+MsgChannel::write_line(const string & line)
 {
     size_t len = line.length();
     writefull(line.c_str(), len);
@@ -696,20 +732,21 @@ void MsgChannel::write_line(const string &line)
     }
 }
 
-void MsgChannel::set_error(bool silent)
+void
+MsgChannel::set_error(bool silent)
 {
-    if( instate == ERROR ) {
+    if (instate == ERROR) {
         return;
     }
-    if( !silent && !set_error_recursion ) {
+    if (!silent && !set_error_recursion) {
         trace() << "setting error state for channel " << dump() << endl;
-        // After the state is set to error, get_msg() will not return anything anymore,
-        // so try to fetch last status from the other side, if available.
+        // After the state is set to error, get_msg() will not return anything
+        // anymore, so try to fetch last status from the other side, if available.
         set_error_recursion = true;
-        Msg* msg = get_msg( 2, true );
+        Msg * msg = get_msg(2, true);
         if (msg && msg->type == M_STATUS_TEXT) {
             log_error() << "remote status: "
-                << static_cast<StatusTextMsg*>(msg)->text << endl;
+                        << static_cast<StatusTextMsg *>(msg)->text << endl;
         }
         set_error_recursion = false;
     }
@@ -717,8 +754,10 @@ void MsgChannel::set_error(bool silent)
     eof = true;
 }
 
-static int prepare_connect(const string &hostname, unsigned short p,
-                           struct sockaddr_in &remote_addr)
+static int
+prepare_connect(const string &       hostname,
+                unsigned short       p,
+                struct sockaddr_in & remote_addr)
 {
     int remote_fd;
     int i = 1;
@@ -728,11 +767,12 @@ static int prepare_connect(const string &hostname, unsigned short p,
         return -1;
     }
 
-    struct hostent *host = gethostbyname(hostname.c_str());
+    struct hostent * host = gethostbyname(hostname.c_str());
 
     if (!host) {
-        log_error() << "Connecting to " << hostname << " failed: " << hstrerror( h_errno ) << endl;
-        if ((-1 == close(remote_fd)) && (errno != EBADF)){
+        log_error() << "Connecting to " << hostname
+                    << " failed: " << hstrerror(h_errno) << endl;
+        if ((-1 == close(remote_fd)) && (errno != EBADF)) {
             log_perror("close failed");
         }
         return -1;
@@ -740,13 +780,13 @@ static int prepare_connect(const string &hostname, unsigned short p,
 
     if (host->h_length != 4) {
         log_error() << "Invalid address length" << endl;
-        if ((-1 == close(remote_fd)) && (errno != EBADF)){
+        if ((-1 == close(remote_fd)) && (errno != EBADF)) {
             log_perror("close failed");
         }
         return -1;
     }
 
-    setsockopt(remote_fd, IPPROTO_TCP, TCP_NODELAY, (char *) &i, sizeof(i));
+    setsockopt(remote_fd, IPPROTO_TCP, TCP_NODELAY, (char *)&i, sizeof(i));
 
     remote_addr.sin_family = AF_INET;
     remote_addr.sin_port = htons(p);
@@ -755,8 +795,11 @@ static int prepare_connect(const string &hostname, unsigned short p,
     return remote_fd;
 }
 
-static bool connect_async(int remote_fd, struct sockaddr *remote_addr, size_t remote_size,
-                          int timeout)
+static bool
+connect_async(int               remote_fd,
+              struct sockaddr * remote_addr,
+              size_t            remote_size,
+              int               timeout)
 {
     fcntl(remote_fd, F_SETFL, O_NONBLOCK);
 
@@ -800,7 +843,7 @@ static bool connect_async(int remote_fd, struct sockaddr *remote_addr, size_t re
         **  The connect attempt failed or was interrupted,
         **  so close up the socket.
         */
-        if ((-1 == close(remote_fd)) && (errno != EBADF)){
+        if ((-1 == close(remote_fd)) && (errno != EBADF)) {
             log_perror("close failed");
         }
         return false;
@@ -814,9 +857,10 @@ static bool connect_async(int remote_fd, struct sockaddr *remote_addr, size_t re
     return true;
 }
 
-MsgChannel *Service::createChannel(const string &hostname, unsigned short p, int timeout)
+MsgChannel *
+Service::createChannel(const string & hostname, unsigned short p, int timeout)
 {
-    int remote_fd;
+    int                remote_fd;
     struct sockaddr_in remote_addr;
 
     if ((remote_fd = prepare_connect(hostname, p, remote_addr)) < 0) {
@@ -824,17 +868,22 @@ MsgChannel *Service::createChannel(const string &hostname, unsigned short p, int
     }
 
     if (timeout) {
-        if (!connect_async(remote_fd, (struct sockaddr *) &remote_addr, sizeof(remote_addr), timeout)) {
-            return nullptr;    // remote_fd is already closed
+        if (!connect_async(remote_fd,
+                           (struct sockaddr *)&remote_addr,
+                           sizeof(remote_addr),
+                           timeout)) {
+            return nullptr; // remote_fd is already closed
         }
     } else {
         int i = 2048;
         setsockopt(remote_fd, SOL_SOCKET, SO_SNDBUF, &i, sizeof(i));
 
-        if (connect(remote_fd, (struct sockaddr *) &remote_addr, sizeof(remote_addr)) < 0) {
+        if (connect(remote_fd,
+                    (struct sockaddr *)&remote_addr,
+                    sizeof(remote_addr)) < 0) {
             log_perror_trace("connect");
             trace() << "connect failed on " << hostname << endl;
-            if (-1 == close(remote_fd) && (errno != EBADF)){
+            if (-1 == close(remote_fd) && (errno != EBADF)) {
                 log_perror("close failed");
             }
             return nullptr;
@@ -842,12 +891,14 @@ MsgChannel *Service::createChannel(const string &hostname, unsigned short p, int
     }
 
     trace() << "connected to " << hostname << endl;
-    return createChannel(remote_fd, (struct sockaddr *)&remote_addr, sizeof(remote_addr));
+    return createChannel(
+        remote_fd, (struct sockaddr *)&remote_addr, sizeof(remote_addr));
 }
 
-MsgChannel *Service::createChannel(const string &socket_path)
+MsgChannel *
+Service::createChannel(const string & socket_path)
 {
-    int remote_fd;
+    int                remote_fd;
     struct sockaddr_un remote_addr;
 
     if ((remote_fd = socket(AF_UNIX, SOCK_STREAM, 0)) < 0) {
@@ -856,26 +907,32 @@ MsgChannel *Service::createChannel(const string &socket_path)
     }
 
     remote_addr.sun_family = AF_UNIX;
-    strncpy(remote_addr.sun_path, socket_path.c_str(), sizeof(remote_addr.sun_path) - 1);
+    strncpy(remote_addr.sun_path,
+            socket_path.c_str(),
+            sizeof(remote_addr.sun_path) - 1);
     remote_addr.sun_path[sizeof(remote_addr.sun_path) - 1] = '\0';
-    if(socket_path.length() > sizeof(remote_addr.sun_path) - 1) {
+    if (socket_path.length() > sizeof(remote_addr.sun_path) - 1) {
         log_error() << "socket_path path too long for sun_path" << endl;
     }
 
-    if (connect(remote_fd, (struct sockaddr *) &remote_addr, sizeof(remote_addr)) < 0) {
+    if (connect(remote_fd,
+                (struct sockaddr *)&remote_addr,
+                sizeof(remote_addr)) < 0) {
         log_perror_trace("connect");
         trace() << "connect failed on " << socket_path << endl;
-        if ((-1 == close(remote_fd)) && (errno != EBADF)){
+        if ((-1 == close(remote_fd)) && (errno != EBADF)) {
             log_perror("close failed");
         }
         return nullptr;
     }
 
     trace() << "connected to " << socket_path << endl;
-    return createChannel(remote_fd, (struct sockaddr *)&remote_addr, sizeof(remote_addr));
+    return createChannel(
+        remote_fd, (struct sockaddr *)&remote_addr, sizeof(remote_addr));
 }
 
-static std::string shorten_filename(const std::string &str)
+static std::string
+shorten_filename(const std::string & str)
 {
     std::string::size_type ofs = str.rfind('/');
 
@@ -888,18 +945,20 @@ static std::string shorten_filename(const std::string &str)
     return str.substr(ofs + 1);
 }
 
-bool MsgChannel::eq_ip(const MsgChannel &s) const
+bool
+MsgChannel::eq_ip(const MsgChannel & s) const
 {
     struct sockaddr_in *s1, *s2;
-    s1 = (struct sockaddr_in *) addr;
-    s2 = (struct sockaddr_in *) s.addr;
-    return (addr_len == s.addr_len
-            && memcmp(&s1->sin_addr, &s2->sin_addr, sizeof(s1->sin_addr)) == 0);
+    s1 = (struct sockaddr_in *)addr;
+    s2 = (struct sockaddr_in *)s.addr;
+    return (addr_len == s.addr_len &&
+            memcmp(&s1->sin_addr, &s2->sin_addr, sizeof(s1->sin_addr)) == 0);
 }
 
-MsgChannel *Service::createChannel(int fd, struct sockaddr *_a, socklen_t _l)
+MsgChannel *
+Service::createChannel(int fd, struct sockaddr * _a, socklen_t _l)
 {
-    MsgChannel *c = new MsgChannel(fd, _a, _l, false);
+    MsgChannel * c = new MsgChannel(fd, _a, _l, false);
 
     if (!c->wait_for_protocol()) {
         delete c;
@@ -909,7 +968,7 @@ MsgChannel *Service::createChannel(int fd, struct sockaddr *_a, socklen_t _l)
     return c;
 }
 
-MsgChannel::MsgChannel(int _fd, struct sockaddr *_a, socklen_t _l, bool text)
+MsgChannel::MsgChannel(int _fd, struct sockaddr * _a, socklen_t _l, bool text)
     : fd(_fd)
 {
     addr_len = (sizeof(struct sockaddr) > _l) ? sizeof(struct sockaddr) : _l;
@@ -917,11 +976,12 @@ MsgChannel::MsgChannel(int _fd, struct sockaddr *_a, socklen_t _l, bool text)
     if (addr_len && _a) {
         addr = (struct sockaddr *)malloc(addr_len);
         memcpy(addr, _a, _l);
-        if(addr->sa_family == AF_UNIX) {
+        if (addr->sa_family == AF_UNIX) {
             name = "local unix domain socket";
         } else {
             char buf[16384] = "";
-            if(int error = getnameinfo(addr, _l, buf, sizeof(buf), nullptr, 0, NI_NUMERICHOST))
+            if (int error = getnameinfo(
+                    addr, _l, buf, sizeof(buf), nullptr, 0, NI_NUMERICHOST))
                 log_error() << "getnameinfo(): " << error << endl;
             name = buf;
         }
@@ -931,11 +991,11 @@ MsgChannel::MsgChannel(int _fd, struct sockaddr *_a, socklen_t _l, bool text)
     }
 
     // not using new/delete because of the need of realloc()
-    msgbuf = (char *) malloc(128);
+    msgbuf = (char *)malloc(128);
     msgbuflen = 128;
     msgofs = 0;
     msgtogo = 0;
-    inbuf = (char *) malloc(128);
+    inbuf = (char *)malloc(128);
     inbuflen = 128;
     inofs = 0;
     intogo = 0;
@@ -946,9 +1006,9 @@ MsgChannel::MsgChannel(int _fd, struct sockaddr *_a, socklen_t _l, bool text)
 
     int on = 1;
 
-    if (!setsockopt(_fd, SOL_SOCKET, SO_KEEPALIVE, (char *) &on, sizeof(on))) {
-#if defined( TCP_KEEPIDLE ) || defined( TCPCTL_KEEPIDLE )
-#if defined( TCP_KEEPIDLE )
+    if (!setsockopt(_fd, SOL_SOCKET, SO_KEEPALIVE, (char *)&on, sizeof(on))) {
+#if defined(TCP_KEEPIDLE) || defined(TCPCTL_KEEPIDLE)
+#if defined(TCP_KEEPIDLE)
         int keepidle = TCP_KEEPIDLE;
 #else
         int keepidle = TCPCTL_KEEPIDLE;
@@ -956,29 +1016,32 @@ MsgChannel::MsgChannel(int _fd, struct sockaddr *_a, socklen_t _l, bool text)
 
         int sec;
         sec = MAX_SCHEDULER_PING - 3 * MAX_SCHEDULER_PONG;
-        setsockopt(_fd, IPPROTO_TCP, keepidle, (char *) &sec, sizeof(sec));
+        setsockopt(_fd, IPPROTO_TCP, keepidle, (char *)&sec, sizeof(sec));
 #endif
 
-#if defined( TCP_KEEPINTVL ) || defined( TCPCTL_KEEPINTVL )
-#if defined( TCP_KEEPINTVL )
+#if defined(TCP_KEEPINTVL) || defined(TCPCTL_KEEPINTVL)
+#if defined(TCP_KEEPINTVL)
         int keepintvl = TCP_KEEPINTVL;
 #else
         int keepintvl = TCPCTL_KEEPINTVL;
 #endif
 
         sec = MAX_SCHEDULER_PONG;
-        setsockopt(_fd, IPPROTO_TCP, keepintvl, (char *) &sec, sizeof(sec));
+        setsockopt(_fd, IPPROTO_TCP, keepintvl, (char *)&sec, sizeof(sec));
 #endif
 
 #ifdef TCP_KEEPCNT
         sec = 3;
-        setsockopt(_fd, IPPROTO_TCP, TCP_KEEPCNT, (char *) &sec, sizeof(sec));
+        setsockopt(_fd, IPPROTO_TCP, TCP_KEEPCNT, (char *)&sec, sizeof(sec));
 #endif
     }
 
 #ifdef TCP_USER_TIMEOUT
-    int timeout = 3 * 3 * 1000; // matches the timeout part of keepalive above, in milliseconds
-    setsockopt(_fd, IPPROTO_TCP, TCP_USER_TIMEOUT, (char *) &timeout, sizeof(timeout));
+    int timeout =
+        3 * 3 *
+        1000; // matches the timeout part of keepalive above, in milliseconds
+    setsockopt(
+        _fd, IPPROTO_TCP, TCP_USER_TIMEOUT, (char *)&timeout, sizeof(timeout));
 #endif
 
     if (fcntl(fd, F_SETFL, O_NONBLOCK) < 0) {
@@ -996,11 +1059,11 @@ MsgChannel::MsgChannel(int _fd, struct sockaddr *_a, socklen_t _l, bool text)
         instate = NEED_PROTO;
         protocol = -1;
         unsigned char vers[4] = {PROTOCOL_VERSION, 0, 0, 0};
-        //writeuint32 ((uint32_t) PROTOCOL_VERSION);
+        // writeuint32 ((uint32_t) PROTOCOL_VERSION);
         writefull(vers, 4);
 
         if (!flush_writebuf(true)) {
-            protocol = 0;    // unusable
+            protocol = 0; // unusable
             set_error();
         }
     }
@@ -1011,7 +1074,7 @@ MsgChannel::MsgChannel(int _fd, struct sockaddr *_a, socklen_t _l, bool text)
 MsgChannel::~MsgChannel()
 {
     if (fd >= 0) {
-        if ((-1 == close(fd)) && (errno != EBADF)){
+        if ((-1 == close(fd)) && (errno != EBADF)) {
             log_perror("close failed");
         }
     }
@@ -1031,14 +1094,17 @@ MsgChannel::~MsgChannel()
     }
 }
 
-string MsgChannel::dump() const
+string
+MsgChannel::dump() const
 {
-    return name + ": (" + char((int)instate + 'A') + " eof: " + char(eof + '0') + ")";
+    return name + ": (" + char((int)instate + 'A') +
+           " eof: " + char(eof + '0') + ")";
 }
 
 /* Wait blocking until the protocol setup for this channel is complete.
    Returns false if an error occurred.  */
-bool MsgChannel::wait_for_protocol()
+bool
+MsgChannel::wait_for_protocol()
 {
     /* protocol is 0 if we couldn't send our initial protocol version.  */
     if (protocol == 0 || instate == ERROR) {
@@ -1075,19 +1141,20 @@ bool MsgChannel::wait_for_protocol()
     return true;
 }
 
-void MsgChannel::setBulkTransfer()
+void
+MsgChannel::setBulkTransfer()
 {
     if (fd < 0) {
         return;
     }
 
     int i = 0;
-    setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, (char *) &i, sizeof(i));
+    setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, (char *)&i, sizeof(i));
 
     // would be nice but not portable across non-linux
 #ifdef __linux__
     i = 1;
-    setsockopt(fd, IPPROTO_TCP, TCP_CORK, (char *) &i, sizeof(i));
+    setsockopt(fd, IPPROTO_TCP, TCP_CORK, (char *)&i, sizeof(i));
 #endif
     i = 65536;
     setsockopt(fd, SOL_SOCKET, SO_SNDBUF, &i, sizeof(i));
@@ -1095,7 +1162,8 @@ void MsgChannel::setBulkTransfer()
 
 /* This waits indefinitely (well, TIMEOUT seconds) for a complete
    message to arrive.  Returns false if there was some error.  */
-bool MsgChannel::wait_for_msg(int timeout)
+bool
+MsgChannel::wait_for_msg(int timeout)
 {
     if (instate == ERROR) {
         return false;
@@ -1141,9 +1209,10 @@ bool MsgChannel::wait_for_msg(int timeout)
     return true;
 }
 
-Msg *MsgChannel::get_msg(int timeout, bool eofAllowed)
+Msg *
+MsgChannel::get_msg(int timeout, bool eofAllowed)
 {
-    Msg *m = nullptr;
+    Msg *        m = nullptr;
     enum MsgType type;
 
     if (!wait_for_msg(timeout)) {
@@ -1175,105 +1244,44 @@ Msg *MsgChannel::get_msg(int timeout, bool eofAllowed)
     } else {
         uint32_t t;
         *this >> t;
-        type = (enum MsgType) t;
+        type = (enum MsgType)t;
     }
 
     switch (type) {
-    case M_UNKNOWN:
-        set_error();
-        return nullptr;
-    case M_PING:
-        m = new PingMsg;
-        break;
-    case M_END:
-        m = new EndMsg;
-        break;
-    case M_GET_CS:
-        m = new GetCSMsg;
-        break;
-    case M_USE_CS:
-        m = new UseCSMsg;
-        break;
-    case M_NO_CS:
-        m = new NoCSMsg;
-        break;
-    case M_COMPILE_FILE:
-        m = new CompileFileMsg(new CompileJob, true);
-        break;
-    case M_FILE_CHUNK:
-        m = new FileChunkMsg;
-        break;
-    case M_COMPILE_RESULT:
-        m = new CompileResultMsg;
-        break;
-    case M_JOB_BEGIN:
-        m = new JobBeginMsg;
-        break;
-    case M_JOB_DONE:
-        m = new JobDoneMsg;
-        break;
-    case M_LOGIN:
-        m = new LoginMsg;
-        break;
-    case M_STATS:
-        m = new StatsMsg;
-        break;
-    case M_GET_NATIVE_ENV:
-        m = new GetNativeEnvMsg;
-        break;
-    case M_NATIVE_ENV:
-        m = new UseNativeEnvMsg;
-        break;
-    case M_MON_LOGIN:
-        m = new MonLoginMsg;
-        break;
-    case M_MON_GET_CS:
-        m = new MonGetCSMsg;
-        break;
-    case M_MON_JOB_BEGIN:
-        m = new MonJobBeginMsg;
-        break;
-    case M_MON_JOB_DONE:
-        m = new MonJobDoneMsg;
-        break;
-    case M_MON_STATS:
-        m = new MonStatsMsg;
-        break;
-    case M_JOB_LOCAL_BEGIN:
-        m = new JobLocalBeginMsg;
-        break;
-    case M_JOB_LOCAL_DONE :
-        m = new JobLocalDoneMsg;
-        break;
-    case M_MON_LOCAL_JOB_BEGIN:
-        m = new MonLocalJobBeginMsg;
-        break;
-    case M_TRANFER_ENV:
-        m = new EnvTransferMsg;
-        break;
-    case M_TEXT:
-        m = new TextMsg;
-        break;
-    case M_GET_INTERNALS:
-        m = new GetInternalStatus;
-        break;
-    case M_STATUS_TEXT:
-        m = new StatusTextMsg;
-        break;
-    case M_CS_CONF:
-        m = new ConfCSMsg;
-        break;
-    case M_VERIFY_ENV:
-        m = new VerifyEnvMsg;
-        break;
-    case M_VERIFY_ENV_RESULT:
-        m = new VerifyEnvResultMsg;
-        break;
-    case M_BLACKLIST_HOST_ENV:
-        m = new BlacklistHostEnvMsg;
-        break;
-    case M_TIMEOUT:
-        break;
+        case M_UNKNOWN: set_error(); return nullptr;
+        case M_PING: m = new PingMsg; break;
+        case M_END: m = new EndMsg; break;
+        case M_GET_CS: m = new GetCSMsg; break;
+        case M_USE_CS: m = new UseCSMsg; break;
+        case M_NO_CS: m = new NoCSMsg; break;
+        case M_COMPILE_FILE:
+            m = new CompileFileMsg(new CompileJob, true);
+            break;
+        case M_FILE_CHUNK: m = new FileChunkMsg; break;
+        case M_COMPILE_RESULT: m = new CompileResultMsg; break;
+        case M_JOB_BEGIN: m = new JobBeginMsg; break;
+        case M_JOB_DONE: m = new JobDoneMsg; break;
+        case M_LOGIN: m = new LoginMsg; break;
+        case M_STATS: m = new StatsMsg; break;
+        case M_GET_NATIVE_ENV: m = new GetNativeEnvMsg; break;
+        case M_NATIVE_ENV: m = new UseNativeEnvMsg; break;
+        case M_MON_LOGIN: m = new MonLoginMsg; break;
+        case M_MON_GET_CS: m = new MonGetCSMsg; break;
+        case M_MON_JOB_BEGIN: m = new MonJobBeginMsg; break;
+        case M_MON_JOB_DONE: m = new MonJobDoneMsg; break;
+        case M_MON_STATS: m = new MonStatsMsg; break;
+        case M_JOB_LOCAL_BEGIN: m = new JobLocalBeginMsg; break;
+        case M_JOB_LOCAL_DONE: m = new JobLocalDoneMsg; break;
+        case M_MON_LOCAL_JOB_BEGIN: m = new MonLocalJobBeginMsg; break;
+        case M_TRANFER_ENV: m = new EnvTransferMsg; break;
+        case M_TEXT: m = new TextMsg; break;
+        case M_GET_INTERNALS: m = new GetInternalStatus; break;
+        case M_STATUS_TEXT: m = new StatusTextMsg; break;
+        case M_CS_CONF: m = new ConfCSMsg; break;
+        case M_VERIFY_ENV: m = new VerifyEnvMsg; break;
+        case M_VERIFY_ENV_RESULT: m = new VerifyEnvResultMsg; break;
+        case M_BLACKLIST_HOST_ENV: m = new BlacklistHostEnvMsg; break;
+        case M_TIMEOUT: break;
     }
 
     if (!m) {
@@ -1285,9 +1293,10 @@ Msg *MsgChannel::get_msg(int timeout, bool eofAllowed)
     m->fill_from_channel(this);
 
     if (!text_based) {
-        if( intogo - intogo_old != inmsglen ) {
-            log_error() << "internal error - message not read correctly, message size " << inmsglen
-                << " read " << (intogo - intogo_old) << endl;
+        if (intogo - intogo_old != inmsglen) {
+            log_error()
+                << "internal error - message not read correctly, message size "
+                << inmsglen << " read " << (intogo - intogo_old) << endl;
             delete m;
             set_error();
             return nullptr;
@@ -1300,7 +1309,8 @@ Msg *MsgChannel::get_msg(int timeout, bool eofAllowed)
     return m;
 }
 
-bool MsgChannel::send_msg(const Msg &m, int flags)
+bool
+MsgChannel::send_msg(const Msg & m, int flags)
 {
     if (instate == ERROR) {
         return false;
@@ -1315,11 +1325,13 @@ bool MsgChannel::send_msg(const Msg &m, int flags)
     if (text_based) {
         m.send_to_channel(this);
     } else {
-        *this << (uint32_t) 0;
+        *this << (uint32_t)0;
         m.send_to_channel(this);
         uint32_t out_len = msgtogo - msgtogo_old - 4;
-        if(out_len > MAX_MSG_SIZE) {
-            log_error() << "internal error - size of message to write exceeds max size:" << out_len << endl;
+        if (out_len > MAX_MSG_SIZE) {
+            log_error()
+                << "internal error - size of message to write exceeds max size:"
+                << out_len << endl;
             set_error();
             return false;
         }
@@ -1334,38 +1346,43 @@ bool MsgChannel::send_msg(const Msg &m, int flags)
     return flush_writebuf((flags & SendBlocking));
 }
 
-static int get_second_port_for_debug( int port )
+static int
+get_second_port_for_debug(int port)
 {
-    // When running tests, we want to check also interactions between 2 schedulers, but
-    // when they are both local, they cannot bind to the same port. So make sure to
-    // send all broadcasts to both.
+    // When running tests, we want to check also interactions between 2
+    // schedulers, but when they are both local, they cannot bind to the same
+    // port. So make sure to send all broadcasts to both.
     static bool checkedDebug = false;
-    static int debugPort1 = 0;
-    static int debugPort2 = 0;
-    if( !checkedDebug ) {
+    static int  debugPort1 = 0;
+    static int  debugPort2 = 0;
+    if (!checkedDebug) {
         checkedDebug = true;
-        if( const char* env = getenv( "ICECC_TEST_SCHEDULER_PORTS" )) {
-            debugPort1 = atoi( env );
-            const char* env2 = strchr( env, ':' );
-            if( env2 != nullptr )
-                debugPort2 = atoi( env2 + 1 );
+        if (const char * env = getenv("ICECC_TEST_SCHEDULER_PORTS")) {
+            debugPort1 = atoi(env);
+            const char * env2 = strchr(env, ':');
+            if (env2 != nullptr)
+                debugPort2 = atoi(env2 + 1);
         }
     }
     int secondPort = 0;
-    if( port == debugPort1 )
+    if (port == debugPort1)
         secondPort = debugPort2;
-    else if( port == debugPort2 )
+    else if (port == debugPort2)
         secondPort = debugPort1;
     return secondPort ? secondPort : -1;
 }
 
-void Broadcasts::broadcastSchedulerVersion(int scheduler_port, const char* netname, time_t starttime)
+void
+Broadcasts::broadcastSchedulerVersion(int          scheduler_port,
+                                      const char * netname,
+                                      time_t       starttime)
 {
-    // Code for older schedulers than version 38. Has endianness problems, the message size
-    // is not BROAD_BUFLEN and the netname is possibly not null-terminated.
+    // Code for older schedulers than version 38. Has endianness problems, the
+    // message size is not BROAD_BUFLEN and the netname is possibly not
+    // null-terminated.
     const char length_netname = strlen(netname);
-    const int schedbuflen = 5 + sizeof(uint64_t) + length_netname;
-    char *buf = new char[ schedbuflen ];
+    const int  schedbuflen = 5 + sizeof(uint64_t) + length_netname;
+    char *     buf = new char[schedbuflen];
     buf[0] = 'I';
     buf[1] = 'C';
     buf[2] = 'E';
@@ -1374,20 +1391,20 @@ void Broadcasts::broadcastSchedulerVersion(int scheduler_port, const char* netna
     memcpy(buf + 4, &tmp_time, sizeof(uint64_t));
     buf[4 + sizeof(uint64_t)] = length_netname;
     strncpy(buf + 5 + sizeof(uint64_t), netname, length_netname - 1);
-    buf[ schedbuflen - 1 ] = '\0';
+    buf[schedbuflen - 1] = '\0';
     broadcastData(scheduler_port, buf, schedbuflen);
     delete[] buf;
     // Latest version.
-    buf = new char[ BROAD_BUFLEN ];
-    memset(buf, 0, BROAD_BUFLEN );
+    buf = new char[BROAD_BUFLEN];
+    memset(buf, 0, BROAD_BUFLEN);
     buf[0] = 'I';
     buf[1] = 'C';
     buf[2] = 'F'; // one up
     buf[3] = PROTOCOL_VERSION;
     uint32_t tmp_time_low = starttime & 0xffffffffUL;
     uint32_t tmp_time_high = uint64_t(starttime) >> 32;
-    tmp_time_low = htonl( tmp_time_low );
-    tmp_time_high = htonl( tmp_time_high );
+    tmp_time_low = htonl(tmp_time_low);
+    tmp_time_high = htonl(tmp_time_high);
     memcpy(buf + 4, &tmp_time_high, sizeof(uint32_t));
     memcpy(buf + 4 + sizeof(uint32_t), &tmp_time_low, sizeof(uint32_t));
     const int OFFSET = 4 + 2 * sizeof(uint32_t);
@@ -1397,37 +1414,45 @@ void Broadcasts::broadcastSchedulerVersion(int scheduler_port, const char* netna
     delete[] buf;
 }
 
-bool Broadcasts::isSchedulerVersion(const char* buf, int buflen)
+bool
+Broadcasts::isSchedulerVersion(const char * buf, int buflen)
 {
-    if( buflen != BROAD_BUFLEN )
+    if (buflen != BROAD_BUFLEN)
         return false;
-    // Ignore versions older than 38, they are older than us anyway, so not interesting.
+    // Ignore versions older than 38, they are older than us anyway, so not
+    // interesting.
     return buf[0] == 'I' && buf[1] == 'C' && buf[2] == 'F';
 }
 
-void Broadcasts::getSchedulerVersionData( const char* buf, int* protocol, time_t* time, string* netname )
+void
+Broadcasts::getSchedulerVersionData(const char * buf,
+                                    int *        protocol,
+                                    time_t *     time,
+                                    string *     netname)
 {
-    assert( isSchedulerVersion( buf, BROAD_BUFLEN ));
+    assert(isSchedulerVersion(buf, BROAD_BUFLEN));
     const unsigned char other_scheduler_protocol = buf[3];
-    uint32_t tmp_time_low, tmp_time_high;
+    uint32_t            tmp_time_low, tmp_time_high;
     memcpy(&tmp_time_high, buf + 4, sizeof(uint32_t));
     memcpy(&tmp_time_low, buf + 4 + sizeof(uint32_t), sizeof(uint32_t));
-    tmp_time_low = ntohl( tmp_time_low );
-    tmp_time_high = ntohl( tmp_time_high );
-    time_t other_time = ( uint64_t( tmp_time_high ) << 32 ) | tmp_time_low;;
+    tmp_time_low = ntohl(tmp_time_low);
+    tmp_time_high = ntohl(tmp_time_high);
+    time_t other_time = (uint64_t(tmp_time_high) << 32) | tmp_time_low;
+    ;
     string recv_netname = string(buf + 4 + 2 * sizeof(uint32_t));
-    if( protocol != nullptr )
+    if (protocol != nullptr)
         *protocol = other_scheduler_protocol;
-    if( time != nullptr )
+    if (time != nullptr)
         *time = other_time;
-    if( netname != nullptr )
+    if (netname != nullptr)
         *netname = recv_netname;
 }
 
 /* Returns a filedesc. or a negative value for errors.  */
-static int open_send_broadcast(int port, const char* buf, int size)
+static int
+open_send_broadcast(int port, const char * buf, int size)
 {
-    int ask_fd;
+    int                ask_fd;
     struct sockaddr_in remote_addr;
 
     if ((ask_fd = socket(PF_INET, SOCK_DGRAM, 0)) < 0) {
@@ -1437,7 +1462,7 @@ static int open_send_broadcast(int port, const char* buf, int size)
 
     if (fcntl(ask_fd, F_SETFD, FD_CLOEXEC) < 0) {
         log_perror("open_send_broadcast fcntl");
-        if (-1 == close(ask_fd)){
+        if (-1 == close(ask_fd)) {
             log_perror("close failed");
         }
         return -1;
@@ -1445,15 +1470,16 @@ static int open_send_broadcast(int port, const char* buf, int size)
 
     int optval = 1;
 
-    if (setsockopt(ask_fd, SOL_SOCKET, SO_BROADCAST, &optval, sizeof(optval)) < 0) {
+    if (setsockopt(ask_fd, SOL_SOCKET, SO_BROADCAST, &optval, sizeof(optval)) <
+        0) {
         log_perror("open_send_broadcast setsockopt");
-        if (-1 == close(ask_fd)){
+        if (-1 == close(ask_fd)) {
             log_perror("close failed");
         }
         return -1;
     }
 
-    struct kde_ifaddrs *addrs;
+    struct kde_ifaddrs * addrs;
 
     int ret = kde_getifaddrs(&addrs);
 
@@ -1461,45 +1487,59 @@ static int open_send_broadcast(int port, const char* buf, int size)
         return ret;
     }
 
-    for (struct kde_ifaddrs *addr = addrs; addr != nullptr; addr = addr->ifa_next) {
+    for (struct kde_ifaddrs * addr = addrs; addr != nullptr;
+         addr = addr->ifa_next) {
         /*
          * See if this interface address is IPv4...
          */
 
-        if (addr->ifa_addr == nullptr || addr->ifa_addr->sa_family != AF_INET
-                || addr->ifa_netmask == nullptr || addr->ifa_name == nullptr) {
+        if (addr->ifa_addr == nullptr || addr->ifa_addr->sa_family != AF_INET ||
+            addr->ifa_netmask == nullptr || addr->ifa_name == nullptr) {
             continue;
         }
 
-        static bool in_tests = getenv( "ICECC_TESTS" ) != nullptr;
+        static bool in_tests = getenv("ICECC_TESTS") != nullptr;
         if (!in_tests) {
-            if (ntohl(((struct sockaddr_in *) addr->ifa_addr)->sin_addr.s_addr) == 0x7f000001) {
-                trace() << "ignoring localhost " << addr->ifa_name << " for broadcast" << endl;
+            if (ntohl(
+                    ((struct sockaddr_in *)addr->ifa_addr)->sin_addr.s_addr) ==
+                0x7f000001) {
+                trace() << "ignoring localhost " << addr->ifa_name
+                        << " for broadcast" << endl;
                 continue;
             }
 
-            if ((addr->ifa_flags & IFF_POINTOPOINT) || !(addr->ifa_flags & IFF_BROADCAST)) {
-                log_info() << "ignoring tunnels " << addr->ifa_name << " for broadcast" << endl;
+            if ((addr->ifa_flags & IFF_POINTOPOINT) ||
+                !(addr->ifa_flags & IFF_BROADCAST)) {
+                log_info() << "ignoring tunnels " << addr->ifa_name
+                           << " for broadcast" << endl;
                 continue;
             }
         } else {
-            if (ntohl(((struct sockaddr_in *) addr->ifa_addr)->sin_addr.s_addr) != 0x7f000001) {
-                trace() << "ignoring non-localhost " << addr->ifa_name << " for broadcast" << endl;
+            if (ntohl(
+                    ((struct sockaddr_in *)addr->ifa_addr)->sin_addr.s_addr) !=
+                0x7f000001) {
+                trace() << "ignoring non-localhost " << addr->ifa_name
+                        << " for broadcast" << endl;
                 continue;
             }
         }
 
         if (addr->ifa_broadaddr) {
-            log_info() << "broadcast "
-                       << addr->ifa_name << " "
-                       << inet_ntoa(((sockaddr_in *)addr->ifa_broadaddr)->sin_addr)
+            log_info() << "broadcast " << addr->ifa_name << " "
+                       << inet_ntoa(
+                              ((sockaddr_in *)addr->ifa_broadaddr)->sin_addr)
                        << endl;
 
             remote_addr.sin_family = AF_INET;
             remote_addr.sin_port = htons(port);
-            remote_addr.sin_addr = ((sockaddr_in *)addr->ifa_broadaddr)->sin_addr;
+            remote_addr.sin_addr =
+                ((sockaddr_in *)addr->ifa_broadaddr)->sin_addr;
 
-            if (sendto(ask_fd, buf, size, 0, (struct sockaddr *)&remote_addr,
+            if (sendto(ask_fd,
+                       buf,
+                       size,
+                       0,
+                       (struct sockaddr *)&remote_addr,
                        sizeof(remote_addr)) != size) {
                 log_perror("open_send_broadcast sendto");
             }
@@ -1510,53 +1550,56 @@ static int open_send_broadcast(int port, const char* buf, int size)
     return ask_fd;
 }
 
-void Broadcasts::broadcastData(int port, const char* buf, int len)
+void
+Broadcasts::broadcastData(int port, const char * buf, int len)
 {
     int fd = open_send_broadcast(port, buf, len);
     if (fd >= 0) {
-        if ((-1 == close(fd)) && (errno != EBADF)){
+        if ((-1 == close(fd)) && (errno != EBADF)) {
             log_perror("close failed");
         }
     }
-    int secondPort = get_second_port_for_debug( port );
-    if( secondPort > 0 ) {
+    int secondPort = get_second_port_for_debug(port);
+    if (secondPort > 0) {
         int fd2 = open_send_broadcast(secondPort, buf, len);
         if (fd2 >= 0) {
-            if ((-1 == close(fd2)) && (errno != EBADF)){
+            if ((-1 == close(fd2)) && (errno != EBADF)) {
                 log_perror("close failed");
             }
         }
     }
 }
 
-DiscoverSched::DiscoverSched(const std::string &_netname, int _timeout,
-                             const std::string &_schedname, int port)
-    : netname(_netname)
-    , schedname(_schedname)
-    , timeout(_timeout)
-    , ask_fd(-1)
-    , ask_second_fd(-1)
-    , sport(port)
-    , best_version(0)
-    , best_start_time(0)
-    , best_port(0)
-    , multiple(false)
+DiscoverSched::DiscoverSched(const std::string & _netname,
+                             int                 _timeout,
+                             const std::string & _schedname,
+                             int                 port)
+    : netname(_netname),
+      schedname(_schedname),
+      timeout(_timeout),
+      ask_fd(-1),
+      ask_second_fd(-1),
+      sport(port),
+      best_version(0),
+      best_start_time(0),
+      best_port(0),
+      multiple(false)
 {
     time0 = time(nullptr);
 
     if (schedname.empty()) {
-        const char *get = getenv("ICECC_SCHEDULER");
-        if( get == nullptr )
+        const char * get = getenv("ICECC_SCHEDULER");
+        if (get == nullptr)
             get = getenv("USE_SCHEDULER");
 
         if (get) {
             string scheduler = get;
-            size_t colon = scheduler.rfind( ':' );
-            if( colon == string::npos ) {
+            size_t colon = scheduler.rfind(':');
+            if (colon == string::npos) {
                 schedname = scheduler;
             } else {
                 schedname = scheduler.substr(0, colon);
-                sport = atoi( scheduler.substr( colon + 1 ).c_str());
+                sport = atoi(scheduler.substr(colon + 1).c_str());
             }
         }
     }
@@ -1564,7 +1607,7 @@ DiscoverSched::DiscoverSched(const std::string &_netname, int _timeout,
     if (netname.empty()) {
         netname = "ICECREAM";
     }
-    if (sport == 0 ) {
+    if (sport == 0) {
         sport = 8765;
     }
 
@@ -1572,55 +1615,62 @@ DiscoverSched::DiscoverSched(const std::string &_netname, int _timeout,
         netname = ""; // take whatever the machine is giving us
         attempt_scheduler_connect();
     } else {
-        sendSchedulerDiscovery( PROTOCOL_VERSION );
+        sendSchedulerDiscovery(PROTOCOL_VERSION);
     }
 }
 
 DiscoverSched::~DiscoverSched()
 {
     if (ask_fd >= 0) {
-        if ((-1 == close(ask_fd)) && (errno != EBADF)){
+        if ((-1 == close(ask_fd)) && (errno != EBADF)) {
             log_perror("close failed");
         }
     }
     if (ask_second_fd >= 0) {
-        if ((-1 == close(ask_second_fd)) && (errno != EBADF)){
+        if ((-1 == close(ask_second_fd)) && (errno != EBADF)) {
             log_perror("close failed");
         }
     }
 }
 
-bool DiscoverSched::timed_out()
+bool
+DiscoverSched::timed_out()
 {
     return (time(nullptr) - time0 >= timeout);
 }
 
-void DiscoverSched::attempt_scheduler_connect()
+void
+DiscoverSched::attempt_scheduler_connect()
 {
     time0 = time(nullptr) + MAX_SCHEDULER_PONG;
-    log_info() << "scheduler is on " << schedname << ":" << sport << " (net " << netname << ")" << endl;
+    log_info() << "scheduler is on " << schedname << ":" << sport << " (net "
+               << netname << ")" << endl;
 
     if ((ask_fd = prepare_connect(schedname, sport, remote_addr)) >= 0) {
         fcntl(ask_fd, F_SETFL, O_NONBLOCK);
     }
 }
 
-void DiscoverSched::sendSchedulerDiscovery( int version )
+void
+DiscoverSched::sendSchedulerDiscovery(int version)
 {
-        assert( version < 128 );
-        char buf = version;
-        ask_fd = open_send_broadcast(sport, &buf, 1);
-        int secondPort = get_second_port_for_debug( sport );
-        if( secondPort > 0 )
-            ask_second_fd = open_send_broadcast(secondPort, &buf, 1);
+    assert(version < 128);
+    char buf = version;
+    ask_fd = open_send_broadcast(sport, &buf, 1);
+    int secondPort = get_second_port_for_debug(sport);
+    if (secondPort > 0)
+        ask_second_fd = open_send_broadcast(secondPort, &buf, 1);
 }
 
-bool DiscoverSched::isSchedulerDiscovery(const char* buf, int buflen, int* daemon_version)
+bool
+DiscoverSched::isSchedulerDiscovery(const char * buf,
+                                    int          buflen,
+                                    int *        daemon_version)
 {
-    if( buflen != 1 )
+    if (buflen != 1)
         return false;
-    if( daemon_version != nullptr ) {
-        *daemon_version = buf[ 0 ];
+    if (daemon_version != nullptr) {
+        *daemon_version = buf[0];
     }
     return true;
 }
@@ -1629,7 +1679,10 @@ static const int BROAD_BUFLEN = 268;
 static const int BROAD_BUFLEN_OLD_2 = 32;
 static const int BROAD_BUFLEN_OLD_1 = 16;
 
-int DiscoverSched::prepareBroadcastReply(char* buf, const char* netname, time_t starttime)
+int
+DiscoverSched::prepareBroadcastReply(char *       buf,
+                                     const char * netname,
+                                     time_t       starttime)
 {
     if (buf[0] < 33) { // old client
         buf[0]++;
@@ -1638,10 +1691,11 @@ int DiscoverSched::prepareBroadcastReply(char* buf, const char* netname, time_t 
         buf[BROAD_BUFLEN_OLD_1 - 1] = 0;
         return BROAD_BUFLEN_OLD_1;
     } else if (buf[0] < 36) {
-        // This is like 36, but 36 silently changed the size of BROAD_BUFLEN from 32 to 268.
-        // Since get_broad_answer() explicitly null-terminates the data, this wouldn't lead
-        // to those receivers reading a shorter string that would not be null-terminated,
-        // but still, this is what versions 33-35 actually worked with.
+        // This is like 36, but 36 silently changed the size of BROAD_BUFLEN
+        // from 32 to 268. Since get_broad_answer() explicitly null-terminates
+        // the data, this wouldn't lead to those receivers reading a shorter
+        // string that would not be null-terminated, but still, this is what
+        // versions 33-35 actually worked with.
         buf[0] += 2;
         memset(buf + 1, 0, BROAD_BUFLEN_OLD_2 - 1);
         uint32_t tmp_version = PROTOCOL_VERSION;
@@ -1669,9 +1723,9 @@ int DiscoverSched::prepareBroadcastReply(char* buf, const char* netname, time_t 
         uint32_t tmp_version = PROTOCOL_VERSION;
         uint32_t tmp_time_low = starttime & 0xffffffffUL;
         uint32_t tmp_time_high = uint64_t(starttime) >> 32;
-        tmp_version = htonl( tmp_version );
-        tmp_time_low = htonl( tmp_time_low );
-        tmp_time_high = htonl( tmp_time_high );
+        tmp_version = htonl(tmp_version);
+        tmp_time_low = htonl(tmp_time_low);
+        tmp_time_high = htonl(tmp_time_high);
         memcpy(buf + 1, &tmp_version, sizeof(uint32_t));
         memcpy(buf + 1 + sizeof(uint32_t), &tmp_time_high, sizeof(uint32_t));
         memcpy(buf + 1 + 2 * sizeof(uint32_t), &tmp_time_low, sizeof(uint32_t));
@@ -1682,17 +1736,22 @@ int DiscoverSched::prepareBroadcastReply(char* buf, const char* netname, time_t 
     }
 }
 
-void DiscoverSched::get_broad_data(const char* buf, const char** name, int* version, time_t* start_time)
+void
+DiscoverSched::get_broad_data(const char *  buf,
+                              const char ** name,
+                              int *         version,
+                              time_t *      start_time)
 {
     if (buf[0] == PROTOCOL_VERSION + 1) {
-        // Scheduler version 32 or older, didn't send us its version, assume it's 32.
+        // Scheduler version 32 or older, didn't send us its version, assume
+        // it's 32.
         if (name != nullptr)
             *name = buf + 1;
         if (version != nullptr)
             *version = 32;
         if (start_time != nullptr)
             *start_time = 0; // Unknown too.
-    } else if(buf[0] == PROTOCOL_VERSION + 2) {
+    } else if (buf[0] == PROTOCOL_VERSION + 2) {
         if (version != nullptr) {
             uint32_t tmp_version;
             memcpy(&tmp_version, buf + 1, sizeof(uint32_t));
@@ -1705,19 +1764,23 @@ void DiscoverSched::get_broad_data(const char* buf, const char** name, int* vers
         }
         if (name != nullptr)
             *name = buf + 1 + sizeof(uint32_t) + sizeof(uint64_t);
-    } else if(buf[0] == PROTOCOL_VERSION + 3) {
+    } else if (buf[0] == PROTOCOL_VERSION + 3) {
         if (version != nullptr) {
             uint32_t tmp_version;
             memcpy(&tmp_version, buf + 1, sizeof(uint32_t));
-            *version = ntohl( tmp_version );
+            *version = ntohl(tmp_version);
         }
         if (start_time != nullptr) {
             uint32_t tmp_time_low, tmp_time_high;
-            memcpy(&tmp_time_high, buf + 1 + sizeof(uint32_t), sizeof(uint32_t));
-            memcpy(&tmp_time_low, buf + 1 + 2 * sizeof(uint32_t), sizeof(uint32_t));
-            tmp_time_low = ntohl( tmp_time_low );
-            tmp_time_high = ntohl( tmp_time_high );
-            *start_time = ( uint64_t( tmp_time_high ) << 32 ) | tmp_time_low;;
+            memcpy(
+                &tmp_time_high, buf + 1 + sizeof(uint32_t), sizeof(uint32_t));
+            memcpy(&tmp_time_low,
+                   buf + 1 + 2 * sizeof(uint32_t),
+                   sizeof(uint32_t));
+            tmp_time_low = ntohl(tmp_time_low);
+            tmp_time_high = ntohl(tmp_time_high);
+            *start_time = (uint64_t(tmp_time_high) << 32) | tmp_time_low;
+            ;
         }
         if (name != nullptr)
             *name = buf + 1 + 3 * sizeof(uint32_t);
@@ -1726,58 +1789,76 @@ void DiscoverSched::get_broad_data(const char* buf, const char** name, int* vers
     }
 }
 
-MsgChannel *DiscoverSched::try_get_scheduler()
+MsgChannel *
+DiscoverSched::try_get_scheduler()
 {
     if (schedname.empty()) {
         socklen_t remote_len;
-        char buf2[BROAD_BUFLEN];
+        char      buf2[BROAD_BUFLEN];
         /* Try to get the scheduler with the newest version, and if there
            are several with the same version, choose the one that's been running
            for the longest time. It should work like this (and it won't work
-           perfectly if there are schedulers and/or daemons with old (<33) version):
+           perfectly if there are schedulers and/or daemons with old (<33)
+           version):
 
-           Whenever a daemon starts, it broadcasts for a scheduler. Schedulers all
-           see the broadcast and respond with their version, start time and netname.
-           Here we select the best one.
-           If a new scheduler is started, it'll broadcast its version and all
-           other schedulers will drop their daemon connections if they have an older
-           version. If the best scheduler quits, all daemons will get their connections
-           closed and will re-discover and re-connect.
+           Whenever a daemon starts, it broadcasts for a scheduler. Schedulers
+           all see the broadcast and respond with their version, start time and
+           netname. Here we select the best one. If a new scheduler is started,
+           it'll broadcast its version and all other schedulers will drop their
+           daemon connections if they have an older version. If the best
+           scheduler quits, all daemons will get their connections closed and
+           will re-discover and re-connect.
         */
 
         /* Read/test all packages arrived until now.  */
-        while (get_broad_answer(ask_fd, 0/*timeout*/, buf2, (struct sockaddr_in *) &remote_addr, &remote_len)
-                || ( ask_second_fd != -1 && get_broad_answer(ask_second_fd, 0/*timeout*/, buf2,
-                                            (struct sockaddr_in *) &remote_addr, &remote_len))) {
-            int version;
-            time_t start_time;
-            const char* name;
+        while (get_broad_answer(ask_fd,
+                                0 /*timeout*/,
+                                buf2,
+                                (struct sockaddr_in *)&remote_addr,
+                                &remote_len) ||
+               (ask_second_fd != -1 &&
+                get_broad_answer(ask_second_fd,
+                                 0 /*timeout*/,
+                                 buf2,
+                                 (struct sockaddr_in *)&remote_addr,
+                                 &remote_len))) {
+            int          version;
+            time_t       start_time;
+            const char * name;
             get_broad_data(buf2, &name, &version, &start_time);
             if (strcasecmp(netname.c_str(), name) == 0) {
-                if( version >= 128 || version < 1 ) {
-                    log_warning() << "Ignoring bogus version " << version << " from scheduler found at " << inet_ntoa(remote_addr.sin_addr)
-                        << ":" << ntohs(remote_addr.sin_port) << endl;
+                if (version >= 128 || version < 1) {
+                    log_warning() << "Ignoring bogus version " << version
+                                  << " from scheduler found at "
+                                  << inet_ntoa(remote_addr.sin_addr) << ":"
+                                  << ntohs(remote_addr.sin_port) << endl;
                     continue;
-                }
-                else if (version < 33) {
-                    log_info() << "Suitable scheduler found at " << inet_ntoa(remote_addr.sin_addr)
-                        << ":" << ntohs(remote_addr.sin_port) << " (unknown version)" << endl;
+                } else if (version < 33) {
+                    log_info() << "Suitable scheduler found at "
+                               << inet_ntoa(remote_addr.sin_addr) << ":"
+                               << ntohs(remote_addr.sin_port)
+                               << " (unknown version)" << endl;
                 } else {
-                    log_info() << "Suitable scheduler found at " << inet_ntoa(remote_addr.sin_addr)
-                        << ":" << ntohs(remote_addr.sin_port) << " (version: " << version << ")" << endl;
+                    log_info() << "Suitable scheduler found at "
+                               << inet_ntoa(remote_addr.sin_addr) << ":"
+                               << ntohs(remote_addr.sin_port)
+                               << " (version: " << version << ")" << endl;
                 }
                 if (best_version != 0)
                     multiple = true;
-                if (best_version < version || (best_version == version && best_start_time > start_time)) {
+                if (best_version < version ||
+                    (best_version == version && best_start_time > start_time)) {
                     best_schedname = inet_ntoa(remote_addr.sin_addr);
                     best_port = ntohs(remote_addr.sin_port);
                     best_version = version;
                     best_start_time = start_time;
                 }
             } else {
-                log_info() << "Ignoring scheduler at " << inet_ntoa(remote_addr.sin_addr)
-                    << ":" << ntohs(remote_addr.sin_port) << " because of a different netname ("
-                    << name << ")" << endl;
+                log_info() << "Ignoring scheduler at "
+                           << inet_ntoa(remote_addr.sin_addr) << ":"
+                           << ntohs(remote_addr.sin_port)
+                           << " because of a different netname (" << name << ")"
+                           << endl;
             }
         }
 
@@ -1788,53 +1869,63 @@ MsgChannel *DiscoverSched::try_get_scheduler()
             schedname = best_schedname;
             sport = best_port;
             if (multiple)
-                log_info() << "Selecting scheduler at " << schedname << ":" << sport << endl;
+                log_info() << "Selecting scheduler at " << schedname << ":"
+                           << sport << endl;
 
-            if (-1 == close(ask_fd)){
+            if (-1 == close(ask_fd)) {
                 log_perror("close failed");
             }
             ask_fd = -1;
-            if( get_second_port_for_debug( sport ) > 0 ) {
-                if (-1 == close(ask_second_fd)){
+            if (get_second_port_for_debug(sport) > 0) {
+                if (-1 == close(ask_second_fd)) {
                     log_perror("close failed");
                 }
                 ask_second_fd = -1;
             } else {
-                assert( ask_second_fd == -1 );
+                assert(ask_second_fd == -1);
             }
             attempt_scheduler_connect();
 
             if (ask_fd >= 0) {
-                int status = connect(ask_fd, (struct sockaddr *) &remote_addr, sizeof(remote_addr));
+                int status = connect(ask_fd,
+                                     (struct sockaddr *)&remote_addr,
+                                     sizeof(remote_addr));
 
-                if (status == 0 || (status < 0 && (errno == EISCONN || errno == EINPROGRESS))) {
+                if (status == 0 || (status < 0 && (errno == EISCONN ||
+                                                   errno == EINPROGRESS))) {
                     int fd = ask_fd;
                     ask_fd = -1;
-                    return Service::createChannel(fd,
-                                                  (struct sockaddr *) &remote_addr, sizeof(remote_addr));
+                    return Service::createChannel(
+                        fd,
+                        (struct sockaddr *)&remote_addr,
+                        sizeof(remote_addr));
                 }
             }
         }
-    }
-    else if (ask_fd >= 0) {
-        assert( ask_second_fd == -1 );
-        int status = connect(ask_fd, (struct sockaddr *) &remote_addr, sizeof(remote_addr));
+    } else if (ask_fd >= 0) {
+        assert(ask_second_fd == -1);
+        int status = connect(
+            ask_fd, (struct sockaddr *)&remote_addr, sizeof(remote_addr));
 
         if (status == 0 || (status < 0 && errno == EISCONN)) {
             int fd = ask_fd;
             ask_fd = -1;
-            return Service::createChannel(fd,
-                                          (struct sockaddr *) &remote_addr, sizeof(remote_addr));
+            return Service::createChannel(
+                fd, (struct sockaddr *)&remote_addr, sizeof(remote_addr));
         }
     }
 
     return nullptr;
 }
 
-bool DiscoverSched::get_broad_answer(int ask_fd, int timeout, char *buf2, struct sockaddr_in *remote_addr,
-                 socklen_t *remote_len)
+bool
+DiscoverSched::get_broad_answer(int                  ask_fd,
+                                int                  timeout,
+                                char *               buf2,
+                                struct sockaddr_in * remote_addr,
+                                socklen_t *          remote_len)
 {
-    char buf = PROTOCOL_VERSION;
+    char   buf = PROTOCOL_VERSION;
     pollfd pfd;
     assert(ask_fd > 0);
     pfd.fd = ask_fd;
@@ -1852,17 +1943,28 @@ bool DiscoverSched::get_broad_answer(int ask_fd, int timeout, char *buf2, struct
 
     *remote_len = sizeof(struct sockaddr_in);
 
-    int len = recvfrom(ask_fd, buf2, BROAD_BUFLEN, 0, (struct sockaddr *) remote_addr, remote_len);
-    if (len != BROAD_BUFLEN && len != BROAD_BUFLEN_OLD_1 && len != BROAD_BUFLEN_OLD_2) {
+    int len = recvfrom(ask_fd,
+                       buf2,
+                       BROAD_BUFLEN,
+                       0,
+                       (struct sockaddr *)remote_addr,
+                       remote_len);
+    if (len != BROAD_BUFLEN && len != BROAD_BUFLEN_OLD_1 &&
+        len != BROAD_BUFLEN_OLD_2) {
         log_perror("get_broad_answer recvfrom()");
         return false;
     }
 
-    if (! ((len == BROAD_BUFLEN_OLD_1 && buf2[0] == buf + 1)   // PROTOCOL <= 32 scheduler
-          || (len == BROAD_BUFLEN_OLD_2 && buf2[0] == buf + 2) // PROTOCOL >= 33 && < 36 scheduler
-          || (len == BROAD_BUFLEN && buf2[0] == buf + 2)       // PROTOCOL >= 36 && < 38 scheduler
-          || (len == BROAD_BUFLEN && buf2[0] == buf + 3))) {   // PROTOCOL >= 38 scheduler
-        log_error() << "Wrong scheduler discovery answer (size " << len << ", mark " << int(buf2[0]) << ")" << endl;
+    if (!((len == BROAD_BUFLEN_OLD_1 &&
+           buf2[0] == buf + 1) // PROTOCOL <= 32 scheduler
+          || (len == BROAD_BUFLEN_OLD_2 &&
+              buf2[0] == buf + 2) // PROTOCOL >= 33 && < 36 scheduler
+          || (len == BROAD_BUFLEN &&
+              buf2[0] == buf + 2) // PROTOCOL >= 36 && < 38 scheduler
+          || (len == BROAD_BUFLEN &&
+              buf2[0] == buf + 3))) { // PROTOCOL >= 38 scheduler
+        log_error() << "Wrong scheduler discovery answer (size " << len
+                    << ", mark " << int(buf2[0]) << ")" << endl;
         return false;
     }
 
@@ -1870,13 +1972,14 @@ bool DiscoverSched::get_broad_answer(int ask_fd, int timeout, char *buf2, struct
     return true;
 }
 
-list<string> DiscoverSched::getNetnames(int timeout, int port)
+list<string>
+DiscoverSched::getNetnames(int timeout, int port)
 {
-    list<string> l;
-    int ask_fd;
+    list<string>       l;
+    int                ask_fd;
     struct sockaddr_in remote_addr;
-    socklen_t remote_len;
-    time_t time0 = time(nullptr);
+    socklen_t          remote_len;
+    time_t             time0 = time(nullptr);
 
     char buf = PROTOCOL_VERSION;
     ask_fd = open_send_broadcast(port, &buf, 1);
@@ -1889,68 +1992,77 @@ list<string> DiscoverSched::getNetnames(int timeout, int port)
         time_t timeout_time = time(nullptr) + min(2 + 1, timeout);
 
         /* Read/test all arriving packages.  */
-        while (get_broad_answer(ask_fd, first ? timeout : 0, buf2,
-                                &remote_addr, &remote_len)
-               && time(nullptr) < timeout_time) {
+        while (
+            get_broad_answer(
+                ask_fd, first ? timeout : 0, buf2, &remote_addr, &remote_len) &&
+            time(nullptr) < timeout_time) {
             first = false;
-            const char* name;
+            const char * name;
             get_broad_data(buf2, &name, nullptr, nullptr);
             l.push_back(name);
         }
     } while (time(nullptr) - time0 < (timeout / 1000));
 
-    if ((-1 == close(ask_fd)) && (errno != EBADF)){
+    if ((-1 == close(ask_fd)) && (errno != EBADF)) {
         log_perror("close failed");
     }
     return l;
 }
 
-list<string> get_netnames(int timeout, int port)
+list<string>
+get_netnames(int timeout, int port)
 {
     return DiscoverSched::getNetnames(timeout, port);
 }
 
-void Msg::fill_from_channel(MsgChannel *)
+void
+Msg::fill_from_channel(MsgChannel *)
 {
 }
 
-void Msg::send_to_channel(MsgChannel *c) const
+void
+Msg::send_to_channel(MsgChannel * c) const
 {
     if (c->is_text_based()) {
         return;
     }
 
-    *c << (uint32_t) type;
+    *c << (uint32_t)type;
 }
 
-GetCSMsg::GetCSMsg(const Environments &envs, const std::string &f,
-     CompileJob::Language _lang, unsigned int _count,
-     std::string _target, unsigned int _arg_flags,
-     const std::string &host, int _minimal_host_version,
-     unsigned int _required_features,
-     int _niceness,
-     unsigned int _client_count)
-    : Msg(M_GET_CS)
-    , versions(envs)
-    , filename(f)
-    , lang(_lang)
-    , count(_count)
-    , target(_target)
-    , arg_flags(_arg_flags)
-    , client_id(0)
-    , preferred_host(host)
-    , minimal_host_version(_minimal_host_version)
-    , required_features(_required_features)
-    , client_count(_client_count)
-    , niceness(_niceness)
+GetCSMsg::GetCSMsg(const Environments & envs,
+                   const std::string &  f,
+                   CompileJob::Language _lang,
+                   unsigned int         _count,
+                   std::string          _target,
+                   unsigned int         _arg_flags,
+                   const std::string &  host,
+                   int                  _minimal_host_version,
+                   unsigned int         _required_features,
+                   int                  _niceness,
+                   unsigned int         _client_count)
+    : Msg(M_GET_CS),
+      versions(envs),
+      filename(f),
+      lang(_lang),
+      count(_count),
+      target(_target),
+      arg_flags(_arg_flags),
+      client_id(0),
+      preferred_host(host),
+      minimal_host_version(_minimal_host_version),
+      required_features(_required_features),
+      client_count(_client_count),
+      niceness(_niceness)
 {
     // These have been introduced in protocol version 42.
-    if( required_features & ( NODE_FEATURE_ENV_XZ | NODE_FEATURE_ENV_ZSTD ))
-        minimal_host_version = max( minimal_host_version, 42 );
-    assert( _niceness >= 0 && _niceness <= 20 );
+    if (required_features & (NODE_FEATURE_ENV_XZ | NODE_FEATURE_ENV_ZSTD))
+        minimal_host_version = max(minimal_host_version, 42);
+    assert(_niceness >= 0 && _niceness <= 20);
 }
 
-void GetCSMsg::fill_from_channel(MsgChannel *c)
+void
+GetCSMsg::fill_from_channel(MsgChannel * c)
 {
     Msg::fill_from_channel(c);
     c->read_environments(versions);
@@ -1980,7 +2092,7 @@ void GetCSMsg::fill_from_channel(MsgChannel *c)
     if (IS_PROTOCOL_34(c)) {
         uint32_t version;
         *c >> version;
-        minimal_host_version = max( minimal_host_version, int( version ));
+        minimal_host_version = max(minimal_host_version, int(version));
     }
 
     if (IS_PROTOCOL_39(c)) {
@@ -1998,12 +2110,13 @@ void GetCSMsg::fill_from_channel(MsgChannel *c)
     }
 }
 
-void GetCSMsg::send_to_channel(MsgChannel *c) const
+void
+GetCSMsg::send_to_channel(MsgChannel * c) const
 {
     Msg::send_to_channel(c);
     c->write_environments(versions);
     *c << shorten_filename(filename);
-    *c << (uint32_t) lang;
+    *c << (uint32_t)lang;
     *c << count;
     *c << target;
     *c << arg_flags;
@@ -2031,7 +2144,8 @@ void GetCSMsg::send_to_channel(MsgChannel *c) const
     }
 }
 
-void UseCSMsg::fill_from_channel(MsgChannel *c)
+void
+UseCSMsg::fill_from_channel(MsgChannel * c)
 {
     Msg::fill_from_channel(c);
     *c >> job_id;
@@ -2048,7 +2162,8 @@ void UseCSMsg::fill_from_channel(MsgChannel *c)
     }
 }
 
-void UseCSMsg::send_to_channel(MsgChannel *c) const
+void
+UseCSMsg::send_to_channel(MsgChannel * c) const
 {
     Msg::send_to_channel(c);
     *c << job_id;
@@ -2063,47 +2178,52 @@ void UseCSMsg::send_to_channel(MsgChannel *c) const
     }
 }
 
-void NoCSMsg::fill_from_channel(MsgChannel *c)
+void
+NoCSMsg::fill_from_channel(MsgChannel * c)
 {
     Msg::fill_from_channel(c);
     *c >> job_id;
     *c >> client_id;
 }
 
-void NoCSMsg::send_to_channel(MsgChannel *c) const
+void
+NoCSMsg::send_to_channel(MsgChannel * c) const
 {
     Msg::send_to_channel(c);
     *c << job_id;
     *c << client_id;
 }
 
-
-void CompileFileMsg::fill_from_channel(MsgChannel *c)
+void
+CompileFileMsg::fill_from_channel(MsgChannel * c)
 {
     Msg::fill_from_channel(c);
     uint32_t id, lang;
-    string version;
+    string   version;
     *c >> lang;
     *c >> id;
     ArgumentsList l;
-    if( IS_PROTOCOL_41(c)) {
+    if (IS_PROTOCOL_41(c)) {
         list<string> largs;
         *c >> largs;
-        // Whe compiling remotely, we no longer care about the Arg_Remote vs Arg_Rest
-        // difference, so treat them all as Arg_Remote.
-        for (list<string>::const_iterator it = largs.begin(); it != largs.end(); ++it)
+        // Whe compiling remotely, we no longer care about the Arg_Remote vs
+        // Arg_Rest difference, so treat them all as Arg_Remote.
+        for (list<string>::const_iterator it = largs.begin(); it != largs.end();
+             ++it)
             l.append(*it, Arg_Remote);
     } else {
         list<string> _l1, _l2;
         *c >> _l1;
         *c >> _l2;
-        for (list<string>::const_iterator it = _l1.begin(); it != _l1.end(); ++it)
+        for (list<string>::const_iterator it = _l1.begin(); it != _l1.end();
+             ++it)
             l.append(*it, Arg_Remote);
-        for (list<string>::const_iterator it = _l2.begin(); it != _l2.end(); ++it)
+        for (list<string>::const_iterator it = _l2.begin(); it != _l2.end();
+             ++it)
             l.append(*it, Arg_Rest);
     }
     *c >> version;
-    job->setLanguage((CompileJob::Language) lang);
+    job->setLanguage((CompileJob::Language)lang);
     job->setJobID(id);
 
     job->setFlags(l);
@@ -2118,7 +2238,7 @@ void CompileFileMsg::fill_from_channel(MsgChannel *c)
         *c >> compilerName;
         job->setCompilerName(compilerName);
     }
-    if( IS_PROTOCOL_34(c)) {
+    if (IS_PROTOCOL_34(c)) {
         string inputFile;
         string workingDirectory;
         *c >> inputFile;
@@ -2127,7 +2247,7 @@ void CompileFileMsg::fill_from_channel(MsgChannel *c)
         job->setWorkingDirectory(workingDirectory);
     }
     if (IS_PROTOCOL_35(c)) {
-        string outputFile;
+        string   outputFile;
         uint32_t dwarfFissionEnabled = 0;
         *c >> outputFile;
         *c >> dwarfFissionEnabled;
@@ -2136,16 +2256,17 @@ void CompileFileMsg::fill_from_channel(MsgChannel *c)
     }
 }
 
-void CompileFileMsg::send_to_channel(MsgChannel *c) const
+void
+CompileFileMsg::send_to_channel(MsgChannel * c) const
 {
     Msg::send_to_channel(c);
-    *c << (uint32_t) job->language();
+    *c << (uint32_t)job->language();
     *c << job->jobID();
 
     if (IS_PROTOCOL_41(c)) {
-        // By the time we're compiling, the args are all Arg_Remote or Arg_Rest and
-        // we no longer care about the differences, but we may care about the ordering.
-        // So keep them all in one list.
+        // By the time we're compiling, the args are all Arg_Remote or Arg_Rest
+        // and we no longer care about the differences, but we may care about
+        // the ordering. So keep them all in one list.
         *c << job->nonLocalFlags();
     } else {
         if (IS_PROTOCOL_30(c)) {
@@ -2169,13 +2290,13 @@ void CompileFileMsg::send_to_channel(MsgChannel *c) const
     if (IS_PROTOCOL_30(c)) {
         *c << remote_compiler_name();
     }
-    if( IS_PROTOCOL_34(c)) {
+    if (IS_PROTOCOL_34(c)) {
         *c << job->inputFile();
         *c << job->workingDirectory();
     }
     if (IS_PROTOCOL_35(c)) {
         *c << job->outputFile();
-        *c << (uint32_t) job->dwarfFissionEnabled();
+        *c << (uint32_t)job->dwarfFissionEnabled();
     }
 }
 
@@ -2183,7 +2304,8 @@ void CompileFileMsg::send_to_channel(MsgChannel *c) const
 // for compilers, so even if local name was e.g. c++, remote needs to
 // be g++ (before protocol version 30 remote CS even had /usr/bin/{gcc|g++}
 // hardcoded).  For clang, the binary is just clang for both C/C++.
-string CompileFileMsg::remote_compiler_name() const
+string
+CompileFileMsg::remote_compiler_name() const
 {
     if (job->compilerName().find("clang") != string::npos) {
         return "clang";
@@ -2192,17 +2314,19 @@ string CompileFileMsg::remote_compiler_name() const
     return job->language() == CompileJob::Lang_CXX ? "g++" : "gcc";
 }
 
-CompileJob *CompileFileMsg::takeJob()
+CompileJob *
+CompileFileMsg::takeJob()
 {
     assert(deleteit);
     deleteit = false;
     return job;
 }
 
-void FileChunkMsg::fill_from_channel(MsgChannel *c)
+void
+FileChunkMsg::fill_from_channel(MsgChannel * c)
 {
     if (del_buf) {
-        delete [] buffer;
+        delete[] buffer;
     }
 
     buffer = nullptr;
@@ -2212,7 +2336,8 @@ void FileChunkMsg::fill_from_channel(MsgChannel *c)
     c->readcompressed(&buffer, len, compressed);
 }
 
-void FileChunkMsg::send_to_channel(MsgChannel *c) const
+void
+FileChunkMsg::send_to_channel(MsgChannel * c) const
 {
     Msg::send_to_channel(c);
     c->writecompressed(buffer, len, compressed);
@@ -2221,11 +2346,12 @@ void FileChunkMsg::send_to_channel(MsgChannel *c) const
 FileChunkMsg::~FileChunkMsg()
 {
     if (del_buf) {
-        delete [] buffer;
+        delete[] buffer;
     }
 }
 
-void CompileResultMsg::fill_from_channel(MsgChannel *c)
+void
+CompileResultMsg::fill_from_channel(MsgChannel * c)
 {
     Msg::fill_from_channel(c);
     uint32_t _status = 0;
@@ -2243,19 +2369,21 @@ void CompileResultMsg::fill_from_channel(MsgChannel *c)
     }
 }
 
-void CompileResultMsg::send_to_channel(MsgChannel *c) const
+void
+CompileResultMsg::send_to_channel(MsgChannel * c) const
 {
     Msg::send_to_channel(c);
     *c << err;
     *c << out;
     *c << status;
-    *c << (uint32_t) was_out_of_memory;
+    *c << (uint32_t)was_out_of_memory;
     if (IS_PROTOCOL_35(c)) {
-        *c << (uint32_t) have_dwo_file;
+        *c << (uint32_t)have_dwo_file;
     }
 }
 
-void JobBeginMsg::fill_from_channel(MsgChannel *c)
+void
+JobBeginMsg::fill_from_channel(MsgChannel * c)
 {
     Msg::fill_from_channel(c);
     *c >> job_id;
@@ -2265,7 +2393,8 @@ void JobBeginMsg::fill_from_channel(MsgChannel *c)
     }
 }
 
-void JobBeginMsg::send_to_channel(MsgChannel *c) const
+void
+JobBeginMsg::send_to_channel(MsgChannel * c) const
 {
     Msg::send_to_channel(c);
     *c << job_id;
@@ -2275,7 +2404,8 @@ void JobBeginMsg::send_to_channel(MsgChannel *c) const
     }
 }
 
-void JobLocalBeginMsg::fill_from_channel(MsgChannel *c)
+void
+JobLocalBeginMsg::fill_from_channel(MsgChannel * c)
 {
     Msg::fill_from_channel(c);
     *c >> stime;
@@ -2283,7 +2413,8 @@ void JobLocalBeginMsg::fill_from_channel(MsgChannel *c)
     *c >> id;
 }
 
-void JobLocalBeginMsg::send_to_channel(MsgChannel *c) const
+void
+JobLocalBeginMsg::send_to_channel(MsgChannel * c) const
 {
     Msg::send_to_channel(c);
     *c << stime;
@@ -2291,24 +2422,29 @@ void JobLocalBeginMsg::send_to_channel(MsgChannel *c) const
     *c << id;
 }
 
-void JobLocalDoneMsg::fill_from_channel(MsgChannel *c)
+void
+JobLocalDoneMsg::fill_from_channel(MsgChannel * c)
 {
     Msg::fill_from_channel(c);
     *c >> job_id;
 }
 
-void JobLocalDoneMsg::send_to_channel(MsgChannel *c) const
+void
+JobLocalDoneMsg::send_to_channel(MsgChannel * c) const
 {
     Msg::send_to_channel(c);
     *c << job_id;
 }
 
-JobDoneMsg::JobDoneMsg(int id, int exit, unsigned int _flags, unsigned int _client_count)
-    : Msg(M_JOB_DONE)
-    , exitcode(exit)
-    , flags(_flags)
-    , job_id(id)
-    , client_count(_client_count)
+JobDoneMsg::JobDoneMsg(int          id,
+                       int          exit,
+                       unsigned int _flags,
+                       unsigned int _client_count)
+    : Msg(M_JOB_DONE),
+      exitcode(exit),
+      flags(_flags),
+      job_id(id),
+      client_count(_client_count)
 {
     real_msec = 0;
     user_msec = 0;
@@ -2320,7 +2456,8 @@ JobDoneMsg::JobDoneMsg(int id, int exit, unsigned int _flags, unsigned int _clie
     out_uncompressed = 0;
 }
 
-void JobDoneMsg::fill_from_channel(MsgChannel *c)
+void
+JobDoneMsg::fill_from_channel(MsgChannel * c)
 {
     Msg::fill_from_channel(c);
     uint32_t _exitcode = 255;
@@ -2335,7 +2472,7 @@ void JobDoneMsg::fill_from_channel(MsgChannel *c)
     *c >> out_compressed;
     *c >> out_uncompressed;
     *c >> flags;
-    exitcode = (int) _exitcode;
+    exitcode = (int)_exitcode;
     // Older versions used this special exit code to identify
     // EndJob messages for jobs with unknown job id.
     if (!IS_PROTOCOL_39(c) && exitcode == 200) {
@@ -2346,14 +2483,15 @@ void JobDoneMsg::fill_from_channel(MsgChannel *c)
     }
 }
 
-void JobDoneMsg::send_to_channel(MsgChannel *c) const
+void
+JobDoneMsg::send_to_channel(MsgChannel * c) const
 {
     Msg::send_to_channel(c);
     *c << job_id;
     if (!IS_PROTOCOL_39(c) && (flags & UnknownJobId)) {
-        *c << (uint32_t) 200;
+        *c << (uint32_t)200;
     } else {
-        *c << (uint32_t) exitcode;
+        *c << (uint32_t)exitcode;
     }
     *c << real_msec;
     *c << user_msec;
@@ -2369,36 +2507,41 @@ void JobDoneMsg::send_to_channel(MsgChannel *c) const
     }
 }
 
-void JobDoneMsg::set_unknown_job_client_id( uint32_t clientId )
+void
+JobDoneMsg::set_unknown_job_client_id(uint32_t clientId)
 {
     flags |= UnknownJobId;
     job_id = clientId;
 }
 
-uint32_t JobDoneMsg::unknown_job_client_id() const
+uint32_t
+JobDoneMsg::unknown_job_client_id() const
 {
-    if( flags & UnknownJobId ) {
+    if (flags & UnknownJobId) {
         return job_id;
     }
     return 0;
 }
 
-void JobDoneMsg::set_job_id( uint32_t jobId )
+void
+JobDoneMsg::set_job_id(uint32_t jobId)
 {
     job_id = jobId;
-    flags &= ~ (uint32_t) UnknownJobId;
+    flags &= ~(uint32_t)UnknownJobId;
 }
 
-LoginMsg::LoginMsg(unsigned int myport, const std::string &_nodename, const std::string &_host_platform,
-    unsigned int myfeatures)
-    : Msg(M_LOGIN)
-    , port(myport)
-    , max_kids(0)
-    , noremote(false)
-    , chroot_possible(false)
-    , nodename(_nodename)
-    , host_platform(_host_platform)
-    , supported_features(myfeatures)
+LoginMsg::LoginMsg(unsigned int        myport,
+                   const std::string & _nodename,
+                   const std::string & _host_platform,
+                   unsigned int        myfeatures)
+    : Msg(M_LOGIN),
+      port(myport),
+      max_kids(0),
+      noremote(false),
+      chroot_possible(false),
+      nodename(_nodename),
+      host_platform(_host_platform),
+      supported_features(myfeatures)
 {
 #ifdef HAVE_LIBCAP_NG
     chroot_possible = capng_have_capability(CAPNG_EFFECTIVE, CAP_SYS_CHROOT);
@@ -2408,7 +2551,8 @@ LoginMsg::LoginMsg(unsigned int myport, const std::string &_nodename, const std:
 #endif
 }
 
-void LoginMsg::fill_from_channel(MsgChannel *c)
+void
+LoginMsg::fill_from_channel(MsgChannel * c)
 {
     Msg::fill_from_channel(c);
     *c >> port;
@@ -2433,7 +2577,8 @@ void LoginMsg::fill_from_channel(MsgChannel *c)
     }
 }
 
-void LoginMsg::send_to_channel(MsgChannel *c) const
+void
+LoginMsg::send_to_channel(MsgChannel * c) const
 {
     Msg::send_to_channel(c);
     *c << port;
@@ -2451,7 +2596,8 @@ void LoginMsg::send_to_channel(MsgChannel *c) const
     }
 }
 
-void ConfCSMsg::fill_from_channel(MsgChannel *c)
+void
+ConfCSMsg::fill_from_channel(MsgChannel * c)
 {
     Msg::fill_from_channel(c);
     *c >> max_scheduler_pong;
@@ -2460,7 +2606,8 @@ void ConfCSMsg::fill_from_channel(MsgChannel *c)
     *c >> bench_source;
 }
 
-void ConfCSMsg::send_to_channel(MsgChannel *c) const
+void
+ConfCSMsg::send_to_channel(MsgChannel * c) const
 {
     Msg::send_to_channel(c);
     *c << max_scheduler_pong;
@@ -2469,7 +2616,8 @@ void ConfCSMsg::send_to_channel(MsgChannel *c) const
     *c << bench_source;
 }
 
-void StatsMsg::fill_from_channel(MsgChannel *c)
+void
+StatsMsg::fill_from_channel(MsgChannel * c)
 {
     Msg::fill_from_channel(c);
     *c >> load;
@@ -2479,7 +2627,8 @@ void StatsMsg::fill_from_channel(MsgChannel *c)
     *c >> freeMem;
 }
 
-void StatsMsg::send_to_channel(MsgChannel *c) const
+void
+StatsMsg::send_to_channel(MsgChannel * c) const
 {
     Msg::send_to_channel(c);
     *c << load;
@@ -2489,7 +2638,8 @@ void StatsMsg::send_to_channel(MsgChannel *c) const
     *c << freeMem;
 }
 
-void GetNativeEnvMsg::fill_from_channel(MsgChannel *c)
+void
+GetNativeEnvMsg::fill_from_channel(MsgChannel * c)
 {
     Msg::fill_from_channel(c);
 
@@ -2502,7 +2652,8 @@ void GetNativeEnvMsg::fill_from_channel(MsgChannel *c)
         *c >> compression;
 }
 
-void GetNativeEnvMsg::send_to_channel(MsgChannel *c) const
+void
+GetNativeEnvMsg::send_to_channel(MsgChannel * c) const
 {
     Msg::send_to_channel(c);
 
@@ -2514,33 +2665,38 @@ void GetNativeEnvMsg::send_to_channel(MsgChannel *c) const
         *c << compression;
 }
 
-void UseNativeEnvMsg::fill_from_channel(MsgChannel *c)
+void
+UseNativeEnvMsg::fill_from_channel(MsgChannel * c)
 {
     Msg::fill_from_channel(c);
     *c >> nativeVersion;
 }
 
-void UseNativeEnvMsg::send_to_channel(MsgChannel *c) const
+void
+UseNativeEnvMsg::send_to_channel(MsgChannel * c) const
 {
     Msg::send_to_channel(c);
     *c << nativeVersion;
 }
 
-void EnvTransferMsg::fill_from_channel(MsgChannel *c)
+void
+EnvTransferMsg::fill_from_channel(MsgChannel * c)
 {
     Msg::fill_from_channel(c);
     *c >> name;
     *c >> target;
 }
 
-void EnvTransferMsg::send_to_channel(MsgChannel *c) const
+void
+EnvTransferMsg::send_to_channel(MsgChannel * c) const
 {
     Msg::send_to_channel(c);
     *c << name;
     *c << target;
 }
 
-void MonGetCSMsg::fill_from_channel(MsgChannel *c)
+void
+MonGetCSMsg::fill_from_channel(MsgChannel * c)
 {
     if (IS_PROTOCOL_29(c)) {
         Msg::fill_from_channel(c);
@@ -2556,12 +2712,13 @@ void MonGetCSMsg::fill_from_channel(MsgChannel *c)
     *c >> clientid;
 }
 
-void MonGetCSMsg::send_to_channel(MsgChannel *c) const
+void
+MonGetCSMsg::send_to_channel(MsgChannel * c) const
 {
     if (IS_PROTOCOL_29(c)) {
         Msg::send_to_channel(c);
         *c << shorten_filename(filename);
-        *c << (uint32_t) lang;
+        *c << (uint32_t)lang;
     } else {
         GetCSMsg::send_to_channel(c);
     }
@@ -2570,7 +2727,8 @@ void MonGetCSMsg::send_to_channel(MsgChannel *c) const
     *c << clientid;
 }
 
-void MonJobBeginMsg::fill_from_channel(MsgChannel *c)
+void
+MonJobBeginMsg::fill_from_channel(MsgChannel * c)
 {
     Msg::fill_from_channel(c);
     *c >> job_id;
@@ -2578,7 +2736,8 @@ void MonJobBeginMsg::fill_from_channel(MsgChannel *c)
     *c >> hostid;
 }
 
-void MonJobBeginMsg::send_to_channel(MsgChannel *c) const
+void
+MonJobBeginMsg::send_to_channel(MsgChannel * c) const
 {
     Msg::send_to_channel(c);
     *c << job_id;
@@ -2586,7 +2745,8 @@ void MonJobBeginMsg::send_to_channel(MsgChannel *c) const
     *c << hostid;
 }
 
-void MonLocalJobBeginMsg::fill_from_channel(MsgChannel *c)
+void
+MonLocalJobBeginMsg::fill_from_channel(MsgChannel * c)
 {
     Msg::fill_from_channel(c);
     *c >> hostid;
@@ -2595,7 +2755,8 @@ void MonLocalJobBeginMsg::fill_from_channel(MsgChannel *c)
     *c >> file;
 }
 
-void MonLocalJobBeginMsg::send_to_channel(MsgChannel *c) const
+void
+MonLocalJobBeginMsg::send_to_channel(MsgChannel * c) const
 {
     Msg::send_to_channel(c);
     *c << hostid;
@@ -2604,57 +2765,66 @@ void MonLocalJobBeginMsg::send_to_channel(MsgChannel *c) const
     *c << shorten_filename(file);
 }
 
-void MonStatsMsg::fill_from_channel(MsgChannel *c)
+void
+MonStatsMsg::fill_from_channel(MsgChannel * c)
 {
     Msg::fill_from_channel(c);
     *c >> hostid;
     *c >> statmsg;
 }
 
-void MonStatsMsg::send_to_channel(MsgChannel *c) const
+void
+MonStatsMsg::send_to_channel(MsgChannel * c) const
 {
     Msg::send_to_channel(c);
     *c << hostid;
     *c << statmsg;
 }
 
-void TextMsg::fill_from_channel(MsgChannel *c)
+void
+TextMsg::fill_from_channel(MsgChannel * c)
 {
     c->read_line(text);
 }
 
-void TextMsg::send_to_channel(MsgChannel *c) const
+void
+TextMsg::send_to_channel(MsgChannel * c) const
 {
     c->write_line(text);
 }
 
-void StatusTextMsg::fill_from_channel(MsgChannel *c)
+void
+StatusTextMsg::fill_from_channel(MsgChannel * c)
 {
     Msg::fill_from_channel(c);
     *c >> text;
 }
 
-void StatusTextMsg::send_to_channel(MsgChannel *c) const
+void
+StatusTextMsg::send_to_channel(MsgChannel * c) const
 {
     Msg::send_to_channel(c);
     *c << text;
 }
 
-void VerifyEnvMsg::fill_from_channel(MsgChannel *c)
+void
+VerifyEnvMsg::fill_from_channel(MsgChannel * c)
 {
     Msg::fill_from_channel(c);
     *c >> environment;
     *c >> target;
 }
 
-void VerifyEnvMsg::send_to_channel(MsgChannel *c) const
+void
+VerifyEnvMsg::send_to_channel(MsgChannel * c) const
 {
     Msg::send_to_channel(c);
     *c << environment;
     *c << target;
 }
 
-void VerifyEnvResultMsg::fill_from_channel(MsgChannel *c)
+void
+VerifyEnvResultMsg::fill_from_channel(MsgChannel * c)
 {
     Msg::fill_from_channel(c);
     uint32_t read_ok;
@@ -2662,13 +2832,15 @@ void VerifyEnvResultMsg::fill_from_channel(MsgChannel *c)
     ok = read_ok != 0;
 }
 
-void VerifyEnvResultMsg::send_to_channel(MsgChannel *c) const
+void
+VerifyEnvResultMsg::send_to_channel(MsgChannel * c) const
 {
     Msg::send_to_channel(c);
     *c << uint32_t(ok);
 }
 
-void BlacklistHostEnvMsg::fill_from_channel(MsgChannel *c)
+void
+BlacklistHostEnvMsg::fill_from_channel(MsgChannel * c)
 {
     Msg::fill_from_channel(c);
     *c >> environment;
@@ -2676,7 +2848,8 @@ void BlacklistHostEnvMsg::fill_from_channel(MsgChannel *c)
     *c >> hostname;
 }
 
-void BlacklistHostEnvMsg::send_to_channel(MsgChannel *c) const
+void
+BlacklistHostEnvMsg::send_to_channel(MsgChannel * c) const
 {
     Msg::send_to_channel(c);
     *c << environment;

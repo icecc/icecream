@@ -1,6 +1,7 @@
 #define FOO bar
 #define NUMBER 10
-int f()
-    {
+int
+f()
+{
     return NUMBER;
-    }
+}

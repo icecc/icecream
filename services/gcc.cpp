@@ -1,11 +1,14 @@
-/* -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; fill-column: 99; -*- */
+/* -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; fill-column: 99; -*-
+ */
 /* vim: set ts=4 sw=4 et tw=99:  */
-// code based on gcc - Copyright (C) 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
+// code based on gcc - Copyright (C) 1999, 2000, 2001, 2002 Free Software
+// Foundation, Inc.
 
 #include <algorithm>
 
 /* Heuristic to set a default for GGC_MIN_EXPAND.  */
-int ggc_min_expand_heuristic(unsigned int mem_limit)
+int
+ggc_min_expand_heuristic(unsigned int mem_limit)
 {
     double min_expand = mem_limit;
 
@@ -20,7 +23,8 @@ int ggc_min_expand_heuristic(unsigned int mem_limit)
 }
 
 /* Heuristic to set a default for GGC_MIN_HEAPSIZE.  */
-unsigned int ggc_min_heapsize_heuristic(unsigned int mem_limit)
+unsigned int
+ggc_min_heapsize_heuristic(unsigned int mem_limit)
 {
     /* The heuristic is RAM/8, with a lower bound of 4M and an upper
        bound of 128M (when RAM >= 1GB).  */

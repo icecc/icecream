@@ -1,4 +1,5 @@
-/* -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; fill-column: 99; -*- */
+/* -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; fill-column: 99; -*-
+ */
 /* vim: set ts=4 sw=4 et tw=99:  */
 /*
     This file is part of Icecream.
@@ -21,14 +22,18 @@
 #ifndef ICECREAM_FILE_UTIL_H
 #define ICECREAM_FILE_UTIL_H
 
-#include <vector>
 #include <string>
+#include <vector>
 
-std::vector<std::string> split(const std::string &s, char delim);
-std::string get_relative_path(const std::string &to, const std::string &from);
-std::string get_canonicalized_path(const std::string &path);
-bool mkpath(const std::string &path);
-bool rmpath(const char* path);
+std::vector<std::string>
+split(const std::string & s, char delim);
+std::string
+get_relative_path(const std::string & to, const std::string & from);
+std::string
+get_canonicalized_path(const std::string & path);
+bool
+mkpath(const std::string & path);
+bool
+rmpath(const char * path);
 
 #endif
-

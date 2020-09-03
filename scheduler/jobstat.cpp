@@ -1,4 +1,5 @@
-/* -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; fill-column: 99; -*- */
+/* -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; fill-column: 99; -*-
+ */
 /* vim: set ts=4 sw=4 et tw=99:  */
 /*
     This file is part of Icecream.
@@ -24,75 +25,87 @@
 #include "jobstat.h"
 
 JobStat::JobStat()
-    : m_outputSize(0)
-    , m_compileTimeReal(0)
-    , m_compileTimeUser(0)
-    , m_compileTimeSys(0)
-    , m_jobId(0)
+    : m_outputSize(0),
+      m_compileTimeReal(0),
+      m_compileTimeUser(0),
+      m_compileTimeSys(0),
+      m_jobId(0)
 {
 }
 
-unsigned long JobStat::outputSize() const
+unsigned long
+JobStat::outputSize() const
 {
     return m_outputSize;
 }
 
-void JobStat::setOutputSize(unsigned long size)
+void
+JobStat::setOutputSize(unsigned long size)
 {
     m_outputSize = size;
 }
 
-unsigned long JobStat::compileTimeReal() const
+unsigned long
+JobStat::compileTimeReal() const
 {
     return m_compileTimeReal;
 }
 
-void JobStat::setCompileTimeReal(unsigned long time)
+void
+JobStat::setCompileTimeReal(unsigned long time)
 {
     m_compileTimeReal = time;
 }
 
-unsigned long JobStat::compileTimeUser() const
+unsigned long
+JobStat::compileTimeUser() const
 {
     return m_compileTimeUser;
 }
 
-void JobStat::setCompileTimeUser(unsigned long time)
+void
+JobStat::setCompileTimeUser(unsigned long time)
 {
     m_compileTimeUser = time;
 }
 
-unsigned long JobStat::compileTimeSys() const
+unsigned long
+JobStat::compileTimeSys() const
 {
     return m_compileTimeSys;
 }
 
-void JobStat::setCompileTimeSys(unsigned long time)
+void
+JobStat::setCompileTimeSys(unsigned long time)
 {
     m_compileTimeSys = time;
 }
 
-unsigned int JobStat::jobId() const
+unsigned int
+JobStat::jobId() const
 {
     return m_jobId;
 }
 
-void JobStat::setJobId(unsigned int id)
+void
+JobStat::setJobId(unsigned int id)
 {
     m_jobId = id;
 }
 
-JobStat& JobStat::operator+=(const JobStat& st)
+JobStat &
+JobStat::operator+=(const JobStat & st)
 {
     m_outputSize += st.m_outputSize;
     m_compileTimeReal += st.m_compileTimeReal;
     m_compileTimeUser += st.m_compileTimeUser;
-    m_compileTimeSys +=  st.m_compileTimeSys;
+    m_compileTimeSys += st.m_compileTimeSys;
     m_jobId = 0;
     return *this;
 }
 
-JobStat& JobStat::operator-=(const JobStat &st)
+JobStat &
+JobStat::operator-=(const JobStat & st)
 {
     m_outputSize -= st.m_outputSize;
     m_compileTimeReal -= st.m_compileTimeReal;
@@ -102,7 +115,8 @@ JobStat& JobStat::operator-=(const JobStat &st)
     return *this;
 }
 
-JobStat& JobStat::operator/=(int d)
+JobStat &
+JobStat::operator/=(int d)
 {
     m_outputSize /= d;
     m_compileTimeReal /= d;

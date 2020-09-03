@@ -1,4 +1,5 @@
-/* -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; fill-column: 99; -*- */
+/* -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; fill-column: 99; -*-
+ */
 /* vim: set ts=4 sw=4 et tw=99:  */
 /*
     This file is part of Icecream.
@@ -21,42 +22,43 @@
     51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 */
 
+#include "client.h"
 #include "config.h"
-
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <sys/wait.h>
-#include <unistd.h>
-#include <limits.h>
-#include <stdio.h>
-#include <string.h>
-#include <errno.h>
-#include <vector>
-#include <signal.h>
+#include "pipes.h"
 
 #include <comm.h>
-#include "client.h"
-#include "pipes.h"
+#include <errno.h>
+#include <limits.h>
+#include <signal.h>
+#include <stdio.h>
+#include <string.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <unistd.h>
+#include <vector>
 
 using namespace std;
 
 /* Name of this program, for trace.c */
-const char *rs_program_name = "icecc";
+const char * rs_program_name = "icecc";
 
 #define CLIENT_DEBUG 0
 
-static string compiler_path_lookup_helper(const string &compiler, const string &compiler_path)
+static string
+compiler_path_lookup_helper(const string & compiler,
+                            const string & compiler_path)
 {
     if (compiler_path.find('/') != string::npos) {
         return compiler_path;
     }
 
-    string path = ::getenv("PATH");
+    string            path = ::getenv("PATH");
     string::size_type begin = 0;
     string::size_type end = 0;
-    struct stat s;
-    bool after_selflink = false;
-    string best_match;
+    struct stat       s;
+    bool              after_selflink = false;
+    string            best_match;
 
     while (end != string::npos) {
         end = path.find(':', begin);
@@ -75,19 +77,20 @@ static string compiler_path_lookup_helper(const string &compiler, const string &
         if (!lstat(part.c_str(), &s)) {
             if (S_ISLNK(s.st_mode)) {
                 std::string buffer;
-                const int ret = resolve_link(part, buffer);
+                const int   ret = resolve_link(part, buffer);
 
                 if (ret != 0) {
-                    log_error() << "resolve_link failed " << strerror(ret) << endl;
+                    log_error()
+                        << "resolve_link failed " << strerror(ret) << endl;
                     continue;
                 }
 
                 string target = find_basename(buffer);
 
-                if (target == rs_program_name
-                        || (after_selflink
-                            && (target == "tbcompiler" || target == "distcc"
-                                || target == "colorgcc"))) {
+                if (target == rs_program_name ||
+                    (after_selflink &&
+                     (target == "tbcompiler" || target == "distcc" ||
+                      target == "colorgcc"))) {
                     // this is a link pointing to us, ignore it
                     after_selflink = true;
                     continue;
@@ -98,7 +101,7 @@ static string compiler_path_lookup_helper(const string &compiler, const string &
                 continue;
             }
 
-            if( best_match.empty()) {
+            if (best_match.empty()) {
                 best_match = part;
             }
 
@@ -115,7 +118,8 @@ static string compiler_path_lookup_helper(const string &compiler, const string &
     return best_match;
 }
 
-string compiler_path_lookup(const string& compiler)
+string
+compiler_path_lookup(const string & compiler)
 {
     return compiler_path_lookup_helper(compiler, compiler);
 }
@@ -126,24 +130,27 @@ string compiler_path_lookup(const string& compiler)
  * variable set. This is useful for native cross-compilers.
  * (arm-linux-gcc for example)
  */
-string find_compiler(const CompileJob &job)
+string
+find_compiler(const CompileJob & job)
 {
     if (job.language() == CompileJob::Lang_C) {
-        if (const char *env = getenv("ICECC_CC")) {
+        if (const char * env = getenv("ICECC_CC")) {
             return env;
         }
     }
 
     if (job.language() == CompileJob::Lang_CXX) {
-        if (const char *env = getenv("ICECC_CXX")) {
+        if (const char * env = getenv("ICECC_CXX")) {
             return env;
         }
     }
 
-    return compiler_path_lookup_helper(job.compilerName(), job.compilerPathname());
+    return compiler_path_lookup_helper(job.compilerName(),
+                                       job.compilerPathname());
 }
 
-bool compiler_is_clang(const CompileJob &job)
+bool
+compiler_is_clang(const CompileJob & job)
 {
     if (job.language() == CompileJob::Lang_Custom) {
         return false;
@@ -164,33 +171,34 @@ such #include rewritting, and it's been only recently merged upstream.
 This is similar with newer gcc versions, and gcc has -fdirectives-only, which
 works similarly to -frewrite-includes (although it's not exactly the same).
 */
-bool compiler_only_rewrite_includes(const CompileJob &job)
+bool
+compiler_only_rewrite_includes(const CompileJob & job)
 {
-    if( job.blockRewriteIncludes()) {
+    if (job.blockRewriteIncludes()) {
         return false;
     }
-    if (const char *rewrite_includes = getenv("ICECC_REMOTE_CPP")) {
+    if (const char * rewrite_includes = getenv("ICECC_REMOTE_CPP")) {
         return (*rewrite_includes != '\0') && (*rewrite_includes != '0');
     }
     if (!compiler_is_clang(job)) {
 #ifdef HAVE_GCC_FDIRECTIVES_ONLY
-        // gcc has had -fdirectives-only for a long time, but clang on macosx poses as gcc
-        // and fails when given the option. Since we right now detect whether a compiler
-        // is gcc merely by checking the binary name, enable usage only if the configure
-        // check found the option working.
+        // gcc has had -fdirectives-only for a long time, but clang on macosx
+        // poses as gcc and fails when given the option. Since we right now
+        // detect whether a compiler is gcc merely by checking the binary name,
+        // enable usage only if the configure check found the option working.
         return true;
 #endif
     }
     if (compiler_is_clang(job)) {
-        if (const char *rewrite_includes = getenv("ICECC_CLANG_REMOTE_CPP")) {
+        if (const char * rewrite_includes = getenv("ICECC_CLANG_REMOTE_CPP")) {
             return (*rewrite_includes != '\0') && (*rewrite_includes != '0');
         }
 
 #ifdef HAVE_CLANG_REWRITE_INCLUDES
-        // Assume that we use the same clang (as least as far as capabilities go)
-        // as was available when icecream was built. ICECC_CLANG_REMOTE_CPP above
-        // allows override, and the only case when this should realistically break
-        // is if somebody downgrades their clang.
+        // Assume that we use the same clang (as least as far as capabilities
+        // go) as was available when icecream was built. ICECC_CLANG_REMOTE_CPP
+        // above allows override, and the only case when this should
+        // realistically break is if somebody downgrades their clang.
         return true;
 #endif
     }
@@ -198,35 +206,44 @@ bool compiler_only_rewrite_includes(const CompileJob &job)
     return false;
 }
 
-string clang_get_default_target(const CompileJob &job)
+string
+clang_get_default_target(const CompileJob & job)
 {
-    return read_command_line( find_compiler( job ), { "-dumpmachine" } );
+    return read_command_line(find_compiler(job), {"-dumpmachine"});
 }
 
-bool compiler_get_arch_flags(const CompileJob& job, bool march, bool mcpu, bool mtune, list<string>& args)
+bool
+compiler_get_arch_flags(const CompileJob & job,
+                        bool               march,
+                        bool               mcpu,
+                        bool               mtune,
+                        list<string> &     args)
 {
-    // Get the relevant flags by calling '<compiler> -### -E - <flags>' and then remove
-    // what calling that without the flags gives to get only what the flags introduced.
+    // Get the relevant flags by calling '<compiler> -### -E - <flags>' and then
+    // remove what calling that without the flags gives to get only what the
+    // flags introduced.
     // TODO: This probably should be cached somehow in iceccd.
-    string compiler = find_compiler(job);
-    bool is_clang = compiler_is_clang(job);
-    vector< string > compiler_args = { "-###", "-E", "-" };
-    string normal_output = read_command_output( compiler, compiler_args, STDERR_FILENO );
-    if( march )
-        compiler_args.push_back( "-march=native" );
-    if( mcpu )
-        compiler_args.push_back( "-mcpu=native" );
-    if( mtune )
-        compiler_args.push_back( "-mtune=native" );
-    string flags_output = read_command_output( compiler, compiler_args, STDERR_FILENO );
+    string         compiler = find_compiler(job);
+    bool           is_clang = compiler_is_clang(job);
+    vector<string> compiler_args = {"-###", "-E", "-"};
+    string         normal_output =
+        read_command_output(compiler, compiler_args, STDERR_FILENO);
+    if (march)
+        compiler_args.push_back("-march=native");
+    if (mcpu)
+        compiler_args.push_back("-mcpu=native");
+    if (mtune)
+        compiler_args.push_back("-mtune=native");
+    string flags_output =
+        read_command_output(compiler, compiler_args, STDERR_FILENO);
     try {
         // get the right line
-        if(is_clang) {
+        if (is_clang) {
             flags_output.erase(0, flags_output.find("\"-cc1\""));
-            if(flags_output.find('\n') != string::npos)
+            if (flags_output.find('\n') != string::npos)
                 flags_output.erase(flags_output.find('\n'));
             normal_output.erase(0, normal_output.find("\"-cc1\""));
-            if(normal_output.find('\n') != string::npos)
+            if (normal_output.find('\n') != string::npos)
                 normal_output.erase(normal_output.find('\n'));
         } else {
             flags_output.erase(0, flags_output.find("/cc1 "));
@@ -234,63 +251,65 @@ bool compiler_get_arch_flags(const CompileJob& job, bool march, bool mcpu, bool 
             normal_output.erase(0, normal_output.find("/cc1 "));
             normal_output.erase(normal_output.find('\n'));
         }
-    } catch(...) {
+    } catch (...) {
         return false;
     }
     // The differing flags are somewhere in the middle, in one block.
-    int start = 0;
+    int       start = 0;
     const int flags_end = flags_output.size();
-    int end = flags_end;
-    while( start < end && flags_output[ start ] == normal_output[ start ] )
+    int       end = flags_end;
+    while (start < end && flags_output[start] == normal_output[start])
         ++start;
-    if( start == end ) // The flag doesn't actually do anything, e.g. Clang ignores -mtune.
+    if (start ==
+        end) // The flag doesn't actually do anything, e.g. Clang ignores -mtune.
         return true;
     int end_diff = normal_output.size() - end;
     --end;
-    while( end > start && flags_output[ end ] == normal_output[ end + end_diff ] )
+    while (end > start && flags_output[end] == normal_output[end + end_diff])
         --end;
-    while( start >= 0 && flags_output[ start ] != ' ' )
+    while (start >= 0 && flags_output[start] != ' ')
         --start;
     ++start;
-    // Clang has "-target-cpu" "x86-64", and the "x86-64" is usually where the first
-    // difference is, but the "-target-cpu" is needed too.
-    if( flags_output[ start ] != '-' && flags_output[ start + 1 ] != '-' ) {
+    // Clang has "-target-cpu" "x86-64", and the "x86-64" is usually where the
+    // first difference is, but the "-target-cpu" is needed too.
+    if (flags_output[start] != '-' && flags_output[start + 1] != '-') {
         --start;
         --start;
-        while( start >= 0 && flags_output[ start ] != ' ' )
+        while (start >= 0 && flags_output[start] != ' ')
             --start;
         ++start;
     }
-    while( end < flags_end && flags_output[ end ] != ' ' )
+    while (end < flags_end && flags_output[end] != ' ')
         ++end;
     ++end;
     // Now start-end is the difference range.
-    while( start < end ) {
-        int pos = start;
+    while (start < end) {
+        int    pos = start;
         string arg;
-        if( flags_output[ pos ] == '\"' ) {
+        if (flags_output[pos] == '\"') {
             ++pos;
-            while( pos < end && flags_output[ pos ] != '\"' )
+            while (pos < end && flags_output[pos] != '\"')
                 ++pos;
-            arg = flags_output.substr( start + 1, pos - start - 1 );
+            arg = flags_output.substr(start + 1, pos - start - 1);
             start = pos + 2;
         } else {
-            while( pos < end && flags_output[ pos ] != ' ' )
+            while (pos < end && flags_output[pos] != ' ')
                 ++pos;
-            arg = flags_output.substr( start, pos - start );
+            arg = flags_output.substr(start, pos - start);
             start = pos + 1;
         }
-        if( is_clang )
-            args.push_back( "-Xclang" );
-        args.push_back( arg );
+        if (is_clang)
+            args.push_back("-Xclang");
+        args.push_back(arg);
     }
     return true;
 }
 
-static volatile int user_break_signal = 0;
+static volatile int   user_break_signal = 0;
 static volatile pid_t child_pid;
 
-static void handle_user_break(int sig)
+static void
+handle_user_break(int sig)
 {
     dcc_unlock();
 
@@ -318,14 +337,16 @@ static void handle_user_break(int sig)
  * log our resource usage.
  *
  **/
-int build_local(CompileJob &job, MsgChannel *local_daemon, struct rusage *used)
+int
+build_local(CompileJob & job, MsgChannel * local_daemon, struct rusage * used)
 {
     list<string> arguments;
 
     string compiler_name = find_compiler(job);
 
     if (compiler_name.empty()) {
-        log_error() << "could not find " << job.compilerName() << " in PATH." << endl;
+        log_error() << "could not find " << job.compilerName() << " in PATH."
+                    << endl;
         return EXIT_NO_SUCH_FILE;
     }
 
@@ -341,11 +362,13 @@ int build_local(CompileJob &job, MsgChannel *local_daemon, struct rusage *used)
         arguments.push_back(job.outputFile());
     }
 
-    vector<char*> argv; 
-    string argstxt;
+    vector<char *> argv;
+    string         argstxt;
 
-    for (list<string>::const_iterator it = arguments.begin(); it != arguments.end(); ++it) {
-        if( *it == "-fdirectives-only" )
+    for (list<string>::const_iterator it = arguments.begin();
+         it != arguments.end();
+         ++it) {
+        if (*it == "-fdirectives-only")
             continue; // pointless locally, and it can break things
         argv.push_back(strdup(it->c_str()));
         argstxt += ' ';
@@ -363,8 +386,8 @@ int build_local(CompileJob &job, MsgChannel *local_daemon, struct rusage *used)
         }
     }
 
-    bool color_output = job.language() != CompileJob::Lang_Custom
-                        && colorify_wanted(job);
+    bool color_output =
+        job.language() != CompileJob::Lang_Custom && colorify_wanted(job);
     int pf[2];
 
     if (color_output && create_large_pipe(pf)) {
@@ -376,27 +399,29 @@ int build_local(CompileJob &job, MsgChannel *local_daemon, struct rusage *used)
         child_pid = fork();
     }
 
-    if (child_pid == -1){
+    if (child_pid == -1) {
         log_perror("fork failed");
     }
 
     if (!child_pid) {
-        dcc_increment_safeguard(job.language() == CompileJob::Lang_Custom ? SafeguardStepCustom : SafeguardStepCompiler);
+        dcc_increment_safeguard(job.language() == CompileJob::Lang_Custom
+                                    ? SafeguardStepCustom
+                                    : SafeguardStepCompiler);
 
         if (color_output) {
-            if ((-1 == close(pf[0])) && (errno != EBADF)){
+            if ((-1 == close(pf[0])) && (errno != EBADF)) {
                 log_perror("close failed");
             }
-            if ((-1 == close(2)) && (errno != EBADF)){
+            if ((-1 == close(2)) && (errno != EBADF)) {
                 log_perror("close failed");
             }
-            if (-1 == dup2(pf[1], 2)){
+            if (-1 == dup2(pf[1], 2)) {
                 log_perror("dup2 failed");
             }
         }
 
         execv(argv[0], &argv[0]);
-        int exitcode = ( errno == ENOENT ? 127 : 126 );
+        int           exitcode = (errno == ENOENT ? 127 : 126);
         ostringstream errmsg;
         errmsg << "execv " << argv[0] << " failed";
         log_perror(errmsg.str());
@@ -411,13 +436,13 @@ int build_local(CompileJob &job, MsgChannel *local_daemon, struct rusage *used)
 
         _exit(exitcode);
     }
-    for(char* const arg : argv){
+    for (char * const arg : argv) {
         free(arg);
     }
     argv.clear();
 
     if (color_output) {
-        if ((-1 == close(pf[1])) && (errno != EBADF)){
+        if ((-1 == close(pf[1])) && (errno != EBADF)) {
             log_perror("close failed");
         }
     }
@@ -431,10 +456,10 @@ int build_local(CompileJob &job, MsgChannel *local_daemon, struct rusage *used)
 
     if (color_output) {
         string s_ccout;
-        char buf[250];
+        char   buf[250];
 
         for (;;) {
-	    int r;
+            int r;
             while ((r = read(pf[0], buf, sizeof(buf) - 1)) > 0) {
                 buf[r] = '\0';
                 s_ccout.append(buf);
@@ -454,7 +479,8 @@ int build_local(CompileJob &job, MsgChannel *local_daemon, struct rusage *used)
 
     int status = 1;
 
-    while (wait4(child_pid, &status, 0, used) < 0 && errno == EINTR) {}
+    while (wait4(child_pid, &status, 0, used) < 0 && errno == EINTR) {
+    }
 
     status = shell_exit_status(status);
 

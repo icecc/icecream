@@ -3,9 +3,11 @@
 #endif
 
 // this should expand to test()
-void ICECREAM_TEST_DEFINE();
+void
+ICECREAM_TEST_DEFINE();
 
-void test2()
-    {
+void
+test2()
+{
     test();
-    }
+}

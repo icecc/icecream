@@ -1,16 +1,15 @@
-#include <errno.h>
-#include <string.h>
-#include <stdlib.h>
-#include <stdio.h>
-#include <unistd.h>
-#include <string>
-#include <sstream>
-#include <vector>
-#include <dirent.h>
-#include <sys/stat.h>
-
 #include "file_util.h"
 
+#include <dirent.h>
+#include <errno.h>
+#include <sstream>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <string>
+#include <sys/stat.h>
+#include <unistd.h>
+#include <vector>
 
 using namespace std;
 
@@ -18,10 +17,12 @@ using namespace std;
  * Adapted from an answer by "Evan Teran" from this stack overflow question:
  * http://stackoverflow.com/questions/236129/split-a-string-in-c
  */
-vector<string> split(const string &s, char delim) {
+vector<string>
+split(const string & s, char delim)
+{
     vector<string> elems;
-    stringstream ss(s);
-    string item;
+    stringstream   ss(s);
+    string         item;
     while (getline(ss, item, delim)) {
         if (!item.empty()) {
             elems.push_back(item);
@@ -34,7 +35,9 @@ vector<string> split(const string &s, char delim) {
  * Adapted from an answer by "dash-tom-bang" from this stack overflow question:
  * http://stackoverflow.com/questions/5772992/get-relative-path-from-two-absolute-paths
  */
-string get_relative_path(const string &to, const string &from) {
+string
+get_relative_path(const string & to, const string & from)
+{
     vector<string> to_dirs = split(to, '/');
     vector<string> from_dirs = split(from, '/');
 
@@ -47,8 +50,8 @@ string get_relative_path(const string &to, const string &from) {
                                    from_end = from_dirs.end();
 
     while ((to_it != to_end) && (from_it != from_end) && *to_it == *from_it) {
-         ++to_it;
-         ++from_it;
+        ++to_it;
+        ++from_it;
     }
 
     while (from_it != from_end) {
@@ -75,7 +78,9 @@ string get_relative_path(const string &to, const string &from) {
  * Postconditions: if path is empty or not an absolute path, return original
  *                 path, otherwise, return path after resolving '..' and '.'
  */
-string get_canonicalized_path(const string &path) {
+string
+get_canonicalized_path(const string & path)
+{
     if (path.empty() || path[0] != '/') {
         return path;
     }
@@ -89,8 +94,7 @@ string get_canonicalized_path(const string &path) {
     while (parts_it != parts_end) {
         if (*parts_it == ".." && !canonicalized_path.empty()) {
             canonicalized_path.pop_back();
-        }
-        else if (*parts_it != "." && *parts_it != "..") {
+        } else if (*parts_it != "." && *parts_it != "..") {
             canonicalized_path.push_back(*parts_it);
         }
 
@@ -119,26 +123,23 @@ string get_canonicalized_path(const string &path) {
  * Adapted from an answer by "Mark" from this stack overflow question:
  * http://stackoverflow.com/questions/675039/how-can-i-create-directory-tree-in-c-linux
  */
-bool mkpath(const string &path) {
+bool
+mkpath(const string & path)
+{
     bool success = false;
-    int ret = mkdir(path.c_str(), 0775);
-    if(ret == -1) {
-        switch(errno) {
+    int  ret = mkdir(path.c_str(), 0775);
+    if (ret == -1) {
+        switch (errno) {
             case ENOENT:
-                if(mkpath(path.substr(0, path.rfind('/'))))
+                if (mkpath(path.substr(0, path.rfind('/'))))
                     success = 0 == mkdir(path.c_str(), 0775);
                 else
                     success = false;
                 break;
-            case EEXIST:
-                success = true;
-                break;
-            default:
-                success = false;
-                break;
+            case EEXIST: success = true; break;
+            default: success = false; break;
         }
-    }
-    else {
+    } else {
         success = true;
     }
 
@@ -149,19 +150,21 @@ bool mkpath(const string &path) {
  * Adapted from an answer by "asveikau" from this stack overflow question:
  * http://stackoverflow.com/questions/2256945/removing-a-non-empty-directory-programmatically-in-c-or-c
  */
-bool rmpath(const char* path) {
-    DIR *d = opendir(path);
+bool
+rmpath(const char * path)
+{
+    DIR *  d = opendir(path);
     size_t path_len = strlen(path);
-    int r = -1;
+    int    r = -1;
 
     if (d) {
-        struct dirent *p;
+        struct dirent * p;
 
         r = 0;
 
-        while (!r && (p=readdir(d))) {
-            int r2 = -1;
-            char *buf;
+        while (!r && (p = readdir(d))) {
+            int    r2 = -1;
+            char * buf;
             size_t len;
 
             /* Skip the names "." and ".." as we don't want to recurse on them. */
@@ -170,7 +173,7 @@ bool rmpath(const char* path) {
             }
 
             len = path_len + strlen(p->d_name) + 2;
-            buf = (char*)malloc(len);
+            buf = (char *)malloc(len);
 
             if (buf) {
                 struct stat statbuf;
@@ -180,8 +183,7 @@ bool rmpath(const char* path) {
                 if (!stat(buf, &statbuf)) {
                     if (S_ISDIR(statbuf.st_mode)) {
                         r2 = rmpath(buf);
-                    }
-                    else {
+                    } else {
                         r2 = unlink(buf);
                     }
                 }

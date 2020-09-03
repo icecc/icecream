@@ -1,10 +1,12 @@
 #include "make.h"
 
-void make1()
-    {
-    }
+void
+make1()
+{
+}
 
-int main()
-    {
+int
+main()
+{
     return 0;
-    }
+}

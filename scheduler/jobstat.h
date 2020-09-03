@@ -1,4 +1,5 @@
-/* -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; fill-column: 99; -*- */
+/* -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; fill-column: 99; -*-
+ */
 /* vim: set ts=4 sw=4 et tw=99:  */
 /*
     This file is part of Icecream.
@@ -28,49 +29,62 @@ struct JobStat {
 public:
     JobStat();
 
-    unsigned long outputSize() const;
-    void setOutputSize(unsigned long size);
+    unsigned long
+    outputSize() const;
+    void
+    setOutputSize(unsigned long size);
 
-    unsigned long compileTimeReal() const;
-    void setCompileTimeReal(unsigned long time);
+    unsigned long
+    compileTimeReal() const;
+    void
+    setCompileTimeReal(unsigned long time);
 
-    unsigned long compileTimeUser() const;
-    void setCompileTimeUser(unsigned long time);
+    unsigned long
+    compileTimeUser() const;
+    void
+    setCompileTimeUser(unsigned long time);
 
-    unsigned long compileTimeSys() const;
-    void setCompileTimeSys(unsigned long time);
+    unsigned long
+    compileTimeSys() const;
+    void
+    setCompileTimeSys(unsigned long time);
 
-    unsigned int jobId() const;
-    void setJobId(unsigned int id);
+    unsigned int
+    jobId() const;
+    void
+    setJobId(unsigned int id);
 
-    JobStat& operator+=(const JobStat& st);
-    JobStat& operator-=(const JobStat& st);
-    JobStat& operator/=(int d);
+    JobStat &
+    operator+=(const JobStat & st);
+    JobStat &
+    operator-=(const JobStat & st);
+    JobStat &
+    operator/=(int d);
 
 private:
-    unsigned long m_outputSize;  // output size (uncompressed)
-    unsigned long m_compileTimeReal;  // in milliseconds
+    unsigned long m_outputSize; // output size (uncompressed)
+    unsigned long m_compileTimeReal; // in milliseconds
     unsigned long m_compileTimeUser;
     unsigned long m_compileTimeSys;
-    unsigned int m_jobId;
+    unsigned int  m_jobId;
 };
 
-inline
-JobStat operator+(const JobStat& l, const JobStat& r)
+inline JobStat
+operator+(const JobStat & l, const JobStat & r)
 {
-    return JobStat( l ) += r;
+    return JobStat(l) += r;
 }
 
-inline
-JobStat operator-(const JobStat& l, const JobStat& r)
+inline JobStat
+operator-(const JobStat & l, const JobStat & r)
 {
-    return JobStat( l ) -= r;
+    return JobStat(l) -= r;
 }
 
-inline
-JobStat operator/(const JobStat& st, int d)
+inline JobStat
+operator/(const JobStat & st, int d)
 {
-    return JobStat( st ) /= d;
+    return JobStat(st) /= d;
 }
 
 #endif
