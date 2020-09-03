@@ -34,21 +34,19 @@ extern "C" {
 #include <csignal>
 #include <fstream>
 
-using namespace std;
-
 int                   debug_level = Error;
-ostream *             logfile_trace = nullptr;
-ostream *             logfile_info = nullptr;
-ostream *             logfile_warning = nullptr;
-ostream *             logfile_error = nullptr;
-string                logfile_prefix;
+std::ostream *        logfile_trace = nullptr;
+std::ostream *        logfile_info = nullptr;
+std::ostream *        logfile_warning = nullptr;
+std::ostream *        logfile_error = nullptr;
+std::string           logfile_prefix;
 volatile sig_atomic_t reset_debug_needed = 0;
 
 namespace {
 
-ofstream logfile_null("/dev/null");
-ofstream logfile_file;
-string   logfile_filename;
+std::ofstream logfile_null("/dev/null");
+std::ofstream logfile_file;
+std::string   logfile_filename;
 
 void
 reset_debug_signal_handler(int)
@@ -59,13 +57,13 @@ reset_debug_signal_handler(int)
 // Implementation of an iostream helper that allows redirecting output to a
 // given file descriptor. This seems to be the only portable way to do it.
 
-class ofdbuf : public streambuf {
+class ofdbuf : public std::streambuf {
 public:
     explicit ofdbuf(int fd) : fd(fd) {}
     virtual int_type
     overflow(int_type c);
-    virtual streamsize
-    xsputn(const char * c, streamsize n);
+    virtual std::streamsize
+    xsputn(const char * c, std::streamsize n);
 
 private:
     int fd;
@@ -82,13 +80,13 @@ ofdbuf::overflow(int_type c)
     return c;
 }
 
-streamsize
-ofdbuf::xsputn(const char * c, streamsize n)
+std::streamsize
+ofdbuf::xsputn(const char * c, std::streamsize n)
 {
     return write(fd, c, n);
 }
 
-ostream *
+std::ostream *
 ccache_stream(int fd)
 {
     int status = fcntl(fd, F_GETFL);
@@ -96,18 +94,18 @@ ccache_stream(int fd)
         // As logging is not set up yet, this will log to stderr.
         log_warning() << "UNCACHED_ERR_FD provides an invalid file descriptor, "
                          "using stderr"
-                      << endl;
-        return &cerr; // fd is not valid fd for writting
+                      << std::endl;
+        return &std::cerr; // fd is not valid fd for writting
     }
-    static ofdbuf  buf(fd);
-    static ostream stream(&buf);
+    static ofdbuf       buf(fd);
+    static std::ostream stream(&buf);
     return &stream;
 }
 
 } // namespace
 
 void
-setup_debug(int level, const string & filename, const string & prefix)
+setup_debug(int level, const std::string & filename, const std::string & prefix)
 {
     debug_level = level;
     logfile_prefix = prefix;
@@ -117,14 +115,15 @@ setup_debug(int level, const string & filename, const string & prefix)
         logfile_file.close();
     }
 
-    ostream * output = nullptr;
+    std::ostream * output = nullptr;
 
     if (filename.length()) {
         logfile_file.clear();
-        logfile_file.open(filename.c_str(), fstream::out | fstream::app);
+        logfile_file.open(filename.c_str(),
+                          std::fstream::out | std::fstream::app);
 #ifdef __linux__
 
-        string fname = filename;
+        std::string fname = filename;
         if (fname[0] != '/') {
             char buf[PATH_MAX];
 
@@ -140,7 +139,7 @@ setup_debug(int level, const string & filename, const string & prefix)
     } else if (const char * ccache_err_fd = getenv("UNCACHED_ERR_FD")) {
         output = ccache_stream(atoi(ccache_err_fd));
     } else {
-        output = &cerr;
+        output = &std::cerr;
     }
 
 #ifdef __linux__
@@ -186,26 +185,26 @@ reset_debug_if_needed()
     if (reset_debug_needed) {
         reset_debug_needed = 0;
         reset_debug();
-        if (const char * env = getenv("ICECC_TEST_FLUSH_LOG_MARK")) {
-            ifstream markfile(env);
-            string   mark;
-            getline(markfile, mark);
+        if (const char * env = std::getenv("ICECC_TEST_FLUSH_LOG_MARK")) {
+            std::ifstream markfile(env);
+            std::string   mark;
+            std::getline(markfile, mark);
             if (!mark.empty()) {
                 assert(logfile_trace != NULL);
-                *logfile_trace << "flush log mark: " << mark << endl;
+                *logfile_trace << "flush log mark: " << mark << std::endl;
             }
         }
-        if (const char * env = getenv("ICECC_TEST_LOG_HEADER")) {
-            ifstream markfile(env);
-            string   header1, header2, header3;
-            getline(markfile, header1);
-            getline(markfile, header2);
-            getline(markfile, header3);
+        if (const char * env = std::getenv("ICECC_TEST_LOG_HEADER")) {
+            std::ifstream markfile(env);
+            std::string   header1, header2, header3;
+            std::getline(markfile, header1);
+            std::getline(markfile, header2);
+            std::getline(markfile, header3);
             if (!header1.empty()) {
                 assert(logfile_trace != NULL);
-                *logfile_trace << header1 << endl;
-                *logfile_trace << header2 << endl;
-                *logfile_trace << header3 << endl;
+                *logfile_trace << header1 << std::endl;
+                *logfile_trace << header2 << std::endl;
+                *logfile_trace << header3 << std::endl;
             }
         }
     }
