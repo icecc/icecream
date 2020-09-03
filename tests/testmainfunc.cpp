@@ -1,6 +1,8 @@
-extern int f();
+extern int
+f();
 
-int main()
+int
+main()
 {
     return f();
 }

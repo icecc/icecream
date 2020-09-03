@@ -1,4 +1,5 @@
-/* -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; fill-column: 99; -*- */
+/* -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; fill-column: 99; -*-
+ */
 /* vim: set ts=4 sw=4 et tw=99:  */
 /*
     This file is part of Icecream.
@@ -27,7 +28,8 @@ extern "C" {
 #include "logging.h"
 #include "platform.h"
 
-std::string determine_platform_once()
+std::string
+determine_platform_once()
 {
     using namespace std;
     string platform;
@@ -36,18 +38,21 @@ std::string determine_platform_once()
 
     if (uname(&uname_buf)) {
         log_perror("uname call failed");
-        throw("determine_platform: cannot determine OS version and machine architecture");
+        throw("determine_platform: cannot determine OS version and machine "
+              "architecture");
         // return platform;
     }
 
     string os = uname_buf.sysname;
 
     if (os == "Darwin") {
-        const std::string release = uname_buf.release;
+        const std::string       release = uname_buf.release;
         const string::size_type pos = release.find('.');
 
         if (pos == string::npos) {
-            throw(std::string("determine_platform: Cannot determine Darwin release from release string \"") + release + "\"");
+            throw(std::string("determine_platform: Cannot determine Darwin "
+                              "release from release string \"") +
+                  release + "\"");
         }
 
         os += release.substr(0, pos);
@@ -72,7 +77,8 @@ std::string determine_platform_once()
     return platform;
 }
 
-const std::string &determine_platform()
+const std::string &
+determine_platform()
 {
     const static std::string platform(determine_platform_once());
     return platform;

@@ -1,4 +1,5 @@
-int main()
+int
+main()
 {
     const auto vert = R"(
 #hello)";

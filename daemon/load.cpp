@@ -1,4 +1,5 @@
-/* -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; fill-column: 99; -*- */
+/* -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; fill-column: 99; -*-
+ */
 /* vim: set ts=4 sw=4 et tw=99:  */
 /*
     Copyright (c) 1999, 2000 Chris Schlaeger <cs@kde.org>
@@ -19,22 +20,24 @@
     51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 */
 
-#include "config.h"
 #include "load.h"
-#include <unistd.h>
-#include <stdio.h>
-#include <math.h>
-#include <logging.h>
-#include <sys/types.h>
-#include <sys/stat.h>
+
+#include "config.h"
+
 #include <fcntl.h>
+#include <logging.h>
+#include <math.h>
+#include <stdio.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <unistd.h>
 #ifdef HAVE_SYS_PARAM_H
 #include <sys/param.h>
 #endif
 
 #ifdef HAVE_MACH_HOST_INFO_H
 #define USE_MACH 1
-#elif !defined( __linux__ ) && !defined(__CYGWIN__)
+#elif !defined(__linux__) && !defined(__CYGWIN__)
 #define USE_SYSCTL
 #endif
 
@@ -49,9 +52,9 @@
 #endif
 
 #ifdef HAVE_DEVSTAT_H
+#include <devstat.h>
 #include <sys/resource.h>
 #include <sys/sysctl.h>
-#include <devstat.h>
 #endif
 
 #ifdef __APPLE__
@@ -62,7 +65,6 @@ using namespace std;
 
 // what the kernel puts as ticks in /proc/stat
 typedef unsigned long long load_t;
-
 
 struct CPULoadInfo {
     /* A CPU can be loaded with user processes, reniced processes and
@@ -81,7 +83,8 @@ struct CPULoadInfo {
     load_t idleTicks;
     load_t waitTicks;
 
-    CPULoadInfo() {
+    CPULoadInfo()
+    {
         userLoad = 0;
         niceLoad = 0;
         sysLoad = 0;
@@ -95,10 +98,12 @@ struct CPULoadInfo {
     }
 };
 
-static void updateCPULoad(CPULoadInfo *load)
+static void
+updateCPULoad(CPULoadInfo * load)
 {
     load_t totalTicks;
-    load_t currUserTicks, currSysTicks, currNiceTicks, currIdleTicks, currWaitTicks;
+    load_t currUserTicks, currSysTicks, currNiceTicks, currIdleTicks,
+        currWaitTicks;
 
 #if defined(USE_SYSCTL) && defined(__DragonFly__)
     static struct kinfo_cputime cp_time;
@@ -113,23 +118,26 @@ static void updateCPULoad(CPULoadInfo *load)
     /* It doesn't exist in DragonFlyBSD. */
     currWaitTicks = 0;
 
-#elif defined (USE_SYSCTL)
-    static int mibs[4] = { 0, 0, 0, 0 };
+#elif defined(USE_SYSCTL)
+    static int    mibs[4] = {0, 0, 0, 0};
     static size_t mibsize = 4;
     unsigned long ticks[CPUSTATES];
-    size_t mibdatasize = sizeof(ticks);
+    size_t        mibdatasize = sizeof(ticks);
 
     if (mibs[0] == 0) {
         if (sysctlnametomib("kern.cp_time", mibs, &mibsize) < 0) {
-            load->userTicks = load->sysTicks = load->niceTicks = load->idleTicks = 0;
-            load->userLoad = load->sysLoad = load->niceLoad = load->idleLoad = 0;
+            load->userTicks = load->sysTicks = load->niceTicks =
+                load->idleTicks = 0;
+            load->userLoad = load->sysLoad = load->niceLoad = load->idleLoad =
+                0;
             mibs[0] = 0;
             return;
         }
     }
 
     if (sysctl(mibs, mibsize, &ticks, &mibdatasize, NULL, 0) < 0) {
-        load->userTicks = load->sysTicks = load->niceTicks = load->idleTicks = 0;
+        load->userTicks = load->sysTicks = load->niceTicks = load->idleTicks =
+            0;
         load->userLoad = load->sysLoad = load->niceLoad = load->idleLoad = 0;
         return;
     }
@@ -140,16 +148,16 @@ static void updateCPULoad(CPULoadInfo *load)
     currIdleTicks = ticks[CP_IDLE];
     currWaitTicks = 0;
 
-#elif defined( USE_MACH )
+#elif defined(USE_MACH)
     host_cpu_load_info r_load;
 
-    kern_return_t error;
+    kern_return_t          error;
     mach_msg_type_number_t count;
 
     count = HOST_CPU_LOAD_INFO_COUNT;
     mach_port_t port = mach_host_self();
-    error = host_statistics(port, HOST_CPU_LOAD_INFO,
-                            (host_info_t)&r_load, &count);
+    error =
+        host_statistics(port, HOST_CPU_LOAD_INFO, (host_info_t)&r_load, &count);
 
     if (error != KERN_SUCCESS) {
         return;
@@ -157,32 +165,34 @@ static void updateCPULoad(CPULoadInfo *load)
 
     currUserTicks = r_load.cpu_ticks[CPU_STATE_USER];
     currNiceTicks = r_load.cpu_ticks[CPU_STATE_NICE];
-    currSysTicks  = r_load.cpu_ticks[CPU_STATE_SYSTEM];
+    currSysTicks = r_load.cpu_ticks[CPU_STATE_SYSTEM];
     currIdleTicks = r_load.cpu_ticks[CPU_STATE_IDLE];
     currWaitTicks = 0;
 
 #else
-    char buf[256];
+    char       buf[256];
     static int fd = -1;
 
     if (fd < 0) {
         if ((fd = open("/proc/stat", O_RDONLY)) < 0) {
             log_error() << "Cannot open file \'/proc/stat\'!\n"
-                        "The kernel needs to be compiled with support\n"
-                        "for /proc filesystem enabled!" << endl;
+                           "The kernel needs to be compiled with support\n"
+                           "for /proc filesystem enabled!"
+                        << endl;
             return;
         }
 
         fcntl(fd, F_SETFD, FD_CLOEXEC);
     }
 
-    if (lseek(fd, 0, SEEK_SET) == -1){
+    if (lseek(fd, 0, SEEK_SET) == -1) {
         log_perror("lseek failed");
         return;
     }
     ssize_t n;
 
-    while ((n = read(fd, buf, sizeof(buf) - 1)) < 0 && errno == EINTR) {}
+    while ((n = read(fd, buf, sizeof(buf) - 1)) < 0 && errno == EINTR) {
+    }
 
     if (n < 20) {
         log_error() << "no enough data in /proc/stat?" << endl;
@@ -194,21 +204,28 @@ static void updateCPULoad(CPULoadInfo *load)
     /* wait ticks only exist with Linux >= 2.6.0. treat as 0 otherwise */
     currWaitTicks = 0;
     //   sscanf( buf, "%*s %lu %lu %lu %lu %lu", &currUserTicks, &currNiceTicks,
-    sscanf(buf, "%*s %llu %llu %llu %llu %llu", &currUserTicks, &currNiceTicks,  // RL modif
-           &currSysTicks, &currIdleTicks, &currWaitTicks);
+    sscanf(buf,
+           "%*s %llu %llu %llu %llu %llu",
+           &currUserTicks,
+           &currNiceTicks, // RL modif
+           &currSysTicks,
+           &currIdleTicks,
+           &currWaitTicks);
 #endif
 
-    totalTicks = (currUserTicks - load->userTicks)
-                 + (currSysTicks - load->sysTicks)
-                 + (currNiceTicks - load->niceTicks)
-                 + (currIdleTicks - load->idleTicks)
-                 + (currWaitTicks - load->waitTicks);
+    totalTicks =
+        (currUserTicks - load->userTicks) + (currSysTicks - load->sysTicks) +
+        (currNiceTicks - load->niceTicks) + (currIdleTicks - load->idleTicks) +
+        (currWaitTicks - load->waitTicks);
 
     if (totalTicks > 10) {
-        load->userLoad = (1000 * (currUserTicks - load->userTicks)) / totalTicks;
+        load->userLoad =
+            (1000 * (currUserTicks - load->userTicks)) / totalTicks;
         load->sysLoad = (1000 * (currSysTicks - load->sysTicks)) / totalTicks;
-        load->niceLoad = (1000 * (currNiceTicks - load->niceTicks)) / totalTicks;
-        load->idleLoad = (1000 * (currIdleTicks - load->idleTicks)) / totalTicks;
+        load->niceLoad =
+            (1000 * (currNiceTicks - load->niceTicks)) / totalTicks;
+        load->idleLoad =
+            (1000 * (currIdleTicks - load->idleTicks)) / totalTicks;
     } else {
         load->userLoad = load->sysLoad = load->niceLoad = 0;
         load->idleLoad = 1000;
@@ -222,9 +239,10 @@ static void updateCPULoad(CPULoadInfo *load)
 }
 
 #if !defined(USE_SYSCTL) && !defined(USE_MACH)
-static unsigned long int scan_one(const char *buff, const char *key)
+static unsigned long int
+scan_one(const char * buff, const char * key)
 {
-    const char *b = strstr(buff, key);
+    const char * b = strstr(buff, key);
 
     if (!b) {
         return 0;
@@ -240,16 +258,17 @@ static unsigned long int scan_one(const char *buff, const char *key)
 }
 #endif
 
-static unsigned int calculateMemLoad(unsigned long int &NetMemFree)
+static unsigned int
+calculateMemLoad(unsigned long int & NetMemFree)
 {
     unsigned long long MemTotal = 0, MemFree = 0, Buffers = 0, Cached = 0;
 
 #ifdef USE_MACH
     /* Get VM statistics. */
-    vm_statistics_data_t vm_stat;
+    vm_statistics_data_t   vm_stat;
     mach_msg_type_number_t count = sizeof(vm_stat) / sizeof(natural_t);
-    kern_return_t error = host_statistics(mach_host_self(), HOST_VM_INFO,
-                                          (host_info_t)&vm_stat, &count);
+    kern_return_t          error = host_statistics(
+        mach_host_self(), HOST_VM_INFO, (host_info_t)&vm_stat, &count);
 
     if (error != KERN_SUCCESS) {
         return 0;
@@ -258,8 +277,9 @@ static unsigned int calculateMemLoad(unsigned long int &NetMemFree)
     vm_size_t pagesize;
     host_page_size(mach_host_self(), &pagesize);
 
-    unsigned long long MemInactive = (unsigned long long) vm_stat.inactive_count * pagesize;
-    MemFree = (unsigned long long) vm_stat.free_count * pagesize;
+    unsigned long long MemInactive =
+        (unsigned long long)vm_stat.inactive_count * pagesize;
+    MemFree = (unsigned long long)vm_stat.free_count * pagesize;
 
     // blunt lie - but when's sche macht
     Buffers = MemInactive;
@@ -267,59 +287,65 @@ static unsigned int calculateMemLoad(unsigned long int &NetMemFree)
 #ifdef __APPLE__
     {
         size_t len = sizeof(MemTotal);
-        if ((sysctlbyname("hw.memsize", &MemTotal, &len, NULL, 0) == -1) || !len) {
+        if ((sysctlbyname("hw.memsize", &MemTotal, &len, NULL, 0) == -1) ||
+            !len) {
             MemTotal = 0;
         }
     }
 #endif
 
-#elif defined( USE_SYSCTL )
+#elif defined(USE_SYSCTL)
     size_t len = sizeof(MemFree);
 
-
     if ((sysctlbyname("hw.physmem", &MemTotal, &len, NULL, 0) == -1) || !len) {
-        MemTotal = 0;    /* Doesn't work under FreeBSD v2.2.x */
+        MemTotal = 0; /* Doesn't work under FreeBSD v2.2.x */
     }
 
-    if ((sysctlbyname("vm.stats.vm.v_free_count", &MemFree, &len, NULL, 0) == -1) || !len) {
-        MemFree = 0;    /* Doesn't work under FreeBSD v2.2.x */
+    if ((sysctlbyname("vm.stats.vm.v_free_count", &MemFree, &len, NULL, 0) ==
+         -1) ||
+        !len) {
+        MemFree = 0; /* Doesn't work under FreeBSD v2.2.x */
     }
 
     len = sizeof(Buffers);
 
     if ((sysctlbyname("vfs.bufspace", &Buffers, &len, NULL, 0) == -1) || !len) {
-        Buffers = 0;    /* Doesn't work under FreeBSD v2.2.x */
+        Buffers = 0; /* Doesn't work under FreeBSD v2.2.x */
     }
 
     len = sizeof(Cached);
 
-    if ((sysctlbyname("vm.stats.vm.v_cache_count", &Cached, &len, NULL, 0) == -1) || !len) {
-        Cached = 0;    /* Doesn't work under FreeBSD v2.2.x */
+    if ((sysctlbyname("vm.stats.vm.v_cache_count", &Cached, &len, NULL, 0) ==
+         -1) ||
+        !len) {
+        Cached = 0; /* Doesn't work under FreeBSD v2.2.x */
     }
 
 #else
     /* The interesting information is definitely within the first 256 bytes */
-    char buf[256];
+    char       buf[256];
     static int fd = -1;
 
     if (fd < 0) {
         if ((fd = open("/proc/meminfo", O_RDONLY)) < 0) {
             log_error() << "Cannot open file \'/proc/meminfo\'!\n"
-                        "The kernel needs to be compiled with support\n"
-                        "for /proc filesystem enabled!" << endl;
+                           "The kernel needs to be compiled with support\n"
+                           "for /proc filesystem enabled!"
+                        << endl;
             return 0;
         }
 
         fcntl(fd, F_SETFD, FD_CLOEXEC);
     }
 
-    if (lseek(fd, 0, SEEK_SET) == -1){
+    if (lseek(fd, 0, SEEK_SET) == -1) {
         log_perror("lseek failed");
         return 0;
     }
     ssize_t n;
 
-    while ((n = read(fd, buf, sizeof(buf) - 1)) < 0 && errno == EINTR) {}
+    while ((n = read(fd, buf, sizeof(buf) - 1)) < 0 && errno == EINTR) {
+    }
 
     if (n < 20) {
         return 0;
@@ -358,34 +384,42 @@ static unsigned int calculateMemLoad(unsigned long int &NetMemFree)
 //  numJobs - current number of active jobs
 //  rate    - update rate, in seconds (usually 60, 300, or 900)
 //  delta_t - time since last update, in seconds
-double compute_load(double oldVal, unsigned int currentJobs, unsigned int rate, double delta_t)
+double
+compute_load(double       oldVal,
+             unsigned int currentJobs,
+             unsigned int rate,
+             double       delta_t)
 {
     double weight = 1.0 / exp(delta_t / rate);
     return oldVal * weight + currentJobs * (1.0 - weight);
 }
 
-double getEpocTime()
+double
+getEpocTime()
 {
     timeval tv;
     gettimeofday(&tv, nullptr);
-    return (double) tv.tv_sec + (double) tv.tv_usec / 1000000.0;
+    return (double)tv.tv_sec + (double)tv.tv_usec / 1000000.0;
 }
 
 // Simulates getloadavg(), but only for specified number of jobs
 //  Note: this is stateful and not thread-safe!
 //        Also, it differs from getloadavg() in that its notion of load
 //        is only updated as often as it's called.
-int fakeloadavg(double *p_result, int resultEntries, unsigned int currentJobs)
+int
+fakeloadavg(double * p_result, int resultEntries, unsigned int currentJobs)
 {
     // internal state
-    static const int numLoads = 3;
-    static double loads[numLoads] = { 0.0, 0.0, 0.0 };
-    static unsigned int rates[numLoads] = { 60, 300, 900 };
-    static double lastUpdate = getEpocTime();
+    static const int    numLoads = 3;
+    static double       loads[numLoads] = {0.0, 0.0, 0.0};
+    static unsigned int rates[numLoads] = {60, 300, 900};
+    static double       lastUpdate = getEpocTime();
 
     // First, update all state
     double now = getEpocTime();
-    double delta_t = std::max(now - lastUpdate, 0.0);   // guard against user changing system time backwards
+    double delta_t =
+        std::max(now - lastUpdate,
+                 0.0); // guard against user changing system time backwards
     lastUpdate = now;
 
     for (int l = 0; l < numLoads; l++) {
@@ -402,7 +436,12 @@ int fakeloadavg(double *p_result, int resultEntries, unsigned int currentJobs)
     return numFilled;
 }
 
-void fill_stats(unsigned long &myidleload, unsigned long &myniceload, unsigned int &memory_fillgrade, StatsMsg *msg, unsigned int hint)
+void
+fill_stats(unsigned long & myidleload,
+           unsigned long & myniceload,
+           unsigned int &  memory_fillgrade,
+           StatsMsg *      msg,
+           unsigned int    hint)
 {
     static CPULoadInfo load;
 
@@ -419,7 +458,7 @@ void fill_stats(unsigned long &myidleload, unsigned long &myniceload, unsigned i
         double avg[3];
 #if HAVE_GETLOADAVG
         getloadavg(avg, 3);
-        (void) hint;
+        (void)hint;
 #else
         fakeloadavg(avg, 3, hint);
 #endif
@@ -428,6 +467,5 @@ void fill_stats(unsigned long &myidleload, unsigned long &myniceload, unsigned i
         msg->loadAvg10 = (load_t)(avg[2] * 1000);
 
         msg->freeMem = (load_t)(MemFree / 1024.0 + 0.5);
-
     }
 }

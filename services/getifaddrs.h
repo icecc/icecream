@@ -1,4 +1,5 @@
-/* -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; fill-column: 99; -*- */
+/* -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; fill-column: 99; -*-
+ */
 /* vim: set ts=4 sw=4 et tw=99:  */
 /* ifaddrs.h -- declarations for getting network interface addresses
    Copyright (C) 2002 Free Software Foundation, Inc.
@@ -16,7 +17,7 @@
 
    You should have received a copy of the GNU Lesser General Public
    License along with this library; if not, write to the Free Software
-   Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+   Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301 USA
 */
 
 #ifndef GETIFADDRS_H
@@ -29,15 +30,13 @@
 
 #include "config.h"
 
+#include <net/if.h>
 #include <string>
-
+#include <sys/socket.h>
 #include <sys/types.h>
 
-#include <sys/socket.h>
-#include <net/if.h>
-
 #ifndef IFF_POINTOPOINT
-#   define IFF_POINTOPOINT 0x10
+#define IFF_POINTOPOINT 0x10
 #endif
 
 #ifdef HAVE_IFADDRS_H
@@ -54,35 +53,35 @@
 /* The `getifaddrs' function generates a linked list of these structures.
    Each element of the list describes one network interface.  */
 struct kde_ifaddrs {
-    struct kde_ifaddrs *ifa_next; /* Pointer to the next structure.  */
+    struct kde_ifaddrs * ifa_next; /* Pointer to the next structure.  */
 
-    char *ifa_name;       /* Name of this network interface.  */
-    unsigned int ifa_flags;   /* Flags as from SIOCGIFFLAGS ioctl.  */
+    char *       ifa_name; /* Name of this network interface.  */
+    unsigned int ifa_flags; /* Flags as from SIOCGIFFLAGS ioctl.  */
 
-    struct sockaddr *ifa_addr;    /* Network address of this interface.  */
-    struct sockaddr *ifa_netmask; /* Netmask of this interface.  */
+    struct sockaddr * ifa_addr; /* Network address of this interface.  */
+    struct sockaddr * ifa_netmask; /* Netmask of this interface.  */
 
     union {
         /* At most one of the following two is valid.  If the IFF_BROADCAST
            bit is set in `ifa_flags', then `ifa_broadaddr' is valid.  If the
            IFF_POINTOPOINT bit is set, then `ifa_dstaddr' is valid.
            It is never the case that both these bits are set at once.  */
-        struct sockaddr *ifu_broadaddr; /* Broadcast address of this interface. */
-        struct sockaddr *ifu_dstaddr; /* Point-to-point destination address.  */
+        struct sockaddr *
+                          ifu_broadaddr; /* Broadcast address of this interface. */
+        struct sockaddr * ifu_dstaddr; /* Point-to-point destination address. */
     } ifa_ifu;
 
     /* These very same macros are defined by <net/if.h> for `struct ifaddr'.
-       So if they are defined already, the existing definitions will be fine.  */
-# ifndef ifa_broadaddr
-#  define ifa_broadaddr ifa_ifu.ifu_broadaddr
-# endif
-# ifndef ifa_dstaddr
-#  define ifa_dstaddr ifa_ifu.ifu_dstaddr
-# endif
+       So if they are defined already, the existing definitions will be fine. */
+#ifndef ifa_broadaddr
+#define ifa_broadaddr ifa_ifu.ifu_broadaddr
+#endif
+#ifndef ifa_dstaddr
+#define ifa_dstaddr ifa_ifu.ifu_dstaddr
+#endif
 
-    void *ifa_data;       /* Address-specific data (may be unused).  */
+    void * ifa_data; /* Address-specific data (may be unused).  */
 };
-
 
 /* Create a linked list of `struct kde_ifaddrs' structures, one for each
    network interface on the host machine.  If successful, store the
@@ -90,10 +89,12 @@ struct kde_ifaddrs {
 
    The storage returned in *IFAP is allocated dynamically and can
    only be properly freed by passing it to `freeifaddrs'.  */
-extern int kde_getifaddrs(struct kde_ifaddrs **__ifap);
+extern int
+kde_getifaddrs(struct kde_ifaddrs ** __ifap);
 
 /* Reclaim the storage allocated by a previous `getifaddrs' call.  */
-extern void kde_freeifaddrs(struct kde_ifaddrs *__ifa);
+extern void
+kde_freeifaddrs(struct kde_ifaddrs * __ifa);
 
 #endif
 
@@ -101,8 +102,12 @@ extern void kde_freeifaddrs(struct kde_ifaddrs *__ifa);
  * Constructs an IPv4 socket address for a given port and network interface.
  *
  * The address is suitable for use by a subsequent call to bind().
- * If the interface argument is an empty string, the socket will listen on all interfaces.
+ * If the interface argument is an empty string, the socket will listen on all
+ * interfaces.
  */
-bool build_address_for_interface(struct sockaddr_in &myaddr, const std::string &interface, int port);
+bool
+build_address_for_interface(struct sockaddr_in & myaddr,
+                            const std::string &  interface,
+                            int                  port);
 
 #endif

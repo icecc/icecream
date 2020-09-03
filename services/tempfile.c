@@ -1,4 +1,5 @@
-/* -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; fill-column: 99; -*- */
+/* -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; fill-column: 99; -*-
+ */
 /* vim: set ts=4 sw=4 et tw=99:  */
 /*
  * distcc -- A simple distributed compiler system
@@ -20,38 +21,32 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-
 /* "More computing sins are committed in the name of
  * efficiency (without necessarily achieving it) than
  * for any other single reason - including blind
  * stupidity."  -- W.A. Wulf
  */
 
-
+#include "tempfile.h"
 
 #include "config.h"
+#include "exitcode.h"
 
-#include <sys/stat.h>
-#include <sys/types.h>
-#include <sys/time.h>
-
-#include <time.h>
+#include <errno.h>
+#include <fcntl.h>
+#include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <unistd.h>
 #include <string.h>
-#include <fcntl.h>
-#include <errno.h>
-#include <limits.h>
-
-#include "tempfile.h"
-#include "exitcode.h"
+#include <sys/stat.h>
+#include <sys/time.h>
+#include <sys/types.h>
+#include <time.h>
+#include <unistd.h>
 
 #ifndef _PATH_TMP
 #define _PATH_TMP "/tmp"
 #endif
-
-
 
 /**
  * Create a file inside the temporary directory and register it for
@@ -60,21 +55,26 @@
  * The file will be reopened later, possibly in a child.  But we know
  * that it exists with appropriately tight permissions.
  **/
-int dcc_make_tmpnam(const char *prefix, const char *suffix, char **name_ret, int relative)
+int
+dcc_make_tmpnam(const char * prefix,
+                const char * suffix,
+                char **      name_ret,
+                int          relative)
 {
     unsigned long random_bits;
     unsigned long tries = 0;
-    size_t tmpname_length;
-    char *tmpname;
+    size_t        tmpname_length;
+    char *        tmpname;
 
-    tmpname_length = strlen(_PATH_TMP) + 1 + strlen(prefix) + 1 + 8 + strlen(suffix) + 1;
+    tmpname_length =
+        strlen(_PATH_TMP) + 1 + strlen(prefix) + 1 + 8 + strlen(suffix) + 1;
     tmpname = malloc(tmpname_length);
 
     if (!tmpname) {
         return EXIT_OUT_OF_MEMORY;
     }
 
-    random_bits = (unsigned long) getpid() << 16;
+    random_bits = (unsigned long)getpid() << 16;
 
     {
         struct timeval tv;
@@ -88,7 +88,9 @@ int dcc_make_tmpnam(const char *prefix, const char *suffix, char **name_ret, int
 #endif
 
     do {
-        if (snprintf(tmpname, tmpname_length, "%s/%s_%08lx%s",
+        if (snprintf(tmpname,
+                     tmpname_length,
+                     "%s/%s_%08lx%s",
                      (relative ? &_PATH_TMP[1] : _PATH_TMP),
                      prefix,
                      random_bits & 0xffffffffUL,
@@ -117,20 +119,20 @@ int dcc_make_tmpnam(const char *prefix, const char *suffix, char **name_ret, int
                the file was removed from under us.  Don't endlessly loop
                in that case.  */
             switch (errno) {
-            case EACCES:
-            case EEXIST:
-            case EISDIR:
-            case ELOOP:
-                /* try again */
-                random_bits += 7777; /* fairly prime */
-                continue;
+                case EACCES:
+                case EEXIST:
+                case EISDIR:
+                case ELOOP:
+                    /* try again */
+                    random_bits += 7777; /* fairly prime */
+                    continue;
             }
 
             free(tmpname);
             return EXIT_IO_ERROR;
         }
 
-        if (close(fd) == -1) {  /* huh? */
+        if (close(fd) == -1) { /* huh? */
             free(tmpname);
             return EXIT_IO_ERROR;
         }
@@ -143,11 +145,13 @@ int dcc_make_tmpnam(const char *prefix, const char *suffix, char **name_ret, int
     return 0;
 }
 
-int dcc_make_tmpdir(char **name_ret) {
+int
+dcc_make_tmpdir(char ** name_ret)
+{
     unsigned long tries = 0;
     char template[] = "icecc-XXXXXX";
     size_t tmpname_length = strlen(_PATH_TMP) + 1 + strlen(template) + 1;
-    char *tmpname = malloc(tmpname_length);
+    char * tmpname = malloc(tmpname_length);
 
     if (!tmpname) {
         return EXIT_OUT_OF_MEMORY;
@@ -166,11 +170,10 @@ int dcc_make_tmpdir(char **name_ret) {
             }
 
             switch (errno) {
-            case EACCES:
-            case EEXIST:
-            case EISDIR:
-            case ELOOP:
-                continue;
+                case EACCES:
+                case EEXIST:
+                case EISDIR:
+                case ELOOP: continue;
             }
 
             free(tmpname);

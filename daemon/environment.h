@@ -1,4 +1,5 @@
-/* -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; fill-column: 99; -*- */
+/* -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; fill-column: 99; -*-
+ */
 /* vim: set ts=4 sw=4 et tw=99:  */
 /*
     This file is part of Icecream.
@@ -29,25 +30,52 @@
 #include <unistd.h>
 
 class MsgChannel;
-extern bool cleanup_cache(const std::string &basedir, uid_t user_uid, gid_t user_gid);
-extern int start_create_env(const std::string &basedir,
-                            uid_t user_uid, gid_t user_gid,
-                            const std::string &compiler, const std::list<std::string> &extrafiles,
-                            const std::string &compression);
-extern size_t finish_create_env(int pipe, const std::string &basedir, std::string &native_environment);
-Environments available_environments(const std::string &basename);
-extern pid_t start_install_environment(const std::string &basename,
-                                       const std::string &target,
-                                       const std::string &name,
-                                       MsgChannel *c, int& pipe_to_child, int& pipe_from_child,
-                                       FileChunkMsg*& fmsg,
-                                       uid_t user_uid, gid_t user_gid, int extract_priority);
-extern size_t finalize_install_environment(const std::string &basename, const std::string &target,
-                                           uid_t user_uid, gid_t user_gid);
-extern void remove_environment_files(const std::string &basedir, const std::string &env);
-extern void remove_native_environment_files(const std::string &env);
-extern void chdir_to_environment(MsgChannel *c, const std::string &dirname, uid_t user_uid, gid_t user_gid);
-extern bool verify_env(MsgChannel *c, const std::string &basedir, const std::string &target,
-                       const std::string &env, uid_t user_uid, gid_t user_gid);
+extern bool
+cleanup_cache(const std::string & basedir, uid_t user_uid, gid_t user_gid);
+extern int
+start_create_env(const std::string &            basedir,
+                 uid_t                          user_uid,
+                 gid_t                          user_gid,
+                 const std::string &            compiler,
+                 const std::list<std::string> & extrafiles,
+                 const std::string &            compression);
+extern size_t
+finish_create_env(int                 pipe,
+                  const std::string & basedir,
+                  std::string &       native_environment);
+Environments
+available_environments(const std::string & basename);
+extern pid_t
+start_install_environment(const std::string & basename,
+                          const std::string & target,
+                          const std::string & name,
+                          MsgChannel *        c,
+                          int &               pipe_to_child,
+                          int &               pipe_from_child,
+                          FileChunkMsg *&     fmsg,
+                          uid_t               user_uid,
+                          gid_t               user_gid,
+                          int                 extract_priority);
+extern size_t
+finalize_install_environment(const std::string & basename,
+                             const std::string & target,
+                             uid_t               user_uid,
+                             gid_t               user_gid);
+extern void
+remove_environment_files(const std::string & basedir, const std::string & env);
+extern void
+remove_native_environment_files(const std::string & env);
+extern void
+chdir_to_environment(MsgChannel *        c,
+                     const std::string & dirname,
+                     uid_t               user_uid,
+                     gid_t               user_gid);
+extern bool
+verify_env(MsgChannel *        c,
+           const std::string & basedir,
+           const std::string & target,
+           const std::string & env,
+           uid_t               user_uid,
+           gid_t               user_gid);
 
 #endif

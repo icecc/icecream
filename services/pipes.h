@@ -1,4 +1,5 @@
-/* -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; fill-column: 99; -*- */
+/* -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; fill-column: 99; -*-
+ */
 /* vim: set ts=4 sw=4 et tw=99:  */
 /*
     This file is part of Icecream.
@@ -22,6 +23,7 @@
 #define ICECREAM_PIPES_H
 
 // This is like pipe(), but it will try to create a larger buffer.
-extern int create_large_pipe( int pipefd[ 2 ] );
+extern int
+create_large_pipe(int pipefd[2]);
 
 #endif

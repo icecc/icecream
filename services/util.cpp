@@ -1,4 +1,5 @@
-/* -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; fill-column: 99; -*- */
+/* -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; fill-column: 99; -*-
+ */
 /* vim: set ts=4 sw=4 et tw=99:  */
 /*
  * distcc -- A simple distributed compiler system
@@ -20,17 +21,16 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-
 #include "util.h"
+
+#include "comm.h"
+#include "exitcode.h"
+#include "logging.h"
 
 #include <cassert>
 #include <cstring>
 #include <sys/types.h>
 #include <sys/wait.h>
-
-#include "comm.h"
-#include "logging.h"
-#include "exitcode.h"
 
 using namespace std;
 
@@ -39,7 +39,8 @@ using namespace std;
  * last slash.)  If there is no slash, return the whole filename,
  * which is presumably in the current directory.
  **/
-string find_basename(const string &sfile)
+string
+find_basename(const string & sfile)
 {
     size_t index = sfile.rfind('/');
 
@@ -50,7 +51,8 @@ string find_basename(const string &sfile)
     return sfile.substr(index + 1);
 }
 
-string find_prefix(const string &basename)
+string
+find_prefix(const string & basename)
 {
     size_t index = basename.rfind('-');
 
@@ -64,73 +66,87 @@ string find_prefix(const string &basename)
 /*
  We support these compilers:
  - cc/c++
-    Only in this form, no prefix or suffix. It is usually a symlink to the real compiler,
-    we will always detect it as !clang (FIXME?).
+    Only in this form, no prefix or suffix. It is usually a symlink to the real
+ compiler, we will always detect it as !clang (FIXME?).
  - gcc/g++
-    Including a possible prefix or postfix separated by '-' (e.g. aarch64-suse-linux-gcc-6)
+    Including a possible prefix or postfix separated by '-' (e.g.
+ aarch64-suse-linux-gcc-6)
  - clang/clang++
     Including a possible prefix or postfix separated by '-' (e.g. clang-8).
 */
 
-bool is_c_compiler(const string& compiler)
+bool
+is_c_compiler(const string & compiler)
 {
     string name = find_basename(compiler);
-    if( name.find("++") != string::npos )
+    if (name.find("++") != string::npos)
         return false;
-    return name.find("gcc") != string::npos || name.find("clang") != string::npos
-        || name == "cc";
+    return name.find("gcc") != string::npos ||
+           name.find("clang") != string::npos || name == "cc";
 }
 
-bool is_cpp_compiler(const string& compiler)
+bool
+is_cpp_compiler(const string & compiler)
 {
     string name = find_basename(compiler);
-    return name.find("g++") != string::npos || name.find("clang++") != string::npos
-        || name == "c++";
+    return name.find("g++") != string::npos ||
+           name.find("clang++") != string::npos || name == "c++";
 }
 
-string get_c_compiler(const string& compiler)
+string
+get_c_compiler(const string & compiler)
 {
-    if(compiler.empty())
+    if (compiler.empty())
         return compiler;
     size_t slash = compiler.rfind('/');
-    size_t pos = compiler.rfind( "++" );
-    if( pos == string::npos || pos < slash )
+    size_t pos = compiler.rfind("++");
+    if (pos == string::npos || pos < slash)
         return compiler;
-    pos = compiler.rfind( "clang++" );
-    if( pos != string::npos && pos >= slash + 1 )
-        return compiler.substr( 0, pos ) + "clang" + compiler.substr( pos + strlen( "clang++" ));
-    pos = compiler.rfind( "g++" ); // g++ must go after clang++, it's a substring
-    if( pos != string::npos && pos >= slash + 1 )
-        return compiler.substr( 0, pos ) + "gcc" + compiler.substr( pos + strlen( "g++" ));
-    pos = compiler.rfind( "c++" );
-    if( pos != string::npos && pos == slash + 1 ) // only exactly "c++"
-        return compiler.substr( 0, pos ) + "cc" + compiler.substr( pos + strlen( "c++" ));
-    assert( false );
+    pos = compiler.rfind("clang++");
+    if (pos != string::npos && pos >= slash + 1)
+        return compiler.substr(0, pos) + "clang" +
+               compiler.substr(pos + strlen("clang++"));
+    pos = compiler.rfind("g++"); // g++ must go after clang++, it's a substring
+    if (pos != string::npos && pos >= slash + 1)
+        return compiler.substr(0, pos) + "gcc" +
+               compiler.substr(pos + strlen("g++"));
+    pos = compiler.rfind("c++");
+    if (pos != string::npos && pos == slash + 1) // only exactly "c++"
+        return compiler.substr(0, pos) + "cc" +
+               compiler.substr(pos + strlen("c++"));
+    assert(false);
     return string();
 }
 
-string get_cpp_compiler(const string& compiler)
+string
+get_cpp_compiler(const string & compiler)
 {
-    if(compiler.empty())
+    if (compiler.empty())
         return compiler;
     size_t slash = compiler.rfind('/');
-    size_t pos = compiler.rfind( "++" );
-    if( pos != string::npos && pos >= slash + 1 )
+    size_t pos = compiler.rfind("++");
+    if (pos != string::npos && pos >= slash + 1)
         return compiler;
-    pos = compiler.rfind( "gcc" );
-    if( pos != string::npos && pos >= slash + 1 )
-        return compiler.substr( 0, pos ) + "g++" + compiler.substr( pos + strlen( "gcc" ));
-    pos = compiler.rfind( "clang" );
-    if( pos != string::npos && pos >= slash + 1 )
-        return compiler.substr( 0, pos ) + "clang++" + compiler.substr( pos + strlen( "clang" ));
-    pos = compiler.rfind( "cc" );
-    if( pos != string::npos && pos == slash + 1 ) // only exactly "cc"
-        return compiler.substr( 0, pos ) + "c++" + compiler.substr( pos + strlen( "cc" ));
-    assert( false );
+    pos = compiler.rfind("gcc");
+    if (pos != string::npos && pos >= slash + 1)
+        return compiler.substr(0, pos) + "g++" +
+               compiler.substr(pos + strlen("gcc"));
+    pos = compiler.rfind("clang");
+    if (pos != string::npos && pos >= slash + 1)
+        return compiler.substr(0, pos) + "clang++" +
+               compiler.substr(pos + strlen("clang"));
+    pos = compiler.rfind("cc");
+    if (pos != string::npos && pos == slash + 1) // only exactly "cc"
+        return compiler.substr(0, pos) + "c++" +
+               compiler.substr(pos + strlen("cc"));
+    assert(false);
     return string();
 }
 
-string read_command_output(const string& command, const vector<string>& args, int output_fd)
+string
+read_command_output(const string &         command,
+                    const vector<string> & args,
+                    int                    output_fd)
 {
     flush_debug();
     int pipes[2];
@@ -146,19 +162,19 @@ string read_command_output(const string& command, const vector<string>& args, in
     }
 
     if (pid) { // parent
-        if (close(pipes[1]) < 0){
+        if (close(pipes[1]) < 0) {
             log_perror("close failed");
         }
         int status;
         while (waitpid(pid, &status, 0) < 0 && errno == EINTR)
             ;
-        if(shell_exit_status(status) != 0)
+        if (shell_exit_status(status) != 0)
             return string();
         string output;
-        char buf[1024];
+        char   buf[1024];
         for (;;) {
-            int r = read(pipes[0], buf, sizeof(buf) - 1 );
-            if( r > 0 ) {
+            int r = read(pipes[0], buf, sizeof(buf) - 1);
+            if (r > 0) {
                 buf[r] = '\0';
                 output += buf;
             }
@@ -172,7 +188,7 @@ string read_command_output(const string& command, const vector<string>& args, in
 
     // child
 
-    if (close(pipes[0]) < 0){
+    if (close(pipes[0]) < 0) {
         log_perror("close failed");
     }
 
@@ -180,20 +196,20 @@ string read_command_output(const string& command, const vector<string>& args, in
     close(STDOUT_FILENO);
     close(STDERR_FILENO);
 
-    if (dup2(pipes[1], output_fd) < 0){
+    if (dup2(pipes[1], output_fd) < 0) {
         log_perror("dup2 failed");
         return string();
     }
 
-    if (close(pipes[1]) < 0){
+    if (close(pipes[1]) < 0) {
         log_perror("close failed");
     }
 
-    const char **argv;
-    argv = new const char*[args.size() + 2];
+    const char ** argv;
+    argv = new const char *[args.size() + 2];
     int pos = 0;
     argv[pos++] = strdup(command.c_str());
-    for (const string& arg : args)
+    for (const string & arg : args)
         argv[pos++] = strdup(arg.c_str());
     argv[pos++] = nullptr;
 
@@ -204,27 +220,33 @@ string read_command_output(const string& command, const vector<string>& args, in
     _exit(-1);
 }
 
-string read_command_line(const string& command, const vector<string>& args, int output_fd)
+string
+read_command_line(const string &         command,
+                  const vector<string> & args,
+                  int                    output_fd)
 {
-    string output = read_command_output( command, args, output_fd );
+    string output = read_command_output(command, args, output_fd);
     // get rid of the endline
-    if( output[ output.length() - 1 ] == '\n' )
+    if (output[output.length() - 1] == '\n')
         return output.substr(0, output.length() - 1);
     else
         return output;
 }
 
-bool pollfd_is_set(const vector<pollfd>& pollfds, int fd, int flags, bool check_errors)
+bool
+pollfd_is_set(const vector<pollfd> & pollfds,
+              int                    fd,
+              int                    flags,
+              bool                   check_errors)
 {
-    for(auto pollfd : pollfds)
-    {
-        if( pollfd.fd == fd )
-        {
-            if( pollfd.revents & flags )
+    for (auto pollfd : pollfds) {
+        if (pollfd.fd == fd) {
+            if (pollfd.revents & flags)
                 return true;
-            // Unlike with select(), where readfds gets set even on EOF, with poll()
-            // POLLIN doesn't imply EOF and we need to check explicitly.
-            if( check_errors && ( pollfd.revents & ( POLLERR | POLLHUP | POLLNVAL )))
+            // Unlike with select(), where readfds gets set even on EOF, with
+            // poll() POLLIN doesn't imply EOF and we need to check explicitly.
+            if (check_errors &&
+                (pollfd.revents & (POLLERR | POLLHUP | POLLNVAL)))
                 return true;
             return false;
         }
@@ -232,16 +254,17 @@ bool pollfd_is_set(const vector<pollfd>& pollfds, int fd, int flags, bool check_
     return false;
 }
 
-string supported_features_to_string(unsigned int features)
+string
+supported_features_to_string(unsigned int features)
 {
     string ret;
-    if( features & NODE_FEATURE_ENV_XZ )
+    if (features & NODE_FEATURE_ENV_XZ)
         ret += " env_xz";
-    if( features & NODE_FEATURE_ENV_ZSTD )
+    if (features & NODE_FEATURE_ENV_ZSTD)
         ret += " env_zstd";
-    if( ret.empty())
+    if (ret.empty())
         ret = "--";
     else
-        ret.erase( 0, 1 ); // remove leading " "
+        ret.erase(0, 1); // remove leading " "
     return ret;
 }

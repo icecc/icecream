@@ -1,4 +1,5 @@
-/* -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; fill-column: 99; -*- */
+/* -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; fill-column: 99; -*-
+ */
 /* vim: set ts=4 sw=4 et tw=99:  */
 /*
  * distcc -- A simple distributed compiler system
@@ -27,10 +28,13 @@
 extern "C" {
 #endif
 
-    int dcc_make_tmpnam(const char *prefix,
-                        const char *suffix,
-                        char **name_ret, int relative);
-    int dcc_make_tmpdir(char **name_ret);
+int
+dcc_make_tmpnam(const char * prefix,
+                const char * suffix,
+                char **      name_ret,
+                int          relative);
+int
+dcc_make_tmpdir(char ** name_ret);
 
 #ifdef __cplusplus
 }

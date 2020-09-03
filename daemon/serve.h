@@ -1,4 +1,5 @@
-/* -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; fill-column: 99; -*- */
+/* -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; fill-column: 99; -*-
+ */
 /* vim: set ts=4 sw=4 et tw=99:  */
 /*
     This file is part of Icecream.
@@ -31,8 +32,13 @@ class MsgChannel;
 
 extern int nice_level;
 
-int handle_connection(const std::string &basedir, CompileJob *job,
-                      MsgChannel *serv, int & out_fd,
-                      unsigned int mem_limit, uid_t user_uid, gid_t user_gid);
+int
+handle_connection(const std::string & basedir,
+                  CompileJob *        job,
+                  MsgChannel *        serv,
+                  int &               out_fd,
+                  unsigned int        mem_limit,
+                  uid_t               user_uid,
+                  gid_t               user_gid);
 
 #endif

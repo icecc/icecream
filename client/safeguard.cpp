@@ -1,4 +1,5 @@
-/* -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; fill-column: 99; -*- */
+/* -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; fill-column: 99; -*-
+ */
 /* vim: set ts=4 sw=4 et tw=99:  */
 /*
  * distcc -- A simple distributed compiler system
@@ -21,7 +22,6 @@
  */
 
 #include "client.h"
-
 #include "logging.h"
 
 using namespace std;
@@ -39,14 +39,15 @@ using namespace std;
  **/
 
 static const char dcc_safeguard_name[] = "_ICECC_SAFEGUARD";
-static int dcc_safeguard_level;
+static int        dcc_safeguard_level;
 
-int dcc_recursion_safeguard()
+int
+dcc_recursion_safeguard()
 {
-    const char *env = getenv(dcc_safeguard_name);
+    const char * env = getenv(dcc_safeguard_name);
 
     if (env) {
-        //trace() << "safeguard: " << env << endl;
+        // trace() << "safeguard: " << env << endl;
         if (!(dcc_safeguard_level = atoi(env))) {
             dcc_safeguard_level = 1;
         }
@@ -54,16 +55,16 @@ int dcc_recursion_safeguard()
         dcc_safeguard_level = 0;
     }
 
-    //trace() << "safeguard level=" << dcc_safeguard_level << endl;
+    // trace() << "safeguard level=" << dcc_safeguard_level << endl;
 
     return dcc_safeguard_level;
 }
 
-
-void dcc_increment_safeguard(SafeguardStep step)
+void
+dcc_increment_safeguard(SafeguardStep step)
 {
-    char value[2] = { (char)(dcc_safeguard_level + step + '0'), '\0' };
-    //trace() << "setting safeguard: " << dcc_safeguard_set << endl;
+    char value[2] = {(char)(dcc_safeguard_level + step + '0'), '\0'};
+    // trace() << "setting safeguard: " << dcc_safeguard_set << endl;
     if (setenv(dcc_safeguard_name, value, 1) == -1) {
         log_error() << "putenv failed" << endl;
     }

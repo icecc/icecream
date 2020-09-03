@@ -1,4 +1,5 @@
-/* -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; fill-column: 99; -*- */
+/* -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; fill-column: 99; -*-
+ */
 /* vim: set ts=4 sw=4 et tw=99:  */
 /*
     This file is part of Icecream.
@@ -25,9 +26,12 @@
 
 #include <string>
 
-extern const std::string &determine_platform();
+extern const std::string &
+determine_platform();
 
-extern int ggc_min_expand_heuristic(unsigned int mem_limit);
-extern unsigned int ggc_min_heapsize_heuristic(unsigned int mem_limit);
+extern int
+ggc_min_expand_heuristic(unsigned int mem_limit);
+extern unsigned int
+ggc_min_heapsize_heuristic(unsigned int mem_limit);
 
 #endif

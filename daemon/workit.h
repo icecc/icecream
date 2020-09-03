@@ -1,4 +1,5 @@
-/* -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; fill-column: 99; -*- */
+/* -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; fill-column: 99; -*-
+ */
 /* vim: set ts=4 sw=4 et tw=99:  */
 /*
     This file is part of Icecream.
@@ -24,35 +25,50 @@
 #ifndef ICECREAM_WORKIT_H
 #define ICECREAM_WORKIT_H
 
-#include <job.h>
-#include <sys/types.h>
-#include <string>
-
 #include <exception>
+#include <job.h>
+#include <string>
+#include <sys/types.h>
 
 class MsgChannel;
 class CompileResultMsg;
 
 // No icecream ;(
-class myexception : public std::exception
-{
+class myexception : public std::exception {
     int code;
+
 public:
     myexception(int _exitcode) : exception(), code(_exitcode) {}
-    int exitcode() const {
+    int
+    exitcode() const
+    {
         return code;
     }
 };
 
-namespace JobStatistics
+namespace JobStatistics {
+enum job_stat_fields
 {
-enum job_stat_fields { in_compressed, in_uncompressed, out_uncompressed, exit_code,
-                       real_msec, user_msec, sys_msec, sys_pfaults
-                     };
+    in_compressed,
+    in_uncompressed,
+    out_uncompressed,
+    exit_code,
+    real_msec,
+    user_msec,
+    sys_msec,
+    sys_pfaults
+};
 }
 
-extern int work_it(CompileJob &j, unsigned int job_stats[], MsgChannel *client, CompileResultMsg &msg,
-                   const std::string &tmp_root, const std::string &build_path, const std::string &file_name,
-                   unsigned long int mem_limit, int client_fd);
+extern int
+work_it(CompileJob &        j,
+        unsigned int        job_stats[],
+        MsgChannel *        client,
+        CompileResultMsg &  msg,
+        const std::string & tmp_root,
+        const std::string & build_path,
+        const std::string & file_name,
+        unsigned long int   mem_limit,
+        int                 client_fd);
 
 #endif

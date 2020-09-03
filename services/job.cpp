@@ -1,4 +1,5 @@
-/* -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; fill-column: 99; -*- */
+/* -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; fill-column: 99; -*-
+ */
 /* vim: set ts=4 sw=4 et tw=99:  */
 /*
     This file is part of Icecream.
@@ -21,18 +22,21 @@
 */
 
 #include "job.h"
-#include "logging.h"
+
 #include "exitcode.h"
+#include "logging.h"
 #include "platform.h"
+
 #include <stdio.h>
 
 using namespace std;
 
-list<string> CompileJob::flags(Argument_Type argumentType) const
+list<string>
+CompileJob::flags(Argument_Type argumentType) const
 {
     list<string> args;
 
-    for (const std::pair<std::string, Argument_Type>& m_flag : m_flags) {
+    for (const std::pair<std::string, Argument_Type> & m_flag : m_flags) {
         if (m_flag.second == argumentType) {
             args.push_back(m_flag.first);
         }
@@ -41,26 +45,30 @@ list<string> CompileJob::flags(Argument_Type argumentType) const
     return args;
 }
 
-list<string> CompileJob::localFlags() const
+list<string>
+CompileJob::localFlags() const
 {
     return flags(Arg_Local);
 }
 
-list<string> CompileJob::remoteFlags() const
+list<string>
+CompileJob::remoteFlags() const
 {
     return flags(Arg_Remote);
 }
 
-list<string> CompileJob::restFlags() const
+list<string>
+CompileJob::restFlags() const
 {
     return flags(Arg_Rest);
 }
 
-list<string> CompileJob::nonLocalFlags() const
+list<string>
+CompileJob::nonLocalFlags() const
 {
     list<string> args;
 
-    for (const std::pair<std::string, Argument_Type> &m_flag : m_flags) {
+    for (const std::pair<std::string, Argument_Type> & m_flag : m_flags) {
         if (m_flag.second != Arg_Local) {
             args.push_back(m_flag.first);
         }
@@ -69,27 +77,30 @@ list<string> CompileJob::nonLocalFlags() const
     return args;
 }
 
-list<string> CompileJob::allFlags() const
+list<string>
+CompileJob::allFlags() const
 {
     list<string> args;
 
-    for (const std::pair<std::string, Argument_Type> &m_flag : m_flags) {
+    for (const std::pair<std::string, Argument_Type> & m_flag : m_flags) {
         args.push_back(m_flag.first);
     }
 
     return args;
 }
 
-void CompileJob::setTargetPlatform()
+void
+CompileJob::setTargetPlatform()
 {
     m_target_platform = determine_platform();
 }
 
-unsigned int CompileJob::argumentFlags() const
+unsigned int
+CompileJob::argumentFlags() const
 {
     unsigned int result = Flag_None;
 
-    for (const std::pair<std::string, Argument_Type> &m_flag : m_flags) {
+    for (const std::pair<std::string, Argument_Type> & m_flag : m_flags) {
         const string arg = m_flag.first;
 
         if (arg.at(0) == '-') {

@@ -1,4 +1,5 @@
-/* -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; fill-column: 99; -*- */
+/* -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; fill-column: 99; -*-
+ */
 /* vim: set ts=4 sw=4 et tw=99:  */
 /*
  * distcc -- A simple distributed compiler system
@@ -26,20 +27,20 @@
  * Run the preprocessor.  Client-side only.
  **/
 
+#include "client.h"
 #include "config.h"
 
+#include <assert.h>
+#include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <unistd.h>
 #include <string.h>
-#include <errno.h>
-#include <assert.h>
-
-#include "client.h"
+#include <unistd.h>
 
 using namespace std;
 
-bool dcc_is_preprocessed(const string &sfile)
+bool
+dcc_is_preprocessed(const string & sfile)
 {
     if (sfile.size() < 3) {
         return false;
@@ -48,11 +49,12 @@ bool dcc_is_preprocessed(const string &sfile)
     int last = sfile.size() - 1;
 
     if ((sfile[last - 1] == '.') && (sfile[last] == 'i')) {
-        return true;    // .i
+        return true; // .i
     }
 
-    if ((sfile[last - 2] == '.') && (sfile[last - 1] == 'i') && (sfile[last] == 'i')) {
-        return true;    // .ii
+    if ((sfile[last - 2] == '.') && (sfile[last - 1] == 'i') &&
+        (sfile[last] == 'i')) {
+        return true; // .ii
     }
 
     return false;
@@ -68,7 +70,8 @@ bool dcc_is_preprocessed(const string &sfile)
  * allows us to overlap opening the TCP socket, which probably doesn't
  * use many cycles, with running the preprocessor.
  **/
-pid_t call_cpp(CompileJob &job, int fdwrite, int fdread)
+pid_t
+call_cpp(CompileJob & job, int fdwrite, int fdread)
 {
     flush_debug();
     pid_t pid = fork();
@@ -81,7 +84,7 @@ pid_t call_cpp(CompileJob &job, int fdwrite, int fdread)
     if (pid != 0) {
         /* Parent.  Close the write fd.  */
         if (fdwrite > -1) {
-            if ((-1 == close(fdwrite)) && (errno != EBADF)){
+            if ((-1 == close(fdwrite)) && (errno != EBADF)) {
                 log_perror("close() failed");
             }
         }
@@ -91,23 +94,23 @@ pid_t call_cpp(CompileJob &job, int fdwrite, int fdread)
 
     /* Child.  Close the read fd, in case we have one.  */
     if (fdread > -1) {
-        if ((-1 == close(fdread)) && (errno != EBADF)){
+        if ((-1 == close(fdread)) && (errno != EBADF)) {
             log_perror("close failed");
         }
     }
 
     int ret = dcc_ignore_sigpipe(0);
 
-    if (ret) {  /* set handler back to default */
+    if (ret) { /* set handler back to default */
         _exit(ret);
     }
 
-    char **argv;
+    char ** argv;
 
     if (dcc_is_preprocessed(job.inputFile())) {
         /* already preprocessed, great.
            write the file to the fdwrite (using cat) */
-        argv = new char*[2 + 1];
+        argv = new char *[2 + 1];
         argv[0] = strdup("/bin/cat");
         argv[1] = strdup(job.inputFile().c_str());
         argv[2] = nullptr;
@@ -124,7 +127,8 @@ pid_t call_cpp(CompileJob &job, int fdwrite, int fdread)
                 if (it != flags.end()) {
                     std::string p = (*it);
 
-                    if (access(p.c_str(), R_OK) < 0 && access((p + ".gch").c_str(), R_OK) == 0) {
+                    if (access(p.c_str(), R_OK) < 0 &&
+                        access((p + ".gch").c_str(), R_OK) == 0) {
                         // PCH is useless for preprocessing, ignore the flag.
                         list<string>::iterator o = --it;
                         ++it;
@@ -139,23 +143,27 @@ pid_t call_cpp(CompileJob &job, int fdwrite, int fdread)
                 if (it != flags.end()) {
                     std::string p = (*it);
                     if (access(p.c_str(), R_OK) == 0) {
-                        // PCH is useless for preprocessing (and probably slows things down), ignore the flag.
+                        // PCH is useless for preprocessing (and probably slows
+                        // things down), ignore the flag.
                         flags.erase(o);
                         o = it++;
                         flags.erase(o);
                     }
                 }
             } else if ((*it) == "-fpch-preprocess") {
-                // This would add #pragma GCC pch_preprocess to the preprocessed output, which would make
-                // the remote GCC try to load the PCH directly and fail. Just drop it. This may cause a build
-                // failure if the -include check above failed to detect usage of a PCH file (e.g. because
-                // it needs to be found in one of the -I paths, which we don't check) and the header file
-                // itself doesn't exist.
+                // This would add #pragma GCC pch_preprocess to the preprocessed
+                // output, which would make the remote GCC try to load the PCH
+                // directly and fail. Just drop it. This may cause a build failure
+                // if the -include check above failed to detect usage of a PCH
+                // file (e.g. because it needs to be found in one of the -I
+                // paths, which we don't check) and the header file itself
+                // doesn't exist.
                 flags.erase(it++);
-            } else if ((*it) == "-fmodules" || (*it) == "-fcxx-modules" || (*it) == "-fmodules-ts"
-                || (*it).find("-fmodules-cache-path=") == 0) {
-                // Clang modules, handle like with PCH, remove the flags and compile remotely
-                // without them.
+            } else if ((*it) == "-fmodules" || (*it) == "-fcxx-modules" ||
+                       (*it) == "-fmodules-ts" ||
+                       (*it).find("-fmodules-cache-path=") == 0) {
+                // Clang modules, handle like with PCH, remove the flags and
+                // compile remotely without them.
                 flags.erase(it++);
             } else {
                 ++it;
@@ -166,11 +174,12 @@ pid_t call_cpp(CompileJob &job, int fdwrite, int fdread)
         argc++; // the program
         argc += 2; // -E file.i
         argc += 1; // -frewrite-includes / -fdirectives-only
-        argv = new char*[argc + 1];
+        argv = new char *[argc + 1];
         argv[0] = strdup(find_compiler(job).c_str());
         int i = 1;
 
-        for (list<string>::const_iterator it = flags.begin(); it != flags.end(); ++it) {
+        for (list<string>::const_iterator it = flags.begin(); it != flags.end();
+             ++it) {
             argv[i++] = strdup(it->c_str());
         }
 
@@ -178,7 +187,7 @@ pid_t call_cpp(CompileJob &job, int fdwrite, int fdread)
         argv[i++] = strdup(job.inputFile().c_str());
 
         if (compiler_only_rewrite_includes(job)) {
-            if( compiler_is_clang(job)) {
+            if (compiler_is_clang(job)) {
                 argv[i++] = strdup("-frewrite-includes");
             } else { // gcc
                 argv[i++] = strdup("-fdirectives-only");
@@ -188,10 +197,10 @@ pid_t call_cpp(CompileJob &job, int fdwrite, int fdread)
         argv[i++] = nullptr;
     }
 
-    string argstxt = argv[ 0 ];
-    for( int i = 1; argv[ i ] != nullptr; ++i ) {
+    string argstxt = argv[0];
+    for (int i = 1; argv[i] != nullptr; ++i) {
         argstxt += ' ';
-        argstxt += argv[ i ];
+        argstxt += argv[i];
     }
     trace() << "preparing source to send: " << argstxt << endl;
 
@@ -204,7 +213,7 @@ pid_t call_cpp(CompileJob &job, int fdwrite, int fdread)
 
     dcc_increment_safeguard(SafeguardStepCompiler);
     execv(argv[0], argv);
-    int exitcode = ( errno == ENOENT ? 127 : 126 );
+    int           exitcode = (errno == ENOENT ? 127 : 126);
     ostringstream errmsg;
     errmsg << "execv " << argv[0] << " failed";
     log_perror(errmsg.str());
