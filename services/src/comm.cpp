@@ -46,6 +46,9 @@ extern "C" {
 #endif
 }
 
+#include <algorithm>
+#include <vector>
+
 // Prefer least amount of CPU use
 #undef ZSTD_CLEVEL_DEFAULT
 #define ZSTD_CLEVEL_DEFAULT 1
@@ -1481,23 +1484,22 @@ Broadcasts::broadcastSchedulerVersion(int          scheduler_port,
     // Code for older schedulers than version 38. Has endianness problems, the
     // message size is not BROAD_BUFLEN and the netname is possibly not
     // null-terminated.
-    const char length_netname = strlen(netname);
-    const int  schedbuflen = 5 + sizeof(uint64_t) + length_netname;
-    char *     buf = new char[schedbuflen];
+    const char        length_netname = strlen(netname);
+    const int         schedbuflen = 5 + sizeof(uint64_t) + length_netname;
+    std::vector<char> buf(schedbuflen, 0);
     buf[0] = 'I';
     buf[1] = 'C';
     buf[2] = 'E';
     buf[3] = PROTOCOL_VERSION;
     uint64_t tmp_time = starttime;
-    memcpy(buf + 4, &tmp_time, sizeof(uint64_t));
+    memcpy(&buf[4], &tmp_time, sizeof(uint64_t));
     buf[4 + sizeof(uint64_t)] = length_netname;
-    strncpy(buf + 5 + sizeof(uint64_t), netname, length_netname - 1);
+    strncpy(&buf[5 + sizeof(uint64_t)], netname, length_netname - 1);
     buf[schedbuflen - 1] = '\0';
-    broadcastData(scheduler_port, buf, schedbuflen);
-    delete[] buf;
+    broadcastData(scheduler_port, buf.data(), schedbuflen);
     // Latest version.
-    buf = new char[BROAD_BUFLEN];
-    memset(buf, 0, BROAD_BUFLEN);
+    buf.resize(BROAD_BUFLEN);
+    std::fill_n(buf.begin(), BROAD_BUFLEN, 0);
     buf[0] = 'I';
     buf[1] = 'C';
     buf[2] = 'F'; // one up
@@ -1506,13 +1508,12 @@ Broadcasts::broadcastSchedulerVersion(int          scheduler_port,
     uint32_t tmp_time_high = uint64_t(starttime) >> 32;
     tmp_time_low = htonl(tmp_time_low);
     tmp_time_high = htonl(tmp_time_high);
-    memcpy(buf + 4, &tmp_time_high, sizeof(uint32_t));
-    memcpy(buf + 4 + sizeof(uint32_t), &tmp_time_low, sizeof(uint32_t));
+    memcpy(&buf[4], &tmp_time_high, sizeof(uint32_t));
+    memcpy(&buf[4 + sizeof(uint32_t)], &tmp_time_low, sizeof(uint32_t));
     const int OFFSET = 4 + 2 * sizeof(uint32_t);
-    snprintf(buf + OFFSET, BROAD_BUFLEN - OFFSET, "%s", netname);
+    snprintf(&buf[OFFSET], BROAD_BUFLEN - OFFSET, "%s", netname);
     buf[BROAD_BUFLEN - 1] = 0;
-    broadcastData(scheduler_port, buf, BROAD_BUFLEN);
-    delete[] buf;
+    broadcastData(scheduler_port, buf.data(), BROAD_BUFLEN);
 }
 
 bool
