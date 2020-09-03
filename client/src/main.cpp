@@ -409,7 +409,7 @@ main(int argc, char ** argv)
 
     int sg_level = dcc_recursion_safeguard();
 
-    if (sg_level >= SafeguardMaxLevel) {
+    if (sg_level >= SAFEGUARD_MAX_LEVEL) {
         log_error() << "icecream seems to have invoked itself recursively!"
                     << std::endl;
         return EXIT_RECURSION;

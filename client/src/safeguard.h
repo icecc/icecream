@@ -8,11 +8,12 @@
 // Also note that if the total number of such recursive invocations exceedds the
 // number of allowed local jobs, iceccd will not assign another local job and
 // the whole build will get stuck.
-inline const int SafeguardMaxLevel = 2;
+
+#define SAFEGUARD_MAX_LEVEL (2)
 
 enum SafeguardStep
 {
-    SafeguardStepCompiler = SafeguardMaxLevel,
+    SafeguardStepCompiler = SAFEGUARD_MAX_LEVEL,
     SafeguardStepCustom = 1
 };
 

@@ -28,3 +28,7 @@ target_compile_definitions(iceccd PRIVATE
     $<$<BOOL:${HAVE_SYS_USER_H}>:HAVE_SYS_USER_H>
     $<$<BOOL:${HAVE_SYS_VFS_H}>:HAVE_SYS_VFS_H>)
 target_link_libraries(iceccd PRIVATE copts_common copts_pic icecc_la -larchive)
+
+if (ICECREAM_LTO)
+    set_property(TARGET iceccd PROPERTY INTERPROCEDURAL_OPTIMIZATION ON)
+endif()
