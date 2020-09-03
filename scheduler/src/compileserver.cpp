@@ -38,8 +38,6 @@ extern "C" {
 
 unsigned int CompileServer::s_hostIdCounter = 0;
 
-using namespace std;
-
 CompileServer::CompileServer(const int         fd,
                              struct sockaddr * addr,
                              const socklen_t   len,
@@ -91,7 +89,7 @@ CompileServer::check_remote(const Job * job) const
 }
 
 bool
-CompileServer::platforms_compatible(const string & target) const
+CompileServer::platforms_compatible(const std::string & target) const
 {
     if (target == hostPlatform()) {
         return true;
@@ -101,34 +99,41 @@ CompileServer::platforms_compatible(const string & target) const
     // the client and that asks the daemon for a platform he can't install (see
     // TODO)
 
-    static multimap<string, string> platform_map;
+    static std::multimap<std::string, std::string> platform_map;
 
     if (platform_map.empty()) {
-        platform_map.insert(make_pair(string("i386"), string("i486")));
-        platform_map.insert(make_pair(string("i386"), string("i586")));
-        platform_map.insert(make_pair(string("i386"), string("i686")));
-        platform_map.insert(make_pair(string("i386"), string("x86_64")));
+        platform_map.insert(
+            make_pair(std::string("i386"), std::string("i486")));
+        platform_map.insert(
+            make_pair(std::string("i386"), std::string("i586")));
+        platform_map.insert(
+            make_pair(std::string("i386"), std::string("i686")));
+        platform_map.insert(
+            make_pair(std::string("i386"), std::string("x86_64")));
 
-        platform_map.insert(make_pair(string("i486"), string("i586")));
-        platform_map.insert(make_pair(string("i486"), string("i686")));
-        platform_map.insert(make_pair(string("i486"), string("x86_64")));
+        platform_map.insert(
+            make_pair(std::string("i486"), std::string("i586")));
+        platform_map.insert(
+            make_pair(std::string("i486"), std::string("i686")));
+        platform_map.insert(
+            make_pair(std::string("i486"), std::string("x86_64")));
 
-        platform_map.insert(make_pair(string("i586"), string("i686")));
-        platform_map.insert(make_pair(string("i586"), string("x86_64")));
+        platform_map.insert(
+            make_pair(std::string("i586"), std::string("i686")));
+        platform_map.insert(
+            make_pair(std::string("i586"), std::string("x86_64")));
 
-        platform_map.insert(make_pair(string("i686"), string("x86_64")));
+        platform_map.insert(
+            make_pair(std::string("i686"), std::string("x86_64")));
 
-        platform_map.insert(make_pair(string("ppc"), string("ppc64")));
-        platform_map.insert(make_pair(string("s390"), string("s390x")));
+        platform_map.insert(
+            make_pair(std::string("ppc"), std::string("ppc64")));
+        platform_map.insert(
+            make_pair(std::string("s390"), std::string("s390x")));
     }
 
-    multimap<string, string>::const_iterator end =
-        platform_map.upper_bound(target);
-
-    for (multimap<string, string>::const_iterator it =
-             platform_map.lower_bound(target);
-         it != end;
-         ++it) {
+    const auto end = platform_map.upper_bound(target);
+    for (auto it = platform_map.lower_bound(target); it != end; ++it) {
         if (it->second == hostPlatform()) {
             return true;
         }
@@ -140,32 +145,30 @@ CompileServer::platforms_compatible(const string & target) const
 /* Given a candidate CS and a JOB, check if any of the requested
    environments could be installed on the CS.  This is the case if that
    env can be run there, i.e. if the host platforms of the CS and of the
-   environment are compatible.  Return an empty string if none can be
+   environment are compatible.  Return an empty std::string if none can be
    installed, otherwise return the platform of the first found
    environments which can be installed.  */
-string
+std::string
 CompileServer::can_install(const Job * job, bool ignore_installing) const
 {
     // trace() << "can_install host: '" << cs->host_platform << "' target: '"
-    //         << job->target_platform << "'" << endl;
+    //         << job->target_platform << "'" << std::endl;
     if (!ignore_installing && busyInstalling()) {
 #if DEBUG_SCHEDULER > 0
         trace() << nodeName() << " is busy installing since "
-                << time(0) - busyInstalling() << " seconds." << endl;
+                << time(0) - busyInstalling() << " seconds." << std::endl;
 #endif
-        return string();
+        return std::string();
     }
 
     Environments environments = job->environments();
-    for (Environments::const_iterator it = environments.begin();
-         it != environments.end();
-         ++it) {
+    for (auto it = environments.begin(); it != environments.end(); ++it) {
         if (platforms_compatible(it->first) && !blacklisted(job, *it)) {
             return it->first;
         }
     }
 
-    return string();
+    return std::string();
 }
 
 int
@@ -199,7 +202,7 @@ CompileServer::is_eligible_ever(const Job * job) const
             << (m_chrootPossible || job->submitter() == this) << ", accepting "
             << m_acceptingInConnection << ", can_install "
             << (can_install(job).size() != 0) << ", check_remote "
-            << check_remote(job) << ")" << endl;
+            << check_remote(job) << ")" << std::endl;
 #endif
     return eligible;
 }
@@ -216,7 +219,7 @@ CompileServer::is_eligible_now(const Job * job) const
     bool eligible = jobs_okay && load_okay && can_install(job, false).size();
 #if DEBUG_SCHEDULER > 2
     trace() << nodeName() << " is_eligible_now: " << eligible << " (jobs_okay "
-            << jobs_okay << ", load_okay " << load_okay << ")" << endl;
+            << jobs_okay << ", load_okay " << load_okay << ")" << std::endl;
 #endif
     return eligible;
 }
@@ -245,20 +248,20 @@ CompileServer::setHostId(unsigned int id)
     m_hostId = id;
 }
 
-string
+std::string
 CompileServer::nodeName() const
 {
     return m_nodeName;
 }
 
 void
-CompileServer::setNodeName(const string & name)
+CompileServer::setNodeName(const std::string & name)
 {
     m_nodeName = name;
 }
 
 bool
-CompileServer::matches(const string & nm) const
+CompileServer::matches(const std::string & nm) const
 {
     return m_nodeName == nm || name == nm;
 }
@@ -275,14 +278,14 @@ CompileServer::setBusyInstalling(time_t time)
     m_busyInstalling = time;
 }
 
-string
+std::string
 CompileServer::hostPlatform() const
 {
     return m_hostPlatform;
 }
 
 void
-CompileServer::setHostPlatform(const string & platform)
+CompileServer::setHostPlatform(const std::string & platform)
 {
     m_hostPlatform = platform;
 }
@@ -323,7 +326,7 @@ CompileServer::setNoRemote(bool value)
     m_noRemote = value;
 }
 
-list<Job *>
+std::list<Job *>
 CompileServer::jobList() const
 {
     return m_jobList;
@@ -444,7 +447,7 @@ CompileServer::setCompilerVersions(const Environments & environments)
     m_compilerVersions = environments;
 }
 
-list<JobStat>
+std::list<JobStat>
 CompileServer::lastCompiledJobs() const
 {
     return m_lastCompiledJobs;
@@ -462,7 +465,7 @@ CompileServer::popCompiledJob()
     m_lastCompiledJobs.pop_front();
 }
 
-list<JobStat>
+std::list<JobStat>
 CompileServer::lastRequestedJobs() const
 {
     return m_lastRequestedJobs;
@@ -522,7 +525,7 @@ CompileServer::eraseClientJobId(const int localJobId)
     m_clientMap.erase(localJobId);
 }
 
-map<const CompileServer *, Environments>
+std::map<const CompileServer *, Environments>
 CompileServer::blacklist() const
 {
     return m_blacklist;
@@ -548,8 +551,9 @@ CompileServer::eraseCSFromBlacklist(CompileServer * cs)
 }
 
 bool
-CompileServer::blacklisted(const Job *                  job,
-                           const pair<string, string> & environment) const
+CompileServer::blacklisted(
+    const Job *                                 job,
+    const std::pair<std::string, std::string> & environment) const
 {
     Environments blacklist = job->submitter()->getEnvsForBlacklistedCS(this);
     return find(blacklist.begin(), blacklist.end(), environment) !=
@@ -607,7 +611,7 @@ CompileServer::updateInConnectivity(bool acceptingIn)
             m_inConnAttempt = 0;
             trace() << "Client (" << m_nodeName << " " << name << ":"
                     << m_remotePort << ") is accepting incoming connections."
-                    << endl;
+                    << std::endl;
         }
         m_nextConnTime = time(nullptr) + check_back_time;
         close(m_inFd);
@@ -619,14 +623,14 @@ CompileServer::updateInConnectivity(bool acceptingIn)
                 << "Client (" << m_nodeName << " " << name << ":"
                 << m_remotePort
                 << ") connected but is not able to accept incoming connections."
-                << endl;
+                << std::endl;
         }
         m_nextConnTime = time(nullptr) + time_offset_table[m_inConnAttempt];
         if (m_inConnAttempt < (table_size - 1))
             m_inConnAttempt++;
         trace() << nodeName() << " failed to accept an incoming connection on "
                 << name << ":" << m_remotePort << " attempting again in "
-                << m_nextConnTime - time(nullptr) << " seconds" << endl;
+                << m_nextConnTime - time(nullptr) << " seconds" << std::endl;
         close(m_inFd);
         m_inFd = -1;
     }
