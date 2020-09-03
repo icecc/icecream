@@ -57,14 +57,12 @@ extern "C" {
 #define _PATH_TMP "/tmp"
 #endif
 
-using namespace std;
-
 int nice_level = 5;
 
 namespace {
 
 void
-error_client(MsgChannel * client, string error)
+error_client(MsgChannel * client, std::string error)
 {
     if (IS_PROTOCOL_22(client)) {
         client->send_msg(StatusTextMsg(error));
@@ -72,14 +70,14 @@ error_client(MsgChannel * client, string error)
 }
 
 void
-write_output_file(const string & file, MsgChannel * client)
+write_output_file(const std::string & file, MsgChannel * client)
 {
     int obj_fd = -1;
     try {
         obj_fd = open(file.c_str(), O_RDONLY | O_LARGEFILE);
 
         if (obj_fd == -1) {
-            log_error() << "open failed" << endl;
+            log_error() << "open failed" << std::endl;
             error_client(client, "open of object file failed");
             throw DaemonException(EXIT_DISTCC_FAILED);
         }
@@ -99,7 +97,7 @@ write_output_file(const string & file, MsgChannel * client)
 
             if (!bytes) {
                 if (!client->send_msg(EndMsg())) {
-                    log_info() << "write of obj end failed " << endl;
+                    log_info() << "write of obj end failed " << std::endl;
                     throw DaemonException(EXIT_DISTCC_FAILED);
                 }
                 break;
@@ -108,7 +106,8 @@ write_output_file(const string & file, MsgChannel * client)
             FileChunkMsg fcmsg(buffer, bytes);
 
             if (!client->send_msg(fcmsg)) {
-                log_info() << "write of obj chunk failed " << bytes << endl;
+                log_info() << "write of obj chunk failed " << bytes
+                           << std::endl;
                 throw DaemonException(EXIT_DISTCC_FAILED);
             }
         } while (1);
@@ -127,13 +126,13 @@ write_output_file(const string & file, MsgChannel * client)
  * Read a request, run the compiler, and send a response.
  **/
 int
-handle_connection(const string & basedir,
-                  CompileJob *   job,
-                  MsgChannel *   client,
-                  int &          out_fd,
-                  unsigned int   mem_limit,
-                  uid_t          user_uid,
-                  gid_t          user_gid)
+handle_connection(const std::string & basedir,
+                  CompileJob *        job,
+                  MsgChannel *        client,
+                  int &               out_fd,
+                  unsigned int        mem_limit,
+                  uid_t               user_uid,
+                  gid_t               user_gid)
 {
     int socket[2];
 
@@ -167,27 +166,28 @@ handle_connection(const string & basedir,
     int niceval = nice(nice_level);
     if (niceval == -1) {
         log_warning() << "failed to set nice value: " << strerror(errno)
-                      << endl;
+                      << std::endl;
     }
 
-    string       tmp_path, obj_file, dwo_file;
+    std::string  tmp_path, obj_file, dwo_file;
     int          exit_code = 0;
     unsigned int job_stat[8];
     memset(job_stat, 0, sizeof(job_stat));
 
     try {
         if (job->environmentVersion().size()) {
-            string dirname = basedir + "/target=" + job->targetPlatform() +
-                             "/" + job->environmentVersion();
+            std::string dirname = basedir + "/target=" + job->targetPlatform() +
+                                  "/" + job->environmentVersion();
 
-            if (::access(string(dirname + "/usr/bin/as").c_str(), X_OK) < 0) {
+            if (::access(std::string(dirname + "/usr/bin/as").c_str(), X_OK) <
+                0) {
                 error_client(client,
                              dirname + "/usr/bin/as is not executable, "
                                        "installed environment removed?");
                 log_error()
                     << "I don't have environment " << job->environmentVersion()
                     << "(" << job->targetPlatform() << ") " << job->jobID()
-                    << endl;
+                    << std::endl;
                 // The scheduler didn't listen to us, or maybe something has
                 // removed the files.
                 throw DaemonException(EXIT_COMPILER_MISSING);
@@ -197,14 +197,14 @@ handle_connection(const string & basedir,
         } else {
             error_client(client, "empty environment");
             log_error() << "Empty environment (" << job->targetPlatform()
-                        << ") " << job->jobID() << endl;
+                        << ") " << job->jobID() << std::endl;
             throw DaemonException(EXIT_DISTCC_FAILED);
         }
 
         if (::access(&_PATH_TMP[1], W_OK) < 0) {
             error_client(client, "can't write to " _PATH_TMP);
             log_error() << "can't write into " << _PATH_TMP << " "
-                        << strerror(errno) << endl;
+                        << strerror(errno) << std::endl;
             throw DaemonException(-1);
         }
 
@@ -235,19 +235,19 @@ handle_connection(const string & basedir,
             // inside the build folder and letting us set up the paths to mimic
             // the client system
 
-            string job_output_file = job->outputFile();
-            string job_working_dir = job->workingDirectory();
+            std::string job_output_file = job->outputFile();
+            std::string job_working_dir = job->workingDirectory();
 
-            size_t slash_index = job_output_file.rfind('/');
-            string file_dir, file_name;
-            if (slash_index != string::npos) {
+            size_t      slash_index = job_output_file.rfind('/');
+            std::string file_dir, file_name;
+            if (slash_index != std::string::npos) {
                 file_dir = job_output_file.substr(0, slash_index);
                 file_name = job_output_file.substr(slash_index + 1);
             } else {
                 file_name = job_output_file;
             }
 
-            string output_dir, relative_file_path;
+            std::string output_dir, relative_file_path;
             if (!file_dir.empty() &&
                 file_dir[0] ==
                     '/') { // output dir is absolute, convert to relative
@@ -257,7 +257,7 @@ handle_connection(const string & basedir,
                 output_dir = tmp_path + get_canonicalized_path(file_dir);
             } else { // output file is already relative, canonicalize in
                      // relation to working dir
-                string canonicalized_dir =
+                std::string canonicalized_dir =
                     get_canonicalized_path(job_working_dir + '/' + file_dir);
                 relative_file_path =
                     get_relative_path(canonicalized_dir + '/' + file_name,
@@ -295,8 +295,8 @@ handle_connection(const string & basedir,
                         prefix_output, ".o", &tmp_output, 0)) == 0) {
             obj_file = tmp_output;
             free(tmp_output);
-            string build_path = obj_file.substr(0, obj_file.rfind('/'));
-            string file_name = obj_file.substr(obj_file.rfind('/') + 1);
+            std::string build_path = obj_file.substr(0, obj_file.rfind('/'));
+            std::string file_name = obj_file.substr(obj_file.rfind('/') + 1);
 
             ret = work_it(*job,
                           job_stat,
@@ -333,7 +333,7 @@ handle_connection(const string & basedir,
             rmsg.have_dwo_file = false;
 
         if (!client->send_msg(rmsg)) {
-            log_info() << "write of result failed" << endl;
+            log_info() << "write of result failed" << std::endl;
             throw DaemonException(EXIT_DISTCC_FAILED);
         }
 
@@ -370,12 +370,12 @@ handle_connection(const string & basedir,
 
     if (!obj_file.empty()) {
         if (-1 == unlink(obj_file.c_str()) && errno != ENOENT) {
-            log_perror("unlink failure") << "\t" << obj_file << endl;
+            log_perror("unlink failure") << "\t" << obj_file << std::endl;
         }
     }
     if (!dwo_file.empty()) {
         if (-1 == unlink(dwo_file.c_str()) && errno != ENOENT) {
-            log_perror("unlink failure") << "\t" << dwo_file << endl;
+            log_perror("unlink failure") << "\t" << dwo_file << std::endl;
         }
     }
     if (!tmp_path.empty()) {
