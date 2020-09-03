@@ -10,3 +10,7 @@ add_executable(icecc-scheduler
     target_compile_definitions(icecc-scheduler PRIVATE
     $<$<BOOL:${HAVE_SYS_SIGNAL_H}>:HAVE_SYS_SIGNAL_H>)
 target_link_libraries(icecc-scheduler PRIVATE copts_common icecc_la)
+
+if (ICECREAM_LTO)
+    set_property(TARGET icecc-scheduler PROPERTY INTERPROCEDURAL_OPTIMIZATION ON)
+endif()

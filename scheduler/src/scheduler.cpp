@@ -1629,14 +1629,16 @@ handle_line(CompileServer * cs, Msg * _m)
         for (auto it = css.begin(); it != css.end(); ++it) {
             Msg * msg = nullptr;
 
-            if (std::any_of(l.begin(), l.end(), [it](const auto & x) {
-                    return (*it)->matches(x);
-                })) {
+            auto * const candidate = *it;
+            if (std::any_of(
+                    l.begin(), l.end(), [candidate](const std::string & x) {
+                        return candidate->matches(x);
+                    })) {
                 continue;
             }
 
-            if ((*it)->send_msg(GetInternalStatus())) {
-                msg = (*it)->get_msg();
+            if (candidate->send_msg(GetInternalStatus())) {
+                msg = candidate->get_msg();
             }
 
             if (msg && msg->type == M_STATUS_TEXT) {
@@ -1646,7 +1648,7 @@ handle_line(CompileServer * cs, Msg * _m)
                 }
             } else {
                 if (!cs->send_msg(
-                        TextMsg((*it)->nodeName() + " not reporting\n"))) {
+                        TextMsg(candidate->nodeName() + " not reporting\n"))) {
                     return false;
                 }
             }

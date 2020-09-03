@@ -52,3 +52,7 @@ target_include_directories(icecc_la
 target_link_libraries(icecc_la
     PUBLIC -llzo2 -lzstd -larchive -lcap-ng -ldl
     PRIVATE copts_common copts_pic)
+
+if (ICECREAM_LTO)
+    set_property(TARGET icecc_la PROPERTY INTERPROCEDURAL_OPTIMIZATION ON)
+endif()
