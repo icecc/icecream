@@ -35,8 +35,6 @@ extern "C" {
 #include <sys/wait.h>
 }
 
-using namespace std;
-
 /* Name of this program, for trace.c */
 const char * rs_program_name = "icecc";
 
@@ -44,26 +42,26 @@ const char * rs_program_name = "icecc";
 
 namespace {
 
-string
-compiler_path_lookup_helper(const string & compiler,
-                            const string & compiler_path)
+std::string
+compiler_path_lookup_helper(const std::string & compiler,
+                            const std::string & compiler_path)
 {
-    if (compiler_path.find('/') != string::npos) {
+    if (compiler_path.find('/') != std::string::npos) {
         return compiler_path;
     }
 
-    string            path = ::getenv("PATH");
-    string::size_type begin = 0;
-    string::size_type end = 0;
-    struct stat       s;
-    bool              after_selflink = false;
-    string            best_match;
+    std::string            path = ::getenv("PATH");
+    std::string::size_type begin = 0;
+    std::string::size_type end = 0;
+    struct stat            s;
+    bool                   after_selflink = false;
+    std::string            best_match;
 
-    while (end != string::npos) {
+    while (end != std::string::npos) {
         end = path.find(':', begin);
-        string part;
+        std::string part;
 
-        if (end == string::npos) {
+        if (end == std::string::npos) {
             part = path.substr(begin);
         } else {
             part = path.substr(begin, end - begin);
@@ -80,11 +78,11 @@ compiler_path_lookup_helper(const string & compiler,
 
                 if (ret != 0) {
                     log_error()
-                        << "resolve_link failed " << strerror(ret) << endl;
+                        << "resolve_link failed " << strerror(ret) << std::endl;
                     continue;
                 }
 
-                string target = find_basename(buffer);
+                std::string target = find_basename(buffer);
 
                 if (target == rs_program_name ||
                     (after_selflink &&
@@ -111,7 +109,7 @@ compiler_path_lookup_helper(const string & compiler,
     }
 
     if (best_match.empty()) {
-        log_error() << "couldn't find any " << compiler << endl;
+        log_error() << "couldn't find any " << compiler << std::endl;
     }
 
     return best_match;
@@ -136,8 +134,8 @@ handle_user_break(int sig)
 
 } // namespace
 
-string
-compiler_path_lookup(const string & compiler)
+std::string
+compiler_path_lookup(const std::string & compiler)
 {
     return compiler_path_lookup_helper(compiler, compiler);
 }
@@ -148,7 +146,7 @@ compiler_path_lookup(const string & compiler)
  * variable set. This is useful for native cross-compilers.
  * (arm-linux-gcc for example)
  */
-string
+std::string
 find_compiler(const CompileJob & job)
 {
     if (job.language() == CompileJob::Lang_C) {
@@ -174,8 +172,8 @@ compiler_is_clang(const CompileJob & job)
         return false;
     }
 
-    assert(job.compilerName().find('/') == string::npos);
-    return job.compilerName().find("clang") != string::npos;
+    assert(job.compilerName().find('/') == std::string::npos);
+    return job.compilerName().find("clang") != std::string::npos;
 }
 
 /*
@@ -224,27 +222,27 @@ compiler_only_rewrite_includes(const CompileJob & job)
     return false;
 }
 
-string
+std::string
 clang_get_default_target(const CompileJob & job)
 {
     return read_command_line(find_compiler(job), {"-dumpmachine"});
 }
 
 bool
-compiler_get_arch_flags(const CompileJob & job,
-                        bool               march,
-                        bool               mcpu,
-                        bool               mtune,
-                        list<string> &     args)
+compiler_get_arch_flags(const CompileJob &       job,
+                        bool                     march,
+                        bool                     mcpu,
+                        bool                     mtune,
+                        std::list<std::string> & args)
 {
     // Get the relevant flags by calling '<compiler> -### -E - <flags>' and then
     // remove what calling that without the flags gives to get only what the
     // flags introduced.
     // TODO: This probably should be cached somehow in iceccd.
-    string         compiler = find_compiler(job);
-    bool           is_clang = compiler_is_clang(job);
-    vector<string> compiler_args = {"-###", "-E", "-"};
-    string         normal_output =
+    std::string              compiler = find_compiler(job);
+    bool                     is_clang = compiler_is_clang(job);
+    std::vector<std::string> compiler_args = {"-###", "-E", "-"};
+    std::string              normal_output =
         read_command_output(compiler, compiler_args, STDERR_FILENO);
     if (march)
         compiler_args.push_back("-march=native");
@@ -252,16 +250,16 @@ compiler_get_arch_flags(const CompileJob & job,
         compiler_args.push_back("-mcpu=native");
     if (mtune)
         compiler_args.push_back("-mtune=native");
-    string flags_output =
+    std::string flags_output =
         read_command_output(compiler, compiler_args, STDERR_FILENO);
     try {
         // get the right line
         if (is_clang) {
             flags_output.erase(0, flags_output.find("\"-cc1\""));
-            if (flags_output.find('\n') != string::npos)
+            if (flags_output.find('\n') != std::string::npos)
                 flags_output.erase(flags_output.find('\n'));
             normal_output.erase(0, normal_output.find("\"-cc1\""));
-            if (normal_output.find('\n') != string::npos)
+            if (normal_output.find('\n') != std::string::npos)
                 normal_output.erase(normal_output.find('\n'));
         } else {
             flags_output.erase(0, flags_output.find("/cc1 "));
@@ -302,8 +300,8 @@ compiler_get_arch_flags(const CompileJob & job,
     ++end;
     // Now start-end is the difference range.
     while (start < end) {
-        int    pos = start;
-        string arg;
+        int         pos = start;
+        std::string arg;
         if (flags_output[pos] == '\"') {
             ++pos;
             while (pos < end && flags_output[pos] != '\"')
@@ -341,13 +339,13 @@ compiler_get_arch_flags(const CompileJob & job,
 int
 build_local(CompileJob & job, MsgChannel * local_daemon, struct rusage * used)
 {
-    list<string> arguments;
+    std::list<std::string> arguments;
 
-    string compiler_name = find_compiler(job);
+    std::string compiler_name = find_compiler(job);
 
     if (compiler_name.empty()) {
         log_error() << "could not find " << job.compilerName() << " in PATH."
-                    << endl;
+                    << std::endl;
         return EXIT_NO_SUCH_FILE;
     }
 
@@ -363,12 +361,10 @@ build_local(CompileJob & job, MsgChannel * local_daemon, struct rusage * used)
         arguments.push_back(job.outputFile());
     }
 
-    vector<char *> argv;
-    string         argstxt;
+    std::vector<char *> argv;
+    std::string         argstxt;
 
-    for (list<string>::const_iterator it = arguments.begin();
-         it != arguments.end();
-         ++it) {
+    for (auto it = arguments.begin(); it != arguments.end(); ++it) {
         if (*it == "-fdirectives-only")
             continue; // pointless locally, and it can break things
         argv.push_back(strdup(it->c_str()));
@@ -378,11 +374,11 @@ build_local(CompileJob & job, MsgChannel * local_daemon, struct rusage * used)
 
     argv.push_back(nullptr);
 
-    trace() << "invoking:" << argstxt << endl;
+    trace() << "invoking:" << argstxt << std::endl;
 
     if (!local_daemon) {
         if (!dcc_lock_host()) {
-            log_error() << "can't lock for local job" << endl;
+            log_error() << "can't lock for local job" << std::endl;
             return EXIT_DISTCC_FAILED;
         }
     }
@@ -422,8 +418,8 @@ build_local(CompileJob & job, MsgChannel * local_daemon, struct rusage * used)
         }
 
         execv(argv[0], &argv[0]);
-        int           exitcode = (errno == ENOENT ? 127 : 126);
-        ostringstream errmsg;
+        int                exitcode = (errno == ENOENT ? 127 : 126);
+        std::ostringstream errmsg;
         errmsg << "execv " << argv[0] << " failed";
         log_perror(errmsg.str());
 
@@ -456,8 +452,8 @@ build_local(CompileJob & job, MsgChannel * local_daemon, struct rusage * used)
     void (*old_sighup)(int) = signal(SIGHUP, handle_user_break);
 
     if (color_output) {
-        string s_ccout;
-        char   buf[250];
+        std::string s_ccout;
+        char        buf[250];
 
         for (;;) {
             int r;

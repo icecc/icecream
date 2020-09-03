@@ -40,8 +40,6 @@ extern "C" {
 #include <climits>
 #include <csignal>
 
-using namespace std;
-
 extern bool explicit_color_diagnostics;
 extern bool explicit_no_show_caret;
 
@@ -87,12 +85,14 @@ dcc_ignore_sigpipe(int val)
 {
     if (signal(SIGPIPE, val ? SIG_IGN : SIG_DFL) == SIG_ERR) {
         log_warning() << "signal(SIGPIPE, " << (val ? "ignore" : "default")
-                      << ") failed: " << strerror(errno) << endl;
+                      << ") failed: " << strerror(errno) << std::endl;
         return EXIT_DISTCC_FAILED;
     }
 
     return 0;
 }
+
+namespace {
 
 /**
  * Get an exclusive, non-blocking lock on a file using whatever method
@@ -101,7 +101,7 @@ dcc_ignore_sigpipe(int val)
  * @retval 0 if we got the lock
  * @retval -1 with errno set if the file is already locked.
  **/
-static int
+int
 sys_lock(int fd, bool block)
 {
 #if defined(F_SETLK)
@@ -122,22 +122,13 @@ sys_lock(int fd, bool block)
 #endif
 }
 
-static volatile int lock_fd = -1;
-
-void
-dcc_unlock()
-{
-    // This must be safe to use from a signal handler.
-    if (lock_fd != -1)
-        close(lock_fd); // All our current locks can just be closed.
-    lock_fd = -1;
-}
+volatile int lock_fd = -1;
 
 /**
  * Open a lockfile, creating if it does not exist.
  **/
-static bool
-dcc_open_lockfile(const string & fname, int & plockfd)
+bool
+dcc_open_lockfile(const std::string & fname, int & plockfd)
 {
     /* Create if it doesn't exist.  We don't actually do anything with
      * the file except lock it.
@@ -149,7 +140,7 @@ dcc_open_lockfile(const string & fname, int & plockfd)
 
     if (plockfd == -1 && errno != EEXIST) {
         log_error() << "failed to create " << fname << ": " << strerror(errno)
-                    << endl;
+                    << std::endl;
         return false;
     }
 
@@ -158,47 +149,8 @@ dcc_open_lockfile(const string & fname, int & plockfd)
     return true;
 }
 
-static bool
-dcc_lock_host_slot(string fname, int lock, bool block);
-
 bool
-dcc_lock_host()
-{
-    assert(lock_fd == -1);
-
-    string          fname = "/tmp/.icecream-";
-    struct passwd * pwd = getpwuid(getuid());
-
-    if (pwd) {
-        fname += pwd->pw_name;
-    } else {
-        char buffer[12];
-        sprintf(buffer, "%ld", (long)getuid());
-        fname += buffer;
-    }
-
-    if (mkdir(fname.c_str(), 0700) && errno != EEXIST) {
-        log_perror("mkdir") << "\t" << fname << endl;
-        return false;
-    }
-
-    fname += "/local_lock";
-    lock_fd = 0;
-    int max_cpu = 1;
-    dcc_ncpus(&max_cpu);
-    // To ensure better distribution, select a "random" starting slot.
-    int lock_offset = getpid();
-    // First try if any slot is free.
-    for (int lock = 0; lock < max_cpu; ++lock) {
-        if (dcc_lock_host_slot(fname, (lock + lock_offset) % max_cpu, false))
-            return true;
-    }
-    // If not, block on the first selected one.
-    return dcc_lock_host_slot(fname, lock_offset % max_cpu, true);
-}
-
-bool
-dcc_lock_host_slot(string fname, int lock, bool block)
+dcc_lock_host_slot(std::string fname, int lock, bool block)
 {
     if (lock > 0) { // 1st keep without the 0 for backwards compatibility
         char num[20];
@@ -223,11 +175,11 @@ dcc_lock_host_slot(string fname, int lock, bool block)
         case EAGAIN:
         case EACCES: /* HP-UX and Cygwin give this for exclusion */
             if (block)
-                trace() << fname << " is busy" << endl;
+                trace() << fname << " is busy" << std::endl;
             break;
         default:
             log_error() << "lock " << fname << " failed: " << strerror(errno)
-                        << endl;
+                        << std::endl;
             break;
     }
 
@@ -235,6 +187,53 @@ dcc_lock_host_slot(string fname, int lock, bool block)
         log_perror("close failed");
     }
     return false;
+}
+
+} // namespace
+
+void
+dcc_unlock()
+{
+    // This must be safe to use from a signal handler.
+    if (lock_fd != -1)
+        close(lock_fd); // All our current locks can just be closed.
+    lock_fd = -1;
+}
+
+bool
+dcc_lock_host()
+{
+    assert(lock_fd == -1);
+
+    std::string     fname = "/tmp/.icecream-";
+    struct passwd * pwd = getpwuid(getuid());
+
+    if (pwd) {
+        fname += pwd->pw_name;
+    } else {
+        char buffer[12];
+        sprintf(buffer, "%ld", (long)getuid());
+        fname += buffer;
+    }
+
+    if (mkdir(fname.c_str(), 0700) && errno != EEXIST) {
+        log_perror("mkdir") << "\t" << fname << std::endl;
+        return false;
+    }
+
+    fname += "/local_lock";
+    lock_fd = 0;
+    int max_cpu = 1;
+    dcc_ncpus(&max_cpu);
+    // To ensure better distribution, select a "random" starting slot.
+    int lock_offset = getpid();
+    // First try if any slot is free.
+    for (int lock = 0; lock < max_cpu; ++lock) {
+        if (dcc_lock_host_slot(fname, (lock + lock_offset) % max_cpu, false))
+            return true;
+    }
+    // If not, block on the first selected one.
+    return dcc_lock_host_slot(fname, lock_offset % max_cpu, true);
 }
 
 bool
@@ -296,19 +295,18 @@ colorify_wanted(const CompileJob & job)
 }
 
 void
-colorify_output(const string & _s_ccout)
+colorify_output(const std::string & _s_ccout)
 {
-    string            s_ccout(_s_ccout);
-    string::size_type end;
+    std::string            s_ccout(_s_ccout);
+    std::string::size_type end;
 
-    while ((end = s_ccout.find('\n')) != string::npos) {
-
-        string cline = s_ccout.substr(string::size_type(0), end);
+    while ((end = s_ccout.find('\n')) != std::string::npos) {
+        std::string cline = s_ccout.substr(std::string::size_type(0), end);
         s_ccout = s_ccout.substr(end + 1);
 
-        if (cline.find(": error:") != string::npos) {
+        if (cline.find(": error:") != std::string::npos) {
             fprintf(stderr, "\x1b[1;31m%s\x1b[0m\n", cline.c_str());
-        } else if (cline.find(": warning:") != string::npos) {
+        } else if (cline.find(": warning:") != std::string::npos) {
             fprintf(stderr, "\x1b[36m%s\x1b[0m\n", cline.c_str());
         } else {
             fprintf(stderr, "%s\n", cline.c_str());
@@ -350,7 +348,7 @@ output_needs_workaround(const CompileJob & job)
 }
 
 int
-resolve_link(const string & file, string & resolved)
+resolve_link(const std::string & file, std::string & resolved)
 {
     char buf[PATH_MAX];
     buf[PATH_MAX - 1] = '\0';
@@ -362,13 +360,14 @@ resolve_link(const string & file, string & resolved)
     }
 
     buf[ret] = 0;
-    resolved = string(buf);
+    resolved = std::string(buf);
     return 0;
 }
-string
+
+std::string
 get_cwd()
 {
-    static vector<char> buffer(1024);
+    static std::vector<char> buffer(1024);
 
     errno = 0;
     while (getcwd(&buffer[0], buffer.size() - 1) == nullptr &&
@@ -377,15 +376,15 @@ get_cwd()
         errno = 0;
     }
     if (errno != 0)
-        return string();
+        return std::string();
 
-    return string(&buffer[0]);
+    return std::string(&buffer[0]);
 }
 
-string
-get_absfilename(const string & _file)
+std::string
+get_absfilename(const std::string & _file)
 {
-    string file;
+    std::string file;
 
     if (_file.empty()) {
         return _file;
@@ -397,14 +396,14 @@ get_absfilename(const string & _file)
         file = _file;
     }
 
-    string            dots = "/../";
-    string::size_type idx = file.find(dots);
+    const std::string      dots = "/../";
+    std::string::size_type idx = file.find(dots);
 
-    while (idx != string::npos) {
+    while (idx != std::string::npos) {
         if (idx == 0) {
             file.replace(0, dots.length(), "/");
         } else {
-            string::size_type slash = file.rfind('/', idx - 1);
+            std::string::size_type slash = file.rfind('/', idx - 1);
             file.replace(slash, idx - slash + dots.length(), "/");
         }
         idx = file.find(dots);
@@ -412,14 +411,14 @@ get_absfilename(const string & _file)
 
     idx = file.find("/./");
 
-    while (idx != string::npos) {
+    while (idx != std::string::npos) {
         file.replace(idx, 3, "/");
         idx = file.find("/./");
     }
 
     idx = file.find("//");
 
-    while (idx != string::npos) {
+    while (idx != std::string::npos) {
         file.replace(idx, 2, "/");
         idx = file.find("//");
     }

@@ -51,9 +51,7 @@ extern "C" {
 #define O_LARGEFILE 0
 #endif
 
-using namespace std;
-
-string remote_daemon;
+std::string remote_daemon;
 
 namespace {
 
@@ -67,7 +65,7 @@ struct CharBufferDeleter {
 };
 
 bool
-endswith(const string & orig, const char * suff, string & ret)
+endswith(const std::string & orig, const char * suff, std::string & ret)
 {
     size_t len = strlen(suff);
 
@@ -80,9 +78,9 @@ endswith(const string & orig, const char * suff, string & ret)
 }
 
 Environments
-rip_out_paths(const Environments &  envs,
-              map<string, string> & version_map,
-              map<string, string> & versionfile_map)
+rip_out_paths(const Environments &                 envs,
+              std::map<std::string, std::string> & version_map,
+              std::map<std::string, std::string> & versionfile_map)
 {
     version_map.clear();
 
@@ -91,10 +89,10 @@ rip_out_paths(const Environments &  envs,
     static const char * suffs[] = {
         ".tar.xz", ".tar.zst", ".tar.bz2", ".tar.gz", ".tar", ".tgz", nullptr};
 
-    string versfile;
+    std::string versfile;
 
     // host platform + filename
-    for (const pair<string, string> & env : envs) {
+    for (const std::pair<std::string, std::string> & env : envs) {
         for (int i = 0; suffs[i] != nullptr; i++)
             if (endswith(env.second, suffs[i], versfile)) {
                 versionfile_map[env.first] = env.second;
@@ -128,8 +126,8 @@ get_server(MsgChannel * local_daemon)
 
     if (!umsg || umsg->type != M_USE_CS) {
         log_warning() << "reply was not expected use_cs "
-                      << (umsg ? (char)umsg->type : '0') << endl;
-        ostringstream unexpected_msg;
+                      << (umsg ? (char)umsg->type : '0') << std::endl;
+        std::ostringstream unexpected_msg;
         unexpected_msg << "Error 1 - expected use_cs reply, but got "
                        << (umsg ? (char)umsg->type : '0') << " instead";
         delete umsg;
@@ -145,7 +143,8 @@ check_for_failure(Msg * msg, MsgChannel * cserver)
 {
     if (msg && msg->type == M_STATUS_TEXT) {
         log_error() << "Remote status (compiled on " << cserver->name
-                    << "): " << static_cast<StatusTextMsg *>(msg)->text << endl;
+                    << "): " << static_cast<StatusTextMsg *>(msg)->text
+                    << std::endl;
         throw ClientError(23,
                           "Error 23 - Remote status (compiled on " +
                               cserver->name + ")\n" +
@@ -201,7 +200,7 @@ write_fd_to_server(int fd, MsgChannel * cserver, bool unlock_sending = false)
                     check_for_failure(m, cserver);
 
                     log_error() << "write of source chunk to host "
-                                << cserver->name.c_str() << endl;
+                                << cserver->name.c_str() << std::endl;
                     log_perror("failed ");
                     close(fd);
                     throw ClientError(15, "Error 15 - write to host failed");
@@ -213,7 +212,7 @@ write_fd_to_server(int fd, MsgChannel * cserver, bool unlock_sending = false)
                 if (unlock_sending) {
                     if (!dcc_lock_host()) {
                         log_error()
-                            << "can't reaquire lock for local cpp" << endl;
+                            << "can't reaquire lock for local cpp" << std::endl;
                         close(fd);
                         throw ClientError(32, "Error 32 - lock failed");
                     }
@@ -228,7 +227,7 @@ write_fd_to_server(int fd, MsgChannel * cserver, bool unlock_sending = false)
 
     if (compressed)
         trace() << "sent " << compressed << " bytes ("
-                << (compressed * 100 / uncompressed) << "%)" << endl;
+                << (compressed * 100 / uncompressed) << "%)" << std::endl;
 
     if ((-1 == close(fd)) && (errno != EBADF)) {
         log_perror("close failed");
@@ -236,14 +235,14 @@ write_fd_to_server(int fd, MsgChannel * cserver, bool unlock_sending = false)
 }
 
 void
-receive_file(const string & output_file, MsgChannel * cserver)
+receive_file(const std::string & output_file, MsgChannel * cserver)
 {
-    string tmp_file = output_file + "_icetmp";
-    int    obj_fd = open(
+    std::string tmp_file = output_file + "_icetmp";
+    int         obj_fd = open(
         tmp_file.c_str(), O_CREAT | O_TRUNC | O_WRONLY | O_LARGEFILE, 0666);
 
     if (obj_fd == -1) {
-        string errmsg("can't create ");
+        std::string errmsg("can't create ");
         errmsg += tmp_file + ":";
         log_perror(errmsg.c_str());
         throw ClientError(31, "Error 31 - " + errmsg);
@@ -289,7 +288,7 @@ receive_file(const string & output_file, MsgChannel * cserver)
 
     if (uncompressed)
         trace() << "got " << compressed << " bytes ("
-                << (compressed * 100 / uncompressed) << "%)" << endl;
+                << (compressed * 100 / uncompressed) << "%)" << std::endl;
 
     delete msg;
 
@@ -312,15 +311,15 @@ receive_file(const string & output_file, MsgChannel * cserver)
 }
 
 int
-build_remote_int(CompileJob &   job,
-                 UseCSMsg *     usecs,
-                 MsgChannel *   local_daemon,
-                 const string & environment,
-                 const string & version_file,
-                 const char *   preproc_file,
-                 bool           output)
+build_remote_int(CompileJob &        job,
+                 UseCSMsg *          usecs,
+                 MsgChannel *        local_daemon,
+                 const std::string & environment,
+                 const std::string & version_file,
+                 const char *        preproc_file,
+                 bool                output)
 {
-    string       hostname = usecs->hostname;
+    std::string  hostname = usecs->hostname;
     unsigned int port = usecs->port;
     int          job_id = usecs->job_id;
     bool         got_env = usecs->got_env;
@@ -341,7 +340,7 @@ build_remote_int(CompileJob &   job,
 
         if (!cserver) {
             log_error() << "no server found behind given hostname " << hostname
-                        << ":" << port << endl;
+                        << ":" << port << std::endl;
             throw ClientError(2, "Error 2 - no server found at " + hostname);
         }
 
@@ -352,7 +351,7 @@ build_remote_int(CompileJob &   job,
 
             if (stat(version_file.c_str(), &buf)) {
                 log_perror("error stat'ing file")
-                    << "\t" << version_file << endl;
+                    << "\t" << version_file << std::endl;
                 throw ClientError(4, "Error 4 - unable to stat version file");
             }
 
@@ -374,7 +373,7 @@ build_remote_int(CompileJob &   job,
             write_fd_to_server(env_fd, cserver);
 
             if (!cserver->send_msg(EndMsg())) {
-                log_error() << "write of environment failed" << endl;
+                log_error() << "write of environment failed" << std::endl;
                 throw ClientError(
                     8, "Error 8 - write environment to remote failed");
             }
@@ -398,7 +397,7 @@ build_remote_int(CompileJob &   job,
                         log_warning()
                             << "Host " << hostname
                             << " did not successfully verify environment."
-                            << endl;
+                            << std::endl;
                         BlacklistHostEnvMsg blacklist(job.targetPlatform(),
                                                       job.environmentVersion(),
                                                       hostname);
@@ -411,7 +410,7 @@ build_remote_int(CompileJob &   job,
                         trace()
                             << "Verified host " << hostname
                             << " for environment " << job.environmentVersion()
-                            << " (" << job.targetPlatform() << ")" << endl;
+                            << " (" << job.targetPlatform() << ")" << std::endl;
                     delete verify_msg;
                 } else {
                     delete verify_msg;
@@ -424,7 +423,7 @@ build_remote_int(CompileJob &   job,
 
         if (!IS_PROTOCOL_31(cserver) && ignore_unverified()) {
             log_warning() << "Host " << hostname << " cannot be verified."
-                          << endl;
+                          << std::endl;
             throw ClientError(26,
                               "Error 26 - environment on " + hostname +
                                   " cannot be verified");
@@ -446,7 +445,7 @@ build_remote_int(CompileJob &   job,
             LogBlock b("send compile_file");
 
             if (!cserver->send_msg(compile_file)) {
-                log_warning() << "write of job failed" << endl;
+                log_warning() << "write of job failed" << std::endl;
                 throw ClientError(9, "Error 9 - error sending file to remote");
             }
         }
@@ -461,7 +460,7 @@ build_remote_int(CompileJob &   job,
             }
 
             if (!dcc_lock_host()) {
-                log_error() << "can't lock for local cpp" << endl;
+                log_error() << "can't lock for local cpp" << std::endl;
                 return EXIT_DISTCC_FAILED;
             }
             HostUnlock hostUnlock; // automatic dcc_unlock()
@@ -492,7 +491,7 @@ build_remote_int(CompileJob &   job,
                 delete cserver;
                 cserver = nullptr;
                 log_warning() << "call_cpp process failed with exit status "
-                              << shell_exit_status(status) << endl;
+                              << shell_exit_status(status) << std::endl;
                 // GCC's -fdirectives-only has a number of cases that it doesn't
                 // handle properly, so if in such mode preparing the source
                 // fails, try again recompiling locally. This will cause double
@@ -522,7 +521,7 @@ build_remote_int(CompileJob &   job,
         }
 
         if (!cserver->send_msg(EndMsg())) {
-            log_warning() << "write of end failed" << endl;
+            log_warning() << "write of end failed" << std::endl;
             throw ClientError(12, "Error 12 - failed to send file to remote");
         }
 
@@ -541,7 +540,7 @@ build_remote_int(CompileJob &   job,
 
         if (msg->type != M_COMPILE_RESULT) {
             log_warning() << "waited for compile result, but got "
-                          << (char)msg->type << endl;
+                          << (char)msg->type << std::endl;
             delete msg;
             throw ClientError(
                 13, "Error 13 - did not get compile response message");
@@ -555,7 +554,7 @@ build_remote_int(CompileJob &   job,
         if (status && crmsg->was_out_of_memory) {
             delete crmsg;
             log_warning() << "the server ran out of memory, recompiling locally"
-                          << endl;
+                          << std::endl;
             throw RemoteError(101,
                               "Error 101 - the server ran out of memory, "
                               "recompiling locally");
@@ -567,18 +566,18 @@ build_remote_int(CompileJob &   job,
                 delete crmsg;
                 log_warning() << "command needs stdout/stderr workaround, "
                                  "recompiling locally"
-                              << endl;
-                log_warning()
-                    << "(set ICECC_CARET_WORKAROUND=0 to override)" << endl;
+                              << std::endl;
+                log_warning() << "(set ICECC_CARET_WORKAROUND=0 to override)"
+                              << std::endl;
                 throw RemoteError(102,
                                   "Error 102 - command needs stdout/stderr "
                                   "workaround, recompiling locally");
             }
 
-            if (crmsg->err.find("file not found") != string::npos) {
+            if (crmsg->err.find("file not found") != std::string::npos) {
                 delete crmsg;
-                log_warning()
-                    << "remote is missing file, recompiling locally" << endl;
+                log_warning() << "remote is missing file, recompiling locally"
+                              << std::endl;
                 throw RemoteError(
                     104,
                     "Error 104 - remote is missing file, recompiling locally");
@@ -595,7 +594,7 @@ build_remote_int(CompileJob &   job,
             }
 
             if (status && (crmsg->err.length() || crmsg->out.length())) {
-                log_info() << "Compiled on " << hostname << endl;
+                log_info() << "Compiled on " << hostname << std::endl;
             }
         }
 
@@ -607,7 +606,7 @@ build_remote_int(CompileJob &   job,
         if (status == 0) {
             receive_file(job.outputFile(), cserver);
             if (have_dwo_file) {
-                string dwo_output =
+                std::string dwo_output =
                     job.outputFile().substr(0, job.outputFile().rfind('.')) +
                     ".dwo";
                 receive_file(dwo_output, cserver);
@@ -621,7 +620,7 @@ build_remote_int(CompileJob &   job,
                     log_error()
                         << "Remote status (compiled on " << cserver->name
                         << "): " << static_cast<StatusTextMsg *>(msg)->text
-                        << endl;
+                        << std::endl;
                 delete msg;
             }
             delete cserver;
@@ -635,11 +634,11 @@ build_remote_int(CompileJob &   job,
     return status;
 }
 
-string
-md5_for_file(const string & file)
+std::string
+md5_for_file(const std::string & file)
 {
     md5_state_t state;
-    string      result;
+    std::string result;
 
     md5_init(&state);
     FILE * f = fopen(file.c_str(), "rb");
@@ -696,7 +695,7 @@ maybe_build_local(MsgChannel * local_daemon,
         CompileFileMsg compile_file(&job);
 
         if (!local_daemon->send_msg(compile_file)) {
-            log_warning() << "write of job failed" << endl;
+            log_warning() << "write of job failed" << std::endl;
             throw ClientError(29, "Error 29 - write of job failed");
         }
 
@@ -736,7 +735,7 @@ maybe_build_local(MsgChannel * local_daemon,
 
         if (msg.user_msec > 50 && msg.out_uncompressed > 1024) {
             trace() << "speed=" << float(msg.out_uncompressed / msg.user_msec)
-                    << endl;
+                    << std::endl;
         }
 
         return local_daemon->send_msg(msg);
@@ -751,11 +750,11 @@ minimalRemoteVersion(const CompileJob & job)
 {
     int version = MIN_PROTOCOL_VERSION;
     if (ignore_unverified()) {
-        version = max(version, 31);
+        version = std::max(version, 31);
     }
 
     if (job.dwarfFissionEnabled()) {
-        version = max(version, 35);
+        version = std::max(version, 35);
     }
 
     return version;
@@ -777,27 +776,28 @@ requiredRemoteFeatures()
 } // namespace
 
 Environments
-parse_icecc_version(const string & target_platform, const string & prefix)
+parse_icecc_version(const std::string & target_platform,
+                    const std::string & prefix)
 {
     Environments envs;
 
-    string icecc_version = getenv("ICECC_VERSION");
+    std::string icecc_version = getenv("ICECC_VERSION");
     assert(!icecc_version.empty());
 
     // free after the C++-Programming-HOWTO
-    string::size_type lastPos = icecc_version.find_first_not_of(',', 0);
-    string::size_type pos = icecc_version.find(',', lastPos);
-    bool              def_targets = icecc_version.find('=') != string::npos;
+    std::string::size_type lastPos = icecc_version.find_first_not_of(',', 0);
+    std::string::size_type pos = icecc_version.find(',', lastPos);
+    bool def_targets = icecc_version.find('=') != std::string::npos;
 
-    list<string> platforms;
+    std::list<std::string> platforms;
 
-    while (pos != string::npos || lastPos != string::npos) {
-        string            couple = icecc_version.substr(lastPos, pos - lastPos);
-        string            platform = target_platform;
-        string            version = couple;
-        string::size_type colon = couple.find(':');
+    while (pos != std::string::npos || lastPos != std::string::npos) {
+        std::string couple = icecc_version.substr(lastPos, pos - lastPos);
+        std::string platform = target_platform;
+        std::string version = couple;
+        std::string::size_type colon = couple.find(':');
 
-        if (colon != string::npos) {
+        if (colon != std::string::npos) {
             platform = couple.substr(0, colon);
             version = couple.substr(colon + 1, couple.length());
         }
@@ -810,7 +810,7 @@ parse_icecc_version(const string & target_platform, const string & prefix)
         if (def_targets) {
             colon = version.find('=');
 
-            if (colon != string::npos) {
+            if (colon != std::string::npos) {
                 if (prefix != version.substr(colon + 1, version.length())) {
                     continue;
                 }
@@ -824,14 +824,14 @@ parse_icecc_version(const string & target_platform, const string & prefix)
         if (find(platforms.begin(), platforms.end(), platform) !=
             platforms.end()) {
             log_error() << "there are two environments for platform "
-                        << platform << " - ignoring " << version << endl;
+                        << platform << " - ignoring " << version << std::endl;
             continue;
         }
 
         if (::access(version.c_str(), R_OK) < 0) {
             log_error() << "$ICECC_VERSION has to point to an existing file to "
                            "be installed "
-                        << version << endl;
+                        << version << std::endl;
             continue;
         }
 
@@ -841,7 +841,7 @@ parse_icecc_version(const string & target_platform, const string & prefix)
             st.st_size < 500) {
             log_error() << "$ICECC_VERSION has to point to an existing file to "
                            "be installed "
-                        << version << endl;
+                        << version << std::endl;
             continue;
         }
 
@@ -877,11 +877,12 @@ build_remote(CompileJob &         job,
                 << torepeat << " times for " << job.targetPlatform() << "\n";
     }
 
-    map<string, string> versionfile_map, version_map;
+    std::map<std::string, std::string> versionfile_map, version_map;
     Environments envs = rip_out_paths(_envs, version_map, versionfile_map);
 
     if (!envs.size()) {
-        log_error() << "$ICECC_VERSION needs to point to .tar files" << endl;
+        log_error() << "$ICECC_VERSION needs to point to .tar files"
+                    << std::endl;
         throw ClientError(
             22, "Error 22 - $ICECC_VERSION needs to point to .tar files");
     }
@@ -889,18 +890,16 @@ build_remote(CompileJob &         job,
     const char * preferred_host = getenv("ICECC_PREFERRED_HOST");
 
     if (torepeat == 1) {
-        string       fake_filename;
-        list<string> args = job.remoteFlags();
+        std::string            fake_filename;
+        std::list<std::string> args = job.remoteFlags();
 
-        for (list<string>::const_iterator it = args.begin(); it != args.end();
-             ++it) {
+        for (auto it = args.begin(); it != args.end(); ++it) {
             fake_filename += "/" + *it;
         }
 
         args = job.restFlags();
 
-        for (list<string>::const_iterator it = args.begin(); it != args.end();
-             ++it) {
+        for (auto it = args.begin(); it != args.end(); ++it) {
             fake_filename += "/" + *it;
         }
 
@@ -912,14 +911,14 @@ build_remote(CompileJob &         job,
                        torepeat,
                        job.targetPlatform(),
                        job.argumentFlags(),
-                       preferred_host ? preferred_host : string(),
+                       preferred_host ? preferred_host : std::string(),
                        minimalRemoteVersion(job),
                        requiredRemoteFeatures(),
                        get_niceness());
 
-        trace() << "asking for host to use" << endl;
+        trace() << "asking for host to use" << std::endl;
         if (!local_daemon->send_msg(getcs)) {
-            log_warning() << "asked for CS" << endl;
+            log_warning() << "asked for CS" << std::endl;
             throw ClientError(24, "Error 24 - asked for CS");
         }
 
@@ -949,7 +948,7 @@ build_remote(CompileJob &         job,
         int                     cpp_fd = open(preproc, O_WRONLY);
 
         if (!dcc_lock_host()) {
-            log_error() << "can't lock for local cpp" << endl;
+            log_error() << "can't lock for local cpp" << std::endl;
             return EXIT_DISTCC_FAILED;
         }
         HostUnlock hostUnlock; // automatic dcc_unlock()
@@ -968,7 +967,7 @@ build_remote(CompileJob &         job,
 
         if (shell_exit_status(status)) { // failure
             log_warning() << "call_cpp process failed with exit status "
-                          << shell_exit_status(status) << endl;
+                          << shell_exit_status(status) << std::endl;
             ::unlink(preproc);
             return shell_exit_status(status);
         }
@@ -984,19 +983,19 @@ build_remote(CompileJob &         job,
                        torepeat,
                        job.targetPlatform(),
                        job.argumentFlags(),
-                       preferred_host ? preferred_host : string(),
+                       preferred_host ? preferred_host : std::string(),
                        minimalRemoteVersion(job),
                        0,
                        get_niceness());
 
         if (!local_daemon->send_msg(getcs)) {
-            log_warning() << "asked for CS" << endl;
+            log_warning() << "asked for CS" << std::endl;
             throw ClientError(0, "Error 0 - asked for CS");
         }
 
-        map<pid_t, int> jobmap;
-        CompileJob *    jobs = new CompileJob[torepeat];
-        UseCSMsg **     umsgs = new UseCSMsg *[torepeat];
+        std::map<pid_t, int> jobmap;
+        CompileJob *         jobs = new CompileJob[torepeat];
+        UseCSMsg **          umsgs = new UseCSMsg *[torepeat];
 
         bool  misc_error = false;
         int * exit_codes = new int[torepeat];
@@ -1022,7 +1021,7 @@ build_remote(CompileJob &         job,
 
             remote_daemon = umsgs[i]->hostname;
 
-            trace() << "got_server_for_job " << umsgs[i]->hostname << endl;
+            trace() << "got_server_for_job " << umsgs[i]->hostname << std::endl;
 
             flush_debug();
 
@@ -1047,9 +1046,9 @@ build_remote(CompileJob &         job,
                             versionfile_map[umsgs[i]->host_platform],
                             preproc,
                             i == 0);
-                } catch (exception & error) {
+                } catch (const std::exception & e) {
                     log_info() << "build_remote_int failed and has thrown "
-                               << error.what() << endl;
+                               << e.what() << std::endl;
                     kill(getpid(), SIGTERM);
                     return 0; // shouldn't matter
                 }
@@ -1079,7 +1078,7 @@ build_remote(CompileJob &         job,
         }
 
         if (!misc_error) {
-            string first_md5 = md5_for_file(jobs[0].outputFile());
+            std::string first_md5 = md5_for_file(jobs[0].outputFile());
 
             for (int i = 1; i < torepeat; i++) {
                 if (!exit_codes[0]) { // if the first failed, we fail anyway
@@ -1096,23 +1095,23 @@ build_remote(CompileJob &         job,
                             << " - aborting!\n";
                         if (-1 == ::unlink(jobs[0].outputFile().c_str())) {
                             log_perror("unlink outputFile failed")
-                                << "\t" << jobs[0].outputFile() << endl;
+                                << "\t" << jobs[0].outputFile() << std::endl;
                         }
                         if (has_split_dwarf) {
-                            string dwo_file =
+                            std::string dwo_file =
                                 jobs[0].outputFile().substr(
                                     0, jobs[0].outputFile().rfind('.')) +
                                 ".dwo";
                             if (-1 == ::unlink(dwo_file.c_str())) {
                                 log_perror("unlink failed")
-                                    << "\t" << dwo_file << endl;
+                                    << "\t" << dwo_file << std::endl;
                             }
                         }
                         exit_codes[0] = -1; // overwrite
                         break;
                     }
 
-                    string other_md5 = md5_for_file(jobs[i].outputFile());
+                    std::string other_md5 = md5_for_file(jobs[i].outputFile());
 
                     if (other_md5 != first_md5) {
                         log_error()
@@ -1124,9 +1123,10 @@ build_remote(CompileJob &         job,
                             << " - aborting!\n";
                         rename(jobs[0].outputFile().c_str(),
                                (jobs[0].outputFile() + ".caught").c_str());
-                        rename(preproc, (string(preproc) + ".caught").c_str());
+                        rename(preproc,
+                               (std::string(preproc) + ".caught").c_str());
                         if (has_split_dwarf) {
-                            string dwo_file =
+                            std::string dwo_file =
                                 jobs[0].outputFile().substr(
                                     0, jobs[0].outputFile().rfind('.')) +
                                 ".dwo";
@@ -1140,14 +1140,16 @@ build_remote(CompileJob &         job,
 
                 if (-1 == ::unlink(jobs[i].outputFile().c_str())) {
                     log_perror("unlink failed")
-                        << "\t" << jobs[i].outputFile() << endl;
+                        << "\t" << jobs[i].outputFile() << std::endl;
                 }
                 if (has_split_dwarf) {
-                    string dwo_file = jobs[i].outputFile().substr(
-                                          0, jobs[i].outputFile().rfind('.')) +
-                                      ".dwo";
+                    std::string dwo_file =
+                        jobs[i].outputFile().substr(
+                            0, jobs[i].outputFile().rfind('.')) +
+                        ".dwo";
                     if (-1 == ::unlink(dwo_file.c_str())) {
-                        log_perror("unlink failed") << "\t" << dwo_file << endl;
+                        log_perror("unlink failed")
+                            << "\t" << dwo_file << std::endl;
                     }
                 }
                 delete umsgs[i];
@@ -1155,28 +1157,31 @@ build_remote(CompileJob &         job,
         } else {
             if (-1 == ::unlink(jobs[0].outputFile().c_str())) {
                 log_perror("unlink failed")
-                    << "\t" << jobs[0].outputFile() << endl;
+                    << "\t" << jobs[0].outputFile() << std::endl;
             }
             if (has_split_dwarf) {
-                string dwo_file = jobs[0].outputFile().substr(
-                                      0, jobs[0].outputFile().rfind('.')) +
-                                  ".dwo";
+                std::string dwo_file = jobs[0].outputFile().substr(
+                                           0, jobs[0].outputFile().rfind('.')) +
+                                       ".dwo";
                 if (-1 == ::unlink(dwo_file.c_str())) {
-                    log_perror("unlink failed") << "\t" << dwo_file << endl;
+                    log_perror("unlink failed")
+                        << "\t" << dwo_file << std::endl;
                 }
             }
 
             for (int i = 1; i < torepeat; i++) {
                 if (-1 == ::unlink(jobs[i].outputFile().c_str())) {
                     log_perror("unlink failed")
-                        << "\t" << jobs[i].outputFile() << endl;
+                        << "\t" << jobs[i].outputFile() << std::endl;
                 }
                 if (has_split_dwarf) {
-                    string dwo_file = jobs[i].outputFile().substr(
-                                          0, jobs[i].outputFile().rfind('.')) +
-                                      ".dwo";
+                    std::string dwo_file =
+                        jobs[i].outputFile().substr(
+                            0, jobs[i].outputFile().rfind('.')) +
+                        ".dwo";
                     if (-1 == ::unlink(dwo_file.c_str())) {
-                        log_perror("unlink failed") << "\t" << dwo_file << endl;
+                        log_perror("unlink failed")
+                            << "\t" << dwo_file << std::endl;
                     }
                 }
                 delete umsgs[i];
@@ -1186,7 +1191,7 @@ build_remote(CompileJob &         job,
         delete umsgs[0];
 
         if (-1 == ::unlink(preproc)) {
-            log_perror("unlink failed") << "\t" << preproc << endl;
+            log_perror("unlink failed") << "\t" << preproc << std::endl;
         }
 
         int ret = exit_codes[0];
