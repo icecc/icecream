@@ -59,8 +59,6 @@ extern "C" {
 #endif
 }
 
-using namespace std;
-
 namespace {
 
 int death_pipe[2];
@@ -73,7 +71,7 @@ theSigCHLDHandler(int /*unused*/)
 }
 
 void
-error_client(MsgChannel * client, string error)
+error_client(MsgChannel * client, std::string error)
 {
     if (IS_PROTOCOL_23(client)) {
         client->send_msg(StatusTextMsg(error));
@@ -102,21 +100,20 @@ work_it(CompileJob &        j,
     rmsg.out.erase(rmsg.out.begin(), rmsg.out.end());
     rmsg.out.erase(rmsg.out.begin(), rmsg.out.end());
 
-    std::list<string> list = j.nonLocalFlags();
+    std::list<std::string> list = j.nonLocalFlags();
 
     if (!IS_PROTOCOL_41(client) && j.dwarfFissionEnabled()) {
         list.push_back("-gsplit-dwarf");
     }
 
-    trace() << "remote compile for file " << j.inputFile() << endl;
+    trace() << "remote compile for file " << j.inputFile() << std::endl;
 
-    string argstxt;
-    for (std::list<string>::const_iterator it = list.begin(); it != list.end();
-         ++it) {
+    std::string argstxt;
+    for (auto it = list.begin(); it != list.end(); ++it) {
         argstxt += ' ';
         argstxt += *it;
     }
-    trace() << "remote compile arguments:" << argstxt << endl;
+    trace() << "remote compile arguments:" << argstxt << std::endl;
 
     int  sock_err[2];
     int  sock_out[2];
@@ -209,7 +206,7 @@ work_it(CompileJob &        j,
             log_perror("setrlimit");
         } else {
             log_info() << "Compile job memory limit set to " << mem_limit
-                       << " megabytes" << endl;
+                       << " megabytes" << std::endl;
         }
 #endif
 #endif
@@ -225,7 +222,7 @@ work_it(CompileJob &        j,
 
         if (IS_PROTOCOL_30(client)) {
             assert(!j.compilerName().empty());
-            clang = (j.compilerName().find("clang") != string::npos);
+            clang = (j.compilerName().find("clang") != std::string::npos);
             argv[i++] = strdup(("/usr/bin/" + j.compilerName()).c_str());
         } else {
             if (j.language() == CompileJob::Lang_C) {
@@ -274,9 +271,7 @@ work_it(CompileJob &        j,
             error_client(client, "/tmp dir missing?");
         }
 
-        for (std::list<string>::const_iterator it = list.begin();
-             it != list.end();
-             ++it) {
+        for (auto it = list.begin(); it != list.end(); ++it) {
             argv[i++] = strdup(it->c_str());
         }
 
@@ -321,7 +316,7 @@ work_it(CompileJob &        j,
             argstxt += ' ';
             argstxt += argv[pos];
         }
-        trace() << "final arguments:" << argstxt << endl;
+        trace() << "final arguments:" << argstxt << std::endl;
 
         close_debug();
 
@@ -420,7 +415,7 @@ work_it(CompileJob &        j,
         if (n == 1) {
             rmsg.status = resultByte;
 
-            log_error() << "compiler did not start" << endl;
+            log_error() << "compiler did not start" << std::endl;
             error_client(client, "compiler did not start");
             return EXIT_COMPILER_MISSING;
         }
@@ -477,7 +472,7 @@ work_it(CompileJob &        j,
                     } else {
                         log_error()
                             << "protocol error while reading preprocessed file"
-                            << endl;
+                            << std::endl;
                         input_complete = true;
                         return_value = EXIT_IO_ERROR;
                         client_fd = -1;
@@ -489,7 +484,8 @@ work_it(CompileJob &        j,
                 }
             } else if (client->at_eof()) {
                 log_warning()
-                    << "unexpected EOF while reading preprocessed file" << endl;
+                    << "unexpected EOF while reading preprocessed file"
+                    << std::endl;
                 input_complete = true;
                 return_value = EXIT_IO_ERROR;
                 client_fd = -1;
@@ -499,8 +495,8 @@ work_it(CompileJob &        j,
             }
         }
 
-        vector<pollfd> pollfds;
-        pollfd         pfd; // tmp variable
+        std::vector<pollfd> pollfds;
+        pollfd              pfd; // tmp variable
 
         if (sock_out[0] >= 0) {
             pfd.fd = sock_out[0];
@@ -559,8 +555,8 @@ work_it(CompileJob &        j,
             case 0:
 
                 if (!input_complete) {
-                    log_warning()
-                        << "timeout while reading preprocessed file" << endl;
+                    log_warning() << "timeout while reading preprocessed file"
+                                  << std::endl;
                     kill(pid, SIGTERM); // Won't need it any more ...
                     return_value = EXIT_IO_ERROR;
                     client_fd = -1;
@@ -680,31 +676,31 @@ work_it(CompileJob &        j,
                             1024;
                         rmsg.status = EXIT_OUT_OF_MEMORY;
 
+                        const auto npos = std::string::npos;
+
                         if (((mem_used * 100) > (85 * mem_limit * 1024)) ||
-                            (rmsg.err.find("memory exhausted") !=
-                             string::npos) ||
-                            (rmsg.err.find("out of memory") != string::npos) ||
-                            (rmsg.err.find("annot allocate memory") !=
-                             string::npos) ||
+                            (rmsg.err.find("memory exhausted") != npos) ||
+                            (rmsg.err.find("out of memory") != npos) ||
+                            (rmsg.err.find("annot allocate memory") != npos) ||
                             (rmsg.err.find(
                                  "failed to map segment from shared object") !=
-                             string::npos) ||
+                             npos) ||
                             (rmsg.err.find("Assertion `NewElts && \"Out of "
-                                           "memory\"' failed") !=
-                             string::npos) ||
+                                           "memory\"' failed") != npos) ||
                             (rmsg.err.find("terminate called after throwing an "
                                            "instance of 'std::bad_alloc'") !=
-                             string::npos) ||
+                             npos) ||
                             (rmsg.err.find(
                                  "llvm::MallocSlabAllocator::Allocate") !=
-                             string::npos)) {
+                             npos)) {
                             // the relation between ulimit and memory used is
                             // pretty thin ;(
                             log_warning()
                                 << "Remote compilation failed, presumably "
                                    "because "
                                    "of running out of memory (exit code "
-                                << shell_exit_status(status) << ")" << endl;
+                                << shell_exit_status(status) << ")"
+                                << std::endl;
                             return EXIT_OUT_OF_MEMORY;
                         }
 
@@ -717,12 +713,13 @@ work_it(CompileJob &        j,
                              long(buf.f_bavail) <
                                  ((10 * 1024 * 1024) / buf.f_bsize)) ||
                             rmsg.err.find("o space left on device") !=
-                                string::npos) {
+                                std::string::npos) {
                             log_warning()
                                 << "Remote compilation failed, presumably "
                                    "because "
                                    "of running out of disk space (exit code "
-                                << shell_exit_status(status) << ")" << endl;
+                                << shell_exit_status(status) << ")"
+                                << std::endl;
                             return EXIT_IO_ERROR;
                         }
 #endif
@@ -749,16 +746,17 @@ work_it(CompileJob &        j,
                         if (rmsg.status != 0) {
                             log_warning()
                                 << "Remote compilation exited with exit code "
-                                << shell_exit_status(status) << endl;
+                                << shell_exit_status(status) << std::endl;
                         } else {
-                            log_info() << "Remote compilation completed with "
-                                          "exit code "
-                                       << shell_exit_status(status) << endl;
+                            log_info()
+                                << "Remote compilation completed with "
+                                   "exit code "
+                                << shell_exit_status(status) << std::endl;
                         }
                     } else {
                         log_warning()
                             << "Remote compilation aborted with exit code "
-                            << shell_exit_status(status) << endl;
+                            << shell_exit_status(status) << std::endl;
                     }
 
                     return return_value;

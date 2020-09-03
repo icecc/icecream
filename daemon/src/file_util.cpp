@@ -9,18 +9,16 @@ extern "C" {
 #include <cstring>
 #include <sstream>
 
-using namespace std;
-
 /**
  * Adapted from an answer by "Evan Teran" from this stack overflow question:
  * http://stackoverflow.com/questions/236129/split-a-string-in-c
  */
-vector<string>
-split(const string & s, char delim)
+std::vector<std::string>
+split(const std::string & s, char delim)
 {
-    vector<string> elems;
-    stringstream   ss(s);
-    string         item;
+    std::vector<std::string> elems;
+    std::stringstream        ss(s);
+    std::string              item;
     while (getline(ss, item, delim)) {
         if (!item.empty()) {
             elems.push_back(item);
@@ -33,19 +31,19 @@ split(const string & s, char delim)
  * Adapted from an answer by "dash-tom-bang" from this stack overflow question:
  * http://stackoverflow.com/questions/5772992/get-relative-path-from-two-absolute-paths
  */
-string
-get_relative_path(const string & to, const string & from)
+std::string
+get_relative_path(const std::string & to, const std::string & from)
 {
-    vector<string> to_dirs = split(to, '/');
-    vector<string> from_dirs = split(from, '/');
+    std::vector<std::string> to_dirs = split(to, '/');
+    std::vector<std::string> from_dirs = split(from, '/');
 
-    string output;
+    std::string output;
     output.reserve(to.size());
 
-    vector<string>::const_iterator to_it = to_dirs.begin(),
-                                   to_end = to_dirs.end(),
-                                   from_it = from_dirs.begin(),
-                                   from_end = from_dirs.end();
+    auto       to_it = to_dirs.begin();
+    const auto to_end = to_dirs.end();
+    auto       from_it = from_dirs.begin();
+    const auto from_end = from_dirs.end();
 
     while ((to_it != to_end) && (from_it != from_end) && *to_it == *from_it) {
         ++to_it;
@@ -70,24 +68,24 @@ get_relative_path(const string & to, const string & from)
 }
 
 /**
- * Returns a string without '..' and '.'
+ * Returns a std::string without '..' and '.'
  *
  * Preconditions:  path must be an absolute path
  * Postconditions: if path is empty or not an absolute path, return original
  *                 path, otherwise, return path after resolving '..' and '.'
  */
-string
-get_canonicalized_path(const string & path)
+std::string
+get_canonicalized_path(const std::string & path)
 {
     if (path.empty() || path[0] != '/') {
         return path;
     }
 
-    vector<string> parts = split(path, '/');
-    vector<string> canonicalized_path;
+    std::vector<std::string> parts = split(path, '/');
+    std::vector<std::string> canonicalized_path;
 
-    vector<string>::const_iterator parts_it = parts.begin(),
-                                   parts_end = parts.end();
+    auto       parts_it = parts.begin();
+    const auto parts_end = parts.end();
 
     while (parts_it != parts_end) {
         if (*parts_it == ".." && !canonicalized_path.empty()) {
@@ -99,10 +97,10 @@ get_canonicalized_path(const string & path)
         ++parts_it;
     }
 
-    vector<string>::const_iterator path_it = canonicalized_path.begin(),
-                                   path_end = canonicalized_path.end();
+    auto       path_it = canonicalized_path.begin();
+    const auto path_end = canonicalized_path.end();
 
-    string output;
+    std::string output;
     output.reserve(path.size());
     output += "/";
     while (path_it != path_end) {
@@ -122,7 +120,7 @@ get_canonicalized_path(const string & path)
  * http://stackoverflow.com/questions/675039/how-can-i-create-directory-tree-in-c-linux
  */
 bool
-mkpath(const string & path)
+mkpath(const std::string & path)
 {
     bool success = false;
     int  ret = mkdir(path.c_str(), 0775);

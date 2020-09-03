@@ -37,12 +37,10 @@ extern "C" {
 #include <sys/wait.h>
 }
 
-using namespace std;
-
 namespace {
 
 size_t
-sumup_dir(const string & dir)
+sumup_dir(const std::string & dir)
 {
     size_t res = 0;
     DIR *  envdir = opendir(dir.c_str());
@@ -53,7 +51,7 @@ sumup_dir(const string & dir)
 
     struct stat st;
 
-    string tdir = dir + "/";
+    std::string tdir = dir + "/";
 
     for (struct dirent * ent = readdir(envdir); ent; ent = readdir(envdir)) {
         if (!strcmp(ent->d_name, ".") || !strcmp(ent->d_name, "..")) {
@@ -79,9 +77,9 @@ sumup_dir(const string & dir)
 }
 
 void
-list_target_dirs(const string & current_target,
-                 const string & targetdir,
-                 Environments & envs)
+list_target_dirs(const std::string & current_target,
+                 const std::string & targetdir,
+                 Environments &      envs)
 {
     DIR * envdir = opendir(targetdir.c_str());
 
@@ -90,10 +88,11 @@ list_target_dirs(const string & current_target,
     }
 
     for (struct dirent * ent = readdir(envdir); ent; ent = readdir(envdir)) {
-        string dirname = ent->d_name;
+        std::string dirname = ent->d_name;
 
-        if (access(string(targetdir + "/" + dirname + "/usr/bin/as").c_str(),
-                   X_OK) == 0) {
+        if (access(
+                std::string(targetdir + "/" + dirname + "/usr/bin/as").c_str(),
+                X_OK) == 0) {
             envs.push_back(make_pair(current_target, dirname));
         }
     }
@@ -124,7 +123,7 @@ exec_and_wait(const char * const argv[])
 
     // child
     execv(argv[0], const_cast<char * const *>(argv));
-    ostringstream errmsg;
+    std::ostringstream errmsg;
     errmsg << "execv " << argv[0] << " failed";
     log_perror(errmsg.str());
     _exit(-1);
@@ -133,7 +132,7 @@ exec_and_wait(const char * const argv[])
 // Removes everything in the directory recursively, but not the directory
 // itself.
 bool
-cleanup_directory(const string & directory)
+cleanup_directory(const std::string & directory)
 {
     DIR * dir = opendir(directory.c_str());
 
@@ -146,7 +145,7 @@ cleanup_directory(const string & directory)
             continue;
         }
 
-        string      fullpath = directory + '/' + f->d_name;
+        std::string fullpath = directory + '/' + f->d_name;
         struct stat st;
 
         if (lstat(fullpath.c_str(), &st)) {
@@ -189,14 +188,14 @@ copy_data(struct archive * ar, struct archive * aw)
         r = archive_write_data_block(aw, buff, size, offset);
         if (r != ARCHIVE_OK) {
             trace() << "copy_data(): Error after write: "
-                    << archive_error_string(aw) << endl;
+                    << archive_error_string(aw) << std::endl;
             return (r);
         }
     }
 }
 
 void
-error_client(MsgChannel * client, string error)
+error_client(MsgChannel * client, std::string error)
 {
     if (IS_PROTOCOL_23(client)) {
         client->send_msg(StatusTextMsg(error));
@@ -206,21 +205,22 @@ error_client(MsgChannel * client, string error)
 } // namespace
 
 bool
-cleanup_cache(const string & basedir, uid_t user_uid, gid_t user_gid)
+cleanup_cache(const std::string & basedir, uid_t user_uid, gid_t user_gid)
 {
     flush_debug();
 
     if (access(basedir.c_str(), R_OK) == 0 && !cleanup_directory(basedir)) {
-        log_error() << "failed to clean up envs dir" << endl;
+        log_error() << "failed to clean up envs dir" << std::endl;
         return false;
     }
 
     if (mkdir(basedir.c_str(), 0755) && errno != EEXIST) {
         if (errno == EPERM) {
-            log_error() << "permission denied on mkdir " << basedir << endl;
+            log_error() << "permission denied on mkdir " << basedir
+                        << std::endl;
         } else {
             log_perror("mkdir in cleanup_cache() failed")
-                << "\t" << basedir << endl;
+                << "\t" << basedir << std::endl;
         }
 
         return false;
@@ -229,7 +229,7 @@ cleanup_cache(const string & basedir, uid_t user_uid, gid_t user_gid)
     if (chown(basedir.c_str(), user_uid, user_gid) ||
         chmod(basedir.c_str(), 0775)) {
         log_perror("chown/chmod in cleanup_cache() failed")
-            << "\t" << basedir << endl;
+            << "\t" << basedir << std::endl;
         ;
         return false;
     }
@@ -238,25 +238,26 @@ cleanup_cache(const string & basedir, uid_t user_uid, gid_t user_gid)
 }
 
 Environments
-available_environments(const string & basedir)
+available_environments(const std::string & basedir)
 {
     Environments envs;
 
     DIR * envdir = opendir(basedir.c_str());
 
     if (!envdir) {
-        log_info() << "can't open envs dir " << strerror(errno) << endl;
+        log_info() << "can't open envs dir " << strerror(errno) << std::endl;
     } else {
         for (struct dirent * target_ent = readdir(envdir); target_ent;
              target_ent = readdir(envdir)) {
-            string dirname = target_ent->d_name;
+            std::string dirname = target_ent->d_name;
 
             if (dirname.at(0) == '.') {
                 continue;
             }
 
             if (dirname.substr(0, 7) == "target=") {
-                string current_target = dirname.substr(7, dirname.length() - 7);
+                std::string current_target =
+                    dirname.substr(7, dirname.length() - 7);
                 list_target_dirs(current_target, basedir + "/" + dirname, envs);
             }
         }
@@ -269,14 +270,14 @@ available_environments(const string & basedir)
 
 // Returns fd for icecc-create-env output
 int
-start_create_env(const string &       basedir,
-                 uid_t                user_uid,
-                 gid_t                user_gid,
-                 const std::string &  compiler,
-                 const list<string> & extrafiles,
-                 const std::string &  compression)
+start_create_env(const std::string &            basedir,
+                 uid_t                          user_uid,
+                 gid_t                          user_gid,
+                 const std::string &            compiler,
+                 const std::list<std::string> & extrafiles,
+                 const std::string &            compression)
 {
-    string nativedir = basedir + "/native/";
+    std::string nativedir = basedir + "/native/";
     if (mkdir(nativedir.c_str(), 0775) && errno != EEXIST) {
         return 0;
     }
@@ -293,7 +294,8 @@ start_create_env(const string &       basedir,
     flush_debug();
     int pipes[2];
     if (pipe(pipes) == -1) {
-        log_error() << "failed to create pipe: " << strerror(errno) << endl;
+        log_error() << "failed to create pipe: " << strerror(errno)
+                    << std::endl;
         _exit(147);
     }
     pid_t pid = fork();
@@ -334,7 +336,7 @@ start_create_env(const string &       basedir,
 #endif
 
     if (chdir(nativedir.c_str())) {
-        log_perror("chdir") << "\t" << nativedir << endl;
+        log_perror("chdir") << "\t" << nativedir << std::endl;
         _exit(1);
     }
 
@@ -376,7 +378,7 @@ start_create_env(const string &       basedir,
     }
 
     if (!exec_and_wait(argv)) {
-        log_error() << BINDIR "/icecc --build-native failed" << endl;
+        log_error() << BINDIR "/icecc --build-native failed" << std::endl;
         _exit(1);
     }
     for (int i = first_to_free; i < pos; ++i)
@@ -387,7 +389,9 @@ start_create_env(const string &       basedir,
 }
 
 size_t
-finish_create_env(int pipe, const string & basedir, string & native_environment)
+finish_create_env(int                 pipe,
+                  const std::string & basedir,
+                  std::string &       native_environment)
 {
     // We don't care about waitpid() , icecc-create-env prints the name of the
     // tarball as the very last action before exit, so if there's something in
@@ -404,17 +408,17 @@ finish_create_env(int pipe, const string & basedir, string & native_environment)
     }
 
     if (buf[0] == '\0') {
-        trace() << "native_environment creation failed" << endl;
+        trace() << "native_environment creation failed" << std::endl;
         return 0;
     }
 
-    string nativedir = basedir + "/native/";
+    std::string nativedir = basedir + "/native/";
     native_environment = nativedir + buf;
 
     if ((-1 == close(pipe)) && (errno != EBADF)) {
         log_perror("close failed");
     }
-    trace() << "native_environment " << native_environment << endl;
+    trace() << "native_environment " << native_environment << std::endl;
     struct stat st;
 
     if (!native_environment.empty() &&
@@ -441,25 +445,25 @@ start_install_environment(const std::string & basename,
                           int                 extract_priority)
 {
     log_info() << "start_install_environment: " << basename << " target "
-               << target << " Name: " << name << endl;
+               << target << " Name: " << name << std::endl;
     if (!name.size()) {
-        log_error() << "illegal name for environment " << name << endl;
+        log_error() << "illegal name for environment " << name << std::endl;
         return 0;
     }
 
-    for (string::size_type i = 0; i < name.size(); ++i) {
+    for (std::string::size_type i = 0; i < name.size(); ++i) {
         if (isascii(name[i]) && !isspace(name[i]) && name[i] != '/' &&
             isprint(name[i])) {
             continue;
         }
 
         log_error() << "illegal char '" << name[i]
-                    << "' - rejecting environment " << name << endl;
+                    << "' - rejecting environment " << name << std::endl;
         return 0;
     }
 
-    string dirname = basename + "/target=" + target;
-    Msg *  msg = c->get_msg(30);
+    std::string dirname = basename + "/target=" + target;
+    Msg *       msg = c->get_msg(30);
 
     if (!msg || msg->type != M_FILE_CHUNK) {
         trace() << "Expected first file chunk\n";
@@ -469,26 +473,26 @@ start_install_environment(const std::string & basename,
     fmsg = dynamic_cast<FileChunkMsg *>(msg);
 
     if (mkdir(dirname.c_str(), 0770) && errno != EEXIST) {
-        log_perror("mkdir target") << "\t" << dirname << endl;
+        log_perror("mkdir target") << "\t" << dirname << std::endl;
         return 0;
     }
 
     if (chown(dirname.c_str(), user_uid, user_gid) ||
         chmod(dirname.c_str(), 0770)) {
-        log_perror("chown,chmod target") << "\t" << dirname << endl;
+        log_perror("chown,chmod target") << "\t" << dirname << std::endl;
         return 0;
     }
 
     dirname = dirname + "/" + name;
 
     if (mkdir(dirname.c_str(), 0770)) {
-        log_perror("mkdir name") << "\t" << dirname << endl;
+        log_perror("mkdir name") << "\t" << dirname << std::endl;
         return 0;
     }
 
     if (chown(dirname.c_str(), user_uid, user_gid) ||
         chmod(dirname.c_str(), 0770)) {
-        log_perror("chown,chmod name") << "\t" << dirname << endl;
+        log_perror("chown,chmod name") << "\t" << dirname << std::endl;
         return 0;
     }
 
@@ -512,7 +516,7 @@ start_install_environment(const std::string & basename,
     if (pid) {
         // Runs only on parent(PID value is 0 in child and PID id on parent)
         trace() << "Created fork for receiving environment on pid " << pid
-                << endl;
+                << std::endl;
 
         if ((-1 == close(fds_in[0])) && (errno != EBADF)) {
             log_perror("Failed to close read end of pipe");
@@ -565,7 +569,7 @@ start_install_environment(const std::string & basename,
     int niceval = nice(extract_priority);
     if (-1 == niceval) {
         log_warning() << "failed to set nice value: " << strerror(errno)
-                      << endl;
+                      << std::endl;
     }
 
     /* libarchive stream reader */
@@ -589,7 +593,7 @@ start_install_environment(const std::string & basename,
     if (archive_read_open_fd(a, fds_in[0], fmsg->len) != ARCHIVE_OK) {
         log_error()
             << "start_install_environment: archive_read_open_fd() failed"
-            << endl;
+            << std::endl;
         _exit(1);
     }
 
@@ -597,12 +601,12 @@ start_install_environment(const std::string & basename,
         int r = archive_read_next_header(a, &entry);
         if (r == ARCHIVE_EOF) {
             trace() << "start_install_environment: reached end of archive, done"
-                    << endl;
+                    << std::endl;
             break;
         }
         if (r < ARCHIVE_WARN) {
             log_error() << "start_install_environment: r  < ARCHIVE_WARN "
-                        << archive_error_string(a) << endl;
+                        << archive_error_string(a) << std::endl;
             _exit(1);
         }
 
@@ -616,14 +620,14 @@ start_install_environment(const std::string & basename,
             r = copy_data(a, ext);
             if (r < ARCHIVE_WARN) {
                 log_error() << "start_install_environment: "
-                            << archive_error_string(ext) << endl;
+                            << archive_error_string(ext) << std::endl;
                 _exit(1);
             }
         }
         r = archive_write_finish_entry(ext);
         if (r < ARCHIVE_WARN) {
             log_error() << "start_install_environment: "
-                        << archive_error_string(ext) << endl;
+                        << archive_error_string(ext) << std::endl;
             _exit(1);
         }
     }
@@ -646,23 +650,23 @@ finalize_install_environment(const std::string & basename,
                              uid_t               user_uid,
                              gid_t               user_gid)
 {
-    string dirname = basename + "/target=" + target;
+    std::string dirname = basename + "/target=" + target;
     errno = 0;
     mkdir((dirname + "/tmp").c_str(), 01775);
     ignore_result(chown((dirname + "/tmp").c_str(), user_uid, user_gid));
     chmod((dirname + "/tmp").c_str(), 01775);
     if (errno == -1) {
         log_error() << "failed to setup " << dirname
-                    << "/tmp :" << strerror(errno) << endl;
+                    << "/tmp :" << strerror(errno) << std::endl;
     }
 
     return sumup_dir(dirname);
 }
 
 void
-remove_environment_files(const string & basename, const string & env)
+remove_environment_files(const std::string & basename, const std::string & env)
 {
-    string dirname = basename + "/target=" + env;
+    std::string dirname = basename + "/target=" + env;
 
     flush_debug();
     pid_t pid = fork();
@@ -697,14 +701,14 @@ remove_environment_files(const string & basename, const string & env)
     argv[4] = nullptr;
 
     execv(argv[0], argv);
-    ostringstream errmsg;
+    std::ostringstream errmsg;
     errmsg << "execv " << argv[0] << " failed";
     log_perror(errmsg.str());
     _exit(-1);
 }
 
 void
-remove_native_environment_files(const string & env)
+remove_native_environment_files(const std::string & env)
 {
     if (env.empty()) {
         return;
@@ -714,28 +718,28 @@ remove_native_environment_files(const string & env)
 
     if (stat(env.c_str(), &st) == 0) {
         if (-1 == unlink(env.c_str())) {
-            log_perror("unlink failed") << "\t" << env << endl;
+            log_perror("unlink failed") << "\t" << env << std::endl;
         }
     }
 }
 
 void
-chdir_to_environment(MsgChannel *   client,
-                     const string & dirname,
-                     uid_t          user_uid,
-                     gid_t          user_gid)
+chdir_to_environment(MsgChannel *        client,
+                     const std::string & dirname,
+                     uid_t               user_uid,
+                     gid_t               user_gid)
 {
 #ifdef HAVE_LIBCAP_NG
 
     if (chdir(dirname.c_str()) < 0) {
-        error_client(client, string("chdir to ") + dirname + "failed");
-        log_perror("chdir() failed") << "\t" << dirname << endl;
+        error_client(client, std::string("chdir to ") + dirname + "failed");
+        log_perror("chdir() failed") << "\t" << dirname << std::endl;
         _exit(145);
     }
 
     if (chroot(dirname.c_str()) < 0) {
-        error_client(client, string("chroot ") + dirname + "failed");
-        log_perror("chroot() failed") << "\t" << dirname << endl;
+        error_client(client, std::string("chroot ") + dirname + "failed");
+        log_perror("chroot() failed") << "\t" << dirname << std::endl;
         _exit(144);
     }
 
@@ -747,31 +751,31 @@ chdir_to_environment(MsgChannel *   client,
         // without the chdir, the chroot will escape the
         // jail right away
         if (chdir(dirname.c_str()) < 0) {
-            error_client(client, string("chdir to ") + dirname + "failed");
-            log_perror("chdir() failed") << "\t" << dirname << endl;
+            error_client(client, std::string("chdir to ") + dirname + "failed");
+            log_perror("chdir() failed") << "\t" << dirname << std::endl;
             _exit(145);
         }
 
         if (chroot(dirname.c_str()) < 0) {
-            error_client(client, string("chroot ") + dirname + "failed");
-            log_perror("chroot() failed") << "\t" << dirname << endl;
+            error_client(client, std::string("chroot ") + dirname + "failed");
+            log_perror("chroot() failed") << "\t" << dirname << std::endl;
             _exit(144);
         }
 
         if (setgroups(0, NULL) < 0) {
-            error_client(client, string("setgroups failed"));
+            error_client(client, std::string("setgroups failed"));
             log_perror("setgroups() failed");
             _exit(143);
         }
 
         if (setgid(user_gid) < 0) {
-            error_client(client, string("setgid failed"));
+            error_client(client, std::string("setgid failed"));
             log_perror("setgid() failed");
             _exit(143);
         }
 
         if (setuid(user_uid) < 0) {
-            error_client(client, string("setuid failed"));
+            error_client(client, std::string("setuid failed"));
             log_perror("setuid() failed");
             _exit(142);
         }
@@ -785,29 +789,29 @@ chdir_to_environment(MsgChannel *   client,
 
 // Verify that the environment works by simply running the bundled bin/true.
 bool
-verify_env(MsgChannel *   client,
-           const string & basedir,
-           const string & target,
-           const string & env,
-           uid_t          user_uid,
-           gid_t          user_gid)
+verify_env(MsgChannel *        client,
+           const std::string & basedir,
+           const std::string & target,
+           const std::string & env,
+           uid_t               user_uid,
+           gid_t               user_gid)
 {
     if (target.empty() || env.empty()) {
         error_client(client, "verify_env: target or env empty");
         log_error() << "verify_env target or env empty\n\t" << target << "\n\t"
-                    << env << endl;
+                    << env << std::endl;
         return false;
     }
 
-    string dirname = basedir + "/target=" + target + "/" + env;
+    std::string dirname = basedir + "/target=" + target + "/" + env;
 
-    if (::access(string(dirname + "/bin/true").c_str(), X_OK) < 0) {
+    if (::access(std::string(dirname + "/bin/true").c_str(), X_OK) < 0) {
         error_client(
             client,
             dirname +
                 "/bin/true is not executable, installed environment removed?");
         log_error() << "I don't have environment " << env << "(" << target
-                    << ") to verify." << endl;
+                    << ") to verify." << std::endl;
         return false;
     }
 

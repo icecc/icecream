@@ -60,8 +60,6 @@ extern "C" {
 
 #include <cmath>
 
-using namespace std;
-
 namespace {
 
 // what the kernel puts as ticks in /proc/stat
@@ -179,7 +177,7 @@ updateCPULoad(CPULoadInfo * load)
             log_error() << "Cannot open file \'/proc/stat\'!\n"
                            "The kernel needs to be compiled with support\n"
                            "for /proc filesystem enabled!"
-                        << endl;
+                        << std::endl;
             return;
         }
 
@@ -196,7 +194,7 @@ updateCPULoad(CPULoadInfo * load)
     }
 
     if (n < 20) {
-        log_error() << "no enough data in /proc/stat?" << endl;
+        log_error() << "no enough data in /proc/stat?" << std::endl;
         return;
     }
 
@@ -332,7 +330,7 @@ calculateMemLoad(unsigned long int & NetMemFree)
             log_error() << "Cannot open file \'/proc/meminfo\'!\n"
                            "The kernel needs to be compiled with support\n"
                            "for /proc filesystem enabled!"
-                        << endl;
+                        << std::endl;
             return 0;
         }
 
