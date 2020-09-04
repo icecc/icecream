@@ -25,7 +25,6 @@
 #include "compileserver.h"
 
 #include "logging.h"
-#include "scheduler.h"
 #include "scheduler_job.h"
 #include "services_job.h"
 
@@ -154,7 +153,7 @@ CompileServer::can_install(const Job * job, bool ignore_installing) const
     // trace() << "can_install host: '" << cs->host_platform << "' target: '"
     //         << job->target_platform << "'" << std::endl;
     if (!ignore_installing && busyInstalling()) {
-#if DEBUG_SCHEDULER > 0
+#if DEBUG_LEVEL > 0
         trace() << nodeName() << " is busy installing since "
                 << time(0) - busyInstalling() << " seconds." << std::endl;
 #endif
@@ -195,7 +194,7 @@ CompileServer::is_eligible_ever(const Job * job) const
                     (m_chrootPossible || job->submitter() == this) &&
                     version_okay && features_okay && m_acceptingInConnection &&
                     can_install(job, true).size() && check_remote(job);
-#if DEBUG_SCHEDULER > 2
+#if DEBUG_LEVEL > 2
     trace() << nodeName() << " is_eligible_ever: " << eligible << " (jobs_okay "
             << jobs_okay << ", version_okay " << version_okay
             << ", features_okay " << features_okay << ", chroot_or_local "
@@ -217,7 +216,7 @@ CompileServer::is_eligible_now(const Job * job) const
         jobs_okay = true; // allow a job for preloading
     bool load_okay = m_load < 1000;
     bool eligible = jobs_okay && load_okay && can_install(job, false).size();
-#if DEBUG_SCHEDULER > 2
+#if DEBUG_LEVEL > 2
     trace() << nodeName() << " is_eligible_now: " << eligible << " (jobs_okay "
             << jobs_okay << ", load_okay " << load_okay << ")" << std::endl;
 #endif

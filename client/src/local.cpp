@@ -38,8 +38,6 @@ extern "C" {
 /* Name of this program, for trace.c */
 const char * rs_program_name = "icecc";
 
-#define CLIENT_DEBUG 0
-
 namespace {
 
 std::string

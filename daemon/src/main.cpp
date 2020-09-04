@@ -22,7 +22,6 @@
     51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 */
 
-//#define ICECC_DEBUG 1
 #ifndef _GNU_SOURCE
 // getopt_long
 #define _GNU_SOURCE 1
@@ -1956,7 +1955,7 @@ Daemon::handle_end(Client * client, int exitcode)
 {
     trace() << "handle_end " << client->client_id << " "
             << client->channel->name << std::endl;
-#ifdef ICECC_DEBUG
+#ifdef DEBUG_LEVEL
     trace() << "handle_end " << client->dump() << std::endl;
     trace() << dump_internals() << std::endl;
 #endif
@@ -2180,7 +2179,7 @@ Daemon::handle_activity(Client * client)
 void
 Daemon::answer_client_requests()
 {
-#ifdef ICECC_DEBUG
+#ifdef DEBUG_LEVEL
 
     if (clients.size() + current_kids) {
         log_info() << dump_internals() << std::endl;
@@ -2482,7 +2481,7 @@ Daemon::reconnect()
         return false;
     }
 
-#ifdef ICECC_DEBUG
+#ifdef DEBUG_LEVEL
     trace() << "reconn " << dump_internals() << std::endl;
 #endif
 

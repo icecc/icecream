@@ -5,7 +5,15 @@ project(icecream VERSION 1.4.90)
 set(CMAKE_C_STANDARD 99)
 set(CMAKE_CXX_STANDARD 11)
 
-option(ICECREAM_LTO "Build with link-time optimization" ON)
+option(ICECREAM_LTO "Build with link-time optimization" OFF)
+option(ICECREAM_PIE "Build position-independent executables" ON)
+
+set(ICECREAM_DEBUG_LEVEL 0 CACHE STRING "Debug logging level")
+set(ICECREAM_RUNDIR /var/run CACHE STRING "PID file directory")
+
+add_library(copts_pie INTERFACE)
+target_compile_options(copts_pie INTERFACE -fpie)
+target_link_options(copts_pie INTERFACE -fpie)
 
 add_library(copts_common INTERFACE)
 target_compile_options(copts_common INTERFACE
@@ -18,15 +26,13 @@ target_compile_options(copts_common INTERFACE
     -Wundef
     -Wpointer-arith
     -Werror)
-
-add_library(copts_pic INTERFACE)
-target_compile_options(copts_pic INTERFACE -fPIC)
-target_link_options(copts_pic INTERFACE -fPIC)
-
-add_compile_definitions(
-    BINDIR="${CMAKE_INSTALL_PATH}"
+target_compile_definitions(copts_common INTERFACE
+    DEBUG_LEVEL=${ICECREAM_DEBUG_LEVEL}
+    BINDIR="${CMAKE_INSTALL_PREFIX}/bin"
     VERSION="${CMAKE_PROJECT_VERSION}"
-    RUNDIR="/var/run")
+    RUNDIR="${ICECREAM_RUNDIR}")
+target_link_libraries(copts_common INTERFACE
+    $<$<BOOL:${ICECREAM_PIE}>:copts_pie>)
 
 add_subdirectory(compilerwrapper)
 add_subdirectory(client)

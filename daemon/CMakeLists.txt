@@ -1,4 +1,7 @@
 include(CheckIncludeFile)
+include(FindPkgConfig)
+
+pkg_check_modules(LIBCAP_NG libcap-ng)
 
 check_include_file(arpa/nameser.h HAVE_ARPA_NAMESER_H)
 check_include_file(devstat.h HAVE_DEVSTAT_H)
@@ -43,6 +46,7 @@ add_executable(iceccd
     src/main.cpp
     src/serve.cpp
     src/workit.cpp)
+target_compile_options(iceccd PRIVATE ${LIBCAP_NG_CFLAGS})
 target_compile_definitions(iceccd PRIVATE
     $<$<BOOL:${HAVE_ARPA_NAMESER_H}>:HAVE_ARPA_NAMESER_H>
     $<$<BOOL:${HAVE_DEVSTAT_H}>:HAVE_DEVSTAT_H>
@@ -54,9 +58,11 @@ target_compile_definitions(iceccd PRIVATE
     $<$<BOOL:${HAVE_SYS_USER_H}>:HAVE_SYS_USER_H>
     $<$<BOOL:${HAVE_SYS_VFS_H}>:HAVE_SYS_VFS_H>
     $<$<BOOL:${HAVE_LIBARCHIVE_XZ}>:HAVE_LIBARCHIVE_XZ>
-    $<$<BOOL:${HAVE_LIBARCHIVE_ZSTD}>:HAVE_LIBARCHIVE_ZSTD>)
-target_link_libraries(iceccd PRIVATE copts_common copts_pic icecc_la
-    $<$<OR:$<BOOL:${HAVE_LIBARCHIVE_XZ}>,$<BOOL:${HAVE_LIBARCHIVE_ZSTD}>>:-larchive>)
+    $<$<BOOL:${HAVE_LIBARCHIVE_ZSTD}>:HAVE_LIBARCHIVE_ZSTD>
+    $<${LIBCAP_NG_FOUND}:HAVE_LIBCAP_NG>)
+target_link_libraries(iceccd PRIVATE copts_common icecc_la
+    $<$<OR:$<BOOL:${HAVE_LIBARCHIVE_XZ}>,$<BOOL:${HAVE_LIBARCHIVE_ZSTD}>>:-larchive>
+    ${LIBCAP_NG_LIBRARIES})
 
 if (ICECREAM_LTO)
     set_property(TARGET iceccd PROPERTY INTERPROCEDURAL_OPTIMIZATION ON)

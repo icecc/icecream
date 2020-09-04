@@ -35,8 +35,6 @@ bool explicit_color_diagnostics;
 // Whether -fno-diagnostics-show-caret was given.
 bool explicit_no_show_caret;
 
-#define CLIENT_DEBUG 0
-
 namespace {
 
 bool
@@ -294,7 +292,7 @@ analyse_argv(const char * const *     argv,
     ArgumentsList args;
     std::string   ofile;
 
-#if CLIENT_DEBUG > 1
+#if DEBUG_LEVEL > 1
     trace() << "scanning arguments" << std::endl;
 
     for (int index = 0; argv[index]; index++) {
@@ -792,7 +790,7 @@ analyse_argv(const char * const *     argv,
                        it->first.at(0) == '@') {
                 ++it;
             } else if (ifile.empty()) {
-#if CLIENT_DEBUG
+#if DEBUG_LEVEL
                 log_info() << "input file: " << it->first << std::endl;
 #endif
                 job.setInputFile(it->first);
@@ -820,7 +818,7 @@ analyse_argv(const char * const *     argv,
 
             if (ext == "cc" || ext == "cpp" || ext == "cxx" || ext == "cp" ||
                 ext == "c++" || ext == "C" || ext == "ii") {
-#if CLIENT_DEBUG
+#if DEBUG_LEVEL
 
                 if (job.language() != CompileJob::Lang_CXX) {
                     log_info() << "switching to C++ for " << ifile << std::endl;
@@ -860,7 +858,7 @@ analyse_argv(const char * const *     argv,
             if (!always_local && seen_md && !seen_mf) {
                 std::string dfile = ofile.substr(0, ofile.rfind('.')) + ".d";
 
-#if CLIENT_DEBUG
+#if DEBUG_LEVEL
                 log_info() << "dep file: " << dfile << std::endl;
 #endif
 
@@ -981,7 +979,7 @@ analyse_argv(const char * const *     argv,
     job.setFlags(args);
     job.setOutputFile(ofile);
 
-#if CLIENT_DEBUG
+#if DEBUG_LEVEL
     trace() << "scanned result: local args=" << concat_args(job.localFlags())
             << ", remote args=" << concat_args(job.remoteFlags())
             << ", rest=" << concat_args(job.restFlags())
