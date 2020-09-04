@@ -22,10 +22,6 @@
     51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 */
 
-//#include "config.h"
-
-#include "scheduler.h"
-
 #include "comm.h"
 #include "compileserver.h"
 #include "getifaddrs.h"
@@ -222,7 +218,7 @@ add_job_stats(Job * job, JobDoneMsg * msg)
         all_job_stats.pop_front();
     }
 
-#if DEBUG_SCHEDULER > 1
+#if DEBUG_LEVEL > 1
     if (job->argFlags() < 7000) {
         trace() << "add_job_stats " << job->language() << " "
                 << (time(0) - starttime) << " " << st.compileTimeUser() << " "
@@ -261,7 +257,7 @@ notify_monitors(Msg * m)
 float
 server_speed(CompileServer * cs, Job * job, bool blockDebug)
 {
-#if DEBUG_SCHEDULER <= 2
+#if DEBUG_LEVEL <= 2
     (void)blockDebug;
 #endif
     if (cs->lastCompiledJobs().size() == 0 ||
@@ -289,7 +285,7 @@ server_speed(CompileServer * cs, Job * job, bool blockDebug)
                     // should preferably do tasks that cannot be distributed,
                     // such as linking or preparing jobs for remote nodes.
                     f *= 0.1;
-#if DEBUG_SCHEDULER > 2
+#if DEBUG_LEVEL > 2
                     if (!blockDebug)
                         log_info() << "penalizing local build for job "
                                    << job->id() << std::endl;
@@ -299,7 +295,7 @@ server_speed(CompileServer * cs, Job * job, bool blockDebug)
                     // jobs. It is still preferable to distribute the job,
                     // unless the submitter is noticeably faster.
                     f *= 0.8;
-#if DEBUG_SCHEDULER > 2
+#if DEBUG_LEVEL > 2
                     if (!blockDebug)
                         log_info() << "slightly penalizing local build for job "
                                    << job->id() << std::endl;
@@ -313,7 +309,7 @@ server_speed(CompileServer * cs, Job * job, bool blockDebug)
                     // haven't been launched yet. There's probably no good way
                     // to detect this reliably.
                     f *= 1.1;
-#if DEBUG_SCHEDULER > 2
+#if DEBUG_LEVEL > 2
                     if (!blockDebug)
                         log_info() << "slightly preferring local build for job "
                                    << job->id() << std::endl;
@@ -658,12 +654,12 @@ envs_match(CompileServer * cs, const Job * job)
 CompileServer *
 pick_server(Job * job)
 {
-#if DEBUG_SCHEDULER > 1
+#if DEBUG_LEVEL > 1
     trace() << "pick_server " << job->id() << " " << job->targetPlatform()
             << std::endl;
 #endif
 
-#if DEBUG_SCHEDULER > 0
+#if DEBUG_LEVEL > 0
 
     /* consistency checking for now */
     for (auto it = css.begin(); it != css.end(); ++it) {
@@ -692,7 +688,7 @@ pick_server(Job * job)
     if (!job->preferredHost().empty()) {
         for (CompileServer * const cs : css) {
             if (cs->matches(job->preferredHost()) && cs->is_eligible_now(job)) {
-#if DEBUG_SCHEDULER > 1
+#if DEBUG_LEVEL > 1
                 trace() << "taking preferred " << cs->nodeName() << " "
                         << server_speed(cs, job, true) << std::endl;
 #endif
@@ -741,7 +737,7 @@ pick_server(Job * job)
 
         // Ignore ineligible servers
         if (!cs->is_eligible_now(job)) {
-#if DEBUG_SCHEDULER > 1
+#if DEBUG_LEVEL > 1
             if ((int(cs->jobList().size()) >=
                  cs->maxJobs() + cs->maxPreloadCount()) ||
                 (cs->load() >= 1000)) {
@@ -756,7 +752,7 @@ pick_server(Job * job)
 
         // incompatible architecture or busy installing
         if (!cs->can_install(job).size()) {
-#if DEBUG_SCHEDULER > 2
+#if DEBUG_LEVEL > 2
             trace() << cs->nodeName() << " can't install " << job->id()
                     << std::endl;
 #endif
@@ -775,7 +771,7 @@ pick_server(Job * job)
             continue;
         }
 
-#if DEBUG_SCHEDULER > 1
+#if DEBUG_LEVEL > 1
         trace() << cs->nodeName() << " compiled "
                 << cs->lastCompiledJobs().size()
                 << " got now: " << cs->jobList().size()
@@ -847,7 +843,7 @@ pick_server(Job * job)
     }
 
     if (best) {
-#if DEBUG_SCHEDULER > 1
+#if DEBUG_LEVEL > 1
         trace() << "taking best installed " << best->nodeName() << " "
                 << server_speed(best, job, true) << std::endl;
 #endif
@@ -855,7 +851,7 @@ pick_server(Job * job)
     }
 
     if (bestui) {
-#if DEBUG_SCHEDULER > 1
+#if DEBUG_LEVEL > 1
         trace() << "taking best uninstalled " << bestui->nodeName() << " "
                 << server_speed(bestui, job, true) << std::endl;
 #endif
@@ -863,7 +859,7 @@ pick_server(Job * job)
     }
 
     if (bestpre) {
-#if DEBUG_SCHEDULER > 1
+#if DEBUG_LEVEL > 1
         trace() << "taking best preload " << bestpre->nodeName() << " "
                 << server_speed(bestpre, job, true) << std::endl;
 #endif
@@ -945,7 +941,7 @@ prune_servers()
                 std::min(min_time, MAX_SCHEDULER_PING - now + (*it)->last_talk);
         }
 
-#if DEBUG_SCHEDULER > 1
+#if DEBUG_LEVEL > 1
         if ((random() % 400) < 0) {
             // R.I.P.
             trace() << "FORCED removing " << (*it)->nodeName() << std::endl;
@@ -1077,7 +1073,7 @@ empty_queue()
         }
     }
 
-#if DEBUG_SCHEDULER >= 0
+#if DEBUG_LEVEL >= 0
     if (!gotit) {
         trace() << "put " << job->id() << " in joblist of "
                 << use_cs->nodeName() << " (will install now)" << std::endl;
@@ -1256,7 +1252,7 @@ handle_job_begin(CompileServer * cs, Msg * _m)
     job->setStartTime(m->stime);
     job->setStartOnScheduler(time(nullptr));
     notify_monitors(new MonJobBeginMsg(m->job_id, m->stime, cs->hostId()));
-#if DEBUG_SCHEDULER >= 0
+#if DEBUG_LEVEL >= 0
     trace() << "BEGIN: " << m->job_id
             << " client=" << job->submitter()->nodeName() << "("
             << job->targetPlatform() << ")"
@@ -1708,7 +1704,7 @@ try_login(CompileServer * cs, Msg * m)
 bool
 handle_end(CompileServer * toremove, Msg * m)
 {
-#if DEBUG_SCHEDULER > 1
+#if DEBUG_LEVEL > 1
     trace() << "Handle_end " << toremove << " " << m << std::endl;
 #else
     (void)m;
@@ -1719,7 +1715,7 @@ handle_end(CompileServer * toremove, Msg * m)
             assert(find(monitors.begin(), monitors.end(), toremove) !=
                    monitors.end());
             monitors.remove(toremove);
-#if DEBUG_SCHEDULER > 1
+#if DEBUG_LEVEL > 1
             trace() << "handle_end(moni) " << monitors.size() << std::endl;
 #endif
             break;

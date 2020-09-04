@@ -190,9 +190,9 @@ work_it(CompileJob &        j,
 #if defined(__has_feature)
 #if __has_feature(address_sanitizer)
 #define SANITIZER_USED
-#endif
-#endif
-#endif
+#endif // __has_feature(address_sanitizer)
+#endif // defined(__has_feature)
+#endif // SANITIZER_USED
 
 #ifndef SANITIZER_USED
         struct rlimit rlim;
@@ -369,7 +369,7 @@ work_it(CompileJob &        j,
             log_perror("close failed");
         }
 
-#ifdef ICECC_DEBUG
+#ifdef DEBUG_LEVEL
 
         for (int f = STDERR_FILENO + 1; f < 4096; ++f) {
             long flags = fcntl(f, F_GETFD, 0);
