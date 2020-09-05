@@ -369,7 +369,7 @@ work_it(CompileJob &        j,
             log_perror("close failed");
         }
 
-#ifdef DEBUG_LEVEL
+#if DEBUG_LEVEL > 0
 
         for (int f = STDERR_FILENO + 1; f < 4096; ++f) {
             long flags = fcntl(f, F_GETFD, 0);

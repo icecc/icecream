@@ -34,8 +34,9 @@ target_compile_definitions(copts_common INTERFACE
 target_link_libraries(copts_common INTERFACE
     $<$<BOOL:${ICECREAM_PIE}>:copts_pie>)
 
-add_subdirectory(compilerwrapper)
 add_subdirectory(client)
+add_subdirectory(compilerwrapper)
+add_subdirectory(create-env)
 add_subdirectory(daemon)
 add_subdirectory(scheduler)
 add_subdirectory(services)

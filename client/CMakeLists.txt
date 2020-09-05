@@ -53,3 +53,6 @@ target_link_libraries(icecc PRIVATE copts_common client icecc_la)
 if (ICECREAM_LTO)
     set_property(TARGET client PROPERTY INTERPROCEDURAL_OPTIMIZATION ON)
 endif()
+
+install(TARGETS icecc DESTINATION bin)
+

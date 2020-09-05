@@ -79,6 +79,7 @@ extern "C" {
 #include <archive.h>
 }
 
+#include <atomic>
 #include <fstream>
 #include <map>
 
@@ -88,8 +89,9 @@ extern "C" {
 
 namespace {
 
-std::string           pidFilePath;
-volatile sig_atomic_t exit_main_loop = 0;
+std::string      pidFilePath;
+std::atomic_flag exit_handler_called = ATOMIC_FLAG_INIT;
+std::atomic_flag exit_main_loop = ATOMIC_FLAG_INIT;
 
 struct Client {
 public:
@@ -401,33 +403,22 @@ pid_t dcc_master_pid;
 void
 dcc_daemon_terminate(int whichsig)
 {
-    /**
-     * This is a signal handler. don't do stupid stuff.
-     * Don't call printf. and especially don't call the log_*() functions.
-     */
-
-    if (exit_main_loop > 1) {
-        // The > 1 is because we get one more signal from the kill(0,...) below.
-        // hmm, we got killed already twice. try better
-        static const char msg[] = "forced exit.\n";
-        ignore_result(write(STDERR_FILENO, msg, strlen(msg)));
-        _exit(1);
+    if (exit_handler_called.test_and_set(std::memory_order_relaxed)) {
+        return;
     }
 
     // make BSD happy
     signal(whichsig, dcc_daemon_terminate);
 
-    bool am_parent = (getpid() == dcc_master_pid);
+    const bool am_parent = (getpid() == dcc_master_pid);
 
-    if (am_parent && exit_main_loop == 0) {
+    if (am_parent && !exit_main_loop.test_and_set(std::memory_order_relaxed)) {
         /* kill whole group */
         kill(0, whichsig);
 
         /* Remove pid file */
         unlink(pidFilePath.c_str());
     }
-
-    ++exit_main_loop;
 }
 
 void
@@ -1955,7 +1946,7 @@ Daemon::handle_end(Client * client, int exitcode)
 {
     trace() << "handle_end " << client->client_id << " "
             << client->channel->name << std::endl;
-#ifdef DEBUG_LEVEL
+#if DEBUG_LEVEL > 0
     trace() << "handle_end " << client->dump() << std::endl;
     trace() << dump_internals() << std::endl;
 #endif
@@ -2179,7 +2170,7 @@ Daemon::handle_activity(Client * client)
 void
 Daemon::answer_client_requests()
 {
-#ifdef DEBUG_LEVEL
+#if DEBUG_LEVEL > 0
 
     if (clients.size() + current_kids) {
         log_info() << dump_internals() << std::endl;
@@ -2481,7 +2472,7 @@ Daemon::reconnect()
         return false;
     }
 
-#ifdef DEBUG_LEVEL
+#if DEBUG_LEVEL > 0
     trace() << "reconn " << dump_internals() << std::endl;
 #endif
 
@@ -2527,10 +2518,11 @@ int
 Daemon::working_loop()
 {
     for (;;) {
+        exit_main_loop.clear(std::memory_order_relaxed);
         reconnect();
         answer_client_requests();
 
-        if (exit_main_loop) {
+        if (exit_main_loop.test_and_set(std::memory_order_relaxed)) {
             close_scheduler();
             clear_children();
             break;
@@ -2808,11 +2800,12 @@ main(int argc, char ** argv)
         exit(EXIT_DISTCC_FAILED);
     }
 
-    if (detach)
+    if (detach) {
         if (daemon(0, 0)) {
             log_perror("Failed to run as a daemon.");
             exit(EXIT_DISTCC_FAILED);
         }
+    }
 
     if (dcc_ncpus(&d.num_cpus) == 0) {
         log_info() << d.num_cpus << " CPU(s) online on this server"

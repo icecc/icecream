@@ -67,3 +67,6 @@ target_link_libraries(iceccd PRIVATE copts_common icecc_la
 if (ICECREAM_LTO)
     set_property(TARGET iceccd PROPERTY INTERPROCEDURAL_OPTIMIZATION ON)
 endif()
+
+install(TARGETS iceccd DESTINATION bin)
+

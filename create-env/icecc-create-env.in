@@ -255,7 +255,7 @@ if test "$1" = "--gcc"; then
             shift
         fi
         if test -z "$added_compilerwrapper"; then
-            added_compilerwrapper=@PKGLIBEXECDIR@/compilerwrapper
+            added_compilerwrapper=@CMAKE_INSTALL_PREFIX@/libexec/compilerwrapper
         fi
         clang=1
     fi
@@ -269,7 +269,7 @@ elif test "$1" = "--clang"; then
         shift
     fi
     if test -z "$added_compilerwrapper"; then
-        added_compilerwrapper=@PKGLIBEXECDIR@/compilerwrapper
+        added_compilerwrapper=@CMAKE_INSTALL_PREFIX@/libexec/compilerwrapper
     fi
     clang=1
     if test "$1" = "--gcc"; then
@@ -299,7 +299,7 @@ else
         # allowing to bypass any possible wrapper script etc. Note we must pass
         # just the binary name, not full path.
         added_clang=$($1 -print-prog-name=$(basename $1))
-        added_compilerwrapper=@PKGLIBEXECDIR@/compilerwrapper
+        added_compilerwrapper=@CMAKE_INSTALL_PREFIX@/libexec/compilerwrapper
     elif echo "$test_output" | grep -q 'clang __clang__ gcc.*'; then
         gcc=1
         # Gcc's -print-prog-name is useless, as it prints simply "gcc", so we have to

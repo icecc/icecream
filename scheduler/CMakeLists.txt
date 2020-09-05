@@ -14,3 +14,5 @@ target_link_libraries(icecc-scheduler PRIVATE copts_common icecc_la)
 if (ICECREAM_LTO)
     set_property(TARGET icecc-scheduler PROPERTY INTERPROCEDURAL_OPTIMIZATION ON)
 endif()
+
+install(TARGETS icecc-scheduler DESTINATION bin)
