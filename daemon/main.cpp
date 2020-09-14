@@ -260,16 +260,6 @@ public:
         return nullptr;
     }
 
-    Client *find_by_channel(MsgChannel *c) const {
-        const_iterator it = find(c);
-
-        if (it == end()) {
-            return nullptr;
-        }
-
-        return it->second;
-    }
-
     Client *find_by_pid(pid_t pid) const {
         for (auto it : *this)
             if (it.second->child_pid == pid) {
@@ -478,7 +468,7 @@ struct Daemon {
     bool noremote;
     bool custom_nodename;
     size_t cache_size;
-    map<int, MsgChannel *> fd2chan;
+    map<int, Client*> fd2client;
     int new_client_id;
     string remote_name;
     time_t next_scheduler_connect;
@@ -928,11 +918,11 @@ string Daemon::dump_internals() const
     result += "Node Name: " + nodename + "\n";
     result += "  Remote name: " + remote_name + "\n";
 
-    for (auto it : fd2chan)  {
-        result += "  fd2chan[" + toString(it.first) + "] = " + it.second->dump() + "\n";
+    for (const auto& it : fd2client)  {
+        result += "  fd2client[" + toString(it.first) + "] = " + it.second->dump() + "\n";
     }
 
-    for (auto client : clients)  {
+    for (const auto& client : clients)  {
         result += "  client " + toString(client.second->client_id) + ": " + client.second->dump() + "\n";
     }
 
@@ -1716,7 +1706,7 @@ void Daemon::handle_end(Client *client, int exitcode)
     trace() << "handle_end " << client->dump() << endl;
     trace() << dump_internals() << endl;
 #endif
-    fd2chan.erase(client->channel->fd);
+    fd2client.erase(client->channel->fd);
 
     if (client->status == Client::TOINSTALL || client->status == Client::WAITINSTALL) {
         finish_transfer_env(client, true);
@@ -1821,9 +1811,9 @@ void Daemon::clear_children()
     }
 
     // they should be all in clients too
-    assert(fd2chan.empty());
+    assert(fd2client.empty());
 
-    fd2chan.clear();
+    fd2client.clear();
     new_client_id = 0;
     trace() << "cleared children\n";
 }
@@ -1952,7 +1942,7 @@ void Daemon::answer_client_requests()
     }
 
     vector< pollfd > pollfds;
-    pollfds.reserve( fd2chan.size() + 6 );
+    pollfds.reserve( fd2client.size() + 6 );
     pollfd pfd; // tmp varible
 
     if (tcp_listen_fd != -1) {
@@ -1970,14 +1960,13 @@ void Daemon::answer_client_requests()
     pfd.events = POLLIN;
     pollfds.push_back(pfd);
 
-    for (map<int, MsgChannel *>::const_iterator it = fd2chan.begin();
-            it != fd2chan.end();) {
+    for (auto it = fd2client.begin(); it != fd2client.end();) {
         int i = it->first;
-        MsgChannel *c = it->second;
+        Client *client = it->second;
+        MsgChannel *c = client->channel;
         ++it;
         /* don't select on a fd that we're currently not interested in.
            Avoids that we wake up on an event we're not handling anyway */
-        Client *client = clients.find_by_channel(c);
         assert(client);
         int current_status = client->status;
         bool ignore_channel = current_status == Client::WAITFORCHILD ||
@@ -2126,8 +2115,7 @@ void Daemon::answer_client_requests()
             client->channel = c;
             clients[c] = client;
 
-            fd2chan[c->fd] = c;
-
+            fd2client[c->fd] = client;
             trace() << "accepted " << c->fd << " " << c->name << " as " << client->client_id << endl;
 
             while (!c->read_a_bit() || c->has_msg()) {
@@ -2142,11 +2130,10 @@ void Daemon::answer_client_requests()
                 }
             }
         } else {
-            for (map<int, MsgChannel *>::const_iterator it = fd2chan.begin();
-                    it != fd2chan.end();)  {
+            for (auto it = fd2client.begin(); it != fd2client.end();)  {
                 int i = it->first;
-                MsgChannel *c = it->second;
-                Client *client = clients.find_by_channel(c);
+                MsgChannel *c = it->second->channel;
+                Client *client = it->second;
                 assert(client);
                 ++it;
 
