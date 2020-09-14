@@ -2153,8 +2153,8 @@ void Daemon::answer_client_requests()
         } else {
             for (auto it = fd2client.begin(); it != fd2client.end();)  {
                 int i = it->first;
-                MsgChannel *c = it->second->channel;
                 Client *client = it->second;
+                MsgChannel *c = client->channel;
                 assert(client);
                 ++it;
 
