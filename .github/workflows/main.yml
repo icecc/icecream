@@ -66,6 +66,8 @@ jobs:
           export PATH="/usr/local/opt/gnu-getopt/bin:/usr/local/opt/util-linux/bin:$PATH"
           export LDFLAGS="${LDFLAGS} -L/usr/local/opt/libarchive/lib"
           export CPPFLAGS="${CPPFLAGS} -I/usr/local/opt/libarchive/include"
+          sudo mkdir /etc/xml
+          sudo ln -s /usr/local/etc/xml/catalog /etc/xml/catalog
           ./autogen.sh
           ./configure --prefix=/tmp
 
