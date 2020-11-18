@@ -79,6 +79,8 @@ jobs:
       - name: Test(tests taken from original project)
         run: |
           cd $GITHUB_WORKSPACE
+          export PKG_CONFIG_PATH="/usr/local/opt/libarchive/lib/pkgconfig"
+          export PATH="/usr/local/opt/gnu-getopt/bin:/usr/local/opt/util-linux/bin:$PATH"
           make test -j$(nproc) TESTCC=clang TESTCXX=clang++ SUDO=1
 
   cmake-macos:
@@ -91,9 +93,6 @@ jobs:
 
       - name: Configure(cmake)
         run : |
-          ls /usr/local/opt/util-linux/bin
-          export PKG_CONFIG_PATH="/usr/local/opt/libarchive/lib/pkgconfig"
-          export PATH="/usr/local/opt/gnu-getopt/bin:/usr/local/opt/util-linux/bin:$PATH"
           cd $GITHUB_WORKSPACE
           cmake -GNinja
 
