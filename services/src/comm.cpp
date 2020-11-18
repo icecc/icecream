@@ -1462,7 +1462,7 @@ static int open_send_broadcast(int port, const char* buf, int size)
          */
 
         if (addr->ifa_addr == nullptr || addr->ifa_addr->sa_family != AF_INET
-                || addr->ifa_name == nullptr) {
+                || addr->ifa_netmask == nullptr || addr->ifa_name == nullptr) {
             continue;
         }
 
