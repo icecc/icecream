@@ -57,7 +57,7 @@ jobs:
       - uses: actions/checkout@v2
 
       - name: Install dependencies
-        run: brew install lzo asciidoc docbook-xsl gdb ccache libarchive expect telnet util-linux gnu-getopt
+        run: brew install lzo asciidoc docbook-xsl gdb ccache libarchive expect telnet util-linux gnu-getopt ninja
 
       - name: Configure(autotools)
         run: |
@@ -81,7 +81,7 @@ jobs:
       - uses: actions/checkout@v2
 
       - name: Install dependencies
-        run: brew install lzo asciidoc docbook-xsl gdb ccache libarchive expect telnet util-linux gnu-getopt
+        run: brew install lzo asciidoc docbook-xsl gdb ccache libarchive expect telnet util-linux gnu-getopt ninja
 
       - name: Configure(cmake)
         run : |
