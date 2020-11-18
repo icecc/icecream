@@ -79,7 +79,7 @@ jobs:
       - name: Test(tests taken from original project)
         run: |
           cd $GITHUB_WORKSPACE
-          make test -j$(nproc) TESTCC=clang TESTCXX=clang++ SUDO=1
+          make test -j$(nproc) TESTCC=clang TESTCXX=clang++
 
   cmake-macos:
     runs-on: macos-10.15
