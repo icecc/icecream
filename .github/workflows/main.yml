@@ -64,6 +64,8 @@ jobs:
           cd $GITHUB_WORKSPACE
           export PKG_CONFIG_PATH="/usr/local/opt/libarchive/lib/pkgconfig"
           export PATH="/usr/local/opt/gnu-getopt/bin:/usr/local/opt/util-linux/bin:$PATH"
+          export LDFLAGS="${LDFLAGS} -L/usr/local/opt/libarchive/lib"
+          export CPPFLAGS="${CPPFLAGS} -I/usr/local/opt/libarchive/include"
           ./autogen.sh
           ./configure --prefix=/tmp
 
