@@ -13,11 +13,10 @@ task:
     - sed -i.bak -e 's,pkg+http://pkg.FreeBSD.org/\${ABI}/quarterly,pkg+http://pkg.FreeBSD.org/\${ABI}/latest,' /etc/pkg/FreeBSD.conf
     - pkg upgrade -y
     - pkg install -y autoconf automake asciidoc gmake libarchive libtool lzo2 pkgconf zstd
-  autotools:
+  script:
     - ./autogen.sh
     - ./configure --prefix=/usr/local
     - gmake -j`sysctl -n kern.smp.cpus`
     - gmake dist
-  cmake:
     - cmake
     - gmake -j`sysctl -n kern.smp.cpus`
