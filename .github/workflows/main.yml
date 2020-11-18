@@ -57,11 +57,13 @@ jobs:
       - uses: actions/checkout@v2
 
       - name: Install dependencies
-        run: brew install lzo asciidoc docbook-xsl gdb ccache libarchive expect telnet util-linux gnu-getopt ninja
+        run: brew install automake lzo asciidoc docbook-xsl gdb ccache libarchive expect telnet util-linux gnu-getopt ninja
 
       - name: Configure(autotools)
         run: |
           cd $GITHUB_WORKSPACE
+          export PKG_CONFIG_PATH="/usr/local/opt/libarchive/lib/pkgconfig"
+          export PATH="/usr/local/opt/gnu-getopt/bin:/usr/local/opt/util-linux/bin:$PATH"
           ./autogen.sh
           ./configure --prefix=/tmp
 
@@ -81,10 +83,12 @@ jobs:
       - uses: actions/checkout@v2
 
       - name: Install dependencies
-        run: brew install lzo asciidoc docbook-xsl gdb ccache libarchive expect telnet util-linux gnu-getopt ninja
+        run: brew install automake lzo asciidoc docbook-xsl gdb ccache libarchive expect telnet util-linux gnu-getopt ninja
 
       - name: Configure(cmake)
         run : |
+          export PKG_CONFIG_PATH="/usr/local/opt/libarchive/lib/pkgconfig"
+          export PATH="/usr/local/opt/gnu-getopt/bin:/usr/local/opt/util-linux/bin:$PATH"
           cd $GITHUB_WORKSPACE
           cmake -GNinja
 
