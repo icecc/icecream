@@ -40,7 +40,7 @@
 #include <string>
 #include <iostream>
 #include <assert.h>
-#include <lzo1x.h>
+#include <lzo/lzo1x.h>
 #include <zstd.h>
 #include <stdio.h>
 #ifdef HAVE_LIBCAP_NG
