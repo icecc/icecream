@@ -40,7 +40,7 @@
 #include <string>
 #include <iostream>
 #include <assert.h>
-#include <lzo/lzo1x.h>
+#include <lzo1x.h>
 #include <zstd.h>
 #include <stdio.h>
 #ifdef HAVE_LIBCAP_NG
@@ -942,6 +942,7 @@ MsgChannel::MsgChannel(int _fd, struct sockaddr *_a, socklen_t _l, bool text)
     int on = 1;
 
     if (!setsockopt(_fd, SOL_SOCKET, SO_KEEPALIVE, (char *) &on, sizeof(on))) {
+      int sec;
 #if defined( TCP_KEEPIDLE ) || defined( TCPCTL_KEEPIDLE )
 #if defined( TCP_KEEPIDLE )
         int keepidle = TCP_KEEPIDLE;
@@ -949,7 +950,6 @@ MsgChannel::MsgChannel(int _fd, struct sockaddr *_a, socklen_t _l, bool text)
         int keepidle = TCPCTL_KEEPIDLE;
 #endif
 
-        int sec;
         sec = MAX_SCHEDULER_PING - 3 * MAX_SCHEDULER_PONG;
         setsockopt(_fd, IPPROTO_TCP, keepidle, (char *) &sec, sizeof(sec));
 #endif
@@ -1462,7 +1462,7 @@ static int open_send_broadcast(int port, const char* buf, int size)
          */
 
         if (addr->ifa_addr == nullptr || addr->ifa_addr->sa_family != AF_INET
-                || addr->ifa_netmask == nullptr || addr->ifa_name == nullptr) {
+                || addr->ifa_name == nullptr) {
             continue;
         }
 

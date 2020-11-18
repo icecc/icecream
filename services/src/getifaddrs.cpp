@@ -162,7 +162,7 @@ int kde_getifaddrs(struct kde_ifaddrs **ifap)
     } else {
         struct Storage {
             struct kde_ifaddrs ia;
-            struct sockaddr addr, netmask, broadaddr;
+            struct sockaddr addr, broadaddr;
             char name[IF_NAMESIZE];
         } *storage;
         struct ifreq *ifr;
@@ -185,7 +185,6 @@ int kde_getifaddrs(struct kde_ifaddrs **ifap)
             /* Fill in all pointers to the storage we've already allocated.  */
             storage[i].ia.ifa_next = &storage[i + 1].ia;
             storage[i].ia.ifa_addr = &storage[i].addr;
-            storage[i].ia.ifa_netmask = &storage[i].netmask;
             storage[i].ia.ifa_broadaddr = &storage[i].broadaddr; /* & dstaddr */
 
             /* Now copy the information we already have from SIOCGIFCONF.  */
@@ -207,8 +206,6 @@ int kde_getifaddrs(struct kde_ifaddrs **ifap)
             if (ioctl(fd, SIOCGIFNETMASK, ifr) < 0) {
                 break;
             }
-
-            storage[i].netmask = ifr->ifr_netmask;
 
             if (ifr->ifr_flags & IFF_BROADCAST) {
                 ifr->ifr_addr = storage[i].addr;

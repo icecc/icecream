@@ -59,7 +59,6 @@ struct kde_ifaddrs {
     unsigned int ifa_flags;   /* Flags as from SIOCGIFFLAGS ioctl.  */
 
     struct sockaddr *ifa_addr;    /* Network address of this interface.  */
-    struct sockaddr *ifa_netmask; /* Netmask of this interface.  */
 
     union {
         /* At most one of the following two is valid.  If the IFF_BROADCAST
