@@ -57,7 +57,7 @@ jobs:
       - uses: actions/checkout@v2
 
       - name: Install dependencies
-        run: brew install automake lzo asciidoc docbook-xsl gdb ccache libarchive expect telnet util-linux gnu-getopt ninja
+        run: brew install automake lzo asciidoc docbook-xsl gdb ccache libarchive expect telnet util-linux gnu-getopt ninja coreutils
 
       - name: Configure(autotools)
         run: |
@@ -79,7 +79,7 @@ jobs:
       - name: Test(tests taken from original project)
         run: |
           cd $GITHUB_WORKSPACE
-          make test -j$(nproc)
+          make test -j$(nproc) TESTCC=clang TESTCXX=clang++ SUDO=1
 
   cmake-macos:
     runs-on: macos-10.15
