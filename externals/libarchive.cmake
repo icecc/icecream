@@ -1,0 +1,1 @@
+pkg_check_modules(libarchive REQUIRED IMPORTED_TARGET libarchive)

@@ -1,0 +1,1 @@
+pkg_check_modules(lzo2 REQUIRED IMPORTED_TARGET lzo2)

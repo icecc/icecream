@@ -1,2 +1,2 @@
 pkglibexec_PROGRAMS = compilerwrapper
-compilerwrapper_SOURCES = compilerwrapper.cpp
+compilerwrapper_SOURCES = src/compilerwrapper.cpp

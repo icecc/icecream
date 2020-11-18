@@ -1,0 +1,7 @@
+if(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
+    pkg_check_modules(libcap-ng REQUIRED IMPORTED_TARGET libcap-ng)
+    target_compile_definitions(PkgConfig::libcap-ng INTERFACE HAVE_LIBCAP_NG=1)
+else()
+    add_library(libcap-ng INTERFACE)
+    add_library(PkgConfig::libcap-ng ALIAS libcap-ng)
+endif()
