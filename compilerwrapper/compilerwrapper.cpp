@@ -94,7 +94,7 @@ int main(int argc, char *argv[])
     int pos = 1;
 
     if (isclang) {
-        args[pos++] = strdup("-no-canonical-prefixes");   // otherwise clang tries to access /proc/self/exe
+        args[pos++] = (char *)"-no-canonical-prefixes";   // otherwise clang tries to access /proc/self/exe
         // clang wants the -x argument early, otherwise it seems to ignore it
         // (and treats the file as already preprocessed)
         int x_arg_pos = -1;
@@ -103,8 +103,8 @@ int main(int argc, char *argv[])
             if (strcmp(argv[i], "-x") == 0 && i + 1 < argc
                     && (strcmp(argv[i + 1], "c") == 0 || strcmp(argv[i + 1], "c++") == 0)) {
                 x_arg_pos = i;
-                args[pos++] = strdup("-x");
-                args[pos++] = strdup(argv[i + 1]);
+                args[pos++] = (char *)"-x";
+                args[pos++] = argv[i + 1];
                 break;
             }
         }
@@ -129,11 +129,11 @@ int main(int argc, char *argv[])
                 continue; // and skip this one
             }
 
-            args[pos++] = strdup(argv[i]);
+            args[pos++] = argv[i];
         }
     } else { // !isclang , just copy the arguments
         for (int i = 1; i < argc; ++i) {
-            args[pos++] = strdup(argv[i]);
+            args[pos++] = argv[i];
         }
     }
 
