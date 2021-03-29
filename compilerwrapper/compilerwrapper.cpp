@@ -62,24 +62,33 @@ int main(int argc, char *argv[])
     fprintf(stderr, "\n");
 #endif
     bool isclang = argc >= 2 && strcmp(argv[1], "clang") == 0;   // the extra argument from icecream
+    bool haveclangarg = isclang;
     // 1 extra for -no-canonical-prefixes
     char **args = new char*[argc + 2];
     args[0] = new char[strlen(argv[0]) + 20];
     strcpy(args[0], argv[0]);
     char *separator = strrchr(args[0], '/');
 
-    if (separator == nullptr) {
-        args[0][0] = '\0';
-    } else {
-        separator[1] = '\0';    // after the separator
-    }
+    const auto resolve_compiler = [&] {
+        if (separator == nullptr) {
+            args[0][0] = '\0';
+        } else {
+            separator[1] = '\0';    // after the separator
+        }
 
-    if (isclang) {
-        strcat(args[0], "clang");
-    } else if (iscxx) {
-        strcat(args[0], "g++.bin");
-    } else {
-        strcat(args[0], "gcc.bin");
+        if (isclang) {
+            strcat(args[0], "clang");
+        } else if (iscxx) {
+            strcat(args[0], "g++.bin");
+        } else {
+            strcat(args[0], "gcc.bin");
+        }
+    };
+
+    resolve_compiler();
+    if (!isclang && access(args[0], X_OK)) {  // tarball built with clang and no explicit wrapper (like with icecc --build-native /bin/cc)
+        isclang = true;
+        resolve_compiler();
     }
 
     int pos = 1;
@@ -90,9 +99,7 @@ int main(int argc, char *argv[])
         // (and treats the file as already preprocessed)
         int x_arg_pos = -1;
 
-        for (int i = 2; // 2 - skip the extra "clang" argument
-                i < argc;
-                ++i) {
+        for (int i = 1 + haveclangarg; i < argc; ++i) {
             if (strcmp(argv[i], "-x") == 0 && i + 1 < argc
                     && (strcmp(argv[i + 1], "c") == 0 || strcmp(argv[i + 1], "c++") == 0)) {
                 x_arg_pos = i;
@@ -102,9 +109,7 @@ int main(int argc, char *argv[])
             }
         }
 
-        for (int i = 2; // 2 - skip the extra "clang" argument
-                i < argc;
-                ++i) {
+        for (int i = 1 + haveclangarg; i < argc; ++i) {
             // strip options that icecream adds but clang doesn't know or need
             if (strcmp(argv[i], "-fpreprocessed") == 0) {
                 continue;    // clang doesn't know this (it presumably needs to always preprocess anyway)
