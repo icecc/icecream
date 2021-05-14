@@ -51,37 +51,37 @@ jobs:
       - name: Build(cmake)
         run: ninja
 
-  autotools-macos:
-    runs-on: macos-10.15
-    steps:
-      - uses: actions/checkout@v2
-
-      - name: Install dependencies
-        run: brew install automake lzo asciidoc docbook-xsl gdb ccache libarchive expect telnet util-linux gnu-getopt ninja coreutils util-linux
-
-      - name: Configure(autotools)
-        run: |
-          cd $GITHUB_WORKSPACE
-          export PKG_CONFIG_PATH="/usr/local/opt/libarchive/lib/pkgconfig"
-          export PATH="/usr/local/opt/gnu-getopt/bin:/usr/local/opt/util-linux/bin:$PATH"
-          export LDFLAGS="${LDFLAGS} -L/usr/local/opt/libarchive/lib"
-          export CPPFLAGS="${CPPFLAGS} -I/usr/local/opt/libarchive/include"
-          sudo mkdir /etc/xml
-          sudo ln -s /usr/local/etc/xml/catalog /etc/xml/catalog
-          ./autogen.sh
-          ./configure --prefix=/tmp
-
-      - name: Build(autotools)
-        run: |
-          cd $GITHUB_WORKSPACE
-          make -j$(nproc)
-
-      - name: Test(tests taken from original project)
-        run: |
-          cd $GITHUB_WORKSPACE
-          export PKG_CONFIG_PATH="/usr/local/opt/libarchive/lib/pkgconfig"
-          export PATH="/usr/local/opt/gnu-getopt/bin:/usr/local/opt/util-linux/bin:$PATH"
-          make test -j$(nproc) TESTCC=clang TESTCXX=clang++ SUDO=1
+#  autotools-macos:
+#    runs-on: macos-10.15
+#    steps:
+#      - uses: actions/checkout@v2
+#
+#      - name: Install dependencies
+#        run: brew install automake lzo asciidoc docbook-xsl gdb ccache libarchive expect telnet util-linux gnu-getopt ninja coreutils util-linux
+#
+#      - name: Configure(autotools)
+#        run: |
+#          cd $GITHUB_WORKSPACE
+#          export PKG_CONFIG_PATH="/usr/local/opt/libarchive/lib/pkgconfig"
+#          export PATH="/usr/local/opt/gnu-getopt/bin:/usr/local/opt/util-linux/bin:$PATH"
+#          export LDFLAGS="${LDFLAGS} -L/usr/local/opt/libarchive/lib"
+#          export CPPFLAGS="${CPPFLAGS} -I/usr/local/opt/libarchive/include"
+#          sudo mkdir /etc/xml
+#          sudo ln -s /usr/local/etc/xml/catalog /etc/xml/catalog
+#          ./autogen.sh
+#          ./configure --prefix=/tmp
+#
+#      - name: Build(autotools)
+#        run: |
+#          cd $GITHUB_WORKSPACE
+#          make -j$(nproc)
+#
+#      - name: Test(tests taken from original project)
+#        run: |
+#          cd $GITHUB_WORKSPACE
+#          export PKG_CONFIG_PATH="/usr/local/opt/libarchive/lib/pkgconfig"
+#          export PATH="/usr/local/opt/gnu-getopt/bin:/usr/local/opt/util-linux/bin:$PATH"
+#          make test -j$(nproc) TESTCC=clang TESTCXX=clang++ SUDO=1
 
   cmake-macos:
     runs-on: macos-10.15
