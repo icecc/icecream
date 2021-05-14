@@ -10,6 +10,10 @@ set(SOURCES
     src/serve.h
     src/workit.cpp
     src/workit.h
+    src/daemon.cpp
+    src/daemon.hpp
+    src/client.cpp
+    src/client.hpp
 )
 
 add_executable(iceccd ${SOURCES})
