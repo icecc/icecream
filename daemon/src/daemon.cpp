@@ -7,8 +7,6 @@
 #include <archive.h>
 #include <vector>
 #include <arpa/inet.h>
-#include <resolv.h>
-#include <netdb.h>
 #include "services/getifaddrs.h"
 #include "services/platform.h"
 #include "environment.h"

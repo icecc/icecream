@@ -1,31 +1,16 @@
 #pragma once
+
+#include <csignal>
 #include <map>
 #include <string>
 #include "clients.hpp"
-#include <csignal>
 
 #ifndef __attribute_warn_unused_result__
 #define __attribute_warn_unused_result__
 #endif
 
-struct NativeEnvironment {
-    std::string name; // the hash
-    // Timestamps for files including compiler binaries, if they have changed since the time
-    // the native env was built, it needs to be rebuilt.
-    std::map<std::string, time_t> filetimes;
-    time_t last_use;
-    size_t size; // tarball size
-    int create_env_pipe; // if in progress of creating the environment
-    NativeEnvironment() : last_use( 0 ), size( 0 ), create_env_pipe( 0 ) {}
-};
-
-struct ReceivedEnvironment {
-    ReceivedEnvironment() : last_use( 0 ), size( 0 ) {}
-    time_t last_use;
-    size_t size; // directory size
-};
-
-class Daemon {
+class Daemon
+{
 public:
     Daemon(int& mem_limit, unsigned int& max_kids, volatile const sig_atomic_t& exit_main_loop);
     ~Daemon();
@@ -33,6 +18,31 @@ public:
 private:
     int& mem_limit; // TODO: remove asap
     unsigned int& max_kids; // TODO: remove asap
+
+private:
+    struct NativeEnvironment
+    {
+        std::string name; // the hash
+        // Timestamps for files including compiler binaries, if they have changed since the time
+        // the native env was built, it needs to be rebuilt.
+        std::map<std::string, time_t> filetimes;
+        time_t last_use;
+        size_t size; // tarball size
+        int create_env_pipe; // if in progress of creating the environment
+        NativeEnvironment() : last_use(0), size(0), create_env_pipe(0)
+        {}
+    };
+
+    struct ReceivedEnvironment
+    {
+        ReceivedEnvironment() : last_use(0), size(0)
+        {}
+
+        time_t last_use;
+        size_t size; // directory size
+    };
+
+    volatile const sig_atomic_t& exit_main_loop;
 
 public: // for now, a lot of usage of this class memebers...
     Clients clients;
@@ -107,18 +117,15 @@ public: // for now, a lot of usage of this class memebers...
     void determine_system();
     void determine_supported_features();
     bool maybe_stats(bool force_check = false);
-    bool send_scheduler(const Msg &msg) __attribute_warn_unused_result__;
+    bool send_scheduler(const Msg& msg) __attribute_warn_unused_result__;
     void close_scheduler();
     bool reconnect();
     int working_loop();
     bool setup_listen_fds();
-    bool setup_listen_tcp_fd( int& fd, const std::string& interface );
+    bool setup_listen_tcp_fd(int& fd, const std::string& interface);
     bool setup_listen_unix_fd();
-    void check_cache_size(const std::string &new_env);
+    void check_cache_size(const std::string& new_env);
     void remove_native_environment(const std::string& env_key);
     void remove_environment(const std::string& env_key);
     bool create_env_finished(std::string env_key);
-
-private:
-    volatile const sig_atomic_t& exit_main_loop;
 };
