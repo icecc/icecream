@@ -84,7 +84,7 @@ icecc_test_env="${prefix}/bin/icecc-test-env"
 icerun="${prefix}/bin/icerun"
 wrapperdir="${pkglibexecdir}/bin"
 netname="icecctestnetname$$"
-protocolversion=$(grep '#define PROTOCOL_VERSION ' ../services/comm.h | sed 's/#define PROTOCOL_VERSION //')
+protocolversion=$(grep '#define PROTOCOL_VERSION ' ../services/include/services/comm.h | sed 's/#define PROTOCOL_VERSION //')
 schedulerprotocolversion=$protocolversion
 daemonprotocolversion=$protocolversion
 

@@ -1,12 +1,12 @@
 sbin_PROGRAMS = iceccd
 
 iceccd_SOURCES = \
-	main.cpp \
-	serve.cpp \
-	workit.cpp \
-	environment.cpp \
-	load.cpp \
-	file_util.cpp
+	src/main.cpp \
+	src/serve.cpp \
+	src/workit.cpp \
+	src/environment.cpp \
+	src/load.cpp \
+	src/file_util.cpp
 
 iceccd_LDADD = \
 	../services/libicecc.la \
@@ -15,13 +15,14 @@ iceccd_LDADD = \
 	$(LIBARCHIVE_LIBS)
 
 AM_CPPFLAGS = \
-	-I$(top_srcdir)/services
+	-I$(top_srcdir)/services/include \
+    -include $(top_srcdir)/config.h
 
 AM_LIBTOOLFLAGS = --silent
 
 noinst_HEADERS = \
-	environment.h \
-	load.h \
-	serve.h \
-	workit.h \
-	file_util.h
+	src/environment.h \
+	src/load.h \
+	src/serve.h \
+	src/workit.h \
+	src/file_util.h

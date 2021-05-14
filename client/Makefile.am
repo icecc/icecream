@@ -3,30 +3,31 @@ bin_SCRIPTS = icecc-create-env icecc-test-env
 
 noinst_LIBRARIES = libclient.a
 libclient_a_SOURCES = \
-        arg.cpp \
-        argv.c \
-        cpp.cpp \
-        local.cpp \
-        remote.cpp \
-        util.cpp \
-        md5.c \
-        safeguard.cpp
+        src/arg.cpp \
+        src/argv.c \
+        src/cpp.cpp \
+        src/local.cpp \
+        src/remote.cpp \
+        src/util.cpp \
+        src/md5.c \
+        src/safeguard.cpp
 
 icecc_SOURCES = \
-	main.cpp 
+	src/main.cpp
 icecc_LDADD = \
 	libclient.a \
 	../services/libicecc.la
 
 noinst_HEADERS = \
-	argv.h \
-	client.h \
-	md5.h \
-	util.h
+	src/argv.h \
+	src/client.h \
+	src/md5.h \
+	src/util.h
 AM_CPPFLAGS = \
 	-DPLIBDIR=\"$(pkglibexecdir)\" \
-	-I$(top_srcdir)/services \
-	-I$(top_srcdir)/
+	-I$(top_srcdir)/services/include \
+	-I$(top_srcdir)/ \
+	-include $(top_srcdir)/config.h
 
 EXTRA_DIST = icecc-create-env
 

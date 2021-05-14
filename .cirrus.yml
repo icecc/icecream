@@ -18,3 +18,5 @@ task:
     - ./configure --prefix=/usr/local
     - gmake -j`sysctl -n kern.smp.cpus`
     - gmake dist
+    - cmake
+    - gmake -j`sysctl -n kern.smp.cpus`
