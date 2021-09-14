@@ -7,7 +7,7 @@ ICECC-CREATE_ENV(1)
 
 Name
 ----
-icecc-create-env - Create an Icrecream environment tarball
+icecc-create-env - Create an Icecream environment tarball
 
 
 Synopsis

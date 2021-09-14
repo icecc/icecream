@@ -6,7 +6,7 @@
 
 [Icecream](Icecream) was created by SUSE based on distcc. Like distcc,
 [Icecream](Icecream) takes compile jobs from a build and
-distributes it among remote machines allowing a parallel build. But
+distributes them among remote machines allowing a parallel build. But
 unlike distcc, [Icecream](Icecream) uses a central server that
 dynamically schedules the compile jobs to the fastest free server. This
 advantage pays off mostly for shared computers, if you're the only user
@@ -22,8 +22,8 @@ Table of Contents
     -   [Firewall](#firewall)
     -   [C compiler](#c-compiler)
     -   [osc build](#osc-build)
-    -   [some compilation node aren't
-        used](#some-compilation-node-arent-used)
+    -   [some compilation nodes aren't
+        used](#some-compilation-nodes-arent-used)
     -   [build with -Werror fails only when using icecream ](#build-with--werror-fails-only-when-using-icecream)
     -   [clang 4.0 tries to read /proc/cpuinfo and fails](#clang-tries-to-read-proccpuinfo-and-fails)
 
@@ -83,7 +83,7 @@ first entry in your path, e.g. type
      export PATH=/usr/lib/icecc/bin:$PATH
 
 (Hint: put this in `~/.bashrc` or `/etc/profile` to not have to type it in
-everytime)
+everytime.)
 
 Then you just compile with make -j \<num\>, where
 \<num\> is the amount of jobs you want to compile in parallel.
@@ -108,12 +108,12 @@ funny stats, you might want to run "icemon" (from a separate repository/package)
 
 If you restart a computer, you still want it to be in the icecream
 cluster after reboot. Consult your distribution's documentation on this. If you
-uses packages provided by your distribution this should be automatic (or a 
-simple configuration change)
+use packages provided by your distribution this should be automatic (or a 
+simple configuration change).
 
 ### make scheduler persistent:
 
-By adding an option --scheduler-host for daemon and --persistent-client-connection for scheduler, the client connections are not disconnected from the scheduler even there is an availability of better scheduler.
+By adding options --scheduler-host for daemon and --persistent-client-connection for scheduler, the client connections are not disconnected from the scheduler even if there is an availability of better scheduler.
 
 TroubleShooting
 -------------------------------------------------------------------------------
@@ -131,16 +131,16 @@ To open the right ports in your firewall, call
 
      yast2 firewall
 
-Choose "allowed services" -\> Advanced. Enter for TCP: **10245 8765
-8766** and for UDP **8765**
+Choose "allowed services" -\> Advanced. Enter for TCP **10245 8765
+8766** and for UDP **8765**.
 
-If you have scheduler running on another system, you should open
-broadcasting response :
+If you have the scheduler running on another system, you should open
+broadcasting response:
 
      yast2 firewall
 
-Choose "Custom Rules" -\> Add. Enter Source Network **0/0** Protocol:
-**UDP** Source Port **8765**
+Choose "Custom Rules" -\> Add. Enter Source Network **0/0**, Protocol
+**UDP**, Source Port **8765**.
 
 ### C compiler
 
@@ -160,23 +160,23 @@ and wait for a typical compile command to appear, like this one:
      -Wchar-subscripts-Wall -W -Wpointer-arith -Wformat-security 
      -fno-exceptions -fno-check-new
 
-in this example, the right c compiler is chosen, /usr/lib/icecc/bin/c++.
+In this example, the right c compiler is chosen, /usr/lib/icecc/bin/c++.
 If the wrong one is chosen, delete CMakeCache.txt (if existing) and
 start the build process again calling ./configure (if existing).
 
 ### osc build
 
-You can tell osc build to use icecream to build packages, by appending
---icecream=\<n\> where n is the number of process which should be
+You can tell osc build to use icecream to build packages by appending
+--icecream=\<n\> where n is the number of processes which should be
 started in parallel. However, for integration with icecream to work
 properly, you must install icecream on the host where you will run "osc
 build" and you must start icecream daemon.
 
-### some compilation node aren't used
+### some compilation nodes aren't used
 
 If, when using icecream monitor (icemon), you notice some nodes not
 being used at all for compilation, check you have the same icecream
-version on all nodes, otherwise, nodes running older icecream version
+version on all nodes, otherwise, nodes running older icecream versions
 might be excluded from available nodes.
 
 ### build with -Werror fails only when using icecream
@@ -186,7 +186,7 @@ using `ICECC_REMOTE_CPP=1` (see `icecc --help`).
 
 ### clang tries to read /proc/cpuinfo and fails
 
-This is a problem of clang 4.0 and newer: https://bugs.llvm.org/show_bug.cgi?id=33008 
+This is a problem of clang 4.0 and newer: <https://bugs.llvm.org/show_bug.cgi?id=33008>. 
 The most recent Icecream version works around this problem.
 
 Supported platforms
@@ -308,7 +308,7 @@ Create symbolic links from where icecc is to the name of your cross
 compilers (e.g. arm-linux-g++ and arm-linux-gcc), make sure that these
 symbolic links are in the path and before the path of your toolchain,
 with $ICECC\_CC and $ICECC\_CXX you need to tell icecream which
-compilers to use for preprocessing and local compiling. e.g. set it to
+compilers to use for preprocessing and local compiling, e.g. set it to
 ICECC\_CC=arm-linux-gcc and ICECC\_CXX=arm-linux-g++.
 
 As the next step you need to create a .tar.bz2 of your cross compiler,
@@ -352,8 +352,8 @@ for the same host architecture:
 -   Set ICECC\_VERSION to point to the native tarball file and for each
     tarball file created to the toolchains (e.g  ICECC\_VERSION=/work/i386-native.tar.gz,/work/arm-eabi-toolchain1.tar.gz=arm-eabi,/work/arm-linux-androideabi-toolchain2.tar.gz=arm-linux-androideabi).
 
-With these steps the icecrem will use /work/arm-eabi-toolchain1.tar.gz file to
-cross compilers with the prefix arm-eabi(e.g arm-eabi-gcc and arm-eabi-g++), use
+With these steps the icecream will use /work/arm-eabi-toolchain1.tar.gz file to
+cross compilers with the prefix arm-eabi (e.g arm-eabi-gcc and arm-eabi-g++), use
 /work/arm-linux-androideabi-toolchain2.tar.gz file to cross compilers with the prefix
 arm-linux-androideabi(e.g. arm-linux-androideabi-gcc and arm-linux-androideabi-g++)
 and use /work/i386-native.tar.gz file to compilers without prefix,
@@ -448,7 +448,7 @@ What is the best environment for icecream
 
 In most requirements icecream isn't special, e.g. it doesn't matter what
 distributed compile system you use, you won't have fun if your nodes are
-connected through than less or equal to 10MBit. Note that icecream
+connected through less than or equal to 10MBit. Note that icecream
 compresses input and output files (using lzo), so you can calculate with
 ~1MBit per compile job - i.e more than make -j10 won't be possible
 without delays.
@@ -464,7 +464,7 @@ The scheduler will try to give you the fastest machines available, so
 even if you add old machines, they will be used only in exceptional
 situations, but still you can have bad luck - the scheduler doesn't know
 how long a job will take before it started. So if you have 3 machines
-and two quick to compile and one long to compile source file, you're not
+and two quick to compile and one long to compile source files, you're not
 safe from a choice where everyone has to wait on the slow machine. Keep
 that in mind.
 
@@ -486,8 +486,8 @@ Some advice on configuration
 Icecream supports many configurations but you need to understand your network to
 choose what is right for you. 
 
-You should ensure that the scheduler up to the latest version. Many new features
-require the client and scheduler work together to use them. Even though clients
+You should ensure that the scheduler is up to the latest version. Many new features
+require the client and the scheduler to work together to use them. Even though clients
 should work with old schedulers new features will not work, and may not be disabled
 correctly.
 
@@ -497,14 +497,14 @@ this, and it is random if they will find the correct one. In all other ways it i
 believed that mixing old and new versions of the daemon will work: if you use a new
 feature only new clients will be used.
 
-Recommended is to start the scheduler and daemon on every body's machine. The
+Recommended is to start the scheduler and daemon on everybody's machine. The
 icecream schedulers will choose one to be the master and everyone will connect
 to it. When the scheduler machine goes down a new master will be selected automatically.
 
 If you need to run mixed icecream versions, then it is best to designate one
 machine on each subnet to be a scheduler. Icecream nodes will automatically find
 the scheduler and connect to it. If someone accidentally starts a second
-scheduler this will cause problems with clients that are less than 1.1, but they
+scheduler this will cause problems with clients that are older than version 1.1, but they
 should eventually work. The scheduler should be a reliable machine, but if it
 fails you use any existing machine as a replacement.
 
@@ -519,7 +519,7 @@ overload routers.
 
 You might designate a netname. This is useful if your network is using VPN to
 make it seem like developers who are physically a long distance apart seem like
-they are on the same sub-net. While the VPNs are useful, they are typically do
+they are on the same sub-net. While the VPNs are useful, they typically do
 not have enough bandwidth for icecream, so by setting a different netname on
 each side of the VPN you can save bandwidth. Netnames can be used to work around
 some limitations above: if a netname is set icecream schedulers and daemons will
@@ -576,8 +576,8 @@ best choice:
     your compilation (see the ICECC\_VERSION support)
 -   you got some neat PPC laptop and want to use your wife's computer
     that only runs intel (see the cross compiler section)
--   you don't know what machines will be on-line at compile time.
--   **most important**: you're sitting in a office with several
+-   you don't know what machines will be on-line at compile time
+-   **most important**: you're sitting in an office with several
     co-workers that do not like if you overload their workstations when
     they play doom (distcc doesn't have a scheduler)
 -   you like nice compile monitors :)
