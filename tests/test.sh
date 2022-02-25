@@ -495,8 +495,10 @@ compare_outputs()
 #   - localrebuild - specifies that the command may result in local recompile
 #   - keepoutput - will keep the file specified using $output (the remotely compiled version)
 #   - split_dwarf - compilation is done with -gsplit-dwarf
+#   - no_dwo - compilation with -gsplit-dwarfs results in no .dwo file
 #   - noresetlogs - will not use reset_logs at the start (needs to be done explicitly before calling run_ice)
 #   - remoteabort - remote compilation will abort (as a result of local processing failing and remote daemon killing the remote compiler)
+#   - remotefail - remote compilation fails after local preprocessing succeeds, followed by an expected remote exit code
 #   - nostderrcheck - will not compare stderr output
 #   - unusedmacrohack - hack for Wunused-macros test
 # Rest is the command to pass to icecc.
@@ -525,8 +527,17 @@ run_ice()
     split_dwarf=
     if test "$1" = "split_dwarf"; then
         if test -n "$output"; then
-            split_dwarf=$(echo $output | sed 's/\.[^.]*//g').dwo
+            if test -n "$using_gcc"; then
+                split_dwarf=$(dirname $output)/$(basename $output .o).dwo
+            else
+                split_dwarf=$(echo $output | sed 's/\.[^.]*//g').dwo
+            fi
         fi
+        shift
+    fi
+    no_dwo=
+    if test "$1" = "no_dwo"; then
+        no_dwo=1
         shift
     fi
     noresetlogs=
@@ -537,6 +548,14 @@ run_ice()
     remoteabort=
     if test "$1" = "remoteabort"; then
         remoteabort=1
+        shift
+    fi
+    remotefail=
+    remote_exit_code=
+    if test "$1" = "remotefail"; then
+        remotefail=1
+        shift
+        remote_exit_code=$1
         shift
     fi
     nostderrcheck=
@@ -555,6 +574,10 @@ run_ice()
         expected_exit=$?
     fi
 
+    if test -z $remote_exit_code; then
+        remote_exit_code=$expected_exit
+    fi
+
     if test -z "$noresetlogs"; then
         reset_logs local "$@"
     else
@@ -568,7 +591,11 @@ run_ice()
         mv "$output" "$output".localice
     fi
     if test -n "$split_dwarf"; then
-        mv "$split_dwarf" "$split_dwarf".localice
+        local_dwo_exists=
+        if test -f "$split_dwarf"; then
+            local_dwo_exists=1
+            mv "$split_dwarf" "$split_dwarf".localice
+        fi
     fi
     cat "$testdir"/stderr.localice >> "$testdir"/stderr.localice.log
     flush_logs
@@ -597,7 +624,11 @@ run_ice()
             mv "$output" "$output".remoteice
         fi
         if test -n "$split_dwarf"; then
-            mv "$split_dwarf" "$split_dwarf".remoteice
+            remote_dwo_exists=
+            if test -f "$split_dwarf"; then
+                remote_dwo_exists=1
+                mv "$split_dwarf" "$split_dwarf".remoteice
+            fi
         fi
         cat "$testdir"/stderr.remoteice >> "$testdir"/stderr.remoteice.log
         flush_logs
@@ -612,6 +643,10 @@ run_ice()
                 check_log_message remoteice1 "Remote compilation aborted with exit code"
                 check_log_error remoteice1 "Remote compilation completed with exit code 0"
                 check_log_error remoteice1 "Remote compilation exited with exit code"
+            elif test -n "$remotefail"; then
+                check_log_message remoteice1 "Remote compilation exited with exit code $remote_exit_code"
+                check_log_error remoteice1 "Remote compilation aborted with with exit code"
+                check_log_error remoteice1 "Remote compilation exited with exit code 0"
             elif test -n "$output"; then
                 check_log_message remoteice1 "Remote compilation completed with exit code 0"
                 check_log_error remoteice1 "Remote compilation aborted with exit code"
@@ -621,9 +656,31 @@ run_ice()
                 check_log_error remoteice1 "Remote compilation completed with exit code 0"
                 check_log_error remoteice1 "Remote compilation aborted with exit code"
             fi
+            if test -n "$split_dwarf"; then
+                if test -z "$no_dwo" && test -z "$remote_dwo_exists"; then
+                    echo "Remote .dwo $split_dwarf expected and not found"
+                    stop_ice 0
+                    abort_tests
+                elif test -n "$no_dwo" && test -n "$remote_dwo_exists"; then
+                    echo "Remote .dwo $split_dwarf unexpectedly found"
+                    stop_ice 0
+                    abort_tests
+                fi
+            fi
         else
             check_log_message icecc "<building_local>"
             check_log_error icecc "Have to use host 127.0.0.1:10246"
+            if test -n "$split_dwarf"; then
+                if test -z "$no_dwo" && test -z "$local_dwo_exists"; then
+                    echo "Local .dwo $split_dwarf expected and not found"
+                    stop_ice 0
+                    abort_tests
+                elif test -n "$no_dwo" && test -n "$local_dwo_exists"; then
+                    echo "Local .dwo $split_dwarf unexpectedly found"
+                    stop_ice 0
+                    abort_tests
+                fi
+            fi
         fi
         check_log_error icecc "Have to use host 127.0.0.1:10247"
         check_log_error icecc "building myself, but telling localhost"
@@ -655,8 +712,8 @@ run_ice()
         stop_ice 0
         abort_tests
     fi
-    if test -z "$chroot_disabled" -a "$remoteice_exit" != "$expected_exit"; then
-        echo "Remote run exit code mismatch ($remoteice_exit vs $expected_exit)"
+    if test -z "$chroot_disabled" -a "$remoteice_exit" != "$remote_exit_code"; then
+        echo "Remote run exit code mismatch ($remoteice_exit vs $remote_exit_code)"
         stop_ice 0
         abort_tests
     fi
@@ -688,21 +745,37 @@ run_ice()
     local remove_debug_info="s/\(Length\|DW_AT_\(GNU_dwo_\(id\|name\)\|comp_dir\|producer\|linkage_name\|name\)\).*/\1/g"
     local remove_debug_pubnames="/^\s*Offset\s*Name/,/^\s*$/s/\s*[A-Fa-f0-9]*\s*//"
     local remove_size_of_area="s/\(Size of area in.*section:\)\s*[0-9]*/\1/g"
+    local remove_dwo_absolute_path="s#\(DW_AT_dwo_name.*: \)/.*/\(results/`basename $output .o`\.dwo\)#\1\2#g"
+    local remove_content_headers="/Contents of the .* section (loaded from .*):/d"
+    local remove_raw_dump_headers="/Raw dump of debug contents of section .* (loaded from .*):/d"
+    local remove_split_elf_notice="/Found separate debug object file:/d"
     if test -n "$output"; then
         if file "$output" | grep -q ELF; then
             readelf -wlLiaprmfFoRt "$output" | sed -e "$remove_debug_info" \
                 -e "$remove_offset_number" \
                 -e "$remove_debug_pubnames" \
+                -e "$remove_dwo_absolute_path" \
+                -e "$remove_content_headers" \
+                -e "$remove_raw_dump_headers" \
+                -e "$remove_split_elf_notice" \
                 -e "$remove_size_of_area" > "$output".readelf.txt || cp "$output" "$output".readelf.txt
             readelf -wlLiaprmfFoRt "$output".localice | sed -e "$remove_debug_info" \
                 -e "$remove_offset_number" \
                 -e "$remove_debug_pubnames" \
+                -e "$remove_dwo_absolute_path" \
+                -e "$remove_content_headers" \
+                -e "$remove_raw_dump_headers" \
+                -e "$remove_split_elf_notice" \
                 -e "$remove_size_of_area" > "$output".local.readelf.txt || cp "$output" "$output".local.readelf.txt
             compare_outputs "$output".local.readelf.txt "$output".readelf.txt "Output mismatch ($output.localice)"
             if test -z "$chroot_disabled"; then
                 readelf -wlLiaprmfFoRt "$output".remoteice | sed -e "$remove_debug_info" \
                     -e "$remove_offset_number" \
                     -e "$remove_debug_pubnames" \
+                    -e "$remove_dwo_absolute_path" \
+                    -e "$remove_content_headers" \
+                    -e "$remove_raw_dump_headers" \
+                    -e "$remove_split_elf_notice" \
                     -e "$remove_size_of_area" > "$output".remote.readelf.txt || cp "$output" "$output".remote.readelf.txt
                 compare_outputs "$output".remote.readelf.txt "$output".readelf.txt "Output mismatch ($output.remoteice)"
             fi
@@ -746,16 +819,31 @@ run_ice()
             fi
         fi
     fi
-    if test -n "$split_dwarf"; then
+    if test -n "$split_dwarf" && test -z "$no_dwo"; then
         if file "$output" | grep ELF >/dev/null; then
             readelf -wlLiaprmfFoRt "$split_dwarf" | \
-                sed -e "$remove_debug_info" -e "$remove_offset_number" > "$split_dwarf".readelf.txt || cp "$split_dwarf" "$split_dwarf".readelf.txt
+                sed -e "$remove_debug_info" \
+                    -e "$remove_offset_number" \
+                    -e "$remove_content_headers" \
+                    -e "$remove_raw_dump_headers" \
+                    -e "$remove_split_elf_notice" \
+                    -e "$remove_dwo_absolute_path" > "$split_dwarf".readelf.txt || cp "$split_dwarf" "$split_dwarf".readelf.txt
             readelf -wlLiaprmfFoRt "$split_dwarf".localice | \
-                sed -e $remove_debug_info -e "$remove_offset_number" > "$split_dwarf".local.readelf.txt || cp "$split_dwarf" "$split_dwarf".local.readelf.txt
+                sed -e $remove_debug_info \
+                    -e "$remove_offset_number" \
+                    -e "$remove_content_headers" \
+                    -e "$remove_raw_dump_headers" \
+                    -e "$remove_split_elf_notice" \
+                    -e "$remove_dwo_absolute_path" > "$split_dwarf".local.readelf.txt || cp "$split_dwarf" "$split_dwarf".local.readelf.txt
             compare_outputs "$split_dwarf".local.readelf.txt "$split_dwarf".readelf.txt "Output DWO mismatch ($split_dwarf.localice)"
             if test -z "$chroot_disabled"; then
                 readelf -wlLiaprmfFoRt "$split_dwarf".remoteice | \
-                    sed -e "$remove_debug_info" -e "$remove_offset_number" > "$split_dwarf".remote.readelf.txt || cp "$split_dwarf" "$split_dwarf".remote.readelf.txt
+                    sed -e "$remove_debug_info" \
+                        -e "$remove_offset_number" \
+                        -e "$remove_content_headers" \
+                        -e "$remove_raw_dump_headers" \
+                        -e "$remove_split_elf_notice" \
+                        -e "$remove_dwo_absolute_path" > "$split_dwarf".remote.readelf.txt || cp "$split_dwarf" "$split_dwarf".remote.readelf.txt
                 compare_outputs "$split_dwarf".remote.readelf.txt "$split_dwarf".readelf.txt "Output DWO mismatch ($split_dwarf.remoteice)"
             fi
         elif file "$output" | grep Mach >/dev/null; then
@@ -1323,12 +1411,13 @@ debug_test()
         preferred=localice
     fi
     ICECC_TEST_SOCKET="$testdir"/socket-localice ICECC_TEST_REMOTEBUILD=1 ICECC_PREFERRED_HOST=$preferred ICECC_DEBUG=debug ICECC_LOGFILE="$testdir"/icecc.log $valgrind "${icecc}" \
-        $cmd -o "$testdir"/debug-remote.o 2>>"$testdir"/stderr.log
+        $cmd -o "$testdir"/debug.o 2>>"$testdir"/stderr.log
     if test $? -ne 0; then
         echo Debug test compile failed.
         stop_ice 0
         abort_tests
     fi
+    mv "$testdir"/debug.o "$testdir"/debug-remote.o
 
     flush_logs
     check_logs_for_generic_errors
@@ -1362,12 +1451,13 @@ debug_test()
         abort_tests
     fi
 
-    $cmd -o "$testdir"/debug-local.o 2>>"$testdir"/stderr.log
+    $cmd -o "$testdir"/debug.o 2>>"$testdir"/stderr.log
     if test $? -ne 0; then
         echo Debug test compile failed.
         stop_ice 0
         abort_tests
     fi
+    mv "$testdir"/debug.o "$testdir"/debug-local.o
     $compiler -o "$testdir"/debug-local "$testdir"/debug-local.o
     if test $? -ne 0; then
         echo Linking in debug test failed.
@@ -1414,17 +1504,29 @@ debug_test()
     local remove_offset_number="s/<[A-Fa-f0-9]*>/<>/g"
     local remove_size_of_area="s/\(Size of area in.*section:\)\s*[0-9]*/\1/g"
     local remove_debug_pubnames="/^\s*Offset\s*Name/,/^\s*$/s/\s*[A-Fa-f0-9]*\s*//"
+    local remove_dwo_absolute_path="s#\(DW_AT_dwo_name.*: \)/.*/\(results/debug\.dwo\)#\1\2#g"
+    local remove_content_headers="/Contents of the .* section (loaded from .*):/d"
+    local remove_raw_dump_headers="/Raw dump of debug contents of section .* (loaded from .*):/d"
+    local remove_split_elf_notice="/Found separate debug object file:/d"
     if file "$testdir"/debug-remote.o | grep ELF >/dev/null; then
         readelf -wlLiaprmfFoRt "$testdir"/debug-remote.o | sed -e 's/offset: 0x[0-9a-fA-F]*//g' \
             -e 's/[ ]*--param ggc-min-expand.*heapsize\=[0-9]\+//g' \
             -e "$remove_debug_info" \
             -e "$remove_offset_number" \
             -e "$remove_size_of_area" \
+            -e "$remove_dwo_absolute_path" \
+            -e "$remove_content_headers" \
+            -e "$remove_raw_dump_headers" \
+            -e "$remove_split_elf_notice" \
             -e "$remove_debug_pubnames" > "$testdir"/readelf-remote.txt
         readelf -wlLiaprmfFoRt "$testdir"/debug-local.o | sed -e 's/offset: 0x[0-9a-fA-F]*//g' \
             -e "$remove_debug_info" \
             -e "$remove_offset_number" \
             -e "$remove_size_of_area" \
+            -e "$remove_dwo_absolute_path" \
+            -e "$remove_content_headers" \
+            -e "$remove_raw_dump_headers" \
+            -e "$remove_split_elf_notice" \
             -e "$remove_debug_pubnames" > "$testdir"/readelf-local.txt
         if ! diff "$testdir"/readelf-local.txt "$testdir"/readelf-remote.txt >/dev/null; then
             echo Readelf output different.
@@ -2047,14 +2149,29 @@ fi
 
 run_ice "" "local" 300 "nostderrcheck" /bin/nonexistent-at-all-doesnt-exist
 
-run_ice "$testdir/warninginmacro.o" "remote" 0 $TESTCXX -Wall -Wextra -Werror -c warninginmacro.cpp -o "$testdir/"warninginmacro.o
+
+if test -n "$using_gcc"; then
+    run_ice "$testdir/warninginmacro.o" "remote" 0 $TESTCXX -Wall -Wextra -Werror -c warninginmacro.cpp -o "$testdir/"warninginmacro.o
+else
+    # clang will preprocess but fail with an error code when producing the object file, causing
+    # a successful local rebuild
+    run_ice "" "remote" 0 "localrebuild" "remotefail" 1 "nostderrcheck" $TESTCXX -Wall -Wextra -Werror -c warninginmacro.cpp -o "$testdir/"warninginmacro.o
+fi
 run_ice "$testdir/unusedmacro.o" "remote" 0 "unusedmacrohack" $TESTCXX -Wall -Wunused-macros -c unusedmacro.cpp -o "$testdir/unusedmacro.o"
 
 if test -n "$using_gcc"; then
     # These all break because of -fdirectives-only bugs, check we manage to build them somehow.
     run_ice "$testdir/countermacro.o" "remote" 0 "localrebuild" "remoteabort" "nostderrcheck" $TESTCC -Wall -Werror -c countermacro.c -o "$testdir"/countermacro.o
+
+    # Unsure when this started working, but it was sometime after version 9
+    gcc_version=`$TESTCXX --version | grep -oE '([[:digit:]]+\.[[:digit:]]+\.[[:digit:]]+)$' | cut -d. -f1`
     if $TESTCXX -std=c++11 -fsyntax-only -Werror -c rawliterals.cpp 2>/dev/null; then
-        run_ice "$testdir/rawliterals.o" "remote" 0 "localrebuild" "remoteabort" "nostderrcheck" $TESTCXX -std=c++11 -Wall -Werror -c rawliterals.cpp -o "$testdir"/rawliterals.o
+        echo "$gcc_version"
+        if test "$gcc_version" -lt 10; then
+            run_ice "$testdir/rawliterals.o" "remote" 0 "localrebuild" "remoteabort" "nostderrcheck" $TESTCXX -std=c++11 -Wall -Werror -c rawliterals.cpp -o "$testdir"/rawliterals.o
+        else
+            run_ice "$testdir/rawliterals.o" "remote" 0 $TESTCXX -std=c++11 -Wall -Werror -c rawliterals.cpp -o "$testdir"/rawliterals.o
+        fi
     fi
 fi
 
@@ -2082,14 +2199,18 @@ else
 fi
 
 debug_fission_disabled=1
-rm -f "$testdir"/true.dwo
+dwo_location=
+if test -n "$using_gcc"; then
+    dwo_location="$testdir"/
+fi
+rm -f "$dwo_location"/true.dwo
 $TESTCXX -gsplit-dwarf -g true.cpp -o "$testdir"/true 2>/dev/null >/dev/null
-if test $? -eq 0 -a -f true.dwo; then
+if test $? -eq 0 -a -f "$dwo_location"true.dwo; then
     "$testdir"/true
     if test $? -eq 0; then
         debug_fission_disabled=
     fi
-    rm -f "$testdir"/true true.dwo
+    rm -f "$testdir"/true "$dwo_location"true.dwo
 fi
 
 if test -n "$debug_fission_disabled"; then
@@ -2097,8 +2218,13 @@ if test -n "$debug_fission_disabled"; then
 fi
 if test -z "$debug_fission_disabled"; then
     run_ice "$testdir/plain.o" "remote" 0 "split_dwarf" $TESTCXX -Wall -Werror -gsplit-dwarf -g -c plain.cpp -o "$testdir/"plain.o
-    run_ice "$testdir/plain.o" "remote" 0 "split_dwarf" $TESTCC -Wall -Werror -gsplit-dwarf -c plain.c -o "$testdir/"plain.o
-    run_ice "$testdir/plain.o" "remote" 0 "split_dwarf" $TESTCC -Wall -Werror -gsplit-dwarf -c plain.c -o "../../../../../../../..$testdir/plain.o"
+    if test -n "$using_gcc"; then
+        run_ice "$testdir/plain.o" "remote" 0 "split_dwarf" $TESTCC -Wall -Werror -gsplit-dwarf -c plain.c -o "$testdir/"plain.o
+        run_ice "$testdir/plain.o" "remote" 0 "split_dwarf" $TESTCC -Wall -Werror -gsplit-dwarf -c plain.c -o "../../../../../../../..$testdir/plain.o"
+    else
+        run_ice "$testdir/plain.o" "remote" 0 "split_dwarf" "no_dwo" $TESTCC -Wall -Werror -gsplit-dwarf -c plain.c -o "$testdir/"plain.o
+        run_ice "$testdir/plain.o" "remote" 0 "split_dwarf" "no_dwo" $TESTCC -Wall -Werror -gsplit-dwarf -c plain.c -o "../../../../../../../..$testdir/plain.o"
+    fi
     run_ice "" "remote" 300 "localrebuild" "split_dwarf" "remoteabort" "nostderrcheck" $TESTCXX -gsplit-dwarf -c nonexistent.cpp
 fi
 
