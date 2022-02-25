@@ -27,4 +27,68 @@
 // Values 0 to 3.
 #define DEBUG_SCHEDULER 0
 
+// The weight the "fastest" scheduler places on using a
+// server with recent statistics over one that has not
+// been used for a while. Values 0 - 128, with higher
+// values meaning the "fastest" servers are used more
+// often.
+#define STATS_UPDATE_WEIGHT 120
+
+#include <iostream>
+#include <string>
+
+#include "../services/job.h"
+#include "compileserver.h"
+
+
+class SchedulerAlgorithmName {
+public:
+    enum Value: uint8_t {
+        NONE=0,
+        RANDOM,
+        ROUND_ROBIN,
+        LEAST_BUSY,
+        FASTEST,
+        UNDEFINED=255
+    };
+
+    SchedulerAlgorithmName() = default;
+    constexpr SchedulerAlgorithmName(Value name)
+        : name_{name}
+    {}
+
+    constexpr operator Value() const { return name_; }
+    explicit operator bool() = delete;
+
+    std::basic_string<char> to_string() const {
+        switch (name_) {
+            case SchedulerAlgorithmName::NONE:
+                return "NONE";
+            case SchedulerAlgorithmName::RANDOM:
+                return "RANDOM";
+            case SchedulerAlgorithmName::ROUND_ROBIN:
+                return "ROUND_ROBIN";
+            case SchedulerAlgorithmName::LEAST_BUSY:
+                return "LEAST_BUSY";
+            case SchedulerAlgorithmName::FASTEST:
+                return "FASTEST";
+            case SchedulerAlgorithmName::UNDEFINED:
+                return "UNDEFINED";
+        }
+        return nullptr;
+    }
+
+private:
+    Value name_;
+};
+
+inline std::basic_string<char> operator+=(std::basic_string<char> left, const SchedulerAlgorithmName &right) {
+    return left.append(right.to_string());
+}
+
+inline std::ostream& operator<<(std::ostream &os, const SchedulerAlgorithmName &name) {
+    os << name.to_string();
+    return os;
+}
+
 #endif

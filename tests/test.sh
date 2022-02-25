@@ -281,9 +281,15 @@ kill_daemon()
 
 start_ice()
 {
+    local algorithm=$1
+
+    if test -n "$algorithm"; then
+        algorithm="-a $algorithm"
+    fi
+
     ICECC_TESTS=1 ICECC_TEST_SCHEDULER_PORTS=8767:8769 \
         ICECC_TEST_FLUSH_LOG_MARK="$testdir"/flush_log_mark.txt ICECC_TEST_LOG_HEADER="$testdir"/log_header.txt \
-        $valgrind "${icecc_scheduler}" -p 8767 -l "$testdir"/scheduler.log -n ${netname} -v -v -v &
+        $valgrind "${icecc_scheduler}" -p 8767 -l "$testdir"/scheduler.log -n ${netname} -v -v -v $algorithm &
     scheduler_pid=$!
     echo $scheduler_pid > "$testdir"/scheduler.pid
 
@@ -893,16 +899,17 @@ run_ice()
     rm -f "$testdir"/stderr "$testdir"/stderr.localice "$testdir"/stderr.remoteice
 }
 
-make_test()
+run_make_test()
 {
-    # make test - actually try something somewhat realistic. Since each node is set up to serve
-    # only 2 jobs max, at least some of the 10 jobs should be built remotely.
+    local concurrency=$1
 
-    echo Running make test.
-    reset_logs "" "make test"
+    if test -z "$concurrency"; then
+        concurrency=10
+    fi
+
     make -f Makefile.test OUTDIR="$testdir" clean -s
     ICECC_TEST_SOCKET="$testdir"/socket-localice ICECC_TEST_REMOTEBUILD=1 ICECC_DEBUG=debug ICECC_LOGFILE="$testdir"/icecc.log \
-        make -f Makefile.test OUTDIR="$testdir" CXX="${icecc} $TESTCXX" -j10 -s 2>>"$testdir"/stderr.log
+        make -f Makefile.test OUTDIR="$testdir" CXX="${icecc} $TESTCXX" -j"$concurrency" -s 2>>"$testdir"/stderr.log
     if test $? -ne 0 -o ! -x "$testdir"/maketest; then
         echo Make test failed.
         stop_ice 0
@@ -911,6 +918,16 @@ make_test()
     flush_logs
     check_logs_for_generic_errors
     check_everything_is_idle
+}
+
+make_test()
+{
+    # make test - actually try something somewhat realistic. Since each node is set up to serve
+    # only 2 jobs max, at least some of the 10 jobs should be built remotely.
+
+    echo Running make test.
+    reset_logs "" "make test"
+    run_make_test
     check_log_message icecc "Have to use host 127.0.0.1:10246"
     check_log_message icecc "Have to use host 127.0.0.1:10247"
     check_log_message_count icecc 1 "<building_local>"
@@ -2437,6 +2454,72 @@ if test -z "$chroot_disabled"; then
     echo
 else
     skipped_tests="$skipped_tests scheduler_multiple"
+fi
+
+if test -z "$chroot_disabled"; then
+    echo "Testing fastest (default) scheduler algorithm."
+    reset_logs remote "Fastest (default) scheduler algorithm"
+    stop_ice 1
+    start_ice fastest
+    check_logs_for_generic_errors
+    check_everything_is_idle
+    check_log_message scheduler "scheduler ready, algorithm: FASTEST"
+    run_make_test 2
+    check_log_error scheduler "failed to select a server using FASTEST algorithm"
+    # Can't guarantee any particular hosts will be selected, so no way to check them (yet).
+    echo "Fastest (default) scheduler algorithm test successful."
+    echo
+    make -f Makefile.test OUTDIR="$testdir" clean -s
+
+    echo "Testing random scheduler algorithm."
+    reset_logs remote "Random scheduler algorithm"
+    stop_ice 1
+    start_ice random
+    check_logs_for_generic_errors
+    check_everything_is_idle
+    check_log_message scheduler "scheduler ready, algorithm: RANDOM"
+    run_make_test 2
+    check_log_error scheduler "failed to select a server using RANDOM algorithm"
+    # Can't guarantee any particular hosts will be selected, so no way to check them (yet).
+    echo "Random scheduler algorithm test successful."
+    echo
+    make -f Makefile.test OUTDIR="$testdir" clean -s
+
+    echo "Testing round-robin scheduler algorithm."
+    reset_logs remote "Round-robin scheduler algorithm"
+    stop_ice 1
+    start_ice round_robin
+    check_logs_for_generic_errors
+    check_everything_is_idle
+    check_log_message scheduler "scheduler ready, algorithm: ROUND_ROBIN"
+    run_make_test 2
+    check_log_error scheduler "failed to select a server using ROUND_ROBIN algorithm"
+    check_log_message_count icecc 1 "<building_local>"
+    check_log_message remoteice1 "Remote compilation completed with exit code 0"
+    check_log_error remoteice1 "Remote compilation aborted with exit code"
+    check_log_error remoteice1 "Remote compilation exited with exit code $expected_exit"
+    check_log_message remoteice2 "Remote compilation completed with exit code 0"
+    check_log_error remoteice2 "Remote compilation aborted with exit code"
+    check_log_error remoteice2 "Remote compilation exited with exit code $expected_exit"
+    echo "Round-robin scheduler algorithm test successful."
+    echo
+    make -f Makefile.test OUTDIR="$testdir" clean -s
+
+    echo "Testing least-busy scheduler algorithm."
+    reset_logs remote "Least-busy scheduler algorithm"
+    stop_ice 1
+    start_ice least_busy
+    check_logs_for_generic_errors
+    check_everything_is_idle
+    check_log_message scheduler "scheduler ready, algorithm: LEAST_BUSY"
+    run_make_test 2
+    check_log_error scheduler "failed to select a server using LEAST_BUSY algorithm"
+    # Can't guarantee any particular hosts will be selected, so no way to check them (yet).
+    echo "Least-busy scheduler algorithm test successful."
+    echo
+    make -f Makefile.test OUTDIR="$testdir" clean -s
+else
+    skipped_tests="$skipped_tests scheduler_algorithm"
 fi
 
 reset_logs local "Closing down"
