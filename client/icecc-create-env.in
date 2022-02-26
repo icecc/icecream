@@ -482,6 +482,9 @@ if test -n "$clang"; then
     search_addfile $orig_clang as /usr/bin
     search_addfile $orig_clang objcopy /usr/bin
 
+    # Make sure llvm-symbolizer is added if present so sanitized builds work.
+    search_addfile $orig_clang llvm-symbolizer /usr/bin
+
     # HACK: Clang4.0 and later access /proc/cpuinfo and report an error when they fail
     # to find it, even if they use a fallback mechanism, making the error useless
     # (at least in this case). Since the file is not really needed, create a fake one.
