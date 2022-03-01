@@ -26,6 +26,11 @@ monitors.
 Options
 -------
 
+*-a, --algorithm* _algorithm-name_::
+    The job scheduling algorithm to use. Choose from:
+    _random_, _round_robin_, _least_busy_, _fastest_.
+    Defaults to _fastest_.
+
 *-d, --daemonize*::
     Detach daemon from shell.
 
