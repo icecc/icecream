@@ -737,12 +737,6 @@ static CompileServer *pick_server_least_busy(list<CompileServer *> &eligible)
             return cs->maxJobs() && cs->jobList().size() / cs->maxJobs() == min_load;
         });
 
-    if (selected_list.size() == 0) {
-        return nullptr;
-    } else if (selected_list.size() == 1) {
-        return selected_list.front();
-    }
-
 #if DEBUG_SCHEDULER > 1
     trace()
         << "servers to consider further: " << selected_list.size()
@@ -774,7 +768,14 @@ static CompileServer *pick_server_fastest(Job *job, list<CompileServer *> &eligi
     // If we have no statistics simply use any server which is usable
     if (!all_job_stats.size()) {
         CompileServer *selected = pick_server_random(eligible);
-        trace() << "no job stats - returning randomly selected " << selected->nodeName() << " load: " << selected->load() << " can install: " << selected->can_install(job) << endl;
+        trace()
+            << "no job stats - returning randomly selected "
+            << selected->nodeName()
+            << " load: "
+            << selected->load()
+            << " can install: "
+            << selected->can_install(job)
+            << endl;
         return selected;
     }
 
@@ -803,11 +804,12 @@ static CompileServer *pick_server_fastest(Job *job, list<CompileServer *> &eligi
         // in a while so we can maintain reasonably up-to-date statistics. The greater
         // the weight, the less likely this is to happen.
         uint8_t weight_limit = std::numeric_limits<uint8_t>::max() - STATS_UPDATE_WEIGHT;
-        uint8_t weight_factor = 0;
-        if (weight_limit > 0) {
-            weight_factor = std::numeric_limits<uint8_t>::max() / weight_limit;
-        }
+        uint8_t weight_factor = weight_limit / std::numeric_limits<uint8_t>::max();
 
+        // Job IDs are assigned from a monotonically increasing sequence by the
+        // scheduler, and each compile server records the ID of the last job it
+        // ran. We use that here to determine whether a job should simply run on
+        // the "next" host that hasn't seen a job for a long time.
         if (weight_factor > 0 && (!cs->lastPickedId() ||
             ((job->id() - cs->lastPickedId()) > (weight_factor * eligible.size())))) {
             best = cs;
@@ -897,17 +899,11 @@ static CompileServer *pick_server(Job *job, SchedulerAlgorithmName scheduler_alg
     // Ignore ineligible servers
     list<CompileServer *> eligible = filter_ineligible_servers(job);
 
-    // If no eligible servers, abandon all hope.
-    if ( eligible.size() == 0 ) {
-        trace() << "no eligible servers" << endl;
-        return nullptr;
-    }
-
 #if DEBUG_SCHEDULER > 1
     trace() << "pick_server " << job->id() << " " << job->targetPlatform() << endl;
 #endif
 
-    /* if the user wants to test/prefer one specific daemon, we look for that one first */
+    /* if the user wants to test/prefer one specific daemon, we return it if available */
     if (!job->preferredHost().empty()) {
         for (CompileServer* const cs : css) {
             if (cs->matches(job->preferredHost()) && cs->is_eligible_now(job)) {
@@ -919,6 +915,21 @@ static CompileServer *pick_server(Job *job, SchedulerAlgorithmName scheduler_alg
         }
 
         return nullptr;
+    }
+
+    // Don't bother running an algorithm if we don't need to.
+    if ( eligible.size() == 0 ) {
+        trace() << "no eligible servers" << endl;
+        return nullptr;
+    } else if (eligible.size() == 1) {
+        CompileServer *selected = eligible.front();
+        trace() << "returning only available server "
+            << selected->nodeName()
+            << " load: "
+            << selected->load()
+            << " can install: "
+            << selected->can_install(job)
+        return selected;
     }
 
     CompileServer *selected;
