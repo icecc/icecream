@@ -871,7 +871,7 @@ static CompileServer *pick_server_fastest(Job *job, list<CompileServer *> &eligi
     return bestpre;
 }
 
-static CompileServer *pick_server(Job *job, SchedulerAlgorithmName scheduler_algorithm)
+static CompileServer *pick_server(Job *job, SchedulerAlgorithmName schedulerAlgorithm)
 {
 #if DEBUG_SCHEDULER > 0
     /* consistency checking for now */
@@ -928,18 +928,18 @@ static CompileServer *pick_server(Job *job, SchedulerAlgorithmName scheduler_alg
             << " load: "
             << selected->load()
             << " can install: "
-            << selected->can_install(job)
+            << selected->can_install(job);
         return selected;
     }
 
     CompileServer *selected;
-    switch (scheduler_algorithm) {
+    switch (schedulerAlgorithm) {
         case SchedulerAlgorithmName::NONE:
         case SchedulerAlgorithmName::UNDEFINED:
             [[fallthrough]];
         default:
             trace()
-                << "unknown scheduler_algorithm " << scheduler_algorithm
+                << "unknown scheduler algorithm " << schedulerAlgorithm
                 << ", using " << SchedulerAlgorithmName::RANDOM << endl;
             [[fallthrough]];
         case SchedulerAlgorithmName::RANDOM:
@@ -959,11 +959,11 @@ static CompileServer *pick_server(Job *job, SchedulerAlgorithmName scheduler_alg
     if (selected) {
         trace()
             << "selected " << selected->nodeName()
-            << " using " << scheduler_algorithm << " algorithm" << endl;
+            << " using " << schedulerAlgorithm << " algorithm" << endl;
     } else {
         trace()
             << "failed to select a server using "
-            << scheduler_algorithm << " algorithm" << endl;
+            << schedulerAlgorithm << " algorithm" << endl;
     }
     return selected;
 }
@@ -1054,7 +1054,7 @@ static time_t prune_servers()
     return min_time;
 }
 
-static bool empty_queue(SchedulerAlgorithmName scheduler)
+static bool empty_queue(SchedulerAlgorithmName schedulerAlgorithm)
 {
     JobRequestPosition jobPosition = get_first_job_request();
     if (!jobPosition.isValid()) {
@@ -1067,7 +1067,7 @@ static bool empty_queue(SchedulerAlgorithmName scheduler)
     Job* job = jobPosition.job;
 
     while (true) {
-        use_cs = pick_server(job, scheduler);
+        use_cs = pick_server(job, schedulerAlgorithm);
 
         if (use_cs) {
             break;
