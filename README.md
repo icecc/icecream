@@ -474,6 +474,12 @@ earth, when those users were isolated to their geographic location the speed
 improved for everyone. In most corporate environments within a single building
 everything works well, but between two buildings often is troublesome.
 
+If you plan to use Icecream in the cloud or anywhere else you would have more
+latency than a corporate LAN, you should strongly consider using a dedicated
+scheduler configured with one of the alternative scheduling algorithms. See[Some advice on configuration](#some-advice-on-configuration)
+for details on alternative scheduling algorithms. You should also consider
+using dedicated compile servers as well if at all practical.
+
 Some advice on configuration
 -----------------------------------------------------------------------------------------------------------------------------------
 
@@ -519,6 +525,28 @@ each side of the VPN you can save bandwidth. Netnames can be used to work around
 some limitations above: if a netname is set icecream schedulers and daemons will
 ignore the existence of other schedulers and daemons.
 
+Finally, you can configure the scheduler to use a different job scheduling
+algorithm to distribute the load across your compile servers. The default
+scheduling algorithm is "fastest"; however this may not actually be the
+fastest algorithm to complete a full build in the real world, so you
+should try multiple algorithms to find the best for your environment.
+
+Currently, you can choose from the following algorithms:
+* *random*: distribute jobs randomly across the network.
+* *round_robin*: schedule jobs on the host that has seen jobs least recently.
+  This scheduler tends to distribute job assignments evenly across the
+  network, but it may distribute actual load unevenly and works best for
+  homogeneous networks of dedicated compile servers.
+* *least_busy*: schedule jobs to the host with the highest percentage of
+  open job slots. This scheduler tends to distribute load evenly, but tasks may be
+  distributed unevenly and works best for heterogeneous networks of dedicated
+  compile servers.
+* *fastest*: schedule jobs on the host expected to complete it soonest. This
+  tends to favor using a few hosts in the network, though a portion of the
+  load will be allocated to new hosts and hosts that have not been used in
+  some time to build up statistics. This is the classic algorithm and is
+  suitable for relatively small and heterogeneous networks of compile
+  servers.
 
 Network setup for Icecream (firewalls)
 ---------------------------------------------------------------------------------------------------------------------------
