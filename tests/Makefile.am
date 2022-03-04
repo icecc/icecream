@@ -29,3 +29,5 @@ test-run: test-setup.sh
 	results=`realpath -s ${builddir}/results` && builddir2=`realpath -s ${builddir}` && cd ${srcdir} && /bin/bash test.sh ${prefix} $$results --builddir=$$builddir2 --strict=$(STRICT) --valgrind=$(VALGRIND) --sudo=$(SUDO)
 
 check_SCRIPTS = test.sh test-setup.sh
+
+EXTRA_DIST = $(check_SCRIPTS)
