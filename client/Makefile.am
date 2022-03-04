@@ -28,7 +28,7 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/services \
 	-I$(top_srcdir)/
 
-EXTRA_DIST = icecc-create-env
+EXTRA_DIST = $(bin_SCRIPTS)
 
 AM_LIBTOOLFLAGS = --silent
 
