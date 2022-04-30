@@ -449,7 +449,7 @@ int work_it(CompileJob &j, unsigned int job_stat[], MsgChannel *client, CompileR
                     fcmsg = nullptr;
                     delete msg;
                 } else {
-                    if (msg->type == M_END) {
+                    if (*msg == Msg::END) {
                         input_complete = true;
 
                         if (!fcmsg && sock_in[1] != -1) {
@@ -460,7 +460,7 @@ int work_it(CompileJob &j, unsigned int job_stat[], MsgChannel *client, CompileR
                         }
 
                         delete msg;
-                    } else if (msg->type == M_FILE_CHUNK) {
+                    } else if (*msg == Msg::FILE_CHUNK) {
                         fcmsg = static_cast<FileChunkMsg*>(msg);
                         off = 0;
 

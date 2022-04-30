@@ -418,7 +418,7 @@ pid_t start_install_environment(const std::string &basename, const std::string &
     string dirname = basename + "/target=" + target;
     Msg *msg = c->get_msg(30);
 
-    if (!msg || msg->type != M_FILE_CHUNK) {
+    if (!msg || *msg != Msg::FILE_CHUNK) {
         trace() << "Expected first file chunk\n";
         return 0;
     }

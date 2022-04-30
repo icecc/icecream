@@ -246,10 +246,10 @@ static UseCSMsg *get_server(MsgChannel *local_daemon)
         timeout = 60 * 60;
     Msg *umsg = local_daemon->get_msg( timeout );
 
-    if (!umsg || umsg->type != M_USE_CS) {
-        log_warning() << "reply was not expected use_cs " << (umsg ? (char)umsg->type : '0')  << endl;
+    if (!umsg || *umsg != Msg::USE_CS) {
+        log_warning() << "reply was not expected use_cs " << (umsg ? umsg->to_string() : Msg(Msg::UNKNOWN).to_string())  << endl;
         ostringstream unexpected_msg;
-        unexpected_msg << "Error 1 - expected use_cs reply, but got " << (umsg ? (char)umsg->type : '0') << " instead";
+        unexpected_msg << "Error 1 - expected use_cs reply, but got " << (umsg ? umsg->to_string() : Msg(Msg::UNKNOWN).to_string()) << " instead";
         delete umsg;
         throw client_error(1, unexpected_msg.str());
     }
@@ -260,7 +260,7 @@ static UseCSMsg *get_server(MsgChannel *local_daemon)
 
 static void check_for_failure(Msg *msg, MsgChannel *cserver)
 {
-    if (msg && msg->type == M_STATUS_TEXT) {
+    if (msg && *msg == Msg::STATUS_TEXT) {
         log_error() << "Remote status (compiled on " << cserver->name << "): "
                     << static_cast<StatusTextMsg*>(msg)->text << endl;
         throw client_error(23, "Error 23 - Remote status (compiled on " + cserver->name + ")\n" +
@@ -361,11 +361,11 @@ static void receive_file(const string& output_file, MsgChannel* cserver)
 
         check_for_failure(msg, cserver);
 
-        if (msg->type == M_END) {
+        if (*msg == Msg::END) {
             break;
         }
 
-        if (msg->type != M_FILE_CHUNK) {
+        if (*msg != Msg::FILE_CHUNK) {
             unlink(tmp_file.c_str());
             delete msg;
             throw client_error(20, "Error 20 - unexpected message");
@@ -482,7 +482,7 @@ static int build_remote_int(CompileJob &job, UseCSMsg *usecs, MsgChannel *local_
 
                 Msg *verify_msg = cserver->get_msg(60);
 
-                if (verify_msg && verify_msg->type == M_VERIFY_ENV_RESULT) {
+                if (verify_msg && *verify_msg == Msg::VERIFY_ENV_RESULT) {
                     if (!static_cast<VerifyEnvResultMsg*>(verify_msg)->ok) {
                         // The remote can't handle the environment at all (e.g. kernel too old),
                         // mark it as never to be used again for this environment.
@@ -609,8 +609,8 @@ static int build_remote_int(CompileJob &job, UseCSMsg *usecs, MsgChannel *local_
 
         check_for_failure(msg, cserver);
 
-        if (msg->type != M_COMPILE_RESULT) {
-            log_warning() << "waited for compile result, but got " << (char)msg->type << endl;
+        if (*msg != Msg::COMPILE_RESULT) {
+            log_warning() << "waited for compile result, but got " << msg->to_string() << endl;
             delete msg;
             throw client_error(13, "Error 13 - did not get compile response message");
         }
@@ -670,7 +670,7 @@ static int build_remote_int(CompileJob &job, UseCSMsg *usecs, MsgChannel *local_
         // Handle pending status messages, if any.
         if(cserver) {
             while(Msg* msg = cserver->get_msg(0, true)) {
-                if(msg->type == M_STATUS_TEXT)
+                if(*msg == Msg::STATUS_TEXT)
                     log_error() << "Remote status (compiled on " << cserver->name << "): "
                                 << static_cast<StatusTextMsg*>(msg)->text << endl;
                 delete msg;
