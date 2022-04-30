@@ -50,6 +50,8 @@ tests/testargs.log
 tests/testargs.trs
 tests/test-setup.sh
 tests/listing.txt
+unittests/testargs
+unittests/testargs.trs
 # others
 compile_commands.json
 .vs*
