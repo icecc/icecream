@@ -152,22 +152,37 @@ add_file ()
                 add_file "skipldd" "$lib"
               fi
 
-              # Add the non-haswell and non-avx512_1 libraries too
+              # Add the non-hwcaps, non-haswell and non-avx512_1 libraries too
               case "$lib" in
-                 */haswell/*|*/avx512_1/*)
-                    ;;
-                 *)
-                    continue
-                    ;;
+                */haswell/*|*/avx512_1/*)
+                  local lib_non_avx512=$(echo "$lib" | sed s,/avx512_1/,/,)
+                  local lib_non_hsw=$(echo "$lib_non_avx512" | sed s,/haswell/,/,)
+                  if [ "$lib" != "$lib_non_avx512" ] && [ -f "$lib_non_avx512" ]; then
+                    add_file "$lib_non_avx512"
+                  fi
+                  if [ "$lib" != "$lib_non_hsw" ] && [ -f "$lib_non_hsw" ]; then
+                    add_file "$lib_non_hsw"
+                  fi
+                  ;;
+               */glibc-hwcaps/*/*)
+                 local lib_non_hwcaps=$(echo "$lib" | sed 's,/glibc-hwcaps/.*/,/,')
+                 local lib_basename=${lib##*/}
+                 if [ "$lib" != "$lib_non_hwcaps" ] && [ -f "$lib_non_hwcaps" ]; then
+                   add_file "$lib_non_hwcaps"
+                 fi
+
+                 # Add the other hwcaps too
+                 local hwcaplib
+                 for hwcaplib in ${lib_non_hwcaps%$lib_basename}/glibc-hwcaps/*/$lib_basename; do
+                   if [ "$lib" != "$hwcaplib" ]; then
+                     add_file $hwcaplib
+                   fi
+                 done
+                 ;;
+               *)
+                 continue
+                 ;;
               esac
-              local lib_non_avx512=$(echo "$lib" | sed s,/avx512_1/,/,)
-              local lib_non_hsw=$(echo "$lib_non_avx512" | sed s,/haswell/,/,)
-              if [ "$lib" != "$lib_non_avx512" ] && [ -f "$lib_non_avx512" ]; then
-                add_file "$lib_non_avx512"
-              fi
-              if [ "$lib" != "$lib_non_hsw" ] && [ -f "$lib_non_hsw" ]; then
-                add_file "$lib_non_hsw"
-              fi
            done
         fi
     elif test "$is_darwin" = 1; then
