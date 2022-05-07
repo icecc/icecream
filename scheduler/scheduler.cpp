@@ -713,7 +713,7 @@ static CompileServer *pick_server_least_busy(list<CompileServer *> &eligible)
 #if DEBUG_SCHEDULER > 1
         trace()
             << "considering server " << cs->nodeName() << " with "
-            << << cs->jobList().size() << " of " << cs->maxJobs() << " maximum jobs"
+            << cs->jobList().size() << " of " << cs->maxJobs() << " maximum jobs"
             << endl;
 #endif
         if (cs->maxJobs()) {
