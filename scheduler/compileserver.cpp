@@ -61,7 +61,7 @@ CompileServer::CompileServer(const int fd, struct sockaddr *_addr, const socklen
     , m_lastRequestedJobs()
     , m_cumCompiled()
     , m_cumRequested()
-    , m_clientMap()
+    , m_clientLocalMap()
     , m_blacklist()
     , m_inFd(-1)
     , m_inConnAttempt(0)
@@ -194,15 +194,17 @@ bool CompileServer::is_eligible_now(const Job *job) const
 {
     if(!is_eligible_ever(job))
         return false;
-    bool jobs_okay = int(m_jobList.size()) < m_maxJobs;
-    if( m_maxJobs > 0 && int(m_jobList.size()) < m_maxJobs + maxPreloadCount())
+    int jobs_now = currentJobCount();
+    bool jobs_okay =  jobs_now < m_maxJobs;
+    if( m_maxJobs > 0 && jobs_now < m_maxJobs + maxPreloadCount())
         jobs_okay = true; // allow a job for preloading
     bool load_okay = m_load < 1000;
     bool eligible = jobs_okay
                     && load_okay
                     && can_install(job, false).size();
 #if DEBUG_SCHEDULER > 2
-    trace() << nodeName() << " is_eligible_now: " << eligible << " (jobs_okay " << jobs_okay
+    trace() << nodeName() << " is_eligible_now: " << eligible << " (remote jobs " << m_jobList.size()
+        << ", local jobs " << (currentJobCount() - m_jobList.size()) << ", jobs_okay " << jobs_okay
         << ", load_okay " << load_okay << ")" << endl;
 #endif
     return eligible;
@@ -281,6 +283,14 @@ int CompileServer::maxJobs() const
 void CompileServer::setMaxJobs(int jobs)
 {
     m_maxJobs = jobs;
+}
+
+int CompileServer::currentJobCount() const
+{
+    int count = m_jobList.size();
+    for( const std::pair<int, LocalJobInfo>& info : m_clientLocalMap )
+        count += info.second.fulljob ? m_maxJobs : 1;
+    return count;
 }
 
 bool CompileServer::noRemote() const
@@ -444,19 +454,19 @@ void CompileServer::setCumRequested(const JobStat &stats)
     m_cumRequested = stats;
 }
 
-int CompileServer::getClientJobId(const int localJobId)
+int CompileServer::getClientLocalJobId(const int localJobId)
 {
-    return m_clientMap[localJobId];
+    return m_clientLocalMap[localJobId].id;
 }
 
-void CompileServer::insertClientJobId(const int localJobId, const int newJobId)
+void CompileServer::insertClientLocalJobId(const int localJobId, const int newJobId, bool fulljob)
 {
-    m_clientMap[localJobId] = newJobId;
+    m_clientLocalMap[localJobId] = LocalJobInfo{newJobId, fulljob};
 }
 
-void CompileServer::eraseClientJobId(const int localJobId)
+void CompileServer::eraseClientLocalJobId(const int localJobId)
 {
-    m_clientMap.erase(localJobId);
+    m_clientLocalMap.erase(localJobId);
 }
 
 map<const CompileServer *, Environments> CompileServer::blacklist() const

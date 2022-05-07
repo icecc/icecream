@@ -316,7 +316,7 @@ static float server_speed(CompileServer *cs, Job *job, bool blockDebug)
              * takes care of the fact that not all slots are equally fast on
              * CPUs with SMT and dynamic clock ramping.
              */
-            f *= (1.0f - (0.5f * cs->jobList().size() / cs->maxJobs()));
+            f *= (1.0f - (0.5f * cs->currentJobCount() / cs->maxJobs()));
         }
 
         // below we add a pessimism factor - assuming the first job a computer got is not representative
@@ -570,7 +570,7 @@ static bool handle_local_job(CompileServer *cs, Msg *_m)
     ++new_job_id;
     trace() << "handle_local_job " << (m->fulljob ? "(full) " : "") << m->outfile
         << " " << m->id << endl;
-    cs->insertClientJobId(m->id, new_job_id);
+    cs->insertClientLocalJobId(m->id, new_job_id, m->fulljob);
     notify_monitors(new MonLocalJobBeginMsg(new_job_id, m->outfile, m->stime, cs->hostId()));
     return true;
 }
@@ -584,8 +584,8 @@ static bool handle_local_job_done(CompileServer *cs, Msg *_m)
     }
 
     trace() << "handle_local_job_done " << m->job_id << endl;
-    notify_monitors(new JobLocalDoneMsg(cs->getClientJobId(m->job_id)));
-    cs->eraseClientJobId(m->job_id);
+    notify_monitors(new JobLocalDoneMsg(cs->getClientLocalJobId(m->job_id)));
+    cs->eraseClientLocalJobId(m->job_id);
     return true;
 }
 
@@ -636,8 +636,8 @@ static list<CompileServer *> filter_ineligible_servers(Job *job)
         [=](CompileServer* cs) {
             if (!cs->is_eligible_now(job)) {
 #if DEBUG_SCHEDULER > 1
-                if ((int(cs->jobList().size()) >= cs->maxJobs() + cs->maxPreloadCount()) || (cs->load() >= 1000)) {
-                    trace() << "overloaded " << cs->nodeName() << " " << cs->jobList().size() << "/"
+                if ((cs->currentJobCount() >= cs->maxJobs() + cs->maxPreloadCount()) || (cs->load() >= 1000)) {
+                    trace() << "overloaded " << cs->nodeName() << " " << cs->currentJobCount() << "/"
                             <<  cs->maxJobs() << " jobs, load:" << cs->load() << endl;
                 } else
                     trace() << cs->nodeName() << " not eligible" << endl;
@@ -713,15 +713,15 @@ static CompileServer *pick_server_least_busy(list<CompileServer *> &eligible)
 #if DEBUG_SCHEDULER > 1
         trace()
             << "considering server " << cs->nodeName() << " with "
-            << cs->jobList().size() << " of " << cs->maxJobs() << " maximum jobs"
+            << cs->currentJobCount() << " of " << cs->maxJobs() << " maximum jobs"
             << endl;
 #endif
         if (cs->maxJobs()) {
             unsigned long cs_load = 0;
 
             // Calculate the ceiling of the current job load ratio
-            if (cs->jobList().size()) {
-                cs_load = 1 + ((cs->jobList().size() - 1) / cs->maxJobs());
+            if (cs->currentJobCount()) {
+                cs_load = 1 + ((cs->currentJobCount() - 1) / cs->maxJobs());
             }
 
             if (cs_load < min_load) {
@@ -735,7 +735,7 @@ static CompileServer *pick_server_least_busy(list<CompileServer *> &eligible)
         eligible.end(),
         std::back_inserter(selected_list),
         [=](CompileServer* cs) {
-            return cs->maxJobs() && cs->jobList().size() / cs->maxJobs() == min_load;
+            return cs->maxJobs() && size_t(cs->currentJobCount()) / cs->maxJobs() == min_load;
         });
 
 #if DEBUG_SCHEDULER > 1
@@ -751,7 +751,7 @@ static CompileServer *pick_server_new(Job *job, list<CompileServer *> &eligible)
     CompileServer *selected = nullptr;
 
     for (CompileServer * const cs: eligible) {
-        if ((cs->lastCompiledJobs().size() == 0) && (cs->jobList().size() == 0) && cs->maxJobs()) {
+        if ((cs->lastCompiledJobs().size() == 0) && (cs->currentJobCount() == 0) && cs->maxJobs()) {
             if (!selected) {
                 selected = cs;
             } else if (!envs_match(cs, job).empty()) {
@@ -796,7 +796,7 @@ static CompileServer *pick_server_fastest(Job *job, list<CompileServer *> &eligi
 
 #if DEBUG_SCHEDULER > 1
         trace() << cs->nodeName() << " compiled " << cs->lastCompiledJobs().size() << " got now: " <<
-                cs->jobList().size() << " speed: " << server_speed(cs, job, true) << " compile time " <<
+                cs->currentJobCount() << " speed: " << server_speed(cs, job, true) << " compile time " <<
                 cs->cumCompiled().compileTimeUser() << " produced code " << cs->cumCompiled().outputSize() <<
                 " client count: " << cs->clientCount() << endl;
 #endif
@@ -825,7 +825,7 @@ static CompileServer *pick_server_fastest(Job *job, list<CompileServer *> &eligi
             // the job.  (XXX currently this is equivalent to the fastest one)
             else if ((best->lastCompiledJobs().size() != 0)
                      && (server_speed(best, job) < server_speed(cs, job))) {
-                if (int(cs->jobList().size()) < cs->maxJobs()) {
+                if (cs->currentJobCount() < cs->maxJobs()) {
                     best = cs;
                 } else {
                     bestpre = cs;
@@ -840,7 +840,7 @@ static CompileServer *pick_server_fastest(Job *job, list<CompileServer *> &eligi
             // the job.  (XXX currently this is equivalent to the fastest one)
             else if ((bestui->lastCompiledJobs().size() != 0)
                      && (server_speed(bestui, job) < server_speed(cs, job))) {
-                if (int(cs->jobList().size()) < cs->maxJobs()) {
+                if (cs->currentJobCount() < cs->maxJobs()) {
                     bestui = cs;
                 } else {
                     bestpre = cs;
@@ -1077,7 +1077,7 @@ static bool empty_queue(SchedulerAlgorithmName schedulerAlgorithm)
         /* Ignore the load on the submitter itself if no other host could
            be found.  We only obey to its max job number.  */
         use_cs = job->submitter();
-        if ((int(use_cs->jobList().size()) < use_cs->maxJobs())
+        if ((use_cs->currentJobCount() < use_cs->maxJobs())
                 && job->preferredHost().empty()
                 /* This should be trivially true.  */
                 && use_cs->can_install(job).size()) {
@@ -1633,7 +1633,7 @@ static bool handle_line(CompileServer *cs, Msg *_m)
             line = " " + it->nodeName() + buffer;
             line += "[" + it->hostPlatform() + "] speed=";
             sprintf(buffer, "%.2f jobs=%d/%d load=%u", server_speed(it),
-                    (int)it->jobList().size(), it->maxJobs(), it->load());
+                    it->currentJobCount(), it->maxJobs(), it->load());
             line += buffer;
 
             if (it->busyInstalling()) {
