@@ -879,7 +879,7 @@ static CompileServer *pick_server(Job *job, SchedulerAlgorithmName schedulerAlgo
     for (list<CompileServer *>::iterator it = css.begin(); it != css.end(); ++it) {
         CompileServer *cs = *it;
 
-        list<Job *> jobList = cs->jobList();
+        const list<Job *>& jobList = cs->jobList();
         for (list<Job *>::const_iterator it2 = jobList.begin(); it2 != jobList.end(); ++it2) {
             assert(jobs.find((*it2)->id()) != jobs.end());
         }
@@ -891,7 +891,7 @@ static CompileServer *pick_server(Job *job, SchedulerAlgorithmName schedulerAlgo
 
         if (j->state() == Job::COMPILING) {
             CompileServer *cs = j->server();
-            list<Job *> jobList = cs->jobList();
+            const list<Job *>& jobList = cs->jobList();
             assert(find(jobList.begin(), jobList.end(), j) != jobList.end());
         }
     }
@@ -1645,7 +1645,7 @@ static bool handle_line(CompileServer *cs, Msg *_m)
                 return false;
             }
 
-            list<Job *> jobList = it->jobList();
+            const list<Job *>& jobList = it->jobList();
             for (list<Job *>::const_iterator it2 = jobList.begin(); it2 != jobList.end(); ++it2) {
                 if (!cs->send_msg(TextMsg("   " + dump_job(*it2)))) {
                     return false;

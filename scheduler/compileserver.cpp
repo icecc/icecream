@@ -303,7 +303,7 @@ void CompileServer::setNoRemote(bool value)
     m_noRemote = value;
 }
 
-list<Job *> CompileServer::jobList() const
+const list<Job *>& CompileServer::jobList() const
 {
     return m_jobList;
 }

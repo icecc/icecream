@@ -90,7 +90,7 @@ public:
     bool noRemote() const;
     void setNoRemote(const bool value);
 
-    list<Job *> jobList() const;
+    const list<Job *>& jobList() const;
     void appendJob(Job *job);
     void removeJob(Job *job);
     unsigned int lastPickedId();
