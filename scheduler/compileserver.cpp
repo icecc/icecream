@@ -194,10 +194,13 @@ bool CompileServer::is_eligible_now(const Job *job) const
 {
     if(!is_eligible_ever(job))
         return false;
-    int jobs_now = currentJobCount();
-    bool jobs_okay =  jobs_now < m_maxJobs;
-    if( m_maxJobs > 0 && jobs_now < m_maxJobs + maxPreloadCount())
-        jobs_okay = true; // allow a job for preloading
+    int local_jobs_now = currentJobCountLocal();
+    int jobs_now = local_jobs_now + currentJobCountRemote();
+    bool jobs_okay = jobs_now < m_maxJobs;
+    // allow a job for preloading, but only if the node isn't fully
+    // busy with local jobs (that may possibly take long)
+    if( m_maxJobs > 0 && jobs_now < m_maxJobs + maxPreloadCount() && local_jobs_now < m_maxJobs)
+        jobs_okay = true;
     bool load_okay = m_load < 1000;
     bool eligible = jobs_okay
                     && load_okay
@@ -285,12 +288,22 @@ void CompileServer::setMaxJobs(int jobs)
     m_maxJobs = jobs;
 }
 
-int CompileServer::currentJobCount() const
+int CompileServer::currentJobCountRemote() const
 {
-    int count = m_jobList.size();
+    return m_jobList.size();
+}
+
+int CompileServer::currentJobCountLocal() const
+{
+    int count = 0;
     for( const std::pair<int, LocalJobInfo>& info : m_clientLocalMap )
         count += info.second.fulljob ? m_maxJobs : 1;
     return count;
+}
+
+int CompileServer::currentJobCount() const
+{
+    return currentJobCountRemote() + currentJobCountLocal();
 }
 
 bool CompileServer::noRemote() const

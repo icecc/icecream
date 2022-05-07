@@ -84,8 +84,9 @@ public:
     int maxJobs() const;
     void setMaxJobs(const int jobs);
     int maxPreloadCount() const;
-    // Counts both remote and local jobs.
     int currentJobCount() const;
+    int currentJobCountRemote() const;
+    int currentJobCountLocal() const;
 
     bool noRemote() const;
     void setNoRemote(const bool value);
