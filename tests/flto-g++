@@ -1,0 +1,15 @@
+#! /bin/sh
+
+# the lockfile has been removed by the Makefile, so if it exists,
+# it means another job is running in parallel -> fail
+if test -f ./flto_lockfile; then
+    echo flto-g++ found a lock file >&2
+    exit 1
+fi
+
+# create a lockfile while running to detect two jobs running in parallel
+touch ./flto_lockfile
+sleep 2
+rm -f ./flto_lockfile
+
+exit 0

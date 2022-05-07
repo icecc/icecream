@@ -2281,6 +2281,11 @@ void JobLocalBeginMsg::fill_from_channel(MsgChannel *c)
     *c >> stime;
     *c >> outfile;
     *c >> id;
+    if (IS_PROTOCOL_44(c)) {
+        uint32_t full;
+        *c >> full;
+        fulljob = full;
+    }
 }
 
 void JobLocalBeginMsg::send_to_channel(MsgChannel *c) const
@@ -2289,6 +2294,9 @@ void JobLocalBeginMsg::send_to_channel(MsgChannel *c) const
     *c << stime;
     *c << outfile;
     *c << id;
+    if (IS_PROTOCOL_44(c)) {
+        *c << (uint32_t) fulljob;
+    }
 }
 
 void JobLocalDoneMsg::fill_from_channel(MsgChannel *c)

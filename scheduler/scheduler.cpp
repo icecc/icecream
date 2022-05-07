@@ -568,7 +568,8 @@ static bool handle_local_job(CompileServer *cs, Msg *_m)
     }
 
     ++new_job_id;
-    trace() << "handle_local_job " << m->outfile << " " << m->id << endl;
+    trace() << "handle_local_job " << (m->fulljob ? "(full) " : "") << m->outfile
+        << " " << m->id << endl;
     cs->insertClientJobId(m->id, new_job_id);
     notify_monitors(new MonLocalJobBeginMsg(new_job_id, m->outfile, m->stime, cs->hostId()));
     return true;

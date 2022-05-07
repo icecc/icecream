@@ -942,6 +942,31 @@ make_test()
     make -f Makefile.test OUTDIR="$testdir" clean -s
 }
 
+serialized_flto_test()
+{
+    # check that running two link jobs with -flto=auto are not run at the same time
+    echo Running serialize flto test.
+    reset_logs "" "serialize flto test"
+    # use a dummy "compiler" that will wait for a while and then exits
+    ICECC_TEST_SOCKET="$testdir"/socket-localice ICECC_TEST_REMOTEBUILD=1 ICECC_DEBUG=debug ICECC_LOGFILE="$testdir"/icecc.log \
+        make -f Makefile.flto OUTDIR="$testdir" CXX="${icecc} ./flto-g++" -j2 -s 2>>"$testdir"/stderr.log
+    if test $? -ne 0; then
+        echo Serialize flto test failed.
+        stop_ice 0
+        abort_tests
+    fi
+    flush_logs
+    check_logs_for_generic_errors
+    check_everything_is_idle
+
+    check_log_message_count icecc 2 "-flto=auto and no -c, building with all local slots"
+    check_log_message_count localice 2 "pushed full local job"
+    check_log_message_count scheduler 2 "handle_local_job (full)"
+    check_log_message_count scheduler 2 "handle_local_job_done"
+    echo Serialize flto test successful.
+    echo
+}
+
 # 1st argument, if set, means we run without scheduler
 icerun_serialize_test()
 {
@@ -2000,7 +2025,7 @@ check_log_message_count()
 {
     log="$1"
     expected_count="$2"
-    count=$(cat_log_last_mark ${log} | grep "$3" | wc -l)
+    count=$(cat_log_last_mark ${log} | grep -- "$3" | wc -l)
     if test $count -ne $expected_count; then
         echo "Error, $log log does not contain expected count (${count} vs ${expected_count}): $3"
         stop_ice 0
@@ -2099,6 +2124,12 @@ echo Starting icecream successful.
 echo
 
 run_ice "$testdir/plain.o" "remote" 0 $TESTCXX -Wall -Werror -c plain.cpp -o "$testdir/"plain.o
+
+if test -z "$chroot_disabled"; then
+    serialized_flto_test
+else
+    skipped_tests="$skipped_tests serialized_flto_test"
+fi
 
 run_ice "$testdir/plain.o" "remote" 0 $TESTCC -Wall -Werror -c plain.c -o "$testdir/"plain.o
 run_ice "$testdir/plain.o" "remote" 0 $TESTCXX -Wall -Werror -c plain.cpp -O2 -o "$testdir/"plain.o
@@ -2387,6 +2418,12 @@ if test -z "$chroot_disabled"; then
     make_test
 else
     skipped_tests="$skipped_tests make_test"
+fi
+
+if test -z "$chroot_disabled"; then
+    serialized_flto_test
+else
+    skipped_tests="$skipped_tests serialized_flto_test"
 fi
 
 if test -z "$chroot_disabled"; then

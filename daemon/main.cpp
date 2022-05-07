@@ -141,6 +141,7 @@ public:
         pipe_from_child = -1;
         pipe_to_child = -1;
         child_pid = -1;
+        fulljob = false;
     }
 
     static string status_str(Status status) {
@@ -209,6 +210,7 @@ public:
     // pipe to child process, only valid if TOINSTALL/WAITINSTALL
     int pipe_to_child;
     pid_t child_pid;
+    bool fulljob; // during LINKJOB and CLIENTWORK, reserve all slots if set
     string pending_create_env; // only for WAITCREATEENV
 
     string dump() const {
@@ -216,7 +218,8 @@ public:
 
         switch (status) {
         case LINKJOB:
-            return ret + " ClientID: " + toString(client_id) + " " + outfile + " PID: " + toString(child_pid);
+            return ret + " ClientID: " + toString(client_id) + " " + outfile + (fulljob ? " (full)" : "")
+                + " PID: " + toString(child_pid);
         case TOINSTALL:
         case WAITINSTALL:
             return ret + " ClientID: " + toString(client_id) + " " + outfile + " PID: " + toString(child_pid);
@@ -1510,12 +1513,17 @@ bool Daemon::create_env_finished(string env_key)
 bool Daemon::handle_job_done(Client *cl, JobDoneMsg *m)
 {
     if (cl->status == Client::CLIENTWORK) {
-        clients.active_processes--;
+        if(cl->fulljob)
+            clients.active_processes -= std::max((unsigned int)1, max_kids);
+        else
+            clients.active_processes--;
     }
 
     cl->status = Client::JOBDONE;
     JobDoneMsg *msg = static_cast<JobDoneMsg *>(m);
-    trace() << "handle_job_done " << msg->job_id << " " << msg->exitcode << endl;
+    trace() << "handle_job_done " << msg->job_id << " " << (cl->fulljob ? "(full) " : "")
+        << msg->exitcode << endl;
+    cl->fulljob = false;
 
     if (!m->is_from_server()
             && (m->user_msec + m->sys_msec) <= m->real_msec) {
@@ -1544,10 +1552,15 @@ void Daemon::handle_old_request()
                 handle_end(client, 112);
             } else {
                 client->status = Client::CLIENTWORK;
-                clients.active_processes++;
-                trace() << "pushed local job " << client->client_id << endl;
-
-                if (!send_scheduler(JobLocalBeginMsg(client->client_id, client->outfile))) {
+                if(client->fulljob) { // reserve the entire node
+                    clients.active_processes += std::max((unsigned int)1, max_kids);
+                    trace() << "pushed full local job " << client->client_id << endl;
+                } else {
+                    clients.active_processes++;
+                    trace() << "pushed local job " << client->client_id << endl;
+                }
+                if (!send_scheduler(JobLocalBeginMsg(client->client_id, client->outfile,
+                        client->fulljob))) {
                     return;
                 }
             }
@@ -1723,8 +1736,12 @@ void Daemon::handle_end(Client *client, int exitcode)
     }
 
     if (client->status == Client::CLIENTWORK) {
-        clients.active_processes--;
+        if(client->fulljob)
+            clients.active_processes -= std::max((unsigned int)1, max_kids);
+        else
+            clients.active_processes--;
     }
+    client->fulljob = false;
 
     if (client->status == Client::WAITCOMPILE && exitcode == 119) {
         /* the client sent us a real good bye, so forget about the scheduler */
@@ -1861,8 +1878,10 @@ int Daemon::handle_cs_conf(ConfCSMsg *msg)
 
 bool Daemon::handle_local_job(Client *client, Msg *msg)
 {
+    JobLocalBeginMsg* m = dynamic_cast<JobLocalBeginMsg *>(msg);
     client->status = Client::LINKJOB;
-    client->outfile = dynamic_cast<JobLocalBeginMsg *>(msg)->outfile;
+    client->outfile = m->outfile;
+    client->fulljob = m->fulljob;
     return true;
 }
 

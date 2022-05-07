@@ -403,7 +403,12 @@ int main(int argc, char **argv)
     }
 
     list<string> extrafiles;
-    local |= analyse_argv(argv, job, icerun, &extrafiles);
+    bool fulljob = false;
+    int argv_result = analyse_argv(argv, job, icerun, &extrafiles);
+    if( argv_result & AlwaysLocal ) {
+        local = true;
+        fulljob = argv_result & FullJob;
+    }
 
     /* If ICECC is set to disable, then run job locally, without contacting
        the daemon at all. File-based locking will still ensure that all
@@ -586,7 +591,7 @@ int main(int argc, char **argv)
         Msg *startme = nullptr;
 
         /* Inform the daemon that we like to start a job.  */
-        if (local_daemon->send_msg(JobLocalBeginMsg(0, get_absfilename(job.outputFile())))) {
+        if (local_daemon->send_msg(JobLocalBeginMsg(0, get_absfilename(job.outputFile()),fulljob))) {
             /* Now wait until the daemon gives us the start signal.  40 minutes
                should be enough for all normal compile or link jobs.  */
             startme = local_daemon->get_msg(40 * 60);

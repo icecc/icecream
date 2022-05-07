@@ -1,0 +1,13 @@
+all: flto1 flto2
+
+# $(CXX) will be flto-g++ dummy, the only thing that matters is that there's no -c
+# and that there is -flto=auto
+flto1: prepare_lock
+	$(CXX) a1.cpp -flto=auto
+
+flto2: prepare_lock
+	$(CXX) a2.cpp -flto=auto
+
+# make sure there's no lockfile at the start
+prepare_lock:
+	rm -f flto_lockfile
