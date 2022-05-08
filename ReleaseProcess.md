@@ -74,7 +74,7 @@ mkdir icecc-test
 cd icecc-test
 tar -zxf ../path/to/icecc/src/icecc-1.4.0.tar.gz
 ./configure
-# make test # optional
+make test
 ```
 
 If possible repeat the above on any different OS you have access to. 
