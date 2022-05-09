@@ -593,8 +593,9 @@ int main(int argc, char **argv)
         /* Inform the daemon that we like to start a job.  */
         if (local_daemon->send_msg(JobLocalBeginMsg(0, get_absfilename(job.outputFile()),fulljob))) {
             /* Now wait until the daemon gives us the start signal.  40 minutes
-               should be enough for all normal compile or link jobs.  */
-            startme = local_daemon->get_msg(40 * 60);
+               should be enough for all normal compile or link jobs, but with expensive jobs
+               (which fulljobs may likely be, e.g. LTO linking) use an even larger timeout.  */
+            startme = local_daemon->get_msg(fulljob ? 120 * 60 : 40 * 60);
         }
 
         /* If we can't talk to the daemon anymore we need to fall back
