@@ -36,6 +36,7 @@
 #include <errno.h>
 #include <netdb.h>
 #include <getopt.h>
+#include <limits>
 
 #include <signal.h>
 #include <sys/stat.h>
@@ -137,6 +138,7 @@ public:
         job = nullptr;
         usecsmsg = nullptr;
         client_id = 0;
+        niceness = 0;
         status = UNKNOWN;
         pipe_from_child = -1;
         pipe_to_child = -1;
@@ -205,6 +207,7 @@ public:
     UseCSMsg *usecsmsg;
     CompileJob *job;
     int client_id;
+    uint32_t niceness; // nice priority (0-20), for PENDING_USE_CS
     // pipe from child process with end status, only valid if WAITFORCHILD or TOINSTALL/WAITINSTALL
     int pipe_from_child;
     // pipe to child process, only valid if TOINSTALL/WAITINSTALL
@@ -228,21 +231,16 @@ public:
         case WAITCREATEENV:
             return ret + " " + toString(client_id) + " " + pending_create_env;
         default:
-
+            ret += " ClientID: " + toString(client_id);
             if (job_id) {
-                string jobs;
-
-                if (usecsmsg) {
-                    jobs = " CompileServer: " + usecsmsg->hostname;
-                }
-
-                return ret + " ClientID: " + toString(client_id) + " Job ID: " + toString(job_id) + jobs;
-            } else {
-                return ret + " ClientID: " + toString(client_id);
+                ret += " Job ID: " + toString(job_id);
+                if (usecsmsg)
+                    ret += " CompileServer: " + usecsmsg->hostname;
             }
+            if (niceness != 0)
+                ret += " Nice: " + toString(niceness);
+            return ret;
         }
-
-        return ret;
     }
 };
 
@@ -323,11 +321,14 @@ public:
         // TODO: possibly speed this up in adding some sorted lists
         Client *client = nullptr;
         int min_client_id = 0;
+        uint32_t min_niceness = std::numeric_limits<uint32_t>::max();
 
         for (auto it : *this) {
-            if (it.second->status == s && (!min_client_id || min_client_id > it.second->client_id)) {
+            if (it.second->status == s && (!min_client_id || min_client_id > it.second->client_id)
+                && it.second->niceness < min_niceness ) {
                 client = it.second;
                 min_client_id = client->client_id;
+                min_niceness = client->niceness;
             }
         }
 
@@ -1850,6 +1851,7 @@ bool Daemon::handle_get_cs(Client *client, Msg *msg)
     GetCSMsg *umsg = dynamic_cast<GetCSMsg *>(msg);
     assert(client);
     client->status = Client::WAITFORCS;
+    client->niceness = umsg->niceness;
     umsg->client_id = client->client_id;
     trace() << "handle_get_cs " << umsg->client_id << endl;
 
