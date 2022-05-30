@@ -809,7 +809,7 @@ void Daemon::determine_supported_features()
 bool Daemon::send_scheduler(const Msg& msg)
 {
     if (!scheduler) {
-        log_error() << "scheduler dead ?!" << endl;
+        log_warning() << "no scheduler" << endl;
         return false;
     }
 
