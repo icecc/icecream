@@ -62,7 +62,7 @@ fit better into the way your system is configured.
 We highly recommend you install [icemon](https://github.com/icecc/icemon) or
 [icecream-sundae](https://github.com/JPEWdev/icecream-sundae) with icecream.
 
-If you want to install from source see the instructions in the README file 
+If you want to install from source see the instructions in the README file
 provided in the source package.
 
 How to use icecream
@@ -108,7 +108,7 @@ funny stats, you might want to run "icemon" (from a separate repository/package)
 
 If you restart a computer, you still want it to be in the icecream
 cluster after reboot. Consult your distribution's documentation on this. If you
-use packages provided by your distribution this should be automatic (or a 
+use packages provided by your distribution this should be automatic (or a
 simple configuration change).
 
 ### make scheduler persistent:
@@ -152,12 +152,12 @@ c++) start your compile using
 
 and wait for a typical compile command to appear, like this one:
 
-     cd /root/kdepim/kode/libkode && /usr/lib/icecc/bin/c++  -DTest1Area=5121 -D_BSD_SOURCE 
-     -D_XOPEN_SOURCE=500 -D_BSD_SOURCE -DQT_NO_STL 
-     -DQT_NO_CAST_TO_ASCII -D_REENTRANT -DKDE_DEPRECATED_WARNINGS 
+     cd /root/kdepim/kode/libkode && /usr/lib/icecc/bin/c++  -DTest1Area=5121 -D_BSD_SOURCE
+     -D_XOPEN_SOURCE=500 -D_BSD_SOURCE -DQT_NO_STL
+     -DQT_NO_CAST_TO_ASCII -D_REENTRANT -DKDE_DEPRECATED_WARNINGS
      -DKDE_DEFAULT_DEBUG_AREA=5295 -DMAKE_KODE_LIB -Wnon-
-     virtual-dtor -Wno-long-long -ansi -Wundef -Wcast-align 
-     -Wchar-subscripts-Wall -W -Wpointer-arith -Wformat-security 
+     virtual-dtor -Wno-long-long -ansi -Wundef -Wcast-align
+     -Wchar-subscripts-Wall -W -Wpointer-arith -Wformat-security
      -fno-exceptions -fno-check-new
 
 In this example, the right c compiler is chosen, /usr/lib/icecc/bin/c++.
@@ -186,7 +186,7 @@ using `ICECC_REMOTE_CPP=1` (see `icecc --help`).
 
 ### clang tries to read /proc/cpuinfo and fails
 
-This is a problem of clang 4.0 and newer: <https://bugs.llvm.org/show_bug.cgi?id=33008>. 
+This is a problem of clang 4.0 and newer: <https://bugs.llvm.org/show_bug.cgi?id=33008>.
 The most recent Icecream version works around this problem.
 
 Supported platforms
@@ -383,8 +383,8 @@ And then compile with
 
      export PATH=/opt/ccache/bin:$PATH
 
-In this case icecc's symlinks in /usr/lib/icecc/bin should **not** be 
-in your path, as CCACHE_PREFIX is instructing ccache to explicitly delegate 
+In this case icecc's symlinks in /usr/lib/icecc/bin should **not** be
+in your path, as CCACHE_PREFIX is instructing ccache to explicitly delegate
 to icecc rather than finding it in the path. If both ccache and icecc's
 symlinks are in the path it is likely the two wrappers will mistake each
 other for the real compiler and icecc will complain that it has recursively
@@ -484,7 +484,7 @@ Some advice on configuration
 -----------------------------------------------------------------------------------------------------------------------------------
 
 Icecream supports many configurations but you need to understand your network to
-choose what is right for you. 
+choose what is right for you.
 
 You should ensure that the scheduler is up to the latest version. Many new features
 require the client and the scheduler to work together to use them. Even though clients
