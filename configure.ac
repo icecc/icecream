@@ -1,6 +1,6 @@
 # quite some macros are taken from distcc
 
-AC_PREREQ([2.63])
+AC_PREREQ([2.71])
 
 # ====================
 # Version informations
@@ -18,7 +18,7 @@ m4_ifnblank(icecream_version_micro,
 # =============
 # Automake init
 # =============
-AC_INIT([icecc], [icecream_version])
+AC_INIT([icecc],[icecream_version])
 AC_CONFIG_MACRO_DIR([m4])
 AC_CONFIG_HEADERS([config.h])
 AM_INIT_AUTOMAKE([1.11 foreign dist-xz])
@@ -33,32 +33,25 @@ AC_PROG_CXX
 
 AC_MSG_CHECKING([for C++11 support (-std=c++11)])
 CXXFLAGS="$CXXFLAGS -std=c++11"
-AC_TRY_COMPILE(
-    [
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
         constexpr int get_const() { return 5; }
-    ],
-    [
-    ],
-    [
+    ]], [[
+    ]])],[
         AC_MSG_RESULT(yes)
-    ],
-    [ AC_MSG_ERROR(no) ]
-)
+    ],[ AC_MSG_ERROR(no) 
+])
 
 if test "$GCC" = yes; then
     cast_align=-Wcast-align
     wshadow=
     AC_MSG_CHECKING([if GCC is actually Clang])
-    AC_TRY_COMPILE(
-        [],
-        [
+    AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[]], [[
             #ifdef __clang__
             return 0;
             #else
             fail
             #endif
-        ],
-        [
+        ]])],[
             AC_MSG_RESULT(yes)
             # The code has numerous cast alignment warnings that only clang warns about,
             # and it probably(?) doesn't matter in practice.
@@ -67,8 +60,7 @@ if test "$GCC" = yes; then
             # are very unlikely to be problems (e.g. function argument shadowing
             # a function elsewhere), so it's not so annoying.
             wshadow=-Wshadow
-        ],
-        [ AC_MSG_RESULT(no) ])
+        ],[ AC_MSG_RESULT(no) ])
     CFLAGS="-g -Wall -Wextra \
 -Wshadow -Wpointer-arith $cast_align -Wwrite-strings \
 -Waggregate-return -Wstrict-prototypes -Wmissing-prototypes \
@@ -97,7 +89,7 @@ PKG_PROG_PKG_CONFIG
 AC_C_INLINE
 AC_DISABLE_SHARED
 AC_ENABLE_STATIC
-AC_PROG_LIBTOOL
+LT_INIT
 
 AS_CASE([$host], [*linux*], [LIBCAP_NG_DEFAULT=yes], [LIBCAP_NG_DEFAULT=auto])
 PKG_HAVE_DEFINE_WITH_MODULES([LIBCAP_NG], [libcap-ng], , $LIBCAP_NG_DEFAULT)
@@ -228,33 +220,25 @@ AC_SUBST([DL_LDADD])
 PKG_CHECK_MODULES([LIBARCHIVE], [libarchive])
 
 AC_MSG_CHECKING([whether libarchive has archive_read_support_filter_xz()])
-AC_TRY_COMPILE(
-    [
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
     #include <archive.h>
-    ],
-    [
+    ]], [[
         struct archive *a;
         archive_read_support_filter_xz(a);
-    ],
-    [
+    ]])],[
         AC_MSG_RESULT(yes)
         AC_DEFINE(HAVE_LIBARCHIVE_XZ, 1, [Whether libarchive has archive_read_support_filter_xz()])
-    ],
-    [ AC_MSG_RESULT(no) ])
+    ],[ AC_MSG_RESULT(no) ])
 AC_MSG_CHECKING([whether libarchive has archive_read_support_filter_zstd()])
-AC_TRY_COMPILE(
-    [
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
     #include <archive.h>
-    ],
-    [
+    ]], [[
         struct archive *a;
         archive_read_support_filter_zstd(a);
-    ],
-    [
+    ]])],[
         AC_MSG_RESULT(yes)
         AC_DEFINE(HAVE_LIBARCHIVE_ZSTD, 1, [Whether libarchive has archive_read_support_filter_zstd()])
-    ],
-    [ AC_MSG_RESULT(no) ])
+    ],[ AC_MSG_RESULT(no) ])
 
 # In DragonFlyBSD daemon needs to be linked against libkinfo.
 case $host_os in
@@ -391,7 +375,8 @@ AC_CONFIG_FILES([ tests/Makefile ])
 AC_CONFIG_FILES([ unittests/Makefile ])
 AC_CONFIG_FILES([ client/icecc-create-env ])
 AC_CONFIG_FILES([ tests/test-setup.sh ])
-AC_OUTPUT([ suse/icecream.spec ])
+AC_CONFIG_FILES([ suse/icecream.spec ])
+AC_OUTPUT
 if test "$prefix" = NONE; then
   prefix=$ac_default_prefix
 fi
