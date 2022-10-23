@@ -253,31 +253,6 @@ AC_ARG_ENABLE(clang-rewrite-includes,
     AS_HELP_STRING([--enable-clang-rewrite-includes],
         [Use by default Clang's -frewrite-includes option.]))
 
-if test "$enable_clang_rewrite_includes" = "yes"; then
-    AC_DEFINE(HAVE_CLANG_REWRITE_INCLUDES, 1, [Define to 1 if clang supports -frewrite-includes])
-elif test "$enable_clang_rewrite_includes" = "no"; then
-    true  # do not enable
-else
-    if test -n "$CLANG"; then
-        AC_MSG_CHECKING([whether clang -Werror works for unknown options])
-        $CLANG -Werror -totallybogusoption -E - >/dev/null 2>/dev/null
-        if test $? -eq 0; then
-            AC_MSG_RESULT(no)
-            # can't detect if the option is supported, but that's too old clang anyway
-        else
-            AC_MSG_RESULT(yes)
-            AC_MSG_CHECKING([for clang -E -frewrite-includes])
-            $CLANG -Werror -E -frewrite-includes - >/dev/null 2>/dev/null
-            if test $? -eq 0; then
-                AC_MSG_RESULT(yes)
-                AC_DEFINE(HAVE_CLANG_REWRITE_INCLUDES, 1, [Define to 1 if clang supports -frewrite-includes])
-            else
-                AC_MSG_RESULT(no)
-            fi
-        fi
-    fi
-fi
-
 AC_ARG_ENABLE(clang-wrappers,
     AS_HELP_STRING([--enable-clang-wrappers],
         [Use symlink wrappers for clang/clang++.]))
@@ -320,34 +295,6 @@ else
         if test $? -eq 0; then
             AC_MSG_RESULT(yes)
             AC_DEFINE(HAVE_GCC_SHOW_CARET, 1, [Define to 1 if gcc supports -fdiagnostics-show-caret])
-        else
-            AC_MSG_RESULT(no)
-        fi
-    fi
-fi
-
-AC_ARG_ENABLE(gcc-fdirectives-only,
-    AS_HELP_STRING([--enable-gcc-fdirectives-only],
-        [Use by default GCC's -fdirectives-only option.]))
-
-if test "$enable_gcc_fdirectives_only" = "yes"; then
-    AC_DEFINE(HAVE_GCC_FDIRECTIVES_ONLY, 1, [Define to 1 if gcc supports -fdirectives-only])
-elif test "$enable_gcc_fdirectives_only" = "no"; then
-    true  # do not enable
-else
-    AC_CHECK_PROG(GCC_BIN,gcc,gcc)
-    AC_MSG_CHECKING([whether $GCC_BIN -Werror works for unknown options])
-    $GCC_BIN -Werror -totallybogusoption -E - >/dev/null 2>/dev/null
-    if test $? -eq 0; then
-        AC_MSG_RESULT(no)
-        # can't detect if the option is supported, but that's too old clang anyway
-    else
-        AC_MSG_RESULT(yes)
-        AC_MSG_CHECKING([for $GCC_BIN -E -fdirectives-only])
-        $GCC_BIN -Werror -E -fdirectives-only - >/dev/null 2>/dev/null
-        if test $? -eq 0; then
-            AC_MSG_RESULT(yes)
-            AC_DEFINE(HAVE_GCC_FDIRECTIVES_ONLY, 1, [Define to 1 if gcc supports -fdirectives-only])
         else
             AC_MSG_RESULT(no)
         fi

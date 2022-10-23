@@ -2197,14 +2197,7 @@ fi
 
 run_ice "" "local" 300 "nostderrcheck" /bin/nonexistent-at-all-doesnt-exist
 
-
-if test -n "$using_gcc"; then
-    run_ice "$testdir/warninginmacro.o" "remote" 0 $TESTCXX -Wall -Wextra -Werror -c warninginmacro.cpp -o "$testdir/"warninginmacro.o
-else
-    # clang will preprocess but fail with an error code when producing the object file, causing
-    # a successful local rebuild
-    run_ice "" "remote" 0 "localrebuild" "remotefail" 1 "nostderrcheck" $TESTCXX -Wall -Wextra -Werror -c warninginmacro.cpp -o "$testdir/"warninginmacro.o
-fi
+run_ice "$testdir/warninginmacro.o" "remote" 0 $TESTCXX -Wall -Wextra -Werror -c warninginmacro.cpp -o "$testdir/"warninginmacro.o
 run_ice "$testdir/unusedmacro.o" "remote" 0 "unusedmacrohack" $TESTCXX -Wall -Wunused-macros -c unusedmacro.cpp -o "$testdir/unusedmacro.o"
 
 if test -n "$using_gcc"; then
