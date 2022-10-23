@@ -181,7 +181,6 @@ bool compiler_only_rewrite_includes(const CompileJob &job)
     }
     if (compiler_is_clang(job) && const char *rewrite_includes = getenv("ICECC_CLANG_REMOTE_CPP")) {
         return (*rewrite_includes != '\0') && (*rewrite_includes != '0');
-        }
     }
     return true;
 }
