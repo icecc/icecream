@@ -296,7 +296,7 @@ int CompileServer::currentJobCountRemote() const
 int CompileServer::currentJobCountLocal() const
 {
     int count = 0;
-    for( const std::pair<int, LocalJobInfo>& info : m_clientLocalMap )
+    for( const std::pair<const int, CompileServer::LocalJobInfo>& info : m_clientLocalMap )
         count += info.second.fulljob ? m_maxJobs : 1;
     return count;
 }
