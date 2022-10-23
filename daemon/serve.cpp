@@ -76,7 +76,7 @@ int nice_level = 5;
 static void
 error_client(MsgChannel *client, string error)
 {
-    if (IS_PROTOCOL_22(client)) {
+    if (IS_PROTOCOL_VERSION(22, client)) {
         client->send_msg(StatusTextMsg(error));
     }
 }

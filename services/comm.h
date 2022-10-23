@@ -46,29 +46,8 @@
 // maximum amount of time in seconds a daemon can be busy installing
 #define MAX_BUSY_INSTALLING 120
 
-#define IS_PROTOCOL_22(c) ((c)->protocol >= 22)
-#define IS_PROTOCOL_23(c) ((c)->protocol >= 23)
-#define IS_PROTOCOL_24(c) ((c)->protocol >= 24)
-#define IS_PROTOCOL_25(c) ((c)->protocol >= 25)
-#define IS_PROTOCOL_26(c) ((c)->protocol >= 26)
-#define IS_PROTOCOL_27(c) ((c)->protocol >= 27)
-#define IS_PROTOCOL_28(c) ((c)->protocol >= 28)
-#define IS_PROTOCOL_29(c) ((c)->protocol >= 29)
-#define IS_PROTOCOL_30(c) ((c)->protocol >= 30)
-#define IS_PROTOCOL_31(c) ((c)->protocol >= 31)
-#define IS_PROTOCOL_32(c) ((c)->protocol >= 32)
-#define IS_PROTOCOL_33(c) ((c)->protocol >= 33)
-#define IS_PROTOCOL_34(c) ((c)->protocol >= 34)
-#define IS_PROTOCOL_35(c) ((c)->protocol >= 35)
-#define IS_PROTOCOL_36(c) ((c)->protocol >= 36)
-#define IS_PROTOCOL_37(c) ((c)->protocol >= 37)
-#define IS_PROTOCOL_38(c) ((c)->protocol >= 38)
-#define IS_PROTOCOL_39(c) ((c)->protocol >= 39)
-#define IS_PROTOCOL_40(c) ((c)->protocol >= 40)
-#define IS_PROTOCOL_41(c) ((c)->protocol >= 41)
-#define IS_PROTOCOL_42(c) ((c)->protocol >= 42)
-#define IS_PROTOCOL_43(c) ((c)->protocol >= 43)
-#define IS_PROTOCOL_44(c) ((c)->protocol >= 44)
+// comparison for protocol version checks
+#define IS_PROTOCOL_VERSION(x, c) ((c)->protocol >= (x))
 
 class MsgChannel;
 

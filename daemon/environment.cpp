@@ -660,7 +660,7 @@ void remove_native_environment_files(const string &env)
 static void
 error_client(MsgChannel *client, string error)
 {
-    if (IS_PROTOCOL_23(client)) {
+    if (IS_PROTOCOL_VERSION(23, client)) {
         client->send_msg(StatusTextMsg(error));
     }
 }

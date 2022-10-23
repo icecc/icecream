@@ -1373,7 +1373,7 @@ bool Daemon::handle_get_native_env(Client *client, GetNativeEnvMsg *msg)
 
     string compiler = msg->compiler;
     // Older clients passed simply "gcc" or "clang" and not a binary.
-    if( !IS_PROTOCOL_41(client->channel) && compiler.find('/') == string::npos)
+    if( !IS_PROTOCOL_VERSION(41, client->channel) && compiler.find('/') == string::npos)
         compiler = "/usr/bin/" + compiler;
 
     string ccompiler = get_c_compiler(compiler);
@@ -2068,7 +2068,7 @@ void Daemon::answer_client_requests()
                 switch (*msg) {
                 case Msg::PING:
 
-                    if (!IS_PROTOCOL_27(scheduler)) {
+                    if (!IS_PROTOCOL_VERSION(27, scheduler)) {
                         ret = !send_scheduler(PingMsg());
                     }
 

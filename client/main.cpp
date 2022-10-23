@@ -471,13 +471,13 @@ int main(int argc, char **argv)
                 log_error() <<  "An exception was handled parsing the icecc version.   "
                     "Will build locally.  Exception text was:\n" << e.what() << "\n";
             }
-        } else if (!extrafiles.empty() && !IS_PROTOCOL_32(local_daemon)) {
+        } else if (!extrafiles.empty() && !IS_PROTOCOL_VERSION(32, local_daemon)) {
             log_warning() << "Local daemon is too old to handle extra files." << endl;
             local = true;
         } else {
             Msg *umsg = nullptr;
             string compiler;
-            if( IS_PROTOCOL_41(local_daemon))
+            if( IS_PROTOCOL_VERSION(41, local_daemon))
                 compiler = get_absfilename( find_compiler( job ));
             else // Older daemons understood only two hardcoded compilers.
                 compiler = compiler_is_clang(job) ? "clang" : "gcc";

@@ -473,7 +473,7 @@ static int build_remote_int(CompileJob &job, UseCSMsg *usecs, MsgChannel *local_
 
             dcc_unlock();
 
-            if (IS_PROTOCOL_31(cserver)) {
+            if (IS_PROTOCOL_VERSION(31, cserver)) {
                 VerifyEnvMsg verifymsg(job.targetPlatform(), job.environmentVersion());
 
                 if (!cserver->send_msg(verifymsg)) {
@@ -506,14 +506,14 @@ static int build_remote_int(CompileJob &job, UseCSMsg *usecs, MsgChannel *local_
             }
         }
 
-        if (!IS_PROTOCOL_31(cserver) && ignore_unverified()) {
+        if (!IS_PROTOCOL_VERSION(31, cserver) && ignore_unverified()) {
             log_warning() << "Host " << hostname << " cannot be verified." << endl;
             throw client_error(26, "Error 26 - environment on " + hostname + " cannot be verified");
         }
 
         // Older remotes don't set properly -x argument.
         if(( job.language() == CompileJob::Lang_OBJC || job.language() == CompileJob::Lang_OBJCXX )
-            && !IS_PROTOCOL_38(cserver)) {
+            && !IS_PROTOCOL_VERSION(38, cserver)) {
             job.appendFlag( "-x", Arg_Remote );
             job.appendFlag( job.language() == CompileJob::Lang_OBJC ? "objective-c" : "objective-c++", Arg_Remote );
         }

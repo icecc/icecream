@@ -543,7 +543,7 @@ void MsgChannel::readcompressed(unsigned char **uncompressed_buf, size_t &_uclen
     compressed_len = tmp;
 
     uint32_t proto = C_LZO;
-    if (IS_PROTOCOL_40(this)) {
+    if (IS_PROTOCOL_VERSION(40, this)) {
         *this >> proto;
         if (proto != C_LZO && proto != C_ZSTD) {
             log_error() << "Unknown compression protocol " << proto << endl;
@@ -615,7 +615,7 @@ void MsgChannel::readcompressed(unsigned char **uncompressed_buf, size_t &_uclen
 void MsgChannel::writecompressed(const unsigned char *in_buf, size_t _in_len, size_t &_out_len)
 {
     uint32_t proto = C_LZO;
-    if (IS_PROTOCOL_40(this))
+    if (IS_PROTOCOL_VERSION(40, this))
         proto = C_ZSTD;
 
     lzo_uint in_len = _in_len;
@@ -628,7 +628,7 @@ void MsgChannel::writecompressed(const unsigned char *in_buf, size_t _in_len, si
     size_t msgtogo_old = msgtogo;
     *this << (uint32_t) 0;
 
-    if (IS_PROTOCOL_40(this))
+    if (IS_PROTOCOL_VERSION(40, this))
         *this << proto;
 
     if (msgtogo + out_len >= msgbuflen) {
@@ -1964,12 +1964,12 @@ void GetCSMsg::fill_from_channel(MsgChannel *c)
     *c >> client_id;
     preferred_host = string();
 
-    if (IS_PROTOCOL_22(c)) {
+    if (IS_PROTOCOL_VERSION(22, c)) {
         *c >> preferred_host;
     }
 
     minimal_host_version = 0;
-    if (IS_PROTOCOL_31(c)) {
+    if (IS_PROTOCOL_VERSION(31, c)) {
         uint32_t ign;
         *c >> ign;
         // Versions 31-33 had this as a separate field, now set a minimal
@@ -1977,23 +1977,23 @@ void GetCSMsg::fill_from_channel(MsgChannel *c)
         if (ign != 0 && minimal_host_version < 31)
             minimal_host_version = 31;
     }
-    if (IS_PROTOCOL_34(c)) {
+    if (IS_PROTOCOL_VERSION(34, c)) {
         uint32_t version;
         *c >> version;
         minimal_host_version = max( minimal_host_version, int( version ));
     }
 
-    if (IS_PROTOCOL_39(c)) {
+    if (IS_PROTOCOL_VERSION(39, c)) {
         *c >> client_count;
     }
 
     required_features = 0;
-    if (IS_PROTOCOL_42(c)) {
+    if (IS_PROTOCOL_VERSION(42, c)) {
         *c >> required_features;
     }
 
     niceness = 0;
-    if (IS_PROTOCOL_43(c)) {
+    if (IS_PROTOCOL_VERSION(43, c)) {
         *c >> niceness;
     }
 }
@@ -2009,24 +2009,24 @@ void GetCSMsg::send_to_channel(MsgChannel *c) const
     *c << arg_flags;
     *c << client_id;
 
-    if (IS_PROTOCOL_22(c)) {
+    if (IS_PROTOCOL_VERSION(22, c)) {
         *c << preferred_host;
     }
 
-    if (IS_PROTOCOL_31(c)) {
+    if (IS_PROTOCOL_VERSION(31, c)) {
         *c << uint32_t(minimal_host_version >= 31 ? 1 : 0);
     }
-    if (IS_PROTOCOL_34(c)) {
+    if (IS_PROTOCOL_VERSION(34, c)) {
         *c << minimal_host_version;
     }
 
-    if (IS_PROTOCOL_39(c)) {
+    if (IS_PROTOCOL_VERSION(39, c)) {
         *c << client_count;
     }
-    if (IS_PROTOCOL_42(c)) {
+    if (IS_PROTOCOL_VERSION(42, c)) {
         *c << required_features;
     }
-    if (IS_PROTOCOL_43(c)) {
+    if (IS_PROTOCOL_VERSION(43, c)) {
         *c << niceness;
     }
 }
@@ -2041,7 +2041,7 @@ void UseCSMsg::fill_from_channel(MsgChannel *c)
     *c >> got_env;
     *c >> client_id;
 
-    if (IS_PROTOCOL_28(c)) {
+    if (IS_PROTOCOL_VERSION(28, c)) {
         *c >> matched_job_id;
     } else {
         matched_job_id = 0;
@@ -2058,7 +2058,7 @@ void UseCSMsg::send_to_channel(MsgChannel *c) const
     *c << got_env;
     *c << client_id;
 
-    if (IS_PROTOCOL_28(c)) {
+    if (IS_PROTOCOL_VERSION(28, c)) {
         *c << matched_job_id;
     }
 }
@@ -2086,7 +2086,7 @@ void CompileFileMsg::fill_from_channel(MsgChannel *c)
     *c >> lang;
     *c >> id;
     ArgumentsList l;
-    if( IS_PROTOCOL_41(c)) {
+    if( IS_PROTOCOL_VERSION(41, c)) {
         list<string> largs;
         *c >> largs;
         // Whe compiling remotely, we no longer care about the Arg_Remote vs Arg_Rest
@@ -2113,12 +2113,12 @@ void CompileFileMsg::fill_from_channel(MsgChannel *c)
     *c >> target;
     job->setTargetPlatform(target);
 
-    if (IS_PROTOCOL_30(c)) {
+    if (IS_PROTOCOL_VERSION(30, c)) {
         string compilerName;
         *c >> compilerName;
         job->setCompilerName(compilerName);
     }
-    if( IS_PROTOCOL_34(c)) {
+    if( IS_PROTOCOL_VERSION(34, c)) {
         string inputFile;
         string workingDirectory;
         *c >> inputFile;
@@ -2126,7 +2126,7 @@ void CompileFileMsg::fill_from_channel(MsgChannel *c)
         job->setInputFile(inputFile);
         job->setWorkingDirectory(workingDirectory);
     }
-    if (IS_PROTOCOL_35(c)) {
+    if (IS_PROTOCOL_VERSION(35, c)) {
         string outputFile;
         uint32_t dwarfFissionEnabled = 0;
         *c >> outputFile;
@@ -2142,13 +2142,13 @@ void CompileFileMsg::send_to_channel(MsgChannel *c) const
     *c << (uint32_t) job->language();
     *c << job->jobID();
 
-    if (IS_PROTOCOL_41(c)) {
+    if (IS_PROTOCOL_VERSION(41, c)) {
         // By the time we're compiling, the args are all Arg_Remote or Arg_Rest and
         // we no longer care about the differences, but we may care about the ordering.
         // So keep them all in one list.
         *c << job->nonLocalFlags();
     } else {
-        if (IS_PROTOCOL_30(c)) {
+        if (IS_PROTOCOL_VERSION(30, c)) {
             *c << job->remoteFlags();
         } else {
             if (job->compilerName().find("clang") != string::npos) {
@@ -2166,14 +2166,14 @@ void CompileFileMsg::send_to_channel(MsgChannel *c) const
     *c << job->environmentVersion();
     *c << job->targetPlatform();
 
-    if (IS_PROTOCOL_30(c)) {
+    if (IS_PROTOCOL_VERSION(30, c)) {
         *c << remote_compiler_name();
     }
-    if( IS_PROTOCOL_34(c)) {
+    if( IS_PROTOCOL_VERSION(34, c)) {
         *c << job->inputFile();
         *c << job->workingDirectory();
     }
-    if (IS_PROTOCOL_35(c)) {
+    if (IS_PROTOCOL_VERSION(35, c)) {
         *c << job->outputFile();
         *c << (uint32_t) job->dwarfFissionEnabled();
     }
@@ -2236,7 +2236,7 @@ void CompileResultMsg::fill_from_channel(MsgChannel *c)
     uint32_t was = 0;
     *c >> was;
     was_out_of_memory = was;
-    if (IS_PROTOCOL_35(c)) {
+    if (IS_PROTOCOL_VERSION(35, c)) {
         uint32_t dwo = 0;
         *c >> dwo;
         have_dwo_file = dwo;
@@ -2250,7 +2250,7 @@ void CompileResultMsg::send_to_channel(MsgChannel *c) const
     *c << out;
     *c << status;
     *c << (uint32_t) was_out_of_memory;
-    if (IS_PROTOCOL_35(c)) {
+    if (IS_PROTOCOL_VERSION(35, c)) {
         *c << (uint32_t) have_dwo_file;
     }
 }
@@ -2260,7 +2260,7 @@ void JobBeginMsg::fill_from_channel(MsgChannel *c)
     Msg::fill_from_channel(c);
     *c >> job_id;
     *c >> stime;
-    if (IS_PROTOCOL_39(c)) {
+    if (IS_PROTOCOL_VERSION(39, c)) {
         *c >> client_count;
     }
 }
@@ -2270,7 +2270,7 @@ void JobBeginMsg::send_to_channel(MsgChannel *c) const
     Msg::send_to_channel(c);
     *c << job_id;
     *c << stime;
-    if (IS_PROTOCOL_39(c)) {
+    if (IS_PROTOCOL_VERSION(39, c)) {
         *c << client_count;
     }
 }
@@ -2281,7 +2281,7 @@ void JobLocalBeginMsg::fill_from_channel(MsgChannel *c)
     *c >> stime;
     *c >> outfile;
     *c >> id;
-    if (IS_PROTOCOL_44(c)) {
+    if (IS_PROTOCOL_VERSION(44, c)) {
         uint32_t full;
         *c >> full;
         fulljob = full;
@@ -2294,7 +2294,7 @@ void JobLocalBeginMsg::send_to_channel(MsgChannel *c) const
     *c << stime;
     *c << outfile;
     *c << id;
-    if (IS_PROTOCOL_44(c)) {
+    if (IS_PROTOCOL_VERSION(44, c)) {
         *c << (uint32_t) fulljob;
     }
 }
@@ -2346,10 +2346,10 @@ void JobDoneMsg::fill_from_channel(MsgChannel *c)
     exitcode = (int) _exitcode;
     // Older versions used this special exit code to identify
     // EndJob messages for jobs with unknown job id.
-    if (!IS_PROTOCOL_39(c) && exitcode == 200) {
+    if (!IS_PROTOCOL_VERSION(39, c) && exitcode == 200) {
         flags |= UnknownJobId;
     }
-    if (IS_PROTOCOL_39(c)) {
+    if (IS_PROTOCOL_VERSION(39, c)) {
         *c >> client_count;
     }
 }
@@ -2358,7 +2358,7 @@ void JobDoneMsg::send_to_channel(MsgChannel *c) const
 {
     Msg::send_to_channel(c);
     *c << job_id;
-    if (!IS_PROTOCOL_39(c) && (flags & UnknownJobId)) {
+    if (!IS_PROTOCOL_VERSION(39, c) && (flags & UnknownJobId)) {
         *c << (uint32_t) 200;
     } else {
         *c << (uint32_t) exitcode;
@@ -2372,7 +2372,7 @@ void JobDoneMsg::send_to_channel(MsgChannel *c) const
     *c << out_compressed;
     *c << out_uncompressed;
     *c << flags;
-    if (IS_PROTOCOL_39(c)) {
+    if (IS_PROTOCOL_VERSION(39, c)) {
         *c << client_count;
     }
 }
@@ -2429,14 +2429,14 @@ void LoginMsg::fill_from_channel(MsgChannel *c)
     chroot_possible = net_chroot_possible != 0;
     uint32_t net_noremote = 0;
 
-    if (IS_PROTOCOL_26(c)) {
+    if (IS_PROTOCOL_VERSION(26, c)) {
         *c >> net_noremote;
     }
 
     noremote = (net_noremote != 0);
 
     supported_features = 0;
-    if (IS_PROTOCOL_42(c)) {
+    if (IS_PROTOCOL_VERSION(42, c)) {
         *c >> supported_features;
     }
 }
@@ -2451,10 +2451,10 @@ void LoginMsg::send_to_channel(MsgChannel *c) const
     *c << host_platform;
     *c << chroot_possible;
 
-    if (IS_PROTOCOL_26(c)) {
+    if (IS_PROTOCOL_VERSION(26, c)) {
         *c << noremote;
     }
-    if (IS_PROTOCOL_42(c)) {
+    if (IS_PROTOCOL_VERSION(42, c)) {
         *c << supported_features;
     }
 }
@@ -2501,12 +2501,12 @@ void GetNativeEnvMsg::fill_from_channel(MsgChannel *c)
 {
     Msg::fill_from_channel(c);
 
-    if (IS_PROTOCOL_32(c)) {
+    if (IS_PROTOCOL_VERSION(32, c)) {
         *c >> compiler;
         *c >> extrafiles;
     }
     compression = string();
-    if (IS_PROTOCOL_42(c))
+    if (IS_PROTOCOL_VERSION(42, c))
         *c >> compression;
 }
 
@@ -2514,11 +2514,11 @@ void GetNativeEnvMsg::send_to_channel(MsgChannel *c) const
 {
     Msg::send_to_channel(c);
 
-    if (IS_PROTOCOL_32(c)) {
+    if (IS_PROTOCOL_VERSION(32, c)) {
         *c << compiler;
         *c << extrafiles;
     }
-    if (IS_PROTOCOL_42(c))
+    if (IS_PROTOCOL_VERSION(42, c))
         *c << compression;
 }
 
@@ -2550,7 +2550,7 @@ void EnvTransferMsg::send_to_channel(MsgChannel *c) const
 
 void MonGetCSMsg::fill_from_channel(MsgChannel *c)
 {
-    if (IS_PROTOCOL_29(c)) {
+    if (IS_PROTOCOL_VERSION(29, c)) {
         Msg::fill_from_channel(c);
         *c >> filename;
         uint32_t _lang;
@@ -2566,7 +2566,7 @@ void MonGetCSMsg::fill_from_channel(MsgChannel *c)
 
 void MonGetCSMsg::send_to_channel(MsgChannel *c) const
 {
-    if (IS_PROTOCOL_29(c)) {
+    if (IS_PROTOCOL_VERSION(29, c)) {
         Msg::send_to_channel(c);
         *c << shorten_filename(filename);
         *c << (uint32_t) lang;
