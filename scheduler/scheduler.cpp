@@ -929,7 +929,8 @@ static CompileServer *pick_server(Job *job, SchedulerAlgorithmName schedulerAlgo
             << " load: "
             << selected->load()
             << " can install: "
-            << selected->can_install(job);
+            << selected->can_install(job)
+            << endl;
         return selected;
     }
 
