@@ -39,7 +39,6 @@ extern bool compiler_has_color_output(const CompileJob &job);
 extern bool output_needs_workaround(const CompileJob &job);
 extern bool ignore_unverified();
 extern int resolve_link(const std::string &file, std::string &resolved);
-extern std::string get_cwd();
 
 extern bool dcc_lock_host();
 extern void dcc_unlock();
