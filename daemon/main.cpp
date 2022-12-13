@@ -673,7 +673,7 @@ bool Daemon::setup_listen_unix_fd()
             strncpy(myaddr.sun_path, default_socket.c_str() , sizeof(myaddr.sun_path) - 1);
             myaddr.sun_path[sizeof(myaddr.sun_path) - 1] = '\0';
             if(default_socket.length() > sizeof(myaddr.sun_path) - 1) {
-                log_error() << "default socket path too long for sun_path" << endl;	
+                log_error() << "default socket path too long for sun_path" << endl;
             }
             if (-1 == unlink(myaddr.sun_path) && errno != ENOENT){
                 log_perror("unlink failed") << "\t" << myaddr.sun_path << endl;

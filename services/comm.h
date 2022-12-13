@@ -396,10 +396,10 @@ public:
     }
 
     /* Attempt to get a conenction to the scheduler.
-    
-       Continue to call this while it returns NULL and timed_out() 
+
+       Continue to call this while it returns NULL and timed_out()
        returns false. If this returns NULL you should wait for either
-       more data on listen_fd() (use select), or a timeout of your own.  
+       more data on listen_fd() (use select), or a timeout of your own.
        */
     MsgChannel *try_get_scheduler();
 

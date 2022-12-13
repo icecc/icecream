@@ -664,7 +664,7 @@ static list<CompileServer *> filter_ineligible_servers(Job *job)
                 trace() << cs->nodeName() << " fails remote job check\n";
                 return false;
             }
-        
+
             return true;
         });
     return eligible;
