@@ -1478,8 +1478,8 @@ static int open_send_broadcast(int port, const char* buf, int size)
                 continue;
             }
 
-            if ((addr->ifa_flags & IFF_POINTOPOINT) || !(addr->ifa_flags & IFF_BROADCAST)) {
-                log_info() << "ignoring tunnels " << addr->ifa_name << " for broadcast" << endl;
+            if (!(addr->ifa_flags & IFF_BROADCAST) && !(addr->ifa_flags & IFF_POINTOPOINT)) {
+                log_info() << "ignoring " << addr->ifa_name << " - has no broadcast address, nor is it point-to-point" << endl;
                 continue;
             }
         } else {
@@ -1489,15 +1489,23 @@ static int open_send_broadcast(int port, const char* buf, int size)
             }
         }
 
-        if (addr->ifa_broadaddr) {
+        sockaddr_in *broad_or_dst_addr = nullptr;
+
+        // both of these flags are never set at the same time
+        if (addr->ifa_flags & IFF_BROADCAST)
+            broad_or_dst_addr = (sockaddr_in *)addr->ifa_broadaddr;
+        if (addr->ifa_flags & IFF_POINTOPOINT)
+            broad_or_dst_addr = (sockaddr_in *)addr->ifa_dstaddr;
+
+        if (broad_or_dst_addr) {
             log_info() << "broadcast "
                        << addr->ifa_name << " "
-                       << inet_ntoa(((sockaddr_in *)addr->ifa_broadaddr)->sin_addr)
+                       << inet_ntoa(broad_or_dst_addr->sin_addr)
                        << endl;
 
             remote_addr.sin_family = AF_INET;
             remote_addr.sin_port = htons(port);
-            remote_addr.sin_addr = ((sockaddr_in *)addr->ifa_broadaddr)->sin_addr;
+            remote_addr.sin_addr = broad_or_dst_addr->sin_addr;
 
             if (sendto(ask_fd, buf, size, 0, (struct sockaddr *)&remote_addr,
                        sizeof(remote_addr)) != size) {
