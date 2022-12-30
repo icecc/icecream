@@ -28,6 +28,8 @@
 
 extern std::string find_basename(const std::string &sfile);
 extern std::string find_prefix(const std::string &basename);
+extern std::string get_cwd();
+extern bool is_path_absolute(const std::string &path);
 // These two detect if the given binary is a C/C++ compiler based on its name(gcc->C,clang++->C++)
 extern bool is_c_compiler(const std::string& compiler);
 extern bool is_cpp_compiler(const std::string& compiler);

@@ -354,18 +354,3 @@ int resolve_link(const std::string &file, std::string &resolved)
     resolved = std::string(buf);
     return 0;
 }
-
-std::string get_cwd()
-{
-    static std::vector<char> buffer(1024);
-
-    errno = 0;
-    while (getcwd(&buffer[0], buffer.size() - 1) == nullptr && errno == ERANGE) {
-        buffer.resize(buffer.size() + 1024);
-        errno = 0;
-    }
-    if (errno != 0)
-        return std::string();
-
-    return string(&buffer[0]);
-}

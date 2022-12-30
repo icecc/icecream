@@ -2429,6 +2429,9 @@ int main(int argc, char **argv)
 
             if (optarg && *optarg) {
                 d.envbasedir = optarg;
+                if (!is_path_absolute(d.envbasedir)) {
+                    d.envbasedir = get_cwd() + "/" + d.envbasedir;
+                }
             }
 
             break;
