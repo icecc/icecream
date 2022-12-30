@@ -664,7 +664,7 @@ static list<CompileServer *> filter_ineligible_servers(Job *job)
                 trace() << cs->nodeName() << " fails remote job check\n";
                 return false;
             }
-        
+
             return true;
         });
     return eligible;
@@ -929,7 +929,8 @@ static CompileServer *pick_server(Job *job, SchedulerAlgorithmName schedulerAlgo
             << " load: "
             << selected->load()
             << " can install: "
-            << selected->can_install(job);
+            << selected->can_install(job)
+            << endl;
         return selected;
     }
 

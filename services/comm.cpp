@@ -291,7 +291,7 @@ bool MsgChannel::update_state()
         }
 
     case HAS_MSG:
-        /* handled elsewere */
+        /* handled elsewhere */
         break;
 
     case ERROR:

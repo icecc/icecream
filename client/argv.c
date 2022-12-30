@@ -69,10 +69,10 @@ dupargv (char * const *argv)
 {
   int argc;
   char **copy;
-  
+
   if (argv == NULL)
     return NULL;
-  
+
   /* the vector */
   for (argc = 0; argv[argc] != NULL; argc++);
   copy = (char **) malloc ((argc + 1) * sizeof (char *));
@@ -392,11 +392,11 @@ expandargv (int *argcp, char ***argvp)
       /* Free the original options memory. */
       free((*argvp)[i]);
       /* Now, insert FILE_ARGV into ARGV.  The "+1" below handles the
-	 NULL terminator at the end of ARGV.  */ 
-      *argvp = ((char **) 
-		realloc (*argvp, 
+	 NULL terminator at the end of ARGV.  */
+      *argvp = ((char **)
+		realloc (*argvp,
 			  (*argcp + file_argc + 1) * sizeof (char *)));
-      memmove (*argvp + i + file_argc, *argvp + i + 1, 
+      memmove (*argvp + i + file_argc, *argvp + i + 1,
 	       (*argcp - i) * sizeof (char *));
       memcpy (*argvp + i, file_argv, file_argc * sizeof (char *));
       /* The original option has been replaced by all the new

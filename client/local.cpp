@@ -330,7 +330,7 @@ int build_local(CompileJob &job, MsgChannel *local_daemon, struct rusage *used)
         arguments.push_back(job.outputFile());
     }
 
-    vector<char*> argv; 
+    vector<char*> argv;
     string argstxt;
 
     for (list<string>::const_iterator it = arguments.begin(); it != arguments.end(); ++it) {
@@ -423,7 +423,7 @@ int build_local(CompileJob &job, MsgChannel *local_daemon, struct rusage *used)
         char buf[250];
 
         for (;;) {
-	    int r;
+            int r;
             while ((r = read(pf[0], buf, sizeof(buf) - 1)) > 0) {
                 buf[r] = '\0';
                 s_ccout.append(buf);
