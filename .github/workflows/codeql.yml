@@ -1,0 +1,51 @@
+name: "CodeQL"
+
+on:
+  push:
+    branches: [ 'master' ]
+  pull_request:
+    # The branches below must be a subset of the branches above
+    branches: [ 'master' ]
+  schedule:
+    - cron: '37 2 * * 0'
+
+jobs:
+  analyze:
+    name: Analyze
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+
+    strategy:
+      fail-fast: false
+      matrix:
+        language: [ 'cpp' ]
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+
+    - name: Install dependencies (Ubuntu)
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y asciidoc clang expect gcc gdb libarchive-dev libcap-ng-dev libcap-ng-utils liblzo2-dev zstd telnet valgrind xsltproc
+        export CFLAGS="${SAN_FLAGS} ${CFLAGS} -Wall -Wextra"
+        export CXXFLAGS="${SAN_FLAGS} ${CXXFLAGS} -Wall -Wextra"
+        export LDFLAGS="${SAN_FLAGS} ${LDFLAGS}"
+        ./autogen.sh
+        ./configure --prefix=$PWD/_inst
+
+    - name: Initialize CodeQL
+      uses: github/codeql-action/init@v2
+      with:
+        languages: ${{ matrix.language }}
+    
+    - name: Build
+      run: make -s -j $(getconf _NPROCESSORS_ONLN)
+
+    - name: Perform CodeQL Analysis
+      uses: github/codeql-action/analyze@v2
+      with:
+        category: "/language:${{matrix.language}}"
