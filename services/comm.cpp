@@ -1359,7 +1359,7 @@ static int get_second_port_for_debug( int port )
     return secondPort ? secondPort : -1;
 }
 
-void Broadcasts::broadcastSchedulerVersion(int scheduler_port, const char* netname, time_t starttime)
+void Broadcasts::broadcastSchedulerVersion(const std::string &interface, int scheduler_port, const char* netname, time_t starttime)
 {
     // Code for older schedulers than version 38. Has endianness problems, the message size
     // is not BROAD_BUFLEN and the netname is possibly not null-terminated.
@@ -1375,7 +1375,7 @@ void Broadcasts::broadcastSchedulerVersion(int scheduler_port, const char* netna
     buf[4 + sizeof(uint64_t)] = length_netname;
     strncpy(buf + 5 + sizeof(uint64_t), netname, length_netname - 1);
     buf[ schedbuflen - 1 ] = '\0';
-    broadcastData(scheduler_port, buf, schedbuflen);
+    broadcastData(interface, scheduler_port, buf, schedbuflen);
     delete[] buf;
     // Latest version.
     buf = new char[ BROAD_BUFLEN ];
@@ -1393,7 +1393,7 @@ void Broadcasts::broadcastSchedulerVersion(int scheduler_port, const char* netna
     const int OFFSET = 4 + 2 * sizeof(uint32_t);
     snprintf(buf + OFFSET, BROAD_BUFLEN - OFFSET, "%s", netname);
     buf[BROAD_BUFLEN - 1] = 0;
-    broadcastData(scheduler_port, buf, BROAD_BUFLEN);
+    broadcastData(interface, scheduler_port, buf, BROAD_BUFLEN);
     delete[] buf;
 }
 
@@ -1425,7 +1425,7 @@ void Broadcasts::getSchedulerVersionData( const char* buf, int* protocol, time_t
 }
 
 /* Returns a filedesc. or a negative value for errors.  */
-static int open_send_broadcast(int port, const char* buf, int size)
+static int open_send_broadcast(const std::string &interface, int port, const char* buf, int size)
 {
     int ask_fd;
     struct sockaddr_in remote_addr;
@@ -1471,6 +1471,9 @@ static int open_send_broadcast(int port, const char* buf, int size)
             continue;
         }
 
+        if (!interface.empty() && interface != addr->ifa_name)
+            continue;
+
         static bool in_tests = getenv( "ICECC_TESTS" ) != nullptr;
         if (!in_tests) {
             if (ntohl(((struct sockaddr_in *) addr->ifa_addr)->sin_addr.s_addr) == 0x7f000001) {
@@ -1510,9 +1513,9 @@ static int open_send_broadcast(int port, const char* buf, int size)
     return ask_fd;
 }
 
-void Broadcasts::broadcastData(int port, const char* buf, int len)
+void Broadcasts::broadcastData(const std::string &interface, int port, const char* buf, int len)
 {
-    int fd = open_send_broadcast(port, buf, len);
+    int fd = open_send_broadcast(interface, port, buf, len);
     if (fd >= 0) {
         if ((-1 == close(fd)) && (errno != EBADF)){
             log_perror("close failed");
@@ -1520,7 +1523,7 @@ void Broadcasts::broadcastData(int port, const char* buf, int len)
     }
     int secondPort = get_second_port_for_debug( port );
     if( secondPort > 0 ) {
-        int fd2 = open_send_broadcast(secondPort, buf, len);
+        int fd2 = open_send_broadcast(interface, secondPort, buf, len);
         if (fd2 >= 0) {
             if ((-1 == close(fd2)) && (errno != EBADF)){
                 log_perror("close failed");
@@ -1529,9 +1532,10 @@ void Broadcasts::broadcastData(int port, const char* buf, int len)
     }
 }
 
-DiscoverSched::DiscoverSched(const std::string &_netname, int _timeout,
+DiscoverSched::DiscoverSched(const std::string &_interface, const std::string &_netname, int _timeout,
                              const std::string &_schedname, int port)
-    : netname(_netname)
+    : interface(_interface)
+    , netname(_netname)
     , schedname(_schedname)
     , timeout(_timeout)
     , ask_fd(-1)
@@ -1572,7 +1576,7 @@ DiscoverSched::DiscoverSched(const std::string &_netname, int _timeout,
         netname = ""; // take whatever the machine is giving us
         attempt_scheduler_connect();
     } else {
-        sendSchedulerDiscovery( PROTOCOL_VERSION );
+        sendSchedulerDiscovery(interface, PROTOCOL_VERSION );
     }
 }
 
@@ -1605,14 +1609,14 @@ void DiscoverSched::attempt_scheduler_connect()
     }
 }
 
-void DiscoverSched::sendSchedulerDiscovery( int version )
+void DiscoverSched::sendSchedulerDiscovery(const std::string &interface, int version )
 {
         assert( version < 128 );
         char buf = version;
-        ask_fd = open_send_broadcast(sport, &buf, 1);
+        ask_fd = open_send_broadcast(interface, sport, &buf, 1);
         int secondPort = get_second_port_for_debug( sport );
         if( secondPort > 0 )
-            ask_second_fd = open_send_broadcast(secondPort, &buf, 1);
+            ask_second_fd = open_send_broadcast(interface, secondPort, &buf, 1);
 }
 
 bool DiscoverSched::isSchedulerDiscovery(const char* buf, int buflen, int* daemon_version)
@@ -1870,7 +1874,7 @@ bool DiscoverSched::get_broad_answer(int ask_fd, int timeout, char *buf2, struct
     return true;
 }
 
-list<string> DiscoverSched::getNetnames(int timeout, int port)
+list<string> DiscoverSched::getNetnames(const std::string &interface, int timeout, int port)
 {
     list<string> l;
     int ask_fd;
@@ -1879,7 +1883,7 @@ list<string> DiscoverSched::getNetnames(int timeout, int port)
     time_t time0 = time(nullptr);
 
     char buf = PROTOCOL_VERSION;
-    ask_fd = open_send_broadcast(port, &buf, 1);
+    ask_fd = open_send_broadcast(interface, port, &buf, 1);
 
     do {
         char buf2[BROAD_BUFLEN];
@@ -1905,9 +1909,9 @@ list<string> DiscoverSched::getNetnames(int timeout, int port)
     return l;
 }
 
-list<string> get_netnames(int timeout, int port)
+list<string> get_netnames(const std::string &interface, int timeout, int port)
 {
-    return DiscoverSched::getNetnames(timeout, port);
+    return DiscoverSched::getNetnames(interface, timeout, port);
 }
 
 void Msg::fill_from_channel(MsgChannel *)

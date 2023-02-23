@@ -352,7 +352,7 @@ class Broadcasts
 {
 public:
     // Broadcasts a message about this scheduler and its information.
-    static void broadcastSchedulerVersion(int scheduler_port, const char* netname, time_t starttime);
+    static void broadcastSchedulerVersion(const std::string &interface, int scheduler_port, const char* netname, time_t starttime);
     // Checks if the data received is a scheduler version broadcast.
     static bool isSchedulerVersion(const char* buf, int buflen);
     // Reads data from a scheduler version broadcast.
@@ -360,7 +360,7 @@ public:
     /// Broadcasts the given data on the given port.
     static const int BROAD_BUFLEN = 268;
 private:
-    static void broadcastData(int port, const char* buf, int size);
+    static void broadcastData(const std::string &interface, int port, const char* buf, int size);
 };
 
 // --------------------------------------------------------------------------
@@ -371,7 +371,8 @@ public:
     /* Connect to a scheduler waiting max. TIMEOUT seconds.
        schedname can be the hostname of a box running a scheduler, to avoid
        broadcasting, port can be specified explicitly */
-    DiscoverSched(const std::string &_netname = std::string(),
+    DiscoverSched(const std::string &_interface = std::string(),
+                  const std::string &_netname = std::string(),
                   int _timeout = 2,
                   const std::string &_schedname = std::string(),
                   int port = 0);
@@ -417,7 +418,7 @@ public:
 
     /* Return a list of all reachable netnames.  We wait max. WAITTIME
        milliseconds for answers.  */
-    static std::list<std::string> getNetnames(int waittime = 2000, int port = 8765);
+    static std::list<std::string> getNetnames(const std::string &interface = std::string(), int waittime = 2000, int port = 8765);
 
     // Checks if the data is from a scheduler discovery broadcast, returns version of the sending
     // daemon is yes.
@@ -427,6 +428,7 @@ public:
 
 private:
     struct sockaddr_in remote_addr;
+    std::string interface;
     std::string netname;
     std::string schedname;
     int timeout;
@@ -441,7 +443,7 @@ private:
     bool multiple;
 
     void attempt_scheduler_connect();
-    void sendSchedulerDiscovery( int version );
+    void sendSchedulerDiscovery(const std::string &interface, int version );
     static bool get_broad_answer(int ask_fd, int timeout, char *buf2, struct sockaddr_in *remote_addr,
                  socklen_t *remote_len);
     static void get_broad_data(const char* buf, const char** name, int* version, time_t* start_time);
@@ -450,7 +452,7 @@ private:
 
 /* Return a list of all reachable netnames.  We wait max. WAITTIME
    milliseconds for answers.  */
-std::list<std::string> get_netnames(int waittime = 2000, int port = 8765);
+std::list<std::string> get_netnames(const std::string &interface, int waittime = 2000, int port = 8765);
 
 class PingMsg : public Msg
 {
