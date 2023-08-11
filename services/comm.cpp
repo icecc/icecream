@@ -339,10 +339,22 @@ void MsgChannel::writefull(const void *_buf, size_t count)
     msgtogo += count;
 }
 
+static bool slow_network()
+{
+    static bool retval = false;
+    static bool cached = false;
+    if (!cached) {
+        if (const char *icecc_slow_network = getenv("ICECC_SLOW_NETWORK"))
+            if (icecc_slow_network[0] == '1')
+                retval = true;
+        cached = true;
+    }
+    return retval;
+}
+
 static size_t get_max_write_size()
 {
-    if( const char* icecc_slow_network = getenv( "ICECC_SLOW_NETWORK" ))
-        if( icecc_slow_network[ 0 ] == '1' )
+    if (slow_network())
             return MAX_SLOW_WRITE_SIZE;
     return MAX_MSG_SIZE;
 }
@@ -946,7 +958,7 @@ MsgChannel::MsgChannel(int _fd, struct sockaddr *_a, socklen_t _l, bool text)
 
     int on = 1;
 
-    if (!setsockopt(_fd, SOL_SOCKET, SO_KEEPALIVE, (char *) &on, sizeof(on))) {
+    if (!setsockopt(_fd, SOL_SOCKET, SO_KEEPALIVE, (char *) &on, sizeof(on)) && !slow_network()) {
 #if defined( TCP_KEEPIDLE ) || defined( TCPCTL_KEEPIDLE )
 #if defined( TCP_KEEPIDLE )
         int keepidle = TCP_KEEPIDLE;
@@ -977,8 +989,10 @@ MsgChannel::MsgChannel(int _fd, struct sockaddr *_a, socklen_t _l, bool text)
     }
 
 #ifdef TCP_USER_TIMEOUT
-    int timeout = 3 * 3 * 1000; // matches the timeout part of keepalive above, in milliseconds
-    setsockopt(_fd, IPPROTO_TCP, TCP_USER_TIMEOUT, (char *) &timeout, sizeof(timeout));
+    if (!slow_network()) {
+        int timeout = 3 * 3 * 1000; // matches the timeout part of keepalive above, in milliseconds
+        setsockopt(_fd, IPPROTO_TCP, TCP_USER_TIMEOUT, (char *) &timeout, sizeof(timeout));
+    }
 #endif
 
     if (fcntl(fd, F_SETFL, O_NONBLOCK) < 0) {
