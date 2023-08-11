@@ -354,9 +354,12 @@ static bool slow_network()
 
 static size_t get_max_write_size()
 {
-    if (slow_network())
-            return MAX_SLOW_WRITE_SIZE;
-    return MAX_MSG_SIZE;
+    return slow_network() ? MAX_SLOW_WRITE_SIZE : MAX_MSG_SIZE;
+}
+
+static size_t get_write_timeout_secs()
+{
+    return slow_network() ? 60 * 60 : 30;
 }
 
 bool MsgChannel::flush_writebuf(bool blocking)
@@ -393,7 +396,7 @@ bool MsgChannel::flush_writebuf(bool blocking)
                     pollfd pfd;
                     pfd.fd = fd;
                     pfd.events = POLLOUT;
-                    ready = poll(&pfd, 1, 30 * 1000);
+                    ready = poll(&pfd, 1, get_write_timeout_secs() * 1000);
 
                     if (ready < 0 && errno == EINTR) {
                         continue;
@@ -407,7 +410,7 @@ bool MsgChannel::flush_writebuf(bool blocking)
                     continue;
                 }
                 if (ready == 0) {
-                    log_error() << "timed out while trying to send data" << endl;
+                    log_error() << "timed out (" << get_write_timeout_secs() << " seconds) while trying to send data" << endl;
                 }
 
                 /* Timeout or real error --> error.  */
