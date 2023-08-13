@@ -339,7 +339,7 @@ void MsgChannel::writefull(const void *_buf, size_t count)
     msgtogo += count;
 }
 
-static bool slow_network()
+bool MsgChannel::slow_network()
 {
     static bool retval = false;
     static bool cached = false;
@@ -354,12 +354,12 @@ static bool slow_network()
 
 static size_t get_max_write_size()
 {
-    return slow_network() ? MAX_SLOW_WRITE_SIZE : MAX_MSG_SIZE;
+    return MsgChannel::slow_network() ? MAX_SLOW_WRITE_SIZE : MAX_MSG_SIZE;
 }
 
 static size_t get_write_timeout_secs()
 {
-    return slow_network() ? 60 * 60 : 30;
+    return MsgChannel::slow_network() ? 60 * 60 : 30;
 }
 
 bool MsgChannel::flush_writebuf(bool blocking)
