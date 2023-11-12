@@ -49,169 +49,79 @@
 // comparison for protocol version checks
 #define IS_PROTOCOL_VERSION(x, c) ((c)->protocol >= (x))
 
-class MsgChannel;
-
 // Terms used:
 // S  = scheduler
 // C  = client
 // CS = daemon
 
-class Msg {
-public:
-    enum Value: uint32_t {
-        // so far unknown
-        UNKNOWN = 'A',
+enum MsgType {
+    // so far unknown
+    M_UNKNOWN = 'A',
 
-        /* When the scheduler didn't get STATS from a CS
-           for a specified time (e.g. 10m), then he sends a
-           ping */
-        PING,
+    /* When the scheduler didn't get M_STATS from a CS
+       for a specified time (e.g. 10m), then he sends a
+       ping */
+    M_PING,
 
-        /* Either the end of file chunks or connection (A<->A) */
-        END,
+    /* Either the end of file chunks or connection (A<->A) */
+    M_END,
 
-        TIMEOUT, // unused
+    M_TIMEOUT, // unused
 
-        // C --> CS
-        GET_NATIVE_ENV,
-        // CS -> C
-        NATIVE_ENV,
+    // C --> CS
+    M_GET_NATIVE_ENV,
+    // CS -> C
+    M_NATIVE_ENV,
 
-        // C --> S
-        GET_CS,
-        // S --> C
-        USE_CS,  // = 'H'
-        // C --> CS
-        COMPILE_FILE, // = 'I'
-        // generic file transfer
-        FILE_CHUNK,
-        // CS --> C
-        COMPILE_RESULT,
+    // C --> S
+    M_GET_CS,
+    // S --> C
+    M_USE_CS,  // = 'H'
+    // C --> CS
+    M_COMPILE_FILE, // = 'I'
+    // generic file transfer
+    M_FILE_CHUNK,
+    // CS --> C
+    M_COMPILE_RESULT,
 
-        // CS --> S (after the C got the CS from the S, the CS tells the S when the C asks him)
-        JOB_BEGIN,
-        JOB_DONE,     // = 'M'
+    // CS --> S (after the C got the CS from the S, the CS tells the S when the C asks him)
+    M_JOB_BEGIN,
+    M_JOB_DONE,     // = 'M'
 
-        // C --> CS, CS --> S (forwarded from C), _and_ CS -> C as start ping
-        JOB_LOCAL_BEGIN, // = 'N'
-        JOB_LOCAL_DONE,
+    // C --> CS, CS --> S (forwarded from C), _and_ CS -> C as start ping
+    M_JOB_LOCAL_BEGIN, // = 'N'
+    M_JOB_LOCAL_DONE,
 
-        // CS --> S, first message sent
-        LOGIN,
-        // CS --> S (periodic)
-        STATS,
+    // CS --> S, first message sent
+    M_LOGIN,
+    // CS --> S (periodic)
+    M_STATS,
 
-        // messages between monitor and scheduler
-        MON_LOGIN,
-        MON_GET_CS,
-        MON_JOB_BEGIN, // = 'T'
-        MON_JOB_DONE,
-        MON_LOCAL_JOB_BEGIN,
-        MON_STATS,
+    // messages between monitor and scheduler
+    M_MON_LOGIN,
+    M_MON_GET_CS,
+    M_MON_JOB_BEGIN, // = 'T'
+    M_MON_JOB_DONE,
+    M_MON_LOCAL_JOB_BEGIN,
+    M_MON_STATS,
 
-        TRANFER_ENV, // = 'X'
+    M_TRANFER_ENV, // = 'X'
 
-        TEXT,
-        STATUS_TEXT, // = 'Z'
-        GET_INTERNALS,
+    M_TEXT,
+    M_STATUS_TEXT, // = 'Z'
+    M_GET_INTERNALS,
 
-        // S --> CS, answered by LOGIN
-        CS_CONF,
+    // S --> CS, answered by M_LOGIN
+    M_CS_CONF,
 
-        // C --> CS, after installing an environment
-        VERIFY_ENV,
-        // CS --> C
-        VERIFY_ENV_RESULT,
-        // C --> CS, CS --> S (forwarded from C), to not use given host for given environment
-        BLACKLIST_HOST_ENV,
-        // S --> CS
-        NO_CS
-    };
-
-    Msg() = default;
-    constexpr Msg(Value value)
-        : value_{value}
-    {}
-
-    constexpr operator Value() const { return value_; }
-    explicit operator bool() = delete;
-
-    std::basic_string<char> to_string() const {
-        switch (value_) {
-            case UNKNOWN:
-                return "UNKNOWN";
-            case PING:
-                return "PING";
-            case END:
-                return "END";
-            case TIMEOUT:
-                return "TIMEOUT";
-            case GET_NATIVE_ENV:
-                return "GET_NATIVE_ENV";
-            case NATIVE_ENV:
-                return "NATIVE_ENV";
-            case GET_CS:
-                return "GET_CS";
-            case USE_CS:
-                return "USE_CS";
-            case COMPILE_FILE:
-                return "COMPILE_FILE";
-            case FILE_CHUNK:
-                return "FILE_CHUNK";
-            case COMPILE_RESULT:
-                return "COMPILE_RESULT";
-            case JOB_BEGIN:
-                return "JOB_BEGIN";
-            case JOB_DONE:
-                return "JOB_DONE";
-            case JOB_LOCAL_BEGIN:
-                return "JOB_LOCAL_BEGIN";
-            case JOB_LOCAL_DONE:
-                return "JOB_LOCAL_DONE";
-            case LOGIN:
-                return "LOGIN";
-            case STATS:
-                return "STATS";
-            case MON_LOGIN:
-                return "MON_LOGIN";
-            case MON_GET_CS:
-                return "MON_GET_CS";
-            case MON_JOB_BEGIN:
-                return "MON_JOB_BEGIN";
-            case MON_JOB_DONE:
-                return "MON_JOB_DONE";
-            case MON_LOCAL_JOB_BEGIN:
-                return "MON_LOCAL_JOB_BEGIN";
-            case MON_STATS:
-                return "MON_STATS";
-            case TRANFER_ENV:
-                return "TRANFER_ENV";
-            case TEXT:
-                return "TEXT";
-            case STATUS_TEXT:
-                return "STATUS_TEXT";
-            case GET_INTERNALS:
-                return "GET_INTERNALS";
-            case CS_CONF:
-                return "CS_CONF";
-            case VERIFY_ENV:
-                return "VERIFY_ENV";
-            case VERIFY_ENV_RESULT:
-                return "VERIFY_ENV_RESULT";
-            case BLACKLIST_HOST_ENV:
-                return "BLACKLIST_HOST_ENV";
-            case NO_CS:
-                return "NO_CS";
-        }
-        return nullptr;
-    }
-
-    virtual ~Msg() {}
-    virtual void fill_from_channel(MsgChannel *c);
-    virtual void send_to_channel(MsgChannel *c) const;
-
-private:
-    Value value_;
+    // C --> CS, after installing an environment
+    M_VERIFY_ENV,
+    // CS --> C
+    M_VERIFY_ENV_RESULT,
+    // C --> CS, CS --> S (forwarded from C), to not use given host for given environment
+    M_BLACKLIST_HOST_ENV,
+    // S --> CS
+    M_NO_CS
 };
 
 enum Compression {
@@ -224,8 +134,23 @@ const int NODE_FEATURE_ENV_XZ = ( 1 << 0 );
 // The remote node is capable of unpacking environment compressed as .tar.zst .
 const int NODE_FEATURE_ENV_ZSTD = ( 1 << 1 );
 
+class MsgChannel;
+
 // a list of pairs of host platform, filename
 typedef std::list<std::pair<std::string, std::string> > Environments;
+
+class Msg
+{
+public:
+    Msg(enum MsgType t)
+        : type(t) {}
+    virtual ~Msg() {}
+
+    virtual void fill_from_channel(MsgChannel *c);
+    virtual void send_to_channel(MsgChannel *c) const;
+
+    enum MsgType type;
+};
 
 class MsgChannel
 {
@@ -456,21 +381,21 @@ class PingMsg : public Msg
 {
 public:
     PingMsg()
-        : Msg(Msg::PING) {}
+        : Msg(M_PING) {}
 };
 
 class EndMsg : public Msg
 {
 public:
     EndMsg()
-        : Msg(Msg::END) {}
+        : Msg(M_END) {}
 };
 
 class GetCSMsg : public Msg
 {
 public:
     GetCSMsg()
-        : Msg(Msg::GET_CS)
+        : Msg(M_GET_CS)
         , count(1)
         , arg_flags(0)
         , client_id(0)
@@ -507,10 +432,10 @@ class UseCSMsg : public Msg
 {
 public:
     UseCSMsg()
-        : Msg(Msg::USE_CS) {}
+        : Msg(M_USE_CS) {}
     UseCSMsg(std::string platform, std::string host, unsigned int p, unsigned int id, bool gotit,
              unsigned int _client_id, unsigned int matched_host_jobs)
-        : Msg(Msg::USE_CS),
+        : Msg(M_USE_CS),
           job_id(id),
           hostname(host),
           port(p),
@@ -535,9 +460,9 @@ class NoCSMsg : public Msg
 {
 public:
     NoCSMsg()
-        : Msg(Msg::NO_CS) {}
+        : Msg(M_NO_CS) {}
     NoCSMsg(unsigned int id, unsigned int _client_id)
-        : Msg(Msg::NO_CS),
+        : Msg(M_NO_CS),
           job_id(id),
           client_id(_client_id) {}
 
@@ -552,11 +477,11 @@ class GetNativeEnvMsg : public Msg
 {
 public:
     GetNativeEnvMsg()
-        : Msg(Msg::GET_NATIVE_ENV) {}
+        : Msg(M_GET_NATIVE_ENV) {}
 
     GetNativeEnvMsg(const std::string &c, const std::list<std::string> &e,
         const std::string &comp)
-        : Msg(Msg::GET_NATIVE_ENV)
+        : Msg(M_GET_NATIVE_ENV)
         , compiler(c)
         , extrafiles(e)
         , compression(comp)
@@ -574,10 +499,10 @@ class UseNativeEnvMsg : public Msg
 {
 public:
     UseNativeEnvMsg()
-        : Msg(Msg::NATIVE_ENV) {}
+        : Msg(M_NATIVE_ENV) {}
 
     UseNativeEnvMsg(std::string _native)
-        : Msg(Msg::NATIVE_ENV)
+        : Msg(M_NATIVE_ENV)
         , nativeVersion(_native) {}
 
     virtual void fill_from_channel(MsgChannel *c);
@@ -590,7 +515,7 @@ class CompileFileMsg : public Msg
 {
 public:
     CompileFileMsg(CompileJob *j, bool delete_job = false)
-        : Msg(Msg::COMPILE_FILE)
+        : Msg(M_COMPILE_FILE)
         , deleteit(delete_job)
         , job(j) {}
 
@@ -616,13 +541,13 @@ class FileChunkMsg : public Msg
 {
 public:
     FileChunkMsg(unsigned char *_buffer, size_t _len)
-        : Msg(Msg::FILE_CHUNK)
+        : Msg(M_FILE_CHUNK)
         , buffer(_buffer)
         , len(_len)
         , del_buf(false) {}
 
     FileChunkMsg()
-        : Msg(Msg::FILE_CHUNK)
+        : Msg(M_FILE_CHUNK)
         , buffer(0)
         , len(0)
         , del_buf(true) {}
@@ -646,7 +571,7 @@ class CompileResultMsg : public Msg
 {
 public:
     CompileResultMsg()
-        : Msg(Msg::COMPILE_RESULT)
+        : Msg(M_COMPILE_RESULT)
         , status(0)
         , was_out_of_memory(false)
         , have_dwo_file(false) {}
@@ -665,11 +590,11 @@ class JobBeginMsg : public Msg
 {
 public:
     JobBeginMsg()
-        : Msg(Msg::JOB_BEGIN)
+        : Msg(M_JOB_BEGIN)
         , client_count(0) {}
 
     JobBeginMsg(unsigned int j, unsigned int _client_count)
-        : Msg(Msg::JOB_BEGIN)
+        : Msg(M_JOB_BEGIN)
         , job_id(j)
         , stime(time(0))
         , client_count(_client_count) {}
@@ -741,7 +666,7 @@ class JobLocalBeginMsg : public Msg
 {
 public:
     JobLocalBeginMsg(int job_id = 0, const std::string &file = "", bool full = false)
-        : Msg(Msg::JOB_LOCAL_BEGIN)
+        : Msg(M_JOB_LOCAL_BEGIN)
         , outfile(file)
         , stime(time(0))
         , id(job_id)
@@ -760,7 +685,7 @@ class JobLocalDoneMsg : public Msg
 {
 public:
     JobLocalDoneMsg(unsigned int id = 0)
-        : Msg(Msg::JOB_LOCAL_DONE)
+        : Msg(M_JOB_LOCAL_DONE)
         , job_id(id) {}
 
     virtual void fill_from_channel(MsgChannel *c);
@@ -775,7 +700,7 @@ public:
     LoginMsg(unsigned int myport, const std::string &_nodename, const std::string &_host_platform,
              unsigned int my_features);
     LoginMsg()
-        : Msg(Msg::LOGIN)
+        : Msg(M_LOGIN)
         , port(0) {}
 
     virtual void fill_from_channel(MsgChannel *c);
@@ -795,7 +720,7 @@ class ConfCSMsg : public Msg
 {
 public:
     ConfCSMsg()
-        : Msg(Msg::CS_CONF)
+        : Msg(M_CS_CONF)
         , max_scheduler_pong(MAX_SCHEDULER_PONG)
         , max_scheduler_ping(MAX_SCHEDULER_PING) {}
 
@@ -810,7 +735,7 @@ class StatsMsg : public Msg
 {
 public:
     StatsMsg()
-        : Msg(Msg::STATS)
+        : Msg(M_STATS)
         , load(0)
         , client_count(0)
     {
@@ -842,10 +767,10 @@ class EnvTransferMsg : public Msg
 {
 public:
     EnvTransferMsg()
-        : Msg(Msg::TRANFER_ENV) {}
+        : Msg(M_TRANFER_ENV) {}
 
     EnvTransferMsg(const std::string &_target, const std::string &_name)
-        : Msg(Msg::TRANFER_ENV)
+        : Msg(M_TRANFER_ENV)
         , name(_name)
         , target(_target) {}
 
@@ -860,17 +785,17 @@ class GetInternalStatus : public Msg
 {
 public:
     GetInternalStatus()
-        : Msg(Msg::GET_INTERNALS) {}
+        : Msg(M_GET_INTERNALS) {}
 
     GetInternalStatus(const GetInternalStatus &)
-        : Msg(Msg::GET_INTERNALS) {}
+        : Msg(M_GET_INTERNALS) {}
 };
 
 class MonLoginMsg : public Msg
 {
 public:
     MonLoginMsg()
-        : Msg(Msg::MON_LOGIN) {}
+        : Msg(M_MON_LOGIN) {}
 };
 
 class MonGetCSMsg : public GetCSMsg
@@ -879,6 +804,7 @@ public:
     MonGetCSMsg()
         : GetCSMsg()
     { // overwrite
+        type = M_MON_GET_CS;
         clientid = job_id = 0;
     }
 
@@ -886,7 +812,9 @@ public:
         : GetCSMsg(Environments(), m->filename, m->lang, 1, m->target, 0, std::string(), false, m->client_count, m->niceness)
         , job_id(jobid)
         , clientid(hostid)
-    {}
+    {
+        type = M_MON_GET_CS;
+    }
 
     virtual void fill_from_channel(MsgChannel *c);
     virtual void send_to_channel(MsgChannel *c) const;
@@ -899,13 +827,13 @@ class MonJobBeginMsg : public Msg
 {
 public:
     MonJobBeginMsg()
-        : Msg(Msg::MON_JOB_BEGIN)
+        : Msg(M_MON_JOB_BEGIN)
         , job_id(0)
         , stime(0)
         , hostid(0) {}
 
     MonJobBeginMsg(unsigned int id, unsigned int time, int _hostid)
-        : Msg(Msg::MON_JOB_BEGIN)
+        : Msg(M_MON_JOB_BEGIN)
         , job_id(id)
         , stime(time)
         , hostid(_hostid) {}
@@ -923,21 +851,25 @@ class MonJobDoneMsg : public JobDoneMsg
 public:
     MonJobDoneMsg()
         : JobDoneMsg()
-    {}
+    {
+        type = M_MON_JOB_DONE;
+    }
 
     MonJobDoneMsg(const JobDoneMsg &o)
         : JobDoneMsg(o)
-    {}
+    {
+        type = M_MON_JOB_DONE;
+    }
 };
 
 class MonLocalJobBeginMsg : public Msg
 {
 public:
     MonLocalJobBeginMsg()
-        : Msg(Msg::MON_LOCAL_JOB_BEGIN) {}
+        : Msg(M_MON_LOCAL_JOB_BEGIN) {}
 
     MonLocalJobBeginMsg(unsigned int id, const std::string &_file, unsigned int time, int _hostid)
-        : Msg(Msg::MON_LOCAL_JOB_BEGIN)
+        : Msg(M_MON_LOCAL_JOB_BEGIN)
         , job_id(id)
         , stime(time)
         , hostid(_hostid)
@@ -956,10 +888,10 @@ class MonStatsMsg : public Msg
 {
 public:
     MonStatsMsg()
-        : Msg(Msg::MON_STATS) {}
+        : Msg(M_MON_STATS) {}
 
     MonStatsMsg(int id, const std::string &_statmsg)
-        : Msg(Msg::MON_STATS)
+        : Msg(M_MON_STATS)
         , hostid(id)
         , statmsg(_statmsg) {}
 
@@ -974,14 +906,14 @@ class TextMsg : public Msg
 {
 public:
     TextMsg()
-        : Msg(Msg::TEXT) {}
+        : Msg(M_TEXT) {}
 
     TextMsg(const std::string &_text)
-        : Msg(Msg::TEXT)
+        : Msg(M_TEXT)
         , text(_text) {}
 
     TextMsg(const TextMsg &m)
-        : Msg(Msg::TEXT)
+        : Msg(M_TEXT)
         , text(m.text) {}
 
     virtual void fill_from_channel(MsgChannel *c);
@@ -994,10 +926,10 @@ class StatusTextMsg : public Msg
 {
 public:
     StatusTextMsg()
-        : Msg(Msg::STATUS_TEXT) {}
+        : Msg(M_STATUS_TEXT) {}
 
     StatusTextMsg(const std::string &_text)
-        : Msg(Msg::STATUS_TEXT)
+        : Msg(M_STATUS_TEXT)
         , text(_text) {}
 
     virtual void fill_from_channel(MsgChannel *c);
@@ -1010,10 +942,10 @@ class VerifyEnvMsg : public Msg
 {
 public:
     VerifyEnvMsg()
-        : Msg(Msg::VERIFY_ENV) {}
+        : Msg(M_VERIFY_ENV) {}
 
     VerifyEnvMsg(const std::string &_target, const std::string &_environment)
-        : Msg(Msg::VERIFY_ENV)
+        : Msg(M_VERIFY_ENV)
         , environment(_environment)
         , target(_target) {}
 
@@ -1028,10 +960,10 @@ class VerifyEnvResultMsg : public Msg
 {
 public:
     VerifyEnvResultMsg()
-        : Msg(Msg::VERIFY_ENV_RESULT) {}
+        : Msg(M_VERIFY_ENV_RESULT) {}
 
     VerifyEnvResultMsg(bool _ok)
-        : Msg(Msg::VERIFY_ENV_RESULT)
+        : Msg(M_VERIFY_ENV_RESULT)
         , ok(_ok) {}
 
     virtual void fill_from_channel(MsgChannel *c);
@@ -1044,10 +976,10 @@ class BlacklistHostEnvMsg : public Msg
 {
 public:
     BlacklistHostEnvMsg()
-        : Msg(Msg::BLACKLIST_HOST_ENV) {}
+        : Msg(M_BLACKLIST_HOST_ENV) {}
 
     BlacklistHostEnvMsg(const std::string &_target, const std::string &_environment, const std::string &_hostname)
-        : Msg(Msg::BLACKLIST_HOST_ENV)
+        : Msg(M_BLACKLIST_HOST_ENV)
         , environment(_environment)
         , target(_target)
         , hostname(_hostname) {}
