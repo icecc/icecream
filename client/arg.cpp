@@ -52,7 +52,7 @@ inline bool str_equal(const char* a, const char* b)
 
 inline int str_startswith(const char *head, const char *worm)
 {
-    return !strncmp(head, worm, strlen(head));
+    return !strncmp(head, worm, strlen(worm));
 }
 
 /* Some files should always be built locally... */
