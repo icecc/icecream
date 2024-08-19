@@ -32,7 +32,7 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <poll.h>
-#include <sys/signal.h>
+#include <signal.h>
 #include <unistd.h>
 #include <errno.h>
 #include <fcntl.h>

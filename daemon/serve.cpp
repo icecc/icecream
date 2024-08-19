@@ -36,9 +36,9 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/wait.h>
-#ifdef HAVE_SYS_SIGNAL_H
-#  include <sys/signal.h>
-#endif /* HAVE_SYS_SIGNAL_H */
+#ifdef HAVE_SIGNAL_H
+#  include <signal.h>
+#endif /* HAVE_SIGNAL_H */
 #include <sys/param.h>
 #include <unistd.h>
 

@@ -22,7 +22,7 @@
 #define ICECREAM_UTIL_H
 
 #include <string>
-#include <sys/poll.h>
+#include <poll.h>
 #include <vector>
 #include <unistd.h>
 
