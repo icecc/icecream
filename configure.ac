@@ -122,7 +122,7 @@ AM_CONDITIONAL([WITH_ICECREAM_MAN], [test "x$build_man" != "xno"])
 
 # Some of these are needed by popt (or other libraries included in the future).
 
-AC_CHECK_HEADERS([sys/signal.h ifaddrs.h kinfo.h sys/param.h devstat.h])
+AC_CHECK_HEADERS([signal.h ifaddrs.h kinfo.h sys/param.h devstat.h])
 AC_CHECK_HEADERS([sys/socketvar.h sys/vfs.h])
 AC_CHECK_HEADERS([mach/host_info.h])
 AC_CHECK_HEADERS([arpa/nameser.h], [], [],
