@@ -1723,7 +1723,7 @@ static bool handle_line(CompileServer *cs, Msg *_m)
                 msg = it->get_msg();
             }
 
-            if (msg && *msg == Msg::STATUS_TEXT) {
+            if (msg && msg->type == M_STATUS_TEXT) {
                 if (!cs->send_msg(TextMsg(dynamic_cast<StatusTextMsg *>(msg)->text))) {
                     return false;
                 }
@@ -1758,17 +1758,17 @@ static bool try_login(CompileServer *cs, Msg *m)
 {
     bool ret = true;
 
-    switch (*m) {
-    case Msg::LOGIN:
+    switch (m->type) {
+    case M_LOGIN:
         cs->setType(CompileServer::DAEMON);
         ret = handle_login(cs, m);
         break;
-    case Msg::MON_LOGIN:
+    case M_MON_LOGIN:
         cs->setType(CompileServer::MONITOR);
         ret = handle_mon_login(cs, m);
         break;
     default:
-        log_info() << "Invalid first message " << m->to_string() << endl;
+        log_info() << "Invalid first message " << (char)m->type << endl;
         ret = false;
         break;
     }
@@ -1899,43 +1899,43 @@ static bool handle_activity(CompileServer *cs)
         return try_login(cs, m);
     }
 
-    switch (*m) {
-    case Msg::JOB_BEGIN:
+    switch (m->type) {
+    case M_JOB_BEGIN:
         ret = handle_job_begin(cs, m);
         break;
-    case Msg::JOB_DONE:
+    case M_JOB_DONE:
         ret = handle_job_done(cs, m);
         break;
-    case Msg::PING:
+    case M_PING:
         ret = handle_ping(cs, m);
         break;
-    case Msg::STATS:
+    case M_STATS:
         ret = handle_stats(cs, m);
         break;
-    case Msg::END:
+    case M_END:
         handle_end(cs, m);
         ret = false;
         break;
-    case Msg::JOB_LOCAL_BEGIN:
+    case M_JOB_LOCAL_BEGIN:
         ret = handle_local_job(cs, m);
         break;
-    case Msg::JOB_LOCAL_DONE:
+    case M_JOB_LOCAL_DONE:
         ret = handle_local_job_done(cs, m);
         break;
-    case Msg::LOGIN:
+    case M_LOGIN:
         ret = handle_relogin(cs, m);
         break;
-    case Msg::TEXT:
+    case M_TEXT:
         ret = handle_line(cs, m);
         break;
-    case Msg::GET_CS:
+    case M_GET_CS:
         ret = handle_cs_request(cs, m);
         break;
-    case Msg::BLACKLIST_HOST_ENV:
+    case M_BLACKLIST_HOST_ENV:
         ret = handle_blacklist_host_env(cs, m);
         break;
     default:
-        log_info() << "Invalid message type arrived " << m->to_string() << endl;
+        log_info() << "Invalid message type arrived " << (char)m->type << endl;
         handle_end(cs, m);
         ret = false;
         break;

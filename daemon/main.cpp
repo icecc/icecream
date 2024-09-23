@@ -1091,13 +1091,13 @@ bool Daemon::handle_file_chunk_env(Client *client, Msg *msg)
        the file chunk to the child, but we can't let the child
        handle MsgChannel itself due to MsgChannel's stupid
        caching layer inbetween, which causes us to lose partial
-       data after the END msg of the env transfer.  */
+       data after the M_END msg of the env transfer.  */
 
     assert(client);
     assert(client->status == Client::TOINSTALL || client->status == Client::WAITINSTALL);
     assert(client->pipe_to_child >= 0);
 
-    if (*msg == Msg::FILE_CHUNK) {
+    if (msg->type == M_FILE_CHUNK) {
         FileChunkMsg *fcmsg = static_cast<FileChunkMsg *>(msg);
         ssize_t len = fcmsg->len;
         off_t off = 0;
@@ -1129,7 +1129,7 @@ bool Daemon::handle_file_chunk_env(Client *client, Msg *msg)
         return true;
     }
 
-    if (*msg == Msg::END) {
+    if (msg->type == M_END) {
         trace() << "received end of environment, waiting for child" << endl;
         close(client->pipe_to_child);
         client->pipe_to_child = -1;
@@ -1143,7 +1143,7 @@ bool Daemon::handle_file_chunk_env(Client *client, Msg *msg)
     }
 
     // unexpected message type
-    log_error() << "protocol error while receiving environment (" << msg->to_string() << ")" << endl;
+    log_error() << "protocol error while receiving environment (" << msg->type << ")" << endl;
     handle_end(client, 138);
     return false;
 }
@@ -1176,7 +1176,7 @@ bool Daemon::handle_env_install_child_done(Client *client)
     if( !success )
         return finish_transfer_env( client, true ); // cancel
     if( client->pipe_to_child >= 0 ) {
-        // we still haven't received END message, wait for that
+        // we still haven't received M_END message, wait for that
         assert( client->status == Client::TOINSTALL );
         return true;
     }
@@ -1896,37 +1896,37 @@ bool Daemon::handle_activity(Client *client)
         return ret;
     }
 
-    switch (*msg) {
-    case Msg::GET_NATIVE_ENV:
+    switch (msg->type) {
+    case M_GET_NATIVE_ENV:
         ret = handle_get_native_env(client, dynamic_cast<GetNativeEnvMsg *>(msg));
         break;
-    case Msg::COMPILE_FILE:
+    case M_COMPILE_FILE:
         ret = handle_compile_file(client, msg);
         break;
-    case Msg::TRANFER_ENV:
+    case M_TRANFER_ENV:
         ret = handle_transfer_env(client, dynamic_cast<EnvTransferMsg*>(msg));
         break;
-    case Msg::GET_CS:
+    case M_GET_CS:
         ret = handle_get_cs(client, msg);
         break;
-    case Msg::END:
+    case M_END:
         handle_end(client, 119);
         ret = false;
         break;
-    case Msg::JOB_LOCAL_BEGIN:
+    case M_JOB_LOCAL_BEGIN:
         ret = handle_local_job(client, msg);
         break;
-    case Msg::JOB_DONE:
+    case M_JOB_DONE:
         ret = handle_job_done(client, dynamic_cast<JobDoneMsg *>(msg));
         break;
-    case Msg::VERIFY_ENV:
+    case M_VERIFY_ENV:
         ret = handle_verify_env(client, dynamic_cast<VerifyEnvMsg *>(msg));
         break;
-    case Msg::BLACKLIST_HOST_ENV:
+    case M_BLACKLIST_HOST_ENV:
         ret = handle_blacklist_host_env(client, msg);
         break;
     default:
-        log_error() << "protocol error " << msg->to_string() << " on client "
+        log_error() << "protocol error " << msg->type << " on client "
                     << client->dump() << endl;
         client->channel->send_msg(EndMsg());
         handle_end(client, 120);
@@ -2065,28 +2065,28 @@ void Daemon::answer_client_requests()
 
                 ret = 0;
 
-                switch (*msg) {
-                case Msg::PING:
+                switch (msg->type) {
+                case M_PING:
 
                     if (!IS_PROTOCOL_VERSION(27, scheduler)) {
                         ret = !send_scheduler(PingMsg());
                     }
 
                     break;
-                case Msg::USE_CS:
+                case M_USE_CS:
                     ret = scheduler_use_cs(static_cast<UseCSMsg *>(msg));
                     break;
-                case Msg::NO_CS:
+                case M_NO_CS:
                     ret = scheduler_no_cs(static_cast<NoCSMsg *>(msg));
                     break;
-                case Msg::GET_INTERNALS:
+                case M_GET_INTERNALS:
                     ret = scheduler_get_internals();
                     break;
-                case Msg::CS_CONF:
+                case M_CS_CONF:
                     ret = handle_cs_conf(static_cast<ConfCSMsg *>(msg));
                     break;
                 default:
-                    log_error() << "unknown scheduler type " << msg->to_string() << endl;
+                    log_error() << "unknown scheduler type " << (char)msg->type << endl;
                     ret = 1;
                 }
 
