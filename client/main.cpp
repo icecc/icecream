@@ -496,7 +496,7 @@ int main(int argc, char **argv)
 
             string native;
 
-            if (umsg && *umsg == Msg::NATIVE_ENV) {
+            if (umsg && umsg->type == M_NATIVE_ENV) {
                 native = static_cast<UseNativeEnvMsg*>(umsg)->nativeVersion;
             }
 
@@ -600,7 +600,7 @@ int main(int argc, char **argv)
 
         /* If we can't talk to the daemon anymore we need to fall back
            to lock file locking.  */
-        if (!startme || *startme != Msg::JOB_LOCAL_BEGIN) {
+        if (!startme || startme->type != M_JOB_LOCAL_BEGIN) {
             delete startme;
             delete local_daemon;
             return build_local(job, nullptr);

@@ -707,7 +707,7 @@ void MsgChannel::set_error(bool silent)
         // so try to fetch last status from the other side, if available.
         set_error_recursion = true;
         Msg* msg = get_msg( 2, true );
-        if (msg && *msg == Msg::STATUS_TEXT) {
+        if (msg && msg->type == M_STATUS_TEXT) {
             log_error() << "remote status: "
                 << static_cast<StatusTextMsg*>(msg)->text << endl;
         }
@@ -1144,7 +1144,7 @@ bool MsgChannel::wait_for_msg(int timeout)
 Msg *MsgChannel::get_msg(int timeout, bool eofAllowed)
 {
     Msg *m = nullptr;
-    Msg::Value type;
+    enum MsgType type;
 
     if (!wait_for_msg(timeout)) {
         // trace() << "!wait_for_msg()\n";
@@ -1171,108 +1171,108 @@ Msg *MsgChannel::get_msg(int timeout, bool eofAllowed)
     size_t intogo_old = intogo;
 
     if (text_based) {
-        type = Msg::TEXT;
+        type = M_TEXT;
     } else {
         uint32_t t;
         *this >> t;
-        type = (Msg::Value) t;
+        type = (enum MsgType) t;
     }
 
     switch (type) {
-    case Msg::UNKNOWN:
+    case M_UNKNOWN:
         set_error();
         return nullptr;
-    case Msg::PING:
+    case M_PING:
         m = new PingMsg;
         break;
-    case Msg::END:
+    case M_END:
         m = new EndMsg;
         break;
-    case Msg::GET_CS:
+    case M_GET_CS:
         m = new GetCSMsg;
         break;
-    case Msg::USE_CS:
+    case M_USE_CS:
         m = new UseCSMsg;
         break;
-    case Msg::NO_CS:
+    case M_NO_CS:
         m = new NoCSMsg;
         break;
-    case Msg::COMPILE_FILE:
+    case M_COMPILE_FILE:
         m = new CompileFileMsg(new CompileJob, true);
         break;
-    case Msg::FILE_CHUNK:
+    case M_FILE_CHUNK:
         m = new FileChunkMsg;
         break;
-    case Msg::COMPILE_RESULT:
+    case M_COMPILE_RESULT:
         m = new CompileResultMsg;
         break;
-    case Msg::JOB_BEGIN:
+    case M_JOB_BEGIN:
         m = new JobBeginMsg;
         break;
-    case Msg::JOB_DONE:
+    case M_JOB_DONE:
         m = new JobDoneMsg;
         break;
-    case Msg::LOGIN:
+    case M_LOGIN:
         m = new LoginMsg;
         break;
-    case Msg::STATS:
+    case M_STATS:
         m = new StatsMsg;
         break;
-    case Msg::GET_NATIVE_ENV:
+    case M_GET_NATIVE_ENV:
         m = new GetNativeEnvMsg;
         break;
-    case Msg::NATIVE_ENV:
+    case M_NATIVE_ENV:
         m = new UseNativeEnvMsg;
         break;
-    case Msg::MON_LOGIN:
+    case M_MON_LOGIN:
         m = new MonLoginMsg;
         break;
-    case Msg::MON_GET_CS:
+    case M_MON_GET_CS:
         m = new MonGetCSMsg;
         break;
-    case Msg::MON_JOB_BEGIN:
+    case M_MON_JOB_BEGIN:
         m = new MonJobBeginMsg;
         break;
-    case Msg::MON_JOB_DONE:
+    case M_MON_JOB_DONE:
         m = new MonJobDoneMsg;
         break;
-    case Msg::MON_STATS:
+    case M_MON_STATS:
         m = new MonStatsMsg;
         break;
-    case Msg::JOB_LOCAL_BEGIN:
+    case M_JOB_LOCAL_BEGIN:
         m = new JobLocalBeginMsg;
         break;
-    case Msg::JOB_LOCAL_DONE :
+    case M_JOB_LOCAL_DONE :
         m = new JobLocalDoneMsg;
         break;
-    case Msg::MON_LOCAL_JOB_BEGIN:
+    case M_MON_LOCAL_JOB_BEGIN:
         m = new MonLocalJobBeginMsg;
         break;
-    case Msg::TRANFER_ENV:
+    case M_TRANFER_ENV:
         m = new EnvTransferMsg;
         break;
-    case Msg::TEXT:
+    case M_TEXT:
         m = new TextMsg;
         break;
-    case Msg::GET_INTERNALS:
+    case M_GET_INTERNALS:
         m = new GetInternalStatus;
         break;
-    case Msg::STATUS_TEXT:
+    case M_STATUS_TEXT:
         m = new StatusTextMsg;
         break;
-    case Msg::CS_CONF:
+    case M_CS_CONF:
         m = new ConfCSMsg;
         break;
-    case Msg::VERIFY_ENV:
+    case M_VERIFY_ENV:
         m = new VerifyEnvMsg;
         break;
-    case Msg::VERIFY_ENV_RESULT:
+    case M_VERIFY_ENV_RESULT:
         m = new VerifyEnvResultMsg;
         break;
-    case Msg::BLACKLIST_HOST_ENV:
+    case M_BLACKLIST_HOST_ENV:
         m = new BlacklistHostEnvMsg;
         break;
-    case Msg::TIMEOUT:
+    case M_TIMEOUT:
         break;
     }
 
@@ -1286,7 +1286,7 @@ Msg *MsgChannel::get_msg(int timeout, bool eofAllowed)
 
     if (!text_based) {
         if( intogo - intogo_old != inmsglen ) {
-            log_error() << "internal error - message (" << m->to_string() << ") not read correctly, message size " << inmsglen
+            log_error() << "internal error - message not read correctly, message size " << inmsglen
                 << " read " << (intogo - intogo_old) << endl;
             delete m;
             set_error();
@@ -1920,7 +1920,7 @@ void Msg::send_to_channel(MsgChannel *c) const
         return;
     }
 
-    *c << (uint32_t) *this;
+    *c << (uint32_t) type;
 }
 
 GetCSMsg::GetCSMsg(const Environments &envs, const std::string &f,
@@ -1930,7 +1930,7 @@ GetCSMsg::GetCSMsg(const Environments &envs, const std::string &f,
      unsigned int _required_features,
      int _niceness,
      unsigned int _client_count)
-    : Msg(Msg::GET_CS)
+    : Msg(M_GET_CS)
     , versions(envs)
     , filename(f)
     , lang(_lang)
@@ -2312,7 +2312,7 @@ void JobLocalDoneMsg::send_to_channel(MsgChannel *c) const
 }
 
 JobDoneMsg::JobDoneMsg(int id, int exit, unsigned int _flags, unsigned int _client_count)
-    : Msg(Msg::JOB_DONE)
+    : Msg(M_JOB_DONE)
     , exitcode(exit)
     , flags(_flags)
     , job_id(id)
@@ -2399,7 +2399,7 @@ void JobDoneMsg::set_job_id( uint32_t jobId )
 
 LoginMsg::LoginMsg(unsigned int myport, const std::string &_nodename, const std::string &_host_platform,
     unsigned int myfeatures)
-    : Msg(Msg::LOGIN)
+    : Msg(M_LOGIN)
     , port(myport)
     , max_kids(0)
     , noremote(false)
