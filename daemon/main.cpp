@@ -2017,11 +2017,11 @@ void Daemon::answer_client_requests()
         pfd.fd = scheduler->fd;
         pfd.events = POLLIN;
         pollfds.push_back(pfd);
-    } else if (discover && discover->listen_fd() >= 0) {
+    } else if (discover && (discover->listen_fd() >= 0 || discover->connect_fd() >= 0)) {
         /* We don't explicitely check for discover->get_fd() being in
         the selected set below.  If it's set, we simply will return
         and our call will make sure we try to get the scheduler.  */
-        pfd.fd = discover->listen_fd();
+        pfd.fd = discover->listen_fd() >= 0 ? discover->listen_fd() : discover->connect_fd();
         pfd.events = POLLIN;
         pollfds.push_back(pfd);
     }
