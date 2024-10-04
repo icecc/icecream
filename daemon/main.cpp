@@ -2349,7 +2349,7 @@ int main(int argc, char **argv)
                     int mb = atoi(optarg);
 
                     if (!errno) {
-                        cache_size_limit = mb * 1024 * 1024;
+                        cache_size_limit = mb * 1024L * 1024;
                     }
                 } else {
                     usage("Error: --cache-limit requires argument");
