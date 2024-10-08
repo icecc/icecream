@@ -61,6 +61,26 @@ string find_prefix(const string &basename)
     return basename.substr(0, index);
 }
 
+std::string get_cwd()
+{
+    static std::vector<char> buffer(1024);
+
+    errno = 0;
+    while (getcwd(&buffer[0], buffer.size() - 1) == nullptr && errno == ERANGE) {
+        buffer.resize(buffer.size() + 1024);
+        errno = 0;
+    }
+    if (errno != 0)
+        return std::string();
+
+    return string(&buffer[0]);
+}
+
+bool is_path_absolute(const std::string &path)
+{
+    return !path.empty() && path[0] == '/';
+}
+
 /*
  We support these compilers:
  - cc/c++
