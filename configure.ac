@@ -135,6 +135,7 @@ AC_CHECK_HEADERS([resolv.h], [], [],
 # include <arpa/nameser.h>
 #endif
 ])
+AC_CHECK_HEADERS([sched.h], [AC_CHECK_FUNCS([unshare])])
 
 AC_CHECK_HEADERS([netinet/tcp_var.h], [], [],
 [#include <sys/types.h>
