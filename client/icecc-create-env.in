@@ -105,6 +105,11 @@ add_file ()
   is_add_file_duplicate "$name" && return
   add_file_duplicates="$add_file_duplicates $name"
 
+  # If the target name is not a full path, then it's a symlink in the same dir as "path".
+  # So prepend the (unresolved) path's directory to the name.
+  if [ $(dirname "$name") = "." ]; then
+      name="$(dirname "$path")/$name"
+  fi
   path=$(resolve_path $path)
   name=$(convert_path_cdup $name)
   if test -n "$stripprefix"; then
@@ -121,18 +126,28 @@ add_file ()
     # Only call ldd when it makes sense
     if file -L "$path" | grep 'ELF' > /dev/null 2>&1; then
 	if ! file -L "$path" | grep 'static' > /dev/null 2>&1; then
-	   # ldd now outputs ld as /lib/ld-linux.so.xx on current nptl based glibc
-		# this regexp parse the outputs like:
-		# ldd /usr/bin/gcc
-		#         linux-gate.so.1 =>  (0xffffe000)
-		#         libc.so.6 => /lib/tls/libc.so.6 (0xb7e81000)
-		#         /lib/ld-linux.so.2 (0xb7fe8000)
-		# covering both situations ( with => and without )
-           local lib
-           for lib in $(ldd "$path" | sed -n 's,^[^/]*\(/[^ ]*\).*,\1,p'); do
-	      test -f "$lib" || continue
-	      # Check whether the same library also exists in the parent directory,
+          # The next regexp parses output from ldd, like the following selected
+          # lines from different ldd versions:
+          #     linux-gate.so.1 =>  (0xffffe000)
+          #     linux-vdso.so.1 (0x00007ffe1fd15000)
+          #     /lib/ld-linux.so.2 (0xb7fe8000)
+          #     libclang-cpp.so.17 => /lib64/libclang-cpp.so.17 (0x00007f6264400000)
+          #     libz.so.1 => /lib64/glibc-hwcaps/x86-64-v3/libz.so.1.3 (0x00007f626850b000)
+          # The first two lines are not real files, and should be discarded.
+          # Notice how in the last line, the target version (left) is 1, while on the
+          #   right it is 1.3. This should be properly handled.
+          # Also in the last line, the final path should be changed to replace th
+          #   "glibc-hwcaps" path with the generic /lib64.
+          local ldd_pair target lib
+          for ldd_pair in \
+              $(ldd "$path" | sed -n -E 's,^\s+(([^/][^ ]+) => |)([^ ]+).*,\2=\3,p')
+          do
+              target=$(echo $ldd_pair | cut -d= -f1)
+              lib=$(echo    $ldd_pair | cut -d= -f2)
+              test -f "$lib" || continue    # skip linux-vdso.so.1 and similar
+	      # Check whether the same library also exists in 1st level directory,
 	      # and prefer that on the assumption that it is a more generic one.
+              # This way we avoid shipping libraries in "glibc-hwcaps".
 	      local baselib=$(echo "$lib" | sed 's,\(/[^/]*\)/.*\(/[^/]*\)$,\1\2,')
               usebaselib=
               if test "$baselib" != "$lib" -a -f "$baselib"; then
@@ -145,11 +160,11 @@ add_file ()
               fi
               if test -n "$usebaselib"; then
                 lib=$baselib
-                add_file "$lib"
+                add_file "$lib" $target
               else
                 # Optimization: We are adding a library we got from ldd output, so avoid
                 # using ldd on it, as it should not find more than this ldd.
-                add_file "skipldd" "$lib"
+                add_file "skipldd" "$lib" $target
               fi
 
               # Add the non-hwcaps, non-haswell and non-avx512_1 libraries too
