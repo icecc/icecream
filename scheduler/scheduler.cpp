@@ -2353,7 +2353,7 @@ int main(int argc, char *argv[])
 
     time_t next_listen = 0;
 
-    Broadcasts::broadcastSchedulerVersion(scheduler_port, netname, starttime);
+    Broadcasts::broadcastSchedulerVersion(scheduler_interface, scheduler_port, netname, starttime);
     last_announce = starttime;
 
     while (!exit_main_loop) {
@@ -2367,7 +2367,7 @@ int main(int argc, char *argv[])
            their daemons if we are the preferred scheduler (daemons with version new enough
            should automatically select the best scheduler, but old daemons connect randomly). */
         if (last_announce + 120 < time(nullptr)) {
-            Broadcasts::broadcastSchedulerVersion(scheduler_port, netname, starttime);
+            Broadcasts::broadcastSchedulerVersion(scheduler_interface, scheduler_port, netname, starttime);
             last_announce = time(nullptr);
         }
 
