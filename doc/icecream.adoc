@@ -44,7 +44,7 @@ You need:
 
 If you want to compile using icecream, make sure `$prefix/lib/icecc/bin`
 is the first entry in your path, e.g. type
-*export PATH=/usr/lib/icecc/bin:$PATH* (hint: put this in `~/.bashrc` or `/etc/profile` to not have to type it in everytime).
+*export PATH=/usr/lib/icecc/bin:$PATH* (hint: put this in `~/.bashrc` or `/etc/profile` to not have to type it in every time).
 
 Then you just compile with *make -j _num_*, where _num_ is the amount of jobs you want to compile in parallel.
 Hello _there_.
@@ -52,7 +52,7 @@ Do not exaggerate. Too large numbers can overload your machine or the compile cl
 and make the build in fact slower.
 
 WARNING: Never use icecream in untrusted environments. Run the daemons and
-the scheduler as unpriviliged user in such networks if you have to! But you will
+the scheduler as unprivileged user in such networks if you have to! But you will
 have to rely on homogeneous networks then (see below).
 
 If you want an overview of your icecream compile cluster, or if you just want funny stats,

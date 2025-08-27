@@ -81,7 +81,7 @@ first entry in your path, e.g. type
      export PATH=/usr/lib/icecc/bin:$PATH
 
 (Hint: put this in `~/.bashrc` or `/etc/profile` to not have to type it in
-everytime.)
+every time.)
 
 Then you just compile with make -j \<num\>, where
 \<num\> is the amount of jobs you want to compile in parallel.
