@@ -263,9 +263,7 @@ bool MsgChannel::update_state()
             (*this) >> inmsglen;
 
             if (inmsglen > MAX_MSG_SIZE) {
-                log_error() << "received a too large message (size " << inmsglen << "), ignoring" << endl;
-                set_error();
-                return false;
+                log_warning() << "received a too large message (size " << inmsglen << ")" << endl;
             }
 
             if (inbuflen - intogo < inmsglen) {
@@ -1319,9 +1317,7 @@ bool MsgChannel::send_msg(const Msg &m, int flags)
         m.send_to_channel(this);
         uint32_t out_len = msgtogo - msgtogo_old - 4;
         if(out_len > MAX_MSG_SIZE) {
-            log_error() << "internal error - size of message to write exceeds max size:" << out_len << endl;
-            set_error();
-            return false;
+            log_warning() << "size of message to write exceeds max size:" << out_len << endl;
         }
         uint32_t len = htonl(out_len);
         memcpy(msgbuf + msgtogo_old, &len, 4);
