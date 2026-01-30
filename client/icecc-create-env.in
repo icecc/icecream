@@ -451,11 +451,21 @@ fi
 tempdir=$(mktemp -d /tmp/iceccenvXXXXXX)
 
 # for testing the environment is usable at all
-if test -x /bin/true; then
-    add_file /bin/true
-elif test -x /usr/bin/true; then
-    add_file /usr/bin/true /bin/true
+bintrue=/bin/true
+if ! test -x "$bintrue"; then
+    bintrue=/usr/bin/true
 fi
+
+if test -x /sbin/ldconfig -a "$is_linux" = 1; then
+    # find the dynamic loader
+    dyld=`ldd "$bintrue" | sed -n '/ld-linux/s,^[^/]*\(/[^ ]*\).*,\1,p'`
+    if test -x "$dyld"; then
+        # replace ldd with a function so we can inhibit the cache
+        function ldd() { LD_TRACE_LOADED_OBJECTS=1 $dyld --inhibit-cache "$@"; }
+    fi
+fi
+
+add_file "$bintrue" /bin/true
 
 if test -n "$gcc"; then
     # getting compilers resolved path
