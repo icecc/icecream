@@ -144,8 +144,7 @@ add_file ()
                 fi
               fi
               if test -n "$usebaselib"; then
-                lib=$baselib
-                add_file "$lib"
+                add_file "skipldd" "$baselib"
               else
                 # Optimization: We are adding a library we got from ldd output, so avoid
                 # using ldd on it, as it should not find more than this ldd.
@@ -168,14 +167,14 @@ add_file ()
                  local lib_non_hwcaps=$(echo "$lib" | sed 's,/glibc-hwcaps/.*/,/,')
                  local lib_basename=${lib##*/}
                  if [ "$lib" != "$lib_non_hwcaps" ] && [ -f "$lib_non_hwcaps" ]; then
-                   add_file "$lib_non_hwcaps"
+                   add_file skipldd "$lib_non_hwcaps"
                  fi
 
                  # Add the other hwcaps too
                  local hwcaplib
                  for hwcaplib in ${lib_non_hwcaps%$lib_basename}/glibc-hwcaps/*/$lib_basename; do
                    if [ "$lib" != "$hwcaplib" ]; then
-                     add_file $hwcaplib
+                     add_file skipldd $hwcaplib
                    fi
                  done
                  ;;
