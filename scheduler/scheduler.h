@@ -27,13 +27,6 @@
 // Values 0 to 3.
 #define DEBUG_SCHEDULER 0
 
-// The weight the "fastest" scheduler places on using a
-// server with recent statistics over one that has not
-// been used for a while. Values 0 - 128, with higher
-// values meaning the "fastest" servers are used more
-// often.
-#define STATS_UPDATE_WEIGHT 120
-
 #include <iostream>
 #include <string>
 

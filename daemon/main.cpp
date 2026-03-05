@@ -314,8 +314,8 @@ public:
         uint32_t min_niceness = std::numeric_limits<uint32_t>::max();
 
         for (auto it : *this) {
-            if (it.second->status == s && (!min_client_id || min_client_id > it.second->client_id)
-                && it.second->niceness < min_niceness ) {
+            if ( (it.second->status == s) 
+            && ((it.second->niceness < min_niceness) || ((it.second->niceness == min_niceness) && (it.second->client_id < min_client_id))) ) {
                 client = it.second;
                 min_client_id = client->client_id;
                 min_niceness = client->niceness;

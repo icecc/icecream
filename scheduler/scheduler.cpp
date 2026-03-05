@@ -801,20 +801,13 @@ static CompileServer *pick_server_fastest(Job *job, list<CompileServer *> &eligi
                 " client count: " << cs->clientCount() << endl;
 #endif
 
-        // Some portion of the selection will go to a host that has not been selected
-        // in a while so we can maintain reasonably up-to-date statistics. The greater
-        // the weight, the less likely this is to happen.
-        uint8_t weight_limit = std::numeric_limits<uint8_t>::max() - STATS_UPDATE_WEIGHT;
-        uint8_t weight_factor = weight_limit / std::numeric_limits<uint8_t>::max();
-
-        // Job IDs are assigned from a monotonically increasing sequence by the
-        // scheduler, and each compile server records the ID of the last job it
-        // ran. We use that here to determine whether a job should simply run on
-        // the "next" host that hasn't seen a job for a long time.
-        if (weight_factor > 0 && (!cs->lastPickedId() ||
-            ((job->id() - cs->lastPickedId()) > (weight_factor * eligible.size())))) {
-            best = cs;
-            break;
+        /* Distribute 5% of our jobs to servers which haven't been picked in a
+        long time. This gives us a chance to adjust the server speed rating,
+        which may change due to external influences out of our control. */
+        if (!cs->lastPickedId() ||
+            ((job->id() - cs->lastPickedId()) > (20 * css.size()))) {
+             best = cs;
+             break;
         }
 
         if (!envs_match(cs, job).empty()) {
@@ -1244,12 +1237,17 @@ static bool handle_login(CompileServer *cs, Msg *_m)
 
     handle_monitor_stats(cs);
 
-    /* remove any other clients with the same IP and name, they must be stale */
+    // remove any other clients with the same IP and name, they must be stale.
+    // In this case, postpone connection test for 5 minutes to prevent
+    // scheduling jobs to servers with unstable connections.
     for (list<CompileServer *>::iterator it = css.begin(); it != css.end();) {
         if (cs->eq_ip(*(*it)) && cs->nodeName() == (*it)->nodeName()) {
             CompileServer *old = *it;
             ++it;
             handle_end(old, nullptr);
+            if (!cs->noRemote()) {
+                cs->setNextConnTime(time(nullptr) + 5*60);
+            }
             continue;
         }
 
