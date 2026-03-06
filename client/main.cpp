@@ -121,6 +121,15 @@ static void icerun_show_usage()
         "\n");
 }
 
+static int get_niceness()
+{
+    errno = 0;
+    int niceness = getpriority( PRIO_PROCESS, getpid());
+    if( niceness == -1 && errno != 0 )
+        niceness = 0;
+    return niceness;
+}
+
 volatile bool local = false;
 
 static void dcc_client_signalled(int whichsig)
@@ -591,7 +600,7 @@ int main(int argc, char **argv)
         Msg *startme = nullptr;
 
         /* Inform the daemon that we like to start a job.  */
-        if (local_daemon->send_msg(JobLocalBeginMsg(0, get_absfilename(job.outputFile()),fulljob))) {
+        if (local_daemon->send_msg(JobLocalBeginMsg(0, get_absfilename(job.outputFile()),fulljob,get_niceness()))) {
             /* Now wait until the daemon gives us the start signal.  40 minutes
                should be enough for all normal compile or link jobs, but with expensive jobs
                (which fulljobs may likely be, e.g. LTO linking) use an even larger timeout.  */

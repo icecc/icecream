@@ -1872,6 +1872,7 @@ bool Daemon::handle_local_job(Client *client, Msg *msg)
 {
     JobLocalBeginMsg* m = dynamic_cast<JobLocalBeginMsg *>(msg);
     client->status = Client::LINKJOB;
+    client->niceness = m->niceness;
     client->outfile = m->outfile;
     client->fulljob = m->fulljob;
     return true;
