@@ -348,6 +348,14 @@ int analyse_argv(const char * const *argv, CompileJob &job, bool icerun, list<st
                 args.append(a, Arg_Local);
                 /* These two generate dependencies as a side effect.  They
                  * should work with the way we call cpp. */
+                if (str_startswith("-Wp,-MD", a) || str_startswith("-Wp,-MMD", a)) {
+                    /* When -Wp,-MD or -Wp,-MMD includes a filename */
+                    const char* comma = strchr(a + 7, ',');
+                    if (comma != nullptr) {
+                        seen_mf = true;
+                        /* we saw the filename so don't add additional -MF */
+                    }
+                }
             } else if (!strcmp(a, "-MG") || !strcmp(a, "-MP")) {
                 args.append(a, Arg_Local);
                 /* These just modify the behaviour of other -M* options and do
