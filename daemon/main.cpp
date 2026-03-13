@@ -2237,7 +2237,7 @@ bool Daemon::reconnect()
 
     if (!discover || (nullptr == (scheduler = discover->try_get_scheduler()) && discover->timed_out())) {
         delete discover;
-        discover = new DiscoverSched(netname, max_scheduler_pong, schedname, scheduler_port);
+        discover = new DiscoverSched(daemon_interface, netname, max_scheduler_pong, schedname, scheduler_port);
     }
 
     if (!scheduler) {
@@ -2602,7 +2602,7 @@ int main(int argc, char **argv)
         return 1;
     }
 
-    list<string> nl = get_netnames(200, d.scheduler_port);
+    list<string> nl = get_netnames(d.daemon_interface, 200, d.scheduler_port);
     trace() << "Netnames:" << endl;
 
     for (list<string>::const_iterator it = nl.begin(); it != nl.end(); ++it) {
