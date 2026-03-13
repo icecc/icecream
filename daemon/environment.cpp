@@ -33,6 +33,9 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <signal.h>
+#ifdef HAVE_SCHED_H
+#include <sched.h>
+#endif
 
 #include "comm.h"
 #include "exitcode.h"
@@ -667,6 +670,29 @@ error_client(MsgChannel *client, string error)
 
 void chdir_to_environment(MsgChannel *client, const string &dirname, uid_t user_uid, gid_t user_gid)
 {
+#ifdef HAVE_UNSHARE
+    int flags = 0;
+#  ifdef CLONE_NEWIPC
+    flags |= CLONE_NEWIPC;
+#  endif
+#  ifdef CLONE_NEWNET
+    flags |= CLONE_NEWNET;
+#  endif
+#  ifdef CLONE_NEWNS
+    flags |= CLONE_NEWNS;    // mount namespace
+#  endif
+#  ifdef CLONE_NEWPID
+    flags |= CLONE_NEWPID;
+#  endif
+#  ifdef CLONE_NEWUSER
+    flags |= CLONE_NEWUSER;
+#  endif
+#  ifdef CLONE_NEWUTS
+    flags |= CLONE_NEWUTS;
+#  endif
+    (void) unshare(flags);
+#endif
+
 #ifdef HAVE_LIBCAP_NG
 
     if (chdir(dirname.c_str()) < 0) {
