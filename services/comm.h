@@ -40,11 +40,11 @@
 // if you increase the MIN_PROTOCOL_VERSION, comment out macros below and clean up the code
 #define MIN_PROTOCOL_VERSION 21
 
-#define MAX_SCHEDULER_PONG 3
+#define MAX_SCHEDULER_PONG (!MsgChannel::slow_network() ? 3 : 300)
 // MAX_SCHEDULER_PING must be multiple of MAX_SCHEDULER_PONG
 #define MAX_SCHEDULER_PING 12 * MAX_SCHEDULER_PONG
 // maximum amount of time in seconds a daemon can be busy installing
-#define MAX_BUSY_INSTALLING 120
+#define MAX_BUSY_INSTALLING (!MsgChannel::slow_network() ? 120 : 10 * 60 * 60)
 
 // comparison for protocol version checks
 #define IS_PROTOCOL_VERSION(x, c) ((c)->protocol >= (x))
@@ -283,6 +283,8 @@ public:
     MsgChannel &operator<<(uint32_t);
     MsgChannel &operator<<(const std::string &);
     MsgChannel &operator<<(const std::list<std::string> &);
+
+    static bool slow_network();
 
     // our filedesc
     int fd;
