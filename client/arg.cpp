@@ -312,6 +312,7 @@ int analyse_argv(const char * const *argv, CompileJob &job, bool icerun, list<st
     bool wunused_macros = false;
     bool seen_arch = false;
     bool seen_pedantic = false;
+    bool seen_imacros = false;
     bool seen_march_native = false;
     bool seen_mcpu_native = false;
     bool seen_mtune_native = false;
@@ -554,6 +555,9 @@ int analyse_argv(const char * const *argv, CompileJob &job, bool icerun, list<st
                        || str_equal("-iwithprefixbefore", a)
                        || str_equal("--include-with-prefix-before", a)
                        || str_equal("-iwithsysroot", a)) {
+                if (str_equal("-imacros", a)) {
+                    seen_imacros = true;
+                }
                 args.append(a, Arg_Local);
 
                 assert( is_argument_with_space( a ));
@@ -885,6 +889,12 @@ int analyse_argv(const char * const *argv, CompileJob &job, bool icerun, list<st
     // if -Wunused-macros is used (https://bugs.llvm.org/show_bug.cgi?id=15614). It's a question
     // if this could possibly even work, given that macros may be used as filenames for #include directives.
     if( wunused_macros ) {
+        job.setBlockRewriteIncludes(true);
+    }
+
+    // -imacros doesn't define any macros when used with remote preprocessing
+    if ( seen_imacros ) {
+        log_warning() << "argument -imacros, forcing local preprocessing" << endl;
         job.setBlockRewriteIncludes(true);
     }
 
