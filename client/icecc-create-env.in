@@ -580,6 +580,7 @@ for i in $target_files; do
 done
 
 if test -x /sbin/ldconfig -a "$is_linux" = 1; then
+   mkdir -p $tempdir/etc
    mkdir -p $tempdir/var/cache/ldconfig
    /sbin/ldconfig -r $tempdir
    for candidate in etc var/cache/ldconfig; do
