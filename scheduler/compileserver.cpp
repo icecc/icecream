@@ -550,7 +550,7 @@ void CompileServer::updateInConnectivity(bool acceptingIn)
         64,  128,  256,   512,  1024,
         2048, 4096
     };
-    static const size_t table_size = sizeof(time_offset_table);
+    static const size_t table_size = sizeof(time_offset_table) / sizeof(time_offset_table[0]);
 
     //On a successful connection, we should still check back every 1min
     static const time_t check_back_time = 60;
