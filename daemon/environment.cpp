@@ -43,6 +43,8 @@
 
 using namespace std;
 
+bool use_chroot = true;
+
 size_t sumup_dir(const string &dir)
 {
     size_t res = 0;
@@ -68,7 +70,7 @@ size_t sumup_dir(const string &dir)
 
         if (S_ISDIR(st.st_mode)) {
             res += sumup_dir(tdir + ent->d_name);
-        } else if (S_ISREG(st.st_mode)) {
+        } else if (S_ISREG(st.st_mode) || S_ISLNK(st.st_mode)) {
             res += st.st_size;
         }
 
@@ -483,19 +485,21 @@ pid_t start_install_environment(const std::string &basename, const std::string &
     // else
 #ifndef HAVE_LIBCAP_NG
 
-    if (setgroups(0, NULL) < 0) {
-        log_perror("setgroups fails");
-        _exit(143);
-    }
+    if (!geteuid()) {
+        if (setgroups(0, NULL) < 0) {
+            log_perror("setgroups fails");
+            _exit(143);
+        }
 
-    if (setgid(user_gid) < 0) {
-        log_perror("setgid fails");
-        _exit(143);
-    }
+        if (setgid(user_gid) < 0) {
+            log_perror("setgid fails");
+            _exit(143);
+        }
 
-    if (!geteuid() && setuid(user_uid) < 0) {
-        log_perror("setuid fails");
-        _exit(142);
+        if (setuid(user_uid) < 0) {
+            log_perror("setuid fails");
+            _exit(142);
+        }
     }
 
 #endif
@@ -667,39 +671,32 @@ error_client(MsgChannel *client, string error)
 
 void chdir_to_environment(MsgChannel *client, const string &dirname, uid_t user_uid, gid_t user_gid)
 {
-#ifdef HAVE_LIBCAP_NG
+#ifndef HAVE_LIBCAP_NG
+    if (use_chroot && getuid() != 0) {
+        error_client(client, "cannot chroot to environment");
+        _exit(146);
+    }
+#endif
 
+    // without the chdir, the chroot will escape the
+    // jail right away
     if (chdir(dirname.c_str()) < 0) {
         error_client(client, string("chdir to ") + dirname + "failed");
         log_perror("chdir() failed") << "\t" << dirname << endl;
         _exit(145);
     }
 
-    if (chroot(dirname.c_str()) < 0) {
+    if (use_chroot && chroot(dirname.c_str()) < 0) {
         error_client(client, string("chroot ") + dirname + "failed");
         log_perror("chroot() failed") << "\t" << dirname << endl;
         _exit(144);
     }
 
+#ifdef HAVE_LIBCAP_NG
     (void) user_uid;
     (void) user_gid;
 #else
-
     if (getuid() == 0) {
-        // without the chdir, the chroot will escape the
-        // jail right away
-        if (chdir(dirname.c_str()) < 0) {
-            error_client(client, string("chdir to ") + dirname + "failed");
-            log_perror("chdir() failed") << "\t" << dirname << endl;
-            _exit(145);
-        }
-
-        if (chroot(dirname.c_str()) < 0) {
-            error_client(client, string("chroot ") + dirname + "failed");
-            log_perror("chroot() failed") << "\t" << dirname << endl;
-            _exit(144);
-        }
-
         if (setgroups(0, NULL) < 0) {
             error_client(client, string("setgroups failed"));
             log_perror("setgroups() failed");
@@ -717,11 +714,7 @@ void chdir_to_environment(MsgChannel *client, const string &dirname, uid_t user_
             log_perror("setuid() failed");
             _exit(142);
         }
-    } else {
-        error_client(client, "cannot chroot to environment");
-        _exit(146);
     }
-
 #endif
 }
 

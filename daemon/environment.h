@@ -29,6 +29,8 @@
 #include <unistd.h>
 
 class MsgChannel;
+// When false, compile jobs run inside the environment directory without chroot.
+extern bool use_chroot;
 extern bool cleanup_cache(const std::string &basedir, uid_t user_uid, gid_t user_gid);
 extern int start_create_env(const std::string &basedir,
                             uid_t user_uid, gid_t user_gid,

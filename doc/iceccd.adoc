@@ -69,6 +69,13 @@ Options
 *--no-remote*::
     Prevents jobs from other nodes being scheduled on this one.
 
+*--no-chroot*::
+    Run compile jobs inside the installed environment directory without
+    chroot, so that the daemon does not need to be root. Compilers in the
+    environment then use the libraries of this system, and jobs from other
+    nodes are not isolated from it. This is needed on macOS 11 and later,
+    where system libraries only exist in the dyld shared cache.
+
 *-s, --scheduler-host* _scheduler-host_::
     Name of host running the scheduler for the network the daemon
     should connect to. This option might help if the scheduler cannot broadcast its

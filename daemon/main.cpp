@@ -415,7 +415,7 @@ void usage(const char *reason = nullptr)
         cerr << reason << endl;
     }
 
-    cerr << "usage: iceccd [-n <netname>] [-m <max_processes>] [--no-remote] [-d|--daemonize] [-l logfile] [-s <schedulerhost[:port]>]"
+    cerr << "usage: iceccd [-n <netname>] [-m <max_processes>] [--no-remote] [--no-chroot] [-d|--daemonize] [-l logfile] [-s <schedulerhost[:port]>]"
         " [-v[v[v]]] [-u|--user-uid <user_uid>] [-b <env-basedir>] [--cache-limit <MB>] [-N <node_name>] [-i|--interface <net_interface>] [-p|--port <port>]" << endl;
     exit(1);
 }
@@ -2266,6 +2266,8 @@ bool Daemon::reconnect()
     lmsg.envs = available_environments(envbasedir);
     lmsg.max_kids = max_kids;
     lmsg.noremote = noremote;
+    if (!use_chroot)
+        lmsg.chroot_possible = true;
     return send_scheduler(lmsg);
 }
 
@@ -2311,6 +2313,7 @@ int main(int argc, char **argv)
             { "user-uid", 1, nullptr, 'u'},
             { "cache-limit", 1, nullptr, 0},
             { "no-remote", 0, nullptr, 0},
+            { "no-chroot", 0, nullptr, 0},
             { "interface", 1, nullptr, 'i'},
             { "port", 1, nullptr, 'p'},
             { nullptr, 0, nullptr, 0 }
@@ -2356,6 +2359,8 @@ int main(int argc, char **argv)
                 }
             } else if (optname == "no-remote") {
                 d.noremote = true;
+            } else if (optname == "no-chroot") {
+                use_chroot = false;
             }
 
         }
@@ -2514,7 +2519,7 @@ int main(int argc, char **argv)
             exit(EXIT_SETUID_FAILED);
         }
 #endif
-    } else {
+    } else if (use_chroot) {
 #ifdef HAVE_LIBCAP_NG
         // It's possible to have the capability even without being root.
         if (!capng_have_capability( CAPNG_EFFECTIVE, CAP_SYS_CHROOT )) {
@@ -2532,6 +2537,8 @@ int main(int argc, char **argv)
                << nice_level << ") " << endl;
     if (remote_disabled)
         log_warning() << "Cannot use chroot, no remote jobs accepted." << endl;
+    if (!use_chroot && !d.noremote)
+        log_warning() << "Not using chroot, remote jobs are not isolated from this system." << endl;
     if (d.noremote)
         d.daemon_port = 0;
 

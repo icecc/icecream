@@ -173,7 +173,7 @@ int handle_connection(const string &basedir, CompileJob *job,
                       << endl;
     }
 
-    string tmp_path, obj_file, dwo_file;
+    string tmp_path, obj_file, dwo_file, env_root;
     int exit_code = 0;
     unsigned int job_stat[8];
     memset(job_stat, 0, sizeof(job_stat));
@@ -190,13 +190,23 @@ int handle_connection(const string &basedir, CompileJob *job,
             }
 
             chdir_to_environment(client, dirname, user_uid, user_gid);
+
+            if (!use_chroot) {
+                char *cwd = getcwd(nullptr, 0);
+                if (!cwd) {
+                    log_perror("getcwd() failed") << "\t" << dirname << endl;
+                    throw myexception(EXIT_DISTCC_FAILED);
+                }
+                env_root = cwd;
+                free(cwd);
+            }
         } else {
             error_client(client, "empty environment");
             log_error() << "Empty environment (" << job->targetPlatform() << ") " << job->jobID() << endl;
             throw myexception(EXIT_DISTCC_FAILED);
         }
 
-        if (::access(&_PATH_TMP[1], W_OK) < 0) {
+        if (::access(_PATH_TMP, W_OK) < 0) {
             error_client(client, "can't write to " _PATH_TMP);
             log_error() << "can't write into " << _PATH_TMP << " " << strerror(errno) << endl;
             throw myexception(-1);
@@ -261,7 +271,7 @@ int handle_connection(const string &basedir, CompileJob *job,
             obj_file = output_dir + '/' + file_name;
             dwo_file = obj_file.substr(0, obj_file.rfind('.')) + ".dwo";
 
-            ret = work_it(*job, job_stat, client, rmsg, tmp_path, job_working_dir, relative_file_path, mem_limit, client->fd);
+            ret = work_it(*job, job_stat, client, rmsg, tmp_path, job_working_dir, relative_file_path, mem_limit, client->fd, env_root);
         }
         else if (!job->dwarfFissionEnabled() && (ret = dcc_make_tmpnam(prefix_output, ".o", &tmp_output, 0)) == 0) {
             obj_file = tmp_output;
@@ -269,7 +279,7 @@ int handle_connection(const string &basedir, CompileJob *job,
             string build_path = obj_file.substr(0, obj_file.rfind('/'));
             string file_name = obj_file.substr(obj_file.rfind('/')+1);
 
-            ret = work_it(*job, job_stat, client, rmsg, build_path, "", file_name, mem_limit, client->fd);
+            ret = work_it(*job, job_stat, client, rmsg, build_path, "", file_name, mem_limit, client->fd, env_root);
         }
 
         if (ret) {

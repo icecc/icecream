@@ -98,7 +98,7 @@ error_client(MsgChannel *client, string error)
 
 int work_it(CompileJob &j, unsigned int job_stat[], MsgChannel *client, CompileResultMsg &rmsg,
             const std::string &tmp_root, const std::string &build_path, const std::string &file_name,
-            unsigned long int mem_limit, int client_fd)
+            unsigned long int mem_limit, int client_fd, const std::string &env_root)
 {
     rmsg.out.erase(rmsg.out.begin(), rmsg.out.end());
     rmsg.out.erase(rmsg.out.begin(), rmsg.out.end());
@@ -225,12 +225,12 @@ int work_it(CompileJob &j, unsigned int job_stat[], MsgChannel *client, CompileR
         if (IS_PROTOCOL_VERSION(30, client)) {
             assert(!j.compilerName().empty());
             clang = (j.compilerName().find("clang") != string::npos);
-            argv[i++] = strdup(("/usr/bin/" + j.compilerName()).c_str());
+            argv[i++] = strdup((env_root + "/usr/bin/" + j.compilerName()).c_str());
         } else {
             if (j.language() == CompileJob::Lang_C) {
-                argv[i++] = strdup("/usr/bin/gcc");
+                argv[i++] = strdup((env_root + "/usr/bin/gcc").c_str());
             } else if (j.language() == CompileJob::Lang_CXX) {
-                argv[i++] = strdup("/usr/bin/g++");
+                argv[i++] = strdup((env_root + "/usr/bin/g++").c_str());
             } else {
                 assert(0);
             }

@@ -34,6 +34,8 @@ Table of Contents
     icecream](#cross-compiling-for-embedded-targets-using-icecream)
 -   [Cross-Compiling for multiple targets in the same environment using
     icecream](#cross-compiling-for-multiple-targets-in-the-same-environment-using-icecream)
+-   [Using macOS machines as compile
+    nodes](#using-macos-machines-as-compile-nodes)
 -   [How to combine icecream with
     ccache](#how-to-combine-icecream-with-ccache)
 -   [Debug output](#debug-output)
@@ -356,6 +358,61 @@ cross compilers with the prefix arm-eabi (e.g arm-eabi-gcc and arm-eabi-g++), us
 arm-linux-androideabi(e.g. arm-linux-androideabi-gcc and arm-linux-androideabi-g++)
 and use /work/i386-native.tar.gz file to compilers without prefix,
 the native compilers.
+
+Using macOS machines as compile nodes
+-------------------------------------------------------------------------------------
+
+Since macOS 11 the system libraries only exist inside the dyld shared
+cache, not as files, so an environment created on macOS cannot run
+anything inside a chroot. To use a Mac as a compile node anyway, start
+its daemon with *--no-chroot*. Jobs from other nodes then run in the
+environment directory without a chroot, using the libraries of the Mac,
+and they are not isolated from the system, so only do this in a network
+you trust. The daemon does not need to run as root in this mode.
+
+The Mac needs a compiler that generates the same code as the compiler of
+the clients, which in practice means a clang built from the same sources,
+for example the same release of a toolchain that is distributed for both
+Linux and macOS. Apple's clang from Xcode is a different compiler. A
+single clang binary can compile for every target, and icecream passes it
+the target of the client with *-target*.
+
+The environment only needs to point to that compiler, plus the files the
+daemon expects to find in every environment. For a toolchain installed
+in /opt/toolchain on the Mac:
+
+     mkdir -p env/bin env/usr/bin env/usr/lib
+     ln -s /opt/toolchain/usr/bin/clang env/usr/bin/clang
+     ln -s /opt/toolchain/usr/lib/clang env/usr/lib/clang
+     ln -s /usr/bin/true env/usr/bin/as
+     ln -s /usr/bin/true env/bin/true
+     tar -C env -cf clang-macos.tar bin usr
+
+Do not compress it: icecc ignores environment files smaller than 500
+bytes, and a compressed archive of a few symbolic links is smaller than
+that.
+
+Add it to ICECC\_VERSION on the clients for the platform of the Mac, which
+is "Darwin" followed by the major version that `uname -r` prints, an
+underscore and what `uname -m` prints, for example *Darwin25\_arm64* for
+macOS 26 on Apple silicon:
+
+     ICECC_VERSION=/work/native.tar.gz,Darwin25_arm64:/work/clang-macos.tar
+
+The platform changes with every major macOS release, so ICECC\_VERSION
+has to be updated when the Mac is upgraded.
+
+Since macOS 15, programs need the permission of the user to connect to
+other hosts on the local network, except for programs that run as root
+and programs started from Terminal or over SSH. A daemon that cannot
+connect to the scheduler may be blocked by this, even when it is
+started by launchd as an ordinary user. Running iceccd as root avoids
+it (use *-u* to run the jobs as a user that can read the compiler), and
+so does marking the network as not local, which needs macOS
+15.5 and a restart:
+
+     sudo defaults write com.apple.network.local-network AllowedEthernetLocalNetworkAddresses -array "192.168.1.0/24"
+     sudo defaults write com.apple.network.local-network AllowedWiFiLocalNetworkAddresses -array "192.168.1.0/24"
 
 How to combine icecream with ccache
 -----------------------------------------------------------------------------------------------------------------------
