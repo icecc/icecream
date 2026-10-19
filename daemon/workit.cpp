@@ -180,7 +180,7 @@ int work_it(CompileJob &j, unsigned int job_stat[], MsgChannel *client, CompileR
             _exit(142);
         }
 
-#ifdef RLIMIT_AS
+#if defined(RLIMIT_AS) && !defined(__APPLE__)
 
 // Sanitizers use huge amounts of virtual memory and the setrlimit() call below
 // may lead to the process getting killed at any moment without any warning
