@@ -47,7 +47,6 @@
 #include <cassert>
 #include <fstream>
 #include <string>
-#include <limits>
 #include <stdio.h>
 #include <pwd.h>
 #include "../services/comm.h"
@@ -792,6 +791,15 @@ static CompileServer *pick_server_fastest(Job *job, list<CompileServer *> &eligi
         return best;
     }
 
+    // Some portion of the selection will go to a host that has not been selected
+    // in a while so we can maintain reasonably up-to-date statistics. The greater
+    // the weight, the less likely this is to happen: a host is due once it was
+    // passed over for more than 128 / (128 - weight) jobs per eligible host.
+    static_assert(STATS_UPDATE_WEIGHT >= 0 && STATS_UPDATE_WEIGHT <= 128,
+                  "STATS_UPDATE_WEIGHT out of range");
+    constexpr unsigned int stats_update_interval =
+        STATS_UPDATE_WEIGHT < 128 ? 128 / (128 - STATS_UPDATE_WEIGHT) : 0;
+
     for (CompileServer * const cs : eligible) {
 
 #if DEBUG_SCHEDULER > 1
@@ -801,18 +809,14 @@ static CompileServer *pick_server_fastest(Job *job, list<CompileServer *> &eligi
                 " client count: " << cs->clientCount() << endl;
 #endif
 
-        // Some portion of the selection will go to a host that has not been selected
-        // in a while so we can maintain reasonably up-to-date statistics. The greater
-        // the weight, the less likely this is to happen.
-        uint8_t weight_limit = std::numeric_limits<uint8_t>::max() - STATS_UPDATE_WEIGHT;
-        uint8_t weight_factor = weight_limit / std::numeric_limits<uint8_t>::max();
-
         // Job IDs are assigned from a monotonically increasing sequence by the
         // scheduler, and each compile server records the ID of the last job it
-        // ran. We use that here to determine whether a job should simply run on
+        // was assigned. We use that here to determine whether a job should simply run on
         // the "next" host that hasn't seen a job for a long time.
-        if (weight_factor > 0 && (!cs->lastPickedId() ||
-            ((job->id() - cs->lastPickedId()) > (weight_factor * eligible.size())))) {
+        // A host that never got a job is always picked, so that it enters the rotation.
+        if (!cs->lastPickedId() ||
+            (stats_update_interval > 0
+             && (job->id() - cs->lastPickedId()) > stats_update_interval * eligible.size())) {
             best = cs;
             break;
         }
